@@ -31,6 +31,8 @@ python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampl
 # WFST-based CTC loss
 To fine-tune a wav2vec 2.0 model with the WFST-based CTC loss, you can use the `train_with_wav2vec_k2.py` script. This will create a `lang` directory inside your output folder, which will contain the files required to build a lexicon FST. The tokenization method used here is a very basic character-based tokenization (e.g. `hello -> h e l l o`).
 
+To use this script, you will first need to install `k2`. The integration has been tested with `k2==1.24.3` and `torch==1.13.1`, although it should also work with `torch==2.0.1`. You can install `k2` by following the instructions [here](https://k2-fsa.github.io/k2/installation/from_wheels.html#linux-cuda-example).
+
 Using a lexicon FST (L) while training can help guide the model to better predictions. When decoding, you can either use a simple HL decoding graph (where H is the ctc topology), or use an HLG graph (where G is usually a 3-gram language model) to further improve the results. In addition, whole lattice rescoring is also supported. This typically happens with a 4-gram language model. See `hparams/train_with_wav2vec_k2.yaml`` for more details.
 
 If you choose to either use a 3-gram or a 4-gram language model, you will need to provide pre-existing ARPA LMs for both cases. Those can be found in LibriSpeech's official repository: https://www.openslr.org/11/. The 3-gram LM is called `3-gram.pruned.1e-7.arpa.gz`, while the 4-gram LM is called `4-gram.arpa.gz`. You can download them and unzip them in the same folder. Then, you can pass the path to the folder containing the ARPA LMs to the `--lm_dir` argument. This will automatically build the required FSTs for you.
@@ -41,6 +43,8 @@ Example usage:
 ```
 python train_with_wav2vec_k2.py hparams/train_hf_wav2vec_k2.yaml --data_folder=/path/to/LibriSpeech --lm_dir=/path/to/LibriSpeech/LM
 ```
+
+To use the HLG graph (instead of the default HL), pass `--use_HLG=True`. To use the 4-gram LM for rescoring, pass the `--decoding_method=whole-lattice-rescoring` argument. Note that this will require more memory, as the whole lattice will be kept in memory during the decoding. In this recipe, the `lm_scale` used by default is 0.4. This is the value that gave the best results in our HL-graph experiments after trying scales of `[0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]`. When rescoring is used alongside the HLG graph, the 4-gram seems to not bring any improvement. The best lm scale in that case was 0.2 (the lowest value we tried).
 
 # KenLM n-gram CTC rescoring
 To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. The n-gram can either be a binary or an arpa file, but note that the binary format is faster to load. The following command shows how to use the official LibriSpeech 4-gram LM with SpeechBrain:
@@ -68,7 +72,7 @@ python train_with_wav2vec.py hparams/file.yaml --kenlm_model_path='4-gram.arpa'
 | 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HL graph + test batch size = 1 | 960h | 1.83 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
 | 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + test batch size = 1 | 960h | 1.73 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
 | 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HL graph + 4-gram rescoring + test batch size = 1 | 960h | 1.75 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
-| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + 4-gram rescoring + test batch size = 1 | 960h | 2.71 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
+| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + 4-gram rescoring + test batch size = 1 | 960h | 2.60 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
 
 # Downsampling inputs for faster fine-tuning and inferences using SSL Models
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study"

@@ -14,7 +14,7 @@ Authors:
 
 import os
 from pathlib import Path
-from typing import Dict, List, Union, Optional
+from typing import List, Union, Optional
 
 try:
     import k2
@@ -297,9 +297,9 @@ class CtcTrainingGraphCompiler(object):
         max_active_states=1000,
         is_test: bool = True,
         decoding_method: str = "1best",
-        lm_scale_list: Optional[List[float]] = None,
+        lm_scale: Optional[float] = None,
         rescoring_lm_path: Optional[Path] = None,
-    ) -> Union[List[str], Dict[str, List[str]]]:
+    ) -> List[str]:
         """
         Decode the given log_probs with self.decoding_graph without language model.
 
@@ -324,8 +324,8 @@ class CtcTrainingGraphCompiler(object):
             if testing is performed then we won't log warning about <UNK>s.
         decoding_method: str
             one of 1best, whole-lattice-rescoring, or nbest.
-        lm_scale_list: List[float]
-            a list of language model scale factors. Defaults to [0.6].
+        lm_scale: float
+            cale factor for rescoring with an LM. Defaults to [0.4].
         rescoring_lm_path: Path
             path to the LM to be used for rescoring. If not provided
             and the decoding method is whole-lattice-rescoring, then you need to provide
@@ -333,14 +333,10 @@ class CtcTrainingGraphCompiler(object):
 
         Returns
         -------
-        If decoding_method==1best: a list of strings, each of which is the decoding
-        result of the corresponding utterance.
-
-        If decoding_method==whole-lattice-rescoring: a dict of lists of strings, each of
-        which is the decoding result of the corresponding utterance. The keys are the
-        language model scale factors used for rescoring.
+        A list of strings, each of which is the decoding result of the
+        corresponding utterance.
         """
-        lm_scale_list = lm_scale_list or [0.6]
+        lm_scale = lm_scale or 0.4
         device = log_probs.device
         if self.decoding_graph is None:
             if is_test:
@@ -404,13 +400,10 @@ class CtcTrainingGraphCompiler(object):
                 best_path = rescore_with_whole_lattice(
                     lattice=lattice.to(self.device),
                     G_with_epsilon_loops=self.rescoring_graph,
-                    lm_scale_list=lm_scale_list,
+                    lm_scale_list=[lm_scale],
                     use_double_scores=True,
                 )
-                out = {}
-                for lm_scale in lm_scale_list:
-                    key = f"lm_scale_{lm_scale:.1f}"
-                    out[key] = lattice2text(best_path[key])
+                out = lattice2text(best_path[f"lm_scale_{lm_scale:.1f}"])
             else:
                 raise ValueError(
                     f"Decoding method '{decoding_method}' not supported."

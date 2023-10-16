@@ -73,8 +73,9 @@ trigram_arpa_name: 3-gram.pruned.1e-7.arpa
 fourgram_arpa_name: 4-gram.arpa
 trigram_fst_output_name: G_3_gram.fst.txt  # for HLG creation
 fourgram_fst_output_name: G_4_gram.fst.txt  # for rescoring
-# List of lm scales to be used for rescoring.
-lm_scale_list: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]
+# LM scale to be used for rescoring. Only used if
+# decoding_method is whole-lattice-rescoring.
+lm_scale: 0.4
 
 # Training parameters
 number_of_epochs: 1

@@ -22,7 +22,7 @@ Authors
 
 import os
 import sys
-from typing import List, Union
+from typing import List
 import torch
 import logging
 import speechbrain as sb
@@ -126,7 +126,7 @@ class ASR(sb.Brain):
             # If the decoding method is 1best then the metric stats will be
             # saved in a single file, otherwise, a new directory will be created
             # for each lm_scale used in whole lattice rescoring.
-            decode_output: Union[dict, List[str]] = self.graph_compiler.decode(
+            decode_output: List[str] = self.graph_compiler.decode(
                 p_ctc,
                 wav_lens,
                 search_beam=self.hparams.test_search_beam,
@@ -135,29 +135,14 @@ class ASR(sb.Brain):
                 max_active_states=self.hparams.test_max_active_state,
                 is_test=True,
                 decoding_method=decoding_method,
-                lm_scale_list=self.hparams.lm_scale_list,
+                lm_scale=self.hparams.lm_scale,
             )  # list of strings
             target_words: List[List[str]] = [wrd.split(" ") for wrd in texts]
-            if decoding_method == "1best":
-                predicted_words: List[List[str]] = [
-                    wrd.split(" ") for wrd in decode_output
-                ]
-                self.wer_metric.append(ids, predicted_words, target_words)
-                self.cer_metric.append(ids, predicted_words, target_words)
-            else:
-                for i, lm_scale in enumerate(self.hparams.lm_scale_list):
-                    predicted_texts: List[str] = decode_output[
-                        f"lm_scale_{lm_scale:.1f}"
-                    ]  # type: ignore
-                    predicted_words: List[List[str]] = [
-                        wrd.split(" ") for wrd in predicted_texts
-                    ]
-                    self.wer_metric[i].append(
-                        ids, predicted_words, target_words
-                    )
-                    self.cer_metric[i].append(
-                        ids, predicted_words, target_words
-                    )
+            predicted_words: List[List[str]] = [
+                snt.split(" ") for snt in decode_output
+            ]
+            self.wer_metric.append(ids, predicted_words, target_words)
+            self.cer_metric.append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -207,18 +192,8 @@ class ASR(sb.Brain):
         will be initialized for wer and cer, respectively.
         """
         if stage != sb.Stage.TRAIN:
-            if (
-                stage == sb.Stage.VALID
-                or self.hparams.decoding_method == "1best"
-            ):
-                self.cer_metric = self.hparams.cer_computer()
-                self.wer_metric = self.hparams.error_rate_computer()
-            else:  # stage is TEST and dec-method is whole-lattice or nbest rescoring
-                self.cer_metric = []
-                self.wer_metric = []
-                for _ in range(len(self.hparams.lm_scale_list)):
-                    self.cer_metric.append(self.hparams.cer_computer())
-                    self.wer_metric.append(self.hparams.error_rate_computer())
+            self.cer_metric = self.hparams.cer_computer()
+            self.wer_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch. During testing, its primary goal
@@ -233,20 +208,9 @@ class ASR(sb.Brain):
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
-        elif stage == sb.Stage.VALID or self.hparams.decoding_method == "1best":
+        else:
             stage_stats["CER"] = self.cer_metric.summarize("error_rate")
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
-        else:
-            best_wer = 100
-            best_lm_scale = -1
-            best_cer = 100
-            for i, lm_scale in enumerate(self.hparams.lm_scale_list):
-                if self.wer_metric[i].summarize("error_rate") < best_wer:
-                    best_wer = self.wer_metric[i].summarize("error_rate")
-                    best_lm_scale = lm_scale
-                    best_cer = self.cer_metric[i].summarize("error_rate")
-            stage_stats[f"CER-lm_scale_{best_lm_scale:.1f}"] = best_cer
-            stage_stats[f"WER-lm_scale_{best_lm_scale:.1f}"] = best_wer
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -280,20 +244,8 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                if self.hparams.decoding_method == "1best":
-                    with open(self.hparams.wer_file, "w") as w:
-                        self.wer_metric.write_stats(w)
-                else:
-                    metrics_dir = asr_brain.hparams.metrics_dir
-                    os.makedirs(metrics_dir, exist_ok=True)
-                    for i, lm_scale in enumerate(self.hparams.lm_scale_list):
-                        with open(
-                            os.path.join(
-                                metrics_dir, f"wer_lm_scale_{lm_scale:.1f}.txt"
-                            ),
-                            "w",
-                        ) as w:
-                            self.wer_metric[i].write_stats(w)
+                with open(self.hparams.wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
