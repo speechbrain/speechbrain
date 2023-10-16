@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 class VADBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Given an input batch it computes the binary probability.
-        In training phase, we create on-the-fly augmentation data.
+        """given an input batch it computes the binary probability.
+        in training phase, we create on-the-fly augmentation data.
         """
         batch = batch.to(self.device)
         wavs, lens = batch.signal
@@ -59,7 +59,7 @@ class VADBrain(sb.Brain):
             self.lens = lens
             self.targets = targets
 
-        # From wav input to output binary prediciton
+        # from wav input to output binary prediciton
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         feats = feats.detach()
@@ -75,22 +75,22 @@ class VADBrain(sb.Brain):
             outputs.shape[2] * outputs.shape[3],
         )
 
-        outputs, h = self.modules.rnn(outputs)
+        if hasattr(self.modules, 'rnn'):
+            outputs, h = self.modules.rnn(outputs)
+            
         outputs = self.modules.dnn(outputs)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the binary CE"
+        "given the network predictions and targets computed the binary ce"
         predictions, lens = predictions
         targets = self.targets
 
         predictions = predictions[:, : targets.shape[-1], 0]
+        targets = targets[:, : predictions.shape[-1]]
 
         loss = self.hparams.compute_BCE_cost(predictions, targets, lens)
-
-        # print(torch.sigmoid(predictions).shape, targets.shape)
-        # input()
 
         self.train_metrics.append(batch.id, torch.sigmoid(predictions), targets)
         if stage != sb.Stage.TRAIN:
@@ -101,7 +101,7 @@ class VADBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        "gets called when a stage (either training, validation, test) starts."
         self.train_metrics = self.hparams.train_stats()
 
         self.noise_datasets = [
@@ -119,7 +119,7 @@ class VADBrain(sb.Brain):
             self.valid_metrics = self.hparams.test_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        """Gets called at the end of a stage."""
+        """gets called at the end of a stage."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         else:
@@ -142,7 +142,7 @@ class VADBrain(sb.Brain):
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
+                stats_meta={"epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "summary": summary},
             )
 
