@@ -1,8 +1,8 @@
 ############################################################################
-# Model: VITS
+# Model: FastSpeech2
 # Tokens: Raw characters (English text)
 # Training: LJSpeech
-# Authors: Sathvik Udupa
+# Authors: Sathvik Udupa, Yingzhi Wang, Pradnya Kandarkar
 # ############################################################################
 
 ###################################
@@ -182,6 +182,13 @@ modules:
     vits_mel_predict: !ref <vits_mel_predict>
     generator: !ref <generator>
     discriminator: !ref <discriminator>
+
+criterion: !new:speechbrain.lobes.models.VITS.VITSLoss
+    log_scale_durations: True
+    duration_loss_weight: 1.0
+    kl_loss_weight: 1.0
+    duration_loss_fn: L1
+
 
 train_dataloader_opts:
     batch_size: !ref <batch_size>

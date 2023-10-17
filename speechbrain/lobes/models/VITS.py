@@ -13,12 +13,12 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.lobes.models.FastSpeech2 import PositionalEmbedding
 
-def mask_from_lengths(lengths):
+def mask_from_lengths(lengths):    
     max_length = torch.max(lengths)
-    index = torch.arange(max_length).to(lengths).view(1, -1)
-    mask = index < lengths.unsqueeze(1)
-    return mask
-
+    mask = torch.arange(max_length).to(lengths).view(1, -1)
+    mask = mask < lengths.unsqueeze(1)
+    return mask.unsqueeze(1)
+    
 class WN(nn.Module):
     def __init__(
         self,
@@ -74,11 +74,11 @@ class WN(nn.Module):
             acts = self.fused_add_tanh_sigmoid_multiply(x_in, num_features_tensor)
             res_skip_acts = self.res_skip_layers[idx](acts)
             if idx != self.num_layers - 1:
-                x = torch.add(x, res_skip_acts[:,:self.hidden_features,:]) 
+                x = torch.add(x, res_skip_acts[:,:self.hidden_features,:]) * x_mask
                 output = torch.add(output, res_skip_acts[:,self.hidden_features:,:])
             else:
                 output = torch.add(output, res_skip_acts)
-        output = output 
+        output = output * x_mask
         return output
 
 
@@ -129,14 +129,13 @@ class PosteriorEncoder(nn.Module):
         self.pre_encoder = pre_encoder
          
     def forward(self, x, x_lengths):
-        x_mask_inverted = mask_from_lengths(x_lengths).unsqueeze(1)
-        x_mask = ~x_mask_inverted
-        x = self.pre_encoder(x) * x_mask_inverted
+        x_mask = mask_from_lengths(x_lengths)
+        x = self.pre_encoder(x) * x_mask
         x = self.wavenet(x, x_mask)
-        x = self.post_encoder(x) * x_mask_inverted
+        x = self.post_encoder(x) * x_mask
         mu, log_s = torch.split(x, self.out_features, dim=1)
         z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
-        return z, mu, log_s, x_mask_inverted
+        return z, mu, log_s, x_mask
     
 class PriorEncoder(nn.Module):
     def __init__(
@@ -174,6 +173,7 @@ class PriorEncoder(nn.Module):
     def forward(self, x, x_lengths):
         
         srcmask = get_key_padding_mask(x, pad_idx=self.padding_idx)
+        
         
         x = self.token_embedding(x) * math.sqrt(self.hidden_features)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
@@ -239,9 +239,9 @@ class DurationPredictor(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x, x_mask):
-        x = self.dropout(self.norm1(self.relu(self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1))))
-        x = self.dropout(self.norm2(self.relu(self.conv2(x.permute(0, 2, 1)).permute(0, 2, 1))))
-        x = self.conv3(x.permute(0, 2, 1))
+        x = self.dropout(self.norm1(self.relu(self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1)))) * x_mask
+        x = self.dropout(self.norm2(self.relu(self.conv2(x.permute(0, 2, 1)).permute(0, 2, 1)))) * x_mask
+        x = self.conv3(x.permute(0, 2, 1)) * x_mask
         return x
     
 class ResidualCouplingLayer(nn.Module):
@@ -442,16 +442,12 @@ class VITS(nn.Module):
     
     def forward(self, inputs):
         (tokens, token_lengths, mels, mel_lengths) = inputs
-        
-        
-        token_mask = None
-        target_mask = None
         tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
         z_p = self.flow_decoder(z, target_mask)
         attn, path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)         
         predicted_durations = self.duration_predictor(tokens, token_mask)
-        return
+        return predicted_durations, path, target_mask, z_p, log_s_p, mu_q, log_s_q
 
     def infer(self, inputs):
         return
@@ -565,3 +561,79 @@ class TextMelCollate:
             raw_text,
             wav_fnames
         )
+
+class VITSLoss(nn.Module):
+    def __init__(
+        self,
+        log_scale_durations,
+        duration_loss_weight,
+        kl_loss_weight,
+        duration_loss_fn
+    ):
+        super().__init__()
+        self.duration_loss_weight = duration_loss_weight
+        self.kl_loss_weight = kl_loss_weight
+        
+        if duration_loss_fn == "L1":
+            self.duration_loss = nn.L1Loss()
+        elif duration_loss_fn == "MSE":
+            self.duration_loss = nn.MSELoss()
+        else:
+            raise NotADirectoryError(f"'L1' and 'MSE' supported for Duration Loss")
+
+    @staticmethod
+    def kl_loss(self, z_p, log_s_p, m_p, log_s_q, target_mask):
+        z_p = z_p.float()
+        log_s_q = log_s_q.float()
+        m_p = m_p.float()
+        log_s_p = log_s_p.float()
+        target_mask = target_mask.float()
+
+        kl = log_s_p - log_s_q - 0.5
+        kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2.0 * log_s_p)
+        kl = torch.sum(kl * target_mask)
+        loss = kl / torch.sum(target_mask)
+        return loss
+    
+    def forward(
+        self,
+        outputs,
+        inputs,
+    ):
+        (   
+            duration_predict, 
+            duration_target,
+            target_mask,
+            z_p, 
+            log_s_p,
+            mu_q, 
+            log_s_q, 
+            
+        ) = outputs
+        
+        # () = inputs
+        
+        losses = {}
+        
+        duration_loss = self.duration_loss(
+            duration_predict, 
+            duration_target
+        ) 
+        losses["duration_loss"] = duration_loss * self.duration_loss_weight
+        
+        kl_loss = self.kl_loss(
+            z_p=z_p,
+            log_s_p=log_s_p,
+            mu_q=mu_q,
+            log_s_q=log_s_q,
+            target_mask=target_mask,
+        )
+        losses["kl_loss"] = kl_loss * self.kl_loss_weight
+        
+        losses["total_loss"] = sum(losses.values())
+        return losses
+        
+        
+        
+        
+    
