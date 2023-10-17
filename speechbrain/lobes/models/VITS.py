@@ -13,6 +13,12 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.lobes.models.FastSpeech2 import PositionalEmbedding
 
+def mask_from_lengths(lengths):
+    max_length = torch.max(lengths)
+    index = torch.arange(max_length).to(lengths).view(1, -1)
+    mask = index < lengths.unsqueeze(1)
+    return mask
+
 class WN(nn.Module):
     def __init__(
         self,
@@ -63,7 +69,7 @@ class WN(nn.Module):
         output = torch.zeros_like(x)
         num_features_tensor = torch.IntTensor([self.hidden_features])
         for idx in range(self.num_layers):
-            x_in = self.layers[idx](x)
+            x_in = self.layers[idx](x) * x_mask
             x_in = self.dropout(x_in)
             acts = self.fused_add_tanh_sigmoid_multiply(x_in, num_features_tensor)
             res_skip_acts = self.res_skip_layers[idx](acts)
@@ -123,10 +129,10 @@ class PosteriorEncoder(nn.Module):
         self.pre_encoder = pre_encoder
          
     def forward(self, x, x_lengths):
-        x_mask = None
-        x = self.pre_encoder(x) 
+        x_mask = mask_from_lengths(x_lengths)
+        x = self.pre_encoder(x) * x_mask
         x = self.wavenet(x, x_mask)
-        x = self.post_encoder(x) 
+        x = self.post_encoder(x) * x_mask
         mu, log_s = torch.split(x, self.out_features, dim=1)
         z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
         return z, mu, log_s, x_mask
