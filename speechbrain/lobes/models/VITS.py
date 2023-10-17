@@ -129,13 +129,14 @@ class PosteriorEncoder(nn.Module):
         self.pre_encoder = pre_encoder
          
     def forward(self, x, x_lengths):
-        x_mask = mask_from_lengths(x_lengths)
-        x = self.pre_encoder(x) * x_mask
+        x_mask_inverted = mask_from_lengths(x_lengths).unsqueeze(1)
+        x_mask = ~x_mask_inverted
+        x = self.pre_encoder(x) * x_mask_inverted
         x = self.wavenet(x, x_mask)
-        x = self.post_encoder(x) * x_mask
+        x = self.post_encoder(x) * x_mask_inverted
         mu, log_s = torch.split(x, self.out_features, dim=1)
         z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
-        return z, mu, log_s, x_mask
+        return z, mu, log_s, x_mask_inverted
     
 class PriorEncoder(nn.Module):
     def __init__(
@@ -173,7 +174,6 @@ class PriorEncoder(nn.Module):
     def forward(self, x, x_lengths):
         
         srcmask = get_key_padding_mask(x, pad_idx=self.padding_idx)
-        
         
         x = self.token_embedding(x) * math.sqrt(self.hidden_features)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
@@ -239,9 +239,9 @@ class DurationPredictor(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x, x_mask):
-        x = self.drop(self.norm1(self.relu(self.conv1(x))))
-        x = self.drop(self.norm2(self.relu(self.conv2(x))))
-        x = self.conv3(x)
+        x = self.dropout(self.norm1(self.relu(self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1))))
+        x = self.dropout(self.norm2(self.relu(self.conv2(x.permute(0, 2, 1)).permute(0, 2, 1))))
+        x = self.conv3(x.permute(0, 2, 1))
         return x
     
 class ResidualCouplingLayer(nn.Module):
@@ -430,15 +430,15 @@ class VITS(nn.Module):
             neg_cent3 = torch.matmul(z_p.transpose(1, 2), (mu_p * s_p_sq_r)) 
             neg_cent4 = torch.sum(-0.5 * (mu_p ** 2) * s_p_sq_r, [1], keepdim=True) 
             neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
-            attn_mask = (torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)).squeeze(1)
+            attn_mask = (torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)).squeeze().permute(0, 2, 1)
             neg_cent = neg_cent * attn_mask
             path = get_mas_path(
                     attn=neg_cent, 
                     mask=attn_mask,
-                    device=attn.device,
-                    dtype=attn.dtype,
+                    device=neg_cent.device,
+                    dtype=neg_cent.dtype,
                 )
-        return attn, path
+        return neg_cent, path
     
     def forward(self, inputs):
         (tokens, token_lengths, mels, mel_lengths) = inputs
@@ -449,19 +449,19 @@ class VITS(nn.Module):
         tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
         z_p = self.flow_decoder(z, target_mask)
-        attn, path = self.mas(mu_p, log_s_p, z_p, target_mask, target_mask)         
-        predicted_durations = self.duration_predictor(tokens)
+        attn, path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)         
+        predicted_durations = self.duration_predictor(tokens, token_mask)
         return
 
     def infer(self, inputs):
         return
 
-def get_mas_path(attn, mask, max_neg_val=-np.inf):
+def get_mas_path(attn, mask, device, dtype, max_neg_val=-np.inf):
     attn = attn.cpu().detach().numpy()
     mask = mask.cpu().detach().numpy().astype(bool)
     bs, tx, ty = attn.shape
     direction = np.zeros((bs, tx, ty), dtype=np.int64)
-    v = np.zeros((b, tx), dtype=np.float32)
+    v = np.zeros((bs, tx), dtype=np.float32)
     x_range = np.arange(tx, dtype=np.float32).reshape(1, -1)
     for j in range(ty):
         v0 = np.pad(v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val)[:, :-1]
