@@ -60,6 +60,7 @@ valid_speaker_embeddings_pickle: !ref <save_folder>/valid_speaker_embeddings.pic
 test_speaker_embeddings_pickle: !ref <save_folder>/test_speaker_embeddings.pickle
 
 # Data splits
+skip_prep: False
 splits: ["train", "valid", "test"]
 
 #train_split: ["train-clean-100", "train-clean-360"]

@@ -556,24 +556,25 @@ if __name__ == "__main__":
     )
 
     # Prepare data
-    sys.path.append("../../")
-    from libritts_prepare import prepare_libritts
+    if not hparams["skip_prep"]:
+        sys.path.append("../../")
+        from libritts_prepare import prepare_libritts
 
-    sb.utils.distributed.run_on_main(
-        prepare_libritts,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "save_json_train": hparams["train_json"],
-            "save_json_valid": hparams["valid_json"],
-            "save_json_test": hparams["test_json"],
-            "sample_rate": hparams["sample_rate"],
-            "train_split": hparams["train_split"],
-            "valid_split": hparams["valid_split"],
-            "test_split": hparams["test_split"],
-            "seed": hparams["seed"],
-            "model_name": hparams["model"].__class__.__name__,
-        },
-    )
+        sb.utils.distributed.run_on_main(
+            prepare_libritts,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "save_json_train": hparams["train_json"],
+                "save_json_valid": hparams["valid_json"],
+                "save_json_test": hparams["test_json"],
+                "sample_rate": hparams["sample_rate"],
+                "train_split": hparams["train_split"],
+                "valid_split": hparams["valid_split"],
+                "test_split": hparams["test_split"],
+                "seed": hparams["seed"],
+                "model_name": hparams["model"].__class__.__name__,
+            },
+        )
 
     from compute_speaker_embeddings import compute_speaker_embeddings
 
