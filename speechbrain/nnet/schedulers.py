@@ -1313,3 +1313,104 @@ class ScheduledLoss(nn.Module):
                 self.current_loss_fn = item["loss_fn"]
                 self.next_switch = cumulative_steps
                 break
+
+
+@checkpoints.register_checkpoint_hooks
+class TriStageLRSchedule:
+    """Warms up linearly, very slowly decays and cools down linearly again
+    at the end of training. This is a three steps scheduler.
+    Reference
+    https://arxiv.org/pdf/1904.08779.pdf
+
+    ---------
+    Arguments
+    ---------
+        lr : float
+            The max learning rate to reach after warmup.
+        warmup : int
+            Number of warmup steps (following a linear increase).
+        hold : int
+            Number of holding steps (lr remains unchanged).
+        total_steps : int
+            Total number of steps (used to decay).
+        decay_factor : float
+            Decay factor applied every decay_every steps.
+        decay_every : int
+            Apply the decay factor to the learning rate every decay_every steps.
+    Example
+    -------
+    """
+
+    def __init__(
+        self,
+        lr,
+        warmup_steps,
+        hold_steps,
+        decay_steps,
+        total_steps,
+        init_lr_scale=0.01,
+        final_lr_scale=0.05,
+    ):
+        super(TriStageLRSchedule, self).__init__()
+        self.peak_lr = lr
+        self.warmup_steps = warmup_steps
+        self.hold_steps = hold_steps
+        self.decay_steps = decay_steps
+        self.total_steps = total_steps
+        self.init_lr_scale = init_lr_scale
+        self.final_lr_scale = final_lr_scale
+
+        self.init_lr = self.init_lr_scale * self.peak_lr
+        self.warmup_rate = (self.peak_lr - self.init_lr) / self.warmup_steps
+        self.decay_factor = -math.log(self.final_lr_scale) / self.decay_steps
+
+    def __call__(self, opt, num_updates):
+        if num_updates < self.warmup_steps:
+            # Warming up at the start of training.
+            lr = self.init_lr + self.warmup_rate * num_updates
+        elif num_updates < self.warmup_steps + self.hold_steps:
+            # Hold lr unchanged.
+            lr = self.peak_lr
+        else:
+            # Decay lr
+            lr = self.peak_lr * math.exp(
+                -self.decay_factor
+                * (num_updates - self.hold_steps - self.warmup_steps)
+            )
+
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {
+            "peak_lr": self.peak_lr,
+            "warmup_steps": self.warmup_steps,
+            "hold_steps": self.hold_steps,
+            "decay_steps": self.decay_steps,
+            "total_steps": self.total_steps,
+            "init_lr_scale": self.init_lr_scale,
+            "final_lr_scale": self.final_lr_scale,
+            "init_lr": self.init_lr,
+            "warmup_rate": self.warmup_rate,
+            "decay_factor": self.decay_factor,
+        }
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch
+        del device
+        data = torch.load(path)
+        self.peak_lr = data["peak_lr"]
+        self.warmup_steps = data["warmup_steps"]
+        self.hold_steps = data["hold_steps"]
+        self.decay_steps = data["decay_steps"]
+        self.total_steps = data["total_steps"]
+        self.init_lr_scale = data["init_lr_scale"]
+        self.final_lr_scale = data["final_lr_scale"]
+        self.init_lr = data["init_lr"]
+        self.warmup_rate = data["warmup_rate"]
+        self.decay_factor = data["decay_factor"]
