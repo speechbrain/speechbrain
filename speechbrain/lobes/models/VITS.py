@@ -241,7 +241,7 @@ class DurationPredictor(nn.Module):
     def forward(self, x, x_mask):
         x = self.dropout(self.norm1(self.relu(self.conv1(x.permute(0, 2, 1)).permute(0, 2, 1)))) * x_mask
         x = self.dropout(self.norm2(self.relu(self.conv2(x.permute(0, 2, 1)).permute(0, 2, 1)))) * x_mask
-        x = self.conv3(x.permute(0, 2, 1)) * x_mask
+        x = self.conv3(x.permute(0, 2, 1)).permute(0, 2, 1) * x_mask
         return x
     
 class ResidualCouplingLayer(nn.Module):
@@ -445,9 +445,9 @@ class VITS(nn.Module):
         tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
         z_p = self.flow_decoder(z, target_mask)
-        attn, path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)         
+        attn, path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)        
         predicted_durations = self.duration_predictor(tokens, token_mask)
-        return predicted_durations, path, target_mask, z_p, log_s_p, mu_q, log_s_q
+        return predicted_durations, path, target_mask, z_p, log_s_p, mu_p, log_s_q
 
     def infer(self, inputs):
         return
@@ -582,15 +582,15 @@ class VITSLoss(nn.Module):
             raise NotADirectoryError(f"'L1' and 'MSE' supported for Duration Loss")
 
     @staticmethod
-    def kl_loss(self, z_p, log_s_p, m_p, log_s_q, target_mask):
+    def calc_kl_loss(z_p, log_s_p, mu_p, log_s_q, target_mask):
         z_p = z_p.float()
         log_s_q = log_s_q.float()
-        m_p = m_p.float()
+        mu_p = mu_p.float()
         log_s_p = log_s_p.float()
         target_mask = target_mask.float()
 
         kl = log_s_p - log_s_q - 0.5
-        kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2.0 * log_s_p)
+        kl += 0.5 * ((z_p - mu_p) ** 2) * torch.exp(-2.0 * log_s_p)
         kl = torch.sum(kl * target_mask)
         loss = kl / torch.sum(target_mask)
         return loss
@@ -606,7 +606,7 @@ class VITSLoss(nn.Module):
             target_mask,
             z_p, 
             log_s_p,
-            mu_q, 
+            mu_p, 
             log_s_q, 
             
         ) = outputs
@@ -614,6 +614,8 @@ class VITSLoss(nn.Module):
         # () = inputs
         
         losses = {}
+        duration_target = duration_target.permute(0, 2, 1).sum(-1)
+        duration_predict = duration_predict.squeeze()
         
         duration_loss = self.duration_loss(
             duration_predict, 
@@ -621,10 +623,10 @@ class VITSLoss(nn.Module):
         ) 
         losses["duration_loss"] = duration_loss * self.duration_loss_weight
         
-        kl_loss = self.kl_loss(
+        kl_loss = self.calc_kl_loss(
             z_p=z_p,
             log_s_p=log_s_p,
-            mu_q=mu_q,
+            mu_p=mu_p,
             log_s_q=log_s_q,
             target_mask=target_mask,
         )
@@ -633,7 +635,4 @@ class VITSLoss(nn.Module):
         losses["total_loss"] = sum(losses.values())
         return losses
         
-        
-        
-        
-    
+
