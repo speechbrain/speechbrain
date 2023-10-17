@@ -1,8 +1,8 @@
 ############################################################################
-# Model: FastSpeech2
+# Model: VITS
 # Tokens: Raw characters (English text)
 # Training: LJSpeech
-# Authors: Sathvik Udupa, Yingzhi Wang, Pradnya Kandarkar
+# Authors: Sathvik Udupa
 # ############################################################################
 
 ###################################
@@ -123,7 +123,7 @@ vits_mel_predict: !new:speechbrain.lobes.models.VITS.VITS
     prior_encoder_num_layers: !ref <prior_encoder_num_layers>
     prior_encoder_attn_type: !ref <prior_encoder_attn_type>
     prior_encoder_dropout: !ref <prior_encoder_dropout>
-    posterior_encoder_in_features: !ref <posterior_encoder_in_features>
+    posterior_encoder_in_features: !ref <n_mel_channels>
     posterior_encoder_hidden_features: !ref <posterior_encoder_hidden_features>
     posterior_encoder_out_features: !ref <posterior_encoder_out_features>
     WN_posterior_kernel_size: !ref <WN_posterior_kernel_size>
