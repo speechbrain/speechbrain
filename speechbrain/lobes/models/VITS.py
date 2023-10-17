@@ -588,7 +588,7 @@ class VITSLoss(nn.Module):
         mu_p = mu_p.float()
         log_s_p = log_s_p.float()
         target_mask = target_mask.float()
-
+        print(z_p.shape, log_s_p.shape, mu_p.shape, log_s_q.shape)
         kl = log_s_p - log_s_q - 0.5
         kl += 0.5 * ((z_p - mu_p) ** 2) * torch.exp(-2.0 * log_s_p)
         kl = torch.sum(kl * target_mask)
