@@ -13,7 +13,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.lobes.models.FastSpeech2 import PositionalEmbedding
 
-class WN():
+class WN(nn.Module):
     def __init__(
         self,
         in_features,
@@ -67,12 +67,12 @@ class WN():
             x_in = self.dropout(x_in)
             acts = self.fused_add_tanh_sigmoid_multiply(x_in, num_features_tensor)
             res_skip_acts = self.res_skip_layers[idx](acts)
-            if idx != self.n_layers - 1:
-                x = torch.sum(x, res_skip_acts[:,:self.hidden_features,:]) * x_mask
-                output = torch.sum(output, res_skip_acts[:,self.hidden_features:,:])
+            if idx != self.num_layers - 1:
+                x = torch.add(x, res_skip_acts[:,:self.hidden_features,:]) 
+                output = torch.add(output, res_skip_acts[:,self.hidden_features:,:])
             else:
-                output = torch.sum(output, res_skip_acts)
-        output = output * x_mask
+                output = torch.add(output, res_skip_acts)
+        output = output 
         return output
 
 
@@ -106,7 +106,7 @@ class PosteriorEncoder(nn.Module):
         pre_encoder = nn.Conv1d(in_features, hidden_features, kernel_size=1)
         # pre_encoder = torch.nn.utils.parametrizations.weight_norm(pre_encoder)
         pre_encoder = torch.nn.utils.weight_norm(pre_encoder)
-        post_encoder = nn.Conv1d(hidden_features, in_features, kernel_size=1)
+        post_encoder = nn.Conv1d(hidden_features, out_features*2, kernel_size=1)
         post_encoder.weight.data.zero_()
         post_encoder.bias.data.zero_()
         
@@ -122,13 +122,13 @@ class PosteriorEncoder(nn.Module):
         self.post_encoder = post_encoder
         self.pre_encoder = pre_encoder
          
-    def forward(self, x):
+    def forward(self, x, x_lengths):
         x_mask = None
-        x = self.pre_encoder(x) * x_mask
+        x = self.pre_encoder(x) 
         x = self.wavenet(x, x_mask)
-        x = self.post_encoder(x) * x_mask
+        x = self.post_encoder(x) 
         mu, log_s = torch.split(x, self.out_features, dim=1)
-        z = (mu + torch.randn_like(mu) * torch.exp(log_s)) * x_mask
+        z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
         return z, mu, log_s, x_mask
     
 class PriorEncoder(nn.Module):
@@ -155,6 +155,7 @@ class PriorEncoder(nn.Module):
             dropout=dropout,
             attention_type=attention_type,
         )
+        self.num_heads = num_heads
         self.token_embedding = nn.Embedding(num_tokens, hidden_features)
         nn.init.normal_(self.token_embedding.weight, 0.0, hidden_features**-0.5)
         self.post_encoder = nn.Conv1d(hidden_features, out_features*2, 1)
@@ -165,21 +166,31 @@ class PriorEncoder(nn.Module):
         
     def forward(self, x, x_lengths):
         
+        srcmask = get_key_padding_mask(x, pad_idx=self.padding_idx)
         
         
         x = self.token_embedding(x) * math.sqrt(self.hidden_features)
-        
-        srcmask = get_key_padding_mask(x, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         pos_embed = self.sinusoidal_positional_embed_encoder(
             x.shape[1], srcmask, x.dtype
         )
-        x = torch.add(x, pos) * srcmask_inverted
-        x = self.encoder(x)
-        x_d = self.proj(x)
+        x = torch.add(x, pos_embed) * srcmask_inverted
+        
+        attn_mask = (
+            srcmask.unsqueeze(-1)
+            .repeat(self.num_heads, 1, x.shape[1])
+            .permute(0, 2, 1)
+            .bool()
+        )
+        
+        x, _ = self.encoder(
+            x, src_mask=attn_mask, src_key_padding_mask=srcmask
+        )
+        x = x * srcmask_inverted
+        
+        x_d = self.post_encoder(x.permute(0, 2, 1))
         mu, log_s = torch.split(x_d, self.out_features, dim=1)
-        # return x, mu, log_s, x_mask
-        return x, mu, log_s, x
+        return x, mu, log_s, srcmask_inverted
 
 class StochasticDurationPredictor(nn.Module):
     def __init__(self):
@@ -257,16 +268,16 @@ class ResidualCouplingLayer(nn.Module):
 
     def forward(self, x, x_mask):
         x0, x1 = torch.split(x, [self.features] * 2, 1)
-        h = self.pre_decoder(x0) * x_mask
+        h = self.pre_decoder(x0) 
         h = self.decoder(h, x_mask)
-        x0_d = self.post_decoder(h) * x_mask
+        x0_d = self.post_decoder(h) 
         if not self.mean_only:
             mu, log_s = torch.split(x0_d, [self.features] * 2, 1)
         else:
             mu = x0_d
             log_s = torch.zeros_like(mu)
 
-        x1 = mu + x1 * torch.exp(log_s) * x_mask
+        x1 = mu + x1 * torch.exp(log_s) 
         x = torch.cat([x0, x1], 1)
         logdet = torch.sum(log_s, [1, 2])
         return x, logdet
@@ -315,14 +326,14 @@ class ResidualCouplingBlock(nn.Module):
         
     def forward(self, x, x_mask):
         for flow in self.flows:
-            x, _ = flow(x, x_mask, reverse=False)
+            x, _ = flow(x, x_mask)
             x = torch.flip(x, [1])
         return x
 
     def reverse(self, x, x_mask):
         for flow in reversed(self.flows):
             x = torch.flip(x, [1])
-            x = flow(x, x_mask, reverse=True)
+            x = flow.reverse(x, x_mask)
         return x
     
 class VITS(nn.Module):
@@ -430,8 +441,8 @@ class VITS(nn.Module):
         token_mask = None
         target_mask = None
         tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
-        z, mu_q, log_s_q, target_mask = self.posterior_encoder(target, target_lengths)
-        z_p = self.flow(z, target_mask)
+        z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
+        z_p = self.flow_decoder(z, target_mask)
         attn, path = self.mas(mu_p, log_s_p, z_p, target_mask, target_mask)         
         predicted_durations = self.duration_predictor(tokens)
         return
