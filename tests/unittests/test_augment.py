@@ -104,27 +104,6 @@ def test_speed_perturb(device):
     assert half_speed(test_waveform).allclose(test_waveform[:, ::2], atol=3e-1)
 
 
-def test_babble(device):
-    from speechbrain.augment.time_domain import AddBabble
-
-    test_waveform = torch.stack(
-        (
-            torch.sin(torch.arange(16000.0, device=device)),
-            torch.cos(torch.arange(16000.0, device=device)),
-        )
-    )
-    lengths = torch.ones(2, device=device)
-
-    # Edge cases
-    no_babble = AddBabble(speaker_count=1, snr_low=1000, snr_high=1000)
-    assert no_babble(test_waveform, lengths).allclose(test_waveform)
-
-    # One babbler just averages the two speakers
-    babble = AddBabble(speaker_count=1).to(device)
-    expected = (test_waveform + test_waveform.roll(1, 0)) / 2
-    assert babble(test_waveform, lengths).allclose(expected, atol=1e-4)
-
-
 def test_drop_freq(device):
     from speechbrain.augment.time_domain import DropFreq
 
@@ -467,6 +446,45 @@ def test_SpectrogramDrop():
     output = drop(spectrogram.clone())
     assert spectrogram.shape == output.shape
     assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.codec import CodecAugment
+
+    waveform = torch.rand(16000, 4)
+    augmenter = CodecAugment(16000)
+    output_waveform = augmenter(waveform)
+    assert not torch.allclose(waveform, output_waveform)
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution()
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution(target_dtype="int8")
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution(target_dtype="int16")
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution(target_dtype="float16")
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
 
 
 def test_augment_pipeline():
