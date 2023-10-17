@@ -55,10 +55,16 @@ class ASR(sb.Brain):
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage == sb.Stage.VALID:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
+            # Decide searcher for inference: valid or test search
+            if stage == sb.Stage.VALID:
+                hyps, _, _, _ = self.hparams.valid_search(
+                    enc_out.detach(), wav_lens
+                )
+            else:
+                hyps, _, _, _ = self.hparams.test_search(
+                    enc_out.detach(), wav_lens
+                )
 
         return log_probs, hyps, wav_lens
 
@@ -76,6 +82,8 @@ class ASR(sb.Brain):
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
+
+            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
 
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
@@ -147,7 +155,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -278,17 +286,11 @@ if __name__ == "__main__":
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
     # we need to prepare the tokens for searchers
-    hparams["valid_greedy_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["valid_greedy_searcher"].set_language_token(
-        tokenizer.prefix_tokens[1]
-    )
+    hparams["valid_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
+    hparams["valid_search"].set_language_token(tokenizer.prefix_tokens[1])
 
-    hparams["test_beam_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
+    hparams["test_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
+    hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
@@ -321,10 +323,15 @@ if __name__ == "__main__":
     )
 
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_loader_kwargs"]
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_loader_kwargs"],
+            min_key="WER",
         )

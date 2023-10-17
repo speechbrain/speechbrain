@@ -758,9 +758,10 @@ class AttentionalRNNDecoder(nn.Module):
 
     Example
     -------
-    >>> enc_states = torch.rand([4, 10, 20])
-    >>> wav_len = torch.rand([4])
-    >>> inp_tensor = torch.rand([4, 5, 6])
+    >>> batch_size = 4
+    >>> enc_states = torch.rand([batch_size, 10, 20])
+    >>> wav_len = torch.ones([batch_size])
+    >>> inp_tensor = torch.rand([batch_size, 5, 6])
     >>> net = AttentionalRNNDecoder(
     ...     rnn_type="lstm",
     ...     attn_type="content",

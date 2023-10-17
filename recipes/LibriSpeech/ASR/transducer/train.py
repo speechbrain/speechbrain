@@ -30,7 +30,6 @@ Authors
  * Peter Plantinga 2020
 """
 
-import os
 import sys
 import torch
 import logging
@@ -275,20 +274,29 @@ class ASR(sb.Brain):
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            # We save multiple checkpoints as we will average them!
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
                 min_keys=["WER"],
-                num_to_keep=10,
+                num_to_keep=self.hparams.avg_checkpoints,
             )
+
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
+
+            # save the averaged checkpoint at the end of the evaluation stage
+            # delete the rest of the intermediate checkpoints
+            # WER is set to -0.1 so checkpointer only keeps the averaged checkpoint
+            self.checkpointer.save_and_keep_only(
+                meta={"WER": -0.1, "epoch": epoch},
+                min_keys=["WER"],
+                num_to_keep=1,
+            )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""
@@ -298,7 +306,7 @@ class ASR(sb.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model"
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -477,7 +485,7 @@ if __name__ == "__main__":
     # depending on the path given in the YAML file). The tokenizer is loaded at
     # the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(
@@ -512,11 +520,18 @@ if __name__ == "__main__":
         valid_loader_kwargs=valid_dataloader_opts,
     )
 
+    import os
+
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )

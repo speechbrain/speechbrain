@@ -60,7 +60,7 @@ import logging
 import warnings
 from packaging import version
 import speechbrain.utils._workarounds as __wa
-from speechbrain.utils.distributed import main_process_only
+from speechbrain.utils.distributed import main_process_only, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
 PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 
 
-def torch_recovery(obj, path, end_of_epoch, device=None):
+def torch_recovery(obj, path, end_of_epoch):
     """Loads a torch.nn.Module state_dict from the given path instantly.
 
     This can be made the default for torch.nn.Modules with:
@@ -83,8 +83,6 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         Path where to load from.
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
-    device : str
-        Torch device, where to map the loaded parameters.
 
     Returns
     -------
@@ -92,6 +90,7 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         Given object is modified in place.
     """
     del end_of_epoch  # Unused
+    device = "cpu"
     try:
         obj.load_state_dict(torch.load(path, map_location=device), strict=True)
     except TypeError:
@@ -123,7 +122,7 @@ def torch_save(obj, path):
     torch.save(state_dict, path)
 
 
-def torch_parameter_transfer(obj, path, device):
+def torch_parameter_transfer(obj, path):
     """Non-strict Torch Module state_dict load.
 
     Loads a set of parameters from path to obj. If obj has layers for which
@@ -143,6 +142,7 @@ def torch_parameter_transfer(obj, path, device):
     None
         The object is modified in place.
     """
+    device = "cpu"
     incompatible_keys = obj.load_state_dict(
         torch.load(path, map_location=device), strict=False
     )
@@ -188,7 +188,7 @@ DEFAULT_TRANSFER_HOOKS = {
 try:
     import sentencepiece as spm
 
-    def _load_spm(obj, path, device=None):
+    def _load_spm(obj, path):
         obj.load(str(path))  # SentencePieceProcessor needs a string.
 
     DEFAULT_TRANSFER_HOOKS[spm.SentencePieceProcessor] = _load_spm
@@ -237,9 +237,9 @@ def mark_as_loader(method):
     ---------
     method : callable
         Method of the class to decorate. Must be callable with
-        signature (instance, path, end_of_epoch, device) using positional
+        signature (instance, path, end_of_epoch) using positional
         arguments. This is satisfied by for example:
-        `def loader(self, path, end_of_epoch, device):`
+        `def loader(self, path, end_of_epoch):`
 
     Note
     ----
@@ -249,9 +249,9 @@ def mark_as_loader(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), True, None)
+        sig.bind(object(), pathlib.Path("testpath"), True)
     except TypeError:
-        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch, device)"
+        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch)"
         raise TypeError(MSG)
     method._speechbrain_loader = True
     return method
@@ -264,9 +264,9 @@ def mark_as_transfer(method):
     ---------
     method : callable
         Method of the class to decorate. Must be callable with
-        signature (instance, path, device) using positional
+        signature (instance, path) using positional
         arguments. This is satisfied by for example:
-        `def loader(self, path, device):`
+        `def loader(self, path):`
 
     Note
     ----
@@ -282,9 +282,9 @@ def mark_as_transfer(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), device=None)
+        sig.bind(object(), pathlib.Path("testpath"))
     except TypeError:
-        MSG = "Transfer hook must have signature (self, path, device)"
+        MSG = "Transfer hook must have signature (self, path)"
         raise TypeError(MSG)
     method._speechbrain_transfer = True
     return method
@@ -318,7 +318,7 @@ def register_checkpoint_hooks(cls, save_on_main_only=True):
     ...             fo.write(str(self.param))
     ...
     ...     @mark_as_loader
-    ...     def load(self, path, end_of_epoch, device=None):
+    ...     def load(self, path, end_of_epoch):
     ...         del end_of_epoch  # Unused here
     ...         with open(path) as fi:
     ...             self.param = int(fi.read())
@@ -541,6 +541,13 @@ class Checkpointer:
         The value of end_of_epoch is saved in the meta. This can affect how
         epoch counters and dataset iterators load their state.
 
+        For multi-process saving there are cases where we may want to run
+        saving code on multiple processes (e.g. FSDP where we need to collect
+        parameters before saving). This works by creating a save folder
+        on the main process and communicating it to all processes, and then
+        letting each saver/loader method control whether it should save
+        on one or all processes.
+
         Arguments
         ---------
         meta : mapping, optional
@@ -559,16 +566,26 @@ class Checkpointer:
         Returns
         -------
         Checkpoint
-            namedtuple [see above], the saved checkpoint.
+            namedtuple [see above], the saved checkpoint, unless this is run
+            on a non-main process, in which case it returns None.
         """
-        if name is None:
-            ckpt_dir = self._new_checkpoint_dirpath()
-        else:
-            ckpt_dir = self._custom_checkpoint_dirpath(name)
-        os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
-        saved_meta = self._save_checkpoint_metafile(
-            ckpt_dir / METAFNAME, meta, end_of_epoch
-        )
+        ckpt_dir = None
+        if if_main_process():
+            if name is None:
+                ckpt_dir = self._new_checkpoint_dirpath()
+            else:
+                ckpt_dir = self._custom_checkpoint_dirpath(name)
+            os.makedirs(ckpt_dir, exist_ok=True)
+            saved_meta = self._save_checkpoint_metafile(
+                ckpt_dir / METAFNAME, meta, end_of_epoch
+            )
+
+        # Communicate ckpt_dir to all procs
+        communication_list = [ckpt_dir]
+        if torch.distributed.is_initialized():
+            torch.distributed.broadcast_object_list(communication_list, src=0)
+        ckpt_dir = communication_list[0]
+
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT
@@ -590,9 +607,16 @@ class Checkpointer:
             MSG = f"Don't know how to save {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
-        ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
-        logger.log(verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}")
-        return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        if if_main_process():
+            ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
+            logger.log(
+                verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}"
+            )
+            return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        # Explicity return None if this is not the main process
+        return None
 
     def save_and_keep_only(
         self,
@@ -701,6 +725,9 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
+        max_num_checkpoints : int, None
+            The maximum number of checkpoints to return, or None to return all
+            found checkpoints.
 
         Returns
         -------
@@ -822,7 +849,6 @@ class Checkpointer:
         max_key=None,
         min_key=None,
         ckpt_predicate=None,
-        device=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
 
@@ -850,8 +876,6 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
-        device : torch.device
-            Device to load models to.
 
         Returns
         -------
@@ -864,12 +888,12 @@ class Checkpointer:
             importance_key, max_key, min_key, ckpt_predicate,
         )
         if chosen_ckpt is not None:
-            self.load_checkpoint(chosen_ckpt, device)
+            self.load_checkpoint(chosen_ckpt)
         else:
             logger.info("Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
-    def load_checkpoint(self, checkpoint, device=None):
+    def load_checkpoint(self, checkpoint):
         """Loads the specified checkpoint.
 
         Arguments
@@ -877,7 +901,7 @@ class Checkpointer:
         checkpoint : Checkpoint
             Checkpoint to load.
         """
-        self._call_load_hooks(checkpoint, device)
+        self._call_load_hooks(checkpoint)
 
     def list_checkpoints(self):
         """List all checkpoints in the checkpoints directory.
@@ -979,7 +1003,7 @@ class Checkpointer:
         shutil.rmtree(checkpoint.path)
         logger.log(verbosity, f"Deleted checkpoint in {checkpoint.path}")
 
-    def _call_load_hooks(self, checkpoint, device=None):
+    def _call_load_hooks(self, checkpoint):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         logger.info(f"Loading a checkpoint from {checkpoint.path}")
@@ -1006,13 +1030,13 @@ class Checkpointer:
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
                 self.custom_load_hooks[name](
-                    obj, loadpath, end_of_epoch, device
+                    obj, loadpath, end_of_epoch,
                 )
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, end_of_epoch, device)
+                default_hook(obj, loadpath, end_of_epoch)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
@@ -1123,7 +1147,6 @@ def average_checkpoints(
     recoverable_name,
     parameter_loader=torch.load,
     averager=average_state_dicts,
-    device=None,
 ):
     """Average parameters from multiple checkpoints.
 
@@ -1184,18 +1207,9 @@ def average_checkpoints(
     >>> model.param.data
     tensor([8.])
     """
-
-    try:
-        # try to map the ckps to the correct device
-        parameter_iterator = (
-            parameter_loader(
-                ckpt.paramfiles[recoverable_name], map_location=device
-            )
-            for ckpt in checkpoint_list
-        )
-    except TypeError:
-        parameter_iterator = (
-            parameter_loader(ckpt.paramfiles[recoverable_name])
-            for ckpt in checkpoint_list
-        )
+    device = "cpu"
+    parameter_iterator = (
+        parameter_loader(ckpt.paramfiles[recoverable_name], map_location=device)
+        for ckpt in checkpoint_list
+    )
     return averager(parameter_iterator)

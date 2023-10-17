@@ -33,16 +33,18 @@ ctc_weight: 0.3
 gradient_accumulation: 4
 loss_reduction: 'batchmean'
 sorting: random
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 dynamic_batching: False
+max_batch_length: 15 # in terms of "duration" in annotations by default, second here
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+batch_ordering: ascending
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 15 # in terms of "duration" in annotations by default, second here
-    left_bucket_len: 200 # old implementation attributs
-    multiplier: 1.1 # old implementation attributs
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
-    batch_ordering: ascending
+    max_batch_length: !ref <max_batch_length>
+    shuffle: !ref <shuffle>
+    num_buckets: !ref <num_buckets>
+    batch_ordering: !ref <batch_ordering>
 
 num_workers: 6
 
@@ -155,30 +157,38 @@ SGD: !name:torch.optim.SGD
     momentum: 0.99
     nesterov: True
 
-
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
-    bos_index: !ref <bos_index>
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <ctc_scorer>]
+    weights:
+        ctc: !ref <ctc_weight_decode>
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
+    scorer: !ref <scorer>
 
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
+    scorer: !ref <scorer>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1

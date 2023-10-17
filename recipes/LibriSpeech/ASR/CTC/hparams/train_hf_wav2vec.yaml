@@ -1,14 +1,15 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC
+# Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021
+# Authors: Sung-Lin Yeh 2021, Adel Moumen 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_wav2vec2_char/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -65,9 +66,20 @@ freeze_wav2vec: True
 output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
-use_language_modelling: False
-# ngram_lm_path: !PLACEHOLDER
+space_token: ' ' # make sure this is the same as the one used in the tokenizer
+beam_size: 143
+beam_prune_logp: -12.0
+token_prune_min_logp: -1.2
+prune_history: True
+topk: 1
+alpha: 0.8
+beta: 1.2
+# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+# If you don't want to use an LM, comment it out or set it to null
+kenlm_model_path: null
 
 #
 # Functions and classes
@@ -85,7 +97,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    dnn_blocks: !ref <dnn_layers>
    dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec.Wav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>

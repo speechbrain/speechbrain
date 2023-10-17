@@ -57,7 +57,7 @@ class ASR_Brain(sb.Brain):
         logits = self.modules.output(joint)
 
         if stage == sb.Stage.VALID:
-            hyps, scores, _, _ = self.hparams.Greedysearcher(x)
+            hyps, _, _, _ = self.hparams.Greedysearcher(x)
             return logits, hyps
 
         elif stage == sb.Stage.TEST:
@@ -136,14 +136,14 @@ class ASR_Brain(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     w.write("Transducer loss stats:\n")
                     self.transducer_metrics.write_stats(w)
                     w.write("\nPER stats:\n")
                     self.per_metrics.write_stats(w)
                     print(
                         "Transducer and PER stats written to file",
-                        self.hparams.wer_file,
+                        self.hparams.test_wer_file,
                     )
 
     def fit_batch(self, batch):

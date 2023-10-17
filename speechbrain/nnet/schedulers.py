@@ -12,6 +12,7 @@ import torch
 import logging
 
 from speechbrain.utils import checkpoints
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -140,10 +141,9 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused in here
         data = torch.load(path)
         self.hyperparam_value = data["hyperparam_value"]
         self.metric_values = data["metric_values"]
@@ -273,10 +273,9 @@ class LinearWarmupScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused in here
         data = torch.load(path)
         self.lr0 = data["initial_value"]
         self.num_warmup_steps = data["num_warmup_steps"]
@@ -446,10 +445,9 @@ class NoamScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -673,10 +671,9 @@ class CyclicCosineScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused here
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -785,10 +782,9 @@ class ReduceLROnPlateau:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Not used
         data = torch.load(path)
         self.losses = data["losses"]
         self.anchor = data["anchor"]
@@ -958,10 +954,9 @@ class CyclicLRScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.clr_iterations = data["clr_iterations"]
@@ -1063,10 +1058,9 @@ class IntervalScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -1221,13 +1215,101 @@ class WarmCoolDecayLRSchedule:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch
-        del device
         data = torch.load(path)
         self.base_lr = data["base_lr"]
         self.warmup = data["warmup"]
         self.power = data["power"]
         self.cooldown = data["cooldown"]
         self.total_steps = data["total_steps"]
+
+
+class ScheduledLoss(nn.Module):
+    """A convenience class for switching to a different loss function on a
+    schedule
+
+    Arguments
+    ---------
+    schedule: list
+        a list of dictionaries with the following keys
+            loss_fn: the loss function to use
+            steps: the number of steps to apply before switching
+                to the next one
+
+    Example
+    -------
+    >>> loss_fn = ScheduledLoss(
+    ...     schedule=[
+    ...         {"steps": 3, "loss_fn": nn.MSELoss()},
+    ...         {"steps": 2, "loss_fn": nn.L1Loss()},
+    ...         {"loss_fn": nn.SmoothL1Loss()}
+    ...     ]
+    ... )
+    >>> x = torch.tensor([1., 2.])
+    >>> y = torch.tensor([1.5, 2.5])
+    >>> for idx in range(10):
+    ...     loss = loss_fn(x, y)
+    ...     print(loss.item())
+    0.25
+    0.25
+    0.25
+    0.5
+    0.5
+    0.125
+    0.125
+    0.125
+    0.125
+    0.125
+    """
+
+    def __init__(self, schedule):
+        super().__init__()
+        if not any(schedule):
+            raise ValueError("At least one schedule item is required")
+        if any(item for item in schedule if not callable(item.get("loss_fn"))):
+            raise ValueError("Each schedule item needs to have at leas ")
+        self.schedule = schedule
+        self.n_steps = 0
+        self.find_next_switch()
+
+    def forward(self, *args, **kwargs):
+        """Computes the loss at the specified step number.
+        Any arguments passed to this will be passed on to the specified
+        loss_fn
+
+        Returns
+        -------
+        result: torch.Tensor
+            the loss value
+        """
+        if self.n_steps >= self.next_switch:
+            self.find_next_switch()
+        self.n_steps += 1
+        return self.current_loss_fn(*args, **kwargs)
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current state on the specified path."""
+        data = {"n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        data = torch.load(path)
+        self.n_steps = data["n_steps"]
+        self.find_next_switch()
+
+    def find_next_switch(self):
+        """Finds the threshold at which the next switch will occur
+        based on the schedule"""
+        cumulative_steps = 0
+        for item in self.schedule:
+            item_steps = item.get("steps", torch.inf)
+            cumulative_steps += item_steps
+            if cumulative_steps > self.n_steps:
+                self.current_loss_fn = item["loss_fn"]
+                self.next_switch = cumulative_steps
+                break

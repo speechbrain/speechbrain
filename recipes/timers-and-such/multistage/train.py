@@ -75,27 +75,18 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
-            return p_seq, asr_tokens_lens
-        else:
-            p_tokens, scores = self.hparams.beam_searcher(
+        p_tokens = None
+        if stage != sb.Stage.TRAIN:
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
                 encoder_out, asr_tokens_lens
             )
-            return p_seq, asr_tokens_lens, p_tokens
+
+        return p_seq, asr_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
 
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
-            p_seq, asr_tokens_lens = predictions
-        else:
-            p_seq, asr_tokens_lens, predicted_tokens = predictions
+        p_seq, asr_tokens_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -195,7 +186,7 @@ class SLU(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -358,7 +349,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Brain class initialization
     slu_brain = SLU(
@@ -383,9 +374,7 @@ if __name__ == "__main__":
 
     # Test (ALL real data)
     if slu_brain.hparams.test_on_all_real:
-        slu_brain.hparams.wer_file = (
-            hparams["output_folder"] + "/wer_all_real.txt"
-        )
+        slu_brain.hparams.test_wer_file = hparams["all_real_wer_file"]
         slu_brain.evaluate(
             all_real_set,
             test_loader_kwargs=hparams["dataloader_opts"],
@@ -393,7 +382,7 @@ if __name__ == "__main__":
         )
 
     # Test (real data)
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
+    slu_brain.hparams.test_wer_file = hparams["test_real_wer_file"]
     slu_brain.evaluate(
         test_real_set,
         test_loader_kwargs=hparams["dataloader_opts"],
@@ -401,9 +390,7 @@ if __name__ == "__main__":
     )
 
     # Test (synth data)
-    slu_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test_synth.txt"
-    )
+    slu_brain.hparams.test_wer_file = hparams["test_synth_wer_file"]
     slu_brain.evaluate(
         test_synth_set,
         test_loader_kwargs=hparams["dataloader_opts"],

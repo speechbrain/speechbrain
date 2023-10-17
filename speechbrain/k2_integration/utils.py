@@ -8,10 +8,19 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
+import os
 import logging
+from pathlib import Path
 
 import torch
-import k2
+
+try:
+    import k2
+except ImportError:
+    MSG = "Please install k2 to use k2 training \n"
+    MSG += "E.G. run: pip install k2\n"
+    raise ImportError(MSG)
+
 from typing import Dict, List, Optional, Union
 
 
@@ -22,18 +31,22 @@ def get_texts(
     best_paths: k2.Fsa, return_ragged: bool = False
 ) -> Union[List[List[int]], k2.RaggedTensor]:
     """Extract the texts (as word IDs) from the best-path FSAs.
-    Args:
-      best_paths:
+
+    Arguments
+    ---------
+    best_paths: k2.Fsa
         A k2.Fsa with best_paths.arcs.num_axes() == 3, i.e.
         containing multiple FSAs, which is expected to be the result
         of k2.shortest_path (otherwise the returned values won't
         be meaningful).
-      return_ragged:
+    return_ragged: bool
         True to return a ragged tensor with two axes [utt][word_id].
         False to return a list-of-list word IDs.
-    Returns:
-      Returns a list of lists of int, containing the label sequences we
-      decoded.
+
+    Returns
+    -------
+    Returns a list of lists of int, containing the label sequences we
+    decoded.
     """
     if isinstance(best_paths.aux_labels, k2.RaggedTensor):
         # remove 0's and -1's.
@@ -58,6 +71,7 @@ def get_texts(
     else:
         return aux_labels.tolist()
 
+
 def one_best_decoding(
     lattice: k2.Fsa,
     use_double_scores: bool = True,
@@ -65,16 +79,19 @@ def one_best_decoding(
 ) -> Union[k2.Fsa, Dict[str, k2.Fsa]]:
     """Get the best path from a lattice.
 
-    Args:
-      lattice:
+    Arguments
+    ---------
+    lattice: k2.Fsa
         The decoding lattice returned by :func:`get_lattice`.
-      use_double_scores:
+    use_double_scores: bool
         True to use double precision floating point in the computation.
         False to use single precision.
-      lm_scale_list:
+    lm_scale_list: Optional[List[float]]
         A list of floats representing LM score scales.
-    Return:
-      An FsaVec containing linear paths.
+
+    Returns
+    -------
+    An FsaVec containing linear paths.
     """
     if lm_scale_list is not None:
         ans = dict()
@@ -83,12 +100,15 @@ def one_best_decoding(
             am_scores = saved_am_scores / lm_scale
             lattice.scores = am_scores + lattice.lm_scores
 
-            best_path = k2.shortest_path(lattice, use_double_scores=use_double_scores)
+            best_path = k2.shortest_path(
+                lattice, use_double_scores=use_double_scores
+            )
             key = f"lm_scale_{lm_scale}"
             ans[key] = best_path
         return ans
 
     return k2.shortest_path(lattice, use_double_scores=use_double_scores)
+
 
 def rescore_with_whole_lattice(
     lattice: k2.Fsa,
@@ -105,27 +125,29 @@ def rescore_with_whole_lattice(
     this function as a second pass decoding. In the first pass decoding, we
     use a small G, while we use a larger G in the second pass decoding.
 
-    Args:
-      lattice:
+    Arguments
+    ---------
+    lattice: k2.Fsa
         An FsaVec with axes [utt][state][arc]. Its `aux_labels` are word IDs.
         It must have an attribute `lm_scores`.
-      G_with_epsilon_loops:
+    G_with_epsilon_loops: k2.Fsa
         An FsaVec containing only a single FSA. It contains epsilon self-loops.
         It is an acceptor and its labels are word IDs.
-      lm_scale_list:
-        Optional. If none, return the intersection of `lattice` and
-        `G_with_epsilon_loops`.
+    lm_scale_list: Optional[List[float]]
+        If none, return the intersection of `lattice` and `G_with_epsilon_loops`.
         If not None, it contains a list of values to scale LM scores.
         For each scale, there is a corresponding decoding result contained in
         the resulting dict.
-      use_double_scores:
+    use_double_scores: bool
         True to use double precision in the computation.
         False to use single precision.
-    Returns:
-      If `lm_scale_list` is None, return a new lattice which is the intersection
-      result of `lattice` and `G_with_epsilon_loops`.
-      Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
-      value is the decoding result (i.e., an FsaVec containing linear FSAs).
+
+    Returns
+    -------
+    If `lm_scale_list` is None, return a new lattice which is the intersection
+    result of `lattice` and `G_with_epsilon_loops`.
+    Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
+    value is the decoding result (i.e., an FsaVec containing linear FSAs).
     """
     assert G_with_epsilon_loops.shape == (1, None, None)
 
@@ -158,7 +180,7 @@ def rescore_with_whole_lattice(
                 rescoring_lattice = k2.intersect(
                     G_with_epsilon_loops,
                     inv_lattice,
-                    treat_epsilons_specially=True
+                    treat_epsilons_specially=True,
                 )
             else:
                 rescoring_lattice = k2.intersect_device(
@@ -172,9 +194,13 @@ def rescore_with_whole_lattice(
         except RuntimeError as e:
             logger.info(f"Caught exception:\n{e}\n")
             if loop_count >= max_loop_count:
-                logger.info("Return None as the resulting lattice is too large.")
+                logger.info(
+                    "Return None as the resulting lattice is too large."
+                )
                 return None
-            logger.info(f"num_arcs before pruning: {inv_lattice.arcs.num_elements()}")
+            logger.info(
+                f"num_arcs before pruning: {inv_lattice.arcs.num_elements()}"
+            )
             logger.info(
                 "This OOM is not an error. You can ignore it. "
                 "If your model does not converge well, or --max-duration "
@@ -182,11 +208,11 @@ def rescore_with_whole_lattice(
                 "decode, you will meet this exception."
             )
             inv_lattice = k2.prune_on_arc_post(
-                inv_lattice,
-                prune_th_list[loop_count],
-                True,
+                inv_lattice, prune_th_list[loop_count], True,
             )
-            logger.info(f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}")
+            logger.info(
+                f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"
+            )
         loop_count += 1
 
     # lat has token IDs as labels
@@ -206,3 +232,119 @@ def rescore_with_whole_lattice(
         key = f"lm_scale_{lm_scale:.1f}"
         ans[key] = best_path
     return ans
+
+
+def arpa_to_fst(
+    arpa_dir: Path,
+    output_dir: Path,
+    words_txt: Path,
+    disambig_symbol: str = "#0",
+    convert_4gram: bool = True,
+    trigram_arpa_name: str = "3-gram.pruned.1e-7.arpa",
+    fourgram_arpa_name: str = "4-gram.arpa",
+    trigram_fst_output_name: str = "G_3_gram.fst.txt",
+    fourgram_fst_output_name: str = "G_4_gram.fst.txt",
+):
+    """Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
+    you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
+    website (https://www.openslr.org/11/). You can use this function to
+    convert them to FSTs. The resulting FSTs can then be used to create a
+    decoding graph (HLG) for k2 decoding.
+
+    If `convert_4gram` is True, then we will convert the 4-gram ARPA LM to
+    FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
+    It is worth noting that if the fsts already exist in the output_dir,
+    then we will not convert them again (so you may need to delete them
+    by hand if you, at any point, change your ARPA model).
+
+    Arguments
+    ---------
+        arpa_dir: str
+            Path to the directory containing the ARPA LM (we expect a trigram
+            ARPA LM to exist, and if `convert_4gram` is True, then a 4-gram
+            ARPA LM should also exist).
+        output_dir: str
+            Path to the directory where the FSTs will be saved.
+        words_txt: str
+            Path to the words.txt file created by prepare_lang.
+        disambig_symbol: str
+            The disambiguation symbol to use.
+        convert_4gram: bool
+            If True, then we will convert the 4-gram ARPA LM to
+            FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
+        trigram_arpa_name: str
+            The name of the 3-gram ARPA LM file. Defaults to the librispeech
+            3-gram ARPA LM from openslr.
+        fourgram_arpa_name: str
+            The name of the 4-gram ARPA LM file. Defaults to the librispeech
+            4-gram ARPA LM from openslr.
+        trigram_fst_output_name: str
+            The name of the 3-gram FST file that will be created with kaldilm.
+            NOTE: This is just the name and not the whole path.
+        fourgram_fst_output_name: str
+            The name of the 4-gram FST file that will be created with kaldilm.
+            NOTE: This is just the name and not the whole path.
+
+    Raises
+    ---------
+        ImportError: If kaldilm is not installed.
+    """
+    assert arpa_dir.is_dir()
+    assert output_dir.is_dir()
+    try:
+        from kaldilm.arpa2fst import arpa2fst
+    except ImportError:
+        # This error will occur when there is fst LM in the provided lm_dir
+        # and we are trying to create it by converting an ARPA LM to FST.
+        # For this, we need to install kaldilm.
+        raise ImportError(
+            "Optional dependencies must be installed to use kaldilm.\n"
+            "Install using `pip install kaldilm`."
+        )
+
+    def _arpa_to_fst_single(
+        arpa_path: Path, out_fst_path: Path, max_order: int
+    ):
+        """Convert a single ARPA LM to FST.
+
+        Arguments
+        ---------
+            arpa_path: str
+                Path to the ARPA LM file.
+            out_fst_path: str
+                Path to the output FST file.
+            max_order: int
+                The maximum order of the ARPA LM.
+        """
+        if out_fst_path.exists():
+            return
+        if not arpa_path.exists():
+            raise FileNotFoundError(
+                f"{arpa_path} not found while trying to create"
+                f" the {max_order} FST."
+            )
+        try:
+            s = arpa2fst(
+                input_arpa=str(arpa_path),
+                disambig_symbol=disambig_symbol,
+                read_symbol_table=str(words_txt),
+                max_order=max_order,
+            )
+        except Exception as e:
+            logger.info(
+                f"Failed to create {max_order}-gram FST from input={arpa_path}"
+                f", disambig_symbol={disambig_symbol},"
+                f" read_symbol_table={words_txt}"
+            )
+            raise e
+        logger.info(f"Writing {out_fst_path}")
+        with open(out_fst_path, "w") as f:
+            f.write(s)
+
+    arpa_path = arpa_dir / trigram_arpa_name
+    fst_path = output_dir / os.path.basename(trigram_fst_output_name)
+    _arpa_to_fst_single(arpa_path, fst_path, max_order=3)
+    if convert_4gram:
+        arpa_path = arpa_dir / fourgram_arpa_name
+        fst_path = output_dir / os.path.basename(fourgram_fst_output_name)
+        _arpa_to_fst_single(arpa_path, fst_path, max_order=4)

@@ -15,6 +15,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+test_wer_file: !ref <output_folder>/wer_test_real.txt
 
 # Data files
 # The SLURP dataset will be automatically downloaded in the specified data_folder
@@ -70,7 +71,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec2>
@@ -131,7 +132,6 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     temperature: !ref <temperature>
     using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

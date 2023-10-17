@@ -35,7 +35,6 @@ from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
-from speechbrain.utils.distributed import if_main_process
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
@@ -208,13 +207,6 @@ def parse_arguments(arg_list=None):
         type=str,
         help="A file storing the configuration options for logging",
     )
-    # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument(
-        "--local_rank",
-        "--local-rank",  # alias required for PyTorch 2.x
-        type=int,
-        help="Rank on local machine",
-    )
     parser.add_argument(
         "--device",
         type=str,
@@ -226,13 +218,6 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="This flag enables training with data_parallel.",
-    )
-    parser.add_argument(
-        "--distributed_launch",
-        default=False,
-        action="store_true",
-        help="This flag enables training with DDP. Assumes script run with "
-        "`torch.distributed.launch`",
     )
     parser.add_argument(
         "--distributed_backend",
@@ -376,17 +361,8 @@ def parse_arguments(arg_list=None):
         if torch.cuda.device_count() == 0:
             raise ValueError("You must have at least 1 GPU.")
 
-    # For DDP, the device args must equal to local_rank used by
-    # torch.distributed.launch. If run_opts["local_rank"] exists,
-    # use os.environ["LOCAL_RANK"]
-    local_rank = None
-    if "local_rank" in run_opts:
-        local_rank = run_opts["local_rank"]
-    else:
-        if "LOCAL_RANK" in os.environ and os.environ["LOCAL_RANK"] != "":
-            local_rank = int(os.environ["LOCAL_RANK"])
-
-    # force device arg to be the same as local_rank from torch.distributed.lunch
+    # force device arg to be the same as local_rank from torchrun
+    local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is not None and "cuda" in run_opts["device"]:
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
 
@@ -556,7 +532,6 @@ class Brain:
             "debug_persistently": False,
             "device": "cpu",
             "data_parallel_backend": False,
-            "distributed_launch": False,
             "distributed_backend": "nccl",
             "find_unused_parameters": False,
             "jit": False,
@@ -621,30 +596,25 @@ class Brain:
                 + str(PYTHON_VERSION_MINOR)
             )
 
+        # Assume `torchrun` was used if `RANK` and `LOCAL_RANK` are set
+        self.distributed_launch = (
+            os.environ.get("RANK") is not None
+            and os.environ.get("LOCAL_RANK") is not None
+        )
+
         if self.data_parallel_backend and self.distributed_launch:
             raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
-                "--data_parallel_backend=True"
+                "--data_parallel_backend=True\n"
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
-                "--distributed_backend=nccl"
-            )
-
-        if self.distributed_launch and self.ckpt_interval_minutes > 0:
-            logger.warning(
-                "The --ckpt_interval_minutes option saves only on the main "
-                "process to avoid race conditions. If you need to save an "
-                "intra-epoch checkpoint on multiple processes (e.g. FSDP), "
-                "consider switching to intervals based on # of steps with the "
-                "argument --ckpt_interval_steps."
+                "torchrun [args] experiment.py hyperparams.yaml"
             )
 
         if self.ckpt_interval_minutes > 0 and self.ckpt_interval_steps > 0:
             sys.exit(
                 "The options `ckpt_interval_minutes` and `ckpt_interval_steps` "
-                "are mutually exclusive to prevent race conditions. "
+                "are mutually exclusive. "
                 "Please keep only one active per experiment run."
             )
 
@@ -713,9 +683,7 @@ class Brain:
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
-                        "python -m torch.distributed.launch [args]\n\t"
-                        "experiment.py hyperparams.yaml "
-                        "--distributed_launch=True --distributed_backend=nccl"
+                        "torchrun [args] experiment.py hyperparams.yaml"
                     )
                 else:
                     logger.warning(
@@ -968,9 +936,7 @@ class Brain:
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
@@ -1024,9 +990,7 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key,
-                min_key=min_key,
-                device=torch.device(self.device),
+                max_key=max_key, min_key=min_key,
             )
 
     def fit_batch(self, batch):
@@ -1260,15 +1224,28 @@ class Brain:
         if self.checkpointer is None:
             return False
 
-        # Check if we've run for the requested amount of time
-        if 0 < self.ckpt_interval_minutes * 60.0 < time.time() - last_ckpt_time:
-            # Only save on the main process to avoid race conditions
-            return if_main_process()
+        # Return early if mid-epoch checkpoints are disabled to avoid sync
+        if self.ckpt_interval_minutes <= 0 and self.ckpt_interval_steps <= 0:
+            return False
 
-        # Save after requested # of steps. This option is the only one that
-        # allows saving on multiple processes. The logic for whether saving
-        # is run only on the main process is handled by the checkpointer.
-        return 0 < self.ckpt_interval_steps <= steps_since_ckpt
+        # Check if we've run for the requested amount of time
+        elapsed_minutes = (time.time() - last_ckpt_time) / 60.0
+        decision = 0 < self.ckpt_interval_minutes < elapsed_minutes
+
+        # Save after requested # of steps
+        decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
+
+        # If the program is not distributed, just return
+        if not torch.distributed.is_initialized():
+            return decision
+
+        # Otherwise, broadcast decision to all processes from main (rank 0)
+        # This solves synchronization issues where main gets a different
+        # timing result than the other processes.
+        else:
+            broadcast_list = [decision]
+            torch.distributed.broadcast_object_list(broadcast_list, src=0)
+            return broadcast_list[0]
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage
@@ -1638,9 +1615,8 @@ class Brain:
             w.write(yaml.dump(save_dict))
 
     @sb.utils.checkpoints.mark_as_loader
-    def _recover(self, path, end_of_epoch, device):
+    def _recover(self, path, end_of_epoch):
         del end_of_epoch
-        del device
         with open(path) as f:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]

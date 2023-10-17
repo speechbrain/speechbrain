@@ -15,6 +15,9 @@ experiment: train-real-and-synth
 output_folder: !ref results/TAS_LM/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+all_real_wer_file: !ref <output_folder>/all_real_wer.txt
+test_real_wer_file: !ref <output_folder>/test_real_wer.txt
+test_synth_wer_file: !ref <output_folder>/test_synth_wer.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
@@ -147,11 +150,10 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <slu_beam_size>
+    vocab_size: !ref <output_neurons>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
     using_max_attn_shift: False
-    max_attn_shift: 30
-    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

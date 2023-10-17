@@ -111,9 +111,10 @@ class ASR(sb.Brain):
                 return p_seq, wav_lens
         else:
             if stage == sb.Stage.VALID:
-                p_tokens, scores = self.hparams.valid_search(x, wav_lens)
+                p_tokens, _, _, _ = self.hparams.valid_search(x, wav_lens)
             else:
-                p_tokens, scores = self.hparams.test_search(x, wav_lens)
+                p_tokens, _, _, _ = self.hparams.test_search(x, wav_lens)
+
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -227,7 +228,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -346,26 +347,18 @@ def dataio_prepare(hparams):
         from speechbrain.dataio.batch import PaddedBatch  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        hop_size = dynamic_hparams["feats_hop_size"]
-
-        num_buckets = dynamic_hparams["num_buckets"]
+        hop_size = hparams["feats_hop_size"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
+            **dynamic_hparams,
             length_func=lambda x: int(float(x["duration"]) * (1 / hop_size)),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
+            **dynamic_hparams,
             length_func=lambda x: int(float(x["duration"]) * (1 / hop_size)),
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
     return (
@@ -426,7 +419,7 @@ if __name__ == "__main__":
     # Depending on the path given in the hparams YAML file,
     # we download the pretrained LM and Tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript
     # for cleaner performance metrics
@@ -468,10 +461,16 @@ if __name__ == "__main__":
     )
 
     # Testing
+    if not os.path.exists(hparams["output_wer_folder"]):
+        os.makedirs(hparams["output_wer_folder"])
+
+    # Testing
     for k in test_datasets.keys():  # keys are test_swbd and test_callhome
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+        asr_brain.hparams.test_wer_file = os.path.join(
+            hparams["output_wer_folder"], "wer_{}.txt".format(k)
         )
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k],
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )

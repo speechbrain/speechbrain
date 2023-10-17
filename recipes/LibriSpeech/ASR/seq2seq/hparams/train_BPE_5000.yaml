@@ -14,7 +14,7 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/CRDNN_BPE_960h_5k_LM/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -51,12 +51,16 @@ sorting: ascending
 dynamic_batching: False
 
 # dynamic batching parameters, if used
+feats_hop_size: 0.01
+max_batch_length: 20000 # in terms of frames
+shuffle: True
+batch_ordering: random
+num_buckets: 20
 dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 20000 # in terms of frames
-   shuffle_ex: True
-   batch_ordering: random
-   num_buckets: 20
+   max_batch_length: !ref <max_batch_length>
+   shuffle: !ref <shuffle>
+   batch_ordering: !ref <batch_ordering>
+   num_buckets: !ref <num_buckets>
 
 # Feature parameters
 sample_rate: 16000
@@ -76,7 +80,7 @@ valid_dataloader_opts:
    batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-   batch_size: 1
+   batch_size: !ref <batch_size>
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -104,15 +108,18 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 valid_beam_size: 20
 test_beam_size: 40
+using_eos_threshold: True
 eos_threshold: 1.5
 using_max_attn_shift: True
 max_attn_shift: 300
-lm_weight: 0.80
-ctc_weight_decode: 0.40
-ctc_window_size: 200
-coverage_penalty: 1.5
+lm_weight: 0.8
 temperature: 1.0
-temperature_lm: 1.0
+ctc_window_size: 200
+
+# Scoring parameters
+ctc_weight_decode: 0.40
+coverage_penalty: 1.5
+
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
@@ -222,44 +229,59 @@ modules:
 model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
 
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+   eos_index: !ref <eos_index>
+   blank_index: !ref <blank_index>
+   ctc_fc: !ref <ctc_lin>
+   ctc_window_size: !ref <ctc_window_size>
+
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+   vocab_size: !ref <output_neurons>
+
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+   language_model: !ref <lm_model>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+   full_scorers: [
+      !ref <transformerlm_scorer>,
+      !ref <coverage_scorer>]
+   partial_scorers: [!ref <ctc_scorer>]
+   weights:
+      transformerlm: !ref <lm_weight>
+      coverage: !ref <coverage_penalty>
+      ctc: !ref <ctc_weight_decode>
+
+# Search
 valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
    decoder: !ref <dec>
    linear: !ref <seq_lin>
-   ctc_linear: !ref <ctc_lin>
    bos_index: !ref <bos_index>
    eos_index: !ref <eos_index>
-   blank_index: !ref <blank_index>
    min_decode_ratio: !ref <min_decode_ratio>
    max_decode_ratio: !ref <max_decode_ratio>
    beam_size: !ref <valid_beam_size>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
-   coverage_penalty: !ref <coverage_penalty>
    temperature: !ref <temperature>
 
-test_search: !new:speechbrain.decoders.S2SRNNBeamSearchTransformerLM
+test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
    decoder: !ref <dec>
    linear: !ref <seq_lin>
-   ctc_linear: !ref <ctc_lin>
-   language_model: !ref <lm_model>
    bos_index: !ref <bos_index>
    eos_index: !ref <eos_index>
-   blank_index: !ref <blank_index>
    min_decode_ratio: !ref <min_decode_ratio>
    max_decode_ratio: !ref <max_decode_ratio>
    beam_size: !ref <test_beam_size>
    eos_threshold: !ref <eos_threshold>
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
-   coverage_penalty: !ref <coverage_penalty>
-   lm_weight: !ref <lm_weight>
-   ctc_weight: !ref <ctc_weight_decode>
-   ctc_window_size: !ref <ctc_window_size>
+   using_eos_threshold: !ref <using_eos_threshold>
    temperature: !ref <temperature>
-   temperature_lm: !ref <temperature_lm>
+   scorer: !ref <scorer>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>

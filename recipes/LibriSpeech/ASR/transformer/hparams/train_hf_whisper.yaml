@@ -8,7 +8,7 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_whisper/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -85,7 +85,7 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-whisper: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
+whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     source: !ref <whisper_hub>
     freeze: !ref <freeze_whisper>
     save_path: !ref <whisper_folder>
@@ -103,14 +103,14 @@ whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
     weight_decay: 0.01
 
-valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
+valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>
     bos_index: !ref <timestamp_index>
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
-test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
+test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
     module: [!ref <whisper>]
     bos_index: !ref <timestamp_index>
     eos_index: !ref <eos_index>

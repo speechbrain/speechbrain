@@ -61,7 +61,6 @@ class Pretrainer:
         conditions=None,
     ):
         self.loadables = {}
-        self.loadable_paths = {}
         self.collect_in = pathlib.Path(collect_in)
         if loadables is not None:
             self.add_loadables(loadables)
@@ -204,6 +203,7 @@ class Pretrainer:
             f"Collecting files (or symlinks) for pretraining in {self.collect_in}."
         )
         self.collect_in.mkdir(exist_ok=True)
+        loadable_paths = {}
         for name in self.loadables:
             if not self.is_loadable(name):
                 continue
@@ -253,17 +253,18 @@ class Pretrainer:
                     use_auth_token=False,
                     revision=None,
                 )
-            self.loadable_paths[name] = path
+            loadable_paths[name] = path
             fetch_from = None
             if isinstance(source, FetchSource):
                 fetch_from, source = source
-            if fetch_from is FetchFrom.LOCAL or str(path) == str(
-                source
-            ) + "/" + str(filename):
+            if fetch_from is FetchFrom.LOCAL or (
+                pathlib.Path(path).resolve()
+                == pathlib.Path(source).resolve() / filename
+            ):
                 logger.info(f"Set local path in self.paths[{name}] = {path}")
                 self.paths[name] = str(path)
                 self.is_local.append(name)
-        return self.loadable_paths
+        return loadable_paths
 
     def is_loadable(self, name):
         """Returns True if no condition is defined or for the specified
@@ -287,39 +288,26 @@ class Pretrainer:
         else:
             return bool(condition)
 
-    def load_collected(self, device=None):
-        """Loads the files that have been collected.
-
-        Arguments
-        ---------
-        device : str
-            Device on which to load, if you want to load to a specific device
-            directly ( otherwise just leave it to None ).
-        """
+    def load_collected(self):
+        """Loads the files that have been collected."""
         logger.info(
             f"Loading pretrained files for: {', '.join(self.loadables)}"
         )
         paramfiles = {}
-        for name, path in self.loadable_paths.items():
+        for name in self.loadables:
             if not self.is_loadable(name):
                 continue
             filename = name + PARAMFILE_EXT
             paramfiles[name] = self.collect_in / filename
-            if not paramfiles[name].exists():
-                # fallback to the original path; this is useful if a relative path was given
-                logger.info(
-                    f"Redirecting (loading from original path): {paramfiles[name]} -> {path}"
-                )
-                paramfiles[name] = path
 
             if name in self.is_local:
                 logger.info(
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
                 )
                 paramfiles[name] = self.paths[name]
-        self._call_load_hooks(paramfiles, device)
+        self._call_load_hooks(paramfiles)
 
-    def _call_load_hooks(self, paramfiles, device=None):
+    def _call_load_hooks(self, paramfiles):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         for name, obj in self.loadables.items():
@@ -329,19 +317,19 @@ class Pretrainer:
 
             # First see if object has custom load hook:
             if name in self.custom_hooks:
-                self.custom_hooks[name](obj, loadpath, device=device)
+                self.custom_hooks[name](obj, loadpath)
                 continue
             # Try the default transfer hook:
             default_hook = get_default_hook(obj, DEFAULT_TRANSFER_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, device=device)
+                default_hook(obj, loadpath)
                 continue
             # Otherwise find the default loader for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
                 # Need to fake end-of-epoch:
                 end_of_epoch = False
-                default_hook(obj, loadpath, end_of_epoch, device)
+                default_hook(obj, loadpath, end_of_epoch)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \

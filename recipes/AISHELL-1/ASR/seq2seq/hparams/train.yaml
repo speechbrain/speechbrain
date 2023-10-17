@@ -36,14 +36,15 @@ ctc_weight: 0.5
 sorting: ascending
 
 dynamic_batching: True
+max_batch_length: 15 # in terms of "duration" in annotations by default, second here
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+batch_ordering: ascending
 dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 15 # in terms of "duration" in annotations by default, second here
-   left_bucket_len: 200 # old implementation attributs
-   multiplier: 1.1 # old implementation attributs
-   shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-   num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
-   batch_ordering: ascending
+   max_batch_length: !ref <max_batch_length>
+   shuffle: !ref <shuffle>
+   num_buckets: !ref <num_buckets>
+   batch_ordering: !ref <batch_ordering>
 
 num_workers: 6
 
@@ -85,9 +86,11 @@ dnn_neurons: 512
 emb_size: 128
 dec_neurons: 1024
 output_neurons: 5000  # Number of tokens
+# we need to have blank_index != bos_index != eos_index when using CTCScorer
 blank_index: 0
-bos_index: 0
-eos_index: 0
+bos_index: 1
+eos_index: 2
+label_smoothing: 0.1
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -98,7 +101,7 @@ using_max_attn_shift: True
 max_attn_shift: 240
 coverage_penalty: 1.5
 temperature: 1.25
-
+scorer_beam_scale: 0.5
 # AISHELL-1 has spaces between words in the transcripts,
 # which Chinese writing normally does not do.
 # If remove_spaces, spaces are removed
@@ -183,7 +186,7 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
    blank_index: !ref <blank_index>
 
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
-   label_smoothing: 0.1
+   label_smoothing: !ref <label_smoothing>
 
 # Models
 modules:
@@ -194,7 +197,6 @@ modules:
    seq_lin: !ref <seq_lin>
    normalize: !ref <normalize>
    env_corrupt: !ref <env_corrupt>
-   #lm_model: !ref <lm_model>
 
 model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
@@ -208,22 +210,36 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
    paths:
       tokenizer: !ref <tokenizer_file>
 
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+   eos_index: !ref <eos_index>
+   blank_index: !ref <blank_index>
+   ctc_fc: !ref <ctc_lin>
+
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+   vocab_size: !ref <output_neurons>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+   full_scorers: [!ref <coverage_scorer>, !ref <ctc_scorer>]
+   weights:
+      coverage: !ref <coverage_penalty>
+      ctc: !ref <ctc_weight>
+   scorer_beam_scale: !ref <scorer_beam_scale>
+
 beam_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
    decoder: !ref <dec>
    linear: !ref <seq_lin>
-   ctc_linear: !ref <ctc_lin>
    bos_index: !ref <bos_index>
    eos_index: !ref <eos_index>
-   blank_index: !ref <blank_index>
    min_decode_ratio: !ref <min_decode_ratio>
    max_decode_ratio: !ref <max_decode_ratio>
    beam_size: !ref <beam_size>
    eos_threshold: !ref <eos_threshold>
+   temperature: !ref <temperature>
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
-   coverage_penalty: !ref <coverage_penalty>
-   temperature: !ref <temperature>
+   scorer: !ref <scorer>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>

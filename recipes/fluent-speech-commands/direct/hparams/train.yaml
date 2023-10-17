@@ -14,6 +14,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/BPE51/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/fluent_speech_commands_dataset
@@ -55,9 +56,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
-    source: speechbrain/asr-crdnn-rnnlm-librispeech
-    run_opts: {"device":"cuda:0"}
+asr_model_source: speechbrain/asr-crdnn-rnnlm-librispeech
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <ASR_encoder_dim>]
@@ -167,11 +166,11 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <slu_beam_size>
+    vocab_size: !ref <output_neurons>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
     using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

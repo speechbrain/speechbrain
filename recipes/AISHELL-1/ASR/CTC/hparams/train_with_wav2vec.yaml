@@ -10,7 +10,7 @@
 
 seed: 2
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/ctc_wav2vec/<seed>
+output_folder: !ref results/ctc_wav2vec2/<seed>
 cer_file: !ref <output_folder>/cer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -39,17 +39,18 @@ sample_rate: 16000
 # With DDP batch_size is multiplied by N jobs
 # Must be 8 per GPU to fit 32GB of VRAM
 batch_size: 10
-test_batch_size: 4
+test_batch_size: 1
 
 dynamic_batching: False
+max_batch_length: 15 # in terms of "duration" in annotations by default, second here
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+batch_ordering: ascending
 dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 15 # in terms of "duration" in annotations by default, second here
-   left_bucket_len: 200 # old implementation attributs
-   multiplier: 1.1 # old implementation attributs
-   shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-   num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
-   batch_ordering: ascending
+   max_batch_length: !ref <max_batch_length>
+   shuffle: !ref <shuffle>
+   num_buckets: !ref <num_buckets>
+   batch_ordering: !ref <batch_ordering>
 
 num_workers: 6
 
@@ -76,7 +77,21 @@ output_neurons: 21128
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones
+# Decoding parameters
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
+beam_size: 100
+beam_prune_logp: -12.0
+token_prune_min_logp: -1.2
+prune_history: True
+topk: 1
+alpha: 1.0
+beta: 0.5
+# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+# If you don't want to use an LM, comment it out or set it to null
+# kenlm_model_path: none
+
 
 # AISHELL-1 has spaces between words in the transcripts,
 # which Chinese writing normally does not do.
@@ -127,7 +142,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation3: !new:torch.nn.LeakyReLU
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec.Wav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>
