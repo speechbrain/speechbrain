@@ -12,6 +12,7 @@ Authors:
 
 # Importing libraries
 import math
+import random
 import torch
 import torch.nn.functional as F
 from speechbrain.dataio.legacy import ExtendedCSVDataset
@@ -1597,3 +1598,71 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     # Return to the time-domain
     pink_noise = torch.fft.ifft(pink_noise_fft, dim=1).real
     return pink_noise
+
+
+class DropBitResolution(torch.nn.Module):
+    """
+    This class transforms a float32 tensor into a lower resolution one
+    (e.g., int16, int8, float16) and then converts it back to a float32.
+    This process loses information and can be used for data augmentation.
+
+    Arguments:
+    ---------
+        target_dtype: str
+            One of "int16", "int8", "float16". If "random", the bit resolution
+            is randomly selected among the options listed above.
+
+    Example:
+        >>> dropper = DropBitResolution()
+        >>> signal = torch.rand(4, 16000)
+        >>> signal_dropped = dropper(signal)
+    """
+
+    def __init__(self, target_dtype="random"):
+        super().__init__()
+
+        self.target_dtype = target_dtype
+        self.bit_depths = {
+            "int16": (16, torch.int16),
+            "int8": (8, torch.int8),
+            "float16": (16, torch.float16),
+        }
+
+        if (
+            self.target_dtype != "random"
+            and self.target_dtype not in self.bit_depths
+        ):
+            raise ValueError(
+                f"target_dtype must be one of {list(self.bit_depths.keys())}"
+            )
+
+    def forward(self, float32_tensor):
+        """
+        Arguments:
+        ---------
+            float32_tensor: torch.Tensor
+                Float32 tensor with shape `[batch, time]` or `[batch, time, channels]`.
+
+        Returns:
+        ---------
+            torch.Tensor
+                Tensor of shape `[batch, time]` or `[batch, time, channels]` (Float32)
+        """
+
+        if self.target_dtype == "random":
+            random_key = random.choice(list(self.bit_depths.keys()))
+            bit, target_dtype = self.bit_depths[random_key]
+        else:
+            bit, target_dtype = self.bit_depths[self.target_dtype]
+
+        # Define a scale factor to map the float32 range to the target bit depth
+        if target_dtype != torch.float16:
+            scale_factor = (2 ** (bit - 1) - 1) / float32_tensor.abs().max()
+            quantized_tensor = (float32_tensor * scale_factor).to(target_dtype)
+        else:
+            quantized_tensor = float32_tensor.half()
+            scale_factor = 1
+
+        # To dequantize and recover the original float32 values
+        dequantized_tensor = quantized_tensor.to(torch.float32) / scale_factor
+        return dequantized_tensor
