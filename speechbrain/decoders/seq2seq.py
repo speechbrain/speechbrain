@@ -1809,3 +1809,21 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         dec_out, attn, = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1] / self.temperature)
         return log_probs, memory, attn
+
+
+class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
+    def __init__(self, vocab_size, **kwargs):
+        super(S2SHFTextBasedBeamSearcher, self).__init__(**kwargs)
+        self.vocab_size = vocab_size
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        memory = _update_mem(inp_tokens, memory)
+        pred, attn = self.model.decode(memory, enc_states, enc_lens)
+        if self.fc is not None:
+            pred = self.fc(pred)
+        prob_dist = self.softmax(pred / self.temperature)
+        return prob_dist[:, -1, :], memory, attn
+
+    def set_n_out(self):
+        return self.vocab_size
