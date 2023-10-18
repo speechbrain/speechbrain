@@ -113,9 +113,8 @@ class AddNoise(torch.nn.Module):
         self.normalize = normalize
         self.replacements = replacements
         self.noise_funct = noise_funct
-
-        if noise_sample_rate != clean_sample_rate:
-            self.resampler = Resample(noise_sample_rate, clean_sample_rate)
+        self.noise_sample_rate = noise_sample_rate
+        self.clean_sample_rate = clean_sample_rate
 
     def forward(self, waveforms, lengths):
         """
@@ -189,6 +188,12 @@ class AddNoise(torch.nn.Module):
 
         # Load a noise batch
         if not hasattr(self, "data_loader"):
+
+            if self.noise_sample_rate != self.clean_sample_rate:
+                self.resampler = Resample(
+                    self.noise_sample_rate, self.clean_sample_rate
+                )
+
             # Set parameters based on input
             self.device = lengths.device
 
@@ -352,21 +357,9 @@ class AddReverb(torch.nn.Module):
         self.csv_file = csv_file
         self.sorting = sorting
         self.replacements = replacements
+        self.reverb_sample_rate = reverb_sample_rate
+        self.clean_sample_rate = clean_sample_rate
         self.rir_scale_factor = rir_scale_factor
-
-        # Create a data loader for the RIR waveforms
-        dataset = ExtendedCSVDataset(
-            csvpath=self.csv_file,
-            sorting=self.sorting if self.sorting != "random" else "original",
-            replacements=self.replacements,
-        )
-        self.data_loader = make_dataloader(
-            dataset, shuffle=(self.sorting == "random")
-        )
-        self.rir_data = iter(self.data_loader)
-
-        if reverb_sample_rate != clean_sample_rate:
-            self.resampler = Resample(reverb_sample_rate, clean_sample_rate)
 
     def forward(self, waveforms):
         """
@@ -379,6 +372,11 @@ class AddReverb(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
+
+        if self.reverb_sample_rate != self.clean_sample_rate:
+            self.resampler = Resample(
+                self.reverb_sample_rate, self.clean_sample_rate
+            )
 
         # Add channels dimension if necessary
         channel_added = False
@@ -412,6 +410,20 @@ class AddReverb(torch.nn.Module):
         return rev_waveform
 
     def _load_rir(self, waveforms):
+        # Create a data loader for the RIR waveforms
+        if not hasattr(self, "data_loader"):
+            dataset = ExtendedCSVDataset(
+                csvpath=self.csv_file,
+                sorting=self.sorting
+                if self.sorting != "random"
+                else "original",
+                replacements=self.replacements,
+            )
+            self.data_loader = make_dataloader(
+                dataset, shuffle=(self.sorting == "random")
+            )
+            self.rir_data = iter(self.data_loader)
+
         try:
             rir_waveform, length = next(self.rir_data).at_position(0)
         except StopIteration:
