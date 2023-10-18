@@ -5,6 +5,7 @@ of Fangjun Kuang). The original script is under Apache 2.0 license.
 This script is modified to work with SpeechBrain.
 
 Modified by:
+  * Pierre Champion 2023
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
 """

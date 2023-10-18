@@ -340,8 +340,8 @@ world w o r l d'''
         lexicon = Lexicon(tmpdir)
         
         # Create a graph compiler
-        from speechbrain.k2_integration.graph_compiler import CharCtcTrainingGraphCompiler
-        graph_compiler = CharCtcTrainingGraphCompiler(
+        from speechbrain.k2_integration.graph_compiler import CtcTrainingGraphCompiler
+        graph_compiler = CtcTrainingGraphCompiler(
             lexicon=lexicon,
             device=log_probs.device,
             G_path=None,  # use_HLG=False

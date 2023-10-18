@@ -10,6 +10,7 @@ its utility functions.
 
 
 Authors:
+  * Pierre Champion 2023
   * Zeyu Zhao 2023
   * Georgios Karakasidis 2023
 """
@@ -20,7 +21,7 @@ import re
 import sys
 import os
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Union, Tuple, Optional
 
 from . import k2 # import k2 from ./__init__.py
 from . import utils
@@ -28,6 +29,270 @@ from . import utils
 import torch
 
 logger = logging.getLogger(__name__)
+
+UNK = "<UNK>"
+
+class Lexicon(object):
+    """Unit based lexicon. It is used to map a list of words to each word's
+    sequence of tokens (characters). It also stores the lexicon graph which
+    can be used by a graph compiler to decode sequences.
+
+    Arguments
+    ---------
+    lang_dir: str
+        Path to the lang directory. It is expected to contain the following
+        files:
+            - tokens.txt
+            - words.txt
+            - L.pt
+    disambig_pattern: str
+        It contains the pattern for disambiguation symbols.
+
+    Example
+    -------
+    >>> import k2
+    >>> from speechbrain.k2_integration.lexicon import Lexicon
+    >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
+
+    >>> # Create a small lexicon containing only two words and write it to a file.
+    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lexicon_sample = '''hello h e l l o
+    ... world w o r l d'''
+    >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
+    >>> lexicon_file.write(lexicon_sample)
+    >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
+    >>> prepare_lang(lang_tmpdir)
+    >>> # Create a lexicon object
+    >>> lexicon = Lexicon(lang_tmpdir)
+    >>> # Make sure the lexicon was loaded correctly
+    >>> assert isinstance(lexicon.token_table, k2.SymbolTable)
+    >>> assert isinstance(lexicon.L, k2.Fsa)
+    """
+
+    def __init__(
+        self,
+        lang_dir: Path,
+        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"),  # type: ignore
+    ):
+        self.lang_dir = lang_dir = Path(lang_dir)
+        self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
+        self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
+        self._L_disambig = None
+        self._mapping_loaded = False
+
+        if (lang_dir / "L.pt").exists():
+            logger.info(f"Loading pre-compiled {lang_dir}/L.pt")
+            L = k2.Fsa.from_dict(torch.load(lang_dir / "L.pt"))
+        else:
+            raise RuntimeError(
+                f"{lang_dir}/L.pt does not exist. Please make sure "
+                f"you have successfully created L.pt in {lang_dir}"
+            )
+
+        if (lang_dir / "Linv.pt").exists():
+            logger.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
+            L_inv = k2.Fsa.from_dict(torch.load(lang_dir / "Linv.pt"))
+        else:
+            logger.info("Converting L.pt to Linv.pt")
+            L_inv = k2.arc_sort(L.invert())
+            torch.save(L_inv.as_dict(), lang_dir / "Linv.pt")
+
+        # We save L_inv instead of L because it will be used to intersect with
+        # transcript FSAs, both of whose labels are word IDs.
+        self.L_inv = L_inv
+        self.L = L
+        self.disambig_pattern = disambig_pattern
+
+    @property
+    def L_disambig(self) -> k2.Fsa:
+        """Return the lexicon FSA (with disambiguation symbols).
+        Needed for HLG construction.
+        """
+        if self._L_disambig is None:
+            logger.info(f"Loading pre-compiled {self.lang_dir}/L_disambig.pt")
+            if (self.lang_dir / "L_disambig.pt").exists():
+                self._L_disambig = k2.Fsa.from_dict(
+                    torch.load(self.lang_dir / "L_disambig.pt")
+                )
+            else:
+                raise RuntimeError(
+                    f"{lang_dir}/L_disambig.pt does not exist. Please make sure "
+                    f"you have successfully created L_disambig.pt in {lang_dir}"
+                )
+        return self._L_disambig
+
+    def remove_G_rescoring_disambig_symbols(self, G: k2.Fsa):
+        G.labels[G.labels >= self.word_table["#0"]] = 0
+
+    def remove_LG_disambig_symbols(self, LG: k2.Fsa) -> k2.Fsa:
+        """Rmove the disambiguation symbols of an LG graph
+        Needed for HLG construction.
+        """
+
+        first_token_disambig_id = self.token_table["#0"]
+        first_word_disambig_id = self.word_table["#0"]
+
+        logger.debug("Removing disambiguation symbols on LG")
+        # NOTE: We need to clone here since LG.labels is just a reference to a tensor
+        #       and we will end up having issues with misversioned updates on fsa's
+        #       properties.
+        labels = LG.labels.clone()
+        labels[labels >= first_token_disambig_id] = 0
+        LG.labels = labels
+
+        assert isinstance(LG.aux_labels, k2.RaggedTensor)
+        LG.aux_labels.values[LG.aux_labels.values >= first_word_disambig_id] = 0
+        return LG
+
+    def texts_to_ids(
+        self,
+        texts: List[str],
+        add_sil_token_as_separator=False,
+        sil_token_id:Optional[int]=None,
+        log_unknown_warning=True
+        ) -> List[List[int]]:
+        """Convert a list of texts to a list-of-list of word IDs.
+
+        Note that we only get the first spelling of a word in the lexicon if there
+        are multiple spellings.
+
+        Arguments
+        ---------
+        texts: List[str]
+            It is a list of strings. Each string consists of space(s)
+            separated words. An example containing two strings is given below:
+
+                ['HELLO ICEFALL', 'HELLO k2']
+        add_sil_token_as_separator: bool
+            If True, add `sil_token_id` as a separator between words.
+            Argument sil_token_id must be set.
+        log_unknown_warning: bool
+            Log if word not found in word_table
+
+        Returns
+        -------
+        word_ids_list:
+            Return a list-of-list of word IDs.
+        """
+        word_table = self.word_table
+        oov_token_id = self.word_table[UNK]
+
+        word_ids_list = []
+        for text in texts:
+            word_ids = []
+            words = text.split()
+            for i, word in enumerate(words):
+                if word in word_table:
+                    idword = word_table[word]
+                    if isinstance(idword, list):
+                        idword = idword[0] # only first spelling
+                    word_ids.append(idword)
+                else:
+                    word_ids.append(oov_token_id)
+                    if log_unknown_warning:
+                        logger.warn(
+                            f"Cannot find word {word} in the lexicon."
+                            f" Replacing it with OOV token. "
+                            f" Note that it is fine if you are testing."
+                        )
+
+                if add_sil_token_as_separator and i < len(words) - 1:
+                    assert sil_token_id != None, f"sil_token_id=None while add_sil_token_as_separator=True"
+                    word_ids.append(sil_token_id)
+
+            word_ids_list.append(word_ids)
+        return word_ids_list
+
+    def arc_sort(self):
+        """Sort L, L_inv, L_disambig arcs of every state.
+        """
+        self.L =  k2.arc_sort(self.L)
+        self.L_inv =  k2.arc_sort(self.L_inv)
+        if self._L_disambig is not None:
+            self._L_disambig = k2.arc_sort(self._L_disambig)
+
+    def to(self, device: str="cpu"):
+        """Device to move L L_inv L_disambig to
+
+        Arguments
+        ---------
+        device: str
+            The device
+        """
+        self.L = self.L.to(device)
+        self.L_inv = self.L_inv.to(device)
+        if self._L_disambig is not None:
+            self._L_disambig = self._L_disambig.to(device)
+
+    @property
+    def tokens(self) -> List[int]:
+        """Return a list of token IDs excluding those from
+        disambiguation symbols.
+
+        NOTE:
+          0 is not a token ID so it is excluded from the return value.
+        """
+        symbols = self.token_table.symbols
+        ans = []
+        for s in symbols:
+            if not self.disambig_pattern.match(s):
+                ans.append(self.token_table[s])
+        if 0 in ans:
+            ans.remove(0)
+        ans.sort()
+        return ans
+
+    def __getattribute__(self, attr):
+        """Lazy load mapping *2* attributes
+        Be carefull in function _load_mapping to avoid recursive error
+        """
+        if attr in ["token2idx", "idx2token", "word2idx", "idx2word", "word2tids"]:
+            self._load_mapping()
+        return object.__getattribute__(self, attr)
+
+    def _load_mapping(self):
+        """Load mappings including token2idx idx2token word2idx idx2word word2tids,
+        each of which is a dict.
+
+        self.token2idx: Dict[str, int]
+        self.idx2token: Dict[int, str]
+        self.word2idx: Dict[str, int]
+        self.idx2word: Dict[int, str]
+        self.word2tids: Dict[str, List[int]]
+        """
+        if self._mapping_loaded:
+            return
+
+        token2idx = {}
+        idx2token = {}
+        with open(self.lang_dir / "tokens.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                token, idx = line.strip().split()
+                token2idx[token] = int(idx)
+                idx2token[int(idx)] = token
+        word2idx = {}
+        idx2word = {}
+        with open(self.lang_dir / "words.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                word, idx = line.strip().split()
+                word2idx[word] = int(idx)
+                idx2word[int(idx)] = word
+        word2tids = {}
+        with open(self.lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                word = line.strip().split()[0]
+                tokens = line.strip().split()[1:]
+                tids = [token2idx[t] for t in tokens]
+                if word not in word2tids:
+                    word2tids[word] = []
+                word2tids[word].append(tids)
+        self.token2idx = token2idx
+        self.idx2token = idx2token
+        self.word2idx  = word2idx
+        self.idx2word  = idx2word
+        self.word2tids = word2tids
+        _mapping_loaded = True
 
 
 def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
@@ -119,7 +384,7 @@ def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=Tr
     # Write the lexicon to lang_dir/lexicon.txt
     os.makedirs(lang_dir, exist_ok=True)
     with open(os.path.join(lang_dir, "lexicon.txt"), "w") as f:
-        fc = "<UNK> <unk>\n"
+        fc = f"{UNK} <unk>\n"
         for word in lexicon:
             fc += word + " " + " ".join(lexicon[word]) + "\n"
         f.write(fc)
@@ -184,156 +449,3 @@ def write_lexicon(
     with open(filename, "w", encoding="utf-8") as f:
         for word, tokens in lexicon:
             f.write(f"{word} {' '.join(tokens)}\n")
-
-
-class Lexicon(object):
-    """Unit based lexicon. It is used to map a list of words to each word's
-    sequence of tokens (characters). It also stores the lexicon graph which
-    can be used by a graph compiler to decode sequences.
-
-    Arguments
-    ---------
-    lang_dir: str
-        Path to the lang directory. It is expected to contain the following
-        files:
-            - tokens.txt
-            - words.txt
-            - L.pt
-    disambig_pattern: str
-        It contains the pattern for disambiguation symbols.
-
-    Example
-    -------
-    >>> import k2
-    >>> from speechbrain.k2_integration.lexicon import Lexicon
-    >>> from speechbrain.k2_integration.graph_compiler import CharCtcTrainingGraphCompiler
-    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
-
-    >>> # Create a small lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
-    >>> lexicon_sample = '''hello h e l l o
-    ... world w o r l d'''
-    >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
-    >>> lexicon_file.write(lexicon_sample)
-    >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
-    >>> prepare_lang(lang_tmpdir)
-    >>> # Create a lexicon object
-    >>> lexicon = Lexicon(lang_tmpdir)
-    >>> # Make sure the lexicon was loaded correctly
-    >>> assert isinstance(lexicon.token_table, k2.SymbolTable)
-    >>> assert isinstance(lexicon.L, k2.Fsa)
-    """
-
-    def __init__(
-        self,
-        lang_dir: Path,
-        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"),  # type: ignore
-    ):
-        self.lang_dir = lang_dir = Path(lang_dir)
-        self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
-        self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
-        self._L_disambig = None
-        self._mapping_loaded = False
-
-        if (lang_dir / "L.pt").exists():
-            logger.info(f"Loading pre-compiled {lang_dir}/L.pt")
-            L = k2.Fsa.from_dict(torch.load(lang_dir / "L.pt"))
-        else:
-            raise RuntimeError(
-                f"{lang_dir}/L.pt does not exist. Please make sure "
-                f"you have successfully created L.pt in {lang_dir}"
-            )
-
-        if (lang_dir / "Linv.pt").exists():
-            logger.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
-            L_inv = k2.Fsa.from_dict(torch.load(lang_dir / "Linv.pt"))
-        else:
-            logger.info("Converting L.pt to Linv.pt")
-            L_inv = k2.arc_sort(L.invert())
-            torch.save(L_inv.as_dict(), lang_dir / "Linv.pt")
-
-        # We save L_inv instead of L because it will be used to intersect with
-        # transcript FSAs, both of whose labels are word IDs.
-        self.L_inv = L_inv
-        self.L = L
-        self.disambig_pattern = disambig_pattern
-
-    @property
-    def L_disambig(self) -> k2.Fsa:
-        """Return the lexicon FSA (with disambiguation symbols).
-        Needed for HLG construction.
-        """
-        if self._L_disambig is None:
-            logger.info(f"Loading pre-compiled {self.lang_dir}/L_disambig.pt")
-            self._L_disambig = k2.Fsa.from_dict(
-                torch.load(self.lang_dir / "L_disambig.pt")
-            )
-        return self._L_disambig
-
-    def __getattribute__(self, attr):
-        """Lazy load mapping *2* attributes"""
-        if attr in ["token2idx", "idx2token", "word2idx", "idx2word", "word2tids"]:
-            self._load_mapping()
-        return object.__getattribute__(self, attr)
-
-    def _load_mapping(self):
-        """Load mappings including token2idx idx2token word2idx idx2word word2tids,
-        each of which is a dict.
-
-        self.token2idx: Dict[str, int]
-        self.idx2token: Dict[int, str]
-        self.word2idx: Dict[str, int]
-        self.idx2word: Dict[int, str]
-        self.word2tids: Dict[str, List[int]]
-        """
-        if self._mapping_loaded:
-            return
-
-        token2idx = {}
-        idx2token = {}
-        with open(self.lang_dir / "tokens.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                token, idx = line.strip().split()
-                token2idx[token] = int(idx)
-                idx2token[int(idx)] = token
-        word2idx = {}
-        idx2word = {}
-        with open(self.lang_dir / "words.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                word, idx = line.strip().split()
-                word2idx[word] = int(idx)
-                idx2word[int(idx)] = word
-        word2tids = {}
-        with open(self.lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                word = line.strip().split()[0]
-                tokens = line.strip().split()[1:]
-                tids = [token2idx[t] for t in tokens]
-                if word not in word2tids:
-                    word2tids[word] = []
-                word2tids[word].append(tids)
-        self.token2idx = token2idx
-        self.idx2token = idx2token
-        self.word2idx  = word2idx
-        self.idx2word  = idx2word
-        self.word2tids = word2tids
-        _mapping_loaded = True
-
-
-    @property
-    def tokens(self) -> List[int]:
-        """Return a list of token IDs excluding those from
-        disambiguation symbols.
-
-        NOTE:
-          0 is not a token ID so it is excluded from the return value.
-        """
-        symbols = self.token_table.symbols
-        ans = []
-        for s in symbols:
-            if not self.disambig_pattern.match(s):
-                ans.append(self.token_table[s])
-        if 0 in ans:
-            ans.remove(0)
-        ans.sort()
-        return ans

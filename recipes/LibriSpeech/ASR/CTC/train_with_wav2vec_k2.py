@@ -120,21 +120,41 @@ class ASR(sb.Brain):
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
         if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            decoding_method = self.hparams.decoding_method
-            # If the decoding method is 1best then the metric stats will be
-            # saved in a single file, otherwise, a new directory will be created
-            # for each lm_scale used in whole lattice rescoring.
-            decode_output: List[str] = self.graph_compiler.decode(
+            lattice = sbk2.lattice_decoder.get_lattice(
                 p_ctc,
                 wav_lens,
+                self.decoder["decoding_graph"],
                 search_beam=self.hparams.test_search_beam,
                 output_beam=self.hparams.test_output_beam,
                 ac_scale=self.hparams.ac_scale,
                 max_active_states=self.hparams.test_max_active_state,
-                is_test=True,
-                decoding_method=decoding_method,
-                lm_scale=self.hparams.lm_scale,
-            )  # list of strings
+                min_active_states=self.hparams.test_min_active_state,
+            )
+            key = "no_rescore"
+            best_path = {
+                key: sbk2.lattice_decoder.one_best_decoding(
+                    lattice=lattice, use_double_scores=True
+                )
+            }
+            decode_output = sbk2.utils.lattice_to_text(best_path[key], self.graph_compiler.lexicon.word_table)
+
+            # best_path = 
+            # return loss
+            # decoding_method = self.hparams.decoding_method
+            # If the decoding method is 1best then the metric stats will be
+            # saved in a single file, otherwise, a new directory will be created
+            # for each lm_scale used in whole lattice rescoring.
+            # decode_output: List[str] = self.graph_compiler.decode(
+            #     p_ctc,
+            #     wav_lens,
+            #     search_beam=self.hparams.test_search_beam,
+            #     output_beam=self.hparams.test_output_beam,
+            #     ac_scale=self.hparams.ac_scale,
+            #     max_active_states=self.hparams.test_max_active_state,
+            #     is_test=True,
+            #     decoding_method=decoding_method,
+            #     lm_scale=self.hparams.lm_scale,
+            # )  # list of strings
             target_words: List[List[str]] = [wrd.split(" ") for wrd in texts]
             predicted_words: List[List[str]] = [
                 snt.split(" ") for snt in decode_output
@@ -344,73 +364,6 @@ def dataio_prepare(hparams):
     return train_data, valid_data, test_datasets
 
 
-def get_decoder(hparams, decodingGraph, is_test=True, device="cpu"):
-    """This function creates the decoder for k2 graph compiler decoding.
-    There are three cases:
-        - HLG is needed and 4gram rescoring is needed. In that case,
-          need_G and need_4gram are both True and we will create
-          G_3_gram.fst.txt and G_4_gram.fst.txt. Note that the 3gram
-          and 4gram ARPA lms will need to exist under `hparams['lm_dir']`.
-        - HLG is needed but 4gram rescoring is not needed. In that case,
-          need_G is True and need_4gram is False and we will create
-          G_3_gram.fst.txt. Note that the 3gram ARPA lm will need to
-          exist under `hparams['lm_dir']`.
-        - HLG is not needed and 4gram rescoring is not needed. In that case,
-          need_G is False and need_4gram is False and we will not create any FST.
-
-    Arguments
-    ---------
-    hparams : dict
-        The hyperparameters.
-    device : torch.device
-        The device to use.
-    """
-    need_G = hparams.get("use_HLG", False) in [True, "True"]
-    need_4gram = (
-        hparams.get("decoding_method", None) == "whole-lattice-rescoring"
-    )
-    # check if need_G is true when need_4gram is true (e.g., use "whole-lattice-rescoring")
-    assert (need_4gram and need_G) or (not need_G and not need_4gram), \
-    f"invalid configuration, need_G={need_G} and need_4gram={need_4gram} not compatible"
-
-    no_G = need_G or need_4gram # no lattice rescoring
-
-    if not no_G:
-        logger.info("Converting arpa LM(s) to FST(s)")
-        G_path = Path(hparams["lm_dir"]) / hparams["trigram_fst_output_name"]
-        rescoring_lm_path = (
-            Path(hparams["lm_dir"]) / hparams["fourgram_fst_output_name"]
-        )
-        logger.info(f"Will load LM from {G_path}")
-        lm_dir = Path(hparams["lm_dir"])
-        run_on_main(
-            sbk2.utils.arpa_to_fst,
-            kwargs={
-                "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "in_arpa_files": [
-                    lm_dir / hparams["trigram_arpa_name"],
-                ] + (lm_dir / hparams["fourgram_arpa_name"] if need_4gram else []),
-                "out_fst_files": [
-                    lm_dir / G_path,
-                ] + ([lm_dir / rescoring_lm_path] if need_4gram else []),
-                "lms_ngram_orders": [
-                    3
-                ] + ([4] if need_4gram else [])
-            },
-        )
-        assert G_path.is_file(), f"{G_path} does not exist"
-
-    lm_scale = hparams["lm_scale"]
-
-    if is_test:
-        L.log_unknown_warning = False
-
-    if no_G:
-        sbk2.graph_compiler.compile_HL(decodingGraph.H, decodingGraph.L)
-    else:
-        sbk2.graph_compiler.compile_HLG(decodingGraph.H, decodingGraph.L)
-
-
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -474,7 +427,7 @@ if __name__ == "__main__":
         },
     )
 
-    L = sbk2.lexicon.Lexicon(hparams["lang_dir"])
+    lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
 
     # Trainer initialization
     asr_brain = ASR(
@@ -484,8 +437,8 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    graph_compiler = sbk2.graph_compiler.CharCtcTrainingGraphCompiler(
-        lexicon=L,
+    graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
+        lexicon=lexicon,
         device=asr_brain.device,
     )
     # Add attributes to asr_brain
@@ -504,6 +457,9 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["train_dataloader_opts"],
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
+
+    decoder = sbk2.lattice_decoder.get_decoding(hparams, graph_compiler, device=asr_brain.device)
+    setattr(asr_brain, "decoder", decoder)
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc

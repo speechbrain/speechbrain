@@ -3,7 +3,7 @@ speechbrain k2 integration
 Intended loading manner:
 
     >>> import speechbrain.k2_integration as sbk2
-    >>> # Then use: sbk2.graph_compiler.CharCtcTrainingGraphCompiler for example
+    >>> # Then use: sbk2.graph_compiler.CtcGraphCompiler for example
 
 """
 
@@ -16,7 +16,7 @@ except ImportError:
 
 from . import utils
 from . import graph_compiler
-from . import lattice_decode
+from . import lattice_decoder
 from . import lexicon
 from . import losses
 from . import prepare_lang

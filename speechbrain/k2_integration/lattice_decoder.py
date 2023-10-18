@@ -1,21 +1,181 @@
-"""Different decoding algorithms for k2.
+"""Different decoding graph algorithms for k2, be it HL or HLG (with small LM
+and bigger rescoring LM).
 
 This code was adjusted from icefall (https://github.com/k2-fsa/icefall/blob/master/icefall/decode.py).
 
 
 Authors:
+  * Pierre Champion 2023
   * Zeyu Zhao 2023
   * Georgios Karakasidis 2023
 """
 
+from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from . import k2 # import k2 from ./__init__.py
+from speechbrain.utils.distributed import run_on_main
 
 import torch
 import logging
 
+from . import graph_compiler, utils
+
 logger = logging.getLogger(__name__)
+
+def get_decoding(
+    hparams,
+    graphCompiler: graph_compiler.GraphCompiler,
+    device="cpu"
+    ) -> k2.Fsa:
+    """This function reads a config and creates the decoder for k2 graph
+    compiler decoding.
+    There are three cases:
+        - HLG is needed and LM rescoring is needed. In that case,
+          use_small_G and use_big_G are both True and we will create for
+          example G_3_gram.fst.txt and G_4_gram.fst.txt. Note that the 3gram
+          and 4gram ARPA lms will need to exist under `hparams['lm_dir']`.
+        - HLG is needed but LM rescoring is not needed. In that case,
+          use_small_G is True and use_big_G is False and we will create for
+          example G_3_gram.fst.txt. Note that the 3gram ARPA lm will need to
+          exist under `hparams['lm_dir']`.
+        - HLG is not needed so LM rescoring is also not needed. In that case,
+          use_small_G is False and use_big_G is False and we will not create
+          any FST.
+
+    Arguments
+    ---------
+    hparams: dict
+        The hyperparameters.
+    graphCompiler: graph_compiler.GraphCompiler
+        The graphCompiler (H)
+    device : torch.device
+        The device to use.
+    """
+
+    use_small_G = hparams.get("use_HLG") in [True, "True"]
+    use_big_G = (
+        hparams.get("decoding_method") == "whole-lattice-rescoring"
+        # or ...
+    )
+    # check if use_small_G is true when use_big_G is true (e.g., use "whole-lattice-rescoring")
+    assert (use_big_G and use_small_G) or (not use_small_G and not use_big_G), \
+    f"invalid configuration, use_small_G={use_small_G} and decoding_method={hparams.get('decoding_method')} not compatible"
+
+    no_G = not(use_small_G or use_big_G) # no LM
+
+    if not no_G:
+        logger.info("Converting arpa LM(s) to FST(s)")
+        G_path = Path(hparams["lm_dir"]) / hparams["small_fst_output_name"]
+        G_rescoring_path = (
+            Path(hparams["lm_dir"]) / hparams["big_fst_output_name"]
+        ) if use_big_G else None
+        lm_dir = Path(hparams["lm_dir"])
+        run_on_main(
+            utils.arpa_to_fst,
+            kwargs={
+                "words_txt": Path(hparams["lang_dir"]) / "words.txt",
+                "in_arpa_files": [ lm_dir / hparams["small_arpa_name"],
+                ] +([lm_dir / hparams["big_arpa_name"] if use_big_G else []]),
+                "out_fst_files": [G_path, ] + ([ G_rescoring_path] if use_big_G else []),
+                "lms_ngram_orders": [ 3 ] + ([4] if use_big_G else [])
+            },
+        )
+        assert G_path.is_file(), f"{G_path} does not exist"
+
+    lm_scale = hparams["lm_scale"]
+
+    if no_G:
+        decoding_graph = graphCompiler.compile_HL()
+    else:
+        logger.info(f"Loading small LM: {G_path}")
+        G = utils.load_G(G_path)
+        decoding_graph = graphCompiler.compile_HLG(G)
+        rescoring = lambda x: x
+
+    if use_big_G:
+        logger.info(f"Loading rescoring LM: {G_rescoring_path}")
+        G_rescoring_pt = utils.load_G(G_rescoring_path)
+        graphCompiler.lexicon.remove_G_rescoring_disambig_symbols(G_rescoring_pt)
+        G_rescoring = utils.prepare_rescoring_G(G_rescoring_pt)
+
+    if hparams.get("decoding_method") == "whole-lattice-rescoring":
+        decoder = rescore_with_whole_lattice
+    else:
+        decoder = one_best_decoding
+
+    return {"decoding_graph":decoding_graph, "decoder":decoder}
+
+
+def get_lattice(
+    nnet_output: torch.Tensor,
+    input_lens: torch.Tensor,
+    decoder: k2.Fsa,
+    search_beam: int = 5,
+    output_beam: int = 5,
+    min_active_states: int = 300,
+    max_active_states: int = 1000,
+    ac_scale:float = 1.0, 
+    subsampling_factor:int =1
+) -> k2.Fsa:
+    """Get the decoding lattice from a decoding graph and neural network output.
+
+    Arguments
+    ---------
+    nnet_output:
+        It is the output of a neural model of shape `(batch, seq_len, num_tokens)`.
+    input_lens:
+        It is an int tensor of shape (batch,). It contains lengths of
+        each sequence in `nnet_output`.
+    search_beam:
+        Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
+        (less pruning). This is the default value; it may be modified by
+        `min_active_states` and `max_active_states`.
+    output_beam:
+         Beam to prune output, similar to lattice-beam in Kaldi.  Relative
+         to best path of output.
+    min_active_states:
+        Minimum number of FSA states that are allowed to be active on any given
+        frame for any given intersection/composition task. This is advisory,
+        in that it will try not to have fewer than this number active.
+        Set it to zero if there is no constraint.
+    max_active_states:
+        Maximum number of FSA states that are allowed to be active on any given
+        frame for any given intersection/composition task. This is advisory,
+        in that it will try not to exceed that but may not always succeed.
+        You can use a very large number if no constraint is needed.
+    ac_scale:
+        acoustic scale applied to `nnet_output`
+    subsampling_factor:
+        The subsampling factor of the model.
+
+    Returns
+    -------
+      An FsaVec containing the decoding result. It has axes [utt][state][arc].
+    """
+
+    with torch.no_grad():
+        device = nnet_output.device
+        input_lens = input_lens.to(device)
+        decoder = decoder.to(device)
+
+        input_lens = (input_lens * nnet_output.shape[1]).round().int()
+        # NOTE: low ac_scales may results in very big lattices and OOM errors.
+        nnet_output *= ac_scale
+
+        lattice = k2.get_lattice(
+            nnet_output,
+            input_lens,
+            decoder,
+            search_beam=search_beam,
+            output_beam=output_beam,
+            min_active_states=min_active_states,
+            max_active_states=max_active_states,
+            subsampling_factor=subsampling_factor,
+        )
+
+        return lattice
+
 
 def one_best_decoding(
     lattice: k2.Fsa,

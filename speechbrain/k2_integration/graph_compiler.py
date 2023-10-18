@@ -1,12 +1,11 @@
 """Graph compiler class to create, store, and use k2 decoding graphs in
-speechbrain. The addition of a decoding graph, be it HL or HLG (with LM),
-limits the output words to the ones in the lexicon. On top of that, a
-bigger LM can be used to rescore the decoding graph and get better results.
+speechbrain. Limits the output words to the ones in the lexicon.
 
 This code is an extension, and therefore heavily inspired or taken from
 icefall's (https://github.com/k2-fsa/icefall) graph compiler.
 
 Authors:
+  * Pierre Champion 2023
   * Zeyu Zhao 2023
   * Georgios Karakasidis 2023
 """
@@ -15,19 +14,92 @@ Authors:
 import os
 from pathlib import Path
 from typing import List, Union, Optional
+import abc
 
 from . import k2 # import k2 from ./__init__.py
 
 import torch
 import logging
 
-from . import lexicon, utils, lattice_decode
+from . import lexicon, utils
 
 
 logger = logging.getLogger(__name__)
 
+class GraphCompiler(abc.ABC):
 
-class CharCtcTrainingGraphCompiler(object):
+    @abc.abstractproperty
+    def topo(self) -> k2.Fsa:
+        pass
+
+    @abc.abstractproperty
+    def lexicon(self) -> lexicon.Lexicon:
+        pass
+
+    @abc.abstractproperty
+    def device(self):
+        pass
+
+    def compile_HL(self):
+        """
+        Compile the decoding graph by composing H with L.
+        This is for decoding without language model.
+        """
+        logger.info("Arc sorting L")
+        L = k2.arc_sort(self.lexicon.L).to("cpu")
+        H = self.topo.to("cpu")
+        logger.info("Composing H and L")
+        HL = k2.compose(H, L, inner_labels="tokens")
+
+        logger.info("Connecting HL")
+        HL = k2.connect(HL)
+
+        logger.info("Arc sorting HL")
+        HL = k2.arc_sort(HL)
+        logger.info(f"HL.shape: {HL.shape}")
+        return HL
+
+    def compile_HLG(self, G):
+        """
+        Compile the decoding graph by composing H with LG.
+        This is for decoding with language model.
+        """
+        L = k2.arc_sort(self.lexicon.L_disambig).to("cpu")
+        G = k2.arc_sort(G).to("cpu")
+        H = self.topo.to("cpu")
+        logger.debug("Intersecting L and G")
+        LG = k2.compose(L, G)
+
+        logger.debug("Connecting LG")
+        LG = k2.connect(LG)
+
+        logger.debug("Determinizing LG")
+        LG = k2.determinize(LG)
+
+        logger.debug("Connecting LG after k2.determinize")
+        LG = k2.connect(LG)
+        LG = self.lexicon.remove_LG_disambig_symbols(LG)
+
+        LG = k2.remove_epsilon(LG)
+
+        LG = k2.connect(LG)
+        LG.aux_labels = LG.aux_labels.remove_values_eq(0)
+        logger.debug("Arc sorting LG")
+        LG = k2.arc_sort(LG)
+
+        logger.debug("Composing H and LG")
+        HLG = k2.compose(H, LG, inner_labels="tokens")
+
+        logger.debug("Connecting HLG")
+        HLG = k2.connect(HLG)
+
+        logger.debug("Arc sorting HLG")
+        HLG = k2.arc_sort(HLG)
+        logger.info(f"HLG.shape: {HLG.shape}")
+        return HLG
+
+
+class CtcGraphCompiler(GraphCompiler):
     """This class is used to compile decoding graphs for CTC training.
 
     Arguments
@@ -36,9 +108,6 @@ class CharCtcTrainingGraphCompiler(object):
         It is built from `data/lang/lexicon.txt`.
     device: torch.device
         The device to use for operations compiling transcripts to FSAs.
-    oov: str
-        Out of vocabulary word. When a word in the transcript
-        does not exist in the lexicon, it is replaced with `oov`.
     need_repeat_flag: bool
         If True, will add an attribute named `_is_repeat_token_` to ctc_topo
         indicating whether this token is a repeat token in ctc graph.
@@ -62,20 +131,15 @@ class CharCtcTrainingGraphCompiler(object):
         self,
         lexicon: lexicon.Lexicon,
         device: torch.device,
-        oov: str = "<UNK>",
         need_repeat_flag: bool = False,
     ):
-        L_inv = lexicon.L_inv.to(device)
-        L = lexicon.L.to(device)
-        self.lexicon = lexicon
-        assert L_inv.requires_grad is False
 
-        assert oov in lexicon.word_table
+        self._device = device
 
-        self.L_inv = k2.arc_sort(L_inv)
-        self.L = k2.arc_sort(L)
-        self.oov_id = lexicon.word_table[oov]
-        self.word_table = lexicon.word_table
+        self._lexicon = lexicon
+        self.lexicon.to(device)
+        assert self.lexicon.L_inv.requires_grad is False
+        self.lexicon.arc_sort()
 
         max_token_id = max(lexicon.tokens)
         ctc_topo = k2.ctc_topo(max_token_id, modified=False)
@@ -87,7 +151,17 @@ class CharCtcTrainingGraphCompiler(object):
                 self.ctc_topo.labels != self.ctc_topo.aux_labels
             )
 
-        self.device = device
+    @property
+    def topo(self):
+        return self.ctc_topo
+
+    @property
+    def lexicon(self):
+        return self._lexicon
+
+    @property
+    def device(self):
+        return self._device
 
     def compile(self, texts: List[str]) -> k2.Fsa:
         """Build decoding graphs by composing ctc_topo with
@@ -108,16 +182,13 @@ class CharCtcTrainingGraphCompiler(object):
             An FsaVec, the composition result of `self.ctc_topo` and the
             transcript FSA.
         """
-        print(texts, self.word_table, self.oov_id)
-        word_ids_list = utils.texts_to_ids(texts,
-                                           self.word_table,
-                                           self.oov_id)
+        word_ids_list = self.lexicon.texts_to_ids(texts)
         word_fsa = k2.linear_fsa(word_ids_list, self.device)
 
         word_fsa_with_self_loops = k2.add_epsilon_self_loops(word_fsa)
 
         fsa = k2.intersect(
-            self.L_inv, word_fsa_with_self_loops, treat_epsilons_specially=False
+            self.lexicon.L_inv, word_fsa_with_self_loops, treat_epsilons_specially=False
         )
         # fsa has word ID as labels and token ID as aux_labels, so
         # we need to invert it
@@ -149,10 +220,6 @@ class CharCtcTrainingGraphCompiler(object):
         ac_scale=1.0,
         min_active_states=300,
         max_active_states=1000,
-        is_test: bool = True,
-        decoding_method: str = "1best",
-        lm_scale: Optional[float] = None,
-        rescoring_lm_path: Optional[Path] = None,
     ) -> List[str]:
         """
         Decode the given log_probs with self.decoding_graph without language model.
@@ -174,16 +241,6 @@ class CharCtcTrainingGraphCompiler(object):
             minimum #states that are not pruned during decoding
         max_active_states: int
             maximum #active states that are kept during decoding
-        is_test: bool
-            if testing is performed then we won't log warning about <UNK>s.
-        decoding_method: str
-            one of 1best, whole-lattice-rescoring, or nbest.
-        lm_scale: float
-            cale factor for rescoring with an LM. Defaults to [0.4].
-        rescoring_lm_path: Path
-            path to the LM to be used for rescoring. If not provided
-            and the decoding method is whole-lattice-rescoring, then you need to provide
-            the `rescoring_lm_path` in the constructor of this class.
 
         Returns
         -------
@@ -192,28 +249,6 @@ class CharCtcTrainingGraphCompiler(object):
         """
         lm_scale = lm_scale or 0.4
         device = log_probs.device
-        if self.decoding_graph is None:
-            if is_test:
-                pass
-                # self.lexicon.log_unknown_warning = False
-            if self.G_path is None:
-                self.compile_HL()
-            else:
-                logger.info("Compiling HLG instead of HL")
-                self.compile_HLG()
-            if self.decoding_graph.device != device:
-                self.decoding_graph = self.decoding_graph.to(device)
-            if decoding_method == "whole-lattice-rescoring":
-
-                logger.info(f"Loading rescoring LM: {path}")
-                G = utils.load_G(rescoring_lm_path, device="cpu")
-                del G.aux_labels
-                G.labels[G.labels >= self.lexicon.word_table["#0"]] = 0
-                G = utils.prepare_G(G, device)
-
-                self.prepare_G(
-                    rescoring_lm_path, device
-                )
         input_lens = input_lens.to(device)
 
         input_lens = (input_lens * log_probs.shape[1]).round().int()
@@ -255,71 +290,3 @@ class CharCtcTrainingGraphCompiler(object):
             torch.cuda.empty_cache()
 
             return out
-
-
-def ctc_compile_HL(H, L):
-    """
-    Compile the decoding graph by composing H with L.
-    This is for decoding without language model.
-    Usually, you don't need to call this function explicitly.
-    """
-    logger.info("Arc sorting L")
-    L = k2.arc_sort(L).to("cpu")
-    H = H.to("cpu")
-    logger.info("Composing H and L")
-    HL = k2.compose(H, L, inner_labels="tokens")
-
-    logger.info("Connecting HL")
-    HL = k2.connect(HL)
-
-    logger.info("Arc sorting HL")
-    logger.info("Done compiling HL")
-    return k2.arc_sort(HL)
-
-
-def compile_HLG(H, L, G):
-    """
-    Compile the decoding graph by composing H with LG.
-    This is for decoding with language model.
-    Usually, you don't need to call this function explicitly.
-    """
-    L = k2.arc_sort(L).to("cpu")
-    G = k2.arc_sort(G).to("cpu")
-    logger.debug("Intersecting L and G")
-    LG = k2.compose(L, G)
-
-    logger.debug("Connecting LG")
-    LG = k2.connect(LG)
-
-    logger.debug("Determinizing LG")
-    LG = k2.determinize(LG)
-
-    logger.debug("Connecting LG after k2.determinize")
-    LG = k2.connect(LG)
-
-    logger.debug("Removing disambiguation symbols on LG")
-    # NOTE: We need to clone here since LG.labels is just a reference to a tensor
-    #       and we will end up having issues with misversioned updates on fsa's
-    #       properties.
-    labels = LG.labels.clone()
-    labels[labels >= first_token_disambig_id] = 0
-    LG.labels = labels
-
-    assert isinstance(LG.aux_labels, k2.RaggedTensor)
-    LG.aux_labels.values[LG.aux_labels.values >= first_word_disambig_id] = 0
-
-    LG = k2.remove_epsilon(LG)
-
-    LG = k2.connect(LG)
-    LG.aux_labels = LG.aux_labels.remove_values_eq(0)
-    logger.debug("Arc sorting LG")
-    LG = k2.arc_sort(LG)
-
-    logger.debug("Composing H and LG")
-    HLG = k2.compose(H, LG, inner_labels="tokens")
-
-    logger.debug("Connecting HLG")
-    HLG = k2.connect(HLG)
-
-    logger.debug("Arc sorting HLG")
-    return k2.arc_sort(HLG)

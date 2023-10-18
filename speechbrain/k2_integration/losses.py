@@ -2,6 +2,7 @@
 support CTC loss.
 
 Authors:
+  * Pierre Champion 2023
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
 """
@@ -53,7 +54,7 @@ def ctc_k2(
     -------
     >>> import torch
     >>> from speechbrain.k2_integration.losses import ctc_k2
-    >>> from speechbrain.k2_integration.graph_compiler import CharCtcTrainingGraphCompiler
+    >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
     >>> from speechbrain.k2_integration.lexicon import Lexicon
     >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
 
@@ -73,7 +74,7 @@ def ctc_k2(
     >>> # Create a lexicon object
     >>> lexicon = Lexicon(lang_tmpdir)
     >>> # Create a random decoding graph
-    >>> graph = CharCtcTrainingGraphCompiler(
+    >>> graph = CtcGraphCompiler(
     ...     lexicon=lexicon,
     ...     device=log_probs.device,
     ...     G_path=None,  # use_HLG=False
@@ -107,11 +108,8 @@ def ctc_k2(
     )
 
     decoding_graph = graph_compiler.compile(texts)
-    tids = utils.texts_to_ids(texts,
-                              graph_compiler.lexicon.word2tids,
-                              graph_compiler.oov_id,
-                              log_unknown_warning=True)
-    print(tids)
+    tids = graph_compiler.lexicon.texts_to_ids(texts,
+                              log_unknown_warning=is_training)
     target_lens = torch.tensor(
         [len(t) for t in tids], device=log_probs.device, dtype=torch.long
     )

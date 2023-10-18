@@ -4,6 +4,7 @@ This code was adjusted from icefall (https://github.com/k2-fsa/icefall).
 
 
 Authors:
+  * Pierre Champion 2023
   * Zeyu Zhao 2023
   * Georgios Karakasidis 2023
 """
@@ -67,67 +68,6 @@ def get_texts(
         return aux_labels.tolist()
 
 
-def texts_to_ids(
-    texts: List[str],
-    word_table: List[str],
-    oov_token_id: int,
-    add_sil_token_as_separator=False,
-    sil_token_id:Optional[int]=None,
-    log_unknown_warning=True
-    ) -> List[List[int]]:
-    """Convert a list of texts to a list-of-list of word IDs.
-
-    Note that we only get the first spelling of a word in the lexicon if there
-    are multiple spellings.
-
-    Arguments
-    ---------
-    texts: List[str]
-        It is a list of strings. Each string consists of space(s)
-        separated words. An example containing two strings is given below:
-
-            ['HELLO ICEFALL', 'HELLO k2']
-    word_table: List[str]
-        Word to id table.
-    oov_token_id: int
-        The OOV token ID
-    add_sil_token_as_separator: bool
-        If True, add `sil_token_id` as a separator between words.
-        Argument sil_token_id must be set.
-    log_unknown_warning: bool
-        Log if word not found in word_table
-
-    Returns
-    -------
-    word_ids_list:
-        Return a list-of-list of word IDs.
-    """
-    word_ids_list = []
-    for text in texts:
-        word_ids = []
-        words = text.split()
-        for i, word in enumerate(words):
-            if word in word_table:
-                idword = word_table[word]
-                if isinstance(idword, list):
-                    idword = idword[0] # only first spelling
-                word_ids.append(idword)
-            else:
-                word_ids.append(oov_token_id)
-                if log_unknown_warning:
-                    logger.warn(
-                        f"Cannot find word {word} in the lexicon."
-                        f" Replacing it with OOV token. "
-                        f" Note that it is fine if you are testing."
-                    )
-
-            if add_sil_token_as_separator and i < len(words) - 1:
-                assert sil_token_id != None, f"sil_token_id=None while add_sil_token_as_separator=True"
-                word_ids.append(sil_token_id)
-
-        word_ids_list.append(word_ids)
-    return word_ids_list
-
 
 def lattice_to_text(best_path: k2.Fsa, word_table) -> List[str]:
     """Convert the best path to a list of strings.
@@ -143,7 +83,7 @@ def lattice_to_text(best_path: k2.Fsa, word_table) -> List[str]:
     A list of strings, each of which is the decoding result of the
     corresponding utterance.
     """
-    hyps: List[List[int]] = utils.get_texts(best_path, return_ragged=False)
+    hyps: List[List[int]] = get_texts(best_path, return_ragged=False)
     texts = []
     for wids in hyps:
         texts.append(" ".join([word_table[wid] for wid in wids]))
@@ -171,7 +111,7 @@ def arpa_to_fst(
     ---------
         words_txt: str
             path to the words.txt file created by prepare_lang.
-        in_arpa_names: List[str]
+        in_arpa_files: List[str]
             List of arpa files to convert to fst.
         out_fst_files: List[Str]
             List of fst path where the fsts will be saved, len(in) == len(out).
@@ -184,39 +124,38 @@ def arpa_to_fst(
     ---------
         importerror: if kaldilm is not installed.
     """
-    assert len(in_arpa_names) == len(out_fst_files)
-    assert len(in_arpa_names) == len(lms_ngram_orders)
+    assert len(in_arpa_files) == len(out_fst_files)
+    assert len(in_arpa_files) == len(lms_ngram_orders)
     try:
         from kaldilm.arpa2fst import arpa2fst
-    except importerror:
-        # this error will occur when there is fst lm in the provided lm_dir
-        # and we are trying to create it by converting an arpa lm to fst.
-        # for this, we need to install kaldilm.
-        raise importerror(
-            "optional dependencies must be installed to use kaldilm.\n"
-            "install using `pip install kaldilm`."
+    except ImportError:
+        # This error will occur when there is fst LM in the provided lm_dir
+        # and we are trying to create it by converting an ARPA LM to FST.
+        # For this, we need to install kaldilm.
+        raise ImportError(
+            "Optional dependencies must be installed to use kaldilm.\n"
+            "Install using `pip install kaldilm`."
         )
 
     def _arpa_to_fst_single(
-        arpa_path: path, out_fst_path: path, max_order: int
+        arpa_path: Path, out_fst_path: Path, max_order: int
     ):
-        """convert a single arpa lm to fst.
-
-        arguments
+        """Convert a single ARPA LM to FST.
+        Arguments
         ---------
             arpa_path: str
-                path to the arpa lm file.
+                Path to the ARPA LM file.
             out_fst_path: str
-                path to the output fst file.
+                Path to the output FST file.
             max_order: int
-                the maximum order of the arpa lm.
+                The maximum order of the ARPA LM.
         """
         if out_fst_path.exists():
             return
         if not arpa_path.exists():
-            raise filenotfounderror(
+            raise FileNotFoundError(
                 f"{arpa_path} not found while trying to create"
-                f" the {max_order} fst."
+                f" the {max_order} FST."
             )
         try:
             s = arpa2fst(
@@ -225,14 +164,14 @@ def arpa_to_fst(
                 read_symbol_table=str(words_txt),
                 max_order=max_order,
             )
-        except exception as e:
+        except Exception as e:
             logger.info(
-                f"failed to create {max_order}-gram fst from input={arpa_path}"
+                f"Failed to create {max_order}-gram FST from input={arpa_path}"
                 f", disambig_symbol={disambig_symbol},"
                 f" read_symbol_table={words_txt}"
             )
             raise e
-        logger.info(f"writing {out_fst_path}")
+        logger.info(f"Writing {out_fst_path}")
         with open(out_fst_path, "w") as f:
             f.write(s)
 
@@ -241,58 +180,46 @@ def arpa_to_fst(
 
 
 def load_G(
-    path: Union[str, Path], device: str = "cpu", cache: bool = True
+    path: Union[str, Path], cache: bool = True
 ) -> k2.Fsa:
     """load a lm to be used in the decoding graph creation (or lm rescoring).
-    note that it doesn't load g into memory.
 
     Arguments
     ---------
     path: str
         The path to an FST LM (ending with .fst.txt) or a k2-converted
         LM (in pytorch .pt format).
-    device: str
-        The device to load G on
     cache: bool
-        Whether or not to cache the LM in .pt format (in the same dir).
+        Whether or not to load/cache the LM from/to the .pt format (in the same dir).
 
     Returns
     -------
     G:
-        An FSA representing the LM. The device is the same asked in argument
+        An FSA representing the LM.
     """
     path = str(path)
-    if os.path.exists(path.replace(".fst.txt", ".pt")):
+    if os.path.exists(path.replace(".fst.txt", ".pt")) and cache:
         logger.warning(
-            f"Loading '{path}' from its cached .pt format. Consider deleting the "
+            f"Loading '{path}' from its cached .pt format."
             "previous .pt file if this is not what you want."
         )
-        path = path.replace(".fst.txt", ".pt")
+        G = k2.Fsa.from_dict(torch.load(path.replace(".fst.txt", ".pt"), map_location="cpu"))
+        return G
+
     # If G_path is an fst.txt file then convert to .pt file
-    if path.endswith(".fst.txt"):
-        if not os.path.isfile(path):
-            raise FileNotFoundError(
-                f"File {path} not found. "
-                "You need to run the kaldilm to get it."
-            )
-        with open(path) as f:
-            G = k2.Fsa.from_openfst(f.read(), acceptor=False).to(
-                device
-            )
-    elif path.endswith(".pt"):
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f"File {path} not found.")
-        d = torch.load(path, map_location=device)
-        G = k2.Fsa.from_dict(d).to(device)
-    else:
-        raise ValueError(f"File {path} is not a .fst.txt or .pt file.")
+    if not os.path.isfile(path):
+        raise FileNotFoundError(
+            f"File {path} not found. "
+            "You need to run arpa_to_fst to get it."
+        )
+    with open(path) as f:
+        G = k2.Fsa.from_openfst(f.read(), acceptor=False)
     if cache:
         torch.save(G.as_dict(), path[:-8] + ".pt")
     return G
 
-def prepare_G(
-    G: k2.Fsa, device: str = "cpu"
-    ) -> k2.Fsa:
+
+def prepare_rescoring_G(G: k2.Fsa) -> k2.Fsa:
     """Prepare a LM with the purpose of using it for LM rescoring.
     For instance, in the librispeech recipe this is a 4-gram LM (while a
     3gram LM is used for HLG construction).
@@ -302,23 +229,20 @@ def prepare_G(
     path: str
         The path to an FST LM (ending with .fst.txt) or a k2-converted
         LM (in pytorch .pt format).
-    device: str
-        The device to load G on
 
     Returns
     -------
     G:
-        An FSA representing the LM. The device is the same as graph_compiler.device.
+        An FSA representing the LM.
     """
     if "_properties" in G.__dict__:
         G.__dict__["_properties"] = None
+    del G.aux_labels
     G = k2.Fsa.from_fsas([G]).to("cpu")  # only used for decoding
     G = k2.arc_sort(G)
     G = k2.add_epsilon_self_loops(G)
     G = k2.arc_sort(G)
-    G = G.to(device)
-    # G.lm_scores is used to replace HLG.lm_scores during
-    # LM rescoring.
+    # G.lm_scores is used to replace HLG.lm_scores during LM rescoring.
     if not hasattr(G, "lm_scores"):
         G.lm_scores = G.scores.clone()
     return G
