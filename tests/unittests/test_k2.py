@@ -8,9 +8,11 @@ from tempfile import TemporaryDirectory
 
 try:
     import k2
+
+    has_k2 = True
 except ImportError:
-    print("Please install k2 with `pip install k2`")
-    exit(0)
+    has_k2 = False
+pytestmark = pytest.mark.skipif(not has_k2, reason="k2 is not installed.")
 
 
 @pytest.fixture
