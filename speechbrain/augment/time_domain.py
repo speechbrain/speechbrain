@@ -317,6 +317,8 @@ class AddReverb(torch.nn.Module):
     sorting : str
         The order to iterate the csv file, from one of
         the following options: random, original, ascending, and descending.
+    num_workers : int
+        Number of workers in the DataLoader (See PyTorch DataLoader docs).
     rir_scale_factor: float
         It compresses or dilates the given impulse response.
         If 0 < scale_factor < 1, the impulse response is compressed
@@ -348,6 +350,7 @@ class AddReverb(torch.nn.Module):
         self,
         csv_file,
         sorting="random",
+        num_workers=0,
         rir_scale_factor=1.0,
         replacements={},
         reverb_sample_rate=16000,
@@ -356,6 +359,7 @@ class AddReverb(torch.nn.Module):
         super().__init__()
         self.csv_file = csv_file
         self.sorting = sorting
+        self.num_workers = num_workers
         self.replacements = replacements
         self.reverb_sample_rate = reverb_sample_rate
         self.clean_sample_rate = clean_sample_rate
@@ -420,7 +424,9 @@ class AddReverb(torch.nn.Module):
                 replacements=self.replacements,
             )
             self.data_loader = make_dataloader(
-                dataset, shuffle=(self.sorting == "random")
+                dataset,
+                shuffle=(self.sorting == "random"),
+                num_workers=self.num_workers,
             )
             self.rir_data = iter(self.data_loader)
 
