@@ -13,9 +13,11 @@ To run this recipe, go into the `"TTS/mstacotron2"` folder and run:
 python train.py hparams/train.yaml --data_folder=/path/to/libritts_data --device=cuda:0 --max_grad_norm=1.0
 ```
 
+Training time required on NVIDIA A100 GPU using LibriTTS train-clean-100 and train-clean-360 subsets: ~ 2 hours 54 minutes per epoch
+
 The training logs will be available here in the future.
 
-The pre-trained model with an easy-inference function will be available in the future.
+The pre-trained model with an easy-inference interface is available on [HuggingFace](https://huggingface.co/speechbrain/tts-mstacotron2-libritts).
 
 # HiFi GAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
@@ -30,6 +32,8 @@ python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
 ```
 
 The recipe will automatically download the LibriTTS dataset and resamples it as specified.
+
+Training time required on NVIDIA A100 GPU using LibriTTS train-clean-100 and train-clean-360 subsets: ~ 1 hour 50 minutes per epoch
 
 The training logs and checkpoints are available [here](https://www.dropbox.com/sh/gjs1kslxkxz819q/AABPriN4dOoD1qL7NoIyVk0Oa?dl=0).
 
