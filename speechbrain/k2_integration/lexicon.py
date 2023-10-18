@@ -22,19 +22,15 @@ import os
 from pathlib import Path
 from typing import List, Tuple, Union
 
-try:
-    import k2
-except ImportError:
-    MSG = "Please install k2 to use k2 training \n"
-    MSG += "E.G. run: pip install k2\n"
-    raise ImportError(MSG)
+from . import k2 # import k2 from ./__init__.py
+from . import utils
 
 import torch
 
 logger = logging.getLogger(__name__)
 
 
-def get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
+def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
     """Read csv_files to generate a $lang_dir/lexicon.txt for k2 training.
     This usually includes the csv files of the training set and the dev set in the
     output_folder. During training, we need to make sure that the lexicon.txt contains
@@ -73,7 +69,7 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
 
     Example
     -------
-    >>> from speechbrain.k2_integration.lexicon import get_lexicon
+    >>> from speechbrain.k2_integration.lexicon import prepare_lexicon
     >>> # Create some dummy csv files containing only the words `hello`, `world`.
     >>> # The first line is the header, and the remaining lines are in the following
     >>> # format:
@@ -86,7 +82,7 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
     >>> csv_files = [csv_file]
     >>> lang_dir = getfixture('tmpdir')
     >>> extra_vocab_files = []
-    >>> get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=False)
+    >>> prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=False)
     >>> with open(lang_dir.join("lexicon.txt"), "r") as f:
     ...     assert f.read() == "<UNK> <unk>\nhello h e l l o\nworld w o r l d\n"
     """
@@ -190,66 +186,6 @@ def write_lexicon(
             f.write(f"{word} {' '.join(tokens)}\n")
 
 
-def convert_lexicon_to_ragged(
-    filename: str, word_table: k2.SymbolTable, token_table: k2.SymbolTable
-) -> k2.RaggedTensor:
-    """Read a lexicon and convert it to a ragged tensor.
-
-    The ragged tensor has two axes: [word][token].
-
-    Caution: We assume that each word has a unique pronunciation.
-
-    Arguments
-    ---------
-    filename: str
-        Filename of the lexicon. It has a format that can be read
-        by :func:`read_lexicon`.
-    word_table: k2.SymbolTable
-        The word symbol table.
-    token_table: k2.SymbolTable
-        The token symbol table.
-
-    Returns
-    -------
-    A k2 ragged tensor with two axes [word][token].
-    """
-    disambig_id = word_table["#0"]
-    # We reuse the same words.txt from the phone based lexicon
-    # so that we can share the same G.fst. Here, we have to
-    # exclude some words present only in the phone based lexicon.
-    excluded_words = ["<eps>", "!SIL", "<SPOKEN_NOISE>"]
-
-    # epsilon is not a word, but it occupies a position
-    row_splits = [0]
-    token_ids_list = []
-
-    lexicon_tmp = read_lexicon(filename)
-    lexicon = dict(lexicon_tmp)
-    if len(lexicon_tmp) != len(lexicon):
-        raise RuntimeError(
-            "It's assumed that each word has a unique pronunciation"
-        )
-
-    for i in range(disambig_id):
-        w = word_table[i]
-        if w in excluded_words:
-            row_splits.append(row_splits[-1])
-            continue
-        tokens = lexicon[w]
-        token_ids = [token_table[k] for k in tokens]
-
-        row_splits.append(row_splits[-1] + len(token_ids))
-        token_ids_list.extend(token_ids)
-
-    cached_tot_size = row_splits[-1]
-    row_splits = torch.tensor(row_splits, dtype=torch.int32)
-
-    shape = k2.ragged.create_ragged_shape2(row_splits, None, cached_tot_size,)
-    values = torch.tensor(token_ids_list, dtype=torch.int32)
-
-    return k2.RaggedTensor(shape, values)
-
-
 class Lexicon(object):
     """Unit based lexicon. It is used to map a list of words to each word's
     sequence of tokens (characters). It also stores the lexicon graph which
@@ -265,14 +201,12 @@ class Lexicon(object):
             - L.pt
     disambig_pattern: str
         It contains the pattern for disambiguation symbols.
-    load_mapping: bool
-        If True, load the mappings: token2idx idx2token word2idx idx2word word2tids.
 
     Example
     -------
     >>> import k2
     >>> from speechbrain.k2_integration.lexicon import Lexicon
-    >>> from speechbrain.k2_integration.graph_compiler import CtcTrainingGraphCompiler
+    >>> from speechbrain.k2_integration.graph_compiler import CharCtcTrainingGraphCompiler
     >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
 
     >>> # Create a small lexicon containing only two words and write it to a file.
@@ -294,13 +228,12 @@ class Lexicon(object):
         self,
         lang_dir: Path,
         disambig_pattern: re.Pattern = re.compile(r"^#\d+$"),  # type: ignore
-        load_mapping: bool = True,
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
         self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
-        self.log_unknown_warning = True
         self._L_disambig = None
+        self._mapping_loaded = False
 
         if (lang_dir / "L.pt").exists():
             logger.info(f"Loading pre-compiled {lang_dir}/L.pt")
@@ -325,9 +258,6 @@ class Lexicon(object):
         self.L = L
         self.disambig_pattern = disambig_pattern
 
-        if load_mapping:
-            self.load_mapping()
-
     @property
     def L_disambig(self) -> k2.Fsa:
         """Return the lexicon FSA (with disambiguation symbols).
@@ -340,7 +270,13 @@ class Lexicon(object):
             )
         return self._L_disambig
 
-    def load_mapping(self):
+    def __getattribute__(self, attr):
+        """Lazy load mapping *2* attributes"""
+        if attr in ["token2idx", "idx2token", "word2idx", "idx2word", "word2tids"]:
+            self._load_mapping()
+        return object.__getattribute__(self, attr)
+
+    def _load_mapping(self):
         """Load mappings including token2idx idx2token word2idx idx2word word2tids,
         each of which is a dict.
 
@@ -350,30 +286,39 @@ class Lexicon(object):
         self.idx2word: Dict[int, str]
         self.word2tids: Dict[str, List[int]]
         """
+        if self._mapping_loaded:
+            return
 
-        self.token2idx = {}
-        self.idx2token = {}
+        token2idx = {}
+        idx2token = {}
         with open(self.lang_dir / "tokens.txt", "r", encoding="utf-8") as f:
             for line in f:
                 token, idx = line.strip().split()
-                self.token2idx[token] = int(idx)
-                self.idx2token[int(idx)] = token
-        self.word2idx = {}
-        self.idx2word = {}
+                token2idx[token] = int(idx)
+                idx2token[int(idx)] = token
+        word2idx = {}
+        idx2word = {}
         with open(self.lang_dir / "words.txt", "r", encoding="utf-8") as f:
             for line in f:
                 word, idx = line.strip().split()
-                self.word2idx[word] = int(idx)
-                self.idx2word[int(idx)] = word
-        self.word2tids = {}
+                word2idx[word] = int(idx)
+                idx2word[int(idx)] = word
+        word2tids = {}
         with open(self.lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
             for line in f:
                 word = line.strip().split()[0]
                 tokens = line.strip().split()[1:]
-                tids = [self.token2idx[t] for t in tokens]
-                if word not in self.word2tids:
-                    self.word2tids[word] = []
-                self.word2tids[word].append(tids)
+                tids = [token2idx[t] for t in tokens]
+                if word not in word2tids:
+                    word2tids[word] = []
+                word2tids[word].append(tids)
+        self.token2idx = token2idx
+        self.idx2token = idx2token
+        self.word2idx  = word2idx
+        self.idx2word  = idx2word
+        self.word2tids = word2tids
+        _mapping_loaded = True
+
 
     @property
     def tokens(self) -> List[int]:
@@ -392,147 +337,3 @@ class Lexicon(object):
             ans.remove(0)
         ans.sort()
         return ans
-
-    def texts2tids(
-        self,
-        texts: List[str],
-        sil_token="SIL",
-        add_sil_token_as_separator=False,
-        oov_token="<UNK>",
-    ) -> List[List[int]]:
-        """Convert a list of texts to a list of lists of token IDs.
-
-        Arguments
-        ---------
-        texts: List[str]
-            A list of strings. Each string is a sentence to be converted
-        sil_token: str
-            The token for silence, which is an optional separator between words.
-        add_sil_token_as_separator: bool
-            If True, add `sil_token` as a separator between words.
-        oov_token: str
-            The token for OOV words.
-
-        Returns
-        -------
-        A list of lists of token IDs.
-
-        Note that we only apply the first spelling of a word in the lexicon if there
-        are multiple spellings.
-        """
-        if not hasattr(self, "word2tids"):
-            self.load_mapping()
-        results = []
-        for text in texts:
-            tids = []
-            words = text.split()
-            for i, word in enumerate(words):
-                if word not in self.word2tids:
-                    if self.log_unknown_warning:
-                        logger.warn(
-                            f"Cannot find word {word} in the lexicon."
-                            f" Replacing it with {oov_token}. "
-                            f"please check {self.lang_dir}/lexicon.txt."
-                            f" Note that it is fine if you are testing."
-                        )
-                    word = oov_token
-                tids.extend(self.word2tids[word][0])
-                if add_sil_token_as_separator and i < len(words) - 1:
-                    tids.append(self.token2idx[sil_token])
-            results.append(tids)
-        return results
-
-
-class UniqLexicon(Lexicon):
-    """
-    Refer to the help information in Lexicon.__init__.
-
-    uniq_filename: It is assumed to be inside the given `lang_dir`.
-
-    Each word in the lexicon is assumed to have a unique pronunciation.
-
-    Arguments
-    ---------
-    lang_dir: str
-        Path to the lang directory. It is expected to contain the following
-        files:
-            - tokens.txt
-            - words.txt
-            - L.pt
-            - uniq_lexicon.txt
-    disambig_pattern: str
-        It contains the pattern for disambiguation symbols.
-    """
-
-    def __init__(
-        self,
-        lang_dir: Path,
-        uniq_filename: str = "uniq_lexicon.txt",
-        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"),  # type: ignore
-    ):
-        lang_dir = Path(lang_dir)
-        super().__init__(lang_dir=lang_dir, disambig_pattern=disambig_pattern)
-
-        self.ragged_lexicon = convert_lexicon_to_ragged(
-            filename=str(lang_dir / uniq_filename),
-            word_table=self.word_table,
-            token_table=self.token_table,
-        )
-
-    def texts_to_token_ids(
-        self, texts: List[str], oov: str = "<UNK>"
-    ) -> k2.RaggedTensor:
-        """Convert a list of transcripts to a ragged tensor containing token IDs.
-
-        Arguments
-        ---------
-        texts: List[str]
-            A list of transcripts. Each transcript contains space(s)
-            separated words. An example texts is::
-
-                ['HELLO k2', 'HELLO icefall']
-        oov: str
-            The OOV word. If a word in `texts` is not in the lexicon, it is
-            replaced with `oov`.
-
-        Returns
-        -------
-        A ragged int tensor with 2 axes [utterance][token_id]
-        """
-        oov_id = self.word_table[oov]
-
-        word_ids_list = []
-        for text in texts:
-            word_ids = []
-            for word in text.split():
-                if word in self.word_table:
-                    word_ids.append(self.word_table[word])
-                else:
-                    word_ids.append(oov_id)
-            word_ids_list.append(word_ids)
-        ragged_indexes = k2.RaggedTensor(word_ids_list, dtype=torch.int32)
-        ans = self.ragged_lexicon.index(ragged_indexes)
-        ans = ans.remove_axis(ans.num_axes - 2)
-        return ans
-
-    def words_to_token_ids(self, words: List[str]) -> k2.RaggedTensor:
-        """Convert a list of words to a ragged tensor containing token IDs.
-
-        We assume there are no OOVs in "words".
-
-        Arguments
-        ---------
-        words: List[str]
-            A list of words. Each word is a string.
-
-        Returns
-        -------
-        A ragged int tensor with 2 axes [utterance][token_id]
-        """
-        word_ids = [self.word_table[w] for w in words]
-        word_ids = torch.tensor(word_ids, dtype=torch.int32)
-
-        ragged, _ = self.ragged_lexicon.index(
-            indexes=word_ids, axis=0, need_value_indexes=False,
-        )
-        return ragged

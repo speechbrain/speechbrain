@@ -17,16 +17,12 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
-try:
-    import k2
-except ImportError:
-    MSG = "Please install k2 to use k2 training \n"
-    MSG += "E.G. run: pip install k2\n"
-    raise ImportError(MSG)
+from . import k2 # import k2 from ./__init__.py
+from .lexicon import read_lexicon, write_lexicon
 
 import torch
 
-from speechbrain.k2_integration.lexicon import read_lexicon, write_lexicon
+logger = logging.getLogger(__name__)
 
 Lexicon = List[Tuple[str, List[str]]]
 
@@ -433,8 +429,12 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     out_dir = Path(lang_dir)
     lexicon_filename = out_dir / "lexicon.txt"
 
-    # backup the original L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and
-    # lexicon_disambig.txt
+    # backup L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and lexicon_disambig.txt
+    # if source lexicon_filename has been re-created (only use 'Linv.pt' for date modification query)
+    if (out_dir / "Linv.pt").exists() and (out_dir / "Linv.pt").stat().st_mtime < lexicon_filename.stat().st_mtime:
+        logger.info("Skipping lang preparation, completed in previous run.")
+        return
+
     for f in [
         "L.pt",
         "L_disambig.pt",
@@ -445,7 +445,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     ]:
         if (out_dir / f).exists():
             os.makedirs(out_dir / "backup", exist_ok=True)
-            logging.info(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
+            logger.info(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
             os.rename(out_dir / f, out_dir / "backup" / f)
 
     lexicon = read_lexicon(str(lexicon_filename))
@@ -512,6 +512,6 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     torch.save(L.as_dict(), out_dir / "L.pt")
     torch.save(L_disambig.as_dict(), out_dir / "L_disambig.pt")
 
-    logging.info("Converting L.pt to Linv.pt")
+    logger.info("Converting L.pt to Linv.pt")
     L_inv = k2.arc_sort(L.invert())
     torch.save(L_inv.as_dict(), out_dir / "Linv.pt")

@@ -35,12 +35,12 @@ test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev-clean.csv
+valid_csv: !ref <output_folder>/dev-clean-mini.csv
 test_csv:
-   - !ref <output_folder>/test-clean.csv
-   - !ref <output_folder>/test-other.csv
-   - !ref <output_folder>/dev-clean.csv
-   - !ref <output_folder>/dev-other.csv
+   - !ref <output_folder>/test-clean-mini.csv
+   # - !ref <output_folder>/test-other.csv
+   # - !ref <output_folder>/dev-clean.csv
+   # - !ref <output_folder>/dev-other.csv
 
 # For k2 CTC training
 lang_dir: !ref <output_folder>/lang

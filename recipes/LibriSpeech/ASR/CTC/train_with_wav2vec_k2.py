@@ -8,6 +8,7 @@ The neural network is trained on CTC likelihood target and character units
 are used as basic recognition tokens.
 
 Authors
+ * Pierre Champion 2023
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
  * Rudolf A Braun 2022
@@ -30,10 +31,7 @@ from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
-from speechbrain.k2_integration.prepare_lang import prepare_lang
-from speechbrain.k2_integration.graph_compiler import CtcTrainingGraphCompiler
-from speechbrain.k2_integration.lexicon import Lexicon, get_lexicon
-from speechbrain.k2_integration.utils import arpa_to_fst
+import speechbrain.k2_integration as sbk2
 
 logger = logging.getLogger(__name__)
 
@@ -346,9 +344,9 @@ def dataio_prepare(hparams):
     return train_data, valid_data, test_datasets
 
 
-def get_graph_compiler(hparams, device):
-    """This function creates the graph compiler for k2 training.
-    There are four cases:
+def get_decoder(hparams, decodingGraph, is_test=True, device="cpu"):
+    """This function creates the decoder for k2 graph compiler decoding.
+    There are three cases:
         - HLG is needed and 4gram rescoring is needed. In that case,
           need_G and need_4gram are both True and we will create
           G_3_gram.fst.txt and G_4_gram.fst.txt. Note that the 3gram
@@ -356,10 +354,6 @@ def get_graph_compiler(hparams, device):
         - HLG is needed but 4gram rescoring is not needed. In that case,
           need_G is True and need_4gram is False and we will create
           G_3_gram.fst.txt. Note that the 3gram ARPA lm will need to
-          exist under `hparams['lm_dir']`.
-        - HLG is not needed but 4gram rescoring is needed. In that case,
-          need_G is False and need_4gram is True and we will create
-          G_4_gram.fst.txt. Note that the 4gram ARPA lm will need to
           exist under `hparams['lm_dir']`.
         - HLG is not needed and 4gram rescoring is not needed. In that case,
           need_G is False and need_4gram is False and we will not create any FST.
@@ -375,43 +369,46 @@ def get_graph_compiler(hparams, device):
     need_4gram = (
         hparams.get("decoding_method", None) == "whole-lattice-rescoring"
     )
-    rescoring_lm_path = None
-    G_path = None
-    # NOTE: This means that even if the 3gram G is not needed, but we still plan to
-    #       rescore, then G_3_gram.fst.txt will still be created (i.e. if HLG is False
-    #       but the decoding method is whole-lattice-rescoring, then G_3_gram.fst.txt
-    #       will still be created).
-    if need_G or need_4gram:
-        # Create the G_3_gram.fst.txt for k2 decoding and G_4_gram.fst.txt for k2 rescoring
-        logger.info("Converting arpa LM to FST")
+    # check if need_G is true when need_4gram is true (e.g., use "whole-lattice-rescoring")
+    assert (need_4gram and need_G) or (not need_G and not need_4gram), \
+    f"invalid configuration, need_G={need_G} and need_4gram={need_4gram} not compatible"
+
+    no_G = need_G or need_4gram # no lattice rescoring
+
+    if not no_G:
+        logger.info("Converting arpa LM(s) to FST(s)")
         G_path = Path(hparams["lm_dir"]) / hparams["trigram_fst_output_name"]
         rescoring_lm_path = (
             Path(hparams["lm_dir"]) / hparams["fourgram_fst_output_name"]
         )
         logger.info(f"Will load LM from {G_path}")
+        lm_dir = Path(hparams["lm_dir"])
         run_on_main(
-            arpa_to_fst,
+            sbk2.utils.arpa_to_fst,
             kwargs={
-                "arpa_dir": Path(hparams["lm_dir"]),
-                "output_dir": Path(hparams["lm_dir"]),
                 "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "convert_4gram": need_4gram,
-                "trigram_arpa_name": Path(hparams["lm_dir"])
-                / hparams["trigram_arpa_name"],
-                "fourgram_arpa_name": Path(hparams["lm_dir"])
-                / hparams["fourgram_arpa_name"],
-                "trigram_fst_output_name": G_path,
-                "fourgram_fst_output_name": rescoring_lm_path,
+                "in_arpa_files": [
+                    lm_dir / hparams["trigram_arpa_name"],
+                ] + (lm_dir / hparams["fourgram_arpa_name"] if need_4gram else []),
+                "out_fst_files": [
+                    lm_dir / G_path,
+                ] + ([lm_dir / rescoring_lm_path] if need_4gram else []),
+                "lms_ngram_orders": [
+                    3
+                ] + ([4] if need_4gram else [])
             },
         )
         assert G_path.is_file(), f"{G_path} does not exist"
-    graph_compiler = CtcTrainingGraphCompiler(
-        lexicon=lexicon,
-        device=device,
-        G_path=G_path,
-        rescoring_lm_path=rescoring_lm_path if need_4gram else None,
-    )
-    return graph_compiler
+
+    lm_scale = hparams["lm_scale"]
+
+    if is_test:
+        L.log_unknown_warning = False
+
+    if no_G:
+        sbk2.graph_compiler.compile_HL(decodingGraph.H, decodingGraph.L)
+    else:
+        sbk2.graph_compiler.compile_HLG(decodingGraph.H, decodingGraph.L)
 
 
 if __name__ == "__main__":
@@ -459,7 +456,7 @@ if __name__ == "__main__":
 
     # Create the lexicon.txt for k2 training
     run_on_main(
-        get_lexicon,
+        sbk2.lexicon.prepare_lexicon,
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "csv_files": [hparams["output_folder"] + "/train.csv"],
@@ -470,14 +467,14 @@ if __name__ == "__main__":
 
     # Create the lang directory for k2 training
     run_on_main(
-        prepare_lang,
+        sbk2.prepare_lang.prepare_lang,
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "sil_prob": hparams["sil_prob"],
         },
     )
 
-    lexicon = Lexicon(hparams["lang_dir"])
+    L = sbk2.lexicon.Lexicon(hparams["lang_dir"])
 
     # Trainer initialization
     asr_brain = ASR(
@@ -487,8 +484,10 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    graph_compiler = get_graph_compiler(hparams, asr_brain.device)
-
+    graph_compiler = sbk2.graph_compiler.CharCtcTrainingGraphCompiler(
+        lexicon=L,
+        device=asr_brain.device,
+    )
     # Add attributes to asr_brain
     setattr(asr_brain, "graph_compiler", graph_compiler)
 
@@ -509,13 +508,8 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+            hparams["output_folder"], "wer_{}_lm_scale_{}.txt".format(k, hparams["lm_scale"])
         )
-        if asr_brain.hparams.decoding_method != "1best":
-            # define the metrics directory for whole-lattice rescoring
-            asr_brain.hparams.metrics_dir = os.path.join(
-                hparams["output_folder"], f"test_metrics_{k}"
-            )
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
         )
