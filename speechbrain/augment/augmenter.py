@@ -237,41 +237,41 @@ class Augmenter(torch.nn.Module):
         lengths : torch.Tensor
             The length of each sequence in the batch.
         """
-
-        # Select protion of the input batch to augment
         x_original = x
         len_original = lengths
-        if self.augment_end_index is None:
-            self.augment_end_index = x.shape[0]
 
-        if (
-            self.augment_end_index > x.shape[0]
-            or self.augment_start_index > x.shape[0]
-        ):
-            raise ValueError(
-                "Augment_end_index must be smaller or equal than the batch size of the input signal x."
-            )
+        # Determine the ending index for augmentation, considering user-specified or default values.
+        augment_end_index_batch = (
+            min(self.augment_end_index, x.shape[0])
+            if self.augment_end_index is not None
+            else x.shape[0]
+        )
 
-        # Check concat indexes
-        if self.concat_end_index is None:
-            self.concat_end_index = x_original.shape[0]
+        # If the augmentation starting index is beyond the size of the data, return the original data.
+        if self.augment_start_index > x.shape[0]:
+            return x, lengths
 
-        if (
-            self.concat_end_index > x_original.shape[0]
-            or self.concat_start_index > x_original.shape[0]
-        ):
-            raise ValueError(
-                "concat_end_index must be smaller or equal than the batch size of the input signal x"
-            )
+        # Determine the ending index for concatenation, considering user-specified or default values.
+        concat_end_index_batch = (
+            min(self.concat_end_index, x_original.shape[0])
+            if self.concat_end_index is not None
+            else x_original.shape[0]
+        )
 
-        x = x[self.augment_start_index : self.augment_end_index]
-        lengths = lengths[self.augment_start_index : self.augment_end_index]
+        # If the concatenation starting index is beyond the size of the data, return the original data.
+        if self.concat_start_index > x.shape[0]:
+            return x, lengths
+
+        # Select the portion of the input to augment and update lengths accordingly.
+        x = x[self.augment_start_index : augment_end_index_batch]
+        lengths = lengths[self.augment_start_index : augment_end_index_batch]
 
         # Select the number of augmentations to apply
         self.N_augment = torch.randint(
             low=self.min_augmentations,
             high=self.max_augmentations + 1,
             size=(1,),
+            device=x.device,
         )
 
         # Get augmentations list
@@ -300,10 +300,10 @@ class Augmenter(torch.nn.Module):
         # Concatenate the original signal if required
         if self.concat_original:
             output_lst.append(
-                x_original[self.concat_start_index : self.concat_end_index]
+                x_original[self.concat_start_index : concat_end_index_batch]
             )
             output_len_lst.append(
-                len_original[self.concat_start_index : self.concat_end_index]
+                len_original[self.concat_start_index : concat_end_index_batch]
             )
 
         # Perform augmentations

@@ -377,7 +377,10 @@ class RandomShift(torch.nn.Module):
         """
         # Pick a frequency to drop
         N_shifts = torch.randint(
-            low=self.min_shift, high=self.max_shift + 1, size=(1,)
+            low=self.min_shift,
+            high=self.max_shift + 1,
+            size=(1,),
+            device=waveforms.device,
         )
         waveforms = torch.roll(waveforms, shifts=N_shifts.item(), dims=self.dim)
 

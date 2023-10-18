@@ -1305,7 +1305,10 @@ class DoClip(torch.nn.Module):
 
         # Randomly select clip value
         clipping_range = self.clip_high - self.clip_low
-        clip_value = torch.rand(1)[0] * clipping_range + self.clip_low
+        clip_value = (
+            torch.rand(1, device=waveforms.device)[0] * clipping_range
+            + self.clip_low
+        )
 
         # Apply clipping
         clipped_waveform = waveforms.clamp(-clip_value, clip_value)
