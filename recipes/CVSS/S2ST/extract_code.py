@@ -172,6 +172,7 @@ def extract_cvss(
     if not kmeans_ckpt.exists():
         logger.info("K-means checkpoint not found, downloading it from HF.")
         kmeans_download_path = save_folder / "pretrained_models/quantization"
+        kmeans_download_path.mkdir(exist_ok=True, parents=True)
         hf_hub_download(
             repo_id=kmeans_folder.as_posix(),
             filename="kmeans.ckpt",

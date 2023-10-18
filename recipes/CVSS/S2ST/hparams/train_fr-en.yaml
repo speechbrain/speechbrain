@@ -20,6 +20,8 @@ progress_sample_path: !ref <output_folder>/samples
 progress_samples_interval: 1
 progress_batch_sample_size: 4
 
+evaluation_interval: 4
+
 #################################
 # Data files and pre-processing #
 #################################

@@ -69,29 +69,39 @@ class S2UT(sb.core.Brain):
         wavs = None
         transcripts = None
         if stage != sb.Stage.TRAIN:
-            ids = batch.id
-            tgt_text = batch.tgt_text
+            if (
+                stage == sb.Stage.TEST
+                or self.hparams.epoch_counter.current
+                % self.hparams.evaluation_interval
+                == 0
+            ):
+                ids = batch.id
+                tgt_text = batch.tgt_text
 
-            search = (
-                self.hparams.valid_search
-                if stage == sb.Stage.VALID
-                else self.hparams.test_search
-            )
-            hyps, _ = search(enc_out.detach(), wav_lens)
+                search = (
+                    self.hparams.valid_search
+                    if stage == sb.Stage.VALID
+                    else self.hparams.test_search
+                )
+                hyps, _ = search(enc_out.detach(), wav_lens)
 
-            # generate speech and transcriptions
-            wavs = []
-            for hyp in hyps:
-                if len(hyp) > 3:
-                    code = torch.LongTensor(hyp)
-                    wav = self.test_vocoder.decode_unit(code)
-                    wavs.append(wav.squeeze(0))
-            if wavs:
-                wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
-                transcripts, _ = self.test_asr.transcribe_batch(wavs, wav_lens)
-                transcripts = [transcript.lower() for transcript in transcripts]
+                # generate speech and transcriptions
+                wavs = []
+                for hyp in hyps:
+                    if len(hyp) > 3:
+                        code = torch.LongTensor(hyp)
+                        wav = self.test_vocoder.decode_unit(code)
+                        wavs.append(wav.squeeze(0))
+                if wavs:
+                    wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
+                    transcripts, _ = self.test_asr.transcribe_batch(
+                        wavs, wav_lens
+                    )
+                    transcripts = [
+                        transcript.lower() for transcript in transcripts
+                    ]
 
-                self.bleu_metric.append(ids, transcripts, [tgt_text])
+                    self.bleu_metric.append(ids, transcripts, [tgt_text])
 
         return (
             p_seq,
@@ -122,10 +132,15 @@ class S2UT(sb.core.Brain):
         loss = self.hparams.seq_cost(p_seq, tokens_eos, length=tokens_eos_lens)
 
         if stage != sb.Stage.TRAIN:
-            # compute the accuracy of the one-step-forward prediction
-            self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
+            if (
+                stage == sb.Stage.TEST
+                or self.hparams.epoch_counter.current
+                % self.hparams.evaluation_interval
+                == 0
+            ):
+                # compute the accuracy of the one-step-forward prediction
+                self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
 
-            if stage == sb.Stage.VALID:
                 tgt_wavs, _ = batch.tgt_sig
                 tgt_transcripts = batch.tgt_text
 
@@ -240,10 +255,15 @@ class S2UT(sb.core.Brain):
             The current epoch count.
         """
         if stage != sb.Stage.TRAIN:
+            if (
+                stage == sb.Stage.VALID
+                and epoch % self.hparams.evaluation_interval != 0
+            ):
+                return
+
             self.acc_metric = self.hparams.acc_computer()
             self.bleu_metric = self.hparams.bleu_computer()
             self.last_batch = None
-            self.last_epoch = 0
 
             logger.info("Loading pretrained HiFi-GAN ...")
             self.test_vocoder = UnitHIFIGAN.from_hparams(
@@ -276,7 +296,10 @@ class S2UT(sb.core.Brain):
             self.train_stats = stage_loss
 
         # At the end of validation, we can write
-        elif stage == sb.Stage.VALID:
+        elif (
+            stage == sb.Stage.VALID
+            and epoch % self.hparams.evaluation_interval == 0
+        ):
             # delete vocoder and asr to free memory for next training epoch
             del self.test_vocoder
             del self.test_asr
@@ -293,7 +316,6 @@ class S2UT(sb.core.Brain):
             if output_progress_sample:
                 self._save_progress_sample(epoch)
 
-            self.last_epoch = epoch
             current_epoch = self.hparams.epoch_counter.current
             lr_model = self.hparams.noam_annealing.current_lr
             lr_wav2vec = 0.0
