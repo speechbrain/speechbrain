@@ -64,6 +64,7 @@ class ASR(sb.Brain):
         hyps = None
         if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.valid_searcher(x, wav_lens)
+
         elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_searcher(x, wav_lens)
 
