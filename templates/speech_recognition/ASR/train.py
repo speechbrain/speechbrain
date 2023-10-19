@@ -391,10 +391,18 @@ def dataio_prepare(hparams):
     # does not harm the performance.
     if hparams["sorting"] == "ascending":
         datasets["train"] = datasets["train"].filtered_sorted(sort_key="length")
+        datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="length")
+        datasets["test"] = datasets["test"].filtered_sorted(sort_key="length")
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         datasets["train"] = datasets["train"].filtered_sorted(
+            sort_key="length", reverse=True
+        )
+        datasets["valid"] = datasets["valid"].filtered_sorted(
+            sort_key="length", reverse=True
+        )
+        datasets["test"] = datasets["test"].filtered_sorted(
             sort_key="length", reverse=True
         )
         hparams["train_dataloader_opts"]["shuffle"] = False
