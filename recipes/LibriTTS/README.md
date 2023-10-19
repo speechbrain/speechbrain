@@ -19,6 +19,9 @@ The training logs are available [here](https://www.dropbox.com/sh/ti2vk7sce8f9fg
 
 The pre-trained model with an easy-inference interface is available on [HuggingFace](https://huggingface.co/speechbrain/tts-mstacotron2-libritts).
 
+**Please Note**: The current model effectively captures speaker identities. Nevertheless, the synthesized speech quality exhibits some metallic characteristics and may include artifacts like overly long pauses.
+We are actively working to enhancing the model and will release updates as soon as improvements are achieved. We warmly welcome contributions from the community to collaboratively make the model even better!
+
 # HiFi GAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotron2).
