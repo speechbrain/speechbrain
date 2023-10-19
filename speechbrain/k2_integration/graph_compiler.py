@@ -13,7 +13,7 @@ Authors:
 
 import os
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Tuple
 import abc
 
 from . import k2 # import k2 from ./__init__.py
@@ -56,27 +56,41 @@ class GraphCompiler(abc.ABC):
 
         logger.info("Arc sorting HL")
         HL = k2.arc_sort(HL)
-        logger.info(f"HL.shape: {HL.shape}")
+        logger.debug(f"HL.shape: {HL.shape}")
         return HL
 
-    def compile_HLG(self, G):
+    def compile_HLG(self, G, cache_to: Optional[str] = None):
         """
         Compile the decoding graph by composing H with LG.
         This is for decoding with language model.
         """
+        logger.info("Arc sorting L")
         L = k2.arc_sort(self.lexicon.L_disambig).to("cpu")
         G = k2.arc_sort(G).to("cpu")
         H = self.topo.to("cpu")
-        logger.debug("Intersecting L and G")
+
+        file_hash = str(hash(H.shape[0]))+str(hash(L.shape[0]))+str(hash(G.shape[0]))
+        path = cache_to+"/.HLG_"+file_hash+".pt"
+        if cache_to is not None:
+            if os.path.exists(path):
+                logger.warning(
+                    f"Loading HLG '{path}' from its cached .pt format."
+                    " Consider deleting the previous .pt file if"
+                    " this is not what you want."
+                )
+                HLG = k2.Fsa.from_dict(torch.load(path, map_location="cpu"))
+                return HLG
+
+        logger.info("Intersecting L and G")
         LG = k2.compose(L, G)
 
-        logger.debug("Connecting LG")
+        logger.info("Connecting LG")
         LG = k2.connect(LG)
 
-        logger.debug("Determinizing LG")
+        logger.info("Determinizing LG")
         LG = k2.determinize(LG)
 
-        logger.debug("Connecting LG after k2.determinize")
+        logger.info("Connecting LG after k2.determinize")
         LG = k2.connect(LG)
         LG = self.lexicon.remove_LG_disambig_symbols(LG)
 
@@ -84,18 +98,23 @@ class GraphCompiler(abc.ABC):
 
         LG = k2.connect(LG)
         LG.aux_labels = LG.aux_labels.remove_values_eq(0)
-        logger.debug("Arc sorting LG")
+        logger.info("Arc sorting LG")
         LG = k2.arc_sort(LG)
 
-        logger.debug("Composing H and LG")
+        logger.info("Composing H and LG")
         HLG = k2.compose(H, LG, inner_labels="tokens")
 
-        logger.debug("Connecting HLG")
+        logger.info("Connecting HLG")
         HLG = k2.connect(HLG)
 
-        logger.debug("Arc sorting HLG")
+        logger.info("Arc sorting HLG")
         HLG = k2.arc_sort(HLG)
-        logger.info(f"HLG.shape: {HLG.shape}")
+        logger.debug(f"HLG.shape: {HLG.shape}")
+
+        if cache_to is not None:
+            logger.info("Caching HLG to: "+cache_to)
+            torch.save(HLG.as_dict(), path)
+
         return HLG
 
 
@@ -116,16 +135,6 @@ class CtcGraphCompiler(GraphCompiler):
         details. Note: The above change MUST be included in k2 to enable this
         flag so make sure you have an up-to-date version.
     """
-
-    # G_path: str
-    #     Path to the language model FST to be used in the decoding-graph creation.
-    #     If None, then we assume that the language model is not used.
-    # rescoring_lm_path: Path | str
-    #     Path to the language model FST to be used in the rescoring of the decoding
-    #     graph. If None, then we assume that the language model is not used.
-        # G_path: Union[Path, str, None] = None,
-        # rescoring_lm_path: Union[Path, str, None] = None,
-
 
     def __init__(
         self,
@@ -163,7 +172,7 @@ class CtcGraphCompiler(GraphCompiler):
     def device(self):
         return self._device
 
-    def compile(self, texts: List[str]) -> k2.Fsa:
+    def compile(self, texts: List[str], is_training: bool = True) -> k2.Fsa:
         """Build decoding graphs by composing ctc_topo with
         given transcripts.
 
@@ -176,14 +185,25 @@ class CtcGraphCompiler(GraphCompiler):
 
                 ['hello icefall', 'CTC training with k2']
 
+        is_training : bool
+            If true, in training mode.
+
         Returns
         -------
-        decoding_graph:
+        decoding_graph: GraphCompiler
             An FsaVec, the composition result of `self.ctc_topo` and the
             transcript FSA.
+        target_lens: Torch.tensor
+            It is an long tensor of shape (batch,). It contains lengths of
+            each target sequence.
         """
-        word_ids_list = self.lexicon.texts_to_ids(texts)
+
+        word_ids_list = self.lexicon.texts_to_ids(texts, log_unknown_warning=is_training)
         word_fsa = k2.linear_fsa(word_ids_list, self.device)
+
+        target_lens = torch.tensor(
+            [len(t) for t in word_ids_list], dtype=torch.long
+        )
 
         word_fsa_with_self_loops = k2.add_epsilon_self_loops(word_fsa)
 
@@ -209,84 +229,4 @@ class CtcGraphCompiler(GraphCompiler):
 
         assert decoding_graph.requires_grad is False
 
-        return decoding_graph
-
-    def decode(
-        self,
-        log_probs: torch.Tensor,
-        input_lens: torch.Tensor,
-        search_beam=5,
-        output_beam=5,
-        ac_scale=1.0,
-        min_active_states=300,
-        max_active_states=1000,
-    ) -> List[str]:
-        """
-        Decode the given log_probs with self.decoding_graph without language model.
-
-        Arguments
-        ---------
-        log_probs: torch.Tensor
-            It is an input tensor of shape (batch, seq_len, num_tokens).
-        input_lens: torch.Tensor
-            It is an int tensor of shape (batch,). It contains lengths of
-            each sequence in `log_probs`.
-        search_beam: int
-            decoding beam size
-        output_beam: int
-            lattice beam size
-        ac_scale: float
-            acoustic scale applied to `log_probs`
-        min_active_states: int
-            minimum #states that are not pruned during decoding
-        max_active_states: int
-            maximum #active states that are kept during decoding
-
-        Returns
-        -------
-        A list of strings, each of which is the decoding result of the
-        corresponding utterance.
-        """
-        lm_scale = lm_scale or 0.4
-        device = log_probs.device
-        input_lens = input_lens.to(device)
-
-        input_lens = (input_lens * log_probs.shape[1]).round().int()
-        # NOTE: low ac_scales may results in very big lattices and OOM errors.
-        log_probs *= ac_scale
-
-        with torch.no_grad():
-            lattice = k2.get_lattice(
-                log_probs,
-                input_lens,
-                self.decoding_graph,
-                search_beam=search_beam,
-                output_beam=output_beam,
-                min_active_states=min_active_states,
-                max_active_states=max_active_states,
-            )
-            if decoding_method == "1best":
-                key = "no_rescore"
-                best_path = {
-                    key: lattice_decode.one_best_decoding(
-                        lattice=lattice, use_double_scores=True
-                    )
-                }
-                out = utils.lattice_to_text(best_path[key], self.word_table)
-            elif decoding_method == "whole-lattice-rescoring":
-                best_path = lattice_decode.rescore_with_whole_lattice(
-                    lattice=lattice.to(self.device),
-                    G_with_epsilon_loops=self.rescoring_graph,
-                    lm_scale_list=[lm_scale],
-                    use_double_scores=True,
-                )
-                out = utils.lattice_to_text(best_path[f"lm_scale_{lm_scale:.1f}"], self.word_table)
-            else:
-                raise ValueError(
-                    f"Decoding method '{decoding_method}' not supported."
-                )
-            del lattice
-            del best_path
-            torch.cuda.empty_cache()
-
-            return out
+        return decoding_graph, target_lens

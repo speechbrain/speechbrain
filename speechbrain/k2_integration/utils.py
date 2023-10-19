@@ -23,15 +23,15 @@ from typing import Dict, List, Optional, Union
 logger = logging.getLogger(__name__)
 
 
-def get_texts(
-    best_paths: k2.Fsa, return_ragged: bool = False
+def lattice_path_to_textid(
+    best_path: k2.Fsa, return_ragged: bool = False
 ) -> Union[List[List[int]], k2.RaggedTensor]:
     """Extract the texts (as word IDs) from the best-path FSAs.
 
     Arguments
     ---------
-    best_paths: k2.Fsa
-        A k2.Fsa with best_paths.arcs.num_axes() == 3, i.e.
+    best_path: k2.Fsa
+        A k2.Fsa with best_path.arcs.num_axes() == 3, i.e.
         containing multiple FSAs, which is expected to be the result
         of k2.shortest_path (otherwise the returned values won't
         be meaningful).
@@ -44,11 +44,11 @@ def get_texts(
     Returns a list of lists of int, containing the label sequences we
     decoded.
     """
-    if isinstance(best_paths.aux_labels, k2.RaggedTensor):
+    if isinstance(best_path.aux_labels, k2.RaggedTensor):
         # remove 0's and -1's.
-        aux_labels = best_paths.aux_labels.remove_values_leq(0)
+        aux_labels = best_path.aux_labels.remove_values_leq(0)
         # TODO: change arcs.shape() to arcs.shape
-        aux_shape = best_paths.arcs.shape().compose(aux_labels.shape)
+        aux_shape = best_path.arcs.shape().compose(aux_labels.shape)
 
         # remove the states and arcs axes.
         aux_shape = aux_shape.remove_axis(1)
@@ -56,8 +56,8 @@ def get_texts(
         aux_labels = k2.RaggedTensor(aux_shape, aux_labels.values)
     else:
         # remove axis corresponding to states.
-        aux_shape = best_paths.arcs.shape().remove_axis(1)
-        aux_labels = k2.RaggedTensor(aux_shape, best_paths.aux_labels)
+        aux_shape = best_path.arcs.shape().remove_axis(1)
+        aux_labels = k2.RaggedTensor(aux_shape, best_path.aux_labels)
         # remove 0's and -1's.
         aux_labels = aux_labels.remove_values_leq(0)
 
@@ -68,8 +68,7 @@ def get_texts(
         return aux_labels.tolist()
 
 
-
-def lattice_to_text(best_path: k2.Fsa, word_table) -> List[str]:
+def lattice_path_to_text(best_path: k2.Fsa, word_table) -> List[str]:
     """Convert the best path to a list of strings.
 
     Arguments
@@ -83,7 +82,7 @@ def lattice_to_text(best_path: k2.Fsa, word_table) -> List[str]:
     A list of strings, each of which is the decoding result of the
     corresponding utterance.
     """
-    hyps: List[List[int]] = get_texts(best_path, return_ragged=False)
+    hyps: List[List[int]] = lattice_path_to_textid(best_path, return_ragged=False)
     texts = []
     for wids in hyps:
         texts.append(" ".join([word_table[wid] for wid in wids]))
@@ -124,8 +123,10 @@ def arpa_to_fst(
     ---------
         importerror: if kaldilm is not installed.
     """
-    assert len(in_arpa_files) == len(out_fst_files)
-    assert len(in_arpa_files) == len(lms_ngram_orders)
+    assert len(in_arpa_files) == len(out_fst_files),\
+    f"in_arpa_files {len(in_arpa_files)} != out_fst_files {len(out_fst_files)} "
+    assert len(in_arpa_files) == len(lms_ngram_orders),\
+    f"in_arpa_files {len(in_arpa_files)} != lms_ngram_orders {len(lms_ngram_orders)} "
     try:
         from kaldilm.arpa2fst import arpa2fst
     except ImportError:
@@ -201,7 +202,8 @@ def load_G(
     if os.path.exists(path.replace(".fst.txt", ".pt")) and cache:
         logger.warning(
             f"Loading '{path}' from its cached .pt format."
-            "previous .pt file if this is not what you want."
+            " Consider deleting the previous .pt file if"
+            " this is not what you want."
         )
         G = k2.Fsa.from_dict(torch.load(path.replace(".fst.txt", ".pt"), map_location="cpu"))
         return G

@@ -10,8 +10,8 @@ Intended loading manner:
 try:
     import k2
 except ImportError:
-    MSG = "Please install k2 to use k2 training \n"
-    MSG += "E.G. run: pip install k2\n"
+    MSG = "Please install k2 to use k2\n"
+    MSG += "Checkout: https://k2-fsa.github.io/k2/installation/from_wheels.html"
     raise ImportError(MSG)
 
 from . import utils

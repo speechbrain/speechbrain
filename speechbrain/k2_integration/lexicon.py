@@ -18,7 +18,6 @@ Authors:
 
 import logging
 import re
-import sys
 import os
 from pathlib import Path
 from typing import List, Union, Tuple, Optional
@@ -30,7 +29,8 @@ import torch
 
 logger = logging.getLogger(__name__)
 
-UNK = "<UNK>"
+UNK = "<UNK>" # unknow token
+DISAMBIG_PATTERN: re.Pattern = re.compile(r"^#\d+$") # pattern for disambiguation symbols.
 
 class Lexicon(object):
     """Unit based lexicon. It is used to map a list of words to each word's
@@ -45,8 +45,6 @@ class Lexicon(object):
             - tokens.txt
             - words.txt
             - L.pt
-    disambig_pattern: str
-        It contains the pattern for disambiguation symbols.
 
     Example
     -------
@@ -73,7 +71,6 @@ class Lexicon(object):
     def __init__(
         self,
         lang_dir: Path,
-        disambig_pattern: re.Pattern = re.compile(r"^#\d+$"),  # type: ignore
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
@@ -102,7 +99,6 @@ class Lexicon(object):
         # transcript FSAs, both of whose labels are word IDs.
         self.L_inv = L_inv
         self.L = L
-        self.disambig_pattern = disambig_pattern
 
     @property
     def L_disambig(self) -> k2.Fsa:
@@ -193,7 +189,7 @@ class Lexicon(object):
                     if log_unknown_warning:
                         logger.warn(
                             f"Cannot find word {word} in the lexicon."
-                            f" Replacing it with OOV token. "
+                            f" Replacing it with OOV token."
                             f" Note that it is fine if you are testing."
                         )
 
@@ -228,17 +224,14 @@ class Lexicon(object):
     @property
     def tokens(self) -> List[int]:
         """Return a list of token IDs excluding those from
-        disambiguation symbols.
-
-        NOTE:
-          0 is not a token ID so it is excluded from the return value.
+        disambiguation symbols and <eps>.
         """
         symbols = self.token_table.symbols
         ans = []
         for s in symbols:
-            if not self.disambig_pattern.match(s):
+            if not DISAMBIG_PATTERN.match(s):
                 ans.append(self.token_table[s])
-        if 0 in ans:
+        if 0 in ans: # remove <eps>
             ans.remove(0)
         ans.sort()
         return ans
@@ -415,22 +408,19 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
             a = whitespace.split(line.strip(" \t\r\n"))
             if len(a) == 0:
                 continue
-
             if len(a) < 2:
-                logger.info(f"Found bad line {line} in lexicon file {filename}")
-                logger.info(
+                raise RuntimeError(
+                    f"Found bad line {line} in lexicon file {filename}"
                     "Every line is expected to contain at least 2 fields"
                 )
-                sys.exit(1)
             word = a[0]
             if word == "<eps>":
-                logger.info(f"Found bad line {line} in lexicon file {filename}")
-                logger.info("<eps> should not be a valid word")
-                sys.exit(1)
-
+                raise RuntimeError(
+                    f"Found bad line {line} in lexicon file {filename}"
+                    "<eps> should not be a valid word"
+                )
             tokens = a[1:]
             ans.append((word, tokens))
-
     return ans
 
 

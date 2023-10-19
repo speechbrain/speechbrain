@@ -1,4 +1,4 @@
-"""Different decoding graph algorithms for k2, be it HL or HLG (with small LM
+"""Different decoding graph algorithms for k2, be it HL or HLG (with G LM
 and bigger rescoring LM).
 
 This code was adjusted from icefall (https://github.com/k2-fsa/icefall/blob/master/icefall/decode.py).
@@ -12,6 +12,7 @@ Authors:
 
 from pathlib import Path
 from typing import Dict, List, Optional, Union
+from collections import OrderedDict
 
 from . import k2 # import k2 from ./__init__.py
 from speechbrain.utils.distributed import run_on_main
@@ -30,18 +31,23 @@ def get_decoding(
     ) -> k2.Fsa:
     """This function reads a config and creates the decoder for k2 graph
     compiler decoding.
-    There are three cases:
-        - HLG is needed and LM rescoring is needed. In that case,
-          use_small_G and use_big_G are both True and we will create for
-          example G_3_gram.fst.txt and G_4_gram.fst.txt. Note that the 3gram
-          and 4gram ARPA lms will need to exist under `hparams['lm_dir']`.
-        - HLG is needed but LM rescoring is not needed. In that case,
-          use_small_G is True and use_big_G is False and we will create for
-          example G_3_gram.fst.txt. Note that the 3gram ARPA lm will need to
-          exist under `hparams['lm_dir']`.
-        - HLG is not needed so LM rescoring is also not needed. In that case,
-          use_small_G is False and use_big_G is False and we will not create
-          any FST.
+    There are the following cases:
+        - HLG is compiled and LM rescoring is used. In that case,
+          compose_HL_with_G and use_G_rescoring are both True and we will
+          create for example G_3_gram.fst.txt and G_4_gram.fst.txt. Note that
+          the 3gram and 4gram ARPA lms will need to exist under
+          `hparams['lm_dir']`.
+        - HLG is compiled but LM rescoring is not used. In that case,
+          compose_HL_with_G is True and use_G_rescoring is False and we will
+          create for example G_3_gram.fst.txt. Note that the 3gram ARPA lm will
+          need to exist under `hparams['lm_dir']`.
+        - HLG is not compiled (only use HL graph) and LM rescoring used.
+          In that case, compose_HL_with_G is False and use_G_rescoring is True.
+          Note that the 4gram ARPA lms will need to exist under
+          `hparams['lm_dir']`.
+        - HLG is not compiled (only use HL graph) and LM rescoring is not used.
+          In that case, compose_HL_with_G is False and use_G_rescoring is False
+          and we will not convert LM to FST.
 
     Arguments
     ---------
@@ -53,62 +59,79 @@ def get_decoding(
         The device to use.
     """
 
-    use_small_G = hparams.get("use_HLG") in [True, "True"]
-    use_big_G = (
+    compose_HL_with_G = hparams.get("compose_HL_with_G")
+    use_G_rescoring = (
         hparams.get("decoding_method") == "whole-lattice-rescoring"
-        # or ...
     )
-    # check if use_small_G is true when use_big_G is true (e.g., use "whole-lattice-rescoring")
-    assert (use_big_G and use_small_G) or (not use_small_G and not use_big_G), \
-    f"invalid configuration, use_small_G={use_small_G} and decoding_method={hparams.get('decoding_method')} not compatible"
 
-    no_G = not(use_small_G or use_big_G) # no LM
-
-    if not no_G:
+    if compose_HL_with_G or use_G_rescoring:
         logger.info("Converting arpa LM(s) to FST(s)")
-        G_path = Path(hparams["lm_dir"]) / hparams["small_fst_output_name"]
+        G_path = Path(hparams["lm_dir"]) / hparams["G_fst_output_name"]
         G_rescoring_path = (
-            Path(hparams["lm_dir"]) / hparams["big_fst_output_name"]
-        ) if use_big_G else None
+            Path(hparams["lm_dir"]) / hparams["G_rescoring_fst_output_name"]
+        ) if use_G_rescoring else None
         lm_dir = Path(hparams["lm_dir"])
         run_on_main(
             utils.arpa_to_fst,
             kwargs={
                 "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "in_arpa_files": [ lm_dir / hparams["small_arpa_name"],
-                ] +([lm_dir / hparams["big_arpa_name"] if use_big_G else []]),
-                "out_fst_files": [G_path, ] + ([ G_rescoring_path] if use_big_G else []),
-                "lms_ngram_orders": [ 3 ] + ([4] if use_big_G else [])
+                "in_arpa_files": [ lm_dir / hparams["G_arpa_name"],
+                ] +([lm_dir / hparams["G_rescoring_arpa_name"]] if use_G_rescoring else []),
+                "out_fst_files": [G_path, ] + ([ G_rescoring_path] if use_G_rescoring else []),
+                "lms_ngram_orders": [ 3 ] + ([4] if use_G_rescoring else [])
             },
         )
         assert G_path.is_file(), f"{G_path} does not exist"
 
-    lm_scale = hparams["lm_scale"]
-
-    if no_G:
-        decoding_graph = graphCompiler.compile_HL()
-    else:
-        logger.info(f"Loading small LM: {G_path}")
+    if compose_HL_with_G:
+        logger.info(f"Loading G LM: {G_path}")
         G = utils.load_G(G_path)
-        decoding_graph = graphCompiler.compile_HLG(G)
-        rescoring = lambda x: x
+        decoding_graph = graphCompiler.compile_HLG(G, cache_to=hparams["output_folder"])
+    else:
+        decoding_graph = graphCompiler.compile_HL()
 
-    if use_big_G:
-        logger.info(f"Loading rescoring LM: {G_rescoring_path}")
-        G_rescoring_pt = utils.load_G(G_rescoring_path)
-        graphCompiler.lexicon.remove_G_rescoring_disambig_symbols(G_rescoring_pt)
-        G_rescoring = utils.prepare_rescoring_G(G_rescoring_pt)
+    if not isinstance(hparams["rescoring_lm_scale"], list):
+        hparams["rescoring_lm_scale"] = [hparams["rescoring_lm_scale"]]
+
+    def decoding_method(lattice:k2.Fsa) -> List[str]:
+        raise NotImplementedError(f"{hparams.get('decoding_method')} not implemented as a decoding_method")
 
     if hparams.get("decoding_method") == "whole-lattice-rescoring":
-        decoder = rescore_with_whole_lattice
-    else:
-        decoder = one_best_decoding
+        G_rescoring = None
+        def decoding_method(lattice:k2.Fsa) -> k2.Fsa:
+            """Get the best path from a lattice given rescoring_lm_scale."""
 
-    return {"decoding_graph":decoding_graph, "decoder":decoder}
+            # Lazy load rescoring G (takes a lot of time) for developer happiness
+            nonlocal G_rescoring
+            if G_rescoring is None:
+                logger.info(f"Decoding method: whole-lattice-rescoring")
+                logger.info(f"Loading rescoring LM: {G_rescoring_path}")
+                G_rescoring_pt = utils.load_G(G_rescoring_path)
+                graphCompiler.lexicon.remove_G_rescoring_disambig_symbols(G_rescoring_pt)
+                G_rescoring = utils.prepare_rescoring_G(G_rescoring_pt)
+
+            # rescore_with_whole_lattice returns a list of paths depending on
+            # lm_scale values.
+            return rescore_with_whole_lattice(
+                lattice,
+                G_rescoring,
+                lm_scale_list=hparams["rescoring_lm_scale"],
+            )
+
+    if hparams.get("decoding_method") in ["1best", "onebest"]:
+        logger.info(f"Decoding method: one-best-decoding")
+        def decoding_method(lattice:k2.Fsa) -> k2.Fsa:
+            """Get the best path from a lattice."""
+            return OrderedDict({"1best": one_best_decoding(lattice)})
 
 
+    return {"decoding_graph":decoding_graph,
+            "decoding_method":decoding_method}
+
+
+torch.no_grad()
 def get_lattice(
-    nnet_output: torch.Tensor,
+    log_probs_nnet_output: torch.Tensor,
     input_lens: torch.Tensor,
     decoder: k2.Fsa,
     search_beam: int = 5,
@@ -120,15 +143,16 @@ def get_lattice(
 ) -> k2.Fsa:
     """Get the decoding lattice from a decoding graph and neural network output.
 
+
     Arguments
     ---------
-    nnet_output:
+    log_probs_nnet_output:
         It is the output of a neural model of shape `(batch, seq_len, num_tokens)`.
     input_lens:
         It is an int tensor of shape (batch,). It contains lengths of
-        each sequence in `nnet_output`.
+        each sequence in `log_probs_nnet_output`.
     search_beam:
-        Decoding beam, e.g. 20.  Smaller is faster, larger is more exact
+        Decoding beam, e.g. 20.  Ger is faster, larger is more exact
         (less pruning). This is the default value; it may be modified by
         `min_active_states` and `max_active_states`.
     output_beam:
@@ -145,7 +169,7 @@ def get_lattice(
         in that it will try not to exceed that but may not always succeed.
         You can use a very large number if no constraint is needed.
     ac_scale:
-        acoustic scale applied to `nnet_output`
+        acoustic scale applied to `log_probs_nnet_output`
     subsampling_factor:
         The subsampling factor of the model.
 
@@ -154,65 +178,46 @@ def get_lattice(
       An FsaVec containing the decoding result. It has axes [utt][state][arc].
     """
 
-    with torch.no_grad():
-        device = nnet_output.device
-        input_lens = input_lens.to(device)
-        decoder = decoder.to(device)
+    device = log_probs_nnet_output.device
+    input_lens = input_lens.to(device)
+    decoder = decoder.to(device)
 
-        input_lens = (input_lens * nnet_output.shape[1]).round().int()
-        # NOTE: low ac_scales may results in very big lattices and OOM errors.
-        nnet_output *= ac_scale
+    input_lens = (input_lens * log_probs_nnet_output.shape[1]).round().int()
+    # NOTE: low ac_scales may results in very big lattices and OOM errors.
+    log_probs_nnet_output *= ac_scale
 
-        lattice = k2.get_lattice(
-            nnet_output,
-            input_lens,
-            decoder,
-            search_beam=search_beam,
-            output_beam=output_beam,
-            min_active_states=min_active_states,
-            max_active_states=max_active_states,
-            subsampling_factor=subsampling_factor,
-        )
+    lattice = k2.get_lattice(
+        log_probs_nnet_output,
+        input_lens,
+        decoder,
+        search_beam=search_beam,
+        output_beam=output_beam,
+        min_active_states=min_active_states,
+        max_active_states=max_active_states,
+        subsampling_factor=subsampling_factor,
+    )
 
-        return lattice
+    return lattice
 
 
 def one_best_decoding(
     lattice: k2.Fsa,
     use_double_scores: bool = True,
-    lm_scale_list: Optional[List[float]] = None,
-) -> Union[k2.Fsa, Dict[str, k2.Fsa]]:
+) -> k2.Fsa:
     """Get the best path from a lattice.
-
     Arguments
     ---------
-    lattice: k2.Fsa
+      lattice:
         The decoding lattice returned by :func:`get_lattice`.
-    use_double_scores: bool
+      use_double_scores:
         True to use double precision floating point in the computation.
         False to use single precision.
-    lm_scale_list: Optional[List[float]]
-        A list of floats representing LM score scales.
-
     Returns
     -------
-    An FsaVec containing linear paths.
+      An FsaVec containing linear paths.
     """
-    if lm_scale_list is not None:
-        ans = dict()
-        saved_am_scores = lattice.scores - lattice.lm_scores
-        for lm_scale in lm_scale_list:
-            am_scores = saved_am_scores / lm_scale
-            lattice.scores = am_scores + lattice.lm_scores
-
-            best_path = k2.shortest_path(
-                lattice, use_double_scores=use_double_scores
-            )
-            key = f"lm_scale_{lm_scale}"
-            ans[key] = best_path
-        return ans
-
-    return k2.shortest_path(lattice, use_double_scores=use_double_scores)
+    best_path = k2.shortest_path(lattice, use_double_scores=use_double_scores)
+    return best_path
 
 
 def rescore_with_whole_lattice(
@@ -221,15 +226,12 @@ def rescore_with_whole_lattice(
     lm_scale_list: Optional[List[float]] = None,
     use_double_scores: bool = True,
 ) -> Union[k2.Fsa, Dict[str, k2.Fsa]]:
-    """Intersect the lattice with an n-gram LM and use shortest path
-    to decode.
-
+    """Intersect the lattice with an n-gram LM and use shortest path to decode.
     The input lattice is obtained by intersecting `HLG` with
     a DenseFsaVec, where the `G` in `HLG` is in general a 3-gram LM.
     The input `G_with_epsilon_loops` is usually a 4-gram LM. You can consider
     this function as a second pass decoding. In the first pass decoding, we
     use a small G, while we use a larger G in the second pass decoding.
-
     Arguments
     ---------
     lattice: k2.Fsa
@@ -246,7 +248,6 @@ def rescore_with_whole_lattice(
     use_double_scores: bool
         True to use double precision in the computation.
         False to use single precision.
-
     Returns
     -------
     If `lm_scale_list` is None, return a new lattice which is the intersection
@@ -255,7 +256,7 @@ def rescore_with_whole_lattice(
     value is the decoding result (i.e., an FsaVec containing linear FSAs).
     """
     assert G_with_epsilon_loops.shape == (1, None, None)
-
+    G_with_epsilon_loops = G_with_epsilon_loops.to(lattice.device)
     device = lattice.device
     if hasattr(lattice, "lm_scores"):
         lattice.scores = lattice.scores - lattice.lm_scores
@@ -308,7 +309,7 @@ def rescore_with_whole_lattice(
             )
             logger.info(
                 "This OOM is not an error. You can ignore it. "
-                "If your model does not converge well, or --max-duration "
+                "If your model does not converge well, or the segment length "
                 "is too large, or the input sound file is difficult to "
                 "decode, you will meet this exception."
             )
@@ -327,16 +328,13 @@ def rescore_with_whole_lattice(
     if lm_scale_list is None:
         return lat
 
-    ans = dict()
+    ans = OrderedDict()
     saved_am_scores = lat.scores - lat.lm_scores
     for lm_scale in lm_scale_list:
         am_scores = saved_am_scores / lm_scale
         lat.scores = am_scores + lat.lm_scores
 
         best_path = k2.shortest_path(lat, use_double_scores=use_double_scores)
-        key = f"lm_scale_{lm_scale:.1f}"
+        key = f"whole_lattice_rescore_lm_scale_{lm_scale:.1f}"
         ans[key] = best_path
     return ans
-
-
-

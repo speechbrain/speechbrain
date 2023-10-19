@@ -29,6 +29,7 @@ import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
+from collections import defaultdict
 from pathlib import Path
 
 import speechbrain.k2_integration as sbk2
@@ -109,17 +110,6 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_texts = self.graph_compiler.decode(
-                p_ctc,
-                wav_lens,
-                ac_scale=self.hparams.ac_scale,
-                decoding_method="1best",
-            )  # list of strings
-            predicted_words = [wrd.split(" ") for wrd in predicted_texts]
-            target_words = [wrd.split(" ") for wrd in texts]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
-        if stage == sb.Stage.TEST:  # Language model decoding only used for test
             lattice = sbk2.lattice_decoder.get_lattice(
                 p_ctc,
                 wav_lens,
@@ -130,37 +120,30 @@ class ASR(sb.Brain):
                 max_active_states=self.hparams.test_max_active_state,
                 min_active_states=self.hparams.test_min_active_state,
             )
-            key = "no_rescore"
-            best_path = {
-                key: sbk2.lattice_decoder.one_best_decoding(
-                    lattice=lattice, use_double_scores=True
-                )
-            }
-            decode_output = sbk2.utils.lattice_to_text(best_path[key], self.graph_compiler.lexicon.word_table)
+             # 1best decoding for fast valid
+            paths = {"1best": sbk2.lattice_decoder.one_best_decoding(lattice)}
 
-            # best_path = 
-            # return loss
-            # decoding_method = self.hparams.decoding_method
-            # If the decoding method is 1best then the metric stats will be
-            # saved in a single file, otherwise, a new directory will be created
-            # for each lm_scale used in whole lattice rescoring.
-            # decode_output: List[str] = self.graph_compiler.decode(
-            #     p_ctc,
-            #     wav_lens,
-            #     search_beam=self.hparams.test_search_beam,
-            #     output_beam=self.hparams.test_output_beam,
-            #     ac_scale=self.hparams.ac_scale,
-            #     max_active_states=self.hparams.test_max_active_state,
-            #     is_test=True,
-            #     decoding_method=decoding_method,
-            #     lm_scale=self.hparams.lm_scale,
-            # )  # list of strings
-            target_words: List[List[str]] = [wrd.split(" ") for wrd in texts]
-            predicted_words: List[List[str]] = [
-                snt.split(" ") for snt in decode_output
-            ]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
+        if stage == sb.Stage.TEST: 
+            lattice = sbk2.lattice_decoder.get_lattice(
+                p_ctc,
+                wav_lens,
+                self.decoder["decoding_graph"],
+                search_beam=self.hparams.test_search_beam,
+                output_beam=self.hparams.test_output_beam,
+                ac_scale=self.hparams.ac_scale,
+                max_active_states=self.hparams.test_max_active_state,
+                min_active_states=self.hparams.test_min_active_state,
+            )
+            paths = self.decoder["decoding_method"](lattice)
+
+        if stage == sb.Stage.TEST or stage == sb.Stage.VALID:
+            for k, path in paths.items():
+                predicted_texts = sbk2.utils.lattice_path_to_text(path, self.lexicon.word_table)
+
+                predicted_words = [wrd.split(" ") for wrd in predicted_texts]
+                target_words = [wrd.split(" ") for wrd in texts]
+                self.wer_metrics[k].append(ids, predicted_words, target_words)
+                self.cer_metrics[k].append(ids, predicted_words, target_words)
         return loss
 
     def fit_batch(self, batch):
@@ -209,26 +192,25 @@ class ASR(sb.Brain):
         will be initialized (for each lm scale). Otherwise, a single class
         will be initialized for wer and cer, respectively.
         """
-        if stage != sb.Stage.TRAIN:
-            self.cer_metric = self.hparams.cer_computer()
-            self.wer_metric = self.hparams.error_rate_computer()
+        if stage == sb.Stage.VALID:
+            logger.info("Valid stage")
+        if stage == sb.Stage.TEST:
+            logger.info("Test stage")
+        self.cer_metrics = defaultdict(self.hparams.cer_computer)
+        self.wer_metrics = defaultdict(self.hparams.error_rate_computer)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch. During testing, its primary goal
-        is to summarize the WER/CER stats and save them in a txt file.
-        If the decoding method is whole-lattice-rescoring then we will
-        print the WER/CER score of the best lm_scale. In addition, we will
-        save the WER/CER scores of all lm_scales in separate txt files.
-        If the decoding method is 1best then we will print the WER/CER score
-        and save the results in a txt file.
+        is to summarize the WER/CER stats and save them in a file.
         """
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
-            stage_stats["CER"] = self.cer_metric.summarize("error_rate")
-            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+            # Only report the fist config (first rescoring_lm_scale value)
+            stage_stats["CER"] = list(self.cer_metrics.values())[0].summarize("error_rate")
+            stage_stats["WER"] = list(self.wer_metrics.values())[0].summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -262,8 +244,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
-                    self.wer_metric.write_stats(w)
+                for k, stat in self.wer_metrics.items():
+                    with open(self.hparams.wer_file+f"_{k}.txt", "w") as w:
+                        stat.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -427,8 +410,6 @@ if __name__ == "__main__":
         },
     )
 
-    lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
-
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
@@ -437,17 +418,23 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    # Add attributes to asr_brain
+    lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
+    setattr(asr_brain, "lexicon", lexicon)
+
     graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
         lexicon=lexicon,
         device=asr_brain.device,
     )
-    # Add attributes to asr_brain
     setattr(asr_brain, "graph_compiler", graph_compiler)
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(asr_brain.device)
+
+    decoder = sbk2.lattice_decoder.get_decoding(hparams, graph_compiler, device=asr_brain.device)
+    setattr(asr_brain, "decoder", decoder)
 
     # Training
     asr_brain.fit(
@@ -458,14 +445,12 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    decoder = sbk2.lattice_decoder.get_decoding(hparams, graph_compiler, device=asr_brain.device)
-    setattr(asr_brain, "decoder", decoder)
-
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}_lm_scale_{}.txt".format(k, hparams["lm_scale"])
-        )
+        wer_dir = os.path.join(hparams["output_folder"], f"metric_{k}")
+        os.makedirs(wer_dir, exist_ok=True)
+        exp = "HLG" if hparams["compose_HL_with_G"] else "HL"
+        asr_brain.hparams.wer_file = os.path.join(wer_dir, f"wer_{exp}")
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
         )
