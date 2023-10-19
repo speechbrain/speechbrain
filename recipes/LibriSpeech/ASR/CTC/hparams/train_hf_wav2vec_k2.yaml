@@ -26,10 +26,10 @@ wav2vec2_hub: facebook/wav2vec2-large-960h-lv60-self
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
-data_folder: "/data/pchampio/Librispeech/LibriSpeech" # e,g./path/to/LibriSpeech
+data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 # noise/ris dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
-train_splits: ["train-clean-100"]
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean", "dev-other"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
@@ -65,10 +65,10 @@ rescoring_lm_scale: 0.4
 # They can be in either ARPA or FST format. If the former, then
 # the FST equivalent will be created in the same directory by
 # using kaldilm.
-lm_dir: !ref <data_folder>/LM
+lm_dir: lm
 # The ARPA LM file names need to exist under the lm_dir.
 # - If the don't exist, then we will expect the FST equivalent
-#   files (small_fst_output_name and big_fst_output_name)
+#   files (G_fst_output_name and G_rescoring_fst_output_name)
 #   to exist under the lm_dir.
 # - If the ARPA LM files exist and the FSTs don't exist, then
 #   they will be created by using kaldilm.
@@ -79,7 +79,7 @@ G_fst_output_name: G_3_gram.fst.txt  # for HLG creation
 G_rescoring_fst_output_name: G_4_gram.fst.txt  # for LM rescoring
 
 # Training parameters
-number_of_epochs: 2
+number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending  # only ascending and descending are supported currently
