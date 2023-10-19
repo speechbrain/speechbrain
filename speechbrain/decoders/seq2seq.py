@@ -209,8 +209,8 @@ class S2SGreedySearcher(S2SBaseSearcher):
         ) = self._get_top_prediction(predictions, scores, log_probs)
 
         # Convert best hypothesis to list
-        hyps = undo_padding(top_hyps, top_lengths)
-
+        hyps = undo_padding(top_hyps[:, 0], top_lengths)
+ 
         return hyps, top_lengths, top_scores, top_log_probs
 
     def _get_top_prediction(self, hyps, scores, log_probs):
@@ -252,11 +252,11 @@ class S2SGreedySearcher(S2SBaseSearcher):
         )
 
         # Pick top log probabilities
-        top_log_probs = log_probs
+        top_log_probs = log_probs 
 
         # Use SpeechBrain style lengths
         top_lengths = (top_lengths - 1).abs() / max_length
-
+        
         return (
             hyps.unsqueeze(1),
             top_lengths.unsqueeze(1),
