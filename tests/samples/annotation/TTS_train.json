@@ -1,6 +1,6 @@
 {
   "LJ050-01310": {
-    "uttid": "LJ050-0131",
+    "uttid": "LJ050-01310",
     "wav": "{data_root}/LJ050-0131.wav",
     "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
     "segment": true,
@@ -11,10 +11,11 @@
     "end": 7.58,
     "durations": "{data_root}/d_LJ050-0131.npy",
     "pitch": "{data_root}/LJ050-0131.npy",
-    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1]
+    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+    "spk_id": "0000"
   },
   "LJ050-01311": {
-    "uttid": "LJ050-0131",
+    "uttid": "LJ050-01311",
     "wav": "{data_root}/LJ050-0131.wav",
     "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
     "segment": true,
@@ -25,10 +26,11 @@
     "end": 7.58,
     "durations": "{data_root}/d_LJ050-0131.npy",
     "pitch": "{data_root}/LJ050-0131.npy",
-    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1]
+    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+    "spk_id": "0000"
   },
   "LJ050-01312": {
-    "uttid": "LJ050-0131",
+    "uttid": "LJ050-01312",
     "wav": "{data_root}/LJ050-0131.wav",
     "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
     "segment": true,
@@ -39,10 +41,11 @@
     "end": 7.58,
     "durations": "{data_root}/d_LJ050-0131.npy",
     "pitch": "{data_root}/LJ050-0131.npy",
-    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1]
+    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+    "spk_id": "0000"
   },
   "LJ050-01313": {
-    "uttid": "LJ050-0131",
+    "uttid": "LJ050-01313",
     "wav": "{data_root}/LJ050-0131.wav",
     "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
     "segment": true,
@@ -53,10 +56,11 @@
     "end": 7.58,
     "durations": "{data_root}/d_LJ050-0131.npy",
     "pitch": "{data_root}/LJ050-0131.npy",
-    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1]
+    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+    "spk_id": "0000"
   },
   "LJ050-01314": {
-    "uttid": "LJ050-0131",
+    "uttid": "LJ050-01314",
     "wav": "{data_root}/LJ050-0131.wav",
     "label": "unless a system is established for the frequent formal review of activities thereunder. in this regard",
     "segment": true,
@@ -67,6 +71,7 @@
     "end": 7.58,
     "durations": "{data_root}/d_LJ050-0131.npy",
     "pitch": "{data_root}/LJ050-0131.npy",
-    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1]
+    "last_phoneme_flags": [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+    "spk_id": "0000"
   }
 }
