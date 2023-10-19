@@ -15,7 +15,7 @@ python train.py hparams/train.yaml --data_folder=/path/to/libritts_data --device
 
 Training time required on NVIDIA A100 GPU using LibriTTS train-clean-100 and train-clean-360 subsets: ~ 2 hours 54 minutes per epoch
 
-The training logs will be available here in the future.
+The training logs are available [here](https://www.dropbox.com/sh/ti2vk7sce8f9fgd/AABcDGWCrBvLX_ZQs76mlJRYa?dl=0).
 
 The pre-trained model with an easy-inference interface is available on [HuggingFace](https://huggingface.co/speechbrain/tts-mstacotron2-libritts).
 
