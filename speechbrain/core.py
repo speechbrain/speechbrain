@@ -1228,6 +1228,10 @@ class Brain:
         if self.checkpointer is None:
             return False
 
+        # Return early if mid-epoch checkpoints are disabled to avoid sync
+        if self.ckpt_interval_minutes <= 0 and self.ckpt_interval_steps <= 0:
+            return False
+
         # Check if we've run for the requested amount of time
         elapsed_minutes = (time.time() - last_ckpt_time) / 60.0
         decision = 0 < self.ckpt_interval_minutes < elapsed_minutes
