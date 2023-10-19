@@ -124,7 +124,6 @@ def get_decoding(
             """Get the best path from a lattice."""
             return OrderedDict({"1best": one_best_decoding(lattice)})
 
-
     return {"decoding_graph":decoding_graph,
             "decoding_method":decoding_method}
 

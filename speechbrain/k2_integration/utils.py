@@ -119,9 +119,9 @@ def arpa_to_fst(
         disambig_symbol: str
             the disambiguation symbol to use.
 
-    raises
+    Raises
     ---------
-        importerror: if kaldilm is not installed.
+        ImportError: If kaldilm is not installed.
     """
     assert len(in_arpa_files) == len(out_fst_files),\
     f"in_arpa_files {len(in_arpa_files)} != out_fst_files {len(out_fst_files)} "
