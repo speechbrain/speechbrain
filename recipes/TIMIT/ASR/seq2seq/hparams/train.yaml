@@ -163,7 +163,7 @@ valid_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
-    
+
 test_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
