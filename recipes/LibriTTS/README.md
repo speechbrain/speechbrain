@@ -9,9 +9,12 @@ The `libritts_prepare.py` file automatically downloads the dataset if not presen
 # Zero-Shot Multi-Speaker Tacotron2
 The subfolder "TTS/mstacotron2" contains the recipe for training a zero-shot multi-speaker version of the [Tacotron2](https://arxiv.org/abs/1712.05884) model.
 To run this recipe, go into the `"TTS/mstacotron2"` folder and run:
-```
+
+```bash
 python train.py hparams/train.yaml --data_folder=/path/to/libritts_data --device=cuda:0 --max_grad_norm=1.0
 ```
+
+Please ensure that you use absolute paths when specifying the data folder.
 
 Training time required on NVIDIA A100 GPU using LibriTTS train-clean-100 and train-clean-360 subsets: ~ 2 hours 54 minutes per epoch
 
@@ -30,7 +33,7 @@ We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the 
 
 To run this recipe, go into the `"vocoder/hifigan/"` folder and run:
 
-```
+```bash
 python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
 ```
 
