@@ -50,7 +50,7 @@ One should change hparams/train_w2v2_mbart_st.yaml to hparams/train_w2v2_nllb_st
 
 # Results
 
-| No. | hyperparams file |  dev BLEU | test WER |
+| No. | hyperparams file |  dev BLEU | test BLEU |
 | --- |:----------------:|:---------:|:--------:|
 | 1 | train_w2v2_st.yaml | 7.63 | 5.38 |
 | 2 | train_w2v2_mbart_st.yaml | 9.62 | 7.73 |
