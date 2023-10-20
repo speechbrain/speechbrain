@@ -22,16 +22,18 @@ import os
 from pathlib import Path
 from typing import List, Tuple, Union
 
-try:
-    import k2
-except ImportError:
-    MSG = "Please install k2 to use k2 training \n"
-    MSG += "E.G. run: pip install k2\n"
-    raise ImportError(MSG)
 
 import torch
 
 logger = logging.getLogger(__name__)
+
+try:
+    import k2
+except ImportError:
+    MSG = "Cannot import k2, so training and decoding with k2 will not work.\n"
+    MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
+    MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
+    raise ImportError(MSG)
 
 
 def get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
@@ -244,7 +246,11 @@ def convert_lexicon_to_ragged(
     cached_tot_size = row_splits[-1]
     row_splits = torch.tensor(row_splits, dtype=torch.int32)
 
-    shape = k2.ragged.create_ragged_shape2(row_splits, None, cached_tot_size,)
+    shape = k2.ragged.create_ragged_shape2(
+        row_splits,
+        None,
+        cached_tot_size,
+    )
     values = torch.tensor(token_ids_list, dtype=torch.int32)
 
     return k2.RaggedTensor(shape, values)
@@ -533,6 +539,8 @@ class UniqLexicon(Lexicon):
         word_ids = torch.tensor(word_ids, dtype=torch.int32)
 
         ragged, _ = self.ragged_lexicon.index(
-            indexes=word_ids, axis=0, need_value_indexes=False,
+            indexes=word_ids,
+            axis=0,
+            need_value_indexes=False,
         )
         return ragged

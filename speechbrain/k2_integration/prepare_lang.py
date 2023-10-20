@@ -16,17 +16,19 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
+from speechbrain.k2_integration.lexicon import read_lexicon, write_lexicon
+import torch
+
+logger = logging.getLogger(__name__)
 
 try:
     import k2
 except ImportError:
-    MSG = "Please install k2 to use k2 training \n"
-    MSG += "E.G. run: pip install k2\n"
+    MSG = "Cannot import k2, so training and decoding with k2 will not work.\n"
+    MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
+    MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
     raise ImportError(MSG)
 
-import torch
-
-from speechbrain.k2_integration.lexicon import read_lexicon, write_lexicon
 
 Lexicon = List[Tuple[str, List[str]]]
 
@@ -309,7 +311,9 @@ def lexicon_to_fst(
         disambig_token = token2id["#0"]
         disambig_word = word2id["#0"]
         arcs = add_self_loops(
-            arcs, disambig_token=disambig_token, disambig_word=disambig_word,
+            arcs,
+            disambig_token=disambig_token,
+            disambig_word=disambig_word,
         )
 
     final_state = next_state
@@ -384,7 +388,9 @@ def lexicon_to_fst_no_sil(
         disambig_token = token2id["#0"]
         disambig_word = word2id["#0"]
         arcs = add_self_loops(
-            arcs, disambig_token=disambig_token, disambig_word=disambig_word,
+            arcs,
+            disambig_token=disambig_token,
+            disambig_word=disambig_word,
         )
 
     final_state = next_state
@@ -445,7 +451,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     ]:
         if (out_dir / f).exists():
             os.makedirs(out_dir / "backup", exist_ok=True)
-            logging.info(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
+            logger.info(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
             os.rename(out_dir / f, out_dir / "backup" / f)
 
     lexicon = read_lexicon(str(lexicon_filename))
@@ -491,7 +497,11 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
             sil_prob=sil_prob,
         )
     else:
-        L = lexicon_to_fst_no_sil(lexicon, token2id=token2id, word2id=word2id,)
+        L = lexicon_to_fst_no_sil(
+            lexicon,
+            token2id=token2id,
+            word2id=word2id,
+        )
 
     if sil_prob != 0:
         L_disambig = lexicon_to_fst(
@@ -512,6 +522,6 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     torch.save(L.as_dict(), out_dir / "L.pt")
     torch.save(L_disambig.as_dict(), out_dir / "L_disambig.pt")
 
-    logging.info("Converting L.pt to Linv.pt")
+    logger.info("Converting L.pt to Linv.pt")
     L_inv = k2.arc_sort(L.invert())
     torch.save(L_inv.as_dict(), out_dir / "Linv.pt")

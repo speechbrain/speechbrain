@@ -14,17 +14,19 @@ from pathlib import Path
 
 import torch
 
-try:
-    import k2
-except ImportError:
-    MSG = "Please install k2 to use k2 training \n"
-    MSG += "E.G. run: pip install k2\n"
-    raise ImportError(MSG)
 
 from typing import Dict, List, Optional, Union
 
 
 logger = logging.getLogger(__name__)
+
+try:
+    import k2
+except ImportError:
+    MSG = "Cannot import k2, so training and decoding with k2 will not work.\n"
+    MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
+    MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
+    raise ImportError(MSG)
 
 
 def get_texts(
@@ -208,7 +210,9 @@ def rescore_with_whole_lattice(
                 "decode, you will meet this exception."
             )
             inv_lattice = k2.prune_on_arc_post(
-                inv_lattice, prune_th_list[loop_count], True,
+                inv_lattice,
+                prune_th_list[loop_count],
+                True,
             )
             logger.info(
                 f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"

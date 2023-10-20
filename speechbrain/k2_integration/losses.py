@@ -5,14 +5,19 @@ Authors:
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
 """
+
+import torch
+import logging
+
+logger = logging.getLogger(__name__)
+
 try:
     import k2
 except ImportError:
-    MSG = "Please install k2 to use k2 training \n"
-    MSG += "E.G. run: pip install k2\n"
+    MSG = "Cannot import k2, so training and decoding with k2 will not work.\n"
+    MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
+    MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
     raise ImportError(MSG)
-
-import torch
 
 
 def ctc_k2(
@@ -116,7 +121,10 @@ def ctc_k2(
         [len(t) for t in tids], device=log_probs.device, dtype=torch.long
     )
 
-    dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments,)
+    dense_fsa_vec = k2.DenseFsaVec(
+        log_probs,
+        supervision_segments,
+    )
     loss = k2.ctc_loss(
         decoding_graph=decoding_graph,
         dense_fsa_vec=dense_fsa_vec,
@@ -187,7 +195,10 @@ def k2_ctc(log_probs, targets, input_lens, target_lens, reduction="mean"):
         dtype=torch.int32,
     )
 
-    dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments,)
+    dense_fsa_vec = k2.DenseFsaVec(
+        log_probs,
+        supervision_segments,
+    )
 
     loss = k2.ctc_loss(
         decoding_graph=graph,
