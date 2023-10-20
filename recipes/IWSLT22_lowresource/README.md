@@ -54,7 +54,7 @@ One should change hparams/train_w2v2_mbart_st.yaml to hparams/train_w2v2_nllb_st
 | --- |:----------------:|:---------:|:--------:|
 | 1 | train_w2v2_st.yaml | 7.63 | 5.38 |
 | 2 | train_w2v2_mbart_st.yaml | 9.62 | 7.73 |
-| 3 | train_w2v2_nllb_st.yaml | - | - |
+| 3 | train_w2v2_nllb_st.yaml | 11.09 | 8.70 |
 
 ## Citation
 ```
