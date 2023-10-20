@@ -4459,6 +4459,7 @@ class EncoderDecoderS2UT(Pretrained):
         """Runs full translation"""
         return self.encode_batch(wavs, wav_lens)
 
+
 class MelSpectrogramEncoder(Pretrained):
     """A MelSpectrogramEncoder class created for the Zero-Shot Multi-Speaker TTS models.
 
