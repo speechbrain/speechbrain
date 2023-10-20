@@ -33,7 +33,6 @@ skip_prep: False
 
 kmeans_folder: !PLACEHOLDER # e.g, ../../quantization/results/kmeans/4321/save
 codes_folder: !ref <save_folder>/codes
-kmeans_size: 100
 encoder_hub: facebook/hubert-base-ls960
 layer: 6
 
