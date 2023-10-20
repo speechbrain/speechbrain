@@ -130,7 +130,7 @@ def prepare_ljspeech(
     duration_folder = None
     pitch_folder = None
     # Setting up additional folders required for FastSpeech2
-    if model_name == "FastSpeech2":
+    if model_name is not None and "FastSpeech2" in model_name:
         # This step requires phoneme alignements to be present in the data_folder
         # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
