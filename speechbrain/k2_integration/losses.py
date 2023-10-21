@@ -121,10 +121,7 @@ def ctc_k2(
         [len(t) for t in tids], device=log_probs.device, dtype=torch.long
     )
 
-    dense_fsa_vec = k2.DenseFsaVec(
-        log_probs,
-        supervision_segments,
-    )
+    dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments,)
     loss = k2.ctc_loss(
         decoding_graph=decoding_graph,
         dense_fsa_vec=dense_fsa_vec,
@@ -195,10 +192,7 @@ def k2_ctc(log_probs, targets, input_lens, target_lens, reduction="mean"):
         dtype=torch.int32,
     )
 
-    dense_fsa_vec = k2.DenseFsaVec(
-        log_probs,
-        supervision_segments,
-    )
+    dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments,)
 
     loss = k2.ctc_loss(
         decoding_graph=graph,
