@@ -130,14 +130,33 @@ time_warp_mode: "bicubic"  # Time warping method
 freq_warp_window: 4  # Length of frequency warping window
 freq_warp_mode: "bicubic"  # Frequency warping method
 
+# Enable Waveform Augmentation Flags (useful for hyperparameter tuning)
+enable_add_reverb: True
+enable_add_noise: True
+enable_speed_perturb: True
+enable_drop_freq: True
+enable_drop_chunk: True
+enable_clipping: True
+enable_rand_amp: True
+enable_babble_noise: True
+enable_drop_resolution: True
+
+# Enable Feature Augmentations Flags (useful for hyperparameter tuning)
+enable_time_shift: True
+enable_freq_shift: True
+enable_time_drop: True
+enable_freq_drop: True
+enable_time_warp: True
+enable_freq_warp: True
+
 # Waveform Augmenter (combining augmentations)
 time_parallel_augment: False  # Apply augmentations in parallel if True, or sequentially if False
 time_concat_original: True  # Concatenate original signals to the training batch if True
 time_repeat_augment: 1  # Number of times to apply augmentation
 time_shuffle_augmentations: False  # Shuffle order of augmentations if True, else use specified order
 time_min_augmentations: 1  # Min number of augmentations to apply
-time_max_augmentations: 7  # Max number of augmentations to apply
-time_augment_prob: 1.0 # Probability to apply time augmentation
+time_max_augmentations: 9  # Max number of augmentations to apply
+time_augment_prob: 1.0     # Probability to apply time augmentation
 
 # Feature Augmenter (combining augmentations)
 fea_parallel_augment: False  # Apply feature augmentations in parallel if True, or sequentially if False
@@ -146,7 +165,7 @@ fea_repeat_augment: 1  # Number of times to apply feature augmentation
 fea_shuffle_augmentations: False  # Shuffle order of feature augmentations if True, else use specified order
 fea_min_augmentations: 1  # Min number of feature augmentations to apply
 fea_max_augmentations: 6  # Max number of feature augmentations to app
-fea_augment_prob: 1.0   # Probability to apply feature augmentation
+fea_augment_prob: 1.0     # Probability to apply feature augmentation
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -297,6 +316,17 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_chunk>,
         !ref <rand_amp>,
         !ref <drop_resolution>]
+    enable_augmentations: [
+        !ref <enable_add_reverb>,
+        !ref <enable_add_noise>,
+        !ref <enable_babble_noise>,
+        !ref <enable_speed_perturb>,
+        !ref <enable_clipping>,
+        !ref <enable_drop_freq>,
+        !ref <enable_drop_chunk>,
+        !ref <enable_rand_amp>,
+        !ref <enable_drop_resolution>]
+
 
 # ----- FEATURE AUGMENTATION ----- #
 
@@ -358,6 +388,13 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <freq_drop>,
         !ref <time_warp>,
         !ref <freq_warp>]
+    enable_augmentations: [
+        !ref <enable_time_shift>,
+        !ref <enable_freq_shift>,
+        !ref <enable_time_drop>,
+        !ref <enable_freq_drop>,
+        !ref <enable_time_warp>,
+        !ref <enable_freq_warp>]
 
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.

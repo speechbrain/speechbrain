@@ -149,7 +149,10 @@ class ASR(sb.Brain):
         # Add frequency augmentation if specified.
         feats = self.hparams.compute_features(wavs)
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            print(feats.shape)
             feats, fea_lens = self.hparams.fea_augment(feats, fea_lens)
+            print(feats.shape)
+            print("---------------")
         feats = self.modules.normalize(feats, fea_lens)
 
         return feats, fea_lens

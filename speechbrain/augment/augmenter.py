@@ -3,11 +3,13 @@
 Authors
  * Mirco Ravanelli 2022
 """
-
+import random
+import logging
 import torch
 import torch.nn.functional as F
-import random
 from speechbrain.utils.callchains import lengths_arg_exists
+
+logger = logging.getLogger(__name__)
 
 
 class Augmenter(torch.nn.Module):
@@ -79,7 +81,13 @@ class Augmenter(torch.nn.Module):
         of augmentation.
     augmentations: list
         List of augmentater objects to combine to perform data augmentation.
-
+    enable_augmentations: list
+        A list of booleans used to selectively enable or disable specific augmentation
+        techniques within the 'augmentations' list.
+        Each boolean corresponds to an augmentation object in the 'augmentations' list
+        and should be of the same length and order.
+        This feature is useful for performing ablations on augmentation techniques to
+        tailor them for a specific task.
 
     Example
     -------
@@ -106,6 +114,7 @@ class Augmenter(torch.nn.Module):
         concat_end_index=None,
         augment_prob=1.0,
         augmentations=list(),
+        enable_augmentations=None,
     ):
         super().__init__()
         self.parallel_augment = parallel_augment
@@ -136,11 +145,6 @@ class Augmenter(torch.nn.Module):
         if self.repeat_augment < 0:
             raise ValueError("repeat_augment must be greater than 0.")
 
-        if len(augmentations) == 0:
-            raise ValueError(
-                "The augmentation list is empty. "
-                "Please provide a list with at least one augmentation object."
-            )
         if self.augment_end_index is not None:
             if self.augment_end_index < self.augment_start_index:
                 raise ValueError(
@@ -153,11 +157,48 @@ class Augmenter(torch.nn.Module):
                     "concat_end_index must be smaller or equal to concat_start_index."
                 )
 
+        # Managing enable augmentations
+        if enable_augmentations is None:
+            enable_augmentations = [True] * len(augmentations)
+        elif not isinstance(enable_augmentations, list):
+            raise ValueError("enable_augmentations must be a list.")
+        elif len(enable_augmentations) != len(augmentations):
+            raise ValueError(
+                "enable_augmentations must have the same length as augmentations."
+            )
+        else:
+            augmentations = [
+                aug
+                for aug, enabled in zip(augmentations, enable_augmentations)
+                if enabled
+            ]
+
         # Turn augmentations into a dictionary
         self.augmentations = {
             augmentation.__class__.__name__ + str(i): augmentation
             for i, augmentation in enumerate(augmentations)
         }
+
+        if len(self.augmentations) == 0:
+            logger.warning(
+                "No augmentation is applied because the augmentation list is empty."
+            )
+
+        # Check min and max augmentations
+        if self.max_augmentations <= 0:
+            logger.warning(
+                "No augmentations applied because max_augmentations is non-positive."
+            )
+        if self.min_augmentations < 0:
+            self.min_augmentations = 0
+            logger.warning(
+                "min_augmentations is negative. Modified to be non-negative."
+            )
+        if self.min_augmentations > self.max_augmentations:
+            logger.warning(
+                "min_augmentations is greater than max_augmentations. min_augmentations set to max_augmentations."
+            )
+            self.max_augmentations = self.min_augmentations
 
         # Check if augmentation modules need the length argument
         self.require_lengths = {}
@@ -260,13 +301,10 @@ class Augmenter(torch.nn.Module):
         # If the augmentation starting index is beyond the size of the data, return the original data.
         if self.augment_start_index >= x.shape[0]:
             self.do_augment = False
+            logger.warning(
+                "No augmentation is applied because the augmentation start index is greater than or equal to the number of examples in the input batch."
+            )
             return x, lengths
-
-        # Select the portion of the input to augment and update lengths accordingly.
-        x = x[self.augment_start_index : self.augment_end_index_batch]
-        lengths = lengths[
-            self.augment_start_index : self.augment_end_index_batch
-        ]
 
         # Select the number of augmentations to apply
         self.N_augment = torch.randint(
@@ -283,7 +321,7 @@ class Augmenter(torch.nn.Module):
         if (
             self.repeat_augment == 0
             or self.N_augment == 0
-            or len(self.augmentations) == 0
+            or len(augmentations_lst) == 0
         ):
             self.do_augment = False
             return x, lengths
@@ -294,6 +332,12 @@ class Augmenter(torch.nn.Module):
 
         # Select the augmentations to apply
         selected_augmentations = augmentations_lst[0 : self.N_augment]
+
+        # Select the portion of the input to augment and update lengths accordingly.
+        x = x[self.augment_start_index : self.augment_end_index_batch]
+        lengths = lengths[
+            self.augment_start_index : self.augment_end_index_batch
+        ]
 
         # Lists to collect the outputs
         output_lst = []
@@ -447,12 +491,3 @@ class Augmenter(torch.nn.Module):
             self.max_augmentations = len(self.augmentations)
         if self.min_augmentations > len(self.augmentations):
             self.min_augmentations = len(self.augmentations)
-
-        if self.max_augmentations < self.min_augmentations:
-            raise ValueError(
-                "max_augmentations cannot be smaller than min_augmentations "
-            )
-        if self.min_augmentations < 0:
-            raise ValueError("min_augmentations cannot be smaller than 0.")
-        if self.max_augmentations < 0:
-            raise ValueError("max_augmentations cannot be smaller than 0.")
