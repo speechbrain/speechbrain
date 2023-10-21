@@ -219,13 +219,13 @@ transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
     language_model: !ref <lm_model>
     temperature: 1.15
 
-valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder 
+valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>]
     weights:
         ctc: !ref <ctc_weight_decode>
 
 test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
-    full_scorers: [!ref <ctc_scorer>, !ref <transformerlm_scorer>] 
+    full_scorers: [!ref <ctc_scorer>, !ref <transformerlm_scorer>]
     weights:
         ctc: !ref <ctc_weight_decode>
         transformerlm: !ref <lm_weight>
