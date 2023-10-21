@@ -507,6 +507,22 @@ def test_augment_pipeline():
     assert len(output_signal) == 4
     assert len(lenghts) == 4
 
+    freq_dropper = DropFreq()
+    chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)
+    augment = Augmenter(
+        parallel_augment=True,
+        concat_original=True,
+        min_augmentations=1,
+        max_augmentations=2,
+        augment_prob=0,
+        augmentations=[freq_dropper, chunk_dropper],
+    )
+    signal = torch.rand([4, 16000])
+    output_signal, lenghts = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+    assert torch.equal(signal, output_signal)
+
     augment = Augmenter(
         parallel_augment=False,
         concat_original=True,

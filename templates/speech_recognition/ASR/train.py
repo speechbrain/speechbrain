@@ -150,7 +150,6 @@ class ASR(sb.Brain):
         feats = self.hparams.compute_features(wavs)
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
             feats, fea_lens = self.hparams.fea_augment(feats, fea_lens)
-
         feats = self.modules.normalize(feats, fea_lens)
 
         return feats, fea_lens
@@ -183,7 +182,6 @@ class ASR(sb.Brain):
                 token_lens = self.hparams.fea_augment.replicate_labels(
                     token_lens
                 )
-
         return tokens, token_lens
 
     def compute_objectives(self, predictions, batch, stage):

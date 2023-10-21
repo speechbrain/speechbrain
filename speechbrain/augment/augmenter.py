@@ -15,10 +15,6 @@ class Augmenter(torch.nn.Module):
 
     Arguments
     ---------
-    **augmentations: dict
-        The inputs are treated as a dictionary containing the name assigned to
-        the augmentation and the corresponding objects.
-        The augmentations are applied in sequence (or parallel).
     parallel_augment: bool
         If False, the augmentations are applied sequentially with
         the order specified in the pipeline argument (one orignal  input, one
@@ -76,7 +72,11 @@ class Augmenter(torch.nn.Module):
         original batch to concatenate in the output. Use this argument to select
         the index of the last element from the original input batch to end the
         copying process.
-
+    augment_prob: float
+        The probability (0.0 to 1.0) of applying data augmentation. When set to 0.0,
+        the original signal is returned without any augmentation. When set to 1.0,
+        augmentation is always applied. Values in between determine the likelihood
+        of augmentation.
     augmentations: list
         List of augmentater objects to combine to perform data augmentation.
 
@@ -104,6 +104,7 @@ class Augmenter(torch.nn.Module):
         augment_end_index=None,
         concat_start_index=0,
         concat_end_index=None,
+        augment_prob=1.0,
         augmentations=list(),
     ):
         super().__init__()
@@ -119,12 +120,14 @@ class Augmenter(torch.nn.Module):
         self.concat_start_index = concat_start_index
         self.concat_end_index = concat_end_index
         self.repeat_augment = repeat_augment
+        self.augment_prob = augment_prob
         # Check min and max augmentations
         self.check_min_max_augmentations()
 
         # This variable represents the total number of augmentations to perform for each signal,
         # including the original signal in the count.
         self.num_augmentations = None
+        self.do_augment = True
 
         # Check repeat augment arguments
         if not isinstance(self.repeat_augment, int):
@@ -237,34 +240,33 @@ class Augmenter(torch.nn.Module):
         lengths : torch.Tensor
             The length of each sequence in the batch.
         """
+
+        # Determine whether to apply data augmentation
+        self.do_augment = True
+        if random.random() > self.augment_prob:
+            self.do_augment = False
+            return x, lengths
+
         x_original = x
         len_original = lengths
 
         # Determine the ending index for augmentation, considering user-specified or default values.
-        augment_end_index_batch = (
+        self.augment_end_index_batch = (
             min(self.augment_end_index, x.shape[0])
             if self.augment_end_index is not None
             else x.shape[0]
         )
 
         # If the augmentation starting index is beyond the size of the data, return the original data.
-        if self.augment_start_index > x.shape[0]:
-            return x, lengths
-
-        # Determine the ending index for concatenation, considering user-specified or default values.
-        concat_end_index_batch = (
-            min(self.concat_end_index, x_original.shape[0])
-            if self.concat_end_index is not None
-            else x_original.shape[0]
-        )
-
-        # If the concatenation starting index is beyond the size of the data, return the original data.
-        if self.concat_start_index > x.shape[0]:
+        if self.augment_start_index >= x.shape[0]:
+            self.do_augment = False
             return x, lengths
 
         # Select the portion of the input to augment and update lengths accordingly.
-        x = x[self.augment_start_index : augment_end_index_batch]
-        lengths = lengths[self.augment_start_index : augment_end_index_batch]
+        x = x[self.augment_start_index : self.augment_end_index_batch]
+        lengths = lengths[
+            self.augment_start_index : self.augment_end_index_batch
+        ]
 
         # Select the number of augmentations to apply
         self.N_augment = torch.randint(
@@ -283,7 +285,7 @@ class Augmenter(torch.nn.Module):
             or self.N_augment == 0
             or len(self.augmentations) == 0
         ):
-            self.num_augmentations = 1
+            self.do_augment = False
             return x, lengths
 
         # Shuffle augmentation
@@ -298,13 +300,32 @@ class Augmenter(torch.nn.Module):
         output_len_lst = []
 
         # Concatenate the original signal if required
+        self.skip_concat = not (self.concat_original)
         if self.concat_original:
-            output_lst.append(
-                x_original[self.concat_start_index : concat_end_index_batch]
-            )
-            output_len_lst.append(
-                len_original[self.concat_start_index : concat_end_index_batch]
-            )
+
+            # Check start index
+            if self.concat_start_index >= x.shape[0]:
+                self.skip_concat = True
+                pass
+            else:
+                self.skip_concat = False
+                # Determine the ending index for concatenation, considering user-specified or default values.
+                self.concat_end_index_batch = (
+                    min(self.concat_end_index, x_original.shape[0])
+                    if self.concat_end_index is not None
+                    else x_original.shape[0]
+                )
+
+                output_lst.append(
+                    x_original[
+                        self.concat_start_index : self.concat_end_index_batch
+                    ]
+                )
+                output_len_lst.append(
+                    len_original[
+                        self.concat_start_index : self.concat_end_index_batch
+                    ]
+                )
 
         # Perform augmentations
         for i in range(self.repeat_augment):
@@ -389,13 +410,18 @@ class Augmenter(torch.nn.Module):
         augmented_labels: torch.Tensor
             Labels corresponding to the augmented input.
         """
+
+        # Determine whether to apply data augmentation
+        if not self.do_augment:
+            return labels
+
         augmented_labels = []
-        if self.concat_original:
+        if self.concat_original and not (self.skip_concat):
             augmented_labels = [
-                labels[self.concat_start_index : self.concat_end_index]
+                labels[self.concat_start_index : self.concat_end_index_batch]
             ]
         selected_labels = labels[
-            self.augment_start_index : self.augment_end_index
+            self.augment_start_index : self.augment_end_index_batch
         ]
 
         if self.parallel_augment:

@@ -137,6 +137,7 @@ time_repeat_augment: 1  # Number of times to apply augmentation
 time_shuffle_augmentations: False  # Shuffle order of augmentations if True, else use specified order
 time_min_augmentations: 1  # Min number of augmentations to apply
 time_max_augmentations: 7  # Max number of augmentations to apply
+time_augment_prob: 1.0 # Probability to apply time augmentation
 
 # Feature Augmenter (combining augmentations)
 fea_parallel_augment: False  # Apply feature augmentations in parallel if True, or sequentially if False
@@ -145,6 +146,7 @@ fea_repeat_augment: 1  # Number of times to apply feature augmentation
 fea_shuffle_augmentations: False  # Shuffle order of feature augmentations if True, else use specified order
 fea_min_augmentations: 1  # Min number of feature augmentations to apply
 fea_max_augmentations: 6  # Max number of feature augmentations to app
+fea_augment_prob: 1.0   # Probability to apply feature augmentation
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -284,6 +286,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
     shuffle_augmentations: !ref <time_shuffle_augmentations>
     min_augmentations: !ref <time_min_augmentations>
     max_augmentations: !ref <time_max_augmentations>
+    augment_prob: !ref <time_augment_prob>
     augmentations: [
         !ref <add_reverb>,
         !ref <add_noise>,
@@ -347,6 +350,7 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
     max_augmentations: !ref <fea_max_augmentations>
     augment_start_index: !ref <batch_size> # This leaves unchanges original inputs
     concat_end_index: !ref <batch_size> # This leaves unchanges original inputs
+    augment_prob: !ref <fea_augment_prob>
     augmentations: [
         !ref <time_shift>,
         !ref <freq_shift>,
