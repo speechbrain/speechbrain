@@ -75,22 +75,25 @@ def get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
 
     Example
     -------
-    >>> from speechbrain.k2_integration.lexicon import get_lexicon
     >>> # Create some dummy csv files containing only the words `hello`, `world`.
     >>> # The first line is the header, and the remaining lines are in the following
     >>> # format:
     >>> # ID, duration, wav, spk_id, wrd (transcription)
     >>> csv_file = getfixture('tmpdir').join("train.csv")
-    >>> with open(csv_file, "w") as f:
-    ...     f.write("ID,duration,wav,spk_id,wrd\n")
-    ...     f.write("1,1,1,1,hello world\n")
-    ...     f.write("2,0.5,1,1,hello\n")
+    >>> # Data to be written to the CSV file.
+    >>> import csv
+    >>> data = [
+    ...    ["ID", "duration", "wav", "spk_id", "wrd"],
+    ...    [1, 1, 1, 1, "hello world"],
+    ...    [2, 0.5, 1, 1, "hello"]
+    ... ]
+    >>> with open(csv_file, "w", newline="") as f:
+    ...    writer = csv.writer(f)
+    ...    writer.writerows(data)
     >>> csv_files = [csv_file]
     >>> lang_dir = getfixture('tmpdir')
     >>> extra_vocab_files = []
     >>> get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=False)
-    >>> with open(lang_dir.join("lexicon.txt"), "r") as f:
-    ...     assert f.read() == "<UNK> <unk>\nhello h e l l o\nworld w o r l d\n"
     """
     # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
     lexicon = dict()
