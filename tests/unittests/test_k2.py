@@ -20,7 +20,6 @@ if not has_k2:
     MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
     MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
     logger.warning(MSG)
-pytestmark = pytest.mark.skipif(not has_k2, reason=MSG)
 
 
 @pytest.fixture
