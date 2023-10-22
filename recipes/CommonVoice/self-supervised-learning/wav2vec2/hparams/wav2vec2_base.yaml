@@ -79,13 +79,13 @@ dynamic_batching: False
 max_batch_length: 120 # Cumulative length of each batch, per gpu.
 max_batch_ex: 64 # Max number of samples per batch, per gpu.
 shuffle: True
-batch_ordering: ascending
+sorting: ascending
 num_buckets: 30
 dynamic_batch_sampler:
     max_batch_length: !ref <max_batch_length>
     max_batch_ex: !ref <max_batch_ex>
     shuffle: !ref <shuffle>
-    batch_ordering: !ref <batch_ordering>
+    batch_ordering: !ref <sorting>
     num_buckets: !ref <num_buckets>
 
 #
