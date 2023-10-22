@@ -33,9 +33,10 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         phns_bos, _ = batch.phn_encoded_bos
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            phns_bos = self.hparams.wav_augment.replicate_labels(phns_bos)
 
         feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
@@ -66,6 +67,14 @@ class ASR(sb.Brain):
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+            phns_eos = self.hparams.wav_augment.replicate_labels(phns_eos)
+            phn_lens_eos = self.hparams.wav_augment.replicate_labels(
+                phn_lens_eos
+            )
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq = self.hparams.seq_cost(p_seq, phns_eos, phn_lens_eos)

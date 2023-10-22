@@ -13,7 +13,6 @@ Authors
 """
 import os
 import sys
-import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -30,18 +29,10 @@ class ASR_Brain(sb.Brain):
         wavs, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
 
-        # Adding optional augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                batch.sig = wavs, wav_lens
-                phns = torch.cat([phns, phns], dim=0)
-                phn_lens = torch.cat([phn_lens, phn_lens])
-                batch.phn_encoded = phns, phn_lens
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            phns = self.hparams.wav_augment.replicate_labels(phns)
 
         # Model computations
         feats = self.hparams.compute_features(wavs)
@@ -67,7 +58,7 @@ class ASR_Brain(sb.Brain):
 
         if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.Greedysearcher(x)
-            return logits, hyps
+            return logits, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
             (
@@ -76,16 +67,22 @@ class ASR_Brain(sb.Brain):
                 nbest_hyps,
                 nbest_scores,
             ) = self.hparams.Beamsearcher(x)
-            return logits, best_hyps
-        return logits
+            return logits, wav_lens, best_hyps
+        return logits, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the loss."
         ids = batch.id
-        _, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
-        if stage != sb.Stage.TRAIN:
-            predictions, hyps = predictions
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+
+        if stage == sb.Stage.TRAIN:
+            predictions, wav_lens = predictions
+        else:
+            predictions, wav_lens, hyps = predictions
 
         # Transducer loss use logits from RNN-T model.
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
@@ -264,6 +261,7 @@ if __name__ == "__main__":
             "uppercase": hparams["uppercase"],
         },
     )
+    run_on_main(hparams["prepare_noise_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)

@@ -139,14 +139,14 @@ class ASR(sb.Brain):
         """
         wavs, wav_lens = wavs
 
-        # Add time augmentation if specified.
+        # Add waveform augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         # Feature computation and normalization
         fea_lens = wav_lens  # Relative lenghs are preserved
 
-        # Add frequency augmentation if specified.
+        # Add feature augmentation if specified.
         feats = self.hparams.compute_features(wavs)
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
             feats, fea_lens = self.hparams.fea_augment(feats, fea_lens)
@@ -446,8 +446,8 @@ if __name__ == "__main__":
                 "save_json_test": hparams["test_annotation"],
             },
         )
-        sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
-        sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)
