@@ -237,16 +237,16 @@ def rescore_with_whole_lattice(
 
 
 def arpa_to_fst(
-    arpa_dir: Path,
-    output_dir: Path,
-    words_txt: Path,
-    disambig_symbol: str = "#0",
-    convert_4gram: bool = True,
-    trigram_arpa_name: str = "3-gram.pruned.1e-7.arpa",
-    fourgram_arpa_name: str = "4-gram.arpa",
-    trigram_fst_output_name: str = "G_3_gram.fst.txt",
-    fourgram_fst_output_name: str = "G_4_gram.fst.txt",
-):
+        arpa_dir: Path,
+        output_dir: Path,
+        words_txt: Path,
+        disambig_symbol: str = "#0",
+        convert_4gram: bool = True,
+        trigram_arpa_name: str = "3-gram.pruned.1e-7.arpa",
+        fourgram_arpa_name: str = "4-gram.arpa",
+        trigram_fst_output_name: str = "G_3_gram.fst.txt",
+        fourgram_fst_output_name: str = "G_4_gram.fst.txt",
+        ):
     """Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
     you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
     website (https://www.openslr.org/11/). You can use this function to
@@ -300,13 +300,13 @@ def arpa_to_fst(
         # and we are trying to create it by converting an ARPA LM to FST.
         # For this, we need to install kaldilm.
         raise ImportError(
-            "Optional dependencies must be installed to use kaldilm.\n"
-            "Install using `pip install kaldilm`."
-        )
+                "Optional dependencies must be installed to use kaldilm.\n"
+                "Install using `pip install kaldilm`."
+                )
 
     def _arpa_to_fst_single(
-        arpa_path: Path, out_fst_path: Path, max_order: int
-    ):
+            arpa_path: Path, out_fst_path: Path, max_order: int
+            ):
         """Convert a single ARPA LM to FST.
 
         Arguments
@@ -322,22 +322,22 @@ def arpa_to_fst(
             return
         if not arpa_path.exists():
             raise FileNotFoundError(
-                f"{arpa_path} not found while trying to create"
-                f" the {max_order} FST."
-            )
+                    f"{arpa_path} not found while trying to create"
+                    f" the {max_order} FST."
+                    )
         try:
             s = arpa2fst(
-                input_arpa=str(arpa_path),
-                disambig_symbol=disambig_symbol,
-                read_symbol_table=str(words_txt),
-                max_order=max_order,
-            )
+                    input_arpa=str(arpa_path),
+                    disambig_symbol=disambig_symbol,
+                    read_symbol_table=str(words_txt),
+                    max_order=max_order,
+                    )
         except Exception as e:
             logger.info(
-                f"Failed to create {max_order}-gram FST from input={arpa_path}"
-                f", disambig_symbol={disambig_symbol},"
-                f" read_symbol_table={words_txt}"
-            )
+                    f"Failed to create {max_order}-gram FST from input={arpa_path}"
+                    f", disambig_symbol={disambig_symbol},"
+                    f" read_symbol_table={words_txt}"
+                    )
             raise e
         logger.info(f"Writing {out_fst_path}")
         with open(out_fst_path, "w") as f:
@@ -350,3 +350,53 @@ def arpa_to_fst(
         arpa_path = arpa_dir / fourgram_arpa_name
         fst_path = output_dir / os.path.basename(fourgram_fst_output_name)
         _arpa_to_fst_single(arpa_path, fst_path, max_order=4)
+
+
+def align(
+        log_probs: torch.Tensor,
+        log_probs_lengths: torch.Tensor,
+        targets: list,
+        ) -> List[List[int]]:
+    """Align targets to log_probs.
+
+    Arguments
+    ---------
+        log_probs: torch.Tensor
+            A tensor of shape (N, T, C) containing the log-probabilities.
+            Please make sure that index 0 of the C dimension corresponds
+            to the blank symbol.
+        log_probs_lengths: torch.Tensor
+            A tensor of shape (N,) containing the lengths of the log_probs.
+            This is needed because the log_probs may have been padded.
+            All elements in this tensor must be integers and <= T, and
+            in descending order.
+        targets: list
+            A list of list of integers containing the targets.
+
+    Returns
+    -------
+        List
+        List of lists of integers containing the alignments.
+    """
+    # Basic checks.
+    assert log_probs.ndim == 3
+    assert log_probs_lengths.ndim == 1
+    assert log_probs.shape[0] == log_probs_lengths.shape[0]
+    assert isinstance(targets, list)
+    assert isinstance(targets[0], list)
+    assert log_probs.shape[0] == len(targets)
+
+    N, T, C = log_probs.shape
+
+
+    supervision_segments = torch.tensor([[i, 0, log_probs_lengths[i]] for i in range(N)])
+    dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments)
+
+    # NOTE: We are using the default parameters for ctc_graph.
+    # This means that we are using the default CTC topology, which
+    # is a linear chain with the blank symbol at index 0.
+    graph = k2.ctc_graph(targets)
+
+    lattice = k2.intersect_dense_pruned(graph, dense_fsa_vec, 20.0, 8, 30, 10000)
+
+    one_best = k2.shortest_path(lattice, use_double_scores=True)
