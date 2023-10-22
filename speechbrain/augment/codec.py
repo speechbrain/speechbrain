@@ -34,7 +34,7 @@ class CodecAugment(torch.nn.Module):
 
     Example
     -------
-        >>> waveform = torch.rand(16000, 4)
+        >>> waveform = torch.rand(4, 16000)
         >>> augmenter = CodecAugment(16000)
         >>> output_waveform = augmenter(waveform)
     """
@@ -46,7 +46,6 @@ class CodecAugment(torch.nn.Module):
             ("wav", "pcm_mulaw"),
             ("mp3", None),
             ("webm", "opus"),
-            ("webm", "vorbis"),
             ("g722", None),
             ("ogg", "vorbis"),
             ("ogg", "opus"),
@@ -69,7 +68,10 @@ class CodecAugment(torch.nn.Module):
         audio_effector = torchaudio.io.AudioEffector(
             format=format, encoder=encoder
         )
-        return audio_effector.apply(waveform, self.sample_rate)
+        waveform = audio_effector.apply(
+            waveform.transpose(0, 1), self.sample_rate
+        )
+        return waveform.transpose(0, 1)
 
     def forward(self, waveform):
         """

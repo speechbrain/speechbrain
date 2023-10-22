@@ -149,10 +149,7 @@ class ASR(sb.Brain):
         # Add frequency augmentation if specified.
         feats = self.hparams.compute_features(wavs)
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
-            print(feats.shape)
             feats, fea_lens = self.hparams.fea_augment(feats, fea_lens)
-            print(feats.shape)
-            print("---------------")
         feats = self.modules.normalize(feats, fea_lens)
 
         return feats, fea_lens
@@ -302,7 +299,8 @@ class ASR(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
 
         # We also write statistics about test data to stdout and to the logfile.
