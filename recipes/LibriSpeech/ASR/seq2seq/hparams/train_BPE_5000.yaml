@@ -81,7 +81,7 @@ valid_dataloader_opts:
    batch_size: !ref <batch_size>
 
 test_dataloader_opts:
-   batch_size: !ref <batch_size>
+   batch_size: 1
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -243,7 +243,12 @@ coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
 transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
    language_model: !ref <lm_model>
 
-scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+   full_scorers: [!ref <coverage_scorer>]
+   weights:
+      coverage: !ref <coverage_penalty>
+
+test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
    full_scorers: [
       !ref <transformerlm_scorer>,
       !ref <coverage_scorer>]
@@ -267,6 +272,7 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    using_max_attn_shift: !ref <using_max_attn_shift>
    max_attn_shift: !ref <max_attn_shift>
    temperature: !ref <temperature>
+   scorer: !ref <valid_scorer>
 
 test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    embedding: !ref <emb>
@@ -282,7 +288,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
    max_attn_shift: !ref <max_attn_shift>
    using_eos_threshold: !ref <using_eos_threshold>
    temperature: !ref <temperature>
-   scorer: !ref <scorer>
+   scorer: !ref <test_scorer>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>
