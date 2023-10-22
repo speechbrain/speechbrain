@@ -13,6 +13,7 @@ import csv
 import json
 import random
 import logging
+import torch
 import torchaudio
 import numpy as np
 from tqdm import tqdm
@@ -48,7 +49,7 @@ def prepare_ljspeech(
     pitch_n_fft=1024,
     pitch_hop_length=256,
     pitch_min_f0=65,
-    pitch_max_f0=2093,
+    pitch_max_f0=400,
     skip_prep=False,
     use_custom_cleaner=False,
     device="cpu",
@@ -129,7 +130,7 @@ def prepare_ljspeech(
     duration_folder = None
     pitch_folder = None
     # Setting up additional folders required for FastSpeech2
-    if model_name == "FastSpeech2":
+    if model_name is not None and "FastSpeech2" in model_name:
         # This step requires phoneme alignements to be present in the data_folder
         # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
@@ -458,14 +459,24 @@ def prepare_json(
                 wavs_folder, pitch_folder
             )
             if not os.path.isfile(pitch_file):
-                pitch = torchaudio.functional.compute_kaldi_pitch(
+                pitch = torchaudio.functional.detect_pitch_frequency(
                     waveform=audio,
                     sample_rate=fs,
-                    frame_length=(pitch_n_fft / fs * 1000),
-                    frame_shift=(pitch_hop_length / fs * 1000),
-                    min_f0=pitch_min_f0,
-                    max_f0=pitch_max_f0,
-                )[0, :, 0]
+                    frame_time=(pitch_hop_length / fs),
+                    win_length=3,
+                    freq_low=pitch_min_f0,
+                    freq_high=pitch_max_f0,
+                ).squeeze(0)
+
+                # Concatenate last element to match duration.
+                pitch = torch.cat([pitch, pitch[-1].unsqueeze(0)])
+
+                # Mean and Variance Normalization
+                mean = 256.1732939688805
+                std = 328.319759158607
+
+                pitch = (pitch - mean) / std
+
                 pitch = pitch[: sum(duration)]
                 np.save(pitch_file, pitch)
 
@@ -488,15 +499,37 @@ def prepare_json(
                 wavs_folder, pitch_folder
             )
             if not os.path.isfile(pitch_file):
-                pitch = torchaudio.functional.compute_kaldi_pitch(
-                    waveform=audio,
-                    sample_rate=fs,
-                    frame_length=(pitch_n_fft / fs * 1000),
-                    frame_shift=(pitch_hop_length / fs * 1000),
-                    min_f0=pitch_min_f0,
-                    max_f0=pitch_max_f0,
-                )[0, :, 0]
+
+                if torchaudio.__version__ < "2.1":
+                    pitch = torchaudio.functional.compute_kaldi_pitch(
+                        waveform=audio,
+                        sample_rate=fs,
+                        frame_length=(pitch_n_fft / fs * 1000),
+                        frame_shift=(pitch_hop_length / fs * 1000),
+                        min_f0=pitch_min_f0,
+                        max_f0=pitch_max_f0,
+                    )[0, :, 0]
+                else:
+                    pitch = torchaudio.functional.detect_pitch_frequency(
+                        waveform=audio,
+                        sample_rate=fs,
+                        frame_time=(pitch_hop_length / fs),
+                        win_length=3,
+                        freq_low=pitch_min_f0,
+                        freq_high=pitch_max_f0,
+                    ).squeeze(0)
+
+                    # Concatenate last element to match duration.
+                    pitch = torch.cat([pitch, pitch[-1].unsqueeze(0)])
+
+                    # Mean and Variance Normalization
+                    mean = 256.1732939688805
+                    std = 328.319759158607
+
+                    pitch = (pitch - mean) / std
+
                 np.save(pitch_file, pitch)
+
             phonemes = _g2p_keep_punctuations(g2p, label)
             # Updates data for the utterance
             json_dict[id].update({"phonemes": phonemes})
