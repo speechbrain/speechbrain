@@ -86,7 +86,7 @@ class ASR(sb.Brain):
         encoded_signal = self.modules.encoder(feats.detach())
 
         # Embed tokens and pass tokens & encoded signal to decoder
-        embedded_tokens = self.modules.embedding(tokens_bos)
+        embedded_tokens = self.modules.embedding(tokens_bos.detach())
         decoder_outputs, _ = self.modules.decoder(
             embedded_tokens, encoded_signal, self.feat_lens
         )
@@ -299,8 +299,7 @@ class ASR(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]},
-                min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
 
         # We also write statistics about test data to stdout and to the logfile.

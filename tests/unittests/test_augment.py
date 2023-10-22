@@ -449,7 +449,7 @@ def test_SpectrogramDrop():
 
     from speechbrain.augment.codec import CodecAugment
 
-    waveform = torch.rand(16000, 4)
+    waveform = torch.rand(4, 16000)
     augmenter = CodecAugment(16000)
     output_waveform = augmenter(waveform)
     assert not torch.allclose(waveform, output_waveform)

@@ -131,7 +131,7 @@ freq_warp_window: 4  # Length of frequency warping window
 freq_warp_mode: "bicubic"  # Frequency warping method
 
 # Enable Waveform Augmentation Flags (useful for hyperparameter tuning)
-enable_codec_augment: True
+enable_codec_augment: False
 enable_add_reverb: True
 enable_add_noise: True
 enable_speed_perturb: True
@@ -239,7 +239,7 @@ prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
 
 # Codec augmentation
 codec_augment: !new:speechbrain.augment.codec.CodecAugment
-    sample_rate:  !ref <sample_rate>
+    sample_rate: !ref <sample_rate>
 
 # Add reverberation to input signal
 add_reverb: !new:speechbrain.augment.time_domain.AddReverb
@@ -623,8 +623,8 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
         lm: !ref <lm_model>
         tokenizer: !ref <tokenizer>
-        # model: !ref <model>
+        model: !ref <model>
     paths:
         lm: !ref <pretrained_path>/lm.ckpt
         tokenizer: !ref <pretrained_path>/tokenizer.ckpt
-        #model: !ref <pretrained_path>/asr.ckpt
+        model: !ref <pretrained_path>/asr.ckpt

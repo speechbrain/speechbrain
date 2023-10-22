@@ -45,10 +45,7 @@ class CodecAugment(torch.nn.Module):
         self.available_format_encoders = [
             ("wav", "pcm_mulaw"),
             ("mp3", None),
-            ("webm", "opus"),
             ("g722", None),
-            ("ogg", "vorbis"),
-            ("ogg", "opus"),
         ]
 
     def apply_codec(self, waveform, format=None, encoder=None):
@@ -68,10 +65,10 @@ class CodecAugment(torch.nn.Module):
         audio_effector = torchaudio.io.AudioEffector(
             format=format, encoder=encoder
         )
-        waveform = audio_effector.apply(
-            waveform.transpose(0, 1), self.sample_rate
+        waveform_aug = audio_effector.apply(
+            waveform.transpose(0, 1).to("cpu"), self.sample_rate
         )
-        return waveform.transpose(0, 1)
+        return waveform_aug.transpose(0, 1).to(waveform.device)
 
     def forward(self, waveform):
         """
