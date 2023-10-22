@@ -237,16 +237,16 @@ def rescore_with_whole_lattice(
 
 
 def arpa_to_fst(
-        arpa_dir: Path,
-        output_dir: Path,
-        words_txt: Path,
-        disambig_symbol: str = "#0",
-        convert_4gram: bool = True,
-        trigram_arpa_name: str = "3-gram.pruned.1e-7.arpa",
-        fourgram_arpa_name: str = "4-gram.arpa",
-        trigram_fst_output_name: str = "G_3_gram.fst.txt",
-        fourgram_fst_output_name: str = "G_4_gram.fst.txt",
-        ):
+    arpa_dir: Path,
+    output_dir: Path,
+    words_txt: Path,
+    disambig_symbol: str = "#0",
+    convert_4gram: bool = True,
+    trigram_arpa_name: str = "3-gram.pruned.1e-7.arpa",
+    fourgram_arpa_name: str = "4-gram.arpa",
+    trigram_fst_output_name: str = "G_3_gram.fst.txt",
+    fourgram_fst_output_name: str = "G_4_gram.fst.txt",
+):
     """Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
     you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
     website (https://www.openslr.org/11/). You can use this function to
@@ -300,13 +300,13 @@ def arpa_to_fst(
         # and we are trying to create it by converting an ARPA LM to FST.
         # For this, we need to install kaldilm.
         raise ImportError(
-                "Optional dependencies must be installed to use kaldilm.\n"
-                "Install using `pip install kaldilm`."
-                )
+            "Optional dependencies must be installed to use kaldilm.\n"
+            "Install using `pip install kaldilm`."
+        )
 
     def _arpa_to_fst_single(
-            arpa_path: Path, out_fst_path: Path, max_order: int
-            ):
+        arpa_path: Path, out_fst_path: Path, max_order: int
+    ):
         """Convert a single ARPA LM to FST.
 
         Arguments
@@ -322,22 +322,22 @@ def arpa_to_fst(
             return
         if not arpa_path.exists():
             raise FileNotFoundError(
-                    f"{arpa_path} not found while trying to create"
-                    f" the {max_order} FST."
-                    )
+                f"{arpa_path} not found while trying to create"
+                f" the {max_order} FST."
+            )
         try:
             s = arpa2fst(
-                    input_arpa=str(arpa_path),
-                    disambig_symbol=disambig_symbol,
-                    read_symbol_table=str(words_txt),
-                    max_order=max_order,
-                    )
+                input_arpa=str(arpa_path),
+                disambig_symbol=disambig_symbol,
+                read_symbol_table=str(words_txt),
+                max_order=max_order,
+            )
         except Exception as e:
             logger.info(
-                    f"Failed to create {max_order}-gram FST from input={arpa_path}"
-                    f", disambig_symbol={disambig_symbol},"
-                    f" read_symbol_table={words_txt}"
-                    )
+                f"Failed to create {max_order}-gram FST from input={arpa_path}"
+                f", disambig_symbol={disambig_symbol},"
+                f" read_symbol_table={words_txt}"
+            )
             raise e
         logger.info(f"Writing {out_fst_path}")
         with open(out_fst_path, "w") as f:
