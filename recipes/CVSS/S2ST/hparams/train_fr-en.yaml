@@ -127,6 +127,7 @@ output_neurons: 103 # /!\ needs to be changed accordingly to the vocabulary
 attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
 
 # Decoding parameters
+test_bs: 10
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 
@@ -217,7 +218,7 @@ test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
     blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: 10
+    beam_size: !ref <test_bs>
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
