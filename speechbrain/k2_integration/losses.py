@@ -73,8 +73,7 @@ def ctc_k2(
     >>> input_lens = torch.ones(batch_size)
     >>> # Create a samll lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
-    >>> lexicon_sample = '''hello h e l l o
-    >>> world w o r l d'''
+    >>> lexicon_sample = "hello h e l l o\nworld w o r l d"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
     >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
