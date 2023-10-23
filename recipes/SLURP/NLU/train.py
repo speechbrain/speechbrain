@@ -53,7 +53,10 @@ class SLU(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
 
-        p_seq, transcript_tokens_lens, predicted_tokens = predictions
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
+            p_seq, transcript_tokens_lens = predictions
+        else:
+            p_seq, transcript_tokens_lens, predicted_tokens = predictions
 
         ids = batch.id
         (
