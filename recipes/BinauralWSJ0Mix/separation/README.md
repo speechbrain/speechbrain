@@ -69,8 +69,8 @@ The output folders with the checkpoints, logs, etc are available [here](https://
 
 You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
 
-```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
+```bash
+torchrun --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath
 ```
 You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 
