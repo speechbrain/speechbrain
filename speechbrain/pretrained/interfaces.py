@@ -4392,7 +4392,7 @@ class W2V2mBARTAST(Pretrained):
     ...     savedir=tmpdir,
     ... )
     >>> model.decode_file("tests/samples/single-mic/example6.wav")
-    "{'intent': 'SimpleMath', 'slots': {'number1': 37.67, 'number2': 75.7, 'op': ' minus '}}"
+    ['Ecoutez les informations que nous avons recueillies.']
     """
 
     HPARAMS_NEEDED = ["valid_search"]
@@ -4400,11 +4400,6 @@ class W2V2mBARTAST(Pretrained):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # self.tokenizer = self.hparams.tokenizer
-        # self.asr_model = EncoderDecoderASR.from_hparams(
-        #    source=self.hparams.asr_model_source,
-        #    run_opts={"device": self.device},
-        # )
 
     def decode_file(self, path, **kwargs):
         """Maps the given audio file to a string representing the
