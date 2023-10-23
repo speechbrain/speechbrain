@@ -65,7 +65,7 @@ class Tacotron2Brain(sb.Brain):
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """At the end of the optimizer step, apply noam annealing."""
         if should_step:
-            self.hparams.noam_annealing(self.optimizer)
+            self.hparams.lr_annealing(self.optimizer)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
