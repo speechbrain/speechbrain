@@ -191,7 +191,8 @@ class ASR(sb.Brain):
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """At the end of the optimizer step, apply noam annealing."""
-        self.hparams.noam_annealing(self.optimizer)
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""

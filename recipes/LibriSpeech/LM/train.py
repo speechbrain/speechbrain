@@ -44,12 +44,14 @@ class LM(sb.core.Brain):
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """At the end of the optimizer step, apply noam annealing."""
-        if isinstance(
-            self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
-        ) or isinstance(
-            self.hparams.lr_annealing, sb.nnet.schedulers.CyclicCosineScheduler,
-        ):
-            self.hparams.lr_annealing(self.optimizer)
+        if should_step:
+            if isinstance(
+                self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
+            ) or isinstance(
+                self.hparams.lr_annealing,
+                sb.nnet.schedulers.CyclicCosineScheduler,
+            ):
+                self.hparams.lr_annealing(self.optimizer)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
