@@ -80,10 +80,10 @@ class ASR_Brain(sb.Brain):
             phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
 
         if stage == sb.Stage.TRAIN:
-            predictions, wav_len = predictions
+            predictions, wav_lens = predictions
         else:
-            predictions, wav_len, hyps = predictions
-           
+            predictions, wav_lens, hyps = predictions
+
         # Transducer loss use logits from RNN-T model.
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
         self.transducer_metrics.append(
