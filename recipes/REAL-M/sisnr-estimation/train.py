@@ -760,35 +760,35 @@ if __name__ == "__main__":
         fetch(
             separator_model + "_encoder.ckpt",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=hparams["output_folder"],
             save_filename="encoder.ckpt",
         )
 
         fetch(
             separator_model + "_decoder.ckpt",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=hparams["output_folder"],
             save_filename="decoder.ckpt",
         )
 
         fetch(
             separator_model + "_masknet.ckpt",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=hparams["output_folder"],
             save_filename="masknet.ckpt",
         )
 
         fetch(
             separator_model + "_hyperparams.yaml",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=hparams["output_folder"],
             save_filename="hyperparams.yaml",
         )
 
         separator_loaded = separator.from_hparams(
             source=separator_model,
             run_opts={"device": run_opts["device"]},
-            savedir=separator_model,
+            savedir=hparams["output_folder"],
         )
 
         all_separators.append(separator_loaded)
