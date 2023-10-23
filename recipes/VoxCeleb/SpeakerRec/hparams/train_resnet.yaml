@@ -21,8 +21,8 @@ data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augm
 data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 train_annotation: !ref <save_folder>/train.csv
 valid_annotation: !ref <save_folder>/dev.csv
-noise_annotation: ../noise.csv
-rir_annotation: ../rir.csv
+noise_annotation: !ref <save_folder>/noise.csv
+rir_annotation: !ref <save_folder>/rir.csv
 
 # Use the following links for the official voxceleb splits:
 # VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
