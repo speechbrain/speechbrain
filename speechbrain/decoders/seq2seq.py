@@ -1812,6 +1812,31 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
 
 
 class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
+    """This class implements the beam search decoding
+    for the text-based HF seq2seq models, such as mBART or NLLB.
+    It is NOT significantly different from S2STransformerBeamSearcher.
+    This is why it inherits S2STransformerBeamSearcher.
+    The main difference might arise when one wishes to use directly
+    the lm_head of the text-based HF model rather than making a new
+    projection layer (self.fc = None).
+
+    Arguments
+    ---------
+    modules : list with the followings one:
+        model : torch.nn.Module
+            A Transformer model.
+        seq_lin : torch.nn.Module
+            A linear output layer.
+            Normally set to None for this usecase.
+    linear : torch.nn.Module
+        A linear output layer.
+        Normally set to None for this usecase.
+    vocab_size : int
+        The dimension of the lm_head.
+    **kwargs
+        Arguments to pass to S2SBeamSearcher
+    """
+
     def __init__(self, vocab_size, **kwargs):
         super(S2SHFTextBasedBeamSearcher, self).__init__(**kwargs)
         self.vocab_size = vocab_size
@@ -1826,4 +1851,5 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
         return prob_dist[:, -1, :], memory, attn
 
     def set_n_out(self):
+        """set the number of output tokens."""
         return self.vocab_size
