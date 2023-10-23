@@ -17,9 +17,9 @@ wav2vec2_hub: "facebook/wav2vec2-large-lv60"
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-train_annotation: !ref <output_folder>/train.json
-valid_annotation: !ref <output_folder>/dev.json
-test_annotation: !ref <output_folder>/test.json
+train_annotation: !ref <save_folder>/train.json
+valid_annotation: !ref <save_folder>/dev.json
+test_annotation: !ref <save_folder>/test.json
 skip_prep: False # Skip data preparation
 uppercase: False # Must be True when the TIMIT dataset is in the upper-case version
 
