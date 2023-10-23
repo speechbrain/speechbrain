@@ -231,8 +231,10 @@ class ASR(sb.core.Brain):
         if loss.requires_grad:
             loss.backward()
 
-        if self.check_gradients(loss):
-            self.optimizer.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer.step()
         self.optimizer.zero_grad()
 
         return loss.detach()
