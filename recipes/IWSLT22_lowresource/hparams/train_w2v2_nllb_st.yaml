@@ -38,10 +38,10 @@ number_of_epochs: 500
 lr: 0.001
 lr_wav2vec: 0.0001
 lr_mbart: 0.0001
-batch_size: 2 #4 #1 #2 #4
-test_batch_size: 1 #4
-gradient_accumulation: 6 #3 #12 #20 #6 #2
-valid_search_interval: 4 #5
+batch_size: 2
+test_batch_size: 1
+gradient_accumulation: 6
+valid_search_interval: 4
 loss_reduction: batchmean
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
@@ -70,7 +70,6 @@ enc_dnn_neurons: 1024 #256
 activation: !name:torch.nn.GELU
 
 # Outputs
-blank_index: 1
 label_smoothing: 0.1
 pad_index: 1      # pad_index defined by mbart model
 bos_index: 256057 # fr_XX bos_index defined by mbart model
@@ -137,10 +136,10 @@ lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.5
     patient: 2
 
-warmup: 8000 #10000
-hold: 32000 #40000
-cooldown: 40000  #50000 #30000
-optimizer_step_limit: 80000 #100000
+warmup: 8000
+hold: 32000
+cooldown: 40000
+optimizer_step_limit: 80000
 
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.TriStageLRSchedule
     lr: !ref <lr_wav2vec>
