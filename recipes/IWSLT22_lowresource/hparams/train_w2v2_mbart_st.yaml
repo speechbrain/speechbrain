@@ -24,7 +24,6 @@ root_data_folder: /users/hnguyen/IWSLT2022_Tamasheq_data/taq_fra_clean
 data_folder: !ref <root_data_folder>/json_version/
 lang: "fr" #for the BLEU score detokenization
 target_lang: "fr_XX" # for mbart initialization
-sample_rate: 16000
 
 
 # URL for the HuggingFace model we want to load (BASE here)
@@ -48,9 +47,6 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Data sorting parameters: sorting_debug_duration replaces sorting_min_duration in debug mode
 sorting: ascending
-sorting_min_duration: 1
-sorting_debug_duration: 3
-sorting_max_duration: 5
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -71,8 +67,6 @@ enc_dnn_layers: 1
 enc_dnn_neurons: 1024 #256
 
 # Transformer
-embedding_size: 256
-d_model: 1024  #256
 activation: !name:torch.nn.GELU
 
 # Outputs
@@ -87,9 +81,6 @@ eos_index: 2
 min_decode_ratio: 0.0
 max_decode_ratio: 0.25
 valid_beam_size: 5
-test_beam_size: 5
-
-freeze_finetune_updates: 2000
 
 ############################## models ################################
 #wav2vec model
@@ -109,6 +100,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
 #mBART
 mbart_path: facebook/mbart-large-50-many-to-many-mmt
 mbart_frozen: False
+vocab_size: 250054
 mBART: !new:speechbrain.lobes.models.huggingface_transformers.mbart.mBART
     source: !ref <mbart_path>
     freeze: !ref <mbart_frozen>
@@ -117,8 +109,6 @@ mBART: !new:speechbrain.lobes.models.huggingface_transformers.mbart.mBART
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
-
-seq_lin: !new:torch.nn.Identity
 
 modules:
     wav2vec2: !ref <wav2vec2>
@@ -178,10 +168,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 valid_search: !new:speechbrain.decoders.S2SHFTextBasedBeamSearcher
     modules: [!ref <mBART>, null, null]
-    vocab_size: 250054
+    vocab_size: !ref <vocab_size>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    #blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
