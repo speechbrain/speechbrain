@@ -43,33 +43,9 @@ class UrbanSound8kBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -98,8 +74,9 @@ class UrbanSound8kBrain(sb.core.Brain):
         classid, _ = batch.class_string_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            classid = torch.cat([classid] * self.n_augment, dim=0)
+        # Concatenate labels (due to data augmentation)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            classid = self.hparams.wav_augment.replicate_labels(classid)
 
         loss = self.hparams.compute_cost(predictions, classid, lens)
 
@@ -417,6 +394,8 @@ if __name__ == "__main__":
             "skip_manifest_creation": hparams["skip_manifest_creation"],
         },
     )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     datasets, label_encoder = dataio_prep(hparams)
