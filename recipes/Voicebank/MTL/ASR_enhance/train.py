@@ -77,7 +77,7 @@ class MTLbrain(sb.Brain):
 
         predictions = {}
         if self.hparams.enhance_type is not None:
-            noisy_wavs, lens = self.prepare_wavs(batch.noisy_sig)
+            noisy_wavs, lens = self.prepare_wavs(batch.noisy_sig, stage)
 
             # Mask with "signal approximation (SA)"
             if self.hparams.enhance_type == "masking":
@@ -92,14 +92,14 @@ class MTLbrain(sb.Brain):
 
         # Generate clean features for ASR pre-training
         if self.hparams.ctc_type == "clean" or self.hparams.seq_type == "clean":
-            clean_wavs, lens = self.prepare_wavs(batch.clean_sig)
+            clean_wavs, lens = self.prepare_wavs(batch.clean_sig, stage)
             clean_feats = self.prepare_feats(clean_wavs)
 
         # Compute seq outputs
         if self.hparams.seq_type is not None:
 
             # Prepare target inputs
-            tokens, token_lens = self.prepare_targets(batch.tokens_bos)
+            tokens, token_lens = self.prepare_targets(batch.tokens_bos, stage)
             tokens = self.modules.tgt_embedding(tokens)
 
             if self.hparams.seq_type == "clean":
@@ -108,8 +108,6 @@ class MTLbrain(sb.Brain):
                 embed = self.modules.src_embedding(clean_feats)
             if self.hparams.seq_type == "joint":
                 asr_feats = predictions["wavs"]
-                if stage == sb.Stage.TRAIN:
-                    asr_feats = self.hparams.augment(asr_feats, lens)
                 asr_feats = self.hparams.fbank(asr_feats)
                 asr_feats = self.hparams.normalizer(asr_feats, lens)
                 embed = self.modules.src_embedding(asr_feats)
@@ -141,18 +139,12 @@ class MTLbrain(sb.Brain):
 
         return predictions
 
-    def prepare_wavs(self, signal, augment=True):
+    def prepare_wavs(self, signal, stage):
         """Prepare possibly enhanced waveforms"""
         wavs, wav_lens = signal
-
-        if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
-            if augment:
-                wavs_noise = self.hparams.env_corr(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-            else:
-                wavs = torch.cat([wavs, wavs], dim=0)
-            wav_lens = torch.cat([wav_lens, wav_lens])
-
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
         return wavs, wav_lens
 
     def prepare_feats(self, wavs):
@@ -162,13 +154,13 @@ class MTLbrain(sb.Brain):
         feats = torch.log1p(feats)
         return feats
 
-    def prepare_targets(self, tokens):
+    def prepare_targets(self, tokens, stage):
         """Prepare target by concatenating self if "env_corr" is used"""
         tokens, token_lens = tokens
 
-        if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
-            tokens = torch.cat([tokens, tokens], dim=0)
-            token_lens = torch.cat([token_lens, token_lens])
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens = self.hparams.wav_augment.replicate_labels(tokens)
+            token_lens = self.hparams.wav_augment.replicate_labels(token_lens)
 
         return tokens, token_lens
 
@@ -176,7 +168,7 @@ class MTLbrain(sb.Brain):
         """Compute possibly several loss terms: enhance, mimic, ctc, seq"""
 
         # Do not augment targets
-        clean_wavs, lens = self.prepare_wavs(batch.clean_sig, augment=False)
+        clean_wavs, lens = self.prepare_wavs(batch.clean_sig, stage)
         loss = 0
 
         # Compute enhancement loss
@@ -268,7 +260,7 @@ class MTLbrain(sb.Brain):
         # Compute nll loss for seq2seq model
         if self.hparams.seq_weight > 0:
 
-            tokens, token_lens = self.prepare_targets(batch.tokens_eos)
+            tokens, token_lens = self.prepare_targets(batch.tokens_eos, stage)
             seq_loss = self.hparams.seq_loss(
                 predictions["seq_pout"], tokens, token_lens
             )
@@ -521,6 +513,7 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    run_on_main(hparams["prepare_noise_data"])
 
     # Load pretrained models
     for model in ["asr", "enhance", "perceptual"]:
