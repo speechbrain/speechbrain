@@ -1,25 +1,24 @@
 """
 Download link: https://lium.univ-lemans.fr/ted-lium2/
-Shucong Zhang 2023
+
+Authors
+ * Shucong Zhang 2023
+ * Adel Moumen 2023
 """
 
 import os
 import csv
 import logging
 import torchaudio
-import multiprocessing
-from tqdm import tqdm
-from speechbrain.dataio.dataio import merge_csvs
+import functools
+from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 
 
-def clip_and_make_csv(
-    sph_file,
-    stm_file,
-    utt_save_folder,
-    csv_save_folder,
-    avoid_if_shorter_than=1,
+def make_splits(
+    sph_file, stm_file, utt_save_folder, avoid_if_shorter_than,
 ):
     """
     This function splits the .sph Ted-talk recording into utterences based on the .stm annotation.
@@ -32,8 +31,6 @@ def clip_and_make_csv(
         Path to the stm file containing Ted-talk annotation.
     utt_save_folder: str
         The folder stores the clipped individual utterences.
-    csv_save_folder: str
-        The folder stores the generated csv files.
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
     """
@@ -48,6 +45,9 @@ def clip_and_make_csv(
 
     # load the original speech recording
     original_speech, sample_rate = torchaudio.load(sph_file)
+
+    info = read_audio_info(sph_file)
+    sample_rate = info.sample_rate
 
     entry = []
 
@@ -103,24 +103,47 @@ def clip_and_make_csv(
         ]
         entry.append(csv_line)
 
-    # create the csv file for the utterences in the talk recording.
-    # the csv files for all the talks will be merged
-    csv_file = f"{csv_save_folder}/{talk_id}.csv"
-    csv_output = [["ID", "duration", "wav", "spk_id", "wrd"]]
-    csv_output = csv_output + entry
-    with open(csv_file, mode="w") as csv_f:
-        csv_writer = csv.writer(
-            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-        )
-        for line in csv_output:
-            csv_writer.writerow(line)
+    return entry
+
+
+def process_line(
+    talk_sph, avoid_if_shorter_than, utt_save_folder_split, data_folder, split
+):
+    """ This function processes a single Ted-talk recording.
+
+    Arguments
+    ---------
+    talk_sph : str
+        The name of the Ted-talk recording.
+    avoid_if_shorter_than: int
+        Any utterance shorter than this will be discarded.
+    utt_save_folder_split: str
+        The folder stores the clipped individual utterences.
+    data_folder: str
+        The folder stores the original Ted-talk recordings.
+    split: str
+        The split of the dataset, e.g., train, dev, test.
+    """
+    talk_name = talk_sph[:-4]
+    talk_sph_path = f"{data_folder}/{split}/sph/{talk_sph}"
+    talk_stm_path = f"{data_folder}/{split}/stm/{talk_name}.stm"
+
+    return make_splits(
+        talk_sph_path,
+        talk_stm_path,
+        utt_save_folder_split,
+        avoid_if_shorter_than,
+    )
 
 
 def prepare_tedlium2(
-    data_folder, utt_save_folder, csv_save_folder, skip_prep=False
+    data_folder,
+    utt_save_folder,
+    csv_save_folder,
+    skip_prep=False,
+    avoid_if_shorter_than=1,
 ):
-    """
-    This function prepares the Tedlium2 dataset.
+    """ This function prepares the Tedlium2 dataset.
     Download link: https://lium.univ-lemans.fr/ted-lium2/
 
     Arguments
@@ -133,6 +156,8 @@ def prepare_tedlium2(
         Path where to save the generated .csv files.
     skip_prep: bool
         If True, data preparation is skipped.
+    avoid_if_shorter_than: int
+        Any utterance shorter than this will be discarded.
 
     Example
     -------
@@ -140,7 +165,6 @@ def prepare_tedlium2(
     >>> utt_save_folder = 'datasets/TEDLIUM_release2_processed'
     >>> csv_save_folder = 'TEDLIUM2'
     >>> prepare_tedlium2(data_folder, utt_save_folder, csv_save_folder)
-
     """
     if skip_prep:
         return
@@ -150,6 +174,7 @@ def prepare_tedlium2(
         "dev",
         "test",
     ]
+
     for split in splits:
         utt_save_folder_split = f"{utt_save_folder}/{split}"
         csv_save_folder_split = f"{csv_save_folder}/{split}"
@@ -160,41 +185,42 @@ def prepare_tedlium2(
             continue
         logger.info("Preparing %s..." % new_filename)
         talk_sphs = os.listdir(f"{data_folder}/{split}/sph")
-        processes = []
 
-        for talk_sph in talk_sphs:
-            talk_name = talk_sph[:-4]
-            talk_sph_path = f"{data_folder}/{split}/sph/{talk_sph}"
-            talk_stm_path = f"{data_folder}/{split}/stm/{talk_name}.stm"
-            p = multiprocessing.Process(
-                target=clip_and_make_csv,
-                args=(
-                    talk_sph_path,
-                    talk_stm_path,
-                    utt_save_folder_split,
-                    csv_save_folder_split,
-                ),
-            )
-            processes.append(p)
-
-        for p in tqdm(processes):
-            p.start()
-        for p in processes:
-            p.join()
-
-        all_file_list = os.listdir(csv_save_folder_split)
-        csv_list = []
-
-        for f_name in all_file_list:
-            if ".csv" in f_name:
-                csv_list.append(f_name)
-
-        merge_csvs(
-            data_folder=csv_save_folder_split,
-            csv_lst=csv_list,
-            merged_csv=split + ".csv",
+        line_processor = functools.partial(
+            process_line,
+            avoid_if_shorter_than=avoid_if_shorter_than,
+            utt_save_folder_split=utt_save_folder_split,
+            data_folder=data_folder,
+            split=split,
         )
-        for talk_csv in csv_list:
-            os.remove(f"{csv_save_folder_split}/{talk_csv}")
+
+        tmp_csv = f"{csv_save_folder_split}/{split}.tmp"
+        final_csv = f"{csv_save_folder_split}/{split}.csv"
+        total_line = 0
+        total_duration = 0
+        with open(tmp_csv, mode="w", encoding="utf-8") as csv_f:
+            csv_writer = csv.writer(
+                csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+            )
+
+            csv_writer.writerow(["ID", "duration", "wav", "spk_id", "wrd"])
+            for row in parallel_map(line_processor, talk_sphs):
+                if row is None:
+                    continue
+
+                for line in row:
+                    csv_writer.writerow(line)
+                    total_duration += float(float(line[1]))
+                total_line += len(row)
+
+        os.replace(tmp_csv, final_csv)
+
         msg = "\t%s successfully created!" % (new_filename)
+        logger.info(msg)
+
+        msg = f"Number of samples: {total_line} "
+        logger.info(msg)
+        msg = "Total duration: %s Hours" % (
+            str(round(total_duration / 3600, 2))
+        )
         logger.info(msg)
