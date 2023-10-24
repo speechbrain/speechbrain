@@ -1,7 +1,7 @@
 # Speech separation with WSJ0-Mix
 This folder contains some popular recipes for the WSJ0-Mix task (2/3 sources).
 
-* This recipe supports train with several source separation models on WSJ0-2Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [RE-SepFormer](https://arxiv.org/abs/2206.09507), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
+* This recipe supports train with several source separation models on WSJ0-2Mix, including [SPGM] (https://arxiv.org/abs/2309.12608),[Sepformer](https://arxiv.org/abs/2010.13154), [RE-SepFormer](https://arxiv.org/abs/2206.09507), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
 **Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Seperation: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/speechbrain-speech-seperation)
 
@@ -42,6 +42,11 @@ python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2spea
 * You can listen to example results on the test set of WSJ0-2/3Mix with SepFormer through this [page](https://sourceseparationresearch.com/static/sepformer_example_results/sepformer_results.html).
 
 * Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepFormer:
+
+| | SPGM, WSJ0-2Mix |
+|--- | --- |
+|NoAugment | 22.1 |
+|DynamicMixing | 22.7 |
 
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
