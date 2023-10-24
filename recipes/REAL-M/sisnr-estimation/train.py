@@ -787,7 +787,6 @@ if __name__ == "__main__":
             save_filename="hyperparams.yaml",
         )
 
-
         separator_loaded = separator.from_hparams(
             source=savedir,
             run_opts={"device": run_opts["device"]},
