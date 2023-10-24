@@ -32,8 +32,7 @@ This script relies on the data manifest files prepared in step 1.
 
 | Release | hyperparams file |  Test WER (No LM) | HuggingFace link | Model link | GPUs |
 |:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:|
-| 23-05-23 | branchformer_large.yaml | 7.9 | Not Avail. | Not Avail. | 4xA100 80GB |
-
+| 24-10-23 | branchformer_large.yaml | 8.11 | Not Avail. | [DropBox](https://www.dropbox.com/sh/el523uofs96czfi/AADgTd838pKo2aR8fhqVOh-Oa?dl=0) | 1xA100 80GB |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

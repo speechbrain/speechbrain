@@ -44,7 +44,7 @@ test_csv:
 number_of_epochs: 120
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
-grad_accumulation_factor: 1
+grad_accumulation_factor: 2
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
@@ -64,7 +64,7 @@ n_time_mask: 7
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 400
+max_batch_len: 800
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -237,6 +237,7 @@ augmentation: !new:speechbrain.lobes.augment.SpecAugment
     replace_with_zero: False
     freq_mask_width: 30
     time_mask_width: 25
+    time_mask_ratio: 0.05
 
 speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
     orig_freq: !ref <sample_rate>

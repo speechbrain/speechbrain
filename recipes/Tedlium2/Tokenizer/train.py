@@ -10,9 +10,7 @@ and beamsearch will produce bad results when combining AM and LM.
 To run this recipe, do the following:
 > python train.py hyperparams/tedlium2_500_bpe.yaml
 
-
 Authors
- * Abdel Heba 2021
  * Shucong Zhang 2023
 """
 
@@ -29,7 +27,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
