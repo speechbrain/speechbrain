@@ -161,13 +161,6 @@ class ASR(sb.core.Brain):
         self.hparams.model.eval()
         print("Loaded the average")
 
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        with torch.no_grad():
-            predictions = self.compute_forward(batch, stage=stage)
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
