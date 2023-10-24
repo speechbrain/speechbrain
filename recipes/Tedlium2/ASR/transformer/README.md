@@ -9,7 +9,7 @@ You can download Tedlium2 at https://lium.univ-lemans.fr/ted-lium2/
 
 ```shell
 cd ../../Tokenizer
-python train.py hyperparams/tedlium2_500_bpe.yaml
+python train.py hparams/tedlium2_500_bpe.yaml --data_folder /path/to/tedlium2 --clipped_utt_folder /path/to/clipped_folder
 ```
 
 Please, read  ../../Tokenizer/README.md before proceeding.
@@ -17,12 +17,12 @@ This training script will handle data preparation and tokenizer training. Note t
 Specifically, it segments the entire TED recording into individual utterance-level recordings, resulting in approximately 46 gigabytes of data.
 The CSV files generated for training, development, and testing are also utilized in ASR training.
 
-**IMPORTANT:** Rnsure you complete this step before proceeding to train the ASR Model.
+**IMPORTANT:** Ensure you complete this step before proceeding to train the ASR Model.
 
 2. Proceed to train the ASR model:
 
 ```shell
-python train.py hparams/branchformer_large.yaml
+python train.py hparams/branchformer_large.yaml --pretrained_tokenizer_file /path/to/tokenizer --data_folder /path/to/tedlium2 --clipped_utt_folder /path/to/clipped_folder
 ```
 
 This script relies on the data manifest files prepared in step 1.
