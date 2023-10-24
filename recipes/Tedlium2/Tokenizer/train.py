@@ -51,6 +51,7 @@ if __name__ == "__main__":
             "utt_save_folder": hparams["clipped_utt_folder"],
             "csv_save_folder": hparams["output_folder"],
             "skip_prep": hparams["skip_prep"],
+            "avoid_if_shorter_than": hparams["avoid_if_shorter_than"],
         },
     )
 
