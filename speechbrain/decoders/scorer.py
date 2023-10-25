@@ -453,10 +453,13 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
                 "Please install transformers with: pip install transformers"
             )
 
-        self.lm = AutoModelForCausalLM.from_pretrained(
-            self.model_name, is_decoder=True
+        self.lm = (
+            AutoModelForCausalLM.from_pretrained(
+                self.model_name, is_decoder=True
+            )
+            .eval()
+            .to(self.device)
         )
-        self.lm.eval().to(self.device)
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
@@ -474,24 +477,23 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         """
         return text.lower()
 
-    def preprocess_func(self, encoded_seq):
+    def preprocess_func(self, topk_hyps):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        encoded_seq : list of str
+        hyps : list list of str
             The hypotheses to be preprocessed.
         """
 
-        if self.encode_fn is None:
-            raise ValueError("encode_fn must be provided.")
-
-        # from ids to text
-        decoded_seq = self.encode_fn(encoded_seq)
-
         # normalize
-        decoded_seq = [self.normalize_text(seq) for seq in decoded_seq]
+        # decoded_seq = [self.normalize_text(seq) for seq in decoded_seq]
+        # Step 1. Normalize the text
+        normalized_hyps = []
+        for hyps in topk_hyps:
+            normalized_hyps.append([self.normalize_text(hyp) for hyp in hyps])
 
+        """
         # encode text
         enc_hyps = [
             torch.tensor(
@@ -501,15 +503,50 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
             )
             for seq in decoded_seq
         ]
+        """
 
-        enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
+        # Step 2. Encode the text with the HF tokenizer
+        enc_hyps = []
+        for hyps in normalized_hyps:
+            enc_hyps.append(
+                [
+                    [self.bos_index]
+                    + self.tokenizer.encode(hyp, add_special_tokens=False,)
+                    + [self.eos_index]
+                    for hyp in hyps
+                ]
+            )
 
-        # pad sequences
-        padded_hyps = torch.nn.utils.rnn.pad_sequence(
-            enc_hyps, batch_first=True, padding_value=self.pad_index
-        ).to(self.lm.parameters().__next__().device)
+        # Step 3. Get the length of the encoded sequences
+        # TODO: use length in terms of chars instead of tokens
+        enc_hyps_length = []
+        for hyps in enc_hyps:
+            enc_hyps_length.append([len(enc_seq) for enc_seq in hyps])
 
-        return padded_hyps, enc_hyps_length
+        # print(enc_hyps)
+
+        # Step 4. Pad the encoded sequences
+
+        # Find the maximum length among all subsublists
+        max_length = max(len(enc_seq) for hyps in enc_hyps for enc_seq in hyps)
+
+        # Pad each subsublist with the self.pad_index to match the maximum length
+        padded_enc_hyps = []
+        for hyps in enc_hyps:
+            padded_hyps = []
+            for enc_seq in hyps:
+                padded_enc_seq = enc_seq + [self.pad_index] * (
+                    max_length - len(enc_seq)
+                )
+                padded_hyps.append(padded_enc_seq)
+            padded_enc_hyps.append(padded_hyps)
+
+        # Cast to tensor
+        padded_enc_hyps = torch.tensor(
+            padded_enc_hyps, dtype=torch.long, device=self.device
+        )
+
+        return padded_enc_hyps, enc_hyps_length
 
     @torch.no_grad()
     def rescore_hyps(self, hyps):
@@ -517,33 +554,53 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
 
         Arguments
         ---------
-        hyps : list of str
+        hyps : list of list of str
             The hypotheses to be rescored.
         """
         # preprocess hypotheses
-        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
+        padded_enc_hyps, enc_hyps_length = self.preprocess_func(hyps)
 
-        bool_mask = [
-            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
-            for length in enc_hyps_length
-        ]
-
+        # boolean_mask = [[element == self.pad_index for element in enc_seq] for hyps in padded_enc_hyps for enc_seq in hyps]
+        # boolean_mask of shape [B, T, 1]
+        boolean_mask = []
+        for index, hyps in enumerate(padded_enc_hyps):
+            boolean_mask_hyps = []
+            for enc_seq in hyps:
+                # use the length of the encoded sequence to create the boolean mask
+                # enc_hyps_length is a list of lists of integers
+                boolean_mask_hyps.append(
+                    [
+                        False if i >= enc_seq[i] else True
+                        for i in range(len(enc_seq))
+                    ]
+                )
+            boolean_mask.append(boolean_mask_hyps)
         bool_mask_tensor = torch.tensor(
-            bool_mask, dtype=torch.bool, device="cuda"
+            boolean_mask, dtype=torch.bool, device=self.device
         )
 
-        # compute scores
-        logits = self.lm(input_ids=padded_hyps).logits
+        # compute scores & give attention mask only if needed by the model
+        logits = self.lm(
+            input_ids=padded_enc_hyps, attention_mask=bool_mask_tensor
+        ).logits
         log_probs = self.softmax(logits / self.temperature)
+        # print("log_probs = ", log_probs.shape)
+        # print("padded_enc = ", padded_enc_hyps.shape)
+        # print dtype
+        # print("log_probs dtype = ", log_probs.dtype)
+        # print("padded_enc dtype = ", padded_enc_hyps.dtype)
 
         target_log_probs = (
-            log_probs[:, :-1]
-            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
-            .squeeze(2)
+            log_probs[:, :, :-1]
+            .gather(3, padded_enc_hyps[:, :, 1:].unsqueeze(3))
+            .squeeze(3)
         )
+
         neural_lm_score = torch.sum(
-            target_log_probs * bool_mask_tensor[:, 1:], dim=-1
+            target_log_probs * bool_mask_tensor[:, :, 1:], dim=-1
         )
+
+        # print(neural_lm_score.shape)
 
         return neural_lm_score, enc_hyps_length
 
@@ -1670,3 +1727,106 @@ class ScorerBuilder:
                 raise ValueError(
                     "Pure CTC scorer doesn't have attention weights for coverage scorer"
                 )
+
+
+class RescorerBuilder:
+    """ Builds rescorer instance for beamsearch.
+
+    The RecorerBuilder class is responsible for building a scorer instance for
+    beam search. It takes weights and rescorers classes. It combines the scorers based
+    on the weights specified and provides methods for rescoring text.
+
+    This is the class to be used for building rescorer instances for beam search.
+
+    Arguments
+    ---------
+    weights : dict
+        Weights of rescorers specified.
+    rescorers : list
+        Rescorers that re-ranks topk hypotheses.
+    topk : int
+        The number of hypotheses to be re-ranked.
+    """
+
+    def __init__(
+        self, weights=dict(), rescorers=list(), topk: int = 5,
+    ):
+        assert len(weights) == len(
+            rescorers
+        ), "Weights and rescorers are not matched."
+
+        self.weights = weights
+        self.topk = topk
+
+        all_rescorer_names = [
+            k.lower().split("rescorer")[0]
+            for k in globals().keys()
+            if k.endswith("Rescorer")
+        ]
+        full_rescorer_names = [
+            impl.__class__.__name__.lower().split("rescorer")[0]
+            for impl in rescorers
+        ]
+
+        # Have a default 0.0 weight for scorer not specified
+        init_weights = {k: (0.0, 0.0) for k in all_rescorer_names}
+        self.weights = {**init_weights, **weights}
+        self.rescorers = dict(zip(full_rescorer_names, rescorers))
+
+        self._validate_scorer(all_rescorer_names)
+
+    def rescore_hyps(self, candidates, scores):
+        """Rescore the hypotheses with the full external scorers.
+        Arguments
+        ---------
+        scores : torch.Tensor
+            (batch_size x beam_size). The scores of the current hypotheses.
+        candidates : Candidates
+            The final hypotheses to rescore.
+        """
+        topk_candidates = [cand[: self.topk] for cand in candidates]
+        topk_scores = [score[: self.topk] for score in scores]
+        # print("topk_candidates", topk_candidates[0])
+        # print("topk_scores", topk_scores[0])
+        # print(len(topk_candidates))
+        # print(len(topk_scores))
+
+        for k, impl in self.rescorers.items():
+            lm_scores, enc_length = impl.rescore_hyps(topk_candidates)
+
+            alpha, beta = self.weights[k]
+
+            """
+            scores = [
+                (s + alpha * l + beta * e).item()
+
+                for s, l, e in zip(topk_scores, lm_score, enc_length)
+            ]
+            """
+            scores = []
+            for am_scores, lm_scores, lengths in zip(
+                topk_scores, lm_scores, enc_length
+            ):
+                b_scores = []
+                for am_score, lm_score, length in zip(
+                    am_scores, lm_scores, lengths
+                ):
+                    b_scores.append((am_score + alpha * lm_score).item())
+                scores.append(b_scores)
+
+        return scores
+
+    def _validate_scorer(self, rescorer_names):
+        """These error messages indicate rescorers are not properly set.
+
+        Arguments
+        ---------
+        rescorer_names : list
+            Prefix of scorers defined in speechbrain.decoders.scorer.
+        """
+        if len(self.weights) > len(rescorer_names):
+            raise ValueError(
+                "The keys of weights should be named in {}".format(
+                    rescorer_names
+                )
+            )
