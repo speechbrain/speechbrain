@@ -126,7 +126,6 @@ drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
     drop_count_high: !ref <drop_chunk_count_high>
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
-# Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
     parallel_augment: False
     concat_original: True

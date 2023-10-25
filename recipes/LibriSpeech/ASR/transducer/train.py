@@ -50,32 +50,26 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
-        # Add env corruption if specified
+        # Add waveform augmentation if specified.
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                batch.sig = wavs, wav_lens
-                tokens_with_bos = torch.cat(
-                    [tokens_with_bos, tokens_with_bos], dim=0
+            if hasattr(self.hparams, "wav_augment"):
+                wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+                tokens_with_bos = self.hparams.wav_augment.replicate_labels(
+                    tokens_with_bos
                 )
-                token_with_bos_lens = torch.cat(
-                    [token_with_bos_lens, token_with_bos_lens]
-                )
-                batch.tokens_bos = tokens_with_bos, token_with_bos_lens
-
-            if hasattr(self.hparams, "speed_perturb"):
-                wavs = hparams["speed_perturb"](wavs)
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
+
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_with_bos = self.hparams.fea_augment.replicate_labels(
+                tokens_with_bos
+            )
+
         current_epoch = self.hparams.epoch_counter.current
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
-
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
@@ -146,11 +140,29 @@ class ASR(sb.Brain):
         else:
             logits_transducer, wav_lens, predicted_tokens = predictions
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            token_eos_lens = torch.cat([token_eos_lens, token_eos_lens], dim=0)
-            tokens = torch.cat([tokens, tokens], dim=0)
-            token_lens = torch.cat([token_lens, token_lens], dim=0)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                tokens = self.hparams.wav_augment.replicate_labels(tokens)
+                token_lens = self.hparams.wav_augment.replicate_labels(
+                    token_lens
+                )
+                tokens_eos = self.hparams.wav_augment.replicate_labels(
+                    tokens_eos
+                )
+                token_eos_lens = self.hparams.wav_augment.replicate_labels(
+                    token_eos_lens
+                )
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                token_lens = self.hparams.fea_augment.replicate_labels(
+                    token_lens
+                )
+                tokens_eos = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos
+                )
+                token_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    token_eos_lens
+                )
 
         if stage == sb.Stage.TRAIN:
             CTC_loss = 0.0

@@ -34,30 +34,13 @@ class SLU(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, tokens_bos_lens = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, wav_lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                wavs_aug_tot.append(wavs_aug)
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            wav_lens = torch.cat([wav_lens] * self.n_augment)
-            tokens_bos = torch.cat([tokens_bos] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
+            tokens_bos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_bos_lens
+            )
 
         # ASR encoder forward pass
         with torch.no_grad():
@@ -92,16 +75,10 @@ class SLU(sb.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
-
-        if stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos] * self.n_augment, dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens] * self.n_augment, dim=0
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
             )
 
         loss_seq = self.hparams.seq_cost(
@@ -307,7 +284,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-
+    run_on_main(hparams["prepare_noise_data"])
+    run_on_main(hparams["prepare_rir_data"])
     # here we create the datasets objects as well as tokenization and encoding
     (train_set, valid_set, test_set, tokenizer,) = dataio_prepare(hparams)
 
