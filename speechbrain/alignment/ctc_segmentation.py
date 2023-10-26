@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-# 2021, Technische Universität München, Ludwig Kürzinger
 """Perform CTC segmentation to align utterances within audio files.
 
 This uses the ctc-segmentation Python package.
 Install it with pip or see the installing instructions in
 https://github.com/lumaku/ctc-segmentation
+
+Author
+-  Ludwig Kürzinger 2021 (Technische Universität München)
 """
 
 import logging
