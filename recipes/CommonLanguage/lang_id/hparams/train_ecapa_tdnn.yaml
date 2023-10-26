@@ -16,7 +16,6 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER # e.g. /localscratch/common_voice_kpd/
 output_folder: !ref results/ECAPA-TDNN/<seed>
 save_folder: !ref <output_folder>/save
-rir_folder: !ref <data_folder>
 train_log: !ref <output_folder>/train_log.txt
 train_csv: !ref <save_folder>/train.csv
 dev_csv: !ref <save_folder>/dev.csv

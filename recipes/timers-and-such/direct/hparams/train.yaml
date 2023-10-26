@@ -21,7 +21,6 @@ test_synth_wer_file: !ref <output_folder>/test_synth_wer.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
-data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 csv_train: !ref <save_folder>/train-type=direct.csv
 csv_dev_real: !ref <save_folder>/dev-real-type=direct.csv

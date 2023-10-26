@@ -28,7 +28,6 @@ NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.z
 noise_csv_openrir: !ref <save_folder>/noise_openrir.csv #The data manifest files are created by the data preparation script
 
 # Additional data (for augmentation)
-open_rir_folder: !ref <data_folder> # where to store noisy +ris from open_rir
 musan_folder: !PLACEHOLDER  # e.g, /path/to/musan (download it from the web before)
 commonlanguage_folder: !PLACEHOLDER  # e.g, /path/to/commonlang (download it from the web before)
 
@@ -120,13 +119,13 @@ add_speech_musan: !new:speechbrain.augment.time_domain.AddNoise
     clean_sample_rate: 16000
     num_workers: !ref <num_workers>
 
-add_speech_multilang: !new:speechbrain.augment.time_domain.AddNoise
-    csv_file: !ref <multilang_speech_csv>
-    snr_low: -5
-    snr_high: 15
-    noise_sample_rate: 16000
-    clean_sample_rate: 16000
-    num_workers: !ref <num_workers>
+#add_speech_multilang: !new:speechbrain.augment.time_domain.AddNoise
+#    csv_file: !ref <multilang_speech_csv>
+#    snr_low: -5
+#    snr_high: 15
+#    noise_sample_rate: 16000
+#    clean_sample_rate: 16000
+#    num_workers: !ref <num_workers>
 
 # Models
 compute_features: !new:speechbrain.lobes.features.Fbank

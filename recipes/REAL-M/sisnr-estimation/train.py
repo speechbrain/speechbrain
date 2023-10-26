@@ -310,7 +310,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speedperturb(
+                new_target = self.hparams.speed_perturb(
                     targets[:, :, i], targ_lens
                 )
                 new_targets.append(new_target)
