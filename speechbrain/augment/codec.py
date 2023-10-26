@@ -6,10 +6,9 @@ torchaudio, enhancing audio data processing.
 For in-depth guidance and usage examples, please consult the following tutorial:
     https://pytorch.org/audio/stable/tutorials/audio_data_augmentation_tutorial.html
 
-Note: When utilizing FFmpeg2 as the backend, the maximum number of samples that
-can be processed at a time is limited to 16. To overcome this restriction and
-process a larger number of samples, consider switching to an alternative backend,
-such as "sox."
+Note: This code only works when using FFmpeg as torchaudio backend.
+When utilizing FFmpeg2 as the backend, the maximum number of samples that
+can be processed at a time is limited to 16.
 
 
 
@@ -34,9 +33,9 @@ class CodecAugment(torch.nn.Module):
 
     Example
     -------
-        >>> waveform = torch.rand(4, 16000)
-        >>> augmenter = CodecAugment(16000)
-        >>> output_waveform = augmenter(waveform)
+        >>> waveform = torch.rand(4, 16000) # doctest: +SKIP
+        >>> augmenter = CodecAugment(16000) # doctest: +SKIP
+        >>> output_waveform = augmenter(waveform) # doctest: +SKIP
     """
 
     def __init__(self, sample_rate=16000):
