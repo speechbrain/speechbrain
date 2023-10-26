@@ -41,7 +41,7 @@ python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2spea
 
 * You can listen to example results on the test set of WSJ0-2/3Mix with SepFormer through this [page](https://sourceseparationresearch.com/static/sepformer_example_results/sepformer_results.html).
 
-* Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with SepFormer:
+* Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with various models:
 
 | | SPGM, WSJ0-2Mix |
 |--- | --- |
