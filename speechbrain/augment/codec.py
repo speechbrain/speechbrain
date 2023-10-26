@@ -4,15 +4,13 @@ Codec Augmentation (via torchaudio)
 This library offers an interface to codec augmentation techniques implemented in
 torchaudio, enhancing audio data processing.
 For in-depth guidance and usage examples, please consult the following tutorial:
-    https://pytorch.org/audio/stable/tutorials/audio_data_augmentation_tutorial.html
+https://pytorch.org/audio/stable/tutorials/audio_data_augmentation_tutorial.html
 
 Note: This code only works when using FFmpeg as torchaudio backend.
 When utilizing FFmpeg2 as the backend, the maximum number of samples that
 can be processed at a time is limited to 16.
 
-
-
-Authors:
+Author:
 - Mirco Ravanelli (2023)
 """
 
