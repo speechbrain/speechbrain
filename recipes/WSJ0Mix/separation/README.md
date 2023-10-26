@@ -45,7 +45,7 @@ python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2spea
 
 | | SPGM, WSJ0-2Mix |
 |--- | --- |
-|NoAugment | 22.1 |
+|SpeedPerturb | 22.1 |
 |DynamicMixing | 22.7 |
 
 | | SepFormer, WSJ0-2Mix |
