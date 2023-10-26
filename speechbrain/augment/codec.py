@@ -33,9 +33,10 @@ class CodecAugment(torch.nn.Module):
 
     Example
     -------
-        >>> waveform = torch.rand(4, 16000) # doctest: +SKIP
-        >>> augmenter = CodecAugment(16000) # doctest: +SKIP
-        >>> output_waveform = augmenter(waveform) # doctest: +SKIP
+    >>> waveform = torch.rand(4, 16000)
+    >>> if torchaudio.list_audio_backends()[0] == 'ffmpeg':
+    ...     augmenter = CodecAugment(16000)
+    ...     output_waveform = augmenter(waveform)
     """
 
     def __init__(self, sample_rate=16000):

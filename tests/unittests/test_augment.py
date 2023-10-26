@@ -1,5 +1,6 @@
 import os
 import torch
+import torchaudio
 from speechbrain.dataio.dataio import write_audio
 
 
@@ -449,10 +450,11 @@ def test_SpectrogramDrop():
 
     from speechbrain.augment.codec import CodecAugment
 
-    waveform = torch.rand(4, 16000)
-    augmenter = CodecAugment(16000)
-    output_waveform = augmenter(waveform)
-    assert not torch.allclose(waveform, output_waveform)
+    if torchaudio.list_audio_backends()[0] == "ffmpeg":
+        waveform = torch.rand(4, 16000)
+        augmenter = CodecAugment(16000)
+        output_waveform = augmenter(waveform)
+        assert not torch.allclose(waveform, output_waveform)
 
     from speechbrain.augment.time_domain import DropBitResolution
 
