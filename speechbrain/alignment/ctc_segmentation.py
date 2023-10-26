@@ -51,7 +51,7 @@ class CTCSegmentationTask(SimpleNamespace):
     The human-readable output can be configured with
     the printing options.
 
-    Properties
+    Arguments
     ---------
     text : list
         Utterance texts, separated by line. But without the utterance
