@@ -224,9 +224,9 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
-    
+
 # ----- WAVEFORM AUGMENTATION ----- #
- 
+
 # Download and prepare the dataset of noisy sequences for augmentation
 prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     URL: !ref <NOISE_DATASET_URL>
@@ -258,8 +258,8 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
     augment_prob: 1.0
     augmentations: [
         !ref <add_noise>]
-        
-        
+
+
  # ----- FEATURE AUGMENTATION ----- #
 time_drop_length_low: 0  # Min length for temporal chunk to drop in spectrogram
 time_drop_length_high: 100  # Max length for temporal chunk to drop in spectrogram
@@ -314,7 +314,7 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <time_drop>,
         !ref <freq_drop>,
         !ref <time_warp>]
-        
+
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
