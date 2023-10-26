@@ -90,6 +90,12 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
+# NOTE ON DATA AUGMENTATION
+# This template demonstrates the use of all available data augmentation strategies
+# to illustrate how they work and how you can combine them with the augmenter.
+# In practical applications (e.g., refer to other recipes), it is usually advisable
+# to select a subset of these strategies for better performance.
+
 # Waveform Augmentation Functions
 snr_low: 0  # Min SNR for noise augmentation
 snr_high: 15  # Max SNR for noise augmentation
