@@ -263,9 +263,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speedperturb(
-                    targets[:, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(targets[:, :, i])
                 new_targets.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[-1]
