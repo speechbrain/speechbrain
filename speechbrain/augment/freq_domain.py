@@ -57,6 +57,7 @@ class SpectrogramDrop(torch.nn.Module):
     >>> print(spectrogram.shape)
     torch.Size([4, 150, 40])
     >>> out = drop(spectrogram)
+    >>> print(out.shape)
     torch.Size([4, 150, 40])
     >>> # frequency-masking
     >>> drop = SpectrogramDrop(dim=2)
@@ -64,6 +65,7 @@ class SpectrogramDrop(torch.nn.Module):
     >>> print(spectrogram.shape)
     torch.Size([4, 150, 40])
     >>> out = drop(spectrogram)
+    >>> print(out.shape)
     torch.Size([4, 150, 40])
     """
 
@@ -239,7 +241,7 @@ class Warping(torch.nn.Module):
     >>> # Frequency-warping
     >>> warp = Warping(dim=2)
     >>> spectrogram = torch.rand(4, 150, 40)
-    >>> print(spectrogram shape)
+    >>> print(spectrogram.shape)
     torch.Size([4, 150, 40])
     >>> out = warp(spectrogram)
     >>> print(out.shape)

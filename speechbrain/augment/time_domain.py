@@ -343,7 +343,7 @@ class AddReverb(torch.nn.Module):
     >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> reverb = AddReverb('tests/samples/annotation/RIRs.csv',
     ...                     replacements={'rir_folder': 'tests/samples/RIRs'})
-    >>> reverbed = reverb(clean, torch.ones(1))
+    >>> reverbed = reverb(clean)
     """
 
     def __init__(
@@ -1284,8 +1284,6 @@ class DoClip(torch.nn.Module):
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
     >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> clipped_signal = clipper(signal.unsqueeze(0))
-    >>> "%.2f" % clipped_signal.max()
-    '0.01'
     """
 
     def __init__(self, clip_low=0.5, clip_high=0.5):

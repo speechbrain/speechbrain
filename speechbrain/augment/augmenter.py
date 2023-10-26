@@ -91,7 +91,7 @@ class Augmenter(torch.nn.Module):
 
     Example
     -------
-    >>> from speechbrain.processing.speech_augmentation import DropFreq, DropChunk
+    >>> from speechbrain.augment.time_domain import DropFreq, DropChunk
     >>> freq_dropper = DropFreq()
     >>> chunk_dropper = DropChunk(drop_start=100, drop_end=16000)
     >>> augment = Augmenter(parallel_augment=False, concat_original=False, augmentations=[freq_dropper, chunk_dropper])
