@@ -136,7 +136,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <speed_perturb>,
         !ref <drop_freq>,
         !ref <drop_chunk>]
-        
+
 # Feature extraction
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>

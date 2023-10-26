@@ -38,9 +38,10 @@ class SLU(sb.Brain):
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
             tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
-            tokens_bos_lens = self.hparams.wav_augment.replicate_labels(tokens_bos_lens)
-            
-            
+            tokens_bos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_bos_lens
+            )
+
         # ASR encoder forward pass
         with torch.no_grad():
             ASR_encoder_out = self.hparams.asr_model.encode_batch(
@@ -75,7 +76,9 @@ class SLU(sb.Brain):
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(tokens_eos_lens)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
+            )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens

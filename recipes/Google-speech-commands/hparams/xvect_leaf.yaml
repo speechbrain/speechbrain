@@ -130,7 +130,7 @@ add_reverb: !new:speechbrain.augment.time_domain.AddReverb
     reverb_sample_rate: !ref <sample_rate>
     clean_sample_rate: !ref <sample_rate>
     num_workers: !ref <num_workers>
-    
+
 # Frequency drop: randomly drops a number of frequency bands to zero.
 drop_freq_low: 0  # Min frequency band dropout probability
 drop_freq_high: 1  # Max frequency band dropout probability

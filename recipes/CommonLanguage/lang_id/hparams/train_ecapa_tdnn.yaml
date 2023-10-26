@@ -103,7 +103,7 @@ speed_changes: [90, 100, 110]  # List of speed changes for time-stretching
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: !ref <speed_changes>
-    
+
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
     parallel_augment: False

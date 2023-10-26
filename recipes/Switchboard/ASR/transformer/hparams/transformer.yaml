@@ -331,7 +331,7 @@ speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: !ref <speed_changes>
-    
+
 compute_features: !new:speechbrain.lobes.features.Fbank
   sample_rate: !ref <sample_rate>
   n_fft: !ref <n_fft>

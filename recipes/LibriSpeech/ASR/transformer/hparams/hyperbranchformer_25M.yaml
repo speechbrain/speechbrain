@@ -282,7 +282,7 @@ speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: !ref <speed_changes>
-    
+
 # Time Drop
 time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
 time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram

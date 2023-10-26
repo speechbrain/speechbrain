@@ -95,7 +95,7 @@ add_noise: !new:speechbrain.augment.time_domain.AddNoise
     noise_sample_rate: 16000
     clean_sample_rate: 16000
     num_workers: !ref <num_workers>
-    
+
 add_noise_musan: !new:speechbrain.augment.time_domain.AddNoise
     csv_file: !ref <noise_csv>
     snr_low: -5
@@ -110,7 +110,7 @@ add_music_musan: !new:speechbrain.augment.time_domain.AddNoise
     snr_high: 15
     noise_sample_rate: 16000
     clean_sample_rate: 16000
-    num_workers: !ref <num_workers>    
+    num_workers: !ref <num_workers>
 
 add_speech_musan: !new:speechbrain.augment.time_domain.AddNoise
     csv_file: !ref <speech_csv>
@@ -118,7 +118,7 @@ add_speech_musan: !new:speechbrain.augment.time_domain.AddNoise
     snr_high: 15
     noise_sample_rate: 16000
     clean_sample_rate: 16000
-    num_workers: !ref <num_workers>       
+    num_workers: !ref <num_workers>
 
 add_speech_multilang: !new:speechbrain.augment.time_domain.AddNoise
     csv_file: !ref <multilang_speech_csv>
@@ -126,8 +126,8 @@ add_speech_multilang: !new:speechbrain.augment.time_domain.AddNoise
     snr_high: 15
     noise_sample_rate: 16000
     clean_sample_rate: 16000
-    num_workers: !ref <num_workers>  
-    
+    num_workers: !ref <num_workers>
+
 # Models
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

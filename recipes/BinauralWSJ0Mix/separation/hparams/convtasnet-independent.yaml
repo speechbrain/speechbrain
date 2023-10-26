@@ -97,7 +97,7 @@ drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
     drop_length_high: !ref <drop_chunk_length_high>
     drop_count_low: !ref <drop_chunk_count_low>
     drop_count_high: !ref <drop_chunk_count_high>
-    
+
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
 threshold: -30

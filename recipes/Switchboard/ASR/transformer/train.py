@@ -87,9 +87,7 @@ class ASR(sb.core.Brain):
         # Add feature augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-            tokens_with_bos = self.hparams.fea_augment.replicate_labels(
-                tokens_with_bos
-            )
+            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
         # forward modules
         src = self.modules.CNN(feats)
 
@@ -137,8 +135,8 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "fea_augment"):
                 tokens = self.hparams.fea_augment.replicate_labels(tokens)
-                token_lens = self.hparams.fea_augment.replicate_labels(
-                    token_lens
+                tokens_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_lens
                 )
                 tokens_eos = self.hparams.fea_augment.replicate_labels(
                     tokens_eos

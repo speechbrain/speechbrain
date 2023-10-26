@@ -210,7 +210,7 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <time_drop>,
         !ref <freq_drop>,
         !ref <time_warp>]
-        
+
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
    num_blocks: 2

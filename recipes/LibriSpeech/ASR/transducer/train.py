@@ -48,6 +48,7 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
+        tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
         # Add waveform augmentation if specified.
         if stage == sb.Stage.TRAIN:
@@ -56,7 +57,6 @@ class ASR(sb.Brain):
                 tokens_with_bos = self.hparams.wav_augment.replicate_labels(
                     tokens_with_bos
                 )
-        tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)

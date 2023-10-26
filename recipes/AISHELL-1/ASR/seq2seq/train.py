@@ -31,7 +31,7 @@ class ASR(sb.Brain):
         feats = self.hparams.compute_features(wavs)
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
-            feats, fea_lens = self.hparams.fea_augment(feats, fea_lens)
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
 
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats.detach())

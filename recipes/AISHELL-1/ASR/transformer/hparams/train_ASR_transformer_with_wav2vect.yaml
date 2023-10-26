@@ -189,7 +189,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <speed_perturb>,
         !ref <drop_freq>,
         !ref <drop_chunk>]
-        
+
 
 # define two optimizers here for two-stage training
 Adam: !name:torch.optim.Adam
