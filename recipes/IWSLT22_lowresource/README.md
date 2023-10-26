@@ -33,7 +33,7 @@ For instance: Using ``keep_n_layers: 10'' means that only the first 10 layers in
 
 For launching training:
 ```
-python train.py hparams/train_w2v2_st.yaml
+python train.py hparams/train_w2v2_st.yaml --root_data_folder=your/data/path # e.g., /workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean/
 
 ```
 
@@ -43,7 +43,7 @@ For training the model with the mBART/NLLB model, please refer to the hparams/tr
 
 For launching training:
 ```
-python train_with_w2v_mbart.py hparams/train_w2v2_mbart_st.yaml
+python train_with_w2v_mbart.py hparams/train_w2v2_mbart_st.yaml --root_data_folder=your/data/path # e.g., /workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean
 ```
 
 One should change hparams/train_w2v2_mbart_st.yaml to hparams/train_w2v2_nllb_st.yaml in the above training command for using NLLB model instead.

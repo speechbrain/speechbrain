@@ -19,7 +19,7 @@ wer_file: !ref <output_folder>/wer.txt
 bleu_file: !ref <output_folder>/bleu.txt
 
 # root data folder points to 17h version inside the github folder (IWSLT2022_Tamasheq_data/taq_fra_clean/)
-root_data_folder: /users/hnguyen/IWSLT2022_Tamasheq_data/taq_fra_clean
+root_data_folder: !PLACEHOLDER #e.g., /users/hnguyen/IWSLT2022_Tamasheq_data/taq_fra_clean
 # data folder is the place where the json files will be stored prior to training
 data_folder: !ref <root_data_folder>/json_version/
 lang: "fr" #for the BLEU score detokenization
