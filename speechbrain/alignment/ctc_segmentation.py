@@ -77,9 +77,6 @@ class CTCSegmentationTask(SimpleNamespace):
         have the same length as the number of utterances.
     lpz : np.ndarray
         CTC posterior log probabilities (Optional).
-
-    Properties for printing
-    ----------------------
     print_confidence_score : bool
         Include the confidence score.
         Default: True.
