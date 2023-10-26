@@ -327,7 +327,7 @@ class RandomShift(torch.nn.Module):
     We recommend using small shifts to preserve information integrity.
     Using large shifts may result in the loss of significant data and could
     potentially lead to misalignments with corresponding labels.
-.
+
     Arguments
     ---------
     min_shift : int
