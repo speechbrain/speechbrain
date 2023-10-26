@@ -51,8 +51,8 @@ class CTCSegmentationTask(SimpleNamespace):
     The human-readable output can be configured with
     the printing options.
 
-    Arguments
-    ---------
+    Attributes
+    ----------
     text : list
         Utterance texts, separated by line. But without the utterance
             name at the beginning of the line (as in kaldi-style text).
@@ -141,7 +141,7 @@ class CTCSegmentation:
     If needed, parameters for CTC segmentation can be set with ``set_config(·)``.
     Then call the instance as function to align text within an audio file.
 
-    Arguments
+    Attributes
     ---------
     asr_model : EncoderDecoderASR
         Speechbrain ASR interface. This requires a model that has a
@@ -429,8 +429,8 @@ class CTCSegmentation:
         of samples per encoded CTC frame are needed. This function estimates them by
         doing one inference, which is only needed once.
 
-        Args
-        ----
+        Arguments
+        ---------
         speech_len : int
             Length of randomly generated speech vector for single
             inference. Default: 215040.
@@ -451,8 +451,8 @@ class CTCSegmentation:
     def get_lpz(self, speech: Union[torch.Tensor, np.ndarray]):
         """Obtain CTC posterior log probabilities for given speech data.
 
-        Args
-        ----
+        Arguments
+        ---------
         speech : Union[torch.Tensor, np.ndarray]
             Speech audio input.
 
@@ -520,8 +520,8 @@ class CTCSegmentation:
         ``['▁', '▁r', '▁re', '▁real', '▁really']``. The alignment will be
         based on the most probable activation sequence given by the network.
 
-        Args
-        ----
+        Arguments
+        ---------
         text : list
             List or multiline-string with utterance ground truths.
         lpz : np.ndarray
@@ -589,8 +589,8 @@ class CTCSegmentation:
     def get_segments(task: CTCSegmentationTask):
         """Obtain segments for given utterance texts and CTC log posteriors.
 
-        Args
-        ----
+        Arguments
+        ---------
         task : CTCSegmentationTask
             Task object that contains ground truth and
             CTC posterior probabilities.
@@ -635,8 +635,8 @@ class CTCSegmentation:
     ) -> CTCSegmentationTask:
         """Align utterances.
 
-        Args
-        ----
+        Arguments
+        ---------
         speech : Union[torch.Tensor, np.ndarray, str, Path]
             Audio file that can be given as path or as array.
         text : Union[List[str], str]
