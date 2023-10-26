@@ -57,8 +57,8 @@ test_max_active_state: 3000
 ac_scale: 1.5
 compose_HL_with_G: True
 # 1best or whole-lattice-rescoring
-decoding_method: whole-lattice-rescoring
-# decoding_method: 1best
+# decoding_method: whole-lattice-rescoring
+decoding_method: 1best
 # LM scale to be used for rescoring. Only used if rescoring
 rescoring_lm_scale: 0.4
 # This is where the 3gram and (optionally) 4gram LM are stored
@@ -90,7 +90,7 @@ sample_rate: 16000
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
-test_batch_size: 6
+test_batch_size: 1
 num_workers: 10
 
 # Dataloader options

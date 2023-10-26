@@ -28,7 +28,7 @@ def get_decoding(
     hparams,
     graphCompiler: graph_compiler.GraphCompiler,
     device="cpu"
-    ) -> k2.Fsa:
+    ):
     """This function reads a config and creates the decoder for k2 graph
     compiler decoding.
     There are the following cases:
@@ -75,30 +75,31 @@ def get_decoding(
             utils.arpa_to_fst,
             kwargs={
                 "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "in_arpa_files": [ lm_dir / hparams["G_arpa_name"],
-                ] +([lm_dir / hparams["G_rescoring_arpa_name"]] if use_G_rescoring else []),
-                "out_fst_files": [G_path, ] + ([ G_rescoring_path] if use_G_rescoring else []),
-                "lms_ngram_orders": [ 3 ] + ([4] if use_G_rescoring else [])
+                "in_arpa_files":
+                     ([ lm_dir / hparams["G_arpa_name"]] if compose_HL_with_G else [])
+                   + ([lm_dir / hparams["G_rescoring_arpa_name"]] if use_G_rescoring else []),
+                "out_fst_files":
+                      ([G_path] if compose_HL_with_G else [])
+                    + ([ G_rescoring_path] if use_G_rescoring else []),
+                "lms_ngram_orders":
+                      ([ 3 ] if compose_HL_with_G else [])
+                    + ([4] if use_G_rescoring else [])
             },
         )
-        assert G_path.is_file(), f"{G_path} does not exist"
 
     if compose_HL_with_G:
         logger.info(f"Loading G LM: {G_path}")
         G = utils.load_G(G_path)
         decoding_graph = graphCompiler.compile_HLG(G, cache_to=hparams["output_folder"])
     else:
-        decoding_graph = graphCompiler.compile_HL()
+        decoding_graph = graphCompiler.compile_HL(cache_to=hparams["output_folder"])
 
     if not isinstance(hparams["rescoring_lm_scale"], list):
         hparams["rescoring_lm_scale"] = [hparams["rescoring_lm_scale"]]
 
-    def decoding_method(lattice:k2.Fsa) -> List[str]:
-        raise NotImplementedError(f"{hparams.get('decoding_method')} not implemented as a decoding_method")
-
     if hparams.get("decoding_method") == "whole-lattice-rescoring":
         G_rescoring = None
-        def decoding_method(lattice:k2.Fsa) -> k2.Fsa:
+        def decoding_method(lattice:k2.Fsa) -> Dict[str, k2.Fsa]:
             """Get the best path from a lattice given rescoring_lm_scale."""
 
             # Lazy load rescoring G (takes a lot of time) for developer happiness
@@ -118,17 +119,22 @@ def get_decoding(
                 lm_scale_list=hparams["rescoring_lm_scale"],
             )
 
-    if hparams.get("decoding_method") in ["1best", "onebest"]:
+    elif hparams.get("decoding_method") in ["1best", "onebest"]:
         logger.info(f"Decoding method: one-best-decoding")
-        def decoding_method(lattice:k2.Fsa) -> k2.Fsa:
+        def decoding_method(lattice:k2.Fsa) -> Dict[str, k2.Fsa]:
             """Get the best path from a lattice."""
             return OrderedDict({"1best": one_best_decoding(lattice)})
 
-    return {"decoding_graph":decoding_graph,
+    else:
+        def decoding_method(lattice:k2.Fsa):
+            raise NotImplementedError(f"{hparams.get('decoding_method')} not implemented as a decoding_method")
+
+
+    return {"decoding_graph":decoding_graph.to(device),
             "decoding_method":decoding_method}
 
 
-torch.no_grad()
+@torch.no_grad()
 def get_lattice(
     log_probs_nnet_output: torch.Tensor,
     input_lens: torch.Tensor,
@@ -179,7 +185,10 @@ def get_lattice(
 
     device = log_probs_nnet_output.device
     input_lens = input_lens.to(device)
-    decoder = decoder.to(device)
+    if decoder.device != device:
+        logger.warn("Decoding graph (HL or HLG) not loaded on the same device"
+                   "  as nnet, this will cause decoding speed degradation")
+        decoder = decoder.to(device)
 
     input_lens = (input_lens * log_probs_nnet_output.shape[1]).round().int()
     # NOTE: low ac_scales may results in very big lattices and OOM errors.
@@ -199,6 +208,7 @@ def get_lattice(
     return lattice
 
 
+@torch.no_grad()
 def one_best_decoding(
     lattice: k2.Fsa,
     use_double_scores: bool = True,
@@ -219,6 +229,7 @@ def one_best_decoding(
     return best_path
 
 
+@torch.no_grad()
 def rescore_with_whole_lattice(
     lattice: k2.Fsa,
     G_with_epsilon_loops: k2.Fsa,

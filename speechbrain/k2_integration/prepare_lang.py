@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 from . import k2 # import k2 from ./__init__.py
-from .lexicon import read_lexicon, write_lexicon
+from .lexicon import read_lexicon, write_lexicon, EPS
 
 import torch
 
@@ -269,8 +269,8 @@ def lexicon_to_fst(
     next_state = 3  # the next un-allocated state, will be incremented as we go.
     arcs = []
 
-    assert token2id["<eps>"] == 0
-    assert word2id["<eps>"] == 0
+    assert token2id[EPS] == 0
+    assert word2id[EPS] == 0
 
     eps = 0
 
@@ -353,8 +353,8 @@ def lexicon_to_fst_no_sil(
 
     arcs = []
 
-    assert token2id["<eps>"] == 0
-    assert word2id["<eps>"] == 0
+    assert token2id[EPS] == 0
+    assert word2id[EPS] == 0
 
     eps = 0
 
@@ -433,7 +433,8 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     # backup L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and lexicon_disambig.txt
     # if source lexicon_filename has been re-created (only use 'Linv.pt' for date modification query)
     if (out_dir / "Linv.pt").exists() and (out_dir / "Linv.pt").stat().st_mtime < lexicon_filename.stat().st_mtime:
-        logger.info("Skipping lang preparation, completed in previous run.")
+        logger.warning("Skipping lang preparation, completed in previous run."
+                       f" Consider deleting {out_dir} if this is not what you want.")
         return
 
     for f in [
@@ -466,15 +467,15 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
         assert disambig not in tokens
         tokens.append(f"#{i}")
 
-    assert "<eps>" not in tokens
-    tokens = ["<eps>"] + tokens
+    assert EPS not in tokens
+    tokens = [EPS] + tokens
 
-    assert "<eps>" not in words
+    assert EPS not in words
     assert "#0" not in words
     assert "<s>" not in words
     assert "</s>" not in words
 
-    words = ["<eps>"] + words + ["#0", "<s>", "</s>"]
+    words = [EPS] + words + ["#0", "<s>", "</s>"]
 
     token2id = generate_id_map(tokens)
     word2id = generate_id_map(words)

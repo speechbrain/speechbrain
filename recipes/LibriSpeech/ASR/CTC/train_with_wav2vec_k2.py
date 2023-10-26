@@ -144,6 +144,10 @@ class ASR(sb.Brain):
                 target_words = [wrd.split(" ") for wrd in texts]
                 self.wer_metrics[k].append(ids, predicted_words, target_words)
                 self.cer_metrics[k].append(ids, predicted_words, target_words)
+            # For TEST and VALID stage, the loss value is not exat.
+            # The <UNK> words have a target length (e.g., number of phones or characters) of 1.
+            # As such, during CTC loss 'mean' reduction, scentences with <UNK> have higher loss.
+            # It does not impact training.
         return loss
 
     def fit_batch(self, batch):
@@ -423,7 +427,7 @@ if __name__ == "__main__":
     setattr(asr_brain, "lexicon", lexicon)
 
     graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
-        lexicon=lexicon,
+        lexicon,
         device=asr_brain.device,
     )
     setattr(asr_brain, "graph_compiler", graph_compiler)

@@ -116,7 +116,7 @@ def ctc_k2(
     dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments)
 
     loss = k2.ctc_loss(
-        decoding_graph=decoding_graph,
+        decoding_graph=decoding_graph.to(log_probs.device),
         dense_fsa_vec=dense_fsa_vec,
         target_lengths=target_lens.to(log_probs.device),
         output_beam=beam_size,

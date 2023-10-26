@@ -104,18 +104,18 @@ def arpa_to_fst(
 
     It is worth noting that if the fsts already exist in the output_dir,
     then we will not convert them again (so you may need to delete them
-    by hand if you, at any point, change your arpa model).
+    by hand if you, at any point, change your ARPA model).
 
-    arguments
+    Arguments
     ---------
         words_txt: str
             path to the words.txt file created by prepare_lang.
         in_arpa_files: List[str]
-            List of arpa files to convert to fst.
+            List of ARPA files to convert to fst.
         out_fst_files: List[Str]
             List of fst path where the fsts will be saved, len(in) == len(out).
         lms_ngram_orders: List[int]
-            List of the arpa ngram orders, len(in) == len(out).
+            List of the ARPA ngram orders, len(in) == len(out).
         disambig_symbol: str
             the disambiguation symbol to use.
 

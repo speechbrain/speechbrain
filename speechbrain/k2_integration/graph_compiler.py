@@ -40,7 +40,11 @@ class GraphCompiler(abc.ABC):
     def device(self):
         pass
 
-    def compile_HL(self):
+    @abc.abstractmethod
+    def compile(self, texts: List[str], is_training: bool = True):
+        pass
+
+    def compile_HL(self, cache_to: Optional[str] = None):
         """
         Compile the decoding graph by composing H with L.
         This is for decoding without language model.
@@ -48,6 +52,19 @@ class GraphCompiler(abc.ABC):
         logger.info("Arc sorting L")
         L = k2.arc_sort(self.lexicon.L).to("cpu")
         H = self.topo.to("cpu")
+
+        file_hash = str(hash(H.shape[0]))+str(hash(L.shape[0]))
+        if cache_to is not None:
+            path = cache_to+"/.HL_"+file_hash+".pt"
+            if os.path.exists(path):
+                logger.warning(
+                    f"Loading HL '{path}' from its cached .pt format."
+                    " Consider deleting the previous .pt file if"
+                    " this is not what you want."
+                )
+                HL = k2.Fsa.from_dict(torch.load(path, map_location="cpu"))
+                return HL
+
         logger.info("Composing H and L")
         HL = k2.compose(H, L, inner_labels="tokens")
 
@@ -57,6 +74,11 @@ class GraphCompiler(abc.ABC):
         logger.info("Arc sorting HL")
         HL = k2.arc_sort(HL)
         logger.debug(f"HL.shape: {HL.shape}")
+
+        if cache_to is not None:
+            logger.info("Caching HL to: "+cache_to)
+            torch.save(HL.as_dict(), path)
+
         return HL
 
     def compile_HLG(self, G, cache_to: Optional[str] = None):
@@ -70,8 +92,8 @@ class GraphCompiler(abc.ABC):
         H = self.topo.to("cpu")
 
         file_hash = str(hash(H.shape[0]))+str(hash(L.shape[0]))+str(hash(G.shape[0]))
-        path = cache_to+"/.HLG_"+file_hash+".pt"
         if cache_to is not None:
+            path = cache_to+"/.HLG_"+file_hash+".pt"
             if os.path.exists(path):
                 logger.warning(
                     f"Loading HLG '{path}' from its cached .pt format."
@@ -138,19 +160,19 @@ class CtcGraphCompiler(GraphCompiler):
 
     def __init__(
         self,
-        lexicon: lexicon.Lexicon,
+        _lexicon: lexicon.Lexicon,
         device: torch.device,
         need_repeat_flag: bool = False,
     ):
 
         self._device = device
 
-        self._lexicon = lexicon
+        self._lexicon = _lexicon
         self.lexicon.to(device)
         assert self.lexicon.L_inv.requires_grad is False
         self.lexicon.arc_sort()
 
-        max_token_id = max(lexicon.tokens)
+        max_token_id = max(self.lexicon.tokens)
         ctc_topo = k2.ctc_topo(max_token_id, modified=False)
 
         self.ctc_topo = ctc_topo.to(device)
@@ -172,7 +194,7 @@ class CtcGraphCompiler(GraphCompiler):
     def device(self):
         return self._device
 
-    def compile(self, texts: List[str], is_training: bool = True) -> k2.Fsa:
+    def compile(self, texts: List[str], is_training: bool = True) -> Tuple[k2.Fsa, torch.Tensor]:
         """Build decoding graphs by composing ctc_topo with
         given transcripts.
 
@@ -190,7 +212,7 @@ class CtcGraphCompiler(GraphCompiler):
 
         Returns
         -------
-        decoding_graph: GraphCompiler
+        graph: GraphCompiler
             An FsaVec, the composition result of `self.ctc_topo` and the
             transcript FSA.
         target_lens: Torch.tensor
@@ -198,14 +220,21 @@ class CtcGraphCompiler(GraphCompiler):
             each target sequence.
         """
 
-        word_ids_list = self.lexicon.texts_to_ids(texts, log_unknown_warning=is_training)
-        word_fsa = k2.linear_fsa(word_ids_list, self.device)
+        word_idx = self.lexicon.texts_to_word_ids(texts,
+                                       log_unknown_warning=is_training)
+
+        # ["test", "testa"] -> [[23, 8, 22, 23], [23, 8, 22, 23, 5]] -> [4, 5]
+        word2tids = self.lexicon.texts_to_token_ids(texts,
+                                   log_unknown_warning=is_training)
+        scentence_ids = [sum(inner, []) for inner in word2tids]
 
         target_lens = torch.tensor(
-            [len(t) for t in word_ids_list], dtype=torch.long
+            [len(t) for t in scentence_ids], dtype=torch.long
         )
 
-        word_fsa_with_self_loops = k2.add_epsilon_self_loops(word_fsa)
+        word_fsa_with_self_loops = k2.add_epsilon_self_loops(
+            k2.linear_fsa(word_idx, self.device)
+        )
 
         fsa = k2.intersect(
             self.lexicon.L_inv, word_fsa_with_self_loops, treat_epsilons_specially=False
@@ -223,10 +252,10 @@ class CtcGraphCompiler(GraphCompiler):
 
         fsa_with_self_loops = k2.arc_sort(fsa_with_self_loops)
 
-        decoding_graph = k2.compose(
+        graph = k2.compose(
             self.ctc_topo, fsa_with_self_loops, treat_epsilons_specially=False
         )
 
-        assert decoding_graph.requires_grad is False
+        assert graph.requires_grad is False
 
-        return decoding_graph, target_lens
+        return graph, target_lens

@@ -29,7 +29,11 @@ import torch
 
 logger = logging.getLogger(__name__)
 
-UNK = "<UNK>" # unknow token
+UNK   = "<UNK>" # unknow word
+UNK_t = "<unk>" # unknow token
+EOW   = "<eow>" # end of word
+EPS   = "<eps>" # epsilon
+
 DISAMBIG_PATTERN: re.Pattern = re.compile(r"^#\d+$") # pattern for disambiguation symbols.
 
 class Lexicon(object):
@@ -75,8 +79,18 @@ class Lexicon(object):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
         self.word_table = k2.SymbolTable.from_file(lang_dir / "words.txt")
+        self.word2tokenids = {}
+        with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                word = line.strip().split()[0]
+                tokens = line.strip().split()[1:]
+                tids = [self.token_table[t] for t in tokens]
+                # handle multiple pronunciation
+                if word not in self.word2tokenids:
+                    self.word2tokenids[word] = []
+                self.word2tokenids[word].append(tids)
+
         self._L_disambig = None
-        self._mapping_loaded = False
 
         if (lang_dir / "L.pt").exists():
             logger.info(f"Loading pre-compiled {lang_dir}/L.pt")
@@ -99,6 +113,20 @@ class Lexicon(object):
         # transcript FSAs, both of whose labels are word IDs.
         self.L_inv = L_inv
         self.L = L
+
+    @property
+    def tokens(self) -> List[int]:
+        """Return a list of token IDs excluding those from
+        disambiguation symbols and epsilon.
+        """
+        symbols = self.token_table.symbols
+        ans = []
+        for s in symbols:
+            if not DISAMBIG_PATTERN.match(s) or s != EPS:
+                ans.append(self.token_table[s])
+        ans.sort()
+        return ans
+
 
     @property
     def L_disambig(self) -> k2.Fsa:
@@ -141,17 +169,42 @@ class Lexicon(object):
         LG.aux_labels.values[LG.aux_labels.values >= first_word_disambig_id] = 0
         return LG
 
-    def texts_to_ids(
+    def texts_to_word_ids(
         self,
         texts: List[str],
-        add_sil_token_as_separator=False,
+        add_sil_separator=False,
         sil_token_id:Optional[int]=None,
-        log_unknown_warning=True
+        log_unknown_warning=True,
         ) -> List[List[int]]:
-        """Convert a list of texts to a list-of-list of word IDs.
+        word_ids = self._texts_to_ids(texts, log_unknown_warning, _mapper="word_table")
+        if add_sil_separator:
+            assert sil_token_id != None, f"sil_token_id=None while add_sil_separator=True"
+            for i in range(len(word_ids)):
+                word_ids[i] = [x for item in word_ids[i] for x in (item, sil_token_id)][:-1]
+        return word_ids
 
-        Note that we only get the first spelling of a word in the lexicon if there
-        are multiple spellings.
+    def texts_to_token_ids(
+        self,
+        texts: List[str],
+        log_unknown_warning=True,
+        ) -> List[List[List[int]]]:
+        return self._texts_to_ids(texts, log_unknown_warning, _mapper="word2tokenids")
+
+    def texts_to_token_ids_with_multiple_pronunciation(
+        self,
+        texts: List[str],
+        log_unknown_warning=True,
+        ) -> List[List[List[List[int]]]]:
+        return self._texts_to_ids(texts, log_unknown_warning, _mapper="word2tokenids", _multiple_pronunciation=True)
+
+    def _texts_to_ids(
+        self,
+        texts: List[str],
+        log_unknown_warning: bool,
+        _mapper: str,
+        _multiple_pronunciation = False,
+        ):
+        """Convert a list of texts to a list of ID, them be word or list of token IDs.
 
         Arguments
         ---------
@@ -160,45 +213,45 @@ class Lexicon(object):
             separated words. An example containing two strings is given below:
 
                 ['HELLO ICEFALL', 'HELLO k2']
-        add_sil_token_as_separator: bool
-            If True, add `sil_token_id` as a separator between words.
-            Argument sil_token_id must be set.
         log_unknown_warning: bool
-            Log if word not found in word_table
+            Log if word not found in token to ids
+        _mapper: str
+            The mapper to use word_table ("TEST" -> 176838) or word2tokenids ("TEST" -> [23, 8, 22, 23])
+        _multiple_pronunciation: bool
+            Allow returning all pronunciation of a word from the lexicon
+            If False, only return the first pronunciation
 
         Returns
         -------
-        word_ids_list:
-            Return a list-of-list of word IDs.
+        ids_list:
+            Return a list-of-list of word IDs or list of token IDs.
         """
-        word_table = self.word_table
         oov_token_id = self.word_table[UNK]
+        if _mapper == "word2tokenids":
+            oov_token_id = [self.token_table[UNK_t]]
+        ids = getattr(self, _mapper)
 
-        word_ids_list = []
+        ids_list = []
         for text in texts:
             word_ids = []
             words = text.split()
             for i, word in enumerate(words):
-                if word in word_table:
-                    idword = word_table[word]
-                    if isinstance(idword, list):
-                        idword = idword[0] # only first spelling
+                if word in ids:
+                    idword = ids[word]
+                    if isinstance(idword, list) and not _multiple_pronunciation:
+                        idword = idword[0] # only first spelling of a word (for word2tokenids mapper)
                     word_ids.append(idword)
                 else:
                     word_ids.append(oov_token_id)
                     if log_unknown_warning:
                         logger.warn(
-                            f"Cannot find word {word} in the lexicon."
+                            f"Cannot find word {word} in the mapper {_mapper}."
                             f" Replacing it with OOV token."
                             f" Note that it is fine if you are testing."
                         )
 
-                if add_sil_token_as_separator and i < len(words) - 1:
-                    assert sil_token_id != None, f"sil_token_id=None while add_sil_token_as_separator=True"
-                    word_ids.append(sil_token_id)
-
-            word_ids_list.append(word_ids)
-        return word_ids_list
+            ids_list.append(word_ids)
+        return ids_list
 
     def arc_sort(self):
         """Sort L, L_inv, L_disambig arcs of every state.
@@ -220,72 +273,6 @@ class Lexicon(object):
         self.L_inv = self.L_inv.to(device)
         if self._L_disambig is not None:
             self._L_disambig = self._L_disambig.to(device)
-
-    @property
-    def tokens(self) -> List[int]:
-        """Return a list of token IDs excluding those from
-        disambiguation symbols and <eps>.
-        """
-        symbols = self.token_table.symbols
-        ans = []
-        for s in symbols:
-            if not DISAMBIG_PATTERN.match(s):
-                ans.append(self.token_table[s])
-        if 0 in ans: # remove <eps>
-            ans.remove(0)
-        ans.sort()
-        return ans
-
-    def __getattribute__(self, attr):
-        """Lazy load mapping *2* attributes
-        Be carefull in function _load_mapping to avoid recursive error
-        """
-        if attr in ["token2idx", "idx2token", "word2idx", "idx2word", "word2tids"]:
-            self._load_mapping()
-        return object.__getattribute__(self, attr)
-
-    def _load_mapping(self):
-        """Load mappings including token2idx idx2token word2idx idx2word word2tids,
-        each of which is a dict.
-
-        self.token2idx: Dict[str, int]
-        self.idx2token: Dict[int, str]
-        self.word2idx: Dict[str, int]
-        self.idx2word: Dict[int, str]
-        self.word2tids: Dict[str, List[int]]
-        """
-        if self._mapping_loaded:
-            return
-
-        token2idx = {}
-        idx2token = {}
-        with open(self.lang_dir / "tokens.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                token, idx = line.strip().split()
-                token2idx[token] = int(idx)
-                idx2token[int(idx)] = token
-        word2idx = {}
-        idx2word = {}
-        with open(self.lang_dir / "words.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                word, idx = line.strip().split()
-                word2idx[word] = int(idx)
-                idx2word[int(idx)] = word
-        word2tids = {}
-        with open(self.lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                word = line.strip().split()[0]
-                tokens = line.strip().split()[1:]
-                tids = [token2idx[t] for t in tokens]
-                if word not in word2tids:
-                    word2tids[word] = []
-                word2tids[word].append(tids)
-        self.token2idx = token2idx
-        self.idx2token = idx2token
-        self.word2idx  = word2idx
-        self.idx2word  = idx2word
-        self.word2tids = word2tids
-        _mapping_loaded = True
 
 
 def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
@@ -359,7 +346,7 @@ def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=Tr
                 for word in words:
                     if word not in lexicon:
                         if add_word_boundary:
-                            lexicon[word] = list(word) + ["<eow>"]
+                            lexicon[word] = list(word) + [EOW]
                         else:
                             lexicon[word] = list(word)
 
@@ -371,13 +358,13 @@ def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=Tr
                 # Split the transcription into words
                 if word not in lexicon:
                     if add_word_boundary:
-                        lexicon[word] = list(word) + ["<eow>"]
+                        lexicon[word] = list(word) + [EOW]
                     else:
                         lexicon[word] = list(word)
     # Write the lexicon to lang_dir/lexicon.txt
     os.makedirs(lang_dir, exist_ok=True)
     with open(os.path.join(lang_dir, "lexicon.txt"), "w") as f:
-        fc = f"{UNK} <unk>\n"
+        fc = f"{UNK} {UNK_t}\n"
         for word in lexicon:
             fc += word + " " + " ".join(lexicon[word]) + "\n"
         f.write(fc)
@@ -414,10 +401,10 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
                     "Every line is expected to contain at least 2 fields"
                 )
             word = a[0]
-            if word == "<eps>":
+            if word == EPS:
                 raise RuntimeError(
                     f"Found bad line {line} in lexicon file {filename}"
-                    "<eps> should not be a valid word"
+                    f"{EPS} should not be a valid word"
                 )
             tokens = a[1:]
             ans.append((word, tokens))

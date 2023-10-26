@@ -1,5 +1,6 @@
 r"""
 Tools for working with ARPA format N-gram models
+
 Expects the ARPA format to have:
 - a \data\ header
 - counts of ngrams in the order that they are later listed
@@ -10,13 +11,18 @@ E.G.
     \data\
     ngram 1=2
     ngram 2=1
+
     \1-grams:
     -1.0000 Hello -0.23
     -0.6990 world -0.2553
+
     \2-grams:
     -0.2553 Hello world
+
     \end\
     ```
+
+
 Example
 -------
 >>> # This example loads an ARPA model and queries it with BackoffNgramLM
@@ -49,6 +55,7 @@ Example
 >>> # Query that requires a backoff:
 >>> lm.logprob("b", context = ("b",))
 -0.6931
+
 Authors
  * Aku Rouhe 2020
 """
@@ -61,11 +68,13 @@ logger = logging.getLogger(__name__)
 def read_arpa(fstream):
     r"""
     Reads an ARPA format N-gram language model from a stream
+
     Arguments
     ---------
     fstream : TextIO
         Text file stream (as commonly returned by open()) to read the model
         from.
+
     Returns
     -------
     dict
@@ -97,6 +106,7 @@ def read_arpa(fstream):
             `<logp> a quick red -23.4`
         And to access that here, use:
             `backoffs_by_order[3][('a', 'quick', 'red')]`
+
     Raises
     ------
     ValueError
