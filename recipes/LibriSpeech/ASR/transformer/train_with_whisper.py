@@ -35,10 +35,13 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         bos_tokens, bos_tokens_lens = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
+            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
+                bos_tokens_lens
+            )
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -75,6 +78,13 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
+
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
+            )
 
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,

@@ -54,12 +54,6 @@ class ASR(sb.core.Brain):
         # Enhanced signal is to be fed into ASR
         wavs = predictions[0]
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                if self.hparams.do_augmentation:
-                    wavs = self.hparams.augmentation(wavs, wav_lens)
-
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
@@ -120,9 +114,6 @@ class ASR(sb.core.Brain):
 
                     # fix the length of clean also
                     clean = clean[:, :min_len, :]
-
-                if self.hparams.use_wavedrop:
-                    noisy = self.hparams.wavedrop(noisy, noisy_lens)
 
                 if self.hparams.limit_training_signal_len:
                     noisy, clean = self.cut_signals(noisy, clean)
@@ -373,7 +364,7 @@ class ASR(sb.core.Brain):
             recombine = True
 
             for i in range(clean.shape[-1]):
-                new_target = self.hparams.speedperturb(
+                new_target = self.hparams.speed_perturb(
                     clean[:, :, i], targ_lens
                 )
                 new_clean.append(new_target)

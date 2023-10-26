@@ -147,10 +147,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 
-# augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-#    sample_rate: !ref <sample_rate>
-#    speeds: [95, 100, 105]
-
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
 

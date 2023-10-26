@@ -85,7 +85,8 @@ class Enhancement(sb.Brain):
                     clean = clean[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
-                    noisy = self.hparams.wavedrop(noisy, noisy_lens)
+                    noisy = self.hparams.drop_chunk(noisy, noisy_lens)
+                    noisy = self.hparams.drop_freq(noisy)
 
                 if self.hparams.limit_training_signal_len:
                     noisy, clean = self.cut_signals(noisy, clean)
@@ -328,9 +329,7 @@ class Enhancement(sb.Brain):
             recombine = True
 
             for i in range(clean.shape[-1]):
-                new_target = self.hparams.speedperturb(
-                    clean[:, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(clean[:, :, i])
                 new_clean.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[-1]
