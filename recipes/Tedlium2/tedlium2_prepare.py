@@ -11,7 +11,6 @@ import csv
 import logging
 import torchaudio
 import functools
-from speechbrain.dataio.dataio import read_audio_info
 from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
@@ -45,9 +44,6 @@ def make_splits(
 
     # load the original speech recording
     original_speech, sample_rate = torchaudio.load(sph_file)
-
-    info = read_audio_info(sph_file)
-    sample_rate = info.sample_rate
 
     entry = []
 
@@ -86,7 +82,10 @@ def make_splits(
             continue
 
         # clip and save the current utterance
-        clipped_save_path = f"{utt_save_folder}/{talk_id}-{str(i)}.wav"
+        clipped_save_path = os.path.join(
+            utt_save_folder, talk_id + "-" + str(i) + ".wav"
+        )
+
         # we avoid duplicated clip and save
         if not os.path.exists(clipped_save_path):
             start = float(line[3]) * sample_rate
@@ -125,8 +124,8 @@ def process_line(
         The split of the dataset, e.g., train, dev, test.
     """
     talk_name = talk_sph[:-4]
-    talk_sph_path = f"{data_folder}/{split}/sph/{talk_sph}"
-    talk_stm_path = f"{data_folder}/{split}/stm/{talk_name}.stm"
+    talk_sph_path = os.path.join(data_folder, split, "sph", talk_sph)
+    talk_stm_path = os.path.join(data_folder, split, "stm", talk_name + ".stm")
 
     return make_splits(
         talk_sph_path,
@@ -176,15 +175,16 @@ def prepare_tedlium2(
     ]
 
     for split in splits:
-        utt_save_folder_split = f"{utt_save_folder}/{split}"
-        csv_save_folder_split = f"{csv_save_folder}/{split}"
+        utt_save_folder_split = os.path.join(utt_save_folder, split)
+        csv_save_folder_split = os.path.join(csv_save_folder, split)
         os.makedirs(utt_save_folder_split, exist_ok=True)
         os.makedirs(csv_save_folder_split, exist_ok=True)
-        new_filename = os.path.join(csv_save_folder_split, split) + ".csv"
+        new_filename = os.path.join(csv_save_folder_split, split + ".csv")
         if os.path.exists(new_filename):
             continue
         logger.info("Preparing %s..." % new_filename)
-        talk_sphs = os.listdir(f"{data_folder}/{split}/sph")
+        data_folder_split = os.path.join(data_folder, split)
+        talk_sphs = os.listdir(os.path.join(data_folder_split, "sph"))
 
         line_processor = functools.partial(
             process_line,
@@ -194,8 +194,8 @@ def prepare_tedlium2(
             split=split,
         )
 
-        tmp_csv = f"{csv_save_folder_split}/{split}.tmp"
-        final_csv = f"{csv_save_folder_split}/{split}.csv"
+        tmp_csv = os.path.join(csv_save_folder_split, split + ".tmp")
+        final_csv = os.path.join(csv_save_folder_split, split + ".csv")
         total_line = 0
         total_duration = 0
         with open(tmp_csv, mode="w", encoding="utf-8") as csv_f:
@@ -210,7 +210,7 @@ def prepare_tedlium2(
 
                 for line in row:
                     csv_writer.writerow(line)
-                    total_duration += float(float(line[1]))
+                    total_duration += float(line[1])
                 total_line += len(row)
 
         os.replace(tmp_csv, final_csv)
