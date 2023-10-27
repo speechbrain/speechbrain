@@ -39,6 +39,9 @@ This script relies on the data manifest files prepared in step 1.
 - Code: https://github.com/speechbrain/speechbrain/
 - HuggingFace: https://huggingface.co/speechbrain/
 
+# Training Time
+
+It takes about 15 minutes per epoch for the branchformer large model.
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
