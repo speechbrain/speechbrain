@@ -233,7 +233,7 @@ class MTLbrain(sb.Brain):
             not hasattr(self.hparams, "ctc_epochs")
             or self.hparams.epoch_counter.current < self.hparams.ctc_epochs
         ):
-            tokens, token_lens = self.prepare_targets(batch.tokens)
+            tokens, token_lens = self.prepare_targets(batch.tokens, stage)
             ctc_loss = sb.nnet.losses.ctc_loss(
                 predictions["ctc_pout"],
                 tokens,

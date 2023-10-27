@@ -364,9 +364,7 @@ class ASR(sb.core.Brain):
             recombine = True
 
             for i in range(clean.shape[-1]):
-                new_target = self.hparams.speed_perturb(
-                    clean[:, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(clean[:, :, i])
                 new_clean.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[-1]

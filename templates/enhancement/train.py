@@ -286,7 +286,7 @@ if __name__ == "__main__":
                 "save_json_test": hparams["test_annotation"],
             },
         )
-        sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
 
     # Create dataset objects "train" and "valid"
     datasets = dataio_prep(hparams)

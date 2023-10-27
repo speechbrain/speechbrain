@@ -55,7 +55,7 @@ class Separation(sb.Brain):
         # Add speech distortions
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
-                if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
+                if self.hparams.use_speedperturb:
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     mix = targets.sum(-1)
@@ -240,7 +240,7 @@ class Separation(sb.Brain):
         min_len = -1
         recombine = False
 
-        if self.hparams.use_speedperturb:
+        if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
             # Performing speed change (independently on each source)
             new_targets = []
             recombine = True

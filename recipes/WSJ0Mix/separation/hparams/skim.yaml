@@ -52,6 +52,13 @@ training_signal_len: 32000
 # Set it to True to dynamically create mixtures at training time
 dynamic_mixing: False
 
+# Parameters for data augmentation
+use_wavedrop: False
+use_speedperturb: True
+use_rand_shift: False
+min_shift: -8000
+max_shift: 8000
+
 # Speed perturbation
 speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
