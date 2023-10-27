@@ -40,13 +40,13 @@ def extract_and_cleanup_wav_files(
         logger.info(f"Extracting wav files in {wav_dir}...")
 
         decompress_processor = functools.partial(
-            shutil.unpack_archive, wav_dir=wav_dir,
+            shutil.unpack_archive, extract_dir=wav_dir,
         )
 
         for split in splits:
             os.makedirs(os.path.join(wav_dir, split), exist_ok=True)
 
-        for _ in parallel_map(decompress_processor, tgz_list):
+        for _ in parallel_map(decompress_processor, tgz_list, chunk_size=64):
             pass
 
         if remove_compressed_wavs:
@@ -123,6 +123,7 @@ def prepare_aishell(
     remove_compressed_wavs: bool
         If True, remove compressed wav files after extraction.
     """
+
     if skip_prep:
         return
 
@@ -134,6 +135,9 @@ def prepare_aishell(
         "dev",
         "test",
     ]
+
+    if skip(splits, save_folder):
+        return
 
     extract_and_cleanup_wav_files(
         tgz_list, wav_dir, splits, remove_compressed_wavs=remove_compressed_wavs
@@ -157,9 +161,6 @@ def prepare_aishell(
     )
 
     for split in splits:
-
-        if skip(splits, save_folder):
-            continue
 
         final_csv = os.path.join(save_folder, split) + ".csv"
         tmp_csv = os.path.join(save_folder, split) + ".tmp"
@@ -185,7 +186,7 @@ def prepare_aishell(
             )
             csv_writer.writerow(["ID", "duration", "wav", "transcript"])
             for row in parallel_map(
-                line_processor, transcript_wavs, chunk_size=8192
+                line_processor, transcript_wavs, chunk_size=4092
             ):
 
                 if row is None:
