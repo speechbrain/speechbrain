@@ -71,6 +71,7 @@ num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.
 max_batch_ex: 128
 batch_ordering: random
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 dynamic_batch_sampler_train:
     max_batch_length: !ref <max_batch_length_train>

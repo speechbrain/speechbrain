@@ -93,7 +93,7 @@ class Separation(sb.Brain):
 
                 if self.hparams.use_wavedrop:
                     mix = self.hparams.drop_chunk(mix, mix_lens)
-                    mix = self.hparams.drop_freq(mix, mix_lens)
+                    mix = self.hparams.drop_freq(mix)
 
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)

@@ -58,7 +58,7 @@ batch_size: 12
 test_batch_size: 8
 gradient_accumulation: 8
 num_workers: 4
-
+sorting: ascending
 dataloader_options:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>

@@ -513,7 +513,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
-    run_on_main(hparams["prepare_noise_data"])
+    if "prepare_noise_data" in hparams:
+        run_on_main(hparams["prepare_noise_data"])
 
     # Load pretrained models
     for model in ["asr", "enhance", "perceptual"]:

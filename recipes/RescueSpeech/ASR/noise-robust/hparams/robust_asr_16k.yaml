@@ -44,6 +44,7 @@ avoid_if_longer_than: 10.0
 ## Model parameters- Enhance model
 dereverberate: False
 save_audio: True
+sample_rate: 16000
 enhance_sample_rate: 16000
 limit_training_signal_len: False
 training_signal_len: 64000

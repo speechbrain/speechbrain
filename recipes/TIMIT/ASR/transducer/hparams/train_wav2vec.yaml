@@ -46,12 +46,12 @@ sample_rate: 16000
 activation: !name:torch.nn.LeakyReLU
 # dropout: 0.15
 dnn_blocks: 1
-dnn_neurons: 42
+dnn_neurons: 43
 dec_neurons: 128
 
 # Outputs
-output_neurons: 42
-joint_dim: 42
+output_neurons: 43
+joint_dim: 43
 blank_index: 0
 
 # Decoding parameters
