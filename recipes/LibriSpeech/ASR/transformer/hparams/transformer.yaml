@@ -220,12 +220,12 @@ transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
     language_model: !ref <lm_model>
     temperature: 1.15
 
-valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+scorer_valid_search: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>]
     weights:
         ctc: !ref <ctc_weight_decode>
 
-test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+scorer_test_search: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>, !ref <transformerlm_scorer>]
     weights:
         ctc: !ref <ctc_weight_decode>
@@ -240,7 +240,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
     length_normalization: False
-    scorer: !ref <valid_scorer>
+    scorer: !ref <scorer_valid_search>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
@@ -252,7 +252,7 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     temperature: 1.15
     using_eos_threshold: False
     length_normalization: True
-    scorer: !ref <test_scorer>
+    scorer: !ref <scorer_test_search>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
