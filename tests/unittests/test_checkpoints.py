@@ -251,6 +251,49 @@ def test_multiple_ckpts_and_criteria(tmpdir):
     assert found_ckpts == [fifth_ckpt, fourth_ckpt]
 
 
+def test_average_ckpts(tmpdir):
+    from speechbrain.utils.checkpoints import Checkpointer, average_checkpoints
+
+    class Recoverable(torch.nn.Module):
+        def __init__(self, param):
+            super().__init__()
+            self.param = torch.nn.Parameter(torch.tensor([param]))
+
+        def forward(self, x):
+            return x * self.param
+
+    N_avg = 2
+    recoverable = Recoverable(1.0)
+    recoverables = {"recoverable": recoverable}
+    recoverer = Checkpointer(tmpdir, recoverables)
+
+    # save first checkpoint
+    recoverer.save_and_keep_only(
+        meta={"error": 5},
+        min_keys=["error"],
+        keep_recent=True,
+        num_to_keep=N_avg,
+    )
+
+    # Save another checkpoint
+    recoverable.param = torch.nn.Parameter(torch.tensor([3.0]))
+
+    recoverer.save_and_keep_only(
+        meta={"error": 4},
+        min_keys=["error"],
+        keep_recent=True,
+        num_to_keep=N_avg,
+    )
+
+    recoverer.recover_if_possible()
+
+    checkpoints = recoverer.find_checkpoints(max_num_checkpoints=N_avg,)
+
+    model_state_dict = average_checkpoints(checkpoints, "recoverable")
+
+    assert model_state_dict["param"] == 2.0
+
+
 def test_torch_meta(tmpdir, device):
     from speechbrain.utils.checkpoints import Checkpointer
 
