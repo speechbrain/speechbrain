@@ -9,7 +9,6 @@ import sys
 import torch
 import logging
 
-# from transformers import AutoTokenizer
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
