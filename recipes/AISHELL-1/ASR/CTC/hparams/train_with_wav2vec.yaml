@@ -19,6 +19,7 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: !PLACEHOLDER # e,g./path/to/aishell
 
 skip_prep: False
+remove_compressed_wavs: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 train_data: !ref <output_folder>/train.csv
 valid_data: !ref <output_folder>/dev.csv

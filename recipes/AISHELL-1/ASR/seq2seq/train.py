@@ -270,7 +270,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -291,6 +290,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["output_folder"],
             "skip_prep": hparams["skip_prep"],
+            "remove_compressed_wavs": hparams["remove_compressed_wavs"],
         },
     )
     run_on_main(hparams["prepare_noise_data"])
