@@ -12,18 +12,18 @@
 seed: 1337 #7777
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 debug: False
-output_folder: !ref /local_disk/clytie/hnguyen/speechbrain_recipes/HF_PR/output_w2v2_nllb1.3B/<seed>
+output_folder: !ref output_w2v2_nllb1.3B/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 wer_file: !ref <output_folder>/wer.txt
 bleu_file: !ref <output_folder>/bleu.txt
 
 # root data folder points to 17h version inside the github folder (IWSLT2022_Tamasheq_data/taq_fra_clean/)
-root_data_folder: /users/hnguyen/IWSLT2022_Tamasheq_data/taq_fra_clean
+root_data_folder: !PLACEHOLDER
 # data folder is the place where the json files will be stored prior to training
 data_folder: !ref <root_data_folder>/json_version/
 lang: "fr" #for the BLEU score detokenization
-target_lang: "fr_XX" # for mbart initialization
+target_lang: "fra_Latn" # for nllb initialization
 
 
 # URL for the HuggingFace model we want to load (BASE here)
@@ -71,8 +71,8 @@ activation: !name:torch.nn.GELU
 
 # Outputs
 label_smoothing: 0.1
-pad_index: 1      # pad_index defined by mbart model
-bos_index: 256057 # fr_XX bos_index defined by mbart model
+pad_index: 1      # pad_index defined by nllb model
+bos_index: 256057 # fra_Latn bos_index defined by nllb model
 eos_index: 2
 
 # Decoding parameters

@@ -12,14 +12,14 @@
 seed: 1337 #7777
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 debug: False
-output_folder: !ref /local_disk/clytie/hnguyen/speechbrain_recipes/HF_PR/output_w2v2_mbart/<seed>
+output_folder: !ref output_w2v2_mbart/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 wer_file: !ref <output_folder>/wer.txt
 bleu_file: !ref <output_folder>/bleu.txt
 
 # root data folder points to 17h version inside the github folder (IWSLT2022_Tamasheq_data/taq_fra_clean/)
-root_data_folder: /users/hnguyen/IWSLT2022_Tamasheq_data/taq_fra_clean
+root_data_folder: !PLACEHOLDER
 # data folder is the place where the json files will be stored prior to training
 data_folder: !ref <root_data_folder>/json_version/
 lang: "fr" #for the BLEU score detokenization
