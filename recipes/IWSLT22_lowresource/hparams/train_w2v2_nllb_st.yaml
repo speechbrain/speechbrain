@@ -1,11 +1,10 @@
 # ############################################################################
-# Model: E2E ST with wav2vec 2.0 encoder
-# Encoder: wav2vec 2.0 + linear projection
-# Decoder: Transformer
-# Tokens: unigram (1000)
+# Model: E2E ST with wav2vec 2.0 encoder and NLLB decoder
+# Encoder: wav2vec 2.0
+# Decoder: NLLB decoder
 # losses: NLL
 # Training: Tamasheq-French corpus
-# Author:  Marcely Zanon Boito, 2022
+# Author:  Ha Nguyen, 2023
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
