@@ -110,6 +110,13 @@ prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_U
     ext: wav
     csv_file: !ref <noise_annotation>
 
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
 # Add noise to input signal
 snr_low: 0  # Min SNR for noise augmentation
 snr_high: 15  # Max SNR for noise augmentation
@@ -173,6 +180,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
     max_augmentations: 4
     augment_prob: 1.0
     augmentations: [
+        !ref <speed_perturb>,
         !ref <add_noise>,
         !ref <add_reverb>,
         !ref <drop_freq>,

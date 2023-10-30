@@ -19,10 +19,9 @@ class Augmenter(torch.nn.Module):
     ---------
     parallel_augment: bool
         If False, the augmentations are applied sequentially with
-        the order specified in the pipeline argument (one orignal  input, one
-        augmented output).
+        the order specified in the pipeline argument.
         When True, all the N augmentations are concatenated in the output
-        on the batch axis (one orignal  input, N augmented output)
+        on the batch axis.
     parallel_augment_fixed_bs: bool
         If False, each augmenter (performed in parallel) generates a number of
         augmented examples equal to the batch size. Thus, overall, with this

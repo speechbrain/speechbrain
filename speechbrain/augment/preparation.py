@@ -80,13 +80,13 @@ def write_csv(filelist, csv_file, max_length=None):
 
     Arguments
     ---------
-        filelist: list of str
-            A list containing the paths of audio files of interest.
-        csv_file: str
-            The path where to store the prepared noise CSV file.
-        max_lengthL float (optional):
-            The maximum recording length in seconds.
-            Recordings longer than this will be automatically cut into pieces.
+    filelist: list of str
+        A list containing the paths of audio files of interest.
+    csv_file: str
+        The path where to store the prepared noise CSV file.
+    max_lengthL float (optional):
+        The maximum recording length in seconds.
+        Recordings longer than this will be automatically cut into pieces.
     """
     with open(csv_file, "w") as w:
         w.write("ID,duration,wav,wav_format,wav_opts\n")
@@ -100,14 +100,14 @@ def _write_csv_row(w, filename, index, max_length):
 
     Arguments
     ---------
-        w: file
-            The open CSV file for writing.
-        filename: str
-            The path to the audio file.
-        index: int
-            The index of the audio file in the list.
-        max_length: float (optional)
-            The maximum recording length in seconds.
+    w: file
+        The open CSV file for writing.
+    filename: str
+        The path to the audio file.
+    index: int
+        The index of the audio file in the list.
+    max_length: float (optional)
+        The maximum recording length in seconds.
     """
     signal, rate = torchaudio.load(filename)
     signal = _ensure_single_channel(signal, filename, rate)
@@ -129,17 +129,17 @@ def _ensure_single_channel(signal, filename, rate):
 
     Arguments
     ---------
-        signal: Tensor)
-            The audio signal.
-
-        filename: str
-            The path to the audio file.
-
-        rate: int
-                The sampling frequency of the signal.
+    signal: Tensor
+        The audio signal.
+    filename: str
+        The path to the audio file.
+    rate: int
+        The sampling frequency of the signal.
 
     Returns:
-        Tensor: The audio signal with a single channel.
+    ---------
+        Torch.Tensor
+        The audio signal with a single channel.
     """
     if signal.shape[0] > 1:
         signal = signal[0].unsqueeze(0)

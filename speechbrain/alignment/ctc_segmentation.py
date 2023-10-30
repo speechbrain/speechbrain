@@ -5,8 +5,8 @@ This uses the ctc-segmentation Python package.
 Install it with pip or see the installing instructions in
 https://github.com/lumaku/ctc-segmentation
 
-Author
--  Ludwig Kürzinger 2021 (Technische Universität München)
+Authors
+ * Ludwig Kürzinger 2021
 """
 
 import logging
