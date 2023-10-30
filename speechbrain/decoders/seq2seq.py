@@ -1828,17 +1828,14 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
         seq_lin : torch.nn.Module
             A linear output layer.
             Normally set to None for this usecase.
-    linear : torch.nn.Module
-        A linear output layer.
-        Normally set to None for this usecase.
     vocab_size : int
         The dimension of the lm_head.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     """
 
-    def __init__(self, vocab_size, **kwargs):
-        super(S2SHFTextBasedBeamSearcher, self).__init__(**kwargs)
+    def __init__(self, modules, vocab_size, **kwargs):
+        super(S2SHFTextBasedBeamSearcher, self).__init__(modules, **kwargs)
         self.vocab_size = vocab_size
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
