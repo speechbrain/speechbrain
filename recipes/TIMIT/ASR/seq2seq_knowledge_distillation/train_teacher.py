@@ -5,7 +5,11 @@ reported in " Distilling Knowledge from Ensembles of Acoustic Models for Joint
 CTC-Attention End-to-End Speech Recognition", Yan Gao et al.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT --jit
+
+Note on Compilation:
+Enabling the just-in-time (JIT) compiler with --jit significantly improves code performance,
+resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
 
 Authors
  * Yan Gao 2021

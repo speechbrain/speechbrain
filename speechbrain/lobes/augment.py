@@ -8,6 +8,7 @@ Examples:
 Authors
  * Peter Plantinga 2020
  * Jianyuan Zhong 2020
+ * Shucong Zhang 2023
 """
 import os
 import torch
@@ -58,7 +59,8 @@ class SpecAugment(torch.nn.Module):
         Number of time mask.
     replace_with_zero : bool
         If True, replace masked value with 0, else replace masked value with mean of the input tensor.
-
+    time_mask_ratio : float
+        If not 0, time_mask_width = time_mask_ratio * time_length
     Example
     -------
     >>> aug = SpecAugment()
@@ -80,11 +82,14 @@ class SpecAugment(torch.nn.Module):
         time_mask_width=(0, 100),
         n_time_mask=2,
         replace_with_zero=True,
+        time_mask_ratio=0,
     ):
         super().__init__()
         assert (
             time_warp or freq_mask or time_mask
         ), "at least one of time_warp, time_mask, or freq_mask should be applied"
+
+        assert time_mask_ratio >= 0, "time_mask_ratio must be postive"
 
         self.apply_time_warp = time_warp
         self.time_warp_window = time_warp_window
@@ -102,6 +107,7 @@ class SpecAugment(torch.nn.Module):
         self.n_time_mask = n_time_mask
 
         self.replace_with_zero = replace_with_zero
+        self.time_mask_ratio = time_mask_ratio
 
     def forward(self, x):
         """Takes in input a tensors and returns an augmented one."""
@@ -169,6 +175,8 @@ class SpecAugment(torch.nn.Module):
             D = time
             n_mask = self.n_time_mask
             width_range = self.time_mask_width
+            if not self.time_mask_ratio == 0:
+                width_range = (0, int(self.time_mask_ratio * time))
         else:
             D = fea
             n_mask = self.n_freq_mask

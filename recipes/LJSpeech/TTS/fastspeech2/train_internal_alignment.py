@@ -356,7 +356,6 @@ def main():
         overrides=overrides,
     )
 
-    sys.path.append("../")
     from ljspeech_prepare import prepare_ljspeech
 
     sb.utils.distributed.run_on_main(
