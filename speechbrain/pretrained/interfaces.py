@@ -11,9 +11,11 @@ Authors:
  * Pooneh Mousavi 2023
  * Sylvain de Langen 2023
  * Adel Moumen 2023
+ * Pradnya Kandarkar 2023
 """
 import logging
 import hashlib
+import random
 import re
 import sys
 import warnings
@@ -37,6 +39,7 @@ from speechbrain.utils.callchains import lengths_arg_exists
 from speechbrain.utils.superpowers import import_from_path
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.processing.NMF import spectral_phase
+from speechbrain.utils.text_to_sequence import text_to_sequence
 from itertools import chain
 
 logger = logging.getLogger(__name__)
@@ -1295,7 +1298,6 @@ class VAD(Pretrained):
         last_chunk = False
         begin_sample = 0
         while True:
-
             # Reading the big chunk
             large_chunk, fs = torchaudio.load(
                 str(audio_file),
@@ -2834,7 +2836,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction"""
+        """Encodes raw text into a tensor with a customer text-to-sequence function"""
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
@@ -3099,7 +3101,6 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme energies
         """
         with torch.no_grad():
-
             (
                 _,
                 post_mel_outputs,
@@ -3232,8 +3233,7 @@ class FastSpeech2InternalAlignment(Pretrained):
         )
 
     def _g2p_keep_punctuations(self, g2p_model, text):
-        """do grapheme to phoneme and keep the punctuations between the words
-        """
+        """do grapheme to phoneme and keep the punctuations between the words"""
         # find the words where a "-" or "'" or "." or ":" appears in the middle
         special_words = re.findall(r"\w+[-':\.][-':\.\w]*\w+", text)
 
@@ -3346,7 +3346,6 @@ class FastSpeech2InternalAlignment(Pretrained):
             scaling factor for phoneme energies
         """
         with torch.no_grad():
-
             (
                 _,
                 post_mel_outputs,
@@ -3635,6 +3634,95 @@ class DiffWaveVocoder(Pretrained):
     def forward(self, spectrogram):
         """Decodes the input spectrograms"""
         return self.decode_batch(spectrogram)
+
+
+class UnitHIFIGAN(Pretrained):
+    """
+    A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    Example
+    -------
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech", savedir=tmpdir_vocoder)
+    >>> codes = torch.randint(0, 99, (100,))
+    >>> waveform = hifi_gan.decode_unit(codes)
+    """
+
+    HPARAMS_NEEDED = ["generator"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.infer = self.hparams.generator.inference
+        self.first_call = True
+        # Temporary fix for mapping indices from the range [0, k] to [1, k+1]
+        self.tokenize = True
+
+    def decode_batch(self, units):
+        """Computes waveforms from a batch of discrete units
+        Arguments
+        ---------
+        units: torch.tensor
+            Batch of discrete units [batch, codes]
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+        """
+        # Remove weight norm for inference if it's the first call
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+
+        # Ensure that the units sequence has a length of at least 3
+        if units.size(1) < 3:
+            logger.error(
+                "The 'units' argument should have a length of at least 3 because of padding size."
+            )
+            quit()
+
+        # Increment units if tokenization is enabled
+        if self.tokenize:
+            units += 1
+        with torch.no_grad():
+            waveform = self.infer(units.to(self.device))
+        return waveform
+
+    def decode_unit(self, units):
+        """Computes waveforms from a single sequence of discrete units
+        Arguments
+        ---------
+        units: torch.tensor
+            codes: [time]
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+        """
+        # Remove weight norm for inference if it's the first call
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+
+        # Ensure that the units sequence has a length of at least 3
+        if units.size(0) < 3:
+            logger.error(
+                "The 'units' argument should have a length of at least 3 because of padding size."
+            )
+            quit()
+
+        # Increment units if tokenization is enabled
+        if self.tokenize:
+            units += 1
+        with torch.no_grad():
+            waveform = self.infer(units.unsqueeze(0).to(self.device))
+        return waveform.squeeze(0)
+
+    def forward(self, units):
+        "Decodes the input units"
+        return self.decode_batch(units)
 
 
 class WhisperASR(Pretrained):
@@ -4251,6 +4339,501 @@ class PIQAudioInterpreter(Pretrained):
         return self.interpret_batch(wavs, wav_lens)
 
 
+class EncoderDecoderS2UT(Pretrained):
+    """A ready-to-use Encoder Decoder for speech-to-unit translation model
+
+    The class can be used  to  run the entire encoder-decoder S2UT model
+    (translate_file()) to translate speech. The given YAML must contains the fields
+    specified in the *_NEEDED[] lists.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import EncoderDecoderS2UT
+    >>> tmpdir = getfixture("tmpdir")
+    >>> s2ut_model = EncoderDecoderS2UT.from_hparams(source="speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss", savedir=tmpdir) # doctest: +SKIP
+    >>> s2ut_model.translate_file("speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss/example-fr.wav") # doctest: +SKIP
+    """
+
+    HPARAMS_NEEDED = ["sample_rate"]
+    MODULES_NEEDED = ["encoder", "decoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sample_rate = self.hparams.sample_rate
+
+    def translate_file(self, path):
+        """Translates the given audiofile into a sequence speech unit.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to translate.
+
+        Returns
+        -------
+        int[]
+            The audiofile translation produced by this speech-to-unit translationmodel.
+        """
+
+        audio = self.load_audio(path)
+        audio = audio.to(self.device)
+        # Fake a batch:
+        batch = audio.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_tokens = self.translate_batch(batch, rel_length)
+        return predicted_tokens[0]
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the input audio into a sequence of hidden states
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderS2UT.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        torch.tensor
+            The encoded batch
+        """
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        encoder_out = self.mods.encoder(wavs, wav_lens)
+        return encoder_out
+
+    def translate_batch(self, wavs, wav_lens):
+        """Translates the input audio into a sequence of words
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderS2UT.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        list
+            Each waveform in the batch translated.
+        tensor
+            Each predicted token id.
+        """
+        with torch.no_grad():
+            wav_lens = wav_lens.to(self.device)
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            predicted_tokens, _ = self.mods.decoder(encoder_out, wav_lens)
+        return predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs full translation"""
+        return self.encode_batch(wavs, wav_lens)
+
+
+class MelSpectrogramEncoder(Pretrained):
+    """A MelSpectrogramEncoder class created for the Zero-Shot Multi-Speaker TTS models.
+
+    This is for speaker encoder models using the PyTorch MelSpectrogram transform for compatibility with the
+    current TTS pipeline.
+
+    This class can be used to encode a single waveform, a single mel-spectrogram, or a batch of mel-spectrograms.
+    ```
+
+    Example
+    -------
+    >>> import torchaudio
+    >>> from speechbrain.pretrained import MelSpectrogramEncoder
+    >>> # Model is downloaded from the speechbrain HuggingFace repo
+    >>> tmpdir = getfixture("tmpdir")
+    >>> encoder = MelSpectrogramEncoder.from_hparams(
+    ...     source="speechbrain/tts-ecapa-voxceleb",
+    ...     savedir=tmpdir,
+    ... ) # doctest: +SKIP
+
+    >>> # Compute embedding from a waveform (sample_rate must match the sample rate of the encoder)
+    >>> signal, fs = torchaudio.load("tests/samples/single-mic/example1.wav") # doctest: +SKIP
+    >>> spk_emb = encoder.encode_waveform(signal) # doctest: +SKIP
+
+    >>> # Compute embedding from a mel-spectrogram (sample_rate must match the sample rate of the ecoder)
+    >>> mel_spec = encoder.mel_spectogram(audio=signal) # doctest: +SKIP
+    >>> spk_emb = encoder.encode_mel_spectrogram(mel_spec) # doctest: +SKIP
+
+    >>> # Compute embeddings for a batch of mel-spectrograms
+    >>> spk_embs = encoder.encode_mel_spectrogram_batch(mel_spec) # doctest: +SKIP
+    """
+
+    MODULES_NEEDED = ["normalizer", "embedding_model"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def dynamic_range_compression(self, x, C=1, clip_val=1e-5):
+        """Dynamic range compression for audio signals
+        """
+        return torch.log(torch.clamp(x, min=clip_val) * C)
+
+    def mel_spectogram(self, audio):
+        """calculates MelSpectrogram for a raw audio signal
+
+        Arguments
+        ---------
+        audio : torch.tensor
+            input audio signal
+
+        Returns
+        -------
+        mel : torch.Tensor
+            Mel-spectrogram
+        """
+        from torchaudio import transforms
+
+        audio_to_mel = transforms.MelSpectrogram(
+            sample_rate=self.hparams.sample_rate,
+            hop_length=self.hparams.hop_length,
+            win_length=self.hparams.win_length,
+            n_fft=self.hparams.n_fft,
+            n_mels=self.hparams.n_mel_channels,
+            f_min=self.hparams.mel_fmin,
+            f_max=self.hparams.mel_fmax,
+            power=self.hparams.power,
+            normalized=self.hparams.mel_normalized,
+            norm=self.hparams.norm,
+            mel_scale=self.hparams.mel_scale,
+        ).to(audio.device)
+
+        mel = audio_to_mel(audio)
+
+        if self.hparams.dynamic_range_compression:
+            mel = self.dynamic_range_compression(mel)
+
+        return mel
+
+    def encode_waveform(self, wav):
+        """
+        Encodes a single waveform
+
+        Arguments
+        ---------
+
+        wav : torch.Tensor
+            waveform
+
+        Returns
+        -------
+        encoder_out : torch.Tensor
+            Speaker embedding for the input waveform
+        """
+
+        # Moves tensor to the appropriate device
+        wav = wav.to(self.device)
+
+        # Computes mel-spectrogram
+        mel_spec = self.mel_spectogram(audio=wav)
+
+        # Calls encode_mel_spectrogram to compute the speaker embedding
+        return self.encode_mel_spectrogram(mel_spec)
+
+    def encode_mel_spectrogram(self, mel_spec):
+        """
+        Encodes a single mel-spectrograms
+
+        Arguments
+        ---------
+
+        mel_spec : torch.Tensor
+            Mel-spectrograms
+
+        Returns
+        -------
+        encoder_out : torch.Tensor
+            Speaker embedding for the input mel-spectrogram
+        """
+
+        # Fakes a batch
+        batch = mel_spec
+        if len(mel_spec.shape) == 2:
+            batch = mel_spec.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+
+        # Calls encode_mel_spectrogram_batch to compute speaker embeddings
+        results = self.encode_mel_spectrogram_batch(batch, rel_length)
+
+        return results
+
+    def encode_mel_spectrogram_batch(self, mel_specs, lens=None):
+        """
+        Encodes a batch of mel-spectrograms
+
+        Arguments
+        ---------
+
+        mel_specs : torch.Tensor
+            Mel-spectrograms
+        lens : torch.Tensor
+            Relative lengths of the mel-spectrograms
+
+        Returns
+        -------
+        encoder_out : torch.Tensor
+            Speaker embedding for the input mel-spectrogram batch
+        """
+
+        # Assigns full length if lens is not assigned
+        if lens is None:
+            lens = torch.ones(mel_specs.shape[0], device=self.device)
+
+        # Moves the tensors to the appropriate device
+        mel_specs, lens = mel_specs.to(self.device), lens.to(self.device)
+
+        # Computes speaker embeddings
+        mel_specs = torch.transpose(mel_specs, 1, 2)
+        feats = self.hparams.normalizer(mel_specs, lens)
+        encoder_out = self.hparams.embedding_model(feats)
+
+        return encoder_out
+
+    def __forward(self, mel_specs, lens):
+        """Runs the encoder"""
+        return self.encode_batch(mel_specs, lens)
+
+
+class MSTacotron2(Pretrained):
+    """
+    A ready-to-use wrapper for Zero-Shot Multi-Speaker Tacotron2.
+    For voice cloning: (text, reference_audio) -> (mel_spec).
+    For generating a random speaker voice: (text) -> (mel_spec).
+
+
+    Example
+    -------
+    >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> mstacotron2 = MSTacotron2.from_hparams(source="speechbrain/tts-mstacotron2-libritts", savedir=tmpdir_tts) # doctest: +SKIP
+    >>> # Sample rate of the reference audio must be greater or equal to the sample rate of the speaker embedding model
+    >>> reference_audio_path = "tests/samples/single-mic/example1.wav"
+    >>> input_text = "Mary had a little lamb."
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
+    >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
+    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_vocoder) # doctest: +SKIP
+    >>> # Running the TTS
+    >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
+    >>> # Running Vocoder (spectrogram-to-waveform)
+    >>> waveforms = hifi_gan.decode_batch(mel_output) # doctest: +SKIP
+    >>> # For generating a random speaker voice, use the following
+    >>> mel_output, mel_length, alignment = mstacotron2.generate_random_voice(input_text) # doctest: +SKIP
+    """
+
+    HPARAMS_NEEDED = ["model"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.text_cleaners = ["english_cleaners"]
+        self.infer = self.hparams.model.infer
+        self.custom_mel_spec_encoder = self.hparams.custom_mel_spec_encoder
+
+        self.g2p = GraphemeToPhoneme.from_hparams(
+            self.hparams.g2p, run_opts={"device": self.device}
+        )
+
+        self.spk_emb_encoder = None
+        if self.custom_mel_spec_encoder:
+            self.spk_emb_encoder = MelSpectrogramEncoder.from_hparams(
+                source=self.hparams.spk_emb_encoder,
+                run_opts={"device": self.device},
+            )
+        else:
+            self.spk_emb_encoder = EncoderClassifier.from_hparams(
+                source=self.hparams.spk_emb_encoder,
+                run_opts={"device": self.device},
+            )
+
+    def __text_to_seq(self, txt):
+        """Encodes raw text into a tensor with a customer text-to-equence fuction
+        """
+        sequence = text_to_sequence(txt, self.text_cleaners)
+        return sequence, len(sequence)
+
+    def clone_voice(self, texts, audio_path):
+        """
+        Generates mel-spectrogram using input text and reference audio
+
+        Arguments
+        ---------
+        texts : str or list
+            Input text
+        audio_path : str
+            Reference audio
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        # Loads audio
+        ref_signal, signal_sr = torchaudio.load(audio_path)
+
+        # Resamples the audio if required
+        if signal_sr != self.hparams.spk_emb_sample_rate:
+            ref_signal = torchaudio.functional.resample(
+                ref_signal, signal_sr, self.hparams.spk_emb_sample_rate
+            )
+        ref_signal = ref_signal.to(self.device)
+
+        # Computes speaker embedding
+        if self.custom_mel_spec_encoder:
+            spk_emb = self.spk_emb_encoder.encode_waveform(ref_signal)
+        else:
+            spk_emb = self.spk_emb_encoder.encode_batch(ref_signal)
+
+        spk_emb = spk_emb.squeeze(0)
+
+        # Converts input texts into the corresponding phoneme sequences
+        if isinstance(texts, str):
+            texts = [texts]
+        phoneme_seqs = self.g2p(texts)
+        for i in range(len(phoneme_seqs)):
+            phoneme_seqs[i] = " ".join(phoneme_seqs[i])
+            phoneme_seqs[i] = "{" + phoneme_seqs[i] + "}"
+
+        # Repeats the speaker embedding to match the number of input texts
+        spk_embs = spk_emb.repeat(len(texts), 1)
+
+        # Calls __encode_batch to generate the mel-spectrograms
+        return self.__encode_batch(phoneme_seqs, spk_embs)
+
+    def generate_random_voice(self, texts):
+        """
+        Generates mel-spectrogram using input text and a random speaker voice
+
+        Arguments
+        ---------
+        texts : str or list
+            Input text
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        spk_emb = self.__sample_random_speaker().float()
+        spk_emb = spk_emb.to(self.device)
+
+        # Converts input texts into the corresponding phoneme sequences
+        if isinstance(texts, str):
+            texts = [texts]
+        phoneme_seqs = self.g2p(texts)
+        for i in range(len(phoneme_seqs)):
+            phoneme_seqs[i] = " ".join(phoneme_seqs[i])
+            phoneme_seqs[i] = "{" + phoneme_seqs[i] + "}"
+
+        # Repeats the speaker embedding to match the number of input texts
+        spk_embs = spk_emb.repeat(len(texts), 1)
+
+        # Calls __encode_batch to generate the mel-spectrograms
+        return self.__encode_batch(phoneme_seqs, spk_embs)
+
+    def __encode_batch(self, texts, spk_embs):
+        """Computes mel-spectrograms for a list of texts
+        Texts are sorted in decreasing order on their lengths
+
+        Arguments
+        ---------
+        texts: List[str]
+            texts to be encoded into spectrogram
+        spk_embs: torch.Tensor
+            speaker embeddings
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        with torch.no_grad():
+            inputs = [
+                {
+                    "text_sequences": torch.tensor(
+                        self.__text_to_seq(item)[0], device=self.device
+                    )
+                }
+                for item in texts
+            ]
+
+            inputs = sorted(
+                inputs,
+                key=lambda x: x["text_sequences"].size()[0],
+                reverse=True,
+            )
+
+            lens = [entry["text_sequences"].size()[0] for entry in inputs]
+
+            inputs = speechbrain.dataio.batch.PaddedBatch(inputs)
+
+            assert lens == sorted(
+                lens, reverse=True
+            ), "ipnut lengths must be sorted in decreasing order"
+            input_lengths = torch.tensor(lens, device=self.device)
+
+            mel_outputs_postnet, mel_lengths, alignments = self.infer(
+                inputs.text_sequences.data, spk_embs, input_lengths
+            )
+        return mel_outputs_postnet, mel_lengths, alignments
+
+    def __sample_random_speaker(self):
+        """Samples a random speaker embedding from a pretrained GMM
+
+        Returns
+        -------
+        x: torch.Tensor
+            A randomly sampled speaker embedding
+        """
+
+        # Fetches and Loads GMM trained on speaker embeddings
+        speaker_gmm_local_path = fetch(
+            filename=self.hparams.random_speaker_sampler,
+            source=self.hparams.random_speaker_sampler_source,
+            savedir=self.hparams.pretrainer.collect_in,
+        )
+        random_speaker_gmm = torch.load(speaker_gmm_local_path)
+        gmm_n_components = random_speaker_gmm["gmm_n_components"]
+        gmm_means = random_speaker_gmm["gmm_means"]
+        gmm_covariances = random_speaker_gmm["gmm_covariances"]
+
+        # Randomly selects a speaker
+        counts = torch.zeros(gmm_n_components)
+        counts[random.randint(0, gmm_n_components - 1)] = 1
+        x = torch.empty(0, device=counts.device)
+
+        # Samples an embedding for the speaker
+        for k in torch.arange(gmm_n_components)[counts > 0]:
+            # Considers full covariance type
+            d_k = torch.distributions.multivariate_normal.MultivariateNormal(
+                gmm_means[k], gmm_covariances[k]
+            )
+            x_k = torch.stack([d_k.sample() for _ in range(int(counts[k]))])
+
+            x = torch.cat((x, x_k), dim=0)
+
+        return x
+
+
 class ResponseGenerator(Pretrained):
     """A ready-to-use Response Generator  model
 
@@ -4273,7 +4856,6 @@ class ResponseGenerator(Pretrained):
     MODULES_NEEDED = ["gpt-model"]
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
         #  Load model
         self.model = self.hparams.model
@@ -4326,7 +4908,7 @@ class ResponseGenerator(Pretrained):
         return response
 
     def prepare_input(self):
-        """ Convert user input and previous histories to the format acceptable for  GPT model.
+        """Convert user input and previous histories to the format acceptable for  GPT model.
             It appends all previous history and input and truncates it based on max_history value.
             It then tokenizes the input and generates additional input that determines the type of each token (Sytem or User).
 
