@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Recipe for fine-tuning a wav2vec model for the ST task (no transcriptions).
+"""Recipe for fine-tuning a wav2vec model and mBART model for the ST task (no transcriptions).
 
 Author
- * Marcely Zanon Boito, 2022
+ * Ha Nguyen, 2023
 """
 
 import sys
