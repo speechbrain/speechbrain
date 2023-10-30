@@ -1322,23 +1322,48 @@ class TriStageLRSchedule:
     Reference
     https://arxiv.org/pdf/1904.08779.pdf
 
-    ---------
     Arguments
     ---------
         lr : float
             The max learning rate to reach after warmup.
-        warmup : int
+        warmup_steps : int
             Number of warmup steps (following a linear increase).
-        hold : int
+        hold_steps : int
             Number of holding steps (lr remains unchanged).
         total_steps : int
             Total number of steps (used to decay).
-        decay_factor : float
-            Decay factor applied every decay_every steps.
-        decay_every : int
-            Apply the decay factor to the learning rate every decay_every steps.
+        init_lr_scale : float
+            The initial learning rate scale during warmup phase.
+        final_lr_scale : float
+            The final learning rate scale.
     Example
     -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler = TriStageLRSchedule(lr=1, warmup_steps=2, hold_steps=2, decay_steps=2, total_steps=6, init_lr_scale=0.01, final_lr_scale=0.05)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim, 1)
+    >>> optim.param_groups[0]["lr"]
+    0.505
+    >>> scheduler(optim, 2)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim, 3)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim, 4)
+    >>> optim.param_groups[0]["lr"]
+    1.0
+    >>> scheduler(optim, 5)
+    >>> optim.param_groups[0]["lr"]
+    0.223606797749979
+    >>> scheduler(optim, 6)
+    >>> optim.param_groups[0]["lr"]
+    0.05000000000000001
     """
 
     def __init__(
@@ -1365,6 +1390,7 @@ class TriStageLRSchedule:
         self.decay_factor = -math.log(self.final_lr_scale) / self.decay_steps
 
     def __call__(self, opt, num_updates):
+        """Calculate the learning rate corresponding to the current step (num_updates)."""
         if num_updates < self.warmup_steps:
             # Warming up at the start of training.
             lr = self.init_lr + self.warmup_rate * num_updates
