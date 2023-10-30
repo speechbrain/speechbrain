@@ -46,6 +46,7 @@ class mBART(HFTransformersInterface):
         with a text-based pre-trained decoder (e.g. mBART, NLLB).
     share_input_output_embed : bool (default: True)
         If True, use the embedded layer as the lm_head.
+
     Example
     -------
     >>> src = torch.rand([10, 1, 1024])
@@ -87,21 +88,11 @@ class mBART(HFTransformersInterface):
             del self.model.model.encoder
 
         for k, p in self.model.named_parameters():
+            # It is a common practice to only fine-tune the encoder_attn and layer_norm layers of this model.
             if "encoder_attn" in k or "layer_norm" in k:
                 p.requires_grad = True
             else:
                 p.requires_grad = False
-
-        self.freeze = freeze
-        if self.freeze:
-            logger.warning(
-                "speechbrain.lobes.models.huggingface_mbart - mbart is frozen."
-            )
-            self.model.eval()
-            for param in self.model.parameters():
-                param.requires_grad = False
-        else:
-            self.model.train()
 
     def forward(self, src, tgt, pad_idx=0):
         """This method implements a forward step for mt task using a wav2vec encoder
@@ -124,7 +115,6 @@ class mBART(HFTransformersInterface):
 
         if self.freeze:
             with torch.no_grad():
-                # dec_out = self.decoder(input_ids=tgt, encoder_hidden_states=src, encoder_attention_mask=encoder_attention_mask).last_hidden_state.detach()
                 if hasattr(self.model.model, "encoder"):
                     src = self.model.model.encoder(
                         inputs_embeds=src
@@ -132,18 +122,15 @@ class mBART(HFTransformersInterface):
                 dec_out = self.model.model.decoder(
                     input_ids=tgt, encoder_hidden_states=src
                 ).last_hidden_state.detach()
-                dec_out = self.model.lm_head(
-                    dec_out
-                ).detach()  # + self.model.final_logits_bias
+                dec_out = self.model.lm_head(dec_out).detach()
                 return dec_out
 
-        # dec_out = self.decoder(input_ids=tgt, encoder_hidden_states=src, encoder_attention_mask=encoder_attention_mask).last_hidden_state
         if hasattr(self.model.model, "encoder"):
             src = self.model.model.encoder(inputs_embeds=src).last_hidden_state
         dec_out = self.model.model.decoder(
             input_ids=tgt, encoder_hidden_states=src
         ).last_hidden_state
-        dec_out = self.model.lm_head(dec_out)  # + self.model.final_logits_bias
+        dec_out = self.model.lm_head(dec_out)
         return dec_out
 
     @torch.no_grad()

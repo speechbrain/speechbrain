@@ -75,6 +75,8 @@ class HFTransformersInterface(nn.Module):
         If True, build the model for pretraining
     with_lm_head: bool (default: False)
         If True, build the model with lm_head
+    seq2seqlm : bool (default: False)
+        If True, build a sequence-to-sequence model with lm_head
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
