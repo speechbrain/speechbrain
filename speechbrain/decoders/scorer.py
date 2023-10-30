@@ -181,7 +181,6 @@ class RNNLMRescorer(BaseRescorerInterface):
         self,
         language_model,
         tokenizer,
-        encode_fn=None,
         temperature=1.0,
         bos_index=0,
         eos_index=0,
@@ -196,8 +195,6 @@ class RNNLMRescorer(BaseRescorerInterface):
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
-
-        self.encode_fn = encode_fn
 
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
@@ -221,14 +218,8 @@ class RNNLMRescorer(BaseRescorerInterface):
             The hypotheses to be preprocessed.
         """
 
-        if self.encode_fn is None:
-            raise ValueError("encode_fn must be provided.")
-
-        # from ids to text
-        decoded_seq = self.encode_fn(encoded_seq)
-
         # normalize
-        decoded_seq = [[self.normalize_text(seq)] for seq in decoded_seq]
+        decoded_seq = [[self.normalize_text(seq)] for seq in encoded_seq]
 
         # encode text
         enc_hyps = [
@@ -274,7 +265,7 @@ class RNNLMRescorer(BaseRescorerInterface):
             self.lm.to(padded_hyps.device)
 
         # compute scores
-        logits = self.lm(padded_hyps)
+        logits, _ = self.lm(padded_hyps)
         log_probs = self.softmax(logits / self.temperature)
 
         target_log_probs = (
@@ -282,7 +273,8 @@ class RNNLMRescorer(BaseRescorerInterface):
             .gather(2, padded_hyps[:, 1:].unsqueeze(2))
             .squeeze(2)
         )
-        log_probs_scores = torch.sum(
+
+        log_probs_scores = torch.nansum(
             target_log_probs * bool_mask_tensor[:, 1:], dim=-1
         )
 
@@ -311,7 +303,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
         self,
         language_model,
         tokenizer,
-        encode_fn=None,
         temperature=1.0,
         bos_index=0,
         eos_index=0,
@@ -326,8 +317,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
-
-        self.encode_fn = encode_fn
 
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
@@ -351,14 +340,9 @@ class TransformerLMRescorer(BaseRescorerInterface):
             The hypotheses to be preprocessed.
         """
 
-        if self.encode_fn is None:
-            raise ValueError("encode_fn must be provided.")
-
-        # from ids to text
-        decoded_seq = self.encode_fn(encoded_seq)
-
         # normalize
-        decoded_seq = [[self.normalize_text(seq)] for seq in decoded_seq]
+        decoded_seq = [[self.normalize_text(seq)] for seq in encoded_seq]
+        # print(decoded_seq)
 
         # encode text
         enc_hyps = [
@@ -408,12 +392,18 @@ class TransformerLMRescorer(BaseRescorerInterface):
         logits = self.lm(padded_hyps)
         log_probs = self.softmax(logits / self.temperature)
 
+        log_probs[:, :, self.pad_index] = float("-inf")
+
         target_log_probs = (
             log_probs[:, :-1]
             .gather(2, padded_hyps[:, 1:].unsqueeze(2))
             .squeeze(2)
         )
-        log_probs_scores = torch.sum(
+
+        target_log_probs = target_log_probs - log_probs[:, :-1].logsumexp(
+            dim=-1
+        )
+        log_probs_scores = torch.nansum(
             target_log_probs * bool_mask_tensor[:, 1:], dim=-1
         )
 
@@ -438,13 +428,11 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     """
 
     def __init__(
-        self, model_name, temperature=1.0, device="cuda", encode_fn=None,
+        self, model_name, device="cuda", encode_fn=None,
     ):
         self.model_name = model_name
-        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
         self.device = device
         self.encode_fn = encode_fn
-        self.temperature = temperature
 
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -461,11 +449,24 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
             .to(self.device)
         )
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_name, use_fast=True, add_special_tokens=False
+        )
 
-        self.pad_index = self.tokenizer.unk_token_id
-        self.bos_index = self.tokenizer.bos_token_id
-        self.eos_index = self.tokenizer.eos_token_id
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = "<|pad|>"
+            self.tokenizer.add_special_tokens(
+                {"additional_special_tokens": [self.tokenizer.pad_token]}
+            )
+            self.lm.resize_token_embeddings(
+                len(self.tokenizer), pad_to_multiple_of=32
+            )
+
+        self.bos_token = self.tokenizer.bos_token
+        self.eos_token = self.tokenizer.eos_token
+
+    def _add_special_tokens(self, text: str) -> str:
+        return self.bos_token + text + self.eos_token
 
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
@@ -475,23 +476,33 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         text : str
             The text to be normalized.
         """
-        return text.lower()
+        return text  # TODO: add true normalizer
 
     def preprocess_func(self, topk_hyps):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        hyps : list list of str
+        hyps : list of str
             The hypotheses to be preprocessed.
         """
 
         # normalize
         # decoded_seq = [self.normalize_text(seq) for seq in decoded_seq]
         # Step 1. Normalize the text
+        """
         normalized_hyps = []
         for hyps in topk_hyps:
             normalized_hyps.append([self.normalize_text(hyp) for hyp in hyps])
+        """
+
+        normalized_hyps = [self.normalize_text(hyp) for hyp in topk_hyps]
+        text_augmented_with_tokens = list(
+            map(self._add_special_tokens, normalized_hyps)
+        )
+        encoding = self.tokenizer.batch_encode_plus(
+            text_augmented_with_tokens, return_tensors="pt", padding=True
+        )
 
         """
         # encode text
@@ -505,9 +516,10 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         ]
         """
 
+        """
         # Step 2. Encode the text with the HF tokenizer
         enc_hyps = []
-        for hyps in normalized_hyps:
+        for hyps in topk_hyps:
             enc_hyps.append(
                 [
                     [self.bos_index]
@@ -545,8 +557,9 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         padded_enc_hyps = torch.tensor(
             padded_enc_hyps, dtype=torch.long, device=self.device
         )
+        """
 
-        return padded_enc_hyps, enc_hyps_length
+        return encoding
 
     @torch.no_grad()
     def rescore_hyps(self, hyps):
@@ -556,6 +569,23 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         ---------
         hyps : list of list of str
             The hypotheses to be rescored.
+        """
+        encoding = self.preprocess_func(hyps)
+
+        ids = encoding["input_ids"].to(self.lm.device)
+        attention_mask = encoding["attention_mask"].to(self.lm.device)
+        logits = self.lm(ids, attention_mask=attention_mask)[0]
+
+        logits[:, :, self.tokenizer.pad_token_id :] = float("-inf")
+
+        target_log_probs = (
+            logits[:, :-1].gather(2, ids[:, 1:].unsqueeze(2)).squeeze(2)
+        )
+
+        target_log_probs = target_log_probs - logits[:, :-1].logsumexp(dim=-1)
+        output = torch.nansum(target_log_probs * attention_mask[:, 1:], dim=-1)
+        return output, None
+
         """
         # preprocess hypotheses
         padded_enc_hyps, enc_hyps_length = self.preprocess_func(hyps)
@@ -603,6 +633,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         # print(neural_lm_score.shape)
 
         return neural_lm_score, enc_hyps_length
+        """
 
 
 class CTCScorer(BaseScorerInterface):
@@ -1775,46 +1806,40 @@ class RescorerBuilder:
 
         self._validate_scorer(all_rescorer_names)
 
-    def rescore_hyps(self, candidates, scores):
-        """Rescore the hypotheses with the full external scorers.
-        Arguments
-        ---------
-        scores : torch.Tensor
-            (batch_size x beam_size). The scores of the current hypotheses.
-        candidates : Candidates
-            The final hypotheses to rescore.
-        """
-        topk_candidates = [cand[: self.topk] for cand in candidates]
-        topk_scores = [score[: self.topk] for score in scores]
-        # print("topk_candidates", topk_candidates[0])
-        # print("topk_scores", topk_scores[0])
-        # print(len(topk_candidates))
-        # print(len(topk_scores))
+    def __call__(self, topk_candidates, topk_scores):
+        return self.rescore_hyps(topk_candidates, topk_scores)
 
-        for k, impl in self.rescorers.items():
-            lm_scores, enc_length = impl.rescore_hyps(topk_candidates)
+    def rescore_hyps(self, topk_candidates, topk_scores):
 
-            alpha, beta = self.weights[k]
+        new_scores = []
+        for candidats, scores in zip(topk_candidates, topk_scores):
+            # print('-' * 10)
+            # print(candidats)
+            for k, impl in self.rescorers.items():
 
-            """
-            scores = [
-                (s + alpha * l + beta * e).item()
+                lm_scores, length = impl.rescore_hyps(candidats)
 
-                for s, l, e in zip(topk_scores, lm_score, enc_length)
-            ]
-            """
-            scores = []
-            for am_scores, lm_scores, lengths in zip(
-                topk_scores, lm_scores, enc_length
-            ):
-                b_scores = []
-                for am_score, lm_score, length in zip(
-                    am_scores, lm_scores, lengths
+                alpha, beta = self.weights[k]
+
+                inner_list = []
+                for i, (am_score, lm_score) in enumerate(
+                    zip(scores, lm_scores)
                 ):
-                    b_scores.append((am_score + alpha * lm_score).item())
-                scores.append(b_scores)
+                    # print(am_score)
+                    # print(lm_score)
+                    text = candidats[i]
+                    score = (am_score + alpha * lm_score).item()
+                    inner_list.append((text, score))
+                    # print('final score = ', am_score + alpha * lm_score)
+                new_scores.append(inner_list)
 
-        return scores
+        # sort scores
+        for i in range(len(new_scores)):
+            new_scores[i] = sorted(
+                new_scores[i], key=lambda x: x[1], reverse=True
+            )
+
+        return new_scores
 
     def _validate_scorer(self, rescorer_names):
         """These error messages indicate rescorers are not properly set.
