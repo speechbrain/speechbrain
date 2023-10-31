@@ -23,18 +23,8 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     make_padding_masks,
 )
-
-# We check if transformers is installed.
-try:
-    import transformers
-    from transformers.models.wav2vec2.modeling_wav2vec2 import (
-        _compute_mask_indices,
-    )
-
-except ImportError:
-    MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
-    MSG += "E.G. run: pip install transformers"
-    raise ImportError(MSG)
+import transformers
+from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices
 
 logger = logging.getLogger(__name__)
 
