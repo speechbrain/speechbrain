@@ -48,6 +48,24 @@ python train_with_w2v_mbart.py hparams/train_w2v2_mbart_st.yaml --root_data_fold
 
 One should change hparams/train_w2v2_mbart_st.yaml to hparams/train_w2v2_nllb_st.yaml in the above training command for using NLLB model instead.
 
+## Pre-training Semantically-Aligned Multimodal Utterance-level (SAMU) wav2vec
+
+Inspired by [SAMU-XLSR](https://arxiv.org/abs/2205.08180), a model that unifies speech and text modality for making the pre-trained speech foundation model more semantically aware, we introduce here a recipe for fine-tuning a pre-trained wav2vec 2.0 model in the same manner. Training data can be paired speech/text data of the kind used by ASR or AST. In this recipe, we use directly the IWSLT2022_Tamasheq_data AST data.
+
+For launching SAMU training:
+```
+python train_samu.py hparams/train_samu.yaml --root_data_folder=your/data/path # e.g., /workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean
+```
+
+After the SAMU model is pre-trained, one can use it in the same manner as wav2vec 2.0 model. We found that using SAMU model as speech encoder coupled with a decoder from mBART or NLLB helps further improve BLEU scores on this challenging dataset.
+
+For launching AST training:
+```
+train_with_samu_mbart.py hparams/train_samu_mbart_st.yaml --root_data_folder=your/data/path # e.g., /workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean
+```
+
+One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st.yaml in the above training command for using NLLB model instead.
+
 # Results
 
 | No. | hyperparams file |  dev BLEU | test BLEU |
@@ -55,6 +73,8 @@ One should change hparams/train_w2v2_mbart_st.yaml to hparams/train_w2v2_nllb_st
 | 1 | train_w2v2_st.yaml | 7.63 | 5.38 |
 | 2 | train_w2v2_mbart_st.yaml | 9.62 | 7.73 |
 | 3 | train_w2v2_nllb_st.yaml | 11.09 | 8.70 |
+| 4 | train_samu_mbart_st.yaml | 13.41 | 10.28 |
+| 5 | train_samu_nllb_st.yaml | - | - |
 
 ## Citation
 ```
