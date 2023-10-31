@@ -13,17 +13,25 @@ import csv
 import json
 import random
 import logging
+from types import SimpleNamespace
 import torch
 import torchaudio
 import numpy as np
+import tgt
+import re
+import speechbrain as sb
 from tqdm import tqdm
+from pathlib import Path
 from speechbrain.utils.data_utils import download_file
 from speechbrain.dataio.dataio import load_pkl, save_pkl
-import tgt
 from speechbrain.pretrained import GraphemeToPhoneme
-import re
 from unidecode import unidecode
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
+from speechbrain.dataio.batch import PaddedData
+from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.dataio.preparation import FeatureExtractor
+from speechbrain.lobes.models.huggingface_encodec import HuggingFaceEncodec
+from torchaudio.functional import resample
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +60,8 @@ def prepare_ljspeech(
     pitch_max_f0=400,
     skip_prep=False,
     use_custom_cleaner=False,
+    extract_features=None,
+    extract_features_opts=None,
     device="cpu",
 ):
     """
@@ -83,6 +93,10 @@ def prepare_ljspeech(
         If True, skip preparation
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
+    extract_features : list
+        The list of features to be extracted
+    extract_features_opts : dict
+        Options for feature extraction
     device : str
         Device for to be used for computation (used as required)
 
@@ -130,7 +144,7 @@ def prepare_ljspeech(
     duration_folder = None
     pitch_folder = None
     # Setting up additional folders required for FastSpeech2
-    if model_name is not None and "FastSpeech2" in model_name:
+    if model_name == "FastSpeech2":
         # This step requires phoneme alignements to be present in the data_folder
         # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
@@ -148,7 +162,8 @@ def prepare_ljspeech(
         if not os.path.exists(duration_folder):
             os.makedirs(duration_folder)
 
-        # extract pitch for both Fastspeech2 and FastSpeech2WithAligner models
+    # extract pitch for both Fastspeech2 and FastSpeech2WithAligner models
+    if "FastSpeech2" in model_name:
         pitch_folder = os.path.join(data_folder, "pitch")
         if not os.path.exists(pitch_folder):
             os.makedirs(pitch_folder)
@@ -167,6 +182,17 @@ def prepare_ljspeech(
     logger.info(msg)
     data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
 
+    extract_features_context = None
+    extract_features_folder = None
+    if extract_features:
+        extract_features_context = get_context(
+            extract_features=extract_features,
+            extract_features_opts=extract_features_opts or {},
+            save_path=save_folder,
+            device=device
+        )
+        extract_features_folder = Path(save_folder) / "features"
+
     if "train" in splits:
         prepare_json(
             model_name,
@@ -182,6 +208,10 @@ def prepare_ljspeech(
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            extract_features,
+            extract_features_context,
+            extract_features_folder,
+            extract_features_opts,
             device,
         )
     if "valid" in splits:
@@ -199,6 +229,10 @@ def prepare_ljspeech(
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            extract_features,
+            extract_features_context,
+            extract_features_folder,
+            extract_features_opts,
             device,
         )
     if "test" in splits:
@@ -216,6 +250,10 @@ def prepare_ljspeech(
             pitch_min_f0,
             pitch_max_f0,
             use_custom_cleaner,
+            extract_features,
+            extract_features_context,
+            extract_features_folder,
+            extract_features_opts,
             device,
         )
     save_pkl(conf, save_opt)
@@ -340,6 +378,10 @@ def prepare_json(
     pitch_min_f0,
     pitch_max_f0,
     use_custom_cleaner=False,
+    extract_features=None,
+    extract_features_context=None,
+    extract_features_folder=None,
+    extract_features_opts=None,
     device="cpu",
 ):
     """
@@ -373,6 +415,10 @@ def prepare_json(
         Max f0 for pitch computation
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
+    extract_features: list
+        If specified, feature extraction will be performed
+    extract_features: types.SimpleNamespace
+        Context for feature extraction (pretrained models, etc)
     device : str
         Device for to be used for computation (used as required)
 
@@ -389,13 +435,14 @@ def prepare_json(
         g2p = GraphemeToPhoneme.from_hparams(
             "speechbrain/soundchoice-g2p", run_opts={"device": device}
         )
-    if model_name is not None and "FastSpeech2" in model_name:
+    if "FastSpeech2" in model_name:
         logger.info(
             "Computing pitch as required for FastSpeech2. This may take a while."
         )
 
     json_dict = {}
     for index in tqdm(seg_lst):
+
         # Common data preparation
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
@@ -412,6 +459,7 @@ def prepare_json(
 
         # FastSpeech2 specific data preparation
         if model_name == "FastSpeech2":
+
             audio, fs = torchaudio.load(wav)
 
             # Parses phoneme alignments
@@ -535,6 +583,18 @@ def prepare_json(
             json_dict[id].update({"phonemes": phonemes})
             json_dict[id].update({"pitch": pitch_file})
 
+        # Feature Extraction
+    if extract_features:
+        extract_features_folder.mkdir(exist_ok=True)
+        prepare_features(
+            data=json_dict,
+            save_path=extract_features_folder,
+            features=extract_features,
+            context=extract_features_context,
+            options=extract_features_opts,
+            device=device
+        )
+
     # Writing the dictionary to the json file
     with open(json_file, mode="w") as json_f:
         json.dump(json_dict, json_f, indent=2)
@@ -544,26 +604,26 @@ def prepare_json(
 
 def get_alignment(tier, sampling_rate, hop_length, last_phoneme_flags):
     """
-    Returns phonemes, phoneme durations (in frames), start time (in seconds), end time (in seconds).
-    This function is adopted from https://github.com/ming024/FastSpeech2/blob/master/preprocessor/preprocessor.py
+  Returns phonemes, phoneme durations (in frames), start time (in seconds), end time (in seconds).
+  This function is adopted from https://github.com/ming024/FastSpeech2/blob/master/preprocessor/preprocessor.py
 
-    Arguments
-    ---------
-    tier : tgt.core.IntervalTier
-        For an utterance, contains Interval objects for phonemes and their start time and end time in seconds
-    sampling_rate : int
-        Sample rate if audio signal
-    hop_length : int
-        Hop length for duration computation
-    last_phoneme_flags : list
-        List of (phoneme, flag) tuples with flag=1 if the phoneme is the last phoneme else flag=0
+  Arguments
+  ---------
+  tier : tgt.core.IntervalTier
+      For an utterance, contains Interval objects for phonemes and their start time and end time in seconds
+  sampling_rate : int
+      Sample rate if audio signal
+  hop_length : int
+      Hop length for duration computation
+  last_phoneme_flags : list
+      List of (phoneme, flag) tuples with flag=1 if the phoneme is the last phoneme else flag=0
 
 
-    Returns
-    -------
-    (phones, durations, start_time, end_time) : tuple
-        The phonemes, durations, start time, and end time for an utterance
-    """
+  Returns
+  -------
+  (phones, durations, start_time, end_time) : tuple
+      The phonemes, durations, start time, and end time for an utterance
+  """
 
     sil_phones = ["sil", "sp", "spn", ""]
 
@@ -618,23 +678,23 @@ def get_alignment(tier, sampling_rate, hop_length, last_phoneme_flags):
 
 def get_last_phoneme_info(words_seq, phones_seq):
     """This function takes word and phoneme tiers from a TextGrid file as input
-    and provides a list of tuples for the phoneme sequence indicating whether
-    each of the phonemes is the last phoneme of a word or not.
+  and provides a list of tuples for the phoneme sequence indicating whether
+  each of the phonemes is the last phoneme of a word or not.
 
-    Each tuple of the returned list has this format: (phoneme, flag)
+  Each tuple of the returned list has this format: (phoneme, flag)
 
 
-    Arguments
-    ---------
-    words_seq :
-        word tier from a TextGrid file
-    phones_seq :
-        phoneme tier from a TextGrid file
+  Arguments
+  ---------
+  words_seq :
+      word tier from a TextGrid file
+  phones_seq :
+      phoneme tier from a TextGrid file
 
-    Returns
-    -------
-    last_phoneme_flags : list
-        each tuple of the returned list has this format: (phoneme, flag)
+  Returns
+  -------
+  last_phoneme_flags : list
+      each tuple of the returned list has this format: (phoneme, flag)
     """
 
     # Gets all phoneme objects for the entire sequence
@@ -711,3 +771,75 @@ def custom_clean(text, model_name):
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
     return text
+
+
+def prepare_features(
+        data,
+        save_path,
+        features,
+        context,
+        options=None,
+        device="cpu"
+):
+    """Performs feature extraction
+
+    Arguments
+    ---------
+    data: dict
+        a preprocessed dataset
+    features: list
+        the list of feature extractions to be performed"""
+    dataset = DynamicItemDataset(data)
+    feature_extractor = FeatureExtractor(
+        save_path=save_path,
+        src_keys=["sig"],
+        id_key="uttid",
+        dataloader_opts=options.get("dataloader_opts", {}),
+        device=device
+    )
+
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        """Load the audio signal. """
+        sig = sb.dataio.dataio.read_audio(wav)
+        return sig
+    dataset.add_dynamic_item(audio_pipeline)
+
+    @sb.utils.data_pipeline.takes("sig")
+    @sb.utils.data_pipeline.provides("sig_resampled")
+    def resample_pipeline(sig):
+        sig_data = resample(
+            waveform=sig.data,
+            orig_freq=options["sample_rate"],
+            new_freq=options["model_sample_rate"]
+        )
+        return PaddedData(sig_data, sig.lengths)
+
+    @sb.utils.data_pipeline.takes("sig_resampled")
+    @sb.utils.data_pipeline.provides("audio_tokens")
+    def encodec_pipeline(sig):
+        tokens = context.encodec.encode(sig.data.unsqueeze(1), sig.lengths)
+        return PaddedData(tokens, sig.lengths)
+
+    feature_extractor.add_dynamic_item(resample_pipeline)
+    feature_extractor.add_dynamic_item(encodec_pipeline)
+    feature_extractor.set_output_features(features)
+    feature_extractor.extract(dataset)
+
+
+def get_context(
+    extract_features,
+    extract_features_opts,
+    save_path,
+    device
+):
+    """Gets the context (pretrained models, etc) for feature extraction"""
+    context = {}
+    if "audio_tokens" in extract_features:
+        context["encodec"] = HuggingFaceEncodec(
+            source=extract_features_opts.get("encodec_model", "facebook/encodec_24khz"),
+            save_path=save_path,
+        ).to(device)
+
+    return SimpleNamespace(**context)

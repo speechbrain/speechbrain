@@ -269,3 +269,41 @@ class BatchsizeGuesser:
     def fallback(self, batch):
         """Implementation of fallback."""
         return 1
+
+
+def undo_batch(batch):
+    """Converts a padded batch or a dicitionary to a list of
+    dictionaries. Any instances of PaddedData encountered will
+    be converted to plain tensors
+
+    Arguments
+    ---------
+    batch: dict|speechbrain.dataio.batch.PaddedBatch
+        the batch
+
+    Returns
+    -------
+    result: dict
+        a list of dictionaries with each dictionary as a batch
+        element
+    """
+    if hasattr(batch, "as_dict"):
+        batch = batch.as_dict()
+    keys = batch.keys()
+    return [
+        dict(zip(keys, item))
+        for item in zip(
+            *[_unpack_feature(feature) for feature in batch.values()]
+        )
+    ]
+
+
+def _unpack_feature(feature):
+    if isinstance(feature, PaddedData):
+        device = feature.data.device
+        feature = undo_padding(feature.data, feature.lengths)
+        feature = [
+            torch.tensor(item, device=device)
+            for item in feature
+        ]
+    return feature
