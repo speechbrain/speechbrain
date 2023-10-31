@@ -29,23 +29,14 @@ from torch import nn
 from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.dataio import length_to_mask
-
-
-# We check if transformers is installed.
-try:
-    from transformers import (
-        AutoConfig,
-        AutoTokenizer,
-        AutoFeatureExtractor,
-        AutoModelForPreTraining,
-        AutoModel,
-        AutoModelWithLMHead,
-    )
-
-except ImportError:
-    MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
-    MSG += "E.G. run: pip install transformers"
-    raise ImportError(MSG)
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    AutoFeatureExtractor,
+    AutoModelForPreTraining,
+    AutoModel,
+    AutoModelWithLMHead,
+)
 
 logger = logging.getLogger(__name__)
 
