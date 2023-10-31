@@ -3,7 +3,7 @@
 This subpackage gathers higher level blocks, or "lobes" for HuggingFace Transformers.
 """
 
-# We check if transformers is installed.
+# Transformers is required for this package.
 try:
     import transformers  # noqa
 except ImportError:
