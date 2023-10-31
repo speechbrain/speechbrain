@@ -12,4 +12,9 @@ except ImportError:
     MSG += "For more information, visit: https://huggingface.co/docs/transformers/installation"
     raise ImportError(MSG)
 
-from . import *  # noqa
+from .gpt import *  # noqa
+from .hubert import *  # noqa
+from .huggingface import *  # noqa
+from .wav2vec import *  # noqa
+from .wavlm import *  # noqa
+from .whisper import *  # noqa
