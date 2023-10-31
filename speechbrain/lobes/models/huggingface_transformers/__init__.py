@@ -15,6 +15,6 @@ except ImportError:
 from .gpt import *  # noqa
 from .hubert import *  # noqa
 from .huggingface import *  # noqa
-from .wav2vec import *  # noqa
+from .wav2vec2 import *  # noqa
 from .wavlm import *  # noqa
 from .whisper import *  # noqa
