@@ -54,7 +54,6 @@ SpeechBrain defines a set of running arguments that can be set from the command 
 - `debug`: a flag that enables debug mode, only running a few iterations to verify that program won't crash.
 - `data_parallel_backend`: a flag that enables `data_parallel` for multigpu training on a single machine.
 - `data_parallel_count`: default "-1" (use all gpus), if > 0, use a subset of gpus available `[0, 1, ..., data_parallel_count]`.
-- `distributed_launch`: A flag that enables training with `ddp` for multiGPU training. Assumes `torch.distributed.launch` was used to start script. the `local_rank` and `rank` UNIX arguments are parsed.
 - `distributed_backend`: default "nccl", options: `["nccl", "gloo", "mpi"]`, this backend will be used as a DDP communication protocol. See PyTorch documentation for more details.
 - Additional runtime arguments are documented in the Brain class.
 

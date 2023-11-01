@@ -35,7 +35,6 @@ from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
-from speechbrain.utils.distributed import if_main_process
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
@@ -612,19 +611,10 @@ class Brain:
                 "torchrun [args] experiment.py hyperparams.yaml"
             )
 
-        if self.distributed_launch and self.ckpt_interval_minutes > 0:
-            logger.warning(
-                "The --ckpt_interval_minutes option saves only on the main "
-                "process to avoid race conditions. If you need to save an "
-                "intra-epoch checkpoint on multiple processes (e.g. FSDP), "
-                "consider switching to intervals based on # of steps with the "
-                "argument --ckpt_interval_steps."
-            )
-
         if self.ckpt_interval_minutes > 0 and self.ckpt_interval_steps > 0:
             sys.exit(
                 "The options `ckpt_interval_minutes` and `ckpt_interval_steps` "
-                "are mutually exclusive to prevent race conditions. "
+                "are mutually exclusive. "
                 "Please keep only one active per experiment run."
             )
 
@@ -1234,15 +1224,28 @@ class Brain:
         if self.checkpointer is None:
             return False
 
-        # Check if we've run for the requested amount of time
-        if 0 < self.ckpt_interval_minutes * 60.0 < time.time() - last_ckpt_time:
-            # Only save on the main process to avoid race conditions
-            return if_main_process()
+        # Return early if mid-epoch checkpoints are disabled to avoid sync
+        if self.ckpt_interval_minutes <= 0 and self.ckpt_interval_steps <= 0:
+            return False
 
-        # Save after requested # of steps. This option is the only one that
-        # allows saving on multiple processes. The logic for whether saving
-        # is run only on the main process is handled by the checkpointer.
-        return 0 < self.ckpt_interval_steps <= steps_since_ckpt
+        # Check if we've run for the requested amount of time
+        elapsed_minutes = (time.time() - last_ckpt_time) / 60.0
+        decision = 0 < self.ckpt_interval_minutes < elapsed_minutes
+
+        # Save after requested # of steps
+        decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
+
+        # If the program is not distributed, just return
+        if not torch.distributed.is_initialized():
+            return decision
+
+        # Otherwise, broadcast decision to all processes from main (rank 0)
+        # This solves synchronization issues where main gets a different
+        # timing result than the other processes.
+        else:
+            broadcast_list = [decision]
+            torch.distributed.broadcast_object_list(broadcast_list, src=0)
+            return broadcast_list[0]
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage

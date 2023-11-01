@@ -4,6 +4,7 @@ Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
 """
+import datetime
 import os
 import torch
 from functools import wraps
@@ -157,6 +158,7 @@ def ddp_init_group(run_opts):
             run_opts["distributed_backend"]
             + " communcation protocol doesn't exist."
         )
+
     # rank arg is used to set the right rank of the current process for ddp.
     # if you have 2 servers with 2 gpu:
     # server1:
@@ -166,5 +168,7 @@ def ddp_init_group(run_opts):
     #   GPU0: local_rank=device=0, rank=2
     #   GPU1: local_rank=device=1, rank=3
     torch.distributed.init_process_group(
-        backend=run_opts["distributed_backend"], rank=rank
+        backend=run_opts["distributed_backend"],
+        rank=rank,
+        timeout=datetime.timedelta(seconds=7200),
     )
