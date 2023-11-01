@@ -121,7 +121,7 @@ class ASR(sb.Brain):
         elif stage == sb.Stage.TEST:
             if hasattr(self.hparams, "rescorer"):
                 predicted_words = [
-                    hyp[0][0].split(" ") for hyp in predicted_tokens
+                    hyp[0].split(" ") for hyp in predicted_tokens
                 ]
             else:
                 predicted_words = [
