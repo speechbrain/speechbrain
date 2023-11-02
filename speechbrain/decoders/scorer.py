@@ -1322,7 +1322,7 @@ class RNNLMRescorer(BaseRescorerInterface):
     >>> from speechbrain.lobes.models.RNNLM import RNNLM
     >>> from speechbrain.utils.parameter_transfer import Pretrainer
     >>> source = "speechbrain/asr-crdnn-rnnlm-librispeech"
-    >>> savedir = "pretrained_models"
+    >>> savedir = getfixture("tmpdir")
     >>> lm_model_path = source + "/lm.ckpt"
     >>> tokenizer_path = source + "/tokenizer.ckpt"
     >>> # define your tokenizer and RNNLM from the HF hub
@@ -1553,7 +1553,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
     >>> from speechbrain.utils.parameter_transfer import Pretrainer
     >>> source = "speechbrain/asr-transformer-transformerlm-librispeech"
-    >>> savedir = "pretrained_models"
+    >>> savedir = getfixture("tmpdir")
     >>> lm_model_path = source + "/lm.ckpt"
     >>> tokenizer_path = source + "/tokenizer.ckpt"
     >>> tokenizer = SentencePieceProcessor()
