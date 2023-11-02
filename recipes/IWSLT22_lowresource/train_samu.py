@@ -11,6 +11,7 @@ import logging
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 import torch.nn.functional as F
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +197,7 @@ def dataio_prepare(hparams):
     datasets = {}
     data_folder = hparams["data_folder"]
     for dataset in ["train", "valid"]:
-        json_path = f"{data_folder}/{dataset}.json"
+        json_path = hparams[f"{dataset}_set"]
 
         is_use_sp = dataset == "train" and "speed_perturb" in hparams
         audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
@@ -209,7 +210,7 @@ def dataio_prepare(hparams):
         )
 
     for dataset in ["test"]:
-        json_path = f"{data_folder}/{dataset}.json"
+        json_path = hparams[f"{dataset}_set"]
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
@@ -298,7 +299,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -316,6 +316,18 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    # Data preparation
+    import prepare_iwslt22
+
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_iwslt22.data_proc,
+            kwargs={
+                "dataset_folder": hparams["root_data_folder"],
+                "output_folder": hparams["data_folder"],
+            },
+        )
 
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)

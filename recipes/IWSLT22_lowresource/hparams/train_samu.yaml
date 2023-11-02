@@ -19,9 +19,10 @@ root_data_folder: !PLACEHOLDER # e.g., /users/hnguyen/IWSLT2022_Tamasheq_data/ta
 # data folder is the place where the json files will be stored prior to training
 data_folder: !ref <root_data_folder>/json_version/
 # Data files
-train_set: train.json
-valid_set: valid.json
-test_set: test.json
+train_set: !ref <data_folder>/train.json
+valid_set: !ref <data_folder>/valid.json
+test_set: !ref <data_folder>/test.json
+skip_prep: True
 
 # URL for the HuggingFace model we want to load (BASE here)
 wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
