@@ -180,6 +180,10 @@ class ASR(sb.Brain):
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
+        if stage == sb.Stage.TEST:
+            if hasattr(self.hparams, "rescorer"):
+                self.hparams.rescorer.move_rescorers_to_device()
+
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
         # Compute/store important stats

@@ -1243,11 +1243,12 @@ class BaseRescorerInterface(BaseScorerInterface):
 
     The score is computed as follow:
 
-    score = beam_search_score + alpha*rescorer_score + beta*seq_length
+    score = beam_search_score + lm_weight * rescorer_score
 
     See:
-        - speechbrain.decoders.scorer.AnyTokensTransformerLMScorer
-        - speechbrain.decoders.scorer.AnyTokensRNNLMScorer
+        - speechbrain.decoders.scorer.RNNLMRescorer
+        - speechbrain.decoders.scorer.TransformerLMRescorer
+        - speechbrain.decoders.scorer.HuggingFaceLMRescorer
     """
 
     def normalize_text(self, text):
@@ -1258,7 +1259,7 @@ class BaseRescorerInterface(BaseScorerInterface):
         text : list of str
             The text to be normalized.
         """
-        return [t.upper() for t in text]
+        return text
 
     def preprocess_func(self, hyps):
         """This method should implement the preprocessing of the hypotheses before scoring.
@@ -1280,6 +1281,19 @@ class BaseRescorerInterface(BaseScorerInterface):
         """
         raise NotImplementedError
 
+    def to_device(self, device=None):
+        """This method should implement the moving of the scorer to a device.
+
+        If device is None, the scorer should be moved to the default device provided
+        in the constructor.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        raise NotImplementedError
+
 
 class RNNLMRescorer(BaseRescorerInterface):
     """A wrapper of RNNLM based on the BaseRescorerInterface.
@@ -1288,11 +1302,11 @@ class RNNLMRescorer(BaseRescorerInterface):
     ---------
     language_model : torch.nn.Module
         A RNN-based language model.
+    tokenizer : speechbrain.tokenizers.SentencePiece
+        The tokenizer associated with the language model.
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
-    tokenizer : speechbrain.tokenizers.SentencePiece
-        The tokenizer associated with the language model.
     bos_index : int
         The index of the beginning-of-sequence (bos) token.
     eos_index : int
@@ -1322,12 +1336,6 @@ class RNNLMRescorer(BaseRescorerInterface):
         self.eos_index = eos_index
         self.pad_index = pad_index
 
-    def cast_to_device(self, device=None):
-        if device is None:
-            self.lm.to(self.device)
-        else:
-            self.lm.to(device)
-
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
 
@@ -1338,25 +1346,52 @@ class RNNLMRescorer(BaseRescorerInterface):
         ---------
         text : str
             The text to be normalized.
+
+        Returns
+        -------
+        str
+            The normalized text.
         """
         return text.upper()
+
+    def to_device(self, device=None):
+        """This method moves the scorer to a device.
+
+        If device is None, the scorer is moved to the default device provided
+        in the constructor.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        if device is None:
+            self.lm.to(self.device)
+        else:
+            self.lm.to(device)
 
     def preprocess_func(self, encoded_seq):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        encoded_seq : list of str
+        encoded_seq : list of list of str
             The hypotheses to be preprocessed.
+
+        Returns
+        -------
+        padded_hyps : torch.Tensor
+            The padded hypotheses.
+        enc_hyps_length : list of int
+            The length of each hypothesis.
         """
-        # normalize
+        # 1. normalize text
         decoded_seq = []
         for batch in encoded_seq:
-
             for seq in batch:
                 decoded_seq.append(self.normalize_text(seq))
 
-        # encode text
+        # 2. encode text
         enc_hyps = []
         for seq in decoded_seq:
             enc_hyps.append(
@@ -1369,7 +1404,7 @@ class RNNLMRescorer(BaseRescorerInterface):
 
         enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
 
-        # pad sequences
+        # 3. pad sequences
         padded_hyps = torch.nn.utils.rnn.pad_sequence(
             enc_hyps, batch_first=True, padding_value=self.pad_index
         ).to(self.lm.parameters().__next__().device)
@@ -1382,8 +1417,13 @@ class RNNLMRescorer(BaseRescorerInterface):
 
         Arguments
         ---------
-        hyps : list of str
+        hyps : list of list of str
             The hypotheses to be rescored.
+
+        Returns
+        -------
+        log_probs_scores : torch.Tensor[B * Topk, 1]
+            The rescored hypotheses scores
         """
         # preprocess hypotheses
         padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
@@ -1427,6 +1467,8 @@ class TransformerLMRescorer(BaseRescorerInterface):
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    device : str
+        The device to move the scorer to.
     bos_index : int
         The index of the beginning-of-sequence (bos) token.
     eos_index : int
@@ -1439,17 +1481,20 @@ class TransformerLMRescorer(BaseRescorerInterface):
         self,
         language_model,
         tokenizer,
+        device="cuda",
         temperature=1.0,
         bos_index=0,
         eos_index=0,
         pad_index=0,
     ):
         self.lm = language_model
-        self.lm.eval().to("cuda")
+        self.lm.eval()
+
         self.tokenizer = tokenizer
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
+        self.device = device
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
@@ -1457,33 +1502,62 @@ class TransformerLMRescorer(BaseRescorerInterface):
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
 
-        Default to uppercasing the text because the (current) language models are trained on
-        LibriSpeech which is all uppercase.
+        Default to uppercasing the text because the language models are trained on
+        LibriSpeech.
 
         Arguments
         ---------
         text : str
             The text to be normalized.
+
+        Returns
+        -------
+        str
+            The normalized text.
         """
         return text.upper()
+
+    def to_device(self, device=None):
+        """This method moves the scorer to a device.
+
+        If device is None, the scorer is moved to the default device provided
+        in the constructor.
+
+        This method is dynamically called in the recipes when the stage is equal
+        to TEST.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        if device is None:
+            self.lm.to(self.device)
+        else:
+            self.lm.to(device)
 
     def preprocess_func(self, encoded_seq):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        encoded_seq : list of str
+        encoded_seq : list of list of str
             The hypotheses to be preprocessed.
-        """
 
-        # normalize
+        Returns
+        -------
+        padded_hyps : torch.Tensor
+            The padded hypotheses.
+        enc_hyps_length : list of int
+            The length of each hypothesis.
+        """
+        # 1. normalize
         decoded_seq = []
         for batch in encoded_seq:
-
             for seq in batch:
                 decoded_seq.append(self.normalize_text(seq))
 
-        # encode text
+        # 2. encode text
         enc_hyps = []
         for seq in decoded_seq:
             enc_hyps.append(
@@ -1496,7 +1570,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
         enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
 
-        # pad sequences
+        # 3. pad sequences
         padded_hyps = torch.nn.utils.rnn.pad_sequence(
             enc_hyps, batch_first=True, padding_value=self.pad_index
         ).to(self.lm.parameters().__next__().device)
@@ -1509,10 +1583,14 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
         Arguments
         ---------
-        hyps : list of str
+        hyps : list of list of str
             The hypotheses to be rescored.
-        """
 
+        Returns
+        -------
+        log_probs_scores : torch.Tensor[B * Topk, 1]
+            The rescored hypotheses scores
+        """
         # preprocess hypotheses
         padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
 
@@ -1557,22 +1635,15 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     ---------
     model_name : str
         The name of the model to be loaded.
-    temperature : float
-        Temperature factor applied to softmax. It changes the probability
-        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
     device : str
         The device to be used for scoring. (default: "cuda")
-    encode_fn : function
-        A function that encodes a list of strings into a list of lists of integers.
-        (default: None)
     """
 
     def __init__(
-        self, model_name, device="cuda", encode_fn=None,
+        self, model_name, device="cuda",
     ):
         self.model_name = model_name
         self.device = device
-        self.encode_fn = encode_fn
 
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -1581,13 +1652,9 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
                 "Please install transformers with: pip install transformers"
             )
 
-        self.lm = (
-            AutoModelForCausalLM.from_pretrained(
-                self.model_name, is_decoder=True
-            )
-            .eval()
-            .to(self.device)
-        )
+        self.lm = AutoModelForCausalLM.from_pretrained(
+            self.model_name, is_decoder=True
+        ).eval()
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name, use_fast=True, add_special_tokens=False
@@ -1608,6 +1675,25 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     def _add_special_tokens(self, text: str) -> str:
         return self.bos_token + text + self.eos_token
 
+    def to_device(self, device=None):
+        """This method moves the scorer to a device.
+
+        If device is None, the scorer is moved to the default device provided
+        in the constructor.
+
+        This method is dynamically called in the recipes when the stage is equal
+        to TEST.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        if device is None:
+            self.lm.to(self.device)
+        else:
+            self.lm.to(device)
+
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
 
@@ -1616,7 +1702,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         text : str
             The text to be normalized.
         """
-        return text  # TODO: add true normalizer
+        return text
 
     def preprocess_func(self, topk_hyps):
         """This method preprocesses the hypotheses before scoring.
@@ -1627,16 +1713,6 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
             The hypotheses to be preprocessed.
         """
 
-        # normalize
-        # decoded_seq = [self.normalize_text(seq) for seq in decoded_seq]
-        # Step 1. Normalize the text
-        """
-        normalized_hyps = []
-        for hyps in topk_hyps:
-            normalized_hyps.append([self.normalize_text(hyp) for hyp in hyps])
-        """
-        print(topk_hyps)
-        exit()
         normalized_hyps = [self.normalize_text(hyp) for hyp in topk_hyps]
         text_augmented_with_tokens = list(
             map(self._add_special_tokens, normalized_hyps)
@@ -1644,62 +1720,6 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         encoding = self.tokenizer.batch_encode_plus(
             text_augmented_with_tokens, return_tensors="pt", padding=True
         )
-
-        """
-        # encode text
-        enc_hyps = [
-            torch.tensor(
-                [self.bos_index]
-                + self.tokenizer.encode(seq, add_special_tokens=False)
-                + [self.eos_index]
-            )
-            for seq in decoded_seq
-        ]
-        """
-
-        """
-        # Step 2. Encode the text with the HF tokenizer
-        enc_hyps = []
-        for hyps in topk_hyps:
-            enc_hyps.append(
-                [
-                    [self.bos_index]
-                    + self.tokenizer.encode(hyp, add_special_tokens=False,)
-                    + [self.eos_index]
-                    for hyp in hyps
-                ]
-            )
-
-        # Step 3. Get the length of the encoded sequences
-        # TODO: use length in terms of chars instead of tokens
-        enc_hyps_length = []
-        for hyps in enc_hyps:
-            enc_hyps_length.append([len(enc_seq) for enc_seq in hyps])
-
-        # print(enc_hyps)
-
-        # Step 4. Pad the encoded sequences
-
-        # Find the maximum length among all subsublists
-        max_length = max(len(enc_seq) for hyps in enc_hyps for enc_seq in hyps)
-
-        # Pad each subsublist with the self.pad_index to match the maximum length
-        padded_enc_hyps = []
-        for hyps in enc_hyps:
-            padded_hyps = []
-            for enc_seq in hyps:
-                padded_enc_seq = enc_seq + [self.pad_index] * (
-                    max_length - len(enc_seq)
-                )
-                padded_hyps.append(padded_enc_seq)
-            padded_enc_hyps.append(padded_hyps)
-
-        # Cast to tensor
-        padded_enc_hyps = torch.tensor(
-            padded_enc_hyps, dtype=torch.long, device=self.device
-        )
-        """
-
         return encoding
 
     @torch.no_grad()
@@ -1775,8 +1795,16 @@ class RescorerBuilder:
 
         self._validate_scorer(all_rescorer_names)
 
-    def __call__(self, topk_candidates, topk_scores):
-        return self.rescore_hyps(topk_candidates, topk_scores)
+    def move_rescorers_to_device(self, device=None):
+        """Moves rescorers to device.
+
+        Arguments
+        ---------
+        device : str
+            The device to be used for scoring. (default: None)
+        """
+        for _, impl in self.rescorers.items():
+            impl.move_to_device(device)
 
     def rescore_hyps(self, topk_candidates, topk_scores):
 
@@ -1803,10 +1831,20 @@ class RescorerBuilder:
         ]
 
         output_candidates = []
+        output_scores = []
         for sublist in sorted_candidates:
+            print(sublist)
             for item in sublist:
-                output_candidates.append(list(item)[0])
+                # unzip item
+                texts, scores = item
 
+                output_candidates.append(list(texts))
+                output_scores.append(list(scores))
+
+        print(output_candidates)
+        print(output_scores)
+
+        exit()
         return output_candidates
 
     def _validate_scorer(self, rescorer_names):
