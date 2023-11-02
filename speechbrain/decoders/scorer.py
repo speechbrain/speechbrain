@@ -2032,7 +2032,7 @@ class RescorerBuilder:
         Arguments
         ---------
         rescorer_names : list
-            Prefix of scorers defined in speechbrain.decoders.scorer.
+            Prefix of rescorers defined in speechbrain.decoders.scorer.
         """
         if len(self.weights) > len(rescorer_names):
             raise ValueError(
