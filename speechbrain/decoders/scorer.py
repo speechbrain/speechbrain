@@ -1305,6 +1305,7 @@ class RNNLMRescorer(BaseRescorerInterface):
         self,
         language_model,
         tokenizer,
+        device="cuda",
         temperature=1.0,
         bos_index=0,
         eos_index=0,
@@ -1316,9 +1317,16 @@ class RNNLMRescorer(BaseRescorerInterface):
         self.temperature = temperature
         self.softmax = sb.nnet.activations.Softmax(apply_log=True)
 
+        self.device = device
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.pad_index = pad_index
+
+    def cast_to_device(self, device=None):
+        if device is None:
+            self.lm.to(self.device)
+        else:
+            self.lm.to(device)
 
     def normalize_text(self, text):
         """This method should implement the normalization of the text before scoring.
@@ -1794,12 +1802,12 @@ class RescorerBuilder:
             )
         ]
 
-        tmp = []
+        output_candidates = []
         for sublist in sorted_candidates:
             for item in sublist:
-                tmp.append(list(item)[0])
+                output_candidates.append(list(item)[0])
 
-        return tmp
+        return output_candidates
 
     def _validate_scorer(self, rescorer_names):
         """These error messages indicate rescorers are not properly set.
