@@ -1341,7 +1341,7 @@ class RNNLMRescorer(BaseRescorerInterface):
     ...    return_hidden = True,
     ... )
     >>> pretrainer = Pretrainer(
-    ...    collect_in = getfixture("tmpdir") + "/collect",
+    ...    collect_in = savedir,
     ...    loadables = {
     ...     "lm" : lm_model,
     ...     "tokenizer" : tokenizer,
@@ -1352,7 +1352,6 @@ class RNNLMRescorer(BaseRescorerInterface):
     ... })
     >>> pretrainer.collect_files()
     >>> pretrainer.load_collected()
-    >>> lm_model = lm_model.eval()
     >>> from speechbrain.decoders.scorer import RNNLMRescorer, RescorerBuilder
     >>> rnnlm_rescorer = RNNLMRescorer(
     ...    language_model = lm_model,
@@ -1374,8 +1373,8 @@ class RNNLMRescorer(BaseRescorerInterface):
     >>> rescored_hyps
     [['HELLO', 'H E L L O', 'HE LLO']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
-    >>> rescored_scores
-    [[-17.863974571228027, -25.12890625, -26.075977325439453]] # doctest: +SKIP
+    >>> rescored_scores # doctest: +SKIP
+    [[-17.863974571228027, -25.12890625, -26.075977325439453]]
     """
 
     def __init__(
@@ -1571,7 +1570,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ...     normalize_before=False,
     ... )
     >>> pretrainer = Pretrainer(
-    ...     collect_in = getfixture("tmpdir") + "/collect",
+    ...     collect_in = savedir,
     ...     loadables={
     ...         "lm": lm_model,
     ...         "tokenizer": tokenizer,
@@ -1583,7 +1582,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ... )
     >>> pretrainer.collect_files()
     >>> pretrainer.load_collected()
-    >>> lm_model = lm_model.eval()
     >>> from speechbrain.decoders.scorer import TransformerLMRescorer, RescorerBuilder
     >>> transformerlm_rescorer = TransformerLMRescorer(
     ...     language_model=lm_model,
@@ -1603,8 +1601,8 @@ class TransformerLMRescorer(BaseRescorerInterface):
     >>> rescored_hyps
     [['HELLO', 'H E L L O', 'HE LLO']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
-    >>> rescored_scores
-    [[-17.863974571228027, -25.12890625, -26.075977325439453]] # doctest: +SKIP
+    >>> rescored_scores # doctest: +SKIP
+    [[-17.863974571228027, -25.12890625, -26.075977325439453]]
     """
 
     def __init__(
@@ -1785,8 +1783,8 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     >>> rescored_hyps
     [['Hello everyone.', 'Hello every one', 'Hell o every one.']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
-    >>> rescored_scores
-    [[-20.03631591796875, -27.615638732910156, -42.662353515625]] # doctest: +SKIP
+    >>> rescored_scores # doctest: +SKIP
+    [[-20.03631591796875, -27.615638732910156, -42.662353515625]]
     """
 
     def __init__(
