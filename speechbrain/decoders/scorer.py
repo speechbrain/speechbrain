@@ -1324,7 +1324,6 @@ class RNNLMRescorer(BaseRescorerInterface):
     >>> from speechbrain.lobes.models.RNNLM import RNNLM
     >>> from speechbrain.utils.parameter_transfer import Pretrainer
     >>> source = "speechbrain/asr-crdnn-rnnlm-librispeech"
-    >>> savedir = getfixture("tmpdir") + "/savedir"
     >>> lm_model_path = source + "/lm.ckpt"
     >>> tokenizer_path = source + "/tokenizer.ckpt"
     >>> # define your tokenizer and RNNLM from the HF hub
@@ -1341,7 +1340,7 @@ class RNNLMRescorer(BaseRescorerInterface):
     ...    return_hidden = True,
     ... )
     >>> pretrainer = Pretrainer(
-    ...    collect_in = savedir,
+    ...     collect_in = getfixture("tmp_path"),
     ...    loadables = {
     ...     "lm" : lm_model,
     ...     "tokenizer" : tokenizer,
@@ -1350,7 +1349,7 @@ class RNNLMRescorer(BaseRescorerInterface):
     ...     "lm" : lm_model_path,
     ...     "tokenizer" : tokenizer_path,
     ... })
-    >>> pretrainer.collect_files()
+    >>> _ = pretrainer.collect_files()
     >>> pretrainer.load_collected()
     >>> from speechbrain.decoders.scorer import RNNLMRescorer, RescorerBuilder
     >>> rnnlm_rescorer = RNNLMRescorer(
@@ -1367,10 +1366,11 @@ class RNNLMRescorer(BaseRescorerInterface):
     ...    weights={"rnnlm":1.0}
     ... )
     >>> # topk hyps
-    >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O]]
+    >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
     >>> topk_scores = [[-2, -2, -2]]
     >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
-    >>> rescored_hyps
+    >>> # NOTE: the returned hypotheses are already sorted by score.
+    >>> rescored_hyps # doctest: +SKIP
     [['HELLO', 'H E L L O', 'HE LLO']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
     >>> rescored_scores # doctest: +SKIP
@@ -1554,7 +1554,6 @@ class TransformerLMRescorer(BaseRescorerInterface):
     >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
     >>> from speechbrain.utils.parameter_transfer import Pretrainer
     >>> source = "speechbrain/asr-transformer-transformerlm-librispeech"
-    >>> savedir = getfixture("tmpdir")
     >>> lm_model_path = source + "/lm.ckpt"
     >>> tokenizer_path = source + "/tokenizer.ckpt"
     >>> tokenizer = SentencePieceProcessor()
@@ -1570,7 +1569,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ...     normalize_before=False,
     ... )
     >>> pretrainer = Pretrainer(
-    ...     collect_in = savedir,
+    ...     collect_in = getfixture("tmp_path"),
     ...     loadables={
     ...         "lm": lm_model,
     ...         "tokenizer": tokenizer,
@@ -1580,7 +1579,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ...         "tokenizer": tokenizer_path,
     ...     }
     ... )
-    >>> pretrainer.collect_files()
+    >>> _ = pretrainer.collect_files()
     >>> pretrainer.load_collected()
     >>> from speechbrain.decoders.scorer import TransformerLMRescorer, RescorerBuilder
     >>> transformerlm_rescorer = TransformerLMRescorer(
@@ -1598,10 +1597,11 @@ class TransformerLMRescorer(BaseRescorerInterface):
     >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
     >>> topk_scores = [[-2, -2, -2]]
     >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
-    >>> rescored_hyps
-    [['HELLO', 'H E L L O', 'HE LLO']]
+    >>> # NOTE: the returned hypotheses are already sorted by score.
+    >>> rescored_hyps # doctest: +SKIP
+    [["HELLO", "HE L L O", "HE LLO"]]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
-    >>> rescored_scores # doctest: +SKIP
+    >>> rescored_scores  # doctest: +SKIP
     [[-17.863974571228027, -25.12890625, -26.075977325439453]]
     """
 
@@ -1780,7 +1780,8 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     >>> topk_hyps = [["Hello everyone.", "Hell o every one.", "Hello every one"]]
     >>> topk_scores = [[-2, -2, -2]]
     >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
-    >>> rescored_hyps
+    >>> # NOTE: the returned hypotheses are already sorted by score.
+    >>> rescored_hyps # doctest: +SKIP
     [['Hello everyone.', 'Hello every one', 'Hell o every one.']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
     >>> rescored_scores # doctest: +SKIP
