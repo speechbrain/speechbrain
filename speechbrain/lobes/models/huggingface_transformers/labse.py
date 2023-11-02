@@ -42,6 +42,8 @@ class LaBSE(HFTransformersInterface):
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
+    output_norm : bool (default: True)
+        If True, normalize the output.
     Example
     -------
     >>> inputs = ["La vie est belle"]
@@ -58,18 +60,7 @@ class LaBSE(HFTransformersInterface):
 
         self.load_tokenizer(source=source)
 
-        self.freeze = freeze
         self.output_norm = output_norm
-
-        if self.freeze:
-            logger.warning(
-                "speechbrain.lobes.models.huggingface_labse - labse is frozen."
-            )
-            self.model.eval()
-            for param in self.model.parameters():
-                param.requires_grad = False
-        else:
-            self.model.train()
 
     def forward(self, input_texts):
         """This method implements a forward of the labse model,
@@ -81,12 +72,14 @@ class LaBSE(HFTransformersInterface):
             The list of texts (required).
         """
 
-        # Transform input to the right format of the LaBSE model
+        # Transform input to the right format of the LaBSE model.
         if self.freeze:
             with torch.no_grad():
+                # Tokenize the input text before feeding to LaBSE model.
                 input_texts = self.tokenizer(
                     input_texts, return_tensors="pt", padding=True
                 )
+                # Set the right device for the input.
                 for key in input_texts.keys():
                     input_texts[key] = input_texts[key].to(
                         device=self.model.device
@@ -96,19 +89,23 @@ class LaBSE(HFTransformersInterface):
                 embeddings = self.model(**input_texts).pooler_output
 
                 if self.output_norm:
+                    # Output normalizing if needed.
                     embeddings = F.normalize(embeddings, p=2)
 
                 return embeddings
 
+        # Tokenize the input text before feeding to LaBSE model.
         input_texts = self.tokenizer(
             input_texts, return_tensors="pt", padding=True
         )
+        # Set the right device for the input.
         for key in input_texts.keys():
             input_texts[key] = input_texts[key].to(device=self.model.device)
 
         embeddings = self.model(**input_texts).pooler_output
 
         if self.output_norm:
+            # Output normalizing if needed.
             embeddings = F.normalize(embeddings, p=2)
 
         return embeddings
