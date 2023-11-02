@@ -1424,12 +1424,12 @@ class RNNLMRescorer(BaseRescorerInterface):
         else:
             self.lm.to(device)
 
-    def preprocess_func(self, encoded_seq):
+    def preprocess_func(self, topk_hyps):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        encoded_seq : list of list of str
+        topk_hyps : list of list of str
             The hypotheses to be preprocessed.
 
         Returns
@@ -1441,7 +1441,7 @@ class RNNLMRescorer(BaseRescorerInterface):
         """
         # 1. normalize text
         decoded_seq = []
-        for batch in encoded_seq:
+        for batch in topk_hyps:
             for seq in batch:
                 decoded_seq.append(self.normalize_text(seq))
 
@@ -1466,12 +1466,12 @@ class RNNLMRescorer(BaseRescorerInterface):
         return padded_hyps, enc_hyps_length
 
     @torch.no_grad()
-    def rescore_hyps(self, hyps):
+    def rescore_hyps(self, topk_hyps):
         """This method implement the rescoring of the hypotheses.
 
         Arguments
         ---------
-        hyps : list of list of str
+        topk_hyps : list of list of str
             The hypotheses to be rescored.
 
         Returns
@@ -1480,7 +1480,7 @@ class RNNLMRescorer(BaseRescorerInterface):
             The rescored hypotheses scores
         """
         # preprocess hypotheses
-        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
+        padded_hyps, enc_hyps_length = self.preprocess_func(topk_hyps)
 
         bool_mask = [
             [1 if i < length else 0 for i in range(max(enc_hyps_length))]
@@ -1648,12 +1648,12 @@ class TransformerLMRescorer(BaseRescorerInterface):
         else:
             self.lm.to(device)
 
-    def preprocess_func(self, encoded_seq):
+    def preprocess_func(self, topk_hyps):
         """This method preprocesses the hypotheses before scoring.
 
         Arguments
         ---------
-        encoded_seq : list of list of str
+        topk_hyps : list of list of str
             The hypotheses to be preprocessed.
 
         Returns
@@ -1665,7 +1665,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
         """
         # 1. normalize
         decoded_seq = []
-        for batch in encoded_seq:
+        for batch in topk_hyps:
             for seq in batch:
                 decoded_seq.append(self.normalize_text(seq))
 
@@ -1690,12 +1690,12 @@ class TransformerLMRescorer(BaseRescorerInterface):
         return padded_hyps, enc_hyps_length
 
     @torch.no_grad()
-    def rescore_hyps(self, hyps):
+    def rescore_hyps(self, topk_hyps):
         """This method implement the rescoring of the hypotheses.
 
         Arguments
         ---------
-        hyps : list of list of str
+        topk_hyps : list of list of str
             The hypotheses to be rescored.
 
         Returns
@@ -1704,7 +1704,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
             The rescored hypotheses scores
         """
         # preprocess hypotheses
-        padded_hyps, enc_hyps_length = self.preprocess_func(hyps)
+        padded_hyps, enc_hyps_length = self.preprocess_func(topk_hyps)
 
         bool_mask = [
             [1 if i < length else 0 for i in range(max(enc_hyps_length))]
@@ -1749,6 +1749,26 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         The name of the model to be loaded.
     device : str
         The device to be used for scoring. (default: "cuda")
+
+    Example
+    -------
+    >>> from speechbrain.decoders.scorer import HuggingFaceLMRescorer, RescorerBuilder
+    >>> source = "gpt2-medium"
+    >>> huggingfacelm_rescorer = HuggingFaceLMRescorer(
+    ...     model_name=source,
+    ... )
+    >>> rescorer = RescorerBuilder(
+    ...     rescorers=[huggingfacelm_rescorer],
+    ...     weights={"huggingfacelm": 1.0}
+    ... )
+    >>> topk_hyps = [["Hello everyone.", "Hell o every one.", "Hello every one"]]
+    >>> topk_scores = [[-2, -2, -2]]
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> rescored_hyps
+    [['Hello everyone.', 'Hello every one', 'Hell o every one.']]
+    >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
+    >>> rescored_scores
+    [[-20.03631591796875, -27.615638732910156, -42.662353515625]]
     """
 
     def __init__(
@@ -1833,7 +1853,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
 
         Arguments
         ---------
-        hyps : list of str
+        topk_hyps : list of str
             The hypotheses to be preprocessed.
 
         Returns
@@ -1841,8 +1861,12 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         encoding : tensor
             The encoding of the hypotheses.
         """
+        # 1. normalize
+        normalized_hyps = []
+        for batch in topk_hyps:
+            for seq in batch:
+                normalized_hyps.append(self.normalize_text(seq))
 
-        normalized_hyps = [self.normalize_text(hyp) for hyp in topk_hyps]
         text_augmented_with_tokens = list(
             map(self._add_special_tokens, normalized_hyps)
         )
@@ -1852,12 +1876,12 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         return encoding
 
     @torch.no_grad()
-    def rescore_hyps(self, hyps):
+    def rescore_hyps(self, topk_hyps):
         """This method implement the rescoring of the hypotheses.
 
         Arguments
         ---------
-        hyps : list of list of str
+        topk_hyps : list of list of str
             The hypotheses to be rescored.
 
         Returns
@@ -1865,7 +1889,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         log_probs_scores : torch.Tensor[B * Topk, 1]
             The rescored hypotheses scores
         """
-        encoding = self.preprocess_func(hyps)
+        encoding = self.preprocess_func(topk_hyps)
 
         ids = encoding["input_ids"].to(self.lm.device)
         attention_mask = encoding["attention_mask"].to(self.lm.device)
