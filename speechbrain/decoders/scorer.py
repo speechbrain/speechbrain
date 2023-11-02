@@ -1310,7 +1310,6 @@ class RNNLMRescorer(BaseRescorerInterface):
 
     Example
     -------
-    >>> from speechbrain.pretrained.fetching import fetch
     >>> import torch
     >>> from sentencepiece import SentencePieceProcessor
     >>> from speechbrain.lobes.models.RNNLM import RNNLM
@@ -1530,6 +1529,64 @@ class TransformerLMRescorer(BaseRescorerInterface):
         The index of the end-of-sequence (eos) token.
     pad_index : int
         The index of the padding token.
+
+    Example
+    -------
+    >>> import torch
+    >>> from sentencepiece import SentencePieceProcessor
+    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
+    >>> from speechbrain.utils.parameter_transfer import Pretrainer
+    >>> source = "speechbrain/asr-transformer-transformerlm-librispeech"
+    >>> savedir = "pretrained_models"
+    >>> lm_model_path = source + "/lm.ckpt"
+    >>> tokenizer_path = source + "/tokenizer.ckpt"
+    >>> tokenizer = SentencePieceProcessor()
+    >>> lm_model = TransformerLM(
+    ...     vocab=5000,
+    ...     d_model=768,
+    ...     nhead=12,
+    ...     num_encoder_layers=12,
+    ...     num_decoder_layers=0,
+    ...     d_ffn=3072,
+    ...     dropout=0.0,
+    ...     activation=torch.nn.GELU,
+    ...     normalize_before=False,
+    ... )
+    >>> pretrainer = Pretrainer(
+    ...     collect_in="tmp/",
+    ...     loadables={
+    ...         "lm": lm_model,
+    ...         "tokenizer": tokenizer,
+    ...     },
+    ...     paths={
+    ...         "lm": lm_model_path,
+    ...         "tokenizer": tokenizer_path,
+    ...     }
+    ... )
+    >>> pretrainer.collect_files()
+    >>> pretrainer.load_collected()
+    >>> lm_model = lm_model.eval()
+    >>> from speechbrain.decoders.scorer import TransformerLMRescorer, RescorerBuilder
+    >>> transformerlm_rescorer = TransformerLMRescorer(
+    ...     language_model=lm_model,
+    ...     tokenizer=tokenizer,
+    ...     temperature=1.0,
+    ...     bos_index=1,
+    ...     eos_index=2,
+    ...     pad_index=0,
+    ... )
+    >>> rescorer = RescorerBuilder(
+    ...     rescorers=[transformerlm_rescorer],
+    ...     weights={"transformerlm": 1.0}
+    ... )
+    >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
+    >>> topk_scores = [[-2, -2, -2]]
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> rescored_hyps
+    [['HELLO', 'H E L L O', 'HE LLO']]
+    >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
+    >>> rescored_scores
+    [[-17.863974571228027, -25.12890625, -26.075977325439453]]
     """
 
     def __init__(
