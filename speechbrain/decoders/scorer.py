@@ -1343,7 +1343,7 @@ class RNNLMRescorer(BaseRescorerInterface):
     ...    "tokenizer" : tokenizer_path,
     ... })
     >>> pretrainer.collect_files()
-    >>> pretrainer.load_collected(device="cpu")
+    >>> pretrainer.load_collected()
     >>> lm_model = lm_model.eval()
     >>> from speechbrain.decoders.scorer import RNNLMRescorer, RescorerBuilder
     >>> rnnlm_rescorer = RNNLMRescorer(
