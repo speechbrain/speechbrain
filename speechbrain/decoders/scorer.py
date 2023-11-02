@@ -1308,6 +1308,13 @@ class RNNLMRescorer(BaseRescorerInterface):
     pad_index : int
         The index of the padding token.
 
+    NOTE
+    ----
+    This class is intented to be used with a pretrained TransformerLM model.
+    Please see: https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech
+
+    By default, this model is using SentencePiece tokenizer.
+
     Example
     -------
     >>> import torch
@@ -1512,23 +1519,32 @@ class RNNLMRescorer(BaseRescorerInterface):
 
 
 class TransformerLMRescorer(BaseRescorerInterface):
-    """A wrapper of TransformerLM based on the BaseRescorerInterface.
+    """ A wrapper of TransformerLM based on the BaseRescorerInterface.
 
     Arguments
     ---------
     language_model : torch.nn.Module
         A Transformer-based language model.
+    tokenizer : SentencePieceProcessor
+        A SentencePiece tokenizer.
+    device : str
+        The device to move the scorer to.
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
-    device : str
-        The device to move the scorer to.
     bos_index : int
         The index of the beginning-of-sequence (bos) token.
     eos_index : int
         The index of the end-of-sequence (eos) token.
     pad_index : int
         The index of the padding token.
+
+    NOTE
+    ----
+    This class is intented to be used with a pretrained TransformerLM model.
+    Please see: https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
+
+    By default, this model is using SentencePiece tokenizer.
 
     Example
     -------
@@ -1741,7 +1757,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
 
 class HuggingFaceLMRescorer(BaseRescorerInterface):
-    """A wrapper of HuggingFace's TransformerLM based on the BaseRescorerInterface.
+    """ A wrapper of HuggingFace's TransformerLM based on the BaseRescorerInterface.
 
     Arguments
     ---------
@@ -1830,6 +1846,13 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         ---------
         text : str
             The text to be normalized.
+
+        Returns
+        -------
+        normalized_text : str
+            The normalized text.
+            In this case we do not apply any normalization. However, this method
+            can be overriden to apply any normalization.
         """
         return text
 
