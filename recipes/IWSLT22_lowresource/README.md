@@ -61,8 +61,12 @@ After the SAMU model is pre-trained, one can use it in the same manner as wav2ve
 
 For launching AST training:
 ```
-train_with_samu_mbart.py hparams/train_samu_mbart_st.yaml --root_data_folder=your/data/path # e.g., /workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean
+train_with_samu_mbart.py hparams/train_samu_mbart_st.yaml --root_data_folder=your/data/path --pre_trained_samu=your/samu/ckpt
 ```
+
+Examples of the two parameters:
+--root_data_folder=/workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean
+--pre_trained_samu=/workspace/speechbrain/recipes/IWSLT22_lowresource/output_samu_pretraining/7777/save/CKPT+checkpoint_epoch100/wav2vec2.ckpt
 
 One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st.yaml in the above training command for using NLLB model instead.
 
@@ -74,7 +78,7 @@ One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st
 | 2 | train_w2v2_mbart_st.yaml | 9.62 | 7.73 |
 | 3 | train_w2v2_nllb_st.yaml | 11.09 | 8.70 |
 | 4 | train_samu_mbart_st.yaml | 13.41 | 10.28 |
-| 5 | train_samu_nllb_st.yaml | - | - |
+| 5 | train_samu_nllb_st.yaml | 13.89 | 11.32 |
 
 ## Citation
 ```

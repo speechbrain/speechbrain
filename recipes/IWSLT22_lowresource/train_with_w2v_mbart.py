@@ -296,7 +296,9 @@ def dataio_prepare(hparams, tokenizer):
     datasets = {}
     data_folder = hparams["data_folder"]
     for dataset in ["train", "valid"]:
-        json_path = f"{data_folder}/{dataset}.json"
+        json_path = hparams[
+            f"annotation_{dataset}"
+        ]  # f"{data_folder}/{dataset}.json"
 
         is_use_sp = dataset == "train" and "speed_perturb" in hparams
         audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
@@ -316,8 +318,8 @@ def dataio_prepare(hparams, tokenizer):
             ],
         )
 
-    for dataset in ["test"]:
-        json_path = f"{data_folder}/{dataset}.json"
+    for dataset in ["valid", "test"]:
+        json_path = hparams[f"annotation_{dataset}"]
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},

@@ -25,6 +25,10 @@ data_folder: !ref <root_data_folder>/json_version/
 lang: "fr" #for the BLEU score detokenization
 target_lang: "fra_Latn" # for nllb initialization
 
+annotation_train: !ref <data_folder>/train.json
+annotation_valid: !ref <data_folder>/valid.json
+annotation_test: !ref <data_folder>/test.json
+skip_prep: False
 
 # URL for the HuggingFace model we want to load (BASE here)
 wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
