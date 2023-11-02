@@ -1296,8 +1296,10 @@ class RNNLMRescorer(BaseRescorerInterface):
     ---------
     language_model : torch.nn.Module
         A RNN-based language model.
-    tokenizer : speechbrain.tokenizers.SentencePiece
-        The tokenizer associated with the language model.
+    tokenizer : SentencePieceProcessor
+        A SentencePiece tokenizer.
+    device : str
+        The device to move the scorer to.
     temperature : float
         Temperature factor applied to softmax. It changes the probability
         distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
