@@ -93,7 +93,7 @@ class ASR(sb.Brain):
                 scores.append([hyp.score for hyp in batch])
 
             if hasattr(self.hparams, "rescorer"):
-                p_tokens = self.hparams.rescorer(candidates, scores)
+                p_tokens, _ = self.hparams.rescorer.rescore(candidates, scores)
 
         return p_ctc, wav_lens, p_tokens
 
