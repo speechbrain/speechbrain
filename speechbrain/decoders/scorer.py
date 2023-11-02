@@ -1345,8 +1345,8 @@ class RNNLMRescorer(BaseRescorerInterface):
     ...     "tokenizer" : tokenizer,
     ...     },
     ...    paths = {
-    ...    "lm" : lm_model_path,
-    ...    "tokenizer" : tokenizer_path,
+    ...     "lm" : lm_model_path,
+    ...     "tokenizer" : tokenizer_path,
     ... })
     >>> pretrainer.collect_files()
     >>> pretrainer.load_collected()
@@ -1373,7 +1373,7 @@ class RNNLMRescorer(BaseRescorerInterface):
     [['HELLO', 'H E L L O', 'HE LLO']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
     >>> rescored_scores
-    [[-17.863974571228027, -25.12890625, -26.075977325439453]]
+    [[-17.863974571228027, -25.12890625, -26.075977325439453]] # doctest: +SKIP
     """
 
     def __init__(
@@ -1569,7 +1569,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     ...     normalize_before=False,
     ... )
     >>> pretrainer = Pretrainer(
-    ...     collect_in="tmp/",
+    ...     collect_in = getfixture("tmpdir") + "/collect",
     ...     loadables={
     ...         "lm": lm_model,
     ...         "tokenizer": tokenizer,
@@ -1602,7 +1602,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
     [['HELLO', 'H E L L O', 'HE LLO']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
     >>> rescored_scores
-    [[-17.863974571228027, -25.12890625, -26.075977325439453]]
+    [[-17.863974571228027, -25.12890625, -26.075977325439453]] # doctest: +SKIP
     """
 
     def __init__(
@@ -1784,7 +1784,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     [['Hello everyone.', 'Hello every one', 'Hell o every one.']]
     >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
     >>> rescored_scores
-    [[-20.03631591796875, -27.615638732910156, -42.662353515625]]
+    [[-20.03631591796875, -27.615638732910156, -42.662353515625]] # doctest: +SKIP
     """
 
     def __init__(
