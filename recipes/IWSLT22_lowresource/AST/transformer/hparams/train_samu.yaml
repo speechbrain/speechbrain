@@ -26,8 +26,6 @@ skip_prep: True
 
 # URL for the HuggingFace model we want to load (BASE here)
 wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
-wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
-sample_rate: 16000
 
 # wav2vec 2.0 specific parameters
 wav2vec2_frozen: False
@@ -40,7 +38,6 @@ lr_labse: 0.00001
 sorting: ascending
 batch_size: 2
 test_batch_size: 1
-loss_reduction: batchmean
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -54,13 +51,11 @@ test_dataloader_options:
     batch_size: !ref <test_batch_size>
     num_workers: 4
 
-
 # Transformer
 d_model: 768
 loss_scale: 50
 
-
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec.Wav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: False
     freeze: !ref <wav2vec2_frozen>
@@ -68,7 +63,6 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec.Wav2Vec
 
 attn_pooling: !new:speechbrain.nnet.pooling.AttentionPooling
     input_dim: !ref <d_model>
-
 
 #LaBSE
 labse_path: setu4993/LaBSE
@@ -125,5 +119,3 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-
-acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
