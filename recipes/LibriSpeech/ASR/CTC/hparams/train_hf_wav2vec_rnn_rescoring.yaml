@@ -83,6 +83,20 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
+# topk is the number of hypotheses that will be rescored in the rescorer
+# lowering this value might decrease the wer, but will increase speed.
+beam_size: 20
+topk: 20
+lm_weight: 0.25
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
+blank_index: 0
+space_token: ' ' # make sure this is the same as the one used in the tokenizer
+beam_prune_logp: -12.0
+token_prune_min_logp: -12.0
+prune_history: False
+alpha: 0.8
+beta: 1.2
+
 # Decoding parameters
 rnnlm: !new:speechbrain.decoders.scorer.RNNLMRescorer
    language_model: !ref <lm_model>
@@ -96,18 +110,6 @@ rescorer: !new:speechbrain.decoders.scorer.RescorerBuilder
    weights:
       rnnlm: 0.25
 
-# topk is the number of hypotheses that will be rescored in the rescorer
-# lowering this value might decrease the wer, but will increase speed.
-beam_size: 20
-topk: 20
-test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
-blank_index: 0
-space_token: ' ' # make sure this is the same as the one used in the tokenizer
-beam_prune_logp: -12.0
-token_prune_min_logp: -12.0
-prune_history: False
-alpha: 0.8
-beta: 1.2
 
 #
 # Functions and classes
