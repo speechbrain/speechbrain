@@ -1,14 +1,14 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC
-# Decoding AM: Greedy for validation, and Beam search for testing
+# Decoding AM: Greedy for validation, and Rescoring + Beam search for testing.
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021, Adel Moumen 2023
+# Authors: Adel Moumen 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/train_wav2vec2_char/<seed>
+output_folder: !ref results/train_wav2vec2_char_rnn_rescoring/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -96,6 +96,8 @@ rescorer: !new:speechbrain.decoders.scorer.RescorerBuilder
    weights:
       rnnlm: 0.25
 
+# topk is the number of hypotheses that will be rescored in the rescorer
+# lowering this value might decrease the wer, but will increase speed.
 beam_size: 20
 topk: 20
 test_searcher: !name:speechbrain.decoders.CTCBeamSearcher

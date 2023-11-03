@@ -1,14 +1,14 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC
-# Decoding AM: Greedy for validation, and Beam search for testing
+# Decoding AM: Greedy for validation, and Rescoring + Beam search for testing
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021, Adel Moumen 2023
+# Authors: Adel Moumen 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/train_wav2vec2_char/<seed>
+output_folder: !ref results/train_wav2vec2_char_transformer_rescoring/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -87,10 +87,10 @@ tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 # topk is the number of hypotheses that will be rescored in the rescorer
 # lowering this value might decrease the wer, but will increase speed.
-topk: 200
+topk: 20
+beam_size: 20
 blank_index: 0
 space_token: ' ' # make sure this is the same as the one used in the tokenizer
-beam_size: 50
 beam_prune_logp: -12.0
 token_prune_min_logp: -12.0
 prune_history: False
