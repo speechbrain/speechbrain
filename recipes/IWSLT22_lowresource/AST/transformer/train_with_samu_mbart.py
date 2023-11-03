@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Recipe for fine-tuning a wav2vec model for the ST task (no transcriptions).
+"""Recipe for fine-tuning a samu model and mBART/NLLB model for the ST task (no transcriptions).
 
 Author
- * Marcely Zanon Boito, 2022
+ * Ha Nguyen, 2023
 """
 
 import sys
 import torch
 import logging
 
-# from transformers import AutoTokenizer
 import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
 from torch.nn.parallel import DistributedDataParallel
@@ -296,9 +296,7 @@ def dataio_prepare(hparams, tokenizer):
     datasets = {}
     data_folder = hparams["data_folder"]
     for dataset in ["train", "valid"]:
-        json_path = hparams[
-            f"annotation_{dataset}"
-        ]  # f"{data_folder}/{dataset}.json"
+        json_path = hparams[f"annotation_{dataset}"]
 
         is_use_sp = dataset == "train" and "speed_perturb" in hparams
         audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
@@ -318,7 +316,7 @@ def dataio_prepare(hparams, tokenizer):
             ],
         )
 
-    for dataset in ["valid", "test"]:
+    for dataset in ["test"]:
         json_path = hparams[f"annotation_{dataset}"]
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
@@ -416,7 +414,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -427,6 +424,9 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].load_collected()
+
     # Create main experiment class
     st_brain = ST(
         modules=hparams["modules"],
@@ -435,8 +435,19 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # st_brain.modules.mBART.tokenizer = AutoTokenizer.from_pretrained(hparams["mbart_path"], tgt_lang=hparams["target_lang"])
     st_brain.anneal_bleu = 0
+
+    # Data preparation
+    import prepare_iwslt22
+
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_iwslt22.data_proc,
+            kwargs={
+                "dataset_folder": hparams["root_data_folder"],
+                "output_folder": hparams["data_folder"],
+            },
+        )
 
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams, st_brain.modules.mBART.tokenizer)

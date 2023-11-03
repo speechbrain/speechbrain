@@ -1,18 +1,17 @@
 # ############################################################################
-# Model: E2E ST with wav2vec 2.0 encoder
-# Encoder: wav2vec 2.0 + linear projection
-# Decoder: Transformer
-# Tokens: unigram (1000)
+# Model: E2E ST with SAMU encoder and mBART decoder
+# Encoder: SAMU
+# Decoder: mBART decoder
 # losses: NLL
 # Training: Tamasheq-French corpus
-# Author:  Marcely Zanon Boito, 2022
+# Author:  Ha Nguyen, 2023
 # ############################################################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1337 #7777
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 debug: False
-output_folder: !ref output_w2v2_mbart/<seed>
+output_folder: !ref output_samu_nllb1.3B/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 wer_file: !ref <output_folder>/wer.txt
@@ -23,7 +22,7 @@ root_data_folder: !PLACEHOLDER # e.g., /users/hnguyen/IWSLT2022_Tamasheq_data/ta
 # data folder is the place where the json files will be stored prior to training
 data_folder: !ref <root_data_folder>/json_version/
 lang: "fr" #for the BLEU score detokenization
-target_lang: "fr_XX" # for mbart initialization
+target_lang: "fra_Latn" # for nllb initialization
 
 annotation_train: !ref <data_folder>/train.json
 annotation_valid: !ref <data_folder>/valid.json
@@ -75,8 +74,8 @@ activation: !name:torch.nn.GELU
 
 # Outputs
 label_smoothing: 0.1
-pad_index: 1      # pad_index defined by mbart model
-bos_index: 250008 # fr_XX bos_index defined by mbart model
+pad_index: 1      # pad_index defined by nllb model
+bos_index: 256057 # fra_Latn bos_index defined by nllb model
 eos_index: 2
 
 # Decoding parameters
@@ -87,7 +86,7 @@ valid_beam_size: 5
 
 ############################## models ################################
 #wav2vec model
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec.Wav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <wav2vec2_frozen>
@@ -101,10 +100,10 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     dnn_neurons: !ref <enc_dnn_neurons>
 
 #mBART
-mbart_path: facebook/mbart-large-50-many-to-many-mmt
+mbart_path: facebook/nllb-200-1.3B
 mbart_frozen: False
-vocab_size: 250054
-mBART: !new:speechbrain.lobes.models.huggingface_transformers.mbart.mBART
+vocab_size: 256206
+mBART: !new:speechbrain.lobes.models.huggingface_transformers.nllb.NLLB
     source: !ref <mbart_path>
     freeze: !ref <mbart_frozen>
     save_path: !ref <save_folder>/mbart_checkpoint
@@ -188,3 +187,12 @@ bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
     lang: !ref <lang>
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+
+# Path to the samu checkpoint
+pre_trained_samu: !PLACEHOLDER # e.g., /users/hnguyen/output_samu_pretraining/7777/save/CKPT+checkpoint_epoch100/wav2vec2.ckpt
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        wav2vec: !ref <wav2vec2>
+    paths:
+        wav2vec: !ref <pre_trained_samu>
