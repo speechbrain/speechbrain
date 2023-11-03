@@ -4960,3 +4960,108 @@ class ResponseGenerator(Pretrained):
             )
         )
         return history_bos, history_token_type
+
+
+class W2V2mBARTAST(Pretrained):
+    """An end-to-end AST model, which couples a w2v2 speech encoder with an text-based seq2seq decoder (mbart/nllb).
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import W2V2mBARTAST
+    >>> tmpdir = getfixture("tmpdir")
+    >>> model = W2V2mBARTAST.from_hparams(
+    ...     source="HaNguyen/IWSLT-ast-w2v2-mbart",
+    ...     savedir=tmpdir,
+    ... )
+    >>> model.decode_file("tests/samples/single-mic/example6.wav")
+    ['Ecoutez les informations que nous avons recueillies.']
+    """
+
+    HPARAMS_NEEDED = ["valid_search"]
+    MODULES_NEEDED = ["wav2vec2", "enc", "mBART"]  # , "valid_search"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def decode_file(self, path, **kwargs):
+        """Maps the given audio file to a string representing the
+        semantic dictionary for the utterance.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file to decode.
+
+        Returns
+        -------
+        str
+            The predicted semantics.
+        """
+        waveform = self.load_audio(path, **kwargs)
+        waveform = waveform.to(self.device)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_words = self.decode_batch(batch, rel_length)
+        return predicted_words[0]
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the input audio into a sequence of hidden states
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.Tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        torch.Tensor
+            The encoded batch
+        """
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        encoder_out = self.mods.wav2vec2(wavs.detach(), wav_lens)
+        encoder_out = self.mods.enc(encoder_out)
+        return encoder_out
+
+    def decode_batch(self, wavs, wav_lens):
+        """Maps the input audio to its semantics
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.Tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        list
+            Each waveform in the batch decoded.
+        tensor
+            Each predicted token id.
+        """
+        with torch.no_grad():
+            wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            pred, _, _, _ = self.hparams.valid_search(encoder_out, wav_lens)
+            predicted_words = [
+                self.mods.mBART.tokenizer.batch_decode(
+                    pred, skip_special_tokens=True
+                )
+            ]
+        return predicted_words
+
+    def forward(self, wavs, wav_lens):
+        """Runs full decoding - note: no gradients through decoding"""
+        return self.decode_batch(wavs, wav_lens)
