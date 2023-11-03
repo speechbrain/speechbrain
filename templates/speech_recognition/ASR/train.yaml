@@ -93,8 +93,8 @@ emb_size: 128
 dec_neurons: 1024
 output_neurons: 1000  # Number of tokens (same as LM)
 blank_index: 0
-bos_index: 1
-eos_index: 2
+bos_index: 0
+eos_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -265,7 +265,7 @@ rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
 # into full_scorers list would be too heavy. partial_scorers are more
 # efficient because they score on pruned tokens at little cost of
 # performance drop. For other scorers, please see the speechbrain.decoders.scorer.
-scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
     scorer_beam_scale: 1.5
     full_scorers: [
         !ref <rnnlm_scorer>,
@@ -275,6 +275,11 @@ scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
         rnnlm: !ref <lm_weight>
         coverage: !ref <coverage_penalty>
         ctc: !ref <ctc_weight_decode>
+
+valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <coverage_scorer>]
+    weights:
+        coverage: !ref <coverage_penalty>
 
 # Beamsearch is applied on the top of the decoder. For a description of
 # the other parameters, please see the speechbrain.decoders.S2SRNNBeamSearcher.
@@ -294,6 +299,7 @@ valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
     temperature: !ref <temperature>
+    scorer: !ref <valid_scorer>
 
 # The final decoding on the test set can be more computationally demanding.
 # In this case, we use the LM + CTC probabilities during decoding as well,
@@ -312,7 +318,7 @@ test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
     temperature: !ref <temperature>
-    scorer: !ref <scorer>
+    scorer: !ref <test_scorer>
 
 # This function manages learning rate annealing over the epochs.
 # We here use the NewBoB algorithm, that anneals the learning rate if
