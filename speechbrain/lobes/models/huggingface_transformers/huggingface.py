@@ -30,22 +30,15 @@ from huggingface_hub import model_info
 from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.dataio import length_to_mask
 
-
-# We check if transformers is installed.
-try:
-    from transformers import (
-        AutoConfig,
-        AutoTokenizer,
-        AutoFeatureExtractor,
-        AutoModelForPreTraining,
-        AutoModel,
-        AutoModelWithLMHead,
-    )
-
-except ImportError:
-    MSG = "Please install transformers from HuggingFace to use wav2vec2 / Hubert\n"
-    MSG += "E.G. run: pip install transformers"
-    raise ImportError(MSG)
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    AutoFeatureExtractor,
+    AutoModelForPreTraining,
+    AutoModel,
+    AutoModelWithLMHead,
+    AutoModelForSeq2SeqLM,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +67,8 @@ class HFTransformersInterface(nn.Module):
         If True, build the model for pretraining
     with_lm_head: bool (default: False)
         If True, build the model with lm_head
+    seq2seqlm : bool (default: False)
+        If True, build a sequence-to-sequence model with lm_head
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
@@ -93,6 +88,7 @@ class HFTransformersInterface(nn.Module):
         save_path="",
         for_pretraining=False,
         with_lm_head=False,
+        seq2seqlm=False,
         freeze=False,
         cache_dir="pretrained_models",
         **kwarg,
@@ -108,10 +104,13 @@ class HFTransformersInterface(nn.Module):
 
         self.for_pretraining = for_pretraining
         self.with_lm_head = with_lm_head
+        self.seq2seqlm = seq2seqlm
         if for_pretraining:
             model = AutoModelForPreTraining.from_config(self.config)
         elif with_lm_head:
             model = AutoModelWithLMHead.from_config(self.config)
+        elif seq2seqlm:
+            model = AutoModelForSeq2SeqLM.from_config(self.config)
         else:
             model = AutoModel.from_config(self.config)
 
