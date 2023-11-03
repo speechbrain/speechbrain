@@ -1,0 +1,235 @@
+############################################################################
+# Model: Speech-to-Unit Translation (S2UT)
+# Language: French-English (Fr-En)
+# Training: CVSS
+# Authors: Jarod Duret
+# ############################################################################
+
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 888
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/s2ut/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+epochs: 30
+
+progress_samples: True
+progress_sample_path: !ref <output_folder>/samples
+progress_samples_interval: 1
+progress_batch_sample_size: 4
+
+evaluation_interval: 4
+
+#################################
+# Data files and pre-processing #
+#################################
+src_data_folder: !PLACEHOLDER # e.g, /corpus/CommonVoice/fr (French Data)
+tgt_data_folder: !PLACEHOLDER # e.g, /corpus/CV4/fr (English Data)
+sample_rate: 16000
+
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+valid_small_json: !ref <save_folder>/valid_small.json
+test_json: !ref <save_folder>/test.json
+splits: ["train", "valid_small", "valid", "test"]
+skip_prep: False
+
+# SSL model used to encode target features
+encoder_source: facebook/hubert-base-ls960
+layer: 6
+kmeans_source: speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech
+codes_folder: !ref <save_folder>/codes
+skip_extract: False
+
+# Vocoder model used for evaluation
+vocoder_source: speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech
+vocoder_download_path: !ref <save_folder>/pretrained_models/vocoder
+
+# ASR model used for evaluation
+asr_source: speechbrain/asr-transformer-transformerlm-librispeech
+asr_download_path: !ref <save_folder>/pretrained_models/asr
+
+# Wav2vec2 encoder
+wav2vec2_source: LeBenchmark/wav2vec2-FR-7K-large
+wav2vec2_download_path: !ref <save_folder>/pretrained_models
+
+# wav2vec2 encoder specific parameters
+wav2vec2_frozen: False
+wav2vec2_freeze_steps: 10000
+
+# Training parameters
+lr: 0.0005
+lr_wav2vec: 0.00001
+loss_reduction: batchmean
+
+# Outputs
+blank_index: 102
+bos_index: 100
+eos_index: 101
+pad_index: 102
+label_smoothing: 0.2
+
+# Dynamic batching
+sorting: random
+num_workers: 4
+dynamic_batching: True
+max_batch_len: 180 # 40 GB GPU
+num_bucket: 200
+
+train_batch_size: 32 # if not using dynamic batching
+valid_batch_size: 16
+
+dynamic_batch_sampler:
+    max_batch_len: !ref <max_batch_len>
+    num_buckets: !ref <num_bucket>
+    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
+    batch_ordering: random
+    max_batch_ex: 128
+
+train_dataloader_opts:
+    batch_size: !ref <train_batch_size>
+    drop_last: False
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
+
+valid_dataloader_opts:
+    batch_size: !ref <valid_batch_size>
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
+
+################################
+# Model Parameters and model   #
+################################
+
+# Feature parameters (W2V2 etc)
+features_dim: 1024 # large wav2vec output dimension, for base replace by 768
+
+# Length Regulator
+enc_kernel_size: 3
+enc_stride: 2
+
+# Transformer
+embedding_size: 512
+d_model: 512
+nhead: 8
+num_encoder_layers: 0
+num_decoder_layers: 6
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: 103 # /!\ needs to be changed accordingly to the vocabulary
+attention_type: "regularMHA" # "RelPosMHAXL" or "regularMHA"
+
+# Decoding parameters
+test_bs: 10
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+
+############################## models ################################
+wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+    source: !ref <wav2vec2_source>
+    output_norm: True ### Test in baseline_v2
+    freeze: !ref <wav2vec2_frozen>
+    freeze_feature_extractor: False
+    save_path: !ref <wav2vec2_download_path>
+    apply_spec_augment: False
+
+enc: !new:speechbrain.nnet.CNN.Conv1d
+    input_shape: [null, null, !ref <features_dim>]
+    out_channels: !ref <embedding_size>
+    kernel_size: !ref <enc_kernel_size>
+    stride: !ref <enc_stride>
+
+transformer: !new:speechbrain.lobes.models.transformer.TransformerST.TransformerST # yamllint disable-line rule:line-length
+    input_size: !ref <embedding_size>
+    tgt_vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    attention_type: !ref <attention_type>
+    normalize_before: True
+    causal: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <output_neurons>
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    enc: !ref <enc>
+    transformer: !ref <transformer>
+    seq_lin: !ref <seq_lin>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <transformer>, !ref <seq_lin>]
+
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+
+wav2vec_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_wav2vec>
+
+seq_cost: !name:speechbrain.nnet.losses.nll_loss
+    label_smoothing: !ref <label_smoothing>
+    reduction: !ref <loss_reduction>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 5000
+
+wav2vec_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.98
+
+#epoch object
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
+    modules: [!ref <transformer>, !ref <seq_lin>, null]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    temperature: 1.0
+
+test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
+    modules: [!ref <transformer>, !ref <seq_lin>, null]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_bs>
+
+acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
+bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
+    merge_words: False
+
+#checkpointer
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        wav2vec2: !ref <wav2vec2>
+        counter: !ref <epoch_counter>
+        noam_scheduler: !ref <noam_annealing>
+        wav2vec_scheduler: !ref <wav2vec_annealing>

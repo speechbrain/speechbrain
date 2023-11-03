@@ -1336,6 +1336,7 @@ class TriStageLRSchedule:
             The initial learning rate scale during warmup phase.
         final_lr_scale : float
             The final learning rate scale.
+
     Example
     -------
     >>> from speechbrain.nnet.linear import Linear

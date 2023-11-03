@@ -8,11 +8,13 @@ Examples:
 Authors
  * Peter Plantinga 2020
  * Jianyuan Zhong 2020
+ * Shucong Zhang 2023
 """
 import os
 import torch
 import torchaudio
 import speechbrain as sb
+from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.data_utils import download_file
 from speechbrain.processing.speech_augmentation import (
     SpeedPerturb,
@@ -26,7 +28,7 @@ from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
 
-OPENRIR_URL = "http://www.openslr.org/resources/28/rirs_noises.zip"
+OPENRIR_URL = "https://www.dropbox.com/scl/fi/a5zg4588mefxzq2cleuux/RIRS_NOISES.zip?rlkey=01ymylca0an1nc7tlpdt2bjif&dl=1"
 
 
 class SpecAugment(torch.nn.Module):
@@ -57,7 +59,8 @@ class SpecAugment(torch.nn.Module):
         Number of time mask.
     replace_with_zero : bool
         If True, replace masked value with 0, else replace masked value with mean of the input tensor.
-
+    time_mask_ratio : float
+        If not 0, time_mask_width = time_mask_ratio * time_length
     Example
     -------
     >>> aug = SpecAugment()
@@ -79,11 +82,14 @@ class SpecAugment(torch.nn.Module):
         time_mask_width=(0, 100),
         n_time_mask=2,
         replace_with_zero=True,
+        time_mask_ratio=0,
     ):
         super().__init__()
         assert (
             time_warp or freq_mask or time_mask
         ), "at least one of time_warp, time_mask, or freq_mask should be applied"
+
+        assert time_mask_ratio >= 0, "time_mask_ratio must be postive"
 
         self.apply_time_warp = time_warp
         self.time_warp_window = time_warp_window
@@ -101,6 +107,7 @@ class SpecAugment(torch.nn.Module):
         self.n_time_mask = n_time_mask
 
         self.replace_with_zero = replace_with_zero
+        self.time_mask_ratio = time_mask_ratio
 
     def forward(self, x):
         """Takes in input a tensors and returns an augmented one."""
@@ -168,6 +175,8 @@ class SpecAugment(torch.nn.Module):
             D = time
             n_mask = self.n_time_mask
             width_range = self.time_mask_width
+            if not self.time_mask_ratio == 0:
+                width_range = (0, int(self.time_mask_ratio * time))
         else:
             D = fea
             n_mask = self.n_freq_mask
@@ -476,15 +485,16 @@ def _prepare_openrir(folder, reverb_csv, noise_csv, max_noise_len):
 
     # Prepare reverb csv if necessary
     if not os.path.isfile(reverb_csv):
-        rir_filelist = os.path.join(
-            folder, "RIRS_NOISES", "real_rirs_isotropic_noises", "rir_list"
+        rir_filelist = get_all_files(
+            os.path.join(folder, "RIRS_NOISES", "RIRS"), match_and=[".wav"]
         )
         _prepare_csv(folder, rir_filelist, reverb_csv)
 
     # Prepare noise csv if necessary
     if not os.path.isfile(noise_csv):
-        noise_filelist = os.path.join(
-            folder, "RIRS_NOISES", "pointsource_noises", "noise_list"
+        noise_filelist = get_all_files(
+            os.path.join(folder, "RIRS_NOISES", "pointsource_noises"),
+            match_and=[".wav"],
         )
         _prepare_csv(folder, noise_filelist, noise_csv, max_noise_len)
 
@@ -510,10 +520,9 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
         if sb.utils.distributed.if_main_process():
             with open(csv_file, "w") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
-                for line in open(filelist):
+                for j, filename in enumerate(filelist):
 
                     # Read file for duration/channel info
-                    filename = os.path.join(folder, line.split()[-1])
                     signal, rate = torchaudio.load(filename)
 
                     # Ensure only one channel
@@ -540,7 +549,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                                 new_filename, signal[:, start:stop], rate
                             )
                             csv_row = (
-                                f"{ID}_{i}",
+                                f"{ID}_{j}{i}",
                                 str((stop - start) / rate),
                                 "$rir_root/" + new_filename[len(folder) :],
                                 ext,
@@ -551,7 +560,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                         w.write(
                             ",".join(
                                 (
-                                    ID,
+                                    ID + str(j),
                                     str(duration),
                                     "$rir_root/" + filename[len(folder) :],
                                     ext,

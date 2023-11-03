@@ -162,6 +162,16 @@ class S2SGreedySearcher(S2SBaseSearcher):
             (ex. the encoded speech representation to be attended).
         wav_len : torch.Tensor
             The speechbrain-style relative length.
+
+        Returns
+        -------
+        hyps : List containing hypotheses.
+        top_lengths : torch.Tensor (batch)
+            This tensor contains the final scores of hypotheses.
+        top_scores : torch.Tensor (batch)
+            The length of each topk sequence in the batch.
+        top_log_probs : torch.Tensor (batch, max length of token_id sequences)
+            The log probabilities of each hypotheses.
         """
         enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
         device = enc_states.device
@@ -209,7 +219,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         ) = self._get_top_prediction(predictions, scores, log_probs)
 
         # Convert best hypothesis to list
-        hyps = undo_padding(top_hyps, top_lengths)
+        hyps = undo_padding(top_hyps[:, 0], top_lengths)
 
         return hyps, top_lengths, top_scores, top_log_probs
 
@@ -227,13 +237,13 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         Returns
         -------
-        topk_hyps : torch.Tensor (batch, topk, max length of token_id sequences)
+        top_hyps : torch.Tensor (batch, max length of token_id sequences)
             This tensor stores the topk predicted hypothesis.
-        topk_scores : torch.Tensor (batch, topk)
+        top_lengths : torch.Tensor (batch)
+            This tensor contains the final scores of hypotheses.
+        top_scores : torch.Tensor (batch)
             The length of each topk sequence in the batch.
-        topk_lengths : torch.Tensor (batch, topk)
-            This tensor contains the final scores of topk hypotheses.
-        topk_log_probs : torch.Tensor (batch, topk, max length of token_id sequences)
+        top_log_probs : torch.Tensor (batch, max length of token_id sequences)
             The log probabilities of each hypotheses.
         """
         batch_size = hyps.size(0)
@@ -1828,17 +1838,14 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
         seq_lin : torch.nn.Module
             A linear output layer.
             Normally set to None for this usecase.
-    linear : torch.nn.Module
-        A linear output layer.
-        Normally set to None for this usecase.
     vocab_size : int
         The dimension of the lm_head.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     """
 
-    def __init__(self, vocab_size, **kwargs):
-        super(S2SHFTextBasedBeamSearcher, self).__init__(**kwargs)
+    def __init__(self, modules, vocab_size, **kwargs):
+        super(S2SHFTextBasedBeamSearcher, self).__init__(modules, **kwargs)
         self.vocab_size = vocab_size
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):

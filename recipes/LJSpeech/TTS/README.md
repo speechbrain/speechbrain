@@ -44,7 +44,7 @@ python train.py --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 ```
 Training takes about 3 minutes/epoch on 1 * V100 32G.
 
-The training logs are available [here](https://www.dropbox.com/sh/tqyp58ogejqfres/AAAtmq7cRoOR3XTsq0iSgyKBa?dl=0).
+The training logs are available [here](https://www.dropbox.com/sh/5xqq5tafeofv2y0/AABrHWGpjFr_RxDPVaVQUrSWa?dl=0).
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-ljspeech).
 
@@ -61,7 +61,7 @@ python train_internal_alignment.py hparams/train_internal_alignment.yaml --data_
 ```
 The data preparation includes a grapheme-to-phoneme process for the entire corpus which may take several hours. Training takes about 5 minutes/epoch on 1 * V100 32G.
 
-The training logs are available [here](https://www.dropbox.com/sh/ca2rjc5x1ypm7aj/AADTJXxTina5Lt8BcdWs7LP5a?dl=0).
+The training logs are available [here](https://www.dropbox.com/sh/p6hjkequkb0acik/AABo6YVAlzCjM_KS7-za0hhia?dl=0).
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-internal-alignment-ljspeech).
 
@@ -107,6 +107,40 @@ The training logs are available [here](https://www.dropbox.com/sh/tbhpn1xirtaix6
 For inference, by setting `fast_sampling: True` , a fast sampling can be realized by passing user-defined variance schedules. According to the paper, high-quality audios can be generated with only 6 steps. This is highly recommanded.
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-diffwave-ljspeech).
+
+# K-means (Quantization)
+The subfolder "quantization" contains K-means clustering model. The model serves to quantize self-supervised representations into discrete representation. Thus representations can be used as target for speech-to-speech translation or as input for HiFiGAN Unit. By default, we use the 6th layer of HuBERT and set `k=100`.
+
+To run this recipe, please first install the extra-dependencies :
+```
+pip install -r extra_requirements.txt
+```
+Then go into the "quantization" folder and run:
+```
+python train.py hparams/kmeans.yaml --data_folder=/path/to/LJspeech
+```
+
+# HiFiGAN Unit Vocoder
+The subfolder "vocoder/hifi_gan_unit/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2104.00355). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data and is suitable for speech-to-speech translation on top of CVSS/S2ST models. The discrete representations required by the vocoder are learned using k-means quantization, as previously described. Please ensure that you have executed the quantization step before proceeding with this script.
+
+To run this recipe successfully, start by installing the necessary extra dependencies:
+
+```bash
+pip install -r extra_requirements.txt
+```
+
+Then, navigate to the "vocoder/hifi_gan_unit/" folder and run the following command:
+
+```bash
+python train.py hparams/train.yaml --kmeans_folder=/path/to/Kmeans/ckpt --data_folder=/path/to/LJspeech
+```
+
+The `kmeans_folder` should be specified based on the results of the previous quantization step (e.g., ../../quantization/results/kmeans/4321/save).
+
+Training typically takes around 4 minutes per epoch when using an NVIDIA A100 40G.
+
+You can access the pre-trained model, along with an easy-to-use inference function, on [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech).
+
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
