@@ -44,7 +44,7 @@ sample_rate: 16000
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
-test_batch_size: 8
+test_batch_size: 1
 
 # Dataloader options
 train_dataloader_opts:
@@ -87,7 +87,7 @@ tokenizer: !new:sentencepiece.SentencePieceProcessor
 # lowering this value might decrease the wer, but will increase speed.
 beam_size: 20
 topk: 20
-lm_weight: 0.25
+lm_weight: 0.5
 test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
 space_token: ' ' # make sure this is the same as the one used in the tokenizer
@@ -108,8 +108,7 @@ rnnlm: !new:speechbrain.decoders.scorer.RNNLMRescorer
 rescorer: !new:speechbrain.decoders.scorer.RescorerBuilder
    rescorers: [!ref <rnnlm>]
    weights:
-      rnnlm: 0.25
-
+      rnnlm: !ref <lm_weight>
 
 #
 # Functions and classes
