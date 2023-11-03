@@ -944,6 +944,142 @@ class EncoderASR(Pretrained):
         return self.encode_batch(wavs, wav_lens)
 
 
+class EncoderRescoringASR(Pretrained):
+    """A ready-to-use Encoder ASR model which uses a rescoring LM on top of
+    the n-best list produced by the decoding function.
+
+    The class can be used either to run only the encoder (encode()) to extract
+    features or to run the entire encoder + decoder function model
+    (transcribe()) to transcribe speech. The given YAML must contain the fields
+    specified in the *_NEEDED[] lists.
+    """
+
+    HPARAMS_NEEDED = ["tokenizer", "decoding_function", "rescorer"]
+    MODULES_NEEDED = ["encoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.tokenizer = self.hparams.tokenizer
+        self.decoding_function = self.hparams.decoding_function
+        self.rescorer = self.hparams.rescorer
+
+    def transcribe_file(self, path):
+        """Transcribes the given audiofile into a sequence of words.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to transcribe.
+
+        Returns
+        -------
+        str
+            The audiofile transcription produced by this ASR system.
+        """
+        waveform = self.load_audio(path)
+        # Fake a batch:
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_words, predicted_tokens = self.transcribe_batch(
+            batch, rel_length
+        )
+        return str(predicted_words[0])
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the input audio into a sequence of hidden states
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderRescoringASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.Tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        torch.Tensor
+            The encoded batch
+        """
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        encoder_out = self.mods.encoder(wavs, wav_lens)
+        return encoder_out
+
+    def transcribe_batch(self, wavs, wav_lens):
+        """Transcribes the input audio into a sequence of words
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderRescoringASR.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels] or [batch, time]
+            depending on the model.
+        wav_lens : torch.Tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        list
+            Each waveform in the batch transcribed.
+        tensor
+            Each predicted token id.
+        """
+        with torch.no_grad():
+            wav_lens = wav_lens.to(self.device)
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            predictions = self.decoding_function(encoder_out, wav_lens)
+            if isinstance(
+                self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
+            ):
+                predicted_words = [
+                    "".join(self.tokenizer.decode_ndim(token_seq))
+                    for token_seq in predictions
+                ]
+            elif isinstance(
+                self.tokenizer, sentencepiece.SentencePieceProcessor
+            ):
+                predicted_words = [
+                    self.tokenizer.decode_ids(token_seq)
+                    for token_seq in predictions
+                ]
+            else:
+                raise ValueError(
+                    "The tokenizer must be sentencepiece or CTCTextEncoder"
+                )
+
+            # we assume that the decoding_function is a CTCBeamSearcher
+            # implemented in speechbrain.decoders.ctc
+            topk = []
+            scores = []
+            for batch in predictions:
+                topk.append([hyp.text for hyp in batch])
+                scores.append([hyp.score for hyp in batch])
+            predicted_words, predictions = self.rescorer(topk, scores)
+
+        return predicted_words, predictions
+
+    def forward(self, wavs, wav_lens):
+        """Runs the encoder"""
+        return self.encode_batch(wavs, wav_lens)
+
+
 class EncoderClassifier(Pretrained):
     """A ready-to-use class for utterance-level classification (e.g, speaker-id,
     language-id, emotion recognition, keyword spotting, etc).
