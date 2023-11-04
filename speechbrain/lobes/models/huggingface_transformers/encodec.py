@@ -52,6 +52,20 @@ class Encodec(nn.Module):
                 param.requires_grad = False
 
     def forward(self, inputs, lengths):
+        """Encodes the input audio as tokens
+
+        Arguments
+        ---------
+        inputs : torch.Tensor
+            a (Batch X Samples) tensor of audio
+        length : torch.Tensor
+            a tensor of relative lengths
+
+        Returns
+        -------
+        tokens : torch.Tensor
+            a (Batch X Tokens) tensor of audio tokens
+        """
         return self.encode(inputs, lengths)
 
     def encode(self, inputs, length):
