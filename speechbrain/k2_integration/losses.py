@@ -68,12 +68,14 @@ def ctc_k2(
 
     >>> # Create a random batch of log-probs
     >>> batch_size = 4
-    >>> log_probs = torch.randn(batch_size, 100, 30)
+    >>> log_probs = torch.randn(batch_size, 100, 30).requires_grad_()
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
     >>> # Create a samll lexicon containing only two words and write it to a file.
-    >>> lang_tmpdir = getfixture('tmpdir')
-    >>> lexicon_sample = "hello h e l l o\nworld w o r l d"
+    >>> lang_tmpdir = getfixture("tmpdir")
+    >>> lexicon_sample = '''<UNK> <UNK>
+    ... hello h e l l o
+    ... world w o r l d'''
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
     >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
@@ -85,8 +87,8 @@ def ctc_k2(
     ...     lexicon=lexicon,
     ...     device=log_probs.device,
     ...     G_path=None,  # use_HLG=False
-    ...     rescoring_lm_path=None,  # decoding_method=1best
-    >>> )
+    ...     rescoring_lm_path=None, # decoding_method=1best
+    ...     )
     >>> # Create a random batch of texts
     >>> texts = ["hello world", "world hello", "hello", "world"]
     >>> # Compute the loss
