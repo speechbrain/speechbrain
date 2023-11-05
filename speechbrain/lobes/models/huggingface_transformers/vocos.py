@@ -4,6 +4,14 @@ Vocos model.
 Repository: https://huggingface.co/charactr/vocos-encodec-24khz
 Paper: https://arxiv.org/pdf/2306.00814.pdf
 
+TODO: There is an open feature request to add this model to
+HuggingFace Transformers.
+
+If this is impemented, it will be possible to make this model
+inherit from HFTransformersInterface
+
+https://github.com/huggingface/transformers/issues/25123
+
 Authors
  * Artem Ploujnikov 2023
 """
