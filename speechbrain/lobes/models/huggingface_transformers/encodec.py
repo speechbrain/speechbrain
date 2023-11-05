@@ -1,4 +1,12 @@
-"""This lobe enables the integration of huggingface pretrained encodec.
+"""This lobe enables the integration of huggingface pretrained EnCodec.
+
+EnCodec makes it possible to compress audio into a sequence of discrete tokens
+at different bandwidths - and to reconstruct audio from such sequences, with
+some loss of quality depending on the bandwidth.
+
+Note that while encodec can be used to reconstruct speech data, for a
+high-quality reconstruction, it is recommended to use a specially trained
+vocoder, such as Vocos (speechbrain.lobes.models.huggingface_transformers.vocos)
 
 Repository: https://huggingface.co/docs/transformers/v4.31.0/en/model_doc/encodec
 Paper: https://arxiv.org/abs/2210.13438
@@ -39,6 +47,10 @@ class Encodec(HFTransformersInterface):
         the location where the pretrained model will be saved
     sample_rate : int
         the audio sampling rate
+    bandwidth : float
+        the encoding bandwidth, in kbps (optional)
+        Supported bandwidths:
+        1.5, 3.0, 6.0, 12.0, 24.0
     freeze : bool
         whether the model will be frozen (e.g. not trainable if used
         as part of training another model)
@@ -58,13 +70,19 @@ class Encodec(HFTransformersInterface):
     """
 
     def __init__(
-        self, source, save_path=None, sample_rate=None, freeze=True,
+        self,
+        source,
+        save_path=None,
+        sample_rate=None,
+        freeze=True,
+        bandwidth=1.5,
     ):
         super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.model = EncodecModel.from_pretrained(source, cache_dir=save_path)
         if not sample_rate:
             sample_rate = DEFAULT_SAMPLE_RATE
         self.sample_rate = sample_rate
+        self.bandwidth = bandwidth
         if self.freeze:
             logger.warning("huggingface_Encodec - Encodec is frozen.")
             for param in self.model.parameters():
@@ -111,7 +129,7 @@ class Encodec(HFTransformersInterface):
             mask = length_to_mask(
                 length * max_len, max_len, device=inputs.device
             ).unsqueeze(1)
-            result = self.model.encode(inputs, mask)
+            result = self.model.encode(inputs, mask, bandwidth=self.bandwidth)
             return result.audio_codes.squeeze(0).transpose(-1, -2)
 
     def decode(self, tokens, length=None):

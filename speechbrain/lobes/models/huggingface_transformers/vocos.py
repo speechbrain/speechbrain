@@ -1,6 +1,10 @@
 """This lobe enables the integration of huggingface pretrained
 Vocos model.
 
+Vocos is a vocoder trained on top of EnCodec tokens. While
+EnCodec itself can be used for a lossy reconstruction of speech,
+a vocoder, such as Vocos, can be used to improve the quality.
+
 Repository: https://huggingface.co/charactr/vocos-encodec-24khz
 Paper: https://arxiv.org/pdf/2306.00814.pdf
 
@@ -117,12 +121,12 @@ class Vocos(nn.Module):
         return model
 
     def forward(self, inputs, length):
-        """Converts vocodec tokens to audio
+        """Converts EnCodec tokens to audio
 
         Arguments
         ---------
         inputs : torch.Tensor
-            A tensor of Vocodec tokens
+            A tensor of EnCodec tokens
         length : torch.Tensor
             A 1-D tensor of relative lengths
 
