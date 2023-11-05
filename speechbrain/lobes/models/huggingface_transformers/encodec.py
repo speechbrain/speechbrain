@@ -17,19 +17,11 @@ Authors
 
 import torch
 import logging
+from torch.nn import functional as F
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
-
-
-try:
-    from transformers import EncodecModel
-except ImportError:
-    MSG = "Please install transformers from HuggingFace to use Encodec\n"
-    MSG += "E.G. run: pip install transformers"
-    raise ImportError(MSG)
-
 
 DEFAULT_SAMPLE_RATE = 24000
 
@@ -78,11 +70,24 @@ class Encodec(HFTransformersInterface):
         bandwidth=1.5,
     ):
         super().__init__(source=source, save_path=save_path, freeze=freeze)
-        self.model = EncodecModel.from_pretrained(source, cache_dir=save_path)
         if not sample_rate:
             sample_rate = DEFAULT_SAMPLE_RATE
         self.sample_rate = sample_rate
         self.bandwidth = bandwidth
+        self.num_heads = self.model.quantizer.get_num_quantizers_for_bandwidth(
+            bandwidth
+        )
+        quantizer_layers = self.model.quantizer.layers[: self.num_heads]
+        self.vocabulary = torch.stack(
+            [layer.codebook.embed for layer in quantizer_layers]
+        )
+        _, self.num_tokens, self.emb_dim = self.vocabulary.shape
+        self.vocabulary_flat = self.vocabulary.reshape(
+            self.num_heads * self.num_tokens, self.emb_dim
+        )
+        self.token_index_offsets = (
+            torch.arange(self.num_heads)[None, None, :] * self.num_tokens
+        )
         if self.freeze:
             logger.warning("huggingface_Encodec - Encodec is frozen.")
             for param in self.model.parameters():
@@ -121,6 +126,9 @@ class Encodec(HFTransformersInterface):
         -------
         tokens : torch.Tensor
             a (Batch x Tokens x Heads) tensor of audio tokens
+        emb : torch.Tensor
+            raw vector embeddings from the model's
+            quantizers
         """
         with torch.set_grad_enabled(not self.freeze):
             if inputs.dim() == 2:
@@ -130,7 +138,28 @@ class Encodec(HFTransformersInterface):
                 length * max_len, max_len, device=inputs.device
             ).unsqueeze(1)
             result = self.model.encode(inputs, mask, bandwidth=self.bandwidth)
-            return result.audio_codes.squeeze(0).transpose(-1, -2)
+            tokens = result.audio_codes.squeeze(0).transpose(-1, -2)
+            emb = self.embeddings(tokens)
+            return tokens, emb
+
+    def embeddings(self, tokens):
+        """Converts token indexes to vector embeddings
+
+        Arguments
+        ---------
+        tokens : torch.Tensor
+            a (Batch x Length x Heads) tensor of token indexes
+
+        Returns
+        -------
+        emb : torch.Tensor
+            a (Batch x Length x Heads x Embedding) tensor
+            of raw vector embeddings from the model's
+            quantizer codebooks
+        """
+        idx = tokens + self.token_index_offsets
+        emb = F.embedding(idx, self.vocabulary_flat)
+        return emb
 
     def decode(self, tokens, length=None):
         """Decodes audio from tokens
@@ -138,14 +167,14 @@ class Encodec(HFTransformersInterface):
         Arguments
         ---------
         tokens : torch.Tensor
-            a tensor of tokens
+            a (Batch x Length x Heads) tensor of audio tokens
         length : torch.Tensor
-            a tensor of relative lengths
+            a 1-D tensor of relative lengths
 
         Returns
         -------
         audio : torch.Tensor
-            the audio
+            the reconstructed audio
         """
         with torch.set_grad_enabled(not self.freeze):
             result = self.model.decode(
@@ -159,3 +188,27 @@ class Encodec(HFTransformersInterface):
                 ).unsqueeze(1)
                 audio = audio * mask
             return audio
+
+    def decode_emb(self, emb, length):
+        """Decodes raw vector embeddings into audio
+
+        Arguments
+        ---------
+        emb : torch.Tensor
+            A (Batch x Length x Heads x Embedding) tensor of
+            raw vector embeddings
+
+        Returns
+        -------
+        audio : torch.Tensor
+            the reconstructed audio
+        """
+        with torch.set_grad_enabled(not self.freeze):
+            scaled_states = emb.pow(2).sum(-1, keepdim=True)
+            vocab = self.vocabulary.transpose(-1, -2).unsqueeze(0)
+            emb_perm = emb.permute(0, 2, 1, 3)
+            emb_vocab_prod = (emb_perm @ vocab).moveaxis(1, 2)
+            vocab_sum = vocab.pow(2).sum(-2, keepdim=True).moveaxis(1, 2)
+            dist = -(scaled_states - 2 * emb_vocab_prod + vocab_sum)
+            tokens = dist.max(dim=-1).indices
+            return self.decode(tokens, length)
