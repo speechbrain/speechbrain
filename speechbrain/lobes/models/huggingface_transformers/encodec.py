@@ -7,8 +7,13 @@ Authors
  * Artem Ploujnikov 2023
 """
 
-from torch import nn
+import torch
+import logging
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+    HFTransformersInterface,
+)
+
 
 try:
     from transformers import EncodecModel
@@ -20,8 +25,10 @@ except ImportError:
 
 DEFAULT_SAMPLE_RATE = 24000
 
+logger = logging.getLogger(__name__)
 
-class Encodec(nn.Module):
+
+class Encodec(HFTransformersInterface):
     """An wrapper for the HuggingFace encodec model
 
     Arguments
@@ -34,30 +41,43 @@ class Encodec(nn.Module):
         the audio sampling rate
     freeze : bool
         whether the model will be frozen (e.g. not trainable if used
-        as part of training another model)"""
+        as part of training another model)
+
+    Example
+    -------
+    >>> model_hub = "facebook/encodec_24khz"
+    >>> save_path = "savedir"
+    >>> model = Encodec(model_hub, save_path)
+    >>> audio = torch.randn(4, 1000)
+    >>> length = torch.tensor([1.0, .5, .75, 1.0])
+    >>> tokens = model.encode(audio, length)
+    >>> tokens.shape
+    torch.Size([4, 4, 2])
+    >>> rec = model.decode(tokens, length)
+    >>>
+    """
 
     def __init__(
         self, source, save_path=None, sample_rate=None, freeze=True,
     ):
-        super().__init__()
-        self.source = source
-        self.save_path = save_path
-        self.freeze = freeze
+        super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.model = EncodecModel.from_pretrained(source, cache_dir=save_path)
         if not sample_rate:
             sample_rate = DEFAULT_SAMPLE_RATE
         self.sample_rate = sample_rate
         if self.freeze:
+            logger.warning("huggingface_GPT - GPT  is frozen.")
             for param in self.model.parameters():
                 param.requires_grad = False
 
-    def forward(self, inputs, lengths):
+    def forward(self, inputs, length):
         """Encodes the input audio as tokens
 
         Arguments
         ---------
         inputs : torch.Tensor
-            a (Batch X Samples) tensor of audio
+            a (Batch x Samples) or (Batch x Channel x Samples)
+            tensor of audio
         length : torch.Tensor
             a tensor of relative lengths
 
@@ -66,7 +86,7 @@ class Encodec(nn.Module):
         tokens : torch.Tensor
             a (Batch X Tokens) tensor of audio tokens
         """
-        return self.encode(inputs, lengths)
+        return self.encode(inputs, length)
 
     def encode(self, inputs, length):
         """Encodes the input audio as tokens
@@ -74,21 +94,27 @@ class Encodec(nn.Module):
         Arguments
         ---------
         inputs : torch.Tensor
-            a (Batch X Samples) tensor of audio
+            a (Batch x Samples) or (Batch x Channel x Samples)
+            tensor of audio
         length : torch.Tensor
             a tensor of relative lengths
 
         Returns
         -------
         tokens : torch.Tensor
-            a (Batch X Tokens) tensor of audio tokens
+            a (Batch x Tokens x Heads) tensor of audio tokens
         """
-        max_len = inputs.size(1)
-        mask = length_to_mask(length * max_len, max_len)
-        result = self.model.encode(inputs, mask)
-        return result["audio_codes"].squeeze(0).transpose(-1, -2)
+        with torch.set_grad_enabled(not self.freeze):
+            if inputs.dim() == 2:
+                inputs = inputs.unsqueeze(1)
+            max_len = inputs.size(-1)
+            mask = length_to_mask(
+                length * max_len, max_len, device=inputs.device
+            ).unsqueeze(1)
+            result = self.model.encode(inputs, mask)
+            return result.audio_codes.squeeze(0).transpose(-1, -2)
 
-    def decode(self, tokens, length):
+    def decode(self, tokens, length=None):
         """Decodes audio from tokens
 
         Arguments
@@ -103,8 +129,15 @@ class Encodec(nn.Module):
         audio : torch.Tensor
             the audio
         """
-        max_len = tokens.size(1)
-        mask = length_to_mask(length * max_len, max_len)
-        return self.model.decode(
-            tokens.unsqueeze(0).transpose(-1, -2), [None], mask
-        )
+        with torch.set_grad_enabled(not self.freeze):
+            result = self.model.decode(
+                tokens.unsqueeze(0).transpose(-1, -2), [None]
+            )
+            audio = result.audio_values
+            if length is not None:
+                max_len = audio.size(-1)
+                mask = length_to_mask(
+                    length * max_len, max_len, device=tokens.device
+                ).unsqueeze(1)
+                audio = audio * mask
+            return audio

@@ -40,6 +40,18 @@ class Vocos(nn.Module):
     freeze : bool
         whether or not parameters should be
         frozen
+
+    Example
+    -------
+    >>> model_hub = "charactr/vocos-encodec-24khz"
+    >>> model = Vocos(model_hub)
+    >>> tokens = torch.randint(1024, (4, 10, 2))
+    >>> length = torch.tensor([1.0, 0.5, 0.75, 1.0])
+    >>> audio, out_length = model(tokens, length)
+    >>> audio.shape
+    torch.Size([4, 3200])
+    >>> out_length
+    tensor([1.0000, 0.5000, 0.7500, 1.0000])
     """
 
     def __init__(
@@ -57,14 +69,14 @@ class Vocos(nn.Module):
             for param in self.model.parameters():
                 param.requires_grad = False
 
-    def forward(self, inputs, lengths):
+    def forward(self, inputs, length):
         """Converts vocodec tokens to audio
 
         Arguments
         ---------
         inputs : torch.Tensor
             A tensor of Vocodec tokens
-        lengths : torch.Tensor
+        length : torch.Tensor
             A 1-D tensor of relative lengths
 
         Returns
@@ -74,14 +86,15 @@ class Vocos(nn.Module):
         lengths : torch.Tensor
             Relative lengths
         """
-        features = self.model.codes_to_features(inputs.permute(2, 0, 1))
-        wavs = self.model.decode(
-            features,
-            bandwidth_id=torch.tensor(
-                [self.bandwidth_id], device=inputs.device
-            ),
-        )
-        mask = length_to_mask(
-            lengths * wavs.size(1), max_len=wavs.size(1), device=wavs.device
-        )
-        return wavs * mask, lengths
+        with torch.set_grad_enabled(not self.freeze):
+            features = self.model.codes_to_features(inputs.permute(2, 0, 1))
+            wavs = self.model.decode(
+                features,
+                bandwidth_id=torch.tensor(
+                    [self.bandwidth_id], device=inputs.device
+                ),
+            )
+            mask = length_to_mask(
+                length * wavs.size(1), max_len=wavs.size(1), device=wavs.device
+            )
+            return wavs * mask, length
