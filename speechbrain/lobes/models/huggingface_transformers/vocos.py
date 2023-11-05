@@ -59,7 +59,8 @@ class Vocos(nn.Module):
     Example
     -------
     >>> model_hub = "charactr/vocos-encodec-24khz"
-    >>> model = Vocos(model_hub)
+    >>> save_path = "savedir"
+    >>> model = Vocos(model_hub, save_path)
     >>> tokens = torch.randint(1024, (4, 10, 2))
     >>> length = torch.tensor([1.0, 0.5, 0.75, 1.0])
     >>> audio, out_length = model(tokens, length)
