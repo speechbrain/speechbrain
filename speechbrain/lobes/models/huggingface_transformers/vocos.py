@@ -17,11 +17,14 @@ Authors
 """
 
 import torch
+import logging
 from torch import nn
 from speechbrain.dataio.dataio import length_to_mask
+from huggingface_hub import hf_hub_download
 
 try:
     from vocos import Vocos as VocosModel
+    from vocos.feature_extractors import EncodecFeatures
 except ImportError:
     MSG = "Please install vocos to use the Vocos model\n"
     MSG += "E.G. run: pip install vocos"
@@ -31,6 +34,8 @@ except ImportError:
 DEFAULT_SAMPLE_RATE = 24000
 BANDWIDTHS = [1.5, 3.0, 6.0, 12.0]
 
+logger = logging.getLogger(__name__)
+
 
 class Vocos(nn.Module):
     """An wrapper for the HuggingFace Vocos model
@@ -39,6 +44,8 @@ class Vocos(nn.Module):
     ---------
     source : str
         a HuggingFace repository identifier or a path
+    save_path : str
+        the location where the pretrained model will be saved
     revision : str
         the model revision
     bandwidth : int
@@ -63,19 +70,55 @@ class Vocos(nn.Module):
     """
 
     def __init__(
-        self, source, revision=None, bandwidth=1.5, freeze=True,
+        self,
+        source,
+        save_path,
+        revision=None,
+        bandwidth=1.5,
+        freeze=True,
     ):
         super().__init__()
         self.source = source
-        self.model = VocosModel.from_pretrained(source, revision)
+        self.save_path = save_path
+        self.revision = revision
+        self.model = self._load_model()
         self.freeze = freeze
         self.bandwidth = bandwidth
         self.bandwidth_id = (
             (torch.tensor(BANDWIDTHS) - bandwidth).abs().argmin().item()
         )
         if self.freeze:
+            logger.warning("huggingface_Vocos - Vocos is frozen.")
             for param in self.model.parameters():
                 param.requires_grad = False
+
+    def _load_model(self):
+        """Loads the pretrained model. This is a customized implementation of
+        Vocos.from_pretrained(), which has been customized to specify an
+        alternate cache_dir"""
+        config_path = hf_hub_download(
+            repo_id=self.source,
+            filename="config.yaml",
+            revision=self.revision,
+            cache_dir=self.save_path,
+        )
+        model_path = hf_hub_download(
+            repo_id=self.source,
+            filename="pytorch_model.bin",
+            revision=self.revision,
+            cache_dir=self.save_path
+        )
+        model = VocosModel.from_hparams(config_path)
+        state_dict = torch.load(model_path, map_location="cpu")
+        if isinstance(model.feature_extractor, EncodecFeatures):
+            encodec_parameters = {
+                "feature_extractor.encodec." + key: value
+                for key, value in model.feature_extractor.encodec.state_dict().items()
+            }
+            state_dict.update(encodec_parameters)
+        model.load_state_dict(state_dict)
+        model.eval()
+        return model
 
     def forward(self, inputs, length):
         """Converts vocodec tokens to audio
@@ -91,7 +134,7 @@ class Vocos(nn.Module):
         -------
         wavs : torch.Tensor
             A (Batch x Length) tensor of raw waveforms
-        lengths : torch.Tensor
+        length : torch.Tensor
             Relative lengths
         """
         with torch.set_grad_enabled(not self.freeze):

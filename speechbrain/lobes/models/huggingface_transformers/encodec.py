@@ -66,7 +66,7 @@ class Encodec(HFTransformersInterface):
             sample_rate = DEFAULT_SAMPLE_RATE
         self.sample_rate = sample_rate
         if self.freeze:
-            logger.warning("huggingface_GPT - GPT  is frozen.")
+            logger.warning("huggingface_Encodec - Encodec is frozen.")
             for param in self.model.parameters():
                 param.requires_grad = False
 
