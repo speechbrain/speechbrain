@@ -70,12 +70,7 @@ class Vocos(nn.Module):
     """
 
     def __init__(
-        self,
-        source,
-        save_path,
-        revision=None,
-        bandwidth=1.5,
-        freeze=True,
+        self, source, save_path, revision=None, bandwidth=1.5, freeze=True,
     ):
         super().__init__()
         self.source = source
@@ -106,7 +101,7 @@ class Vocos(nn.Module):
             repo_id=self.source,
             filename="pytorch_model.bin",
             revision=self.revision,
-            cache_dir=self.save_path
+            cache_dir=self.save_path,
         )
         model = VocosModel.from_hparams(config_path)
         state_dict = torch.load(model_path, map_location="cpu")
