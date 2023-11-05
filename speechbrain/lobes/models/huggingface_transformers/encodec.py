@@ -54,11 +54,17 @@ class Encodec(HFTransformersInterface):
     >>> model = Encodec(model_hub, save_path)
     >>> audio = torch.randn(4, 1000)
     >>> length = torch.tensor([1.0, .5, .75, 1.0])
-    >>> tokens = model.encode(audio, length)
+    >>> tokens, emb = model.encode(audio, length)
     >>> tokens.shape
     torch.Size([4, 4, 2])
+    >>> emb.shape
+    torch.Size([4, 4, 2, 128])
     >>> rec = model.decode(tokens, length)
-    >>>
+    >>> rec.shape
+    torch.Size([4, 1, 1280])
+    >>> rec_emb = model.decode_emb(emb, length)
+    >>> rec_emb.shape
+    torch.Size([4, 1, 1280])
     """
 
     def __init__(
