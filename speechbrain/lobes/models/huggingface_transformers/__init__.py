@@ -6,7 +6,6 @@ This subpackage gathers higher level blocks, or "lobes" for HuggingFace Transfor
 # Transformers is required for this package.
 try:
     import transformers  # noqa
-    import vocos  # noqa
 except ImportError:
     MSG = "Please install transformers from HuggingFace.\n"
     MSG += "E.G. run: pip install transformers \n"
