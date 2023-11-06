@@ -77,8 +77,8 @@ One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st
 | 1 | train_w2v2_st.yaml | 7.63 | 5.38 | Not avail. | Not avail. |
 | 2 | train_w2v2_mbart_st.yaml | 9.62 | 7.73 | [DropBox](https://www.dropbox.com/sh/xjo0ou739oksnus/AAAgyrCwywmDRRuUiDnUva2za?dl=0) |
 | 3 | train_w2v2_nllb_st.yaml | 11.09 | 8.70 | [DropBox](https://www.dropbox.com/sh/spp2ijgfdbzuz26/AABkJ97e72D7aKzNLTm1qmWEa?dl=0) |
-| 4 | train_samu_mbart_st.yaml | 13.41 | 10.28 | To be added. |
-| 5 | train_samu_nllb_st.yaml | 13.89 | 11.32 | To be added. |
+| 4 | train_samu_mbart_st.yaml | 13.41 | 10.28 | [DropBox](https://www.dropbox.com/sh/98s1xyc3chreaw6/AABom3FnwY5SsIvg4en9tWC2a?dl=0) |
+| 5 | train_samu_nllb_st.yaml | 13.89 | 11.32 | [DropBox](https://www.dropbox.com/sh/ekkpl9c3kxsgllj/AABa0q2LrJe_o7JF-TTbfxZ-a?dl=0) |
 
 ## Citation
 ```
