@@ -11,7 +11,7 @@
 seed: 1337 #7777
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 debug: False
-output_folder: !ref output_w2v2_mbart/<seed>
+output_folder: !ref results/w2v2_mbart/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 wer_file: !ref <output_folder>/wer.txt

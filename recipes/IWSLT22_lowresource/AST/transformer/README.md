@@ -66,7 +66,7 @@ train_with_samu_mbart.py hparams/train_samu_mbart_st.yaml --root_data_folder=you
 
 Examples of the two parameters:
 --root_data_folder=/workspace/speechbrain/recipes/IWSLT22_lowresource/IWSLT2022_Tamasheq_data/taq_fra_clean
---pre_trained_samu=/workspace/speechbrain/recipes/IWSLT22_lowresource/output_samu_pretraining/7777/save/CKPT+checkpoint_epoch100/wav2vec2.ckpt
+--pre_trained_samu=/workspace/speechbrain/recipes/IWSLT22_lowresource/results/samu_pretraining/7777/save/CKPT+checkpoint_epoch100/wav2vec2.ckpt
 
 One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st.yaml in the above training command for using NLLB model instead.
 

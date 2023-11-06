@@ -12,7 +12,7 @@
 seed: 5988
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 debug: False
-output_folder: !ref output/<seed>
+output_folder: !ref results/w2v2_st/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 

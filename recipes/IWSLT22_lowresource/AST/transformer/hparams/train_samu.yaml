@@ -9,7 +9,7 @@
 seed: 7777
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 debug: False
-output_folder: !ref output_samu_pretraining/<seed>
+output_folder: !ref results/samu_pretraining/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 wer_file: !ref <output_folder>/wer.txt
@@ -22,7 +22,7 @@ data_folder: !ref <root_data_folder>/json_version/
 train_set: !ref <data_folder>/train.json
 valid_set: !ref <data_folder>/valid.json
 test_set: !ref <data_folder>/test.json
-skip_prep: True
+skip_prep: False
 
 # URL for the HuggingFace model we want to load (BASE here)
 wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
