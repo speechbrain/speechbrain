@@ -135,6 +135,7 @@ class PosteriorEncoder(nn.Module):
         x = self.post_encoder(x) * x_mask
         mu, log_s = torch.split(x, self.out_features, dim=1)
         z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
+        # print(z.mean(), mu.mean(), log_s.mean())
         return z, mu, log_s, x_mask
     
 class PriorEncoder(nn.Module):
@@ -445,7 +446,12 @@ class VITS(nn.Module):
         tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
         z_p = self.flow_decoder(z, target_mask)
-        attn, path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)        
+        attn, path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)   
+        # print(mu_p.shape, log_s_p.shape, mu_q.shape, log_s_q.shape, attn.shape) 
+        mu_p = torch.bmm(attn, mu_p.permute(0, 2, 1))    
+        log_s_p = torch.bmm(attn, log_s_p.permute(0, 2, 1))
+        # print(mu_p.shape, log_s_p.shape, mu_q.shape, log_s_q.shape, attn.shape)
+        # exit()
         predicted_durations = self.duration_predictor(tokens, token_mask)
         return predicted_durations, path, target_mask, z_p, log_s_p, mu_p, log_s_q
 
@@ -583,12 +589,12 @@ class VITSLoss(nn.Module):
 
     @staticmethod
     def calc_kl_loss(z_p, log_s_p, mu_p, log_s_q, target_mask):
+        print(z_p.mean(), log_s_p.mean(), mu_p.mean(), log_s_q.mean())
         z_p = z_p.float()
         log_s_q = log_s_q.float()
-        mu_p = mu_p.float()
-        log_s_p = log_s_p.float()
+        mu_p = mu_p.float().permute(0, 2, 1)
+        log_s_p = log_s_p.float().permute(0, 2, 1)
         target_mask = target_mask.float()
-        print(z_p.shape, log_s_p.shape, mu_p.shape, log_s_q.shape)
         kl = log_s_p - log_s_q - 0.5
         kl += 0.5 * ((z_p - mu_p) ** 2) * torch.exp(-2.0 * log_s_p)
         kl = torch.sum(kl * target_mask)
@@ -633,6 +639,7 @@ class VITSLoss(nn.Module):
         losses["kl_loss"] = kl_loss * self.kl_loss_weight
         
         losses["total_loss"] = sum(losses.values())
+        print(losses)
         return losses
         
 
