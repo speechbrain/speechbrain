@@ -192,10 +192,6 @@ if __name__ == "__main__":
    # Train and save Kmeans model
     with tqdm(train_set, dynamic_ncols=True,) as t:
                 for batch in t:
-                    if i> 1:
-                        break
-                    else:
-                        i += 1
                     batch = batch.to(run_opts["device"])
                     wavs, wav_lens = batch.sig
                     wavs, wav_lens = (
