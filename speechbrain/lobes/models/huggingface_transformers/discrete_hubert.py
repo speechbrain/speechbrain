@@ -13,7 +13,8 @@ Author
 import logging
 import torch
 import os
-from sklearn.cluster import MiniBatchKMeans
+from huggingface_hub import hf_hub_download
+import joblib
 
 from speechbrain.lobes.models.huggingface_transformers.hubert import HuBERT
 
@@ -40,6 +41,12 @@ class DiscreteHuBERT(HuBERT):
         HuggingFace hub name: e.g "facebook/hubert-base-ls960"
     save_path : str
         Path (dir) of the downloaded model.
+    kmeans_repo_id : str 
+        Huggingface repository if that contains the pretrained kmean model
+    Kmenas_filename : str
+        Name of the file in HF repo that need to be downloaded.
+    kmeans_cache_dir: str
+        Path (dir) of the downloaded kmenas model.
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the HuBERT model.
@@ -58,24 +65,21 @@ class DiscreteHuBERT(HuBERT):
         For example facebook/hubert-base-ls960 has 12 transformer layers and the output is of shape (13, B, T, C),
         where a projection of the CNN output is added to the beginning.
         If False, the forward function outputs the hidden states only from the last transformer layer.
-    num_clusters : (int) (default: 1000)
-        The number of clusters to form as well as the number of centroids to generate.
     ssl_layer_num : (int) (default: -1)
         determine the output of which layer of the SSL model should be used for clustering.
-    kmeans_checkpoint_path : (str)
-        Path to the saved kmeans model,
-    
 
+    
     Example
     -------
     >>> import torch
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/hubert-base-ls960"
     >>> save_path = "savedir"
-    >>> num_clusters = 1000
     >>> ssl_layer_num = -1
-    >>> kmeans_checkpoint_path = "results/LibriSpeech/cluster/1986/save/kmeans_100.pt"
-    >>> model = DiscreteHuBERT(model_hub, save_path,freeze = True, num_clusters = num_clusters,ssl_layer_num=ssl_layer_num,kmeans_checkpoint_path=kmeans_checkpoint_path )
+    >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
+    >>> Kmenas_filename = "Librispeech_hubert_kmeans_3.pt"
+    >>> kmeans_cache_dir="savedir"
+    >>> model = DiscreteHuBERT(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, Kmenas_filename=Kmenas_filename, kmeans_cache_dir=kmeans_cache_dir)
     >>> embs, tokens = model(inputs)
     >>> embs.shape
     torch.Size([10, 1, 768])
@@ -87,14 +91,17 @@ class DiscreteHuBERT(HuBERT):
         self,
         source,
         save_path,
+        Kmenas_filename ,
+        kmeans_cache_dir,
+        kmeans_repo_id = "speechbrain/SSL_Quantization",
         output_norm=False,
         freeze=False,
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=True,
-        num_clusters=1000,
         ssl_layer_num=-1,
-        kmeans_checkpoint_path=None,
+      
+
     ):
         super().__init__(
             source=source,
@@ -106,20 +113,15 @@ class DiscreteHuBERT(HuBERT):
             output_all_hiddens=output_all_hiddens,
         )
 
-        self.kmeans = self.load_kmeans(kmeans_checkpoint_path,num_clusters)
-        self.vocabulary = self.kmeans.__dict__["cluster_centers_"]
+        self.kmeans = self.load_kmeans(kmeans_repo_id,Kmenas_filename,kmeans_cache_dir)
+        self.vocabulary = self.kmeans.cluster_centers_
         self.ssl_layer_num = ssl_layer_num
     
-    def load_kmeans(self, checkpoint_path,num_clusters):
-        kmeans_model = MiniBatchKMeans(
-            n_clusters=num_clusters,)
-        if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(
-            checkpoint_path
-            )
-            kmeans_model.__dict__["n_features_in_"] = checkpoint["n_features_in_"]
-            kmeans_model.__dict__["_n_threads"] = checkpoint["_n_threads"]
-            kmeans_model.__dict__["cluster_centers_"] = checkpoint["cluster_centers_"]
+    
+    def load_kmeans(self, repo_id,filename, cache_dir):
+        kmeans_model = joblib.load(
+        hf_hub_download(repo_id=repo_id, filename= filename, cache_dir=cache_dir)
+        )
         return kmeans_model
     
     def forward(self, wav, wav_lens=None):
@@ -146,3 +148,4 @@ class DiscreteHuBERT(HuBERT):
         tokens = self.kmeans.predict(feats.flatten(end_dim = -2).cpu())
         embs = self.vocabulary[tokens]
         return torch.tensor(embs.reshape(wav.shape[0],-1,embs.shape[-1]), dtype=torch.long, device=wav.device), torch.tensor(tokens.reshape(wav.shape[0],-1), dtype=torch.long, device=wav.device)
+

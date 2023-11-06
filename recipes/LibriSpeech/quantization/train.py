@@ -19,7 +19,7 @@ from tqdm.contrib import tqdm
 from sklearn.cluster import MiniBatchKMeans
 from torch.utils.data import DataLoader
 from speechbrain.dataio.dataloader import LoopedLoader
-from pathlib import Path
+import joblib
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,7 @@ def fetch_kmeans_model(
     n_init,
     reassignment_ratio,
     random_state,
+    checkpoint_path,
 ):
     """Return a k-means clustering model with specified parameters.
     Args:
@@ -97,9 +98,12 @@ def fetch_kmeans_model(
         random_state (int): Determines random number generation for centroid initialization and random reassignment. 
         compute_labels (bool): Compute label assignment and inertia for the complete dataset once the minibatch optimization has converged in fit.
         init_size (int): Number of samples to randomly sample for speeding up the initialization.
+        checkpoint_path (str) : Path to saved model.
     Returns:
         MiniBatchKMeans: a k-means clustering model with specified parameters.
     """
+    if os.path.exists(checkpoint_path):
+        return joblib.load(checkpoint_path)
     return  MiniBatchKMeans(
             n_clusters=n_clusters,
             init=init,
@@ -164,8 +168,9 @@ if __name__ == "__main__":
             )
 
     
-   
-    
+    # Load pretrained KMeans model if it exists. Otherwise,  create new one.
+    checkpoint_path = os.path.join(hparams['save_folder'] , f"kmeans_{hparams['num_clusters']}.pt")
+
     kmeans_model = fetch_kmeans_model(
         n_clusters=hparams["num_clusters"],
         init=hparams["init"],
@@ -176,39 +181,28 @@ if __name__ == "__main__":
         n_init=hparams["n_init"],
         reassignment_ratio=hparams["reassignment_ratio"],
         random_state=hparams["seed"],
+        checkpoint_path = checkpoint_path
     )
-    
 
-    # Load pretrained KMeans model if it exists
-    checkpoint_path = os.path.join(hparams['save_folder'] , f"kmeans_{hparams['num_clusters']}.pt")
-    if os.path.exists(checkpoint_path):
-        checkpoint = torch.load(
-           checkpoint_path
-        )
-        kmeans_model.__dict__["n_features_in_"] = checkpoint["n_features_in_"]
-        kmeans_model.__dict__["_n_threads"] = checkpoint["_n_threads"]
-        kmeans_model.__dict__["cluster_centers_"] = checkpoint["cluster_centers_"]
-    
    # Train and save Kmeans model
     with tqdm(train_set, dynamic_ncols=True,) as t:
                 for batch in t:
+                    if i > 2:
+                         break
+                    else:
+                         i+= 1
                     batch = batch.to(run_opts["device"])
                     wavs, wav_lens = batch.sig
                     wavs, wav_lens = (
                         wavs.to(run_opts["device"]),
                         wav_lens.to(run_opts["device"]),
                     )
+                    feats = hparams["ssl_model"](wavs, wav_lens)[hparams["ssl_layer_num"]].flatten(end_dim=-2)
+                    kmeans = kmeans_model.partial_fit(feats)
 
-                    feats = hparams["ssl_model"](wavs, wav_lens)
-                    kmeans = kmeans_model.partial_fit(feats[hparams["ssl_layer_num"]])
+    joblib.dump(kmeans_model, open(checkpoint_path, "wb"))
         
-    torch.save(
-                {
-                    "n_features_in_": kmeans.n_features_in_,
-                    "_n_threads": kmeans._n_threads,
-                    "cluster_centers_": kmeans.cluster_centers_,
-                },checkpoint_path,
-            )
+
     
     
     
