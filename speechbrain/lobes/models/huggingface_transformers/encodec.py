@@ -34,15 +34,18 @@ class Encodec(HFTransformersInterface):
     Arguments
     ---------
     source : str
-        a HuggingFace repository identifier or a path
+        A HuggingFace repository identifier or a path
     save_path : str
-        the location where the pretrained model will be saved
+        The location where the pretrained model will be saved
     sample_rate : int
-        the audio sampling rate
+        The audio sampling rate
     bandwidth : float
-        the encoding bandwidth, in kbps (optional)
+        The encoding bandwidth, in kbps (optional)
         Supported bandwidths:
         1.5, 3.0, 6.0, 12.0, 24.0
+    flat_embeddings : bool
+        If set to True, embeddings will be flattened into
+        (Batch x Length x (Heads * Embedding))
     freeze : bool
         whether the model will be frozen (e.g. not trainable if used
         as part of training another model)
@@ -72,14 +75,16 @@ class Encodec(HFTransformersInterface):
         source,
         save_path=None,
         sample_rate=None,
-        freeze=True,
         bandwidth=1.5,
+        flat_embeddings=False,
+        freeze=True,
     ):
         super().__init__(source=source, save_path=save_path, freeze=freeze)
         if not sample_rate:
             sample_rate = DEFAULT_SAMPLE_RATE
         self.sample_rate = sample_rate
         self.bandwidth = bandwidth
+        self.flat_embeddings = flat_embeddings
         self.num_heads = self.model.quantizer.get_num_quantizers_for_bandwidth(
             bandwidth
         )
@@ -105,10 +110,10 @@ class Encodec(HFTransformersInterface):
         Arguments
         ---------
         inputs : torch.Tensor
-            a (Batch x Samples) or (Batch x Channel x Samples)
+            A (Batch x Samples) or (Batch x Channel x Samples)
             tensor of audio
         length : torch.Tensor
-            a tensor of relative lengths
+            A tensor of relative lengths
 
         Returns
         -------
@@ -123,17 +128,17 @@ class Encodec(HFTransformersInterface):
         Arguments
         ---------
         inputs : torch.Tensor
-            a (Batch x Samples) or (Batch x Channel x Samples)
+            A (Batch x Samples) or (Batch x Channel x Samples)
             tensor of audio
         length : torch.Tensor
-            a tensor of relative lengths
+            A tensor of relative lengths
 
         Returns
         -------
         tokens : torch.Tensor
-            a (Batch x Tokens x Heads) tensor of audio tokens
+            A (Batch x Tokens x Heads) tensor of audio tokens
         emb : torch.Tensor
-            raw vector embeddings from the model's
+            Raw vector embeddings from the model's
             quantizers
         """
         with torch.set_grad_enabled(not self.freeze):
@@ -165,6 +170,9 @@ class Encodec(HFTransformersInterface):
         """
         idx = tokens + self.token_index_offsets
         emb = F.embedding(idx, self.vocabulary_flat)
+        if self.flat_embeddings:
+            batch_size, max_len, num_heads, emb_dim = emb.shape
+            emb = emb.reshape(batch_size, max_len, num_heads * emb_dim)
         return emb
 
     def decode(self, tokens, length=None):
@@ -173,9 +181,9 @@ class Encodec(HFTransformersInterface):
         Arguments
         ---------
         tokens : torch.Tensor
-            a (Batch x Length x Heads) tensor of audio tokens
+            A (Batch x Length x Heads) tensor of audio tokens
         length : torch.Tensor
-            a 1-D tensor of relative lengths
+            A 1-D tensor of relative lengths
 
         Returns
         -------
@@ -210,6 +218,11 @@ class Encodec(HFTransformersInterface):
             the reconstructed audio
         """
         with torch.set_grad_enabled(not self.freeze):
+            if self.flat_embeddings:
+                batch_size, max_len, _ = emb.shape
+                emb = emb.reshape(
+                    batch_size, max_len, self.num_heads, self.emb_dim
+                )
             scaled_states = emb.pow(2).sum(-1, keepdim=True)
             vocab = self.vocabulary.transpose(-1, -2).unsqueeze(0)
             emb_perm = emb.permute(0, 2, 1, 3)

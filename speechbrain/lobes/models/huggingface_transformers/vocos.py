@@ -47,17 +47,17 @@ class Vocos(nn.Module):
     Arguments
     ---------
     source : str
-        a HuggingFace repository identifier or a path
+        A HuggingFace repository identifier or a path
     save_path : str
-        the location where the pretrained model will be saved
+        The location where the pretrained model will be saved
     revision : str
-        the model revision
-    bandwidth : int
-        the bandwidth values
+        The model revision
+    bandwidth : float
+        The bandwidth value
         Supported:
         1.5, 3.0, 6.0, 12.0
     freeze : bool
-        whether or not parameters should be
+        Whether or not parameters should be
         frozen
 
     Example
