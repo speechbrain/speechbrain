@@ -47,7 +47,7 @@ class LaBSE(HFTransformersInterface):
     Example
     -------
     >>> inputs = ["La vie est belle"]
-    >>> model_hub = "setu4993/LaBSE"
+    >>> model_hub = "setu4993/smaller-LaBSE"
     >>> save_path = "savedir"
     >>> model = LaBSE(model_hub, save_path)
     >>> outputs = model(inputs)
