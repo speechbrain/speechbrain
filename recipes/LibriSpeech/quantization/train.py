@@ -84,7 +84,7 @@ def fetch_kmeans_model(
 ):
     """Return a k-means clustering model with specified parameters.
     Args:
-        n_clusters (int): The number of clusters to form as well as the number of centroids to generate.
+        n_clusters (MiniBatchKMeans): The number of clusters to form as well as the number of centroids to generate.
         init (int):    Method for initialization: {'k-means++'', ''random''}
         max_iter (int): Maximum number of iterations over the complete dataset before stopping independently of any early stopping criterion heuristics.
         batch_size (int) : Size of the mini batches.
@@ -116,9 +116,13 @@ def fetch_kmeans_model(
         init_size=None,
     )
 
+
 def train(model, train_set):
-        # Train and save Kmeans model
-    i =2
+    """Train a  Kmeans model .
+    Args:
+        model (MiniBatchKMeans): the initial kmenas model for training.
+        train_set (Dataloader):   Batches of tarining data.
+    """
     with tqdm(train_set, dynamic_ncols=True,) as t:
         for batch in t:
             batch = batch.to(run_opts["device"])
@@ -131,7 +135,6 @@ def train(model, train_set):
                 hparams["ssl_layer_num"]
             ].flatten(end_dim=-2)
             model = model.partial_fit(feats)
-
 
 
 if __name__ == "__main__":
@@ -182,7 +185,6 @@ if __name__ == "__main__":
     checkpoint_path = os.path.join(
         hparams["save_folder"], f"kmeans_{hparams['num_clusters']}.pt"
     )
-
     kmeans_model = fetch_kmeans_model(
         n_clusters=hparams["num_clusters"],
         init=hparams["init"],
@@ -196,6 +198,6 @@ if __name__ == "__main__":
         checkpoint_path=checkpoint_path,
     )
 
-    train(kmeans_model,train_set)
-
+    # Train and save Kmeans model
+    train(kmeans_model, train_set)
     joblib.dump(kmeans_model, open(checkpoint_path, "wb"))
