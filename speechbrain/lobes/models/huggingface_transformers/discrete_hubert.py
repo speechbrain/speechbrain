@@ -41,7 +41,7 @@ class DiscreteHuBERT(HuBERT):
         HuggingFace hub name: e.g "facebook/hubert-base-ls960"
     save_path : str
         Path (dir) of the downloaded model.
-    kmeans_repo_id : str 
+    kmeans_repo_id : str
         Huggingface repository if that contains the pretrained kmean model
     Kmenas_filename : str
         Name of the file in HF repo that need to be downloaded.
@@ -68,7 +68,7 @@ class DiscreteHuBERT(HuBERT):
     ssl_layer_num : (int) (default: -1)
         determine the output of which layer of the SSL model should be used for clustering.
 
-    
+
     Example
     -------
     >>> import torch
@@ -91,17 +91,15 @@ class DiscreteHuBERT(HuBERT):
         self,
         source,
         save_path,
-        Kmenas_filename ,
+        Kmenas_filename,
         kmeans_cache_dir,
-        kmeans_repo_id = "speechbrain/SSL_Quantization",
+        kmeans_repo_id="speechbrain/SSL_Quantization",
         output_norm=False,
         freeze=False,
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=True,
         ssl_layer_num=-1,
-      
-
     ):
         super().__init__(
             source=source,
@@ -113,17 +111,20 @@ class DiscreteHuBERT(HuBERT):
             output_all_hiddens=output_all_hiddens,
         )
 
-        self.kmeans = self.load_kmeans(kmeans_repo_id,Kmenas_filename,kmeans_cache_dir)
+        self.kmeans = self.load_kmeans(
+            kmeans_repo_id, Kmenas_filename, kmeans_cache_dir
+        )
         self.vocabulary = self.kmeans.cluster_centers_
         self.ssl_layer_num = ssl_layer_num
-    
-    
-    def load_kmeans(self, repo_id,filename, cache_dir):
+
+    def load_kmeans(self, repo_id, filename, cache_dir):
         kmeans_model = joblib.load(
-        hf_hub_download(repo_id=repo_id, filename= filename, cache_dir=cache_dir)
+            hf_hub_download(
+                repo_id=repo_id, filename=filename, cache_dir=cache_dir
+            )
         )
         return kmeans_model
-    
+
     def forward(self, wav, wav_lens=None):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -141,11 +142,20 @@ class DiscreteHuBERT(HuBERT):
             A (Batch x Seq x embedding_dim ) cluster_centers embeddings for each tokens
         """
 
-
         # If we freeze, we simply remove all grads from the graph.
         with torch.set_grad_enabled(not self.freeze):
-                feats = self.extract_features(wav, wav_lens)[self.ssl_layer_num]
-        tokens = self.kmeans.predict(feats.flatten(end_dim = -2).cpu())
+            feats = self.extract_features(wav, wav_lens)[self.ssl_layer_num]
+        tokens = self.kmeans.predict(feats.flatten(end_dim=-2).cpu())
         embs = self.vocabulary[tokens]
-        return torch.tensor(embs.reshape(wav.shape[0],-1,embs.shape[-1]), dtype=torch.long, device=wav.device), torch.tensor(tokens.reshape(wav.shape[0],-1), dtype=torch.long, device=wav.device)
-
+        return (
+            torch.tensor(
+                embs.reshape(wav.shape[0], -1, embs.shape[-1]),
+                dtype=torch.long,
+                device=wav.device,
+            ),
+            torch.tensor(
+                tokens.reshape(wav.shape[0], -1),
+                dtype=torch.long,
+                device=wav.device,
+            ),
+        )

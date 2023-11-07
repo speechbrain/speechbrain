@@ -23,6 +23,7 @@ import joblib
 
 logger = logging.getLogger(__name__)
 
+
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -71,8 +72,6 @@ def dataio_prepare(hparams):
     return train_data
 
 
-
-
 def fetch_kmeans_model(
     n_clusters,
     init,
@@ -90,12 +89,12 @@ def fetch_kmeans_model(
         n_clusters (int): The number of clusters to form as well as the number of centroids to generate.
         init (int):    Method for initialization: {'k-means++'', ''random''}
         max_iter (int): Maximum number of iterations over the complete dataset before stopping independently of any early stopping criterion heuristics.
-        batch_size (int) : Size of the mini batches. 
-        tol (float): Control early stopping based on the relative center changes as measured by a smoothed, variance-normalized of the mean center squared position changes. 
+        batch_size (int) : Size of the mini batches.
+        tol (float): Control early stopping based on the relative center changes as measured by a smoothed, variance-normalized of the mean center squared position changes.
         max_no_improvement (int): Control early stopping based on the consecutive number of mini batches that does not yield an improvement on the smoothed inertia.
         n_init (int): Number of random initializations that are tried
-        reassignment_ratio (float): Control the fraction of the maximum number of counts for a center to be reassigned. 
-        random_state (int): Determines random number generation for centroid initialization and random reassignment. 
+        reassignment_ratio (float): Control the fraction of the maximum number of counts for a center to be reassigned.
+        random_state (int): Determines random number generation for centroid initialization and random reassignment.
         compute_labels (bool): Compute label assignment and inertia for the complete dataset once the minibatch optimization has converged in fit.
         init_size (int): Number of samples to randomly sample for speeding up the initialization.
         checkpoint_path (str) : Path to saved model.
@@ -104,22 +103,20 @@ def fetch_kmeans_model(
     """
     if os.path.exists(checkpoint_path):
         return joblib.load(checkpoint_path)
-    return  MiniBatchKMeans(
-            n_clusters=n_clusters,
-            init=init,
-            max_iter=max_iter,
-            batch_size=batch_size,
-            tol=tol,
-            max_no_improvement=max_no_improvement,
-            n_init=n_init,
-            reassignment_ratio=reassignment_ratio,
-            random_state=random_state,
-            verbose=1,
-            compute_labels=True,
-            init_size=None,
-        )
-
-
+    return MiniBatchKMeans(
+        n_clusters=n_clusters,
+        init=init,
+        max_iter=max_iter,
+        batch_size=batch_size,
+        tol=tol,
+        max_no_improvement=max_no_improvement,
+        n_init=n_init,
+        reassignment_ratio=reassignment_ratio,
+        random_state=random_state,
+        verbose=1,
+        compute_labels=True,
+        init_size=None,
+    )
 
 
 if __name__ == "__main__":
@@ -154,22 +151,22 @@ if __name__ == "__main__":
         },
     )
 
-    # Load SSL model   
+    # Load SSL model
     hparams["ssl_model"] = hparams["ssl_model"].to(run_opts["device"])
 
     # Make training Dataloader
     train_set = dataio_prepare(hparams)
     if not (
-        isinstance(train_set, DataLoader)
-        or isinstance(train_set, LoopedLoader)
-        ):
-            train_set = sb.dataio.dataloader.make_dataloader(
-                train_set, **hparams["train_dataloader_opts"]
-            )
+        isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
+    ):
+        train_set = sb.dataio.dataloader.make_dataloader(
+            train_set, **hparams["train_dataloader_opts"]
+        )
 
-    
     # Load pretrained KMeans model if it exists. Otherwise,  create new one.
-    checkpoint_path = os.path.join(hparams['save_folder'] , f"kmeans_{hparams['num_clusters']}.pt")
+    checkpoint_path = os.path.join(
+        hparams["save_folder"], f"kmeans_{hparams['num_clusters']}.pt"
+    )
 
     kmeans_model = fetch_kmeans_model(
         n_clusters=hparams["num_clusters"],
@@ -181,31 +178,25 @@ if __name__ == "__main__":
         n_init=hparams["n_init"],
         reassignment_ratio=hparams["reassignment_ratio"],
         random_state=hparams["seed"],
-        checkpoint_path = checkpoint_path
+        checkpoint_path=checkpoint_path,
     )
 
-   # Train and save Kmeans model
+    # Train and save Kmeans model
     with tqdm(train_set, dynamic_ncols=True,) as t:
-                for batch in t:
-                    if i > 2:
-                         break
-                    else:
-                         i+= 1
-                    batch = batch.to(run_opts["device"])
-                    wavs, wav_lens = batch.sig
-                    wavs, wav_lens = (
-                        wavs.to(run_opts["device"]),
-                        wav_lens.to(run_opts["device"]),
-                    )
-                    feats = hparams["ssl_model"](wavs, wav_lens)[hparams["ssl_layer_num"]].flatten(end_dim=-2)
-                    kmeans = kmeans_model.partial_fit(feats)
+        for batch in t:
+            if i > 2:
+                break
+            else:
+                i += 1
+            batch = batch.to(run_opts["device"])
+            wavs, wav_lens = batch.sig
+            wavs, wav_lens = (
+                wavs.to(run_opts["device"]),
+                wav_lens.to(run_opts["device"]),
+            )
+            feats = hparams["ssl_model"](wavs, wav_lens)[
+                hparams["ssl_layer_num"]
+            ].flatten(end_dim=-2)
+            kmeans = kmeans_model.partial_fit(feats)
 
     joblib.dump(kmeans_model, open(checkpoint_path, "wb"))
-        
-
-    
-    
-    
-    
-
-  
