@@ -12,7 +12,6 @@ Author
 """
 import logging
 import torch
-import os
 from huggingface_hub import hf_hub_download
 import joblib
 

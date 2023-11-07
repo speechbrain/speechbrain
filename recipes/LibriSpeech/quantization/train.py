@@ -9,12 +9,10 @@ Author
 
 import os
 import sys
-import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
 from tqdm.contrib import tqdm
 from sklearn.cluster import MiniBatchKMeans
 from torch.utils.data import DataLoader
@@ -184,10 +182,6 @@ if __name__ == "__main__":
     # Train and save Kmeans model
     with tqdm(train_set, dynamic_ncols=True,) as t:
         for batch in t:
-            if i > 2:
-                break
-            else:
-                i += 1
             batch = batch.to(run_opts["device"])
             wavs, wav_lens = batch.sig
             wavs, wav_lens = (
