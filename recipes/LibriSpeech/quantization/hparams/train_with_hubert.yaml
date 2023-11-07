@@ -49,10 +49,10 @@ ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
 ####################
 # Model Parameters #
 ####################
-num_clusters: 3
+num_clusters: 1000
 init: k-means++
 max_iter: 100
-batch_size: 8 # should be >= num_clusters
+batch_size: 100 # should be >= num_clusters
 tol: 0.0
 max_no_improvement: 100
 n_init: 20
