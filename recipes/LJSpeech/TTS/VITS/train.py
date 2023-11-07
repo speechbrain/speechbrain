@@ -49,16 +49,25 @@ class VITSBrain(sb.Brain):
         -------
         the model output
         """
-        inputs1, input2, _ = self.batch_to_device(batch)
+        inputs1, inputs2, _ = self.batch_to_device(batch)
 
 
 
         # Forward pass for the VITS module
-        pred = self.hparams.vits_mel_predict(inputs1)
-
-        return (
-            pred
+        pred = self.modules.vits_mel_predict(inputs1)
+        z_slices, y_slices = self.hparams.vits_random_slicer(
+            z=pred[0], 
+            z_lengths=inputs1[-1],
+            y=inputs2[0],
+            hop_length=self.hparams.hop_length,
         )
+        y_g_hat = self.modules.generator(z_slices)
+        scores_fake, feats_fake = self.modules.discriminator(y_g_hat.detach())
+        scores_real, feats_real = self.modules.discriminator(y_slices)
+
+        hifigan_outputs = (y_g_hat, y_slices, scores_fake, feats_fake, scores_real, feats_real)
+        
+        return (hifigan_outputs, pred)
 
     def fit_batch(self, batch):
         """Fits a single batch
@@ -71,9 +80,48 @@ class VITSBrain(sb.Brain):
         loss: torch.Tensor
             detached loss
         """
-        result = super().fit_batch(batch)
-        self.hparams.noam_annealing(self.optimizer)
-        return result
+        outputs = self.compute_forward(batch, sb.core.Stage.TRAIN)
+        losses = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)
+        
+        return outputs
+
+    def init_optimizers(self):
+        """Called during ``on_fit_start()``, initialize optimizers
+        after parameters are fully configured (e.g. DDP, jit).
+        """
+        if self.opt_class is not None:
+            (
+                opt_g_class,
+                opt_d_class,
+                sch_g_class,
+                sch_d_class,
+            ) = self.opt_class
+            print(opt_g_class)
+            self.optimizer_g = opt_g_class(self.modules.generator.parameters())
+            self.optimizer_d = opt_d_class(
+                self.modules.discriminator.parameters()
+            )
+            self.scheduler_g = sch_g_class(self.optimizer_g)
+            self.scheduler_d = sch_d_class(self.optimizer_d)
+
+            if self.checkpointer is not None:
+                self.checkpointer.add_recoverable(
+                    "optimizer_g", self.optimizer_g
+                )
+                self.checkpointer.add_recoverable(
+                    "optimizer_d", self.optimizer_d
+                )
+                self.checkpointer.add_recoverable(
+                    "scheduler_g", self.scheduler_d
+                )
+                self.checkpointer.add_recoverable(
+                    "scheduler_d", self.scheduler_d
+                )
+
+    def zero_grad(self, set_to_none=False):
+        if self.opt_class is not None:
+            self.optimizer_g.zero_grad(set_to_none)
+            self.optimizer_d.zero_grad(set_to_none)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -95,10 +143,10 @@ class VITSBrain(sb.Brain):
         # self._remember_sample([x[0], *y, *metadata], predictions)
         
         loss = self.hparams.criterion(
-            predictions, y
+            predictions, self.hparams
         )
         self.last_loss_stats[stage] = scalarize(loss)
-        return loss["total_loss"]
+        return loss
 
 
     def process_mel(self, mel, len, index=0):
@@ -206,8 +254,9 @@ class VITSBrain(sb.Brain):
         input_lengths = input_lengths.to(self.device, non_blocking=True).long()
         mel = mel_padded.to(self.device, non_blocking=True).float()
         mel_lengths = mel_lengths.to(self.device, non_blocking=True).long()
-        wavs_padded = wavs_padded.to(self.device, non_blocking=True).float()
-        wav_lengths = wav_lengths.to(self.device, non_blocking=True).long()
+        # wavs_padded = wavs_padded.to(self.device, non_blocking=True).float()
+        wavs_padded = wavs_padded.float()
+        # wav_lengths = wav_lengths.to(self.device, non_blocking=True).long()
         
         x1 = (
             text_padded, 
@@ -217,7 +266,6 @@ class VITSBrain(sb.Brain):
         )
         x2 = (
             wavs_padded,
-            wav_lengths
         )
         y = (
             mel,
@@ -314,7 +362,12 @@ def main():
     # Brain class initialization
     vits_brain = VITSBrain(
         modules=hparams["modules"],
-        opt_class=hparams["opt_class"],
+        opt_class=[
+            hparams["opt_class_generator"],
+            hparams["opt_class_discriminator"],
+            hparams["sch_class_generator"],
+            hparams["sch_class_discriminator"],
+        ],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],

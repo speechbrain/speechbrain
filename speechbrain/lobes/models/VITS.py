@@ -79,6 +79,7 @@ class WN(nn.Module):
             else:
                 output = torch.add(output, res_skip_acts)
         output = output * x_mask
+        print(output.min(), output.max())
         return output
 
 
@@ -136,6 +137,7 @@ class PosteriorEncoder(nn.Module):
         mu, log_s = torch.split(x, self.out_features, dim=1)
         z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
         # print(z.mean(), mu.mean(), log_s.mean())
+        print(z.min(), z.max())
         return z, mu, log_s, x_mask
     
 class PriorEncoder(nn.Module):
@@ -197,6 +199,7 @@ class PriorEncoder(nn.Module):
         
         x_d = self.post_encoder(x.permute(0, 2, 1))
         mu, log_s = torch.split(x_d, self.out_features, dim=1)
+        print(mu.min(), mu.max())
         return x, mu, log_s, srcmask_inverted
 
 class StochasticDurationPredictor(nn.Module):
@@ -439,21 +442,23 @@ class VITS(nn.Module):
                     device=neg_cent.device,
                     dtype=neg_cent.dtype,
                 )
-        return neg_cent, path
+        return path
     
     def forward(self, inputs):
         (tokens, token_lengths, mels, mel_lengths) = inputs
         tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
         z_p = self.flow_decoder(z, target_mask)
-        attn, path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)   
+        path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)   
         # print(mu_p.shape, log_s_p.shape, mu_q.shape, log_s_q.shape, attn.shape) 
-        mu_p = torch.bmm(attn, mu_p.permute(0, 2, 1))    
-        log_s_p = torch.bmm(attn, log_s_p.permute(0, 2, 1))
+        print("mu p", mu_p.min(), mu_p.max())
+        mu_p = torch.bmm(path, mu_p.permute(0, 2, 1))    
+        print("mu p", mu_p.min(), mu_p.max())
+        log_s_p = torch.bmm(path, log_s_p.permute(0, 2, 1))
         # print(mu_p.shape, log_s_p.shape, mu_q.shape, log_s_q.shape, attn.shape)
         # exit()
         predicted_durations = self.duration_predictor(tokens, token_mask)
-        return predicted_durations, path, target_mask, z_p, log_s_p, mu_p, log_s_q
+        return z, predicted_durations, path, target_mask, z_p, log_s_p, mu_p, log_s_q
 
     def infer(self, inputs):
         return
@@ -574,7 +579,7 @@ class VITSLoss(nn.Module):
         log_scale_durations,
         duration_loss_weight,
         kl_loss_weight,
-        duration_loss_fn
+        duration_loss_fn,
     ):
         super().__init__()
         self.duration_loss_weight = duration_loss_weight
@@ -586,27 +591,35 @@ class VITSLoss(nn.Module):
             self.duration_loss = nn.MSELoss()
         else:
             raise NotADirectoryError(f"'L1' and 'MSE' supported for Duration Loss")
-
+        
     @staticmethod
     def calc_kl_loss(z_p, log_s_p, mu_p, log_s_q, target_mask):
-        print(z_p.mean(), log_s_p.mean(), mu_p.mean(), log_s_q.mean())
         z_p = z_p.float()
         log_s_q = log_s_q.float()
         mu_p = mu_p.float().permute(0, 2, 1)
         log_s_p = log_s_p.float().permute(0, 2, 1)
         target_mask = target_mask.float()
+        print("slog s q", log_s_q.min(), log_s_q.max())
         kl = log_s_p - log_s_q - 0.5
+        print("kl", kl.min(), kl.max())   
+        print("zp", z_p.min(), z_p.max()) 
+        print("mu p", mu_p.min(), mu_p.max()) 
+        print("log s p", log_s_p.min(), log_s_p.max()) 
         kl += 0.5 * ((z_p - mu_p) ** 2) * torch.exp(-2.0 * log_s_p)
+        print("kl", kl.min(), kl.max())   
         kl = torch.sum(kl * target_mask)
         loss = kl / torch.sum(target_mask)
+        exit()
         return loss
     
     def forward(
         self,
-        outputs,
-        inputs,
+        predictions,
+        hparams,
     ):
-        (   
+        hifigan_outputs, pred = predictions
+        (  
+            z,
             duration_predict, 
             duration_target,
             target_mask,
@@ -615,7 +628,16 @@ class VITSLoss(nn.Module):
             mu_p, 
             log_s_q, 
             
-        ) = outputs
+        ) = pred
+        
+        (
+            y_g_hat, 
+            y_slices, 
+            scores_fake, 
+            feats_fake, 
+            scores_real, 
+            feats_real
+        ) = hifigan_outputs
         
         # () = inputs
         
@@ -629,17 +651,42 @@ class VITSLoss(nn.Module):
         ) 
         losses["duration_loss"] = duration_loss * self.duration_loss_weight
         
-        kl_loss = self.calc_kl_loss(
+        kl_loss = self.calc_kl_loss( 
             z_p=z_p,
             log_s_p=log_s_p,
             mu_p=mu_p,
             log_s_q=log_s_q,
             target_mask=target_mask,
         )
-        losses["kl_loss"] = kl_loss * self.kl_loss_weight
         
-        losses["total_loss"] = sum(losses.values())
-        print(losses)
+        generator_loss = hparams.generator_loss(
+            y_g_hat, y_slices, scores_fake, feats_fake, feats_real
+        )
+        discriminator_loss = hparams.discriminator_loss(
+            scores_fake, scores_real
+        )
+        # print(generator_loss, loss_d)
+        losses["kl_loss"] = kl_loss * self.kl_loss_weight
+                
+        all_losses = {**losses, **generator_loss, **discriminator_loss}
+        all_losses["G_loss"] = all_losses["G_loss"] + all_losses["kl_loss"] + all_losses["duration_loss"]   
         return losses
         
 
+class VITS_slicer(nn.Module):
+    def __init__(self, num_slice_segment_frames):
+        super().__init__()
+        self.num_slice_segment_frames = num_slice_segment_frames
+    
+    def forward(self, z, z_lengths, y, hop_length):
+        y = y.unsqueeze(1)
+        z_segments = torch.zeros_like(z[:, :, :self.num_slice_segment_frames])
+        y_segments = torch.zeros_like(y[:, :, :self.num_slice_segment_frames * hop_length])
+        for idx in range(len(z_lengths)):
+            assert z_lengths[idx] > self.num_slice_segment_frames, f"lengths[idx] {z_lengths[idx]}"
+            start_index = torch.randint(0, z_lengths[idx] - self.num_slice_segment_frames, (1,))
+            end_index = start_index + self.num_slice_segment_frames
+            z_segments[idx] = z[idx, :, start_index:end_index]
+            y_segments[idx, :, :] = y[idx, :, start_index*hop_length:end_index*hop_length]
+        return z_segments, y_segments.to(z_segments.device)
+        
