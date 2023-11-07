@@ -42,7 +42,7 @@ class DiscreteHuBERT(HuBERT):
         Path (dir) of the downloaded model.
     kmeans_repo_id : str
         Huggingface repository if that contains the pretrained kmean model
-    Kmenas_filename : str
+    kmeans_filename : str
         Name of the file in HF repo that need to be downloaded.
     kmeans_cache_dir: str
         Path (dir) of the downloaded kmenas model.
@@ -76,9 +76,9 @@ class DiscreteHuBERT(HuBERT):
     >>> save_path = "savedir"
     >>> ssl_layer_num = -1
     >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
-    >>> Kmenas_filename = "Librispeech_hubert_kmeans_3.pt"
+    >>> kmeans_filename = "Librispeech_hubert_kmeans_3.pt"
     >>> kmeans_cache_dir="savedir"
-    >>> model = DiscreteHuBERT(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, Kmenas_filename=Kmenas_filename, kmeans_cache_dir=kmeans_cache_dir)
+    >>> model = DiscreteHuBERT(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, kmeans_filename=kmeans_filename, kmeans_cache_dir=kmeans_cache_dir)
     >>> embs, tokens = model(inputs)
     >>> embs.shape
     torch.Size([10, 1, 768])
@@ -90,7 +90,7 @@ class DiscreteHuBERT(HuBERT):
         self,
         source,
         save_path,
-        Kmenas_filename,
+        kmeans_filename,
         kmeans_cache_dir,
         kmeans_repo_id="speechbrain/SSL_Quantization",
         output_norm=False,
@@ -111,7 +111,7 @@ class DiscreteHuBERT(HuBERT):
         )
 
         self.kmeans = self.load_kmeans(
-            kmeans_repo_id, Kmenas_filename, kmeans_cache_dir
+            kmeans_repo_id, kmeans_filename, kmeans_cache_dir
         )
         self.vocabulary = self.kmeans.cluster_centers_
         self.ssl_layer_num = ssl_layer_num

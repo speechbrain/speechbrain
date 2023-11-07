@@ -116,6 +116,23 @@ def fetch_kmeans_model(
         init_size=None,
     )
 
+def train(model, train_set):
+        # Train and save Kmeans model
+    i =2
+    with tqdm(train_set, dynamic_ncols=True,) as t:
+        for batch in t:
+            batch = batch.to(run_opts["device"])
+            wavs, wav_lens = batch.sig
+            wavs, wav_lens = (
+                wavs.to(run_opts["device"]),
+                wav_lens.to(run_opts["device"]),
+            )
+            feats = hparams["ssl_model"](wavs, wav_lens)[
+                hparams["ssl_layer_num"]
+            ].flatten(end_dim=-2)
+            model = model.partial_fit(feats)
+
+
 
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
@@ -179,18 +196,6 @@ if __name__ == "__main__":
         checkpoint_path=checkpoint_path,
     )
 
-    # Train and save Kmeans model
-    with tqdm(train_set, dynamic_ncols=True,) as t:
-        for batch in t:
-            batch = batch.to(run_opts["device"])
-            wavs, wav_lens = batch.sig
-            wavs, wav_lens = (
-                wavs.to(run_opts["device"]),
-                wav_lens.to(run_opts["device"]),
-            )
-            feats = hparams["ssl_model"](wavs, wav_lens)[
-                hparams["ssl_layer_num"]
-            ].flatten(end_dim=-2)
-            kmeans = kmeans_model.partial_fit(feats)
+    train(kmeans_model,train_set)
 
     joblib.dump(kmeans_model, open(checkpoint_path, "wb"))
