@@ -1,7 +1,10 @@
-# MultiWOZ Response Generation with GPT2 Model.
-This folder contains the scripts to finetune a gpt based system using MultiWOZ for response generation task.
+# MultiWOZ Response Generation with LLM Model.
+This folder contains the scripts to finetune a LLM using MultiWOZ for response generation task.
 You can download MultiWOZ at https://github.com/budzianowski/multiwoz.
 The data will be automatically download in the specified data_folder.
+Supported LLM models are:
+ - GPT
+ - LLAMA2
 
 
 ## Installing Extra Dependencies
@@ -9,12 +12,14 @@ The data will be automatically download in the specified data_folder.
 Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 ```
+cd recipes/MultiWOZ/response_generation[LLM_model]
 pip install -r extra_requirements.txt
 ```
 
 # How to run
 ```
-python train_with_gpt.py hparams/train_gpt.yaml --data_folder=/your/data/folder
+cd recipes/MultiWOZ/response_generation[LLM_model]
+python train_with_[LLM_model].py hparams/train_[LLM_model].yaml --data_folder=/your/data/folder
 ```
 The data will be automatically download in the specified data_folder.
 
@@ -24,6 +29,7 @@ The data will be automatically download in the specified data_folder.
 | Model | Release | Hyperparams file | Test Cross-entropy Loss | Test PPL | Test BLEU 4| HuggingFace link | Full model link | GPUs |
 |:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
 | GPT2 | 2023-08-15 | train_gpt.yaml |  1.39 |  4.01 | 2.54e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-GPT-Response_Generation) | [model](https://www.dropbox.com/sh/vm8f5iavohr4zz9/AACrkOxXuxsrvJy4Cjpih9bQa?dl=0) | 1xV100 16GB |
+| LLAMA2 | 2023-10-15 | train_llama2.yaml |  1.39 |  4.01 | 2.54e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-GPT-Response_Generation) | [model](https://www.dropbox.com/sh/vm8f5iavohr4zz9/AACrkOxXuxsrvJy4Cjpih9bQa?dl=0) | 1xV100 16GB |
 
 
 
