@@ -31,7 +31,7 @@ skip_prep: False
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-    
+
 # history_window, i.e. how many user-system exchanges consider as context.
 max_history: 2
 

@@ -49,7 +49,6 @@ class ResGenBrain(sb.Brain):
         prompt_bos, _ = batch.prompt_bos
         reply_eos, reply_lens = batch.reply_eos
 
-
         loss = self.hparams.ce_loss(
             predictions.flatten(end_dim=-2), lm_labels.flatten()
         )
@@ -235,18 +234,15 @@ def dataio_prep(hparams, tokenizer):
     #  Define histoy pipeline:
     @sb.utils.data_pipeline.takes("history")
     @sb.utils.data_pipeline.provides(
-        "prompts",
-        "propmt_tokens_lists",
-        "prompt_ids",
-        "prompt_bos",
+        "prompts", "propmt_tokens_lists", "prompt_ids", "prompt_bos",
     )
     def history_pipeline(history):
         # add INST tokens to the history turns for turns associated with user.
         # BEFORE:  [ Hi how are you? ], [I'm fine, thanks]
         # AFTER:   [[INST] Hi how are you? [/INST]], [I'm fine, thanks]
-        
+
         def generate_prompt(idx_and_item):
-            index, item  = idx_and_item
+            index, item = idx_and_item
             if index % 2 == 0:
                 return "[INST] " + item + " [/INST]"
             else:
@@ -259,7 +255,6 @@ def dataio_prep(hparams, tokenizer):
         propmt_tokens_lists = [tokenizer.encode(turn) for turn in prompts]
         yield propmt_tokens_lists
 
-
         prompt_ids = propmt_tokens_lists[-history_window:]
         # concatenate every token into a single list
         # list(chain(*[[1, 2], [3, 4], [5]]))
@@ -269,16 +264,15 @@ def dataio_prep(hparams, tokenizer):
         yield prompt_ids
 
         # # create bos version for the input
-        prompt_bos = torch.cat((torch.tensor([tokenizer.bos_token_id]), prompt_ids))
+        prompt_bos = torch.cat(
+            (torch.tensor([tokenizer.bos_token_id]), prompt_ids)
+        )
         yield prompt_bos
 
     #  Define reply pipeline:
     @sb.utils.data_pipeline.takes("reply")
     @sb.utils.data_pipeline.provides(
-        "reply",
-        "reply_tokens_list",
-        "reply_ids",
-        "reply_eos",
+        "reply", "reply_tokens_list", "reply_ids", "reply_eos",
     )
     def reply_pipeline(reply):
         yield reply
@@ -286,29 +280,22 @@ def dataio_prep(hparams, tokenizer):
         reply_tokens_list = tokenizer.encode(reply)
         yield reply_tokens_list
 
-
         reply_ids = torch.LongTensor(reply_tokens_list)
         yield reply_ids
 
         # create eos version of the reply for lm_labels
-        reply_eos = torch.cat((reply_ids, torch.tensor([tokenizer.eos_token_id])))
+        reply_eos = torch.cat(
+            (reply_ids, torch.tensor([tokenizer.eos_token_id]))
+        )
         yield reply_eos
-
-
 
     # Define input_and_token_type_pipeline
     @sb.utils.data_pipeline.takes(
-        "prompt_ids",
-        "prompt_bos",
-        "reply_ids",
-        "reply_eos",
+        "prompt_ids", "prompt_bos", "reply_ids", "reply_eos",
     )
     @sb.utils.data_pipeline.provides("input_ids", "lm_labels")
     def input_and_token_type_pipeline(
-        prompt_ids,
-        prompt_bos,
-        reply_ids,
-        reply_eos,
+        prompt_ids, prompt_bos, reply_ids, reply_eos,
     ):
 
         # put history and reply together
@@ -320,10 +307,9 @@ def dataio_prep(hparams, tokenizer):
         # -100 is a special tokens that is ignored during the loss computation
         # the idea is to mask everything except the reply (withouth the speaker token)
         # N.B. we don't have bos in the input
-        lm_labels = (
-            [hparams["ignore_index"]] * prompt_ids.shape[0]
-            + reply_eos.tolist()
-        )
+        lm_labels = [hparams["ignore_index"]] * prompt_ids.shape[
+            0
+        ] + reply_eos.tolist()
         lm_labels = torch.LongTensor(lm_labels)
 
         yield lm_labels
@@ -359,7 +345,6 @@ def dataio_prep(hparams, tokenizer):
 
 # RECIPE BEGINS!
 if __name__ == "__main__":
-
 
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -401,13 +386,9 @@ if __name__ == "__main__":
         device=run_opts["device"]
     )
 
-    
-
     # Add special tokens to the tokenizer and resize model embedding
     add_special_tokens_(
-        hparams["llama2_model"].model,
-        tokenizer,
-        {"pad_token":"<pad>"},
+        hparams["llama2_model"].model, tokenizer, {"pad_token": "<pad>"},
     )
 
     class CustomPaddedBatch(PaddedBatch):
@@ -428,7 +409,6 @@ if __name__ == "__main__":
                 if k in [
                     "input_ids",
                     "prompt_bos",
-
                 ]:
                     pad_value = tokenizer.pad_token_id
                 elif k == "lm_labels":
