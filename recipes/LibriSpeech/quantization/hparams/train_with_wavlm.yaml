@@ -51,8 +51,8 @@ ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
 ####################
 num_clusters: 100
 init: k-means++
-max_iter: 100
-batch_size: 1000 # should be >= num_clusters
+max_iter: 1000
+batch_size: 100 # should be >= num_clusters
 tol: 0.0
 max_no_improvement: 100
 n_init: 20
