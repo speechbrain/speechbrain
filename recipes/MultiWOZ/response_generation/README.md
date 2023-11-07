@@ -29,7 +29,7 @@ The data will be automatically download in the specified data_folder.
 | Model | Release | Hyperparams file | Test Cross-entropy Loss | Test PPL | Test BLEU 4| HuggingFace link | Full model link | GPUs |
 |:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
 | GPT2 | 2023-08-15 | train_gpt.yaml |  1.39 |  4.01 | 2.54e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-GPT-Response_Generation) | [model](https://www.dropbox.com/sh/vm8f5iavohr4zz9/AACrkOxXuxsrvJy4Cjpih9bQa?dl=0) | 1xV100 16GB |
-| LLAMA2 | 2023-10-15 | train_llama2.yaml |  1.39 |  4.01 | 2.54e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-GPT-Response_Generation) | [model](https://www.dropbox.com/sh/vm8f5iavohr4zz9/AACrkOxXuxsrvJy4Cjpih9bQa?dl=0) | 1xV100 16GB |
+| LLAMA2 | 2023-10-15 | train_llama2.yaml |  1.13 |  2.90 | 7.45e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-Lamma2-Response_Generation) | [model](https://www.dropbox.com/sh/d093vsje1d7ijj9/AAA-nHEd_MwNEFJfBGLmXxJra?dl=0) | 1xV100 16GB |
 
 
 
