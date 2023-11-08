@@ -1,1 +1,4 @@
+accelerate
+bitsandbytes
+peft
 sacrebleu
