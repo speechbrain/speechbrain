@@ -117,6 +117,21 @@ class DiscreteHuBERT(HuBERT):
         self.ssl_layer_num = ssl_layer_num
 
     def load_kmeans(self, repo_id, filename, cache_dir):
+        """Load a Pretrained kmeans model from HF.
+
+        Arguments
+        ---------
+        repo_id : str
+           The hugingface repo id that contains the model.
+        filename : str
+            The name of the checkpoints in the repo that need to be downloaded.
+        cache_dir: str
+            Path (dir) of the downloaded model.
+        Returns:
+        ---------
+        kmeans_model : MiniBatchKMeans:
+            pretrained Kmeans  model loaded from the HF.
+        """
         kmeans_model = joblib.load(
             hf_hub_download(
                 repo_id=repo_id, filename=filename, cache_dir=cache_dir
