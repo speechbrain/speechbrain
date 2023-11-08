@@ -51,6 +51,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 try:
     import k2
@@ -458,6 +459,36 @@ class Aligner(abc.ABC):
 class CTCAligner(Aligner):
     """
     Aligner class for CTC models.
+    There are six methods designed to be applied by users directly:
+        * align_audio_to_tokens
+        * align_audio_to_words
+        * align_batch_to_tokens
+        * align_batch_to_words
+        * align_csv_to_tokens
+        * align_csv_to_words
+    For more details, please refer to the documentation of each method.
+
+    Here is an example of using CTCAligner:
+
+    >>> from speechbrain.pretrained import EncoderASR
+    >>> from speechbrain.k2_integration import CTCAligner
+    >>> asr_model = EncoderASR.from_hparams(source="speechbrain/asr-wav2vec2-librispeech", savedir="pretrained_models/asr-wav2vec2-librispeech")
+    >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    >>> aligner = CTCAligner(model=asr_model, tokenizer=asr_model.tokenizer, device=device)
+    >>> audio_files = ["samples/audio_samples/example1.wav", "samples/audio_samples/example2.wav"]
+    >>> transcripts = ["HELLO WORLD", "THIS IS SPEECHBRAIN"]
+    >>> # align one audio file to tokens
+    >>> # alignment = aligner.align_audio_to_tokens(audio_files[0], transcripts[0])
+    >>> # align one audio file to words
+    >>> # alignment = aligner.align_audio_to_words(audio_files[0], transcripts[0], frame_shift=0.02)
+    >>> # align a batch of audio files to tokens
+    >>> # alignments = aligner.align_batch_to_tokens(audio_files, transcripts)
+    >>> # align a batch of audio files to words
+    >>> # alignments = aligner.align_batch_to_words(audio_files, transcripts, frame_shift=0.02)
+    >>> # align a csv file to tokens
+    >>> # aligner.align_csv_to_tokens("samples/audio_samples/example.csv", "samples/audio_samples/example_token_alignment.txt")
+    >>> # align a csv file to words
+    >>> # aligner.align_csv_to_words("samples/audio_samples/example.csv", "samples/audio_samples/example_word_alignment.csv", frame_shift=0.02)
     """
 
     def __init__(
@@ -551,54 +582,3 @@ class CTCAligner(Aligner):
 
         return log_probs, lens, list(encoded_texts)
 
-
-def class_test():
-    audio_files = [
-        "/disk/scratch3/zzhao/data/librispeech/LibriSpeech/test-clean/1089/134686/1089-134686-0000.flac",
-        "/disk/scratch3/zzhao/data/librispeech/LibriSpeech/test-clean/1089/134686/1089-134686-0001.flac",
-        "/disk/scratch3/zzhao/data/librispeech/LibriSpeech/test-clean/1089/134686/1089-134686-0002.flac",
-        "/disk/scratch3/zzhao/data/librispeech/LibriSpeech/test-clean/1089/134686/1089-134686-0003.flac",
-    ]
-    trans = [
-        "HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND FAT MUTTON PIECES TO BE LADLED OUT IN THICK PEPPERED FLOUR FATTENED SAUCE",
-        "STUFF IT INTO YOU HIS BELLY COUNSELLED HIM",
-        "AFTER EARLY NIGHTFALL THE YELLOW LAMPS WOULD LIGHT UP HERE AND THERE THE SQUALID QUARTER OF THE BROTHELS",
-        "HELLO BERTIE ANY GOOD IN YOUR MIND",
-    ]
-
-    input_csv = "/disk/scratch3/zzhao/speechbrain/recipes/LibriSpeech/ASR/CTC/results/train_wav2vec2_char_k2/1368/test-clean-10.csv"
-    output_csv = "/disk/scratch3/zzhao/speechbrain/recipes/LibriSpeech/ASR/CTC/results/train_wav2vec2_char_k2/1368/test-clean-10-align.csv"
-    output_file = "/disk/scratch3/zzhao/speechbrain/recipes/LibriSpeech/ASR/CTC/results/train_wav2vec2_char_k2/1368/test-clean-10-align.txt"
-
-    from speechbrain.pretrained import EncoderASR
-
-    asr_model = EncoderASR.from_hparams(source="speechbrain/asr-wav2vec2-librispeech", savedir="pretrained_models/asr-wav2vec2-librispeech")
-    # device = torch.device("cuda")
-    # asr_model.to(device)
-    device = torch.device("cuda")
-
-    aligner = CTCAligner(asr_model, asr_model.tokenizer, device=device)
-
-    # test align_audio_to_tokens
-    align = aligner.align_audio_to_tokens(audio_files[0], trans[0])
-    logger.info(align)
-    # test align_audio_to_words
-    align = aligner.align_audio_to_words(audio_files[0], trans[0])
-    logger.info(align)
-
-    # test align_batch_to_tokens
-    align = aligner.align_batch_to_tokens(audio_files, trans)
-    logger.info(align)
-    # test align_batch_to_words
-    align = aligner.align_batch_to_words(audio_files, trans)
-    logger.info(align)
-
-    # test align_csv_to_tokens
-    aligner.align_csv_to_tokens(input_csv, output_file)
-    # test align_csv_to_words
-    aligner.align_csv_to_words(input_csv, output_csv)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    class_test()
