@@ -153,7 +153,7 @@ def train(model, train_set, kmeans_batch_size=1000):
         for batch in t:
             # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
             if len(features_list) >= kmeans_batch_size:
-                model = model.partial_fit(features_list)
+                model = model.fit(features_list)
                 features_list = []
             # extract features from the SSL model
             accumulate_and_extract_features(batch, features_list)
