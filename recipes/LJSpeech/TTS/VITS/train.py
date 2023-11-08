@@ -20,9 +20,10 @@ from speechbrain.pretrained import HIFIGAN
 from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
+from itertools import chain
 
 sys.path.append("/home/wtc7/Sathvik/speechbrain_imp//speechbrain/lobes/models/VITS.py")
-
+torch.backends.cudnn.enabled = False
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,22 @@ class VITSBrain(sb.Brain):
         """
         outputs = self.compute_forward(batch, sb.core.Stage.TRAIN)
         losses = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)
+        gen_loss = losses["G_loss"]
         
-        return outputs
+        self.optimizer_g.zero_grad()
+        gen_loss.backward()
+        self.optimizer_g.step()
+        
+        y_g_hat, y_slices = outputs[0][0], outputs[0][1]
+        dis_loss = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
+            "D_loss"
+        ]
+        
+        self.optimizer_d.zero_grad()
+        dis_loss.backward()
+        self.optimizer_d.step()
+        
+        return gen_loss.detach().cpu()
 
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
@@ -96,8 +111,9 @@ class VITSBrain(sb.Brain):
                 sch_g_class,
                 sch_d_class,
             ) = self.opt_class
-            print(opt_g_class)
-            self.optimizer_g = opt_g_class(self.modules.generator.parameters())
+            # print(self.modules.generator.parameters())
+            # exit()
+            self.optimizer_g = opt_g_class(chain(self.modules.generator.parameters(), self.modules.vits_mel_predict.parameters()))
             self.optimizer_d = opt_d_class(
                 self.modules.discriminator.parameters()
             )

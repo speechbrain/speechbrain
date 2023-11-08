@@ -79,7 +79,6 @@ class WN(nn.Module):
             else:
                 output = torch.add(output, res_skip_acts)
         output = output * x_mask
-        print(output.min(), output.max())
         return output
 
 
@@ -137,7 +136,6 @@ class PosteriorEncoder(nn.Module):
         mu, log_s = torch.split(x, self.out_features, dim=1)
         z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
         # print(z.mean(), mu.mean(), log_s.mean())
-        print(z.min(), z.max())
         return z, mu, log_s, x_mask
     
 class PriorEncoder(nn.Module):
@@ -199,7 +197,6 @@ class PriorEncoder(nn.Module):
         
         x_d = self.post_encoder(x.permute(0, 2, 1))
         mu, log_s = torch.split(x_d, self.out_features, dim=1)
-        print(mu.min(), mu.max())
         return x, mu, log_s, srcmask_inverted
 
 class StochasticDurationPredictor(nn.Module):
@@ -435,10 +432,10 @@ class VITS(nn.Module):
             neg_cent4 = torch.sum(-0.5 * (mu_p ** 2) * s_p_sq_r, [1], keepdim=True) 
             neg_cent = neg_cent1 + neg_cent2 + neg_cent3 + neg_cent4
             attn_mask = (torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)).squeeze().permute(0, 2, 1)
-            neg_cent = neg_cent * attn_mask
+            neg_cent = neg_cent * attn_mask     
             path = get_mas_path(
-                    attn=neg_cent, 
-                    mask=attn_mask,
+                    attn=neg_cent.permute(0, 2, 1), 
+                    mask=attn_mask.permute(0, 2, 1),
                     device=neg_cent.device,
                     dtype=neg_cent.dtype,
                 )
@@ -450,11 +447,14 @@ class VITS(nn.Module):
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
         z_p = self.flow_decoder(z, target_mask)
         path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)   
-        # print(mu_p.shape, log_s_p.shape, mu_q.shape, log_s_q.shape, attn.shape) 
-        print("mu p", mu_p.min(), mu_p.max())
-        mu_p = torch.bmm(path, mu_p.permute(0, 2, 1))    
-        print("mu p", mu_p.min(), mu_p.max())
-        log_s_p = torch.bmm(path, log_s_p.permute(0, 2, 1))
+
+        m_p = torch.einsum("klmn, kjm -> kjn", [path.unsqueeze(1), mu_p])
+        mu_p = torch.bmm(path.permute(0, 2, 1), mu_p.permute(0, 2, 1))    
+        
+        
+        # logs_p = torch.einsum("klmn, kjm -> kjn", [attn, logs_p])
+        
+        log_s_p = torch.bmm(path.permute(0, 2, 1), log_s_p.permute(0, 2, 1))
         # print(mu_p.shape, log_s_p.shape, mu_q.shape, log_s_q.shape, attn.shape)
         # exit()
         predicted_durations = self.duration_predictor(tokens, token_mask)
@@ -599,17 +599,10 @@ class VITSLoss(nn.Module):
         mu_p = mu_p.float().permute(0, 2, 1)
         log_s_p = log_s_p.float().permute(0, 2, 1)
         target_mask = target_mask.float()
-        print("slog s q", log_s_q.min(), log_s_q.max())
         kl = log_s_p - log_s_q - 0.5
-        print("kl", kl.min(), kl.max())   
-        print("zp", z_p.min(), z_p.max()) 
-        print("mu p", mu_p.min(), mu_p.max()) 
-        print("log s p", log_s_p.min(), log_s_p.max()) 
         kl += 0.5 * ((z_p - mu_p) ** 2) * torch.exp(-2.0 * log_s_p)
-        print("kl", kl.min(), kl.max())   
         kl = torch.sum(kl * target_mask)
         loss = kl / torch.sum(target_mask)
-        exit()
         return loss
     
     def forward(
@@ -642,7 +635,7 @@ class VITSLoss(nn.Module):
         # () = inputs
         
         losses = {}
-        duration_target = duration_target.permute(0, 2, 1).sum(-1)
+        duration_target = duration_target.sum(-1)
         duration_predict = duration_predict.squeeze()
         
         duration_loss = self.duration_loss(
@@ -669,8 +662,10 @@ class VITSLoss(nn.Module):
         losses["kl_loss"] = kl_loss * self.kl_loss_weight
                 
         all_losses = {**losses, **generator_loss, **discriminator_loss}
-        all_losses["G_loss"] = all_losses["G_loss"] + all_losses["kl_loss"] + all_losses["duration_loss"]   
-        return losses
+        # all_losses["G_loss"] = all_losses["G_loss"] + all_losses["kl_loss"] + all_losses["duration_loss"]   
+        all_losses["G_loss"] = all_losses["kl_loss"] + all_losses["duration_loss"]   
+
+        return all_losses
         
 
 class VITS_slicer(nn.Module):
