@@ -127,7 +127,7 @@ class VITSBrain(sb.Brain):
         """Evaluate one batch
         """
         out = self.compute_forward(batch, stage=stage)
-        losses = self.compute_objectives(out, batch, stage=stage)
+        losses = self.compute_objectives(out, batch, stage=stage, compute_losses="gen")
         gen_loss = losses["G_loss"]
         return gen_loss.detach().cpu()
 
@@ -229,47 +229,54 @@ class VITSBrain(sb.Brain):
         # At the end of validation, we can write
         if stage == sb.Stage.VALID:
             # Update learning rate
-            self.last_epoch = epoch
-            lr = self.hparams.noam_annealing.current_lr
-
-            # The train_logger writes a summary to stdout and to the logfile.
+            self.scheduler_g.step()
+            self.scheduler_d.step()
+            lr_g = self.optimizer_g.param_groups[-1]["lr"]
+            lr_d = self.optimizer_d.param_groups[-1]["lr"]
             self.hparams.train_logger.log_stats(  # 1#2#
-                stats_meta={"Epoch": epoch, "lr": lr},
+                stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
                 train_stats=self.last_loss_stats[sb.Stage.TRAIN],
                 valid_stats=self.last_loss_stats[sb.Stage.VALID],
             )
+            
+            if self.hparams.use_tensorboard:
+                self.tensorboard_logger.log_stats(
+                    stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
+                    train_stats=self.last_loss_stats[sb.Stage.TRAIN],
+                    valid_stats=self.last_loss_stats[sb.Stage.VALID],
+                )
+  
+   
+            
+
+            epoch_metadata = {
+                **{"epoch": epoch},
+                **self.last_loss_stats[sb.Stage.VALID],
+            }
+            
+            self.checkpointer.save_and_keep_only(
+                meta=epoch_metadata,
+                end_of_epoch=True,
+                min_keys=["loss"],
+                ckpt_predicate=(
+                    lambda ckpt: (
+                        ckpt.meta["epoch"]
+                        % self.hparams.keep_checkpoint_interval
+                        != 0
+                    )
+                )
+                if self.hparams.keep_checkpoint_interval is not None
+                else None,
+            )
+            
             output_progress_sample = (
                 self.hparams.progress_samples
                 and epoch % self.hparams.progress_samples_interval == 0
                 and epoch >= self.hparams.progress_samples_min_run
             )
-
+            
             if output_progress_sample:
-                logger.info("Saving predicted samples")
-                (
-                    inference_mel,
-                    mel_lens,
-                    inf_mel_spn_pred,
-                    mel_lens_spn_pred,
-                ) = self.run_inference()
-                self.hparams.progress_sample_logger.save(epoch)
-                self.run_vocoder(
-                    inference_mel, mel_lens, sample_type="with_spn"
-                )
-                self.run_vocoder(
-                    inf_mel_spn_pred, mel_lens_spn_pred, sample_type="no_spn"
-                )
-            # Save the current checkpoint and delete previous checkpoints.
-            # UNCOMMENT THIS
-            self.checkpointer.save_and_keep_only(
-                meta=self.last_loss_stats[stage], min_keys=["total_loss"],
-            )
-        # We also write statistics about test data spectogramto stdout and to the logfile.
-        if stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
-                {"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=self.last_loss_stats[sb.Stage.TEST],
-            )
+                pass
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
@@ -421,6 +428,12 @@ def main():
 
     vits_brain.input_encoder = input_encoder
     # Training
+    
+    if hparams["use_tensorboard"]:
+        vits_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
+            save_dir=hparams["output_folder"] + "/tensorboard"
+        )
+        
     vits_brain.fit(
         vits_brain.hparams.epoch_counter,
         datasets["train"],

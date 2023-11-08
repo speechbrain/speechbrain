@@ -13,13 +13,15 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/VITS/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-epochs: 1000
+epochs: 100
+keep_checkpoint_interval: 50
 train_spn_predictor_epochs: 8
 progress_samples: True
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_min_run: 10
 progress_samples_interval: 10
 progress_batch_sample_size: 4
+use_tensorboard: True
 
 #################################
 # Data files and pre-processing #
@@ -61,7 +63,7 @@ max_f0: 2093 #(torchaudio pyin values)
 learning_rate: 0.0001
 weight_decay: 0.9999
 max_grad_norm: 1.0
-batch_size: 20 #minimum 2
+batch_size: 24 #minimum 2
 adam_b1: 0.8
 adam_b2: 0.99
 
