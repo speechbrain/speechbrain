@@ -13,6 +13,7 @@ import csv
 import json
 import random
 import logging
+import torch
 import torchaudio
 import numpy as np
 from tqdm import tqdm
@@ -48,7 +49,7 @@ def prepare_ljspeech(
     pitch_n_fft=1024,
     pitch_hop_length=256,
     pitch_min_f0=65,
-    pitch_max_f0=2093,
+    pitch_max_f0=400,
     skip_prep=False,
     use_custom_cleaner=False,
     device="cpu",
@@ -129,7 +130,7 @@ def prepare_ljspeech(
     duration_folder = None
     pitch_folder = None
     # Setting up additional folders required for FastSpeech2
-    if model_name == "FastSpeech2":
+    if model_name is not None and "FastSpeech2" in model_name:
         # This step requires phoneme alignements to be present in the data_folder
         # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
@@ -147,8 +148,7 @@ def prepare_ljspeech(
         if not os.path.exists(duration_folder):
             os.makedirs(duration_folder)
 
-    # extract pitch for both Fastspeech2 and FastSpeech2WithAligner models
-    if "FastSpeech2" in model_name:
+        # extract pitch for both Fastspeech2 and FastSpeech2WithAligner models
         pitch_folder = os.path.join(data_folder, "pitch")
         if not os.path.exists(pitch_folder):
             os.makedirs(pitch_folder)
@@ -389,14 +389,13 @@ def prepare_json(
         g2p = GraphemeToPhoneme.from_hparams(
             "speechbrain/soundchoice-g2p", run_opts={"device": device}
         )
-    if "FastSpeech2" in model_name:
+    if model_name is not None and "FastSpeech2" in model_name:
         logger.info(
             "Computing pitch as required for FastSpeech2. This may take a while."
         )
 
     json_dict = {}
     for index in tqdm(seg_lst):
-
         # Common data preparation
         id = list(csv_reader)[index][0]
         wav = os.path.join(wavs_folder, f"{id}.wav")
@@ -413,7 +412,6 @@ def prepare_json(
 
         # FastSpeech2 specific data preparation
         if model_name == "FastSpeech2":
-
             audio, fs = torchaudio.load(wav)
 
             # Parses phoneme alignments
@@ -461,14 +459,24 @@ def prepare_json(
                 wavs_folder, pitch_folder
             )
             if not os.path.isfile(pitch_file):
-                pitch = torchaudio.functional.compute_kaldi_pitch(
+                pitch = torchaudio.functional.detect_pitch_frequency(
                     waveform=audio,
                     sample_rate=fs,
-                    frame_length=(pitch_n_fft / fs * 1000),
-                    frame_shift=(pitch_hop_length / fs * 1000),
-                    min_f0=pitch_min_f0,
-                    max_f0=pitch_max_f0,
-                )[0, :, 0]
+                    frame_time=(pitch_hop_length / fs),
+                    win_length=3,
+                    freq_low=pitch_min_f0,
+                    freq_high=pitch_max_f0,
+                ).squeeze(0)
+
+                # Concatenate last element to match duration.
+                pitch = torch.cat([pitch, pitch[-1].unsqueeze(0)])
+
+                # Mean and Variance Normalization
+                mean = 256.1732939688805
+                std = 328.319759158607
+
+                pitch = (pitch - mean) / std
+
                 pitch = pitch[: sum(duration)]
                 np.save(pitch_file, pitch)
 
@@ -491,15 +499,37 @@ def prepare_json(
                 wavs_folder, pitch_folder
             )
             if not os.path.isfile(pitch_file):
-                pitch = torchaudio.functional.compute_kaldi_pitch(
-                    waveform=audio,
-                    sample_rate=fs,
-                    frame_length=(pitch_n_fft / fs * 1000),
-                    frame_shift=(pitch_hop_length / fs * 1000),
-                    min_f0=pitch_min_f0,
-                    max_f0=pitch_max_f0,
-                )[0, :, 0]
+
+                if torchaudio.__version__ < "2.1":
+                    pitch = torchaudio.functional.compute_kaldi_pitch(
+                        waveform=audio,
+                        sample_rate=fs,
+                        frame_length=(pitch_n_fft / fs * 1000),
+                        frame_shift=(pitch_hop_length / fs * 1000),
+                        min_f0=pitch_min_f0,
+                        max_f0=pitch_max_f0,
+                    )[0, :, 0]
+                else:
+                    pitch = torchaudio.functional.detect_pitch_frequency(
+                        waveform=audio,
+                        sample_rate=fs,
+                        frame_time=(pitch_hop_length / fs),
+                        win_length=3,
+                        freq_low=pitch_min_f0,
+                        freq_high=pitch_max_f0,
+                    ).squeeze(0)
+
+                    # Concatenate last element to match duration.
+                    pitch = torch.cat([pitch, pitch[-1].unsqueeze(0)])
+
+                    # Mean and Variance Normalization
+                    mean = 256.1732939688805
+                    std = 328.319759158607
+
+                    pitch = (pitch - mean) / std
+
                 np.save(pitch_file, pitch)
+
             phonemes = _g2p_keep_punctuations(g2p, label)
             # Updates data for the utterance
             json_dict[id].update({"phonemes": phonemes})
@@ -514,26 +544,26 @@ def prepare_json(
 
 def get_alignment(tier, sampling_rate, hop_length, last_phoneme_flags):
     """
-  Returns phonemes, phoneme durations (in frames), start time (in seconds), end time (in seconds).
-  This function is adopted from https://github.com/ming024/FastSpeech2/blob/master/preprocessor/preprocessor.py
+    Returns phonemes, phoneme durations (in frames), start time (in seconds), end time (in seconds).
+    This function is adopted from https://github.com/ming024/FastSpeech2/blob/master/preprocessor/preprocessor.py
 
-  Arguments
-  ---------
-  tier : tgt.core.IntervalTier
-      For an utterance, contains Interval objects for phonemes and their start time and end time in seconds
-  sampling_rate : int
-      Sample rate if audio signal
-  hop_length : int
-      Hop length for duration computation
-  last_phoneme_flags : list
-      List of (phoneme, flag) tuples with flag=1 if the phoneme is the last phoneme else flag=0
+    Arguments
+    ---------
+    tier : tgt.core.IntervalTier
+        For an utterance, contains Interval objects for phonemes and their start time and end time in seconds
+    sampling_rate : int
+        Sample rate if audio signal
+    hop_length : int
+        Hop length for duration computation
+    last_phoneme_flags : list
+        List of (phoneme, flag) tuples with flag=1 if the phoneme is the last phoneme else flag=0
 
 
-  Returns
-  -------
-  (phones, durations, start_time, end_time) : tuple
-      The phonemes, durations, start time, and end time for an utterance
-  """
+    Returns
+    -------
+    (phones, durations, start_time, end_time) : tuple
+        The phonemes, durations, start time, and end time for an utterance
+    """
 
     sil_phones = ["sil", "sp", "spn", ""]
 
@@ -588,23 +618,23 @@ def get_alignment(tier, sampling_rate, hop_length, last_phoneme_flags):
 
 def get_last_phoneme_info(words_seq, phones_seq):
     """This function takes word and phoneme tiers from a TextGrid file as input
-  and provides a list of tuples for the phoneme sequence indicating whether
-  each of the phonemes is the last phoneme of a word or not.
+    and provides a list of tuples for the phoneme sequence indicating whether
+    each of the phonemes is the last phoneme of a word or not.
 
-  Each tuple of the returned list has this format: (phoneme, flag)
+    Each tuple of the returned list has this format: (phoneme, flag)
 
 
-  Arguments
-  ---------
-  words_seq :
-      word tier from a TextGrid file
-  phones_seq :
-      phoneme tier from a TextGrid file
+    Arguments
+    ---------
+    words_seq :
+        word tier from a TextGrid file
+    phones_seq :
+        phoneme tier from a TextGrid file
 
-  Returns
-  -------
-  last_phoneme_flags : list
-      each tuple of the returned list has this format: (phoneme, flag)
+    Returns
+    -------
+    last_phoneme_flags : list
+        each tuple of the returned list has this format: (phoneme, flag)
     """
 
     # Gets all phoneme objects for the entire sequence

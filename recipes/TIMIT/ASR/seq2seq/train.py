@@ -6,7 +6,11 @@ Greedy search is using for validation, while beamsearch is used at test time to
 improve the system performance.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/TIMIT
+> python train.py hparams/train.yaml --data_folder /path/to/TIMIT --jit
+
+Note on Compilation:
+Enabling the just-in-time (JIT) compiler with --jit significantly improves code performance,
+resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
 
 Authors
  * Mirco Ravanelli 2020
@@ -64,6 +68,7 @@ class ASR(sb.Brain):
         hyps = None
         if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.valid_searcher(x, wav_lens)
+
         elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_searcher(x, wav_lens)
 

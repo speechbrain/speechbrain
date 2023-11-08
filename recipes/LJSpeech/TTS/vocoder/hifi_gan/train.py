@@ -48,8 +48,7 @@ class HifiGanBrain(sb.Brain):
         return (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes and combines generator and discriminator losses
-        """
+        """Computes and combines generator and discriminator losses"""
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
@@ -64,7 +63,7 @@ class HifiGanBrain(sb.Brain):
 
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
         loss_g = self.hparams.generator_loss(
-            y_hat, y, scores_fake, feats_fake, feats_real
+            stage, y_hat, y, scores_fake, feats_fake, feats_real
         )
         loss_d = self.hparams.discriminator_loss(scores_fake, scores_real)
         loss = {**loss_g, **loss_d}
@@ -72,8 +71,7 @@ class HifiGanBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        """Train discriminator and generator adversarially
-        """
+        """Train discriminator and generator adversarially"""
 
         batch = batch.to(self.device)
         y, _ = batch.sig
@@ -104,8 +102,7 @@ class HifiGanBrain(sb.Brain):
         return loss_g.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
-        """Evaluate one batch
-        """
+        """Evaluate one batch"""
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
@@ -172,8 +169,7 @@ class HifiGanBrain(sb.Brain):
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)
-        """
+        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)"""
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.scheduler_g.step()
@@ -334,14 +330,12 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -352,7 +346,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    sys.path.append("../../")
     from ljspeech_prepare import prepare_ljspeech
 
     sb.utils.distributed.run_on_main(
