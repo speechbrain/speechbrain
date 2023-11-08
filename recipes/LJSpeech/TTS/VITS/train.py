@@ -23,7 +23,7 @@ from speechbrain.utils.data_utils import scalarize
 from itertools import chain
 
 sys.path.append("/home/wtc7/Sathvik/speechbrain_imp//speechbrain/lobes/models/VITS.py")
-torch.backends.cudnn.enabled = False
+torch.backends.cudnn.enabled = True
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,21 @@ class VITSBrain(sb.Brain):
 
         # Forward pass for the VITS module
         pred = self.modules.vits_mel_predict(inputs1)
+        # num_params = sum(p.numel() for p in self.modules.vits_mel_predict.parameters() if p.requires_grad)
+        # num_paramsg = sum(p.numel() for p in self.modules.generator.parameters() if p.requires_grad)
+        # num_paramsd = sum(p.numel() for p in self.modules.discriminator.parameters() if p.requires_grad)
+        # print(num_params / 1000000, num_paramsg / 1000000, num_paramsd / 1000000)
+        # num_params_pe = sum(p.numel() for p in self.modules.vits_mel_predict.prior_encoder.parameters() if p.requires_grad)
+        # num_params_poe = sum(p.numel() for p in self.modules.vits_mel_predict.posterior_encoder.parameters() if p.requires_grad)
+        # num_params_dp = sum(p.numel() for p in self.modules.vits_mel_predict.duration_predictor.parameters() if p.requires_grad)
+        # num_params_fd = sum(p.numel() for p in self.modules.vits_mel_predict.flow_decoder.parameters() if p.requires_grad)
+        # print(self.modules.vits_mel_predict.flow_decoder)
+        # print(self.modules.discriminator)
+        # print("pe", num_params_pe / 1000000)
+        # print("poe", num_params_poe / 1000000)
+        # print("dp", num_params_dp / 1000000)
+        # print("fd", num_params_fd / 1000000)
+        # exit()
         z_slices, y_slices = self.hparams.vits_random_slicer(
             z=pred[0], 
             z_lengths=inputs1[-1],
@@ -81,23 +96,39 @@ class VITSBrain(sb.Brain):
         loss: torch.Tensor
             detached loss
         """
+        
+        
         outputs = self.compute_forward(batch, sb.core.Stage.TRAIN)
-        losses = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)
+        
+        #train discriminator
+        losses = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN, compute_losses="dis")
+        dis_loss = losses["D_loss"]
+        
+        self.optimizer_d.zero_grad()
+        dis_loss.backward()
+        self.optimizer_d.step()
+        
+        #train generator
+        y_g_hat, y_slices = outputs[0][0], outputs[0][1]
+        scores_fake, feats_fake = self.modules.discriminator(y_g_hat)
+        scores_real, feats_real = self.modules.discriminator(y_slices)
+        outputs2 = ((y_g_hat, y_slices, scores_fake, feats_fake, scores_real, feats_real), outputs[1])
+        losses = self.compute_objectives(outputs2, batch, sb.core.Stage.TRAIN, compute_losses="gen")
         gen_loss = losses["G_loss"]
         
         self.optimizer_g.zero_grad()
         gen_loss.backward()
         self.optimizer_g.step()
         
-        y_g_hat, y_slices = outputs[0][0], outputs[0][1]
-        dis_loss = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
-            "D_loss"
-        ]
         
-        self.optimizer_d.zero_grad()
-        dis_loss.backward()
-        self.optimizer_d.step()
-        
+        return gen_loss.detach().cpu()
+
+    def evaluate_batch(self, batch, stage):
+        """Evaluate one batch
+        """
+        out = self.compute_forward(batch, stage=stage)
+        losses = self.compute_objectives(out, batch, stage=stage)
+        gen_loss = losses["G_loss"]
         return gen_loss.detach().cpu()
 
     def init_optimizers(self):
@@ -139,7 +170,7 @@ class VITSBrain(sb.Brain):
             self.optimizer_g.zero_grad(set_to_none)
             self.optimizer_d.zero_grad(set_to_none)
 
-    def compute_objectives(self, predictions, batch, stage):
+    def compute_objectives(self, predictions, batch, stage, compute_losses):
         """Computes the loss given the predicted and targeted outputs.
         Arguments
         ---------
@@ -154,12 +185,11 @@ class VITSBrain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        x1, x2, y, metadata = self.batch_to_device(batch, return_metadata=True)
         # self.last_batch = [x[0], y[-2], y[-3], predictions[0], *metadata]
         # self._remember_sample([x[0], *y, *metadata], predictions)
         
         loss = self.hparams.criterion(
-            predictions, self.hparams
+            predictions, self.hparams, compute_losses
         )
         self.last_loss_stats[stage] = scalarize(loss)
         return loss

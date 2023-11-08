@@ -609,19 +609,10 @@ class VITSLoss(nn.Module):
         self,
         predictions,
         hparams,
+        compute_losses,
     ):
         hifigan_outputs, pred = predictions
-        (  
-            z,
-            duration_predict, 
-            duration_target,
-            target_mask,
-            z_p, 
-            log_s_p,
-            mu_p, 
-            log_s_q, 
-            
-        ) = pred
+        
         
         (
             y_g_hat, 
@@ -635,35 +626,53 @@ class VITSLoss(nn.Module):
         # () = inputs
         
         losses = {}
-        duration_target = duration_target.sum(-1)
-        duration_predict = duration_predict.squeeze()
         
-        duration_loss = self.duration_loss(
+        if compute_losses == "gen":
+            
+            (  
+            z,
             duration_predict, 
-            duration_target
-        ) 
-        losses["duration_loss"] = duration_loss * self.duration_loss_weight
-        
-        kl_loss = self.calc_kl_loss( 
-            z_p=z_p,
-            log_s_p=log_s_p,
-            mu_p=mu_p,
-            log_s_q=log_s_q,
-            target_mask=target_mask,
-        )
-        
-        generator_loss = hparams.generator_loss(
-            y_g_hat, y_slices, scores_fake, feats_fake, feats_real
-        )
-        discriminator_loss = hparams.discriminator_loss(
-            scores_fake, scores_real
-        )
-        # print(generator_loss, loss_d)
-        losses["kl_loss"] = kl_loss * self.kl_loss_weight
-                
-        all_losses = {**losses, **generator_loss, **discriminator_loss}
-        # all_losses["G_loss"] = all_losses["G_loss"] + all_losses["kl_loss"] + all_losses["duration_loss"]   
-        all_losses["G_loss"] = all_losses["kl_loss"] + all_losses["duration_loss"]   
+            duration_target,
+            target_mask,
+            z_p, 
+            log_s_p,
+            mu_p, 
+            log_s_q, 
+            
+            ) = pred
+            
+            duration_target = duration_target.sum(-1)
+            duration_predict = duration_predict.squeeze()
+            
+            duration_loss = self.duration_loss(
+                duration_predict, 
+                duration_target
+            ) 
+            losses["duration_loss"] = duration_loss * self.duration_loss_weight
+            
+            kl_loss = self.calc_kl_loss( 
+                z_p=z_p,
+                log_s_p=log_s_p,
+                mu_p=mu_p,
+                log_s_q=log_s_q,
+                target_mask=target_mask,
+            )
+            
+            generator_loss = hparams.generator_loss(
+                y_g_hat, y_slices, scores_fake, feats_fake, feats_real
+            )
+            
+            losses["kl_loss"] = kl_loss * self.kl_loss_weight
+            all_losses = {**losses, **generator_loss}
+            all_losses["G_loss"] = all_losses["kl_loss"] + all_losses["duration_loss"]   
+            
+        elif compute_losses == "dis":
+            discriminator_loss = hparams.discriminator_loss(
+                scores_fake, scores_real
+            )
+            all_losses = discriminator_loss
+        else:
+            raise NotImplementedError(f"{compute_losses} not implemented")
 
         return all_losses
         

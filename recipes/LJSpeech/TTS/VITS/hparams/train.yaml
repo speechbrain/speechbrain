@@ -61,7 +61,7 @@ max_f0: 2093 #(torchaudio pyin values)
 learning_rate: 0.0001
 weight_decay: 0.9999
 max_grad_norm: 1.0
-batch_size: 16 #minimum 2
+batch_size: 20 #minimum 2
 adam_b1: 0.8
 adam_b2: 0.99
 
@@ -74,7 +74,7 @@ padding_idx: 0
 prior_encoder_in_features: 192
 prior_encoder_out_features: 192
 prior_encoder_hidden_features: 192
-prior_encoder_ffn_features: 512
+prior_encoder_ffn_features: 768
 prior_encoder_num_heads: 2
 prior_encoder_num_layers: 6
 prior_encoder_attn_type: regularMHA
@@ -90,11 +90,11 @@ duration_predictor_hidden_features: 192
 duration_predictor_kernel_size: 3
 duration_predictor_dropout: 0.1
 flow_hidden_features: 192
-WN_flow_kernel_size: 7
-WN_flow_dilation_rate: 3
-WN_flow_num_layers: 12
+WN_flow_kernel_size: 5
+WN_flow_dilation_rate: 1
+WN_flow_num_layers: 4
 flow_mean_only: True
-num_flows: 8
+num_flows: 4
 flow_dropout: 0.1
 sdp: False
 
