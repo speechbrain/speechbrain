@@ -65,6 +65,47 @@ except ImportError:
 class Aligner(abc.ABC):
     """
     Abstract class for aligner.
+
+    To implement your own aligner, you need to implement two methods:
+        1. encode_texts: encode texts (List[str]) to a list of lists of token indexes (List[List[int]]).
+        2. get_log_prob_and_targets: get log-probabilities (torch.Tensor), its length (torch.Tensor) and targets (List[List[int]])
+
+    The align method is implemented in the Aligner class, so users do not need to implement it.
+    We support three different ways of conducting force alignment:
+        1. One audio file and one transcript at a time.
+        2. A batch of audio files and transcripts.
+        3. A csv file containing the audio file paths and transcripts.
+
+    When token-level alignment is conducted, for one single audio file,
+    the aligning method will return a list of integers,
+    where each integer represents the index of the token in the tokeniser's vocabulary.
+    For example, if the tokeniser's vocabulary is ['<blank>', '<unk>', 'a', 'b', 'c'],
+    then the returned list of integers may look like [0, 1, 2, 3, 4].
+
+    For a batch of audio files, the aligning method will return a list of lists of integers,
+    where each integer represents the index of the token in the tokeniser's vocabulary.
+    For example, if the tokeniser's vocabulary is ['<blank>', '<unk>', 'a', 'b', 'c'],
+    then the returned list of lists of integers may look like [[0, 1, 2, 3, 4], [0, 1, 2, 3, 4]].
+
+    For an input of csv file, the aligning method will return a dictionary (Dict[str, List[int]]),
+    where the keys are the IDs of the audio files and the values are the list of token indexes.
+
+    When word-level alignment is conducted, for one single audio file,
+    the aligning method will return a list of tuples,
+    where each tuple represents (start_frame (int, including), end_frame (int, including), word (str)).
+    For example, if the transcript is 'hello word', and there are 20 frames in the audio file,
+    then the returned list of tuples may look like [(3, 10, 'hello'), (11, 16, 'word')].
+    If the frame_shift for the method, align_csv_word, is None, then the start and end will be in frames.
+    If the frame_shift for the method, align_csv_word, is not None, then the start and end will be in seconds.
+
+    For a batch of audio files, the aligning method will return a list of lists of tuples,
+    where each tuple represents (start_frame (int, including), end_frame (int, including), word (str)).
+    For example, if the transcript is ['hello world', 'hello speechbrain'], and there are 20 frames in each audio file,
+    then the returned list of lists of tuples may look like [[(3, 10, 'hello'), (11, 16, 'world')], [(3, 10, 'hello'), (11, 20, 'speechbrain')]].
+
+    For an input of csv file, the aligning method will return nothing but save the alignment results to a csv file.
+    The columns of the csv file are ['ID', 'word', 'start', 'end'], and note that the start and end are in seconds,
+    if the frame_shift is not None, else the start and end will be in frames.
     """
     @abc.abstractmethod
     def encode_texts(self, texts: List[str]) -> List[List[int]]:
@@ -471,7 +512,7 @@ class CTCAligner(Aligner):
     Here is an example of using CTCAligner:
 
     >>> from speechbrain.pretrained import EncoderASR
-    >>> from speechbrain.k2_integration import CTCAligner
+    >>> from speechbrain.k2_integration.align import CTCAligner
     >>> asr_model = EncoderASR.from_hparams(source="speechbrain/asr-wav2vec2-librispeech", savedir="pretrained_models/asr-wav2vec2-librispeech")
     >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     >>> aligner = CTCAligner(model=asr_model, tokenizer=asr_model.tokenizer, device=device)
