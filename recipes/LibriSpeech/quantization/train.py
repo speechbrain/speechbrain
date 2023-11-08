@@ -70,6 +70,24 @@ def dataio_prepare(hparams):
     return train_data
 
 
+def accumulate_and_extract_features(batch, features_list):
+    """ Extract features (output of SSL model) and acculamte them on cpu to be used for clustering.
+    Args:
+        batch: single batch of data.
+        features_list (list):   accumulate features list.
+    """
+    batch = batch.to(run_opts["device"])
+    wavs, wav_lens = batch.sig
+    wavs, wav_lens = (
+        wavs.to(run_opts["device"]),
+        wav_lens.to(run_opts["device"]),
+    )
+    feats = hparams["ssl_model"](wavs, wav_lens)[
+        hparams["ssl_layer_num"]
+    ].flatten(end_dim=-2)
+    features_list.extend(feats.to("cpu").detach().numpy())
+
+
 def fetch_kmeans_model(
     n_clusters,
     init,
@@ -100,7 +118,12 @@ def fetch_kmeans_model(
         MiniBatchKMeans: a k-means clustering model with specified parameters.
     """
     if os.path.exists(checkpoint_path):
+        logger.info(f"The checkpoint is loaded from {checkpoint_path}.")
         return joblib.load(checkpoint_path)
+
+    logger.info(
+        f"No checkpoint is found at {checkpoint_path}. New model is initialized for training."
+    )
     return MiniBatchKMeans(
         n_clusters=n_clusters,
         init=init,
@@ -117,24 +140,23 @@ def fetch_kmeans_model(
     )
 
 
-def train(model, train_set):
+def train(model, train_set, kmeans_batch_size=1000):
     """Train a  Kmeans model .
     Args:
         model (MiniBatchKMeans): the initial kmenas model for training.
         train_set (Dataloader):   Batches of tarining data.
+        kmeans_batch_size (int): Size of the mini batches.
     """
+    logger.info("Start training kmeans model.")
+    features_list = []
     with tqdm(train_set, dynamic_ncols=True,) as t:
         for batch in t:
-            batch = batch.to(run_opts["device"])
-            wavs, wav_lens = batch.sig
-            wavs, wav_lens = (
-                wavs.to(run_opts["device"]),
-                wav_lens.to(run_opts["device"]),
-            )
-            feats = hparams["ssl_model"](wavs, wav_lens)[
-                hparams["ssl_layer_num"]
-            ].flatten(end_dim=-2)
-            model = model.partial_fit(feats)
+            # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
+            if len(features_list) >= kmeans_batch_size:
+                model = model.partial_fit(features_list)
+                features_list = []
+            # extract features from the SSL model
+            accumulate_and_extract_features(batch, features_list)
 
 
 if __name__ == "__main__":
@@ -199,5 +221,7 @@ if __name__ == "__main__":
     )
 
     # Train and save Kmeans model
-    train(kmeans_model, train_set)
+    train(kmeans_model, train_set, hparams["kmeans_batch_size"])
+
+    logger.info(f"Saving kmeans model at {checkpoint_path}.")
     joblib.dump(kmeans_model, open(checkpoint_path, "wb"))

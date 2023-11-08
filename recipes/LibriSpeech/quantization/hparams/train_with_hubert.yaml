@@ -30,6 +30,7 @@ freeze_feature_extractor: True
 freeze_ssl: True
 ssl_folder: !ref <save_folder>/hubert_checkpoint
 ssl_layer_num: 3
+batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
 
 sorting: ascending
 
@@ -52,7 +53,7 @@ ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
 num_clusters: 100
 init: k-means++
 max_iter: 100
-batch_size: 1000 # should be >= num_clusters
+kmeans_batch_size: 1000 # should be >= num_clusters
 tol: 0.0
 max_no_improvement: 100
 n_init: 20
