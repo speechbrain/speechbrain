@@ -24,14 +24,14 @@ logger = logging.getLogger(__name__)
 
 
 def lattice_path_to_textid(
-    best_path: k2.Fsa, return_ragged: bool = False
+    best_paths: k2.Fsa, return_ragged: bool = False
 ) -> Union[List[List[int]], k2.RaggedTensor]:
     """Extract the texts (as word IDs) from the best-path FSAs.
 
     Arguments
     ---------
-    best_path: k2.Fsa
-        A k2.Fsa with best_path.arcs.num_axes() == 3, i.e.
+    best_paths: k2.Fsa
+        A k2.Fsa with best_paths.arcs.num_axes() == 3, i.e.
         containing multiple FSAs, which is expected to be the result
         of k2.shortest_path (otherwise the returned values won't
         be meaningful).
@@ -44,11 +44,11 @@ def lattice_path_to_textid(
     Returns a list of lists of int, containing the label sequences we
     decoded.
     """
-    if isinstance(best_path.aux_labels, k2.RaggedTensor):
+    if isinstance(best_paths.aux_labels, k2.RaggedTensor):
         # remove 0's and -1's.
-        aux_labels = best_path.aux_labels.remove_values_leq(0)
+        aux_labels = best_paths.aux_labels.remove_values_leq(0)
         # TODO: change arcs.shape() to arcs.shape
-        aux_shape = best_path.arcs.shape().compose(aux_labels.shape)
+        aux_shape = best_paths.arcs.shape().compose(aux_labels.shape)
 
         # remove the states and arcs axes.
         aux_shape = aux_shape.remove_axis(1)
@@ -56,8 +56,8 @@ def lattice_path_to_textid(
         aux_labels = k2.RaggedTensor(aux_shape, aux_labels.values)
     else:
         # remove axis corresponding to states.
-        aux_shape = best_path.arcs.shape().remove_axis(1)
-        aux_labels = k2.RaggedTensor(aux_shape, best_path.aux_labels)
+        aux_shape = best_paths.arcs.shape().remove_axis(1)
+        aux_labels = k2.RaggedTensor(aux_shape, best_paths.aux_labels)
         # remove 0's and -1's.
         aux_labels = aux_labels.remove_values_leq(0)
 
@@ -68,12 +68,12 @@ def lattice_path_to_textid(
         return aux_labels.tolist()
 
 
-def lattice_path_to_text(best_path: k2.Fsa, word_table) -> List[str]:
+def lattice_paths_to_text(best_paths: k2.Fsa, word_table) -> List[str]:
     """Convert the best path to a list of strings.
 
     Arguments
     ---------
-    best_path: k2.Fsa
+    best_paths: k2.Fsa
         It is the path in the lattice with the highest score for a
         given utterance.
 
@@ -82,7 +82,7 @@ def lattice_path_to_text(best_path: k2.Fsa, word_table) -> List[str]:
     A list of strings, each of which is the decoding result of the
     corresponding utterance.
     """
-    hyps: List[List[int]] = lattice_path_to_textid(best_path, return_ragged=False)
+    hyps: List[List[int]] = lattice_path_to_textid(best_paths, return_ragged=False)
     texts = []
     for wids in hyps:
         texts.append(" ".join([word_table[wid] for wid in wids]))

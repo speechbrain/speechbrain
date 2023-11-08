@@ -138,7 +138,7 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TEST or stage == sb.Stage.VALID:
             for k, path in paths.items():
-                predicted_texts = sbk2.utils.lattice_path_to_text(path, self.lexicon.word_table)
+                predicted_texts = sbk2.utils.lattice_paths_to_text(path, self.lexicon.word_table)
 
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
                 target_words = [wrd.split(" ") for wrd in texts]
