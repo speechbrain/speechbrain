@@ -38,9 +38,15 @@ except ModuleNotFoundError:
 try:
     import sklearn  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/huggingface_transformers/discrete_hubert.py")
-    collect_ignore.append("speechbrain/lobes/models/huggingface_transformers/discrete_wav2vec2.py")
-    collect_ignore.append("speechbrain/lobes/models/huggingface_transformers/discrete_wavlm.py")
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/discrete_hubert.py"
+    )
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/discrete_wav2vec2.py"
+    )
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/discrete_wavlm.py"
+    )
 try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
