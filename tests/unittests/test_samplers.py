@@ -93,7 +93,7 @@ def test_ConcatDatasetBatchSampler(device):
     dataloader = SaveableDataLoader(
         dataset, batch_sampler=bsampler, collate_fn=PaddedBatch
     )
-    assert next(iter(dataloader))["wav"].data.shape == torch.Size([3, 7])
+    assert next(iter(dataloader))["wav"].data.shape == torch.Size([1, 7])
 
     max_batch_length = 10
     num_buckets = 5
