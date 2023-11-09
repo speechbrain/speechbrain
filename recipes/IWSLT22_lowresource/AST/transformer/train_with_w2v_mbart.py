@@ -121,9 +121,9 @@ class ST(sb.core.Brain):
         self.adam_optimizer = self.hparams.adam_opt_class(
             self.hparams.model.parameters()
         )
-        
+
         self.optimizers_dict = {"model_optimizer": self.adam_optimizer}
-        
+
         # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
@@ -137,7 +137,7 @@ class ST(sb.core.Brain):
                 self.modules.mBART.parameters()
             )
             self.optimizers_dict["mbart_optimizer"] = self.mbart_optimizer
-    
+
     def on_stage_start(self, stage, epoch):
         """Gets called when a stage (either training, validation, test) starts."""
         self.bleu_metric = self.hparams.bleu_computer()
