@@ -64,8 +64,10 @@ def get_decoding(
         hparams.get("decoding_method") == "whole-lattice-rescoring"
     )
 
+    caching = None if "caching" in hparams and hparams["caching"] == False else hparams["output_folder"]
+
     if compose_HL_with_G or use_G_rescoring:
-        logger.info("Converting arpa LM(s) to FST(s)")
+        arpa_cache = {"cache": False} if caching==None else {}
         G_path = Path(hparams["lm_dir"]) / hparams["G_fst_output_name"]
         G_rescoring_path = (
             Path(hparams["lm_dir"]) / hparams["G_rescoring_fst_output_name"]
@@ -83,16 +85,16 @@ def get_decoding(
                     + ([ G_rescoring_path] if use_G_rescoring else []),
                 "lms_ngram_orders":
                       ([ 3 ] if compose_HL_with_G else [])
-                    + ([4] if use_G_rescoring else [])
+                    + ([4] if use_G_rescoring else []),
+                **arpa_cache,
             },
         )
 
     if compose_HL_with_G:
-        logger.info(f"Loading G LM: {G_path}")
-        G = utils.load_G(G_path)
-        decoding_graph = graphCompiler.compile_HLG(G, cache_to=hparams["output_folder"])
+        G = utils.load_G(G_path, cache=caching!=None)
+        decoding_graph = graphCompiler.compile_HLG(G, cache_to=caching)
     else:
-        decoding_graph = graphCompiler.compile_HL(cache_to=hparams["output_folder"])
+        decoding_graph = graphCompiler.compile_HL(cache_to=caching)
 
     if not isinstance(hparams["rescoring_lm_scale"], list):
         hparams["rescoring_lm_scale"] = [hparams["rescoring_lm_scale"]]
@@ -107,7 +109,7 @@ def get_decoding(
             if G_rescoring is None:
                 logger.info(f"Decoding method: whole-lattice-rescoring")
                 logger.info(f"Loading rescoring LM: {G_rescoring_path}")
-                G_rescoring_pt = utils.load_G(G_rescoring_path)
+                G_rescoring_pt = utils.load_G(G_rescoring_path, cache=caching!=None)
                 graphCompiler.lexicon.remove_G_rescoring_disambig_symbols(G_rescoring_pt)
                 G_rescoring = utils.prepare_rescoring_G(G_rescoring_pt)
 

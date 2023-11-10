@@ -374,11 +374,11 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    import librispeech_prepare
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_librispeech,
+        librispeech_prepare.prepare_librispeech,
         kwargs={
             "data_folder": hparams["data_folder"],
             "tr_splits": hparams["train_splits"],
@@ -391,26 +391,52 @@ if __name__ == "__main__":
         },
     )
 
+    run_on_main(
+        librispeech_prepare.download_librispeech_lm,
+        kwargs={
+            "destination": hparams["lm_dir"],
+        },
+    )
+
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams)
 
-    # Create the lexicon.txt for k2 training
+    # Create the lexicon.txt for k2
     run_on_main(
-        sbk2.lexicon.prepare_lexicon,
+        sbk2.lexicon.prepare_char_lexicon,
         kwargs={
             "lang_dir": hparams["lang_dir"],
-            "csv_files": [hparams["output_folder"] + "/train.csv"],
-            "extra_vocab_files": [hparams["vocab_file"]],
+            "vocab_files": [hparams["vocab_file"]],
+            "extra_csv_files": [
+                hparams["output_folder"] + "/train.csv",
+            ],
             "add_word_boundary": hparams["add_word_boundary"],
         },
     )
 
-    # Create the lang directory for k2 training
+    caching = {"cache":False} if "caching" in hparams and hparams["caching"] == False else {}
+
+    # create arpa lm on train dataset (lm prefix = 960_)
+    if hparams["G_arpa_name"].startswith("own_"):
+        run_on_main(
+            sb.lm.arpa.make_from_csv,
+            kwargs={
+                "input_csv_file": hparams["train_csv"],
+                "output_arpa_dir": hparams["lm_dir"],
+                "column_name": "wrd",
+                "ngram_order":3,
+                "prefix_name":"960_",
+                **caching
+            },
+        )
+
+    # Create the lang directory for k2
     run_on_main(
         sbk2.prepare_lang.prepare_lang,
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "sil_prob": hparams["sil_prob"],
+            **caching
         },
     )
 
@@ -422,23 +448,22 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Add attributes to asr_brain
     lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
-    setattr(asr_brain, "lexicon", lexicon)
-
     graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
         lexicon,
         device=asr_brain.device,
     )
+    decoder = sbk2.lattice_decoder.get_decoding(hparams, graph_compiler, device=asr_brain.device)
+
+    # Add attributes to asr_brain
+    setattr(asr_brain, "lexicon", lexicon)
     setattr(asr_brain, "graph_compiler", graph_compiler)
+    setattr(asr_brain, "decoder", decoder)
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(asr_brain.device)
-
-    decoder = sbk2.lattice_decoder.get_decoding(hparams, graph_compiler, device=asr_brain.device)
-    setattr(asr_brain, "decoder", decoder)
 
     # Training
     asr_brain.fit(

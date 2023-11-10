@@ -95,6 +95,7 @@ def arpa_to_fst(
     out_fst_files: List[str],
     lms_ngram_orders: List[int],
     disambig_symbol: str = "#0",
+    cache: bool = True,
 ):
     """Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
     you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
@@ -118,6 +119,8 @@ def arpa_to_fst(
             List of the ARPA ngram orders, len(in) == len(out).
         disambig_symbol: str
             the disambiguation symbol to use.
+        cache: bool
+            Whether or not to re-create the fst.txt file if it already exist.
 
     Raises
     ---------
@@ -151,7 +154,7 @@ def arpa_to_fst(
             max_order: int
                 The maximum order of the ARPA LM.
         """
-        if out_fst_path.exists():
+        if cache and out_fst_path.exists():
             return
         if not arpa_path.exists():
             raise FileNotFoundError(
@@ -159,6 +162,7 @@ def arpa_to_fst(
                 f" the {max_order} FST."
             )
         try:
+            logger.info(f"Converting arpa LM '{arpa_path}' to FST")
             s = arpa2fst(
                 input_arpa=str(arpa_path),
                 disambig_symbol=disambig_symbol,
@@ -202,12 +206,13 @@ def load_G(
     if os.path.exists(path.replace(".fst.txt", ".pt")) and cache:
         logger.warning(
             f"Loading '{path}' from its cached .pt format."
-            " Consider deleting the previous .pt file if"
-            " this is not what you want."
+            " Set 'caching: False' in the yaml"
+            " if this is not what you want."
         )
         G = k2.Fsa.from_dict(torch.load(path.replace(".fst.txt", ".pt"), map_location="cpu"))
         return G
 
+    logger.info(f"Loading G LM: {path}")
     # If G_path is an fst.txt file then convert to .pt file
     if not os.path.isfile(path):
         raise FileNotFoundError(

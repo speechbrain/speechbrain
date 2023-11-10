@@ -19,6 +19,7 @@ Authors:
 import logging
 import re
 import os
+import csv
 from pathlib import Path
 from typing import List, Union, Tuple, Optional
 
@@ -93,7 +94,7 @@ class Lexicon(object):
         self._L_disambig = None
 
         if (lang_dir / "L.pt").exists():
-            logger.info(f"Loading pre-compiled {lang_dir}/L.pt")
+            logger.info(f"Loading compiled {lang_dir}/L.pt")
             L = k2.Fsa.from_dict(torch.load(lang_dir / "L.pt"))
         else:
             raise RuntimeError(
@@ -102,7 +103,7 @@ class Lexicon(object):
             )
 
         if (lang_dir / "Linv.pt").exists():
-            logger.info(f"Loading pre-compiled {lang_dir}/Linv.pt")
+            logger.info(f"Loading compiled {lang_dir}/Linv.pt")
             L_inv = k2.Fsa.from_dict(torch.load(lang_dir / "Linv.pt"))
         else:
             logger.info("Converting L.pt to Linv.pt")
@@ -134,7 +135,7 @@ class Lexicon(object):
         Needed for HLG construction.
         """
         if self._L_disambig is None:
-            logger.info(f"Loading pre-compiled {self.lang_dir}/L_disambig.pt")
+            logger.info(f"Loading compiled {self.lang_dir}/L_disambig.pt")
             if (self.lang_dir / "L_disambig.pt").exists():
                 self._L_disambig = k2.Fsa.from_dict(
                     torch.load(self.lang_dir / "L_disambig.pt")
@@ -275,8 +276,8 @@ class Lexicon(object):
             self._L_disambig = self._L_disambig.to(device)
 
 
-def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True):
-    """Read csv_files to generate a $lang_dir/lexicon.txt for k2 training.
+def prepare_char_lexicon(lang_dir, vocab_files, extra_csv_files=[], column_text_key="wrd", add_word_boundary=True):
+    """Read extra_csv_files to generate a $lang_dir/lexicon.txt for k2 training.
     This usually includes the csv files of the training set and the dev set in the
     output_folder. During training, we need to make sure that the lexicon.txt contains
     all (or the majority of) the words in the training set and the dev set.
@@ -303,18 +304,18 @@ def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=Tr
     ---------
     lang_dir: str
         The directory to store the lexicon.txt
-    csv_files: List[str]
-        A list of csv file paths
-    extra_vocab_files: List[str]
+    vocab_files: List[str]
         A list of extra vocab files. For example, for librispeech this could be the
         librispeech-vocab.txt file.
+    extra_csv_files: List[str]
+        A list of csv file paths
     add_word_boundary: bool
         whether to add word boundary symbols <eow> at the end of each line to the
         lexicon for every word.
 
     Example
     -------
-    >>> from speechbrain.k2_integration.lexicon import prepare_lexicon
+    >>> from speechbrain.k2_integration.lexicon import prepare_char_lexicon
     >>> # Create some dummy csv files containing only the words `hello`, `world`.
     >>> # The first line is the header, and the remaining lines are in the following
     >>> # format:
@@ -324,33 +325,30 @@ def prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=Tr
     ...     f.write("ID,duration,wav,spk_id,wrd\n")
     ...     f.write("1,1,1,1,hello world\n")
     ...     f.write("2,0.5,1,1,hello\n")
-    >>> csv_files = [csv_file]
+    >>> extra_csv_files = [csv_file]
     >>> lang_dir = getfixture('tmpdir')
-    >>> extra_vocab_files = []
-    >>> prepare_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=False)
+    >>> vocab_files = []
+    >>> prepare_char_lexicon(lang_dir, vocab_files, extra_csv_files=extra_csv_files, add_word_boundary=False)
     >>> with open(lang_dir.join("lexicon.txt"), "r") as f:
     ...     assert f.read() == "<UNK> <unk>\nhello h e l l o\nworld w o r l d\n"
     """
     # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
     lexicon = dict()
-    for file in csv_files:
-        with open(file) as f:
-            # Omit the first line
-            f.readline()
-            # Read the remaining lines
-            for line in f:
-                # Split the line
-                trans = line.strip().split(",")[-1]
-                # Split the transcription into words
-                words = trans.split()
-                for word in words:
-                    if word not in lexicon:
-                        if add_word_boundary:
-                            lexicon[word] = list(word) + [EOW]
-                        else:
-                            lexicon[word] = list(word)
+    if len(extra_csv_files) != 0:
+        for file in extra_csv_files:
+            with open(file, 'r') as f:
+                csv_reader = csv.DictReader(f)
+                for row in csv_reader:
+                    # Split the transcription into words
+                    words = row[column_text_key].split()
+                    for word in words:
+                        if word not in lexicon:
+                            if add_word_boundary:
+                                lexicon[word] = list(word) + [EOW]
+                            else:
+                                lexicon[word] = list(word)
 
-    for file in extra_vocab_files:
+    for file in vocab_files:
         with open(file) as f:
             for line in f:
                 # Split the line

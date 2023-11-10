@@ -59,8 +59,8 @@ class GraphCompiler(abc.ABC):
             if os.path.exists(path):
                 logger.warning(
                     f"Loading HL '{path}' from its cached .pt format."
-                    " Consider deleting the previous .pt file if"
-                    " this is not what you want."
+                    " Set 'caching: False' in the yaml"
+                    " if this is not what you want."
                 )
                 HL = k2.Fsa.from_dict(torch.load(path, map_location="cpu"))
                 return HL
@@ -97,8 +97,8 @@ class GraphCompiler(abc.ABC):
             if os.path.exists(path):
                 logger.warning(
                     f"Loading HLG '{path}' from its cached .pt format."
-                    " Consider deleting the previous .pt file if"
-                    " this is not what you want."
+                    " Set 'caching: False' in the yaml"
+                    " if this is not what you want."
                 )
                 HLG = k2.Fsa.from_dict(torch.load(path, map_location="cpu"))
                 return HLG
