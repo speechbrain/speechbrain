@@ -18,7 +18,7 @@ Authors
 import torch
 import logging
 from torch.nn import functional as F
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import length_to_mask, clean_padding_
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
@@ -68,6 +68,13 @@ class Encodec(HFTransformersInterface):
     >>> rec_emb = model.decode_emb(emb, length)
     >>> rec_emb.shape
     torch.Size([4, 1, 1280])
+    >>> rec_tokens = model.tokens(emb, length)
+    >>> rec_tokens.shape
+    torch.Size([4, 4, 2])
+    >>> model = Encodec(model_hub, save_path, flat_embeddings=True)
+    >>> _, emb = model.encode(audio, length)
+    >>> emb.shape
+    torch.Size([4, 4, 256])
     """
 
     def __init__(
@@ -89,16 +96,19 @@ class Encodec(HFTransformersInterface):
             bandwidth
         )
         quantizer_layers = self.model.quantizer.layers[: self.num_heads]
-        self.vocabulary = torch.stack(
+        vocabulary = torch.stack(
             [layer.codebook.embed for layer in quantizer_layers]
         )
+        self.register_buffer("vocabulary", vocabulary)
         _, self.num_tokens, self.emb_dim = self.vocabulary.shape
-        self.vocabulary_flat = self.vocabulary.reshape(
+        vocabulary_flat = self.vocabulary.reshape(
             self.num_heads * self.num_tokens, self.emb_dim
         )
-        self.token_index_offsets = (
+        self.register_buffer("vocabulary_flat", vocabulary_flat)
+        token_index_offsets = (
             torch.arange(self.num_heads)[None, None, :] * self.num_tokens
         )
+        self.register_buffer("token_index_offsets", token_index_offsets)
         if self.freeze:
             logger.warning("huggingface_Encodec - Encodec is frozen.")
             for param in self.model.parameters():
@@ -203,6 +213,38 @@ class Encodec(HFTransformersInterface):
                 audio = audio * mask
             return audio
 
+    def tokens(self, emb, length=None):
+        """Comberts embeddings to raw tokens
+
+        Arguments
+        ---------
+        emb : torch.Tensor
+            Raw embeddings
+        length : torch.Tensor
+            A 1-D tensor of relative lengths. If supplied,
+            padded positions will be zeroed out
+
+        Returns
+        -------
+        tokens : torch.Tensor
+            A (Batch x Length) tensor of token indices"""
+        with torch.set_grad_enabled(not self.freeze):
+            if self.flat_embeddings:
+                batch_size, max_len, _ = emb.shape
+                emb = emb.reshape(
+                    batch_size, max_len, self.num_heads, self.emb_dim
+                )
+            scaled_states = emb.pow(2).sum(-1, keepdim=True)
+            vocab = self.vocabulary.transpose(-1, -2).unsqueeze(0)
+            emb_perm = emb.permute(0, 2, 1, 3)
+            emb_vocab_prod = (emb_perm @ vocab).moveaxis(1, 2)
+            vocab_sum = vocab.pow(2).sum(-2, keepdim=True).moveaxis(1, 2)
+            dist = -(scaled_states - 2 * emb_vocab_prod + vocab_sum)
+            tokens = dist.max(dim=-1).indices
+            if length is not None:
+                clean_padding_(tokens, length)
+            return tokens
+
     def decode_emb(self, emb, length):
         """Decodes raw vector embeddings into audio
 
@@ -218,16 +260,5 @@ class Encodec(HFTransformersInterface):
             the reconstructed audio
         """
         with torch.set_grad_enabled(not self.freeze):
-            if self.flat_embeddings:
-                batch_size, max_len, _ = emb.shape
-                emb = emb.reshape(
-                    batch_size, max_len, self.num_heads, self.emb_dim
-                )
-            scaled_states = emb.pow(2).sum(-1, keepdim=True)
-            vocab = self.vocabulary.transpose(-1, -2).unsqueeze(0)
-            emb_perm = emb.permute(0, 2, 1, 3)
-            emb_vocab_prod = (emb_perm @ vocab).moveaxis(1, 2)
-            vocab_sum = vocab.pow(2).sum(-2, keepdim=True).moveaxis(1, 2)
-            dist = -(scaled_states - 2 * emb_vocab_prod + vocab_sum)
-            tokens = dist.max(dim=-1).indices
+            tokens = self.tokens(emb)
             return self.decode(tokens, length)
