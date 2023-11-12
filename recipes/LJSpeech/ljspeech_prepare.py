@@ -30,7 +30,7 @@ from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 from speechbrain.dataio.batch import PaddedData
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.preparation import FeatureExtractor
-from speechbrain.lobes.models.huggingface_encodec import HuggingFaceEncodec
+from speechbrain.lobes.models.huggingface_transformers.encodec import Encodec
 from torchaudio.functional import resample
 
 
@@ -837,7 +837,7 @@ def get_context(
     """Gets the context (pretrained models, etc) for feature extraction"""
     context = {}
     if "audio_tokens" in extract_features:
-        context["encodec"] = HuggingFaceEncodec(
+        context["encodec"] = Encodec(
             source=extract_features_opts.get("encodec_model", "facebook/encodec_24khz"),
             save_path=save_path,
         ).to(device)

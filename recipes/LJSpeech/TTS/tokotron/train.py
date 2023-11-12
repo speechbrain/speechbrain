@@ -24,6 +24,8 @@ from torch.nn import functional as F
 
 logger = logging.getLogger(__name__)
 
+SPECIAL_TOKEN_COUNT = 3
+
 
 # Brain class for speech recognition training
 class TokTTSBrain(sb.Brain):
@@ -441,6 +443,7 @@ def init_sequence_encoder(hparams):
     encoder.add_unk()
     encoder.add_bos_eos()
     encoder.update_from_iterable(tokens, sequence_input=False)
+    encoder.expect_len(len(tokens) + SPECIAL_TOKEN_COUNT)
     return encoder
 
 

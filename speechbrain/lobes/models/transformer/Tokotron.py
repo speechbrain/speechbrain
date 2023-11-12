@@ -454,10 +454,11 @@ class TokotronModel(nn.Module):
             src_key_padding_mask=src_key_padding_mask,
             pos_embs=pos_embs_encoder,
         )
-
+        tgt_mask = get_lookahead_mask(audio_tokens)
         dec_out = self.decoder(
             enc_out=enc_out,
             tgt=audio_tokens,
+            tgt_mask=tgt_mask,
             tgt_length=audio_length,
             src_length=input_length,
             src_key_padding_mask=src_key_padding_mask,

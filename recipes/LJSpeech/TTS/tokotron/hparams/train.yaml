@@ -137,8 +137,9 @@ label_smoothing: 0.0
 
 ############################## models ################################
 
-vocoder: !new:speechbrain.lobes.models.huggingface_vocos.HuggingFaceVocos
+vocoder: !new:speechbrain.lobes.models.huggingface_transformers.vocos.Vocos
     source: !ref <vocoder_model>
+    save_path: !ref <prepare_save_folder>
 
 model: !new:speechbrain.lobes.models.transformer.Tokotron.TokotronModel # yamllint disable-line rule:line-length
     input_num_tokens: !ref <text_num_tokens>
