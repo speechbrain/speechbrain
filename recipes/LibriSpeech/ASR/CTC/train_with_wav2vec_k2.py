@@ -425,20 +425,6 @@ if __name__ == "__main__":
         else {}
     )
 
-    # create arpa lm on train dataset (lm prefix = own_)
-    if hparams["G_arpa_name"].startswith("own_"):
-        run_on_main(
-            sb.lm.arpa.make_from_csv,
-            kwargs={
-                "input_csv_file": hparams["train_csv"],
-                "output_arpa_dir": hparams["lm_dir"],
-                "column_name": "wrd",
-                "ngram_order": 3,
-                "prefix_name": "own_",
-                **caching,
-            },
-        )
-
     # Create the lang directory for k2
     run_on_main(
         sbk2.prepare_lang.prepare_lang,
