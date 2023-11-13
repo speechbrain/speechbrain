@@ -9,13 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-try:
-    import k2
-except ImportError:
-    MSG = "Cannot import k2, so training and decoding with k2 will not work.\n"
-    MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
-    MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
-    logger.warning(MSG)
+from speechbrain.k2_integration import k2
 
 
 @pytest.fixture

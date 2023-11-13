@@ -4,6 +4,7 @@ This code was adjusted from icefall (https://github.com/k2-fsa/icefall).
 
 
 Authors:
+  * Pierre Champion 2023
   * Zeyu Zhao 2023
   * Georgios Karakasidis 2023
 """
@@ -11,25 +12,15 @@ Authors:
 import os
 import logging
 from pathlib import Path
-
+from typing import List, Union
 import torch
 
-
-from typing import Dict, List, Optional, Union
-
+from . import k2  # import k2 from ./__init__.py
 
 logger = logging.getLogger(__name__)
 
-try:
-    import k2
-except ImportError:
-    MSG = "Cannot import k2, so training and decoding with k2 will not work.\n"
-    MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
-    MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
-    raise ImportError(MSG)
 
-
-def get_texts(
+def lattice_path_to_textid(
     best_paths: k2.Fsa, return_ragged: bool = False
 ) -> Union[List[List[int]], k2.RaggedTensor]:
     """Extract the texts (as word IDs) from the best-path FSAs.
@@ -74,178 +65,36 @@ def get_texts(
         return aux_labels.tolist()
 
 
-def one_best_decoding(
-    lattice: k2.Fsa,
-    use_double_scores: bool = True,
-    lm_scale_list: Optional[List[float]] = None,
-) -> Union[k2.Fsa, Dict[str, k2.Fsa]]:
-    """Get the best path from a lattice.
+def lattice_paths_to_text(best_paths: k2.Fsa, word_table) -> List[str]:
+    """Convert the best path to a list of strings.
 
     Arguments
     ---------
-    lattice: k2.Fsa
-        The decoding lattice returned by :func:`get_lattice`.
-    use_double_scores: bool
-        True to use double precision floating point in the computation.
-        False to use single precision.
-    lm_scale_list: Optional[List[float]]
-        A list of floats representing LM score scales.
+    best_paths: k2.Fsa
+        It is the path in the lattice with the highest score for a
+        given utterance.
 
     Returns
     -------
-    An FsaVec containing linear paths.
+    A list of strings, each of which is the decoding result of the
+    corresponding utterance.
     """
-    if lm_scale_list is not None:
-        ans = dict()
-        saved_am_scores = lattice.scores - lattice.lm_scores
-        for lm_scale in lm_scale_list:
-            am_scores = saved_am_scores / lm_scale
-            lattice.scores = am_scores + lattice.lm_scores
-
-            best_path = k2.shortest_path(
-                lattice, use_double_scores=use_double_scores
-            )
-            key = f"lm_scale_{lm_scale}"
-            ans[key] = best_path
-        return ans
-
-    return k2.shortest_path(lattice, use_double_scores=use_double_scores)
-
-
-def rescore_with_whole_lattice(
-    lattice: k2.Fsa,
-    G_with_epsilon_loops: k2.Fsa,
-    lm_scale_list: Optional[List[float]] = None,
-    use_double_scores: bool = True,
-) -> Union[k2.Fsa, Dict[str, k2.Fsa]]:
-    """Intersect the lattice with an n-gram LM and use shortest path
-    to decode.
-
-    The input lattice is obtained by intersecting `HLG` with
-    a DenseFsaVec, where the `G` in `HLG` is in general a 3-gram LM.
-    The input `G_with_epsilon_loops` is usually a 4-gram LM. You can consider
-    this function as a second pass decoding. In the first pass decoding, we
-    use a small G, while we use a larger G in the second pass decoding.
-
-    Arguments
-    ---------
-    lattice: k2.Fsa
-        An FsaVec with axes [utt][state][arc]. Its `aux_labels` are word IDs.
-        It must have an attribute `lm_scores`.
-    G_with_epsilon_loops: k2.Fsa
-        An FsaVec containing only a single FSA. It contains epsilon self-loops.
-        It is an acceptor and its labels are word IDs.
-    lm_scale_list: Optional[List[float]]
-        If none, return the intersection of `lattice` and `G_with_epsilon_loops`.
-        If not None, it contains a list of values to scale LM scores.
-        For each scale, there is a corresponding decoding result contained in
-        the resulting dict.
-    use_double_scores: bool
-        True to use double precision in the computation.
-        False to use single precision.
-
-    Returns
-    -------
-    If `lm_scale_list` is None, return a new lattice which is the intersection
-    result of `lattice` and `G_with_epsilon_loops`.
-    Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
-    value is the decoding result (i.e., an FsaVec containing linear FSAs).
-    """
-    assert G_with_epsilon_loops.shape == (1, None, None)
-
-    device = lattice.device
-    if hasattr(lattice, "lm_scores"):
-        lattice.scores = lattice.scores - lattice.lm_scores
-        # We will use lm_scores from G, so remove lats.lm_scores here
-        del lattice.lm_scores
-
-    assert hasattr(G_with_epsilon_loops, "lm_scores")
-
-    # Now, lattice.scores contains only am_scores
-
-    # inv_lattice has word IDs as labels.
-    # Its `aux_labels` is token IDs
-    inv_lattice = k2.invert(lattice)
-    num_seqs = lattice.shape[0]
-
-    b_to_a_map = torch.zeros(num_seqs, device=device, dtype=torch.int32)
-
-    # NOTE: The choice of the threshold list is arbitrary here to avoid OOM.
-    # You may need to fine tune it.
-    prune_th_list = [1e-10, 1e-9, 1e-8, 1e-7, 1e-6]
-    prune_th_list += [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
-    max_loop_count = 10
-    loop_count = 0
-    while loop_count <= max_loop_count:
-        try:
-            if device == "cpu":
-                rescoring_lattice = k2.intersect(
-                    G_with_epsilon_loops,
-                    inv_lattice,
-                    treat_epsilons_specially=True,
-                )
-            else:
-                rescoring_lattice = k2.intersect_device(
-                    G_with_epsilon_loops,
-                    inv_lattice,
-                    b_to_a_map,
-                    sorted_match_a=True,
-                )
-            rescoring_lattice = k2.top_sort(k2.connect(rescoring_lattice))
-            break
-        except RuntimeError as e:
-            logger.info(f"Caught exception:\n{e}\n")
-            if loop_count >= max_loop_count:
-                logger.info(
-                    "Return None as the resulting lattice is too large."
-                )
-                return None
-            logger.info(
-                f"num_arcs before pruning: {inv_lattice.arcs.num_elements()}"
-            )
-            logger.info(
-                "This OOM is not an error. You can ignore it. "
-                "If your model does not converge well, or --max-duration "
-                "is too large, or the input sound file is difficult to "
-                "decode, you will meet this exception."
-            )
-            inv_lattice = k2.prune_on_arc_post(
-                inv_lattice, prune_th_list[loop_count], True,
-            )
-            logger.info(
-                f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"
-            )
-        loop_count += 1
-
-    # lat has token IDs as labels
-    # and word IDs as aux_labels.
-    lat = k2.invert(rescoring_lattice)
-
-    if lm_scale_list is None:
-        return lat
-
-    ans = dict()
-    saved_am_scores = lat.scores - lat.lm_scores
-    for lm_scale in lm_scale_list:
-        am_scores = saved_am_scores / lm_scale
-        lat.scores = am_scores + lat.lm_scores
-
-        best_path = k2.shortest_path(lat, use_double_scores=use_double_scores)
-        key = f"lm_scale_{lm_scale:.1f}"
-        ans[key] = best_path
-    return ans
+    hyps: List[List[int]] = lattice_path_to_textid(
+        best_paths, return_ragged=False
+    )
+    texts = []
+    for wids in hyps:
+        texts.append(" ".join([word_table[wid] for wid in wids]))
+    return texts
 
 
 def arpa_to_fst(
-    arpa_dir: Path,
-    output_dir: Path,
     words_txt: Path,
+    in_arpa_files: List[str],
+    out_fst_files: List[str],
+    lms_ngram_orders: List[int],
     disambig_symbol: str = "#0",
-    convert_4gram: bool = True,
-    trigram_arpa_name: str = "3-gram.pruned.1e-7.arpa",
-    fourgram_arpa_name: str = "4-gram.arpa",
-    trigram_fst_output_name: str = "G_3_gram.fst.txt",
-    fourgram_fst_output_name: str = "G_4_gram.fst.txt",
+    cache: bool = True,
 ):
     """Use kaldilm to convert an ARPA LM to FST. For example, in librispeech
     you can find a 3-gram (pruned) and a 4-gram ARPA LM in the openslr
@@ -253,46 +102,35 @@ def arpa_to_fst(
     convert them to FSTs. The resulting FSTs can then be used to create a
     decoding graph (HLG) for k2 decoding.
 
-    If `convert_4gram` is True, then we will convert the 4-gram ARPA LM to
-    FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
     It is worth noting that if the fsts already exist in the output_dir,
     then we will not convert them again (so you may need to delete them
     by hand if you, at any point, change your ARPA model).
 
     Arguments
     ---------
-        arpa_dir: str
-            Path to the directory containing the ARPA LM (we expect a trigram
-            ARPA LM to exist, and if `convert_4gram` is True, then a 4-gram
-            ARPA LM should also exist).
-        output_dir: str
-            Path to the directory where the FSTs will be saved.
         words_txt: str
-            Path to the words.txt file created by prepare_lang.
+            path to the words.txt file created by prepare_lang.
+        in_arpa_files: List[str]
+            List of ARPA files to convert to fst.
+        out_fst_files: List[Str]
+            List of fst path where the fsts will be saved, len(in) == len(out).
+        lms_ngram_orders: List[int]
+            List of the ARPA ngram orders, len(in) == len(out).
         disambig_symbol: str
-            The disambiguation symbol to use.
-        convert_4gram: bool
-            If True, then we will convert the 4-gram ARPA LM to
-            FST. Otherwise, we will only convert the 3-gram ARPA LM to FST.
-        trigram_arpa_name: str
-            The name of the 3-gram ARPA LM file. Defaults to the librispeech
-            3-gram ARPA LM from openslr.
-        fourgram_arpa_name: str
-            The name of the 4-gram ARPA LM file. Defaults to the librispeech
-            4-gram ARPA LM from openslr.
-        trigram_fst_output_name: str
-            The name of the 3-gram FST file that will be created with kaldilm.
-            NOTE: This is just the name and not the whole path.
-        fourgram_fst_output_name: str
-            The name of the 4-gram FST file that will be created with kaldilm.
-            NOTE: This is just the name and not the whole path.
+            the disambiguation symbol to use.
+        cache: bool
+            Whether or not to re-create the fst.txt file if it already exist.
 
     Raises
     ---------
         ImportError: If kaldilm is not installed.
     """
-    assert arpa_dir.is_dir()
-    assert output_dir.is_dir()
+    assert len(in_arpa_files) == len(
+        out_fst_files
+    ), f"in_arpa_files {len(in_arpa_files)} != out_fst_files {len(out_fst_files)} "
+    assert len(in_arpa_files) == len(
+        lms_ngram_orders
+    ), f"in_arpa_files {len(in_arpa_files)} != lms_ngram_orders {len(lms_ngram_orders)} "
     try:
         from kaldilm.arpa2fst import arpa2fst
     except ImportError:
@@ -308,7 +146,6 @@ def arpa_to_fst(
         arpa_path: Path, out_fst_path: Path, max_order: int
     ):
         """Convert a single ARPA LM to FST.
-
         Arguments
         ---------
             arpa_path: str
@@ -318,7 +155,7 @@ def arpa_to_fst(
             max_order: int
                 The maximum order of the ARPA LM.
         """
-        if out_fst_path.exists():
+        if cache and out_fst_path.exists():
             return
         if not arpa_path.exists():
             raise FileNotFoundError(
@@ -326,6 +163,7 @@ def arpa_to_fst(
                 f" the {max_order} FST."
             )
         try:
+            logger.info(f"Converting arpa LM '{arpa_path}' to FST")
             s = arpa2fst(
                 input_arpa=str(arpa_path),
                 disambig_symbol=disambig_symbol,
@@ -343,10 +181,74 @@ def arpa_to_fst(
         with open(out_fst_path, "w") as f:
             f.write(s)
 
-    arpa_path = arpa_dir / trigram_arpa_name
-    fst_path = output_dir / os.path.basename(trigram_fst_output_name)
-    _arpa_to_fst_single(arpa_path, fst_path, max_order=3)
-    if convert_4gram:
-        arpa_path = arpa_dir / fourgram_arpa_name
-        fst_path = output_dir / os.path.basename(fourgram_fst_output_name)
-        _arpa_to_fst_single(arpa_path, fst_path, max_order=4)
+    for a, f, n in zip(in_arpa_files, out_fst_files, lms_ngram_orders):
+        _arpa_to_fst_single(a, f, max_order=n)
+
+
+def load_G(path: Union[str, Path], cache: bool = True) -> k2.Fsa:
+    """load a lm to be used in the decoding graph creation (or lm rescoring).
+
+    Arguments
+    ---------
+    path: str
+        The path to an FST LM (ending with .fst.txt) or a k2-converted
+        LM (in pytorch .pt format).
+    cache: bool
+        Whether or not to load/cache the LM from/to the .pt format (in the same dir).
+
+    Returns
+    -------
+    G:
+        An FSA representing the LM.
+    """
+    path = str(path)
+    if os.path.exists(path.replace(".fst.txt", ".pt")) and cache:
+        logger.warning(
+            f"Loading '{path}' from its cached .pt format."
+            " Set 'caching: False' in the yaml"
+            " if this is not what you want."
+        )
+        G = k2.Fsa.from_dict(
+            torch.load(path.replace(".fst.txt", ".pt"), map_location="cpu")
+        )
+        return G
+
+    logger.info(f"Loading G LM: {path}")
+    # If G_path is an fst.txt file then convert to .pt file
+    if not os.path.isfile(path):
+        raise FileNotFoundError(
+            f"File {path} not found. " "You need to run arpa_to_fst to get it."
+        )
+    with open(path) as f:
+        G = k2.Fsa.from_openfst(f.read(), acceptor=False)
+        torch.save(G.as_dict(), path[:-8] + ".pt")
+    return G
+
+
+def prepare_rescoring_G(G: k2.Fsa) -> k2.Fsa:
+    """Prepare a LM with the purpose of using it for LM rescoring.
+    For instance, in the librispeech recipe this is a 4-gram LM (while a
+    3gram LM is used for HLG construction).
+
+    Arguments
+    ---------
+    path: str
+        The path to an FST LM (ending with .fst.txt) or a k2-converted
+        LM (in pytorch .pt format).
+
+    Returns
+    -------
+    G:
+        An FSA representing the LM.
+    """
+    if "_properties" in G.__dict__:
+        G.__dict__["_properties"] = None
+    del G.aux_labels
+    G = k2.Fsa.from_fsas([G]).to("cpu")  # only used for decoding
+    G = k2.arc_sort(G)
+    G = k2.add_epsilon_self_loops(G)
+    G = k2.arc_sort(G)
+    # G.lm_scores is used to replace HLG.lm_scores during LM rescoring.
+    if not hasattr(G, "lm_scores"):
+        G.lm_scores = G.scores.clone()
+    return G

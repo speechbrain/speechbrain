@@ -5,19 +5,19 @@
 # This recipe trains a wav2vec2 model with a DNN and DWFST-based CTC loss.
 # To use this recipe you need to have the following:
 #  - A folder with the LibriSpeech dataset (see `datafolder`)
-#  - A folder with a trigram, and (optionally) a fourgram LM (see `lm_dir`)
+#  - A folder with a small, and (optionally) a big LM (see `lm_dir`)
 #    These can be downloaded in ARPA format from: http://www.openslr.org/resources/11/.
 #  - A working installation of k2 (and kaldilm if you want to use ARPA LMs).
 #
 # Authors: Zeyu Zhao 2023
 #          Georgios Karakasidis 2023
+#          Pierre Champion 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1111
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_wav2vec2_char_k2/<seed>
-wer_file: !ref <output_folder>/wer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -51,31 +51,33 @@ add_word_boundary: True
 test_search_beam: 32
 # Beam size (for decoding)
 test_output_beam: 8
+test_min_active_state: 300
 test_max_active_state: 3000
 # Acoustic scale (mutliplied by the log probs)
 ac_scale: 1.5
-use_HLG: False
+compose_HL_with_G: True
 # 1best or whole-lattice-rescoring
-decoding_method: whole-lattice-rescoring
+# decoding_method: whole-lattice-rescoring
+decoding_method: 1best
+# LM scale to be used for rescoring. Only used if rescoring
+rescoring_lm_scale: 0.4
 # This is where the 3gram and (optionally) 4gram LM are stored
 # They can be in either ARPA or FST format. If the former, then
 # the FST equivalent will be created in the same directory by
 # using kaldilm.
 lm_dir: lm
 # The ARPA LM file names need to exist under the lm_dir.
-# - If the don't exist, then we will expect the FST equivalent
-#   files (trigram_fst_output_name and fourgram_fst_output_name)
-#   to exist under the lm_dir.
+# - If the don't exist, then we download them.
 # - If the ARPA LM files exist and the FSTs don't exist, then
 #   they will be created by using kaldilm.
 # - If both exist, then only the FST LMs will be used.
-trigram_arpa_name: 3-gram.pruned.1e-7.arpa
-fourgram_arpa_name: 4-gram.arpa
-trigram_fst_output_name: G_3_gram.fst.txt  # for HLG creation
-fourgram_fst_output_name: G_4_gram.fst.txt  # for rescoring
-# LM scale to be used for rescoring. Only used if
-# decoding_method is whole-lattice-rescoring.
-lm_scale: 0.4
+# G_arpa_name: own_3gram.arpa # Custom G_arpa trained on train.csv
+# G_fst_output_name: own_G_3_gram.fst.txt  # for HLG creation
+G_arpa_name: 3-gram.pruned.1e-7.arpa
+G_rescoring_arpa_name: 4-gram.arpa
+G_fst_output_name: G_3_gram.fst.txt  # for HLG creation
+G_rescoring_fst_output_name: G_4_gram.fst.txt  # for LM rescoring
+# caching: False
 
 # Training parameters
 number_of_epochs: 1
@@ -90,16 +92,20 @@ sample_rate: 16000
 # Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
 test_batch_size: 1
+num_workers: 10
 
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
+   num_workers: !ref <num_workers>
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -126,7 +132,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    dnn_blocks: !ref <dnn_layers>
    dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec.Wav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.Wav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>

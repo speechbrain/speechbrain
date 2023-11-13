@@ -8,6 +8,7 @@ The neural network is trained on CTC likelihood target and character units
 are used as basic recognition tokens.
 
 Authors
+ * Pierre Champion 2023
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
  * Rudolf A Braun 2022
@@ -22,18 +23,15 @@ Authors
 
 import os
 import sys
-from typing import List
 import torch
 import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
+from collections import defaultdict
 from pathlib import Path
 
-from speechbrain.k2_integration.prepare_lang import prepare_lang
-from speechbrain.k2_integration.graph_compiler import CtcTrainingGraphCompiler
-from speechbrain.k2_integration.lexicon import Lexicon, get_lexicon
-from speechbrain.k2_integration.utils import arpa_to_fst
+import speechbrain.k2_integration as sbk2
 
 logger = logging.getLogger(__name__)
 
@@ -111,38 +109,46 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_texts = self.graph_compiler.decode(
+            lattice = sbk2.lattice_decoder.get_lattice(
                 p_ctc,
                 wav_lens,
-                ac_scale=self.hparams.ac_scale,
-                decoding_method="1best",
-            )  # list of strings
-            predicted_words = [wrd.split(" ") for wrd in predicted_texts]
-            target_words = [wrd.split(" ") for wrd in texts]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
-        if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            decoding_method = self.hparams.decoding_method
-            # If the decoding method is 1best then the metric stats will be
-            # saved in a single file, otherwise, a new directory will be created
-            # for each lm_scale used in whole lattice rescoring.
-            decode_output: List[str] = self.graph_compiler.decode(
-                p_ctc,
-                wav_lens,
+                self.decoder["decoding_graph"],
                 search_beam=self.hparams.test_search_beam,
                 output_beam=self.hparams.test_output_beam,
                 ac_scale=self.hparams.ac_scale,
                 max_active_states=self.hparams.test_max_active_state,
-                is_test=True,
-                decoding_method=decoding_method,
-                lm_scale=self.hparams.lm_scale,
-            )  # list of strings
-            target_words: List[List[str]] = [wrd.split(" ") for wrd in texts]
-            predicted_words: List[List[str]] = [
-                snt.split(" ") for snt in decode_output
-            ]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
+                min_active_states=self.hparams.test_min_active_state,
+            )
+            # 1best decoding for fast valid
+            paths = {"1best": sbk2.lattice_decoder.one_best_decoding(lattice)}
+
+        if stage == sb.Stage.TEST:
+            lattice = sbk2.lattice_decoder.get_lattice(
+                p_ctc,
+                wav_lens,
+                self.decoder["decoding_graph"],
+                search_beam=self.hparams.test_search_beam,
+                output_beam=self.hparams.test_output_beam,
+                ac_scale=self.hparams.ac_scale,
+                max_active_states=self.hparams.test_max_active_state,
+                min_active_states=self.hparams.test_min_active_state,
+            )
+            paths = self.decoder["decoding_method"](lattice)
+
+        if stage == sb.Stage.TEST or stage == sb.Stage.VALID:
+            for k, path in paths.items():
+                predicted_texts = sbk2.utils.lattice_paths_to_text(
+                    path, self.lexicon.word_table
+                )
+
+                predicted_words = [wrd.split(" ") for wrd in predicted_texts]
+                target_words = [wrd.split(" ") for wrd in texts]
+                self.wer_metrics[k].append(ids, predicted_words, target_words)
+                self.cer_metrics[k].append(ids, predicted_words, target_words)
+            # For TEST and VALID stages, the loss value is not exact.
+            # The <UNK> words have a target length (e.g., number of phones or characters) of 1.
+            # As such, sentences with <UNK> have a higher loss during CTC loss 'mean' reduction mode.
+            # It does not impact training.
         return loss
 
     def fit_batch(self, batch):
@@ -191,26 +197,29 @@ class ASR(sb.Brain):
         will be initialized (for each lm scale). Otherwise, a single class
         will be initialized for wer and cer, respectively.
         """
-        if stage != sb.Stage.TRAIN:
-            self.cer_metric = self.hparams.cer_computer()
-            self.wer_metric = self.hparams.error_rate_computer()
+        if stage == sb.Stage.VALID:
+            logger.info("Valid stage")
+        if stage == sb.Stage.TEST:
+            logger.info("Test stage")
+        self.cer_metrics = defaultdict(self.hparams.cer_computer)
+        self.wer_metrics = defaultdict(self.hparams.error_rate_computer)
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch. During testing, its primary goal
-        is to summarize the WER/CER stats and save them in a txt file.
-        If the decoding method is whole-lattice-rescoring then we will
-        print the WER/CER score of the best lm_scale. In addition, we will
-        save the WER/CER scores of all lm_scales in separate txt files.
-        If the decoding method is 1best then we will print the WER/CER score
-        and save the results in a txt file.
+        is to summarize the WER/CER stats and save them in a file.
         """
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
-            stage_stats["CER"] = self.cer_metric.summarize("error_rate")
-            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+            # Only report the fist config (first rescoring_lm_scale value)
+            stage_stats["CER"] = list(self.cer_metrics.values())[0].summarize(
+                "error_rate"
+            )
+            stage_stats["WER"] = list(self.wer_metrics.values())[0].summarize(
+                "error_rate"
+            )
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -244,8 +253,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
-                    self.wer_metric.write_stats(w)
+                for k, stat in self.wer_metrics.items():
+                    with open(self.hparams.wer_file + f"_{k}.txt", "w") as w:
+                        stat.write_stats(w)
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -346,74 +356,6 @@ def dataio_prepare(hparams):
     return train_data, valid_data, test_datasets
 
 
-def get_graph_compiler(hparams, device):
-    """This function creates the graph compiler for k2 training.
-    There are four cases:
-        - HLG is needed and 4gram rescoring is needed. In that case,
-          need_G and need_4gram are both True and we will create
-          G_3_gram.fst.txt and G_4_gram.fst.txt. Note that the 3gram
-          and 4gram ARPA lms will need to exist under `hparams['lm_dir']`.
-        - HLG is needed but 4gram rescoring is not needed. In that case,
-          need_G is True and need_4gram is False and we will create
-          G_3_gram.fst.txt. Note that the 3gram ARPA lm will need to
-          exist under `hparams['lm_dir']`.
-        - HLG is not needed but 4gram rescoring is needed. In that case,
-          need_G is False and need_4gram is True and we will create
-          G_4_gram.fst.txt. Note that the 4gram ARPA lm will need to
-          exist under `hparams['lm_dir']`.
-        - HLG is not needed and 4gram rescoring is not needed. In that case,
-          need_G is False and need_4gram is False and we will not create any FST.
-
-    Arguments
-    ---------
-    hparams : dict
-        The hyperparameters.
-    device : torch.device
-        The device to use.
-    """
-    need_G = hparams.get("use_HLG", False) in [True, "True"]
-    need_4gram = (
-        hparams.get("decoding_method", None) == "whole-lattice-rescoring"
-    )
-    rescoring_lm_path = None
-    G_path = None
-    # NOTE: This means that even if the 3gram G is not needed, but we still plan to
-    #       rescore, then G_3_gram.fst.txt will still be created (i.e. if HLG is False
-    #       but the decoding method is whole-lattice-rescoring, then G_3_gram.fst.txt
-    #       will still be created).
-    if need_G or need_4gram:
-        # Create the G_3_gram.fst.txt for k2 decoding and G_4_gram.fst.txt for k2 rescoring
-        logger.info("Converting arpa LM to FST")
-        G_path = Path(hparams["lm_dir"]) / hparams["trigram_fst_output_name"]
-        rescoring_lm_path = (
-            Path(hparams["lm_dir"]) / hparams["fourgram_fst_output_name"]
-        )
-        logger.info(f"Will load LM from {G_path}")
-        run_on_main(
-            arpa_to_fst,
-            kwargs={
-                "arpa_dir": Path(hparams["lm_dir"]),
-                "output_dir": Path(hparams["lm_dir"]),
-                "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "convert_4gram": need_4gram,
-                "trigram_arpa_name": Path(hparams["lm_dir"])
-                / hparams["trigram_arpa_name"],
-                "fourgram_arpa_name": Path(hparams["lm_dir"])
-                / hparams["fourgram_arpa_name"],
-                "trigram_fst_output_name": G_path,
-                "fourgram_fst_output_name": rescoring_lm_path,
-            },
-        )
-        assert G_path.is_file(), f"{G_path} does not exist"
-    graph_compiler = CtcTrainingGraphCompiler(
-        lexicon=lexicon,
-        device=device,
-        G_path=G_path,
-        rescoring_lm_path=rescoring_lm_path if need_4gram else None,
-    )
-    return graph_compiler
-
-
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -437,11 +379,11 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    import librispeech_prepare
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_librispeech,
+        librispeech_prepare.prepare_librispeech,
         kwargs={
             "data_folder": hparams["data_folder"],
             "tr_splits": hparams["train_splits"],
@@ -454,30 +396,42 @@ if __name__ == "__main__":
         },
     )
 
+    run_on_main(
+        librispeech_prepare.download_librispeech_lm,
+        kwargs={"destination": hparams["lm_dir"]},
+    )
+
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams)
 
-    # Create the lexicon.txt for k2 training
+    # Create the lexicon.txt for k2
     run_on_main(
-        get_lexicon,
+        sbk2.lexicon.prepare_char_lexicon,
         kwargs={
             "lang_dir": hparams["lang_dir"],
-            "csv_files": [hparams["output_folder"] + "/train.csv"],
-            "extra_vocab_files": [hparams["vocab_file"]],
+            "vocab_files": [hparams["vocab_file"]],
+            "extra_csv_files": [
+                hparams["output_folder"] + "/train.csv",
+            ],
             "add_word_boundary": hparams["add_word_boundary"],
         },
     )
 
-    # Create the lang directory for k2 training
+    caching = (
+        {"cache": False}
+        if "caching" in hparams and hparams["caching"] is False
+        else {}
+    )
+
+    # Create the lang directory for k2
     run_on_main(
-        prepare_lang,
+        sbk2.prepare_lang.prepare_lang,
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "sil_prob": hparams["sil_prob"],
+            **caching,
         },
     )
-
-    lexicon = Lexicon(hparams["lang_dir"])
 
     # Trainer initialization
     asr_brain = ASR(
@@ -487,10 +441,18 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    graph_compiler = get_graph_compiler(hparams, asr_brain.device)
+    lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
+    graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
+        lexicon, device=asr_brain.device,
+    )
+    decoder = sbk2.lattice_decoder.get_decoding(
+        hparams, graph_compiler, device=asr_brain.device
+    )
 
     # Add attributes to asr_brain
+    setattr(asr_brain, "lexicon", lexicon)
     setattr(asr_brain, "graph_compiler", graph_compiler)
+    setattr(asr_brain, "decoder", decoder)
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():
@@ -508,14 +470,10 @@ if __name__ == "__main__":
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
-        )
-        if asr_brain.hparams.decoding_method != "1best":
-            # define the metrics directory for whole-lattice rescoring
-            asr_brain.hparams.metrics_dir = os.path.join(
-                hparams["output_folder"], f"test_metrics_{k}"
-            )
+        wer_dir = os.path.join(hparams["output_folder"], f"metric_{k}")
+        os.makedirs(wer_dir, exist_ok=True)
+        exp = "HLG" if hparams["compose_HL_with_G"] else "HL"
+        asr_brain.hparams.wer_file = os.path.join(wer_dir, f"wer_{exp}")
         asr_brain.evaluate(
             test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
         )

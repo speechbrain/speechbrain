@@ -5,8 +5,9 @@ of Fangjun Kuang). The original script is under Apache 2.0 license.
 This script is modified to work with SpeechBrain.
 
 Modified by:
- * Zeyu Zhao 2023
- * Georgios Karakasidis 2023
+  * Pierre Champion 2023
+  * Zeyu Zhao 2023
+  * Georgios Karakasidis 2023
 """
 
 
@@ -21,14 +22,12 @@ import torch
 
 logger = logging.getLogger(__name__)
 
-try:
-    import k2
-except ImportError:
-    MSG = "Cannot import k2, so training and decoding with k2 will not work.\n"
-    MSG += "Please refer to https://k2-fsa.github.io/k2/installation/from_wheels.html for installation.\n"
-    MSG += "You may also find the precompiled wheels for your platform at https://download.pytorch.org/whl/torch_stable.html"
-    raise ImportError(MSG)
+from . import k2  # import k2 from ./__init__.py
+from .lexicon import read_lexicon, write_lexicon, EPS
 
+import torch
+
+logger = logging.getLogger(__name__)
 
 Lexicon = List[Tuple[str, List[str]]]
 
@@ -274,8 +273,8 @@ def lexicon_to_fst(
     next_state = 3  # the next un-allocated state, will be incremented as we go.
     arcs = []
 
-    assert token2id["<eps>"] == 0
-    assert word2id["<eps>"] == 0
+    assert token2id[EPS] == 0
+    assert word2id[EPS] == 0
 
     eps = 0
 
@@ -358,8 +357,8 @@ def lexicon_to_fst_no_sil(
 
     arcs = []
 
-    assert token2id["<eps>"] == 0
-    assert word2id["<eps>"] == 0
+    assert token2id[EPS] == 0
+    assert word2id[EPS] == 0
 
     eps = 0
 
@@ -402,7 +401,7 @@ def lexicon_to_fst_no_sil(
     return fsa
 
 
-def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
+def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
     """
     This function takes as input a lexicon file "$lang_dir/lexicon.txt"
     consisting of words and tokens (i.e., phones) and does the following:
@@ -430,13 +429,28 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     sil_prob: float
         The probability for adding a silence at the beginning and end of the word.
         Default is 0.5.
+    cache: bool
+        Whether or not to load/cache from/to the .pt format.
     """
 
     out_dir = Path(lang_dir)
     lexicon_filename = out_dir / "lexicon.txt"
 
-    # backup the original L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and
-    # lexicon_disambig.txt
+    # if source lexicon_filename has been re-created (only use 'Linv.pt' for date modification query)
+    if (
+        cache
+        and (out_dir / "Linv.pt").exists()
+        and (out_dir / "Linv.pt").stat().st_mtime
+        < lexicon_filename.stat().st_mtime
+    ):
+        logger.warning(
+            f"Skipping lang preparation of '{out_dir}'."
+            " Set 'caching: False' in the yaml"
+            " if this is not what you want."
+        )
+        return
+
+    # backup L.pt, L_disambig.pt, tokens.txt and words.txt, Linv.pt and lexicon_disambig.txt
     for f in [
         "L.pt",
         "L_disambig.pt",
@@ -447,7 +461,7 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
     ]:
         if (out_dir / f).exists():
             os.makedirs(out_dir / "backup", exist_ok=True)
-            logger.info(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
+            logger.debug(f"Backing up {out_dir / f} to {out_dir}/backup/{f}")
             os.rename(out_dir / f, out_dir / "backup" / f)
 
     lexicon = read_lexicon(str(lexicon_filename))
@@ -467,19 +481,22 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
         assert disambig not in tokens
         tokens.append(f"#{i}")
 
-    assert "<eps>" not in tokens
-    tokens = ["<eps>"] + tokens
+    assert EPS not in tokens
+    tokens = [EPS] + tokens
 
-    assert "<eps>" not in words
+    assert EPS not in words
     assert "#0" not in words
     assert "<s>" not in words
     assert "</s>" not in words
 
-    words = ["<eps>"] + words + ["#0", "<s>", "</s>"]
+    words = [EPS] + words + ["#0", "<s>", "</s>"]
 
     token2id = generate_id_map(tokens)
     word2id = generate_id_map(words)
 
+    logger.info(
+        f"Saving tokens.txt, words.txt, lexicon_disambig.txt to '{out_dir}'"
+    )
     write_mapping(out_dir / "tokens.txt", token2id)
     write_mapping(out_dir / "words.txt", word2id)
     write_lexicon(out_dir / "lexicon_disambig.txt", lexicon_disambig)
@@ -511,9 +528,9 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5):
             word2id=word2id,
             need_self_loops=True,
         )
+
+    L_inv = k2.arc_sort(L.invert())
+    logger.info(f"Saving L.pt, Linv.pt, L_disambig.pt to '{out_dir}'")
     torch.save(L.as_dict(), out_dir / "L.pt")
     torch.save(L_disambig.as_dict(), out_dir / "L_disambig.pt")
-
-    logger.info("Converting L.pt to Linv.pt")
-    L_inv = k2.arc_sort(L.invert())
     torch.save(L_inv.as_dict(), out_dir / "Linv.pt")
