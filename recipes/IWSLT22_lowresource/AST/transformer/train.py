@@ -255,7 +255,7 @@ def dataio_prepare(hparams):
     # 2. load data and tokenize with trained tokenizer
     datasets = {}
     for dataset in ["train", "valid"]:
-        json_path = f"{data_folder}/{dataset}.json"
+        json_path = hparams[f"annotation_{dataset}"]
 
         is_use_sp = dataset == "train" and "speed_perturb" in hparams
         audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
@@ -377,7 +377,6 @@ if __name__ == "__main__":
     # creates a logger
     logger = logging.getLogger(__name__)
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

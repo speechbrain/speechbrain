@@ -12,13 +12,10 @@ Authors:
 import os
 import logging
 from pathlib import Path
-
+from typing import List, Union
 import torch
 
 from . import k2  # import k2 from ./__init__.py
-
-from typing import List, Union
-
 
 logger = logging.getLogger(__name__)
 

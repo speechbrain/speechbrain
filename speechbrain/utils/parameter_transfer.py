@@ -154,8 +154,7 @@ class Pretrainer:
         """
 
         def split(src):
-            """Core function to split path.
-            """
+            """Core function to split path."""
             if "/" in src:
                 return src.rsplit("/", maxsplit=1)
             else:

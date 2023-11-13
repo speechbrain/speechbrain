@@ -14,14 +14,11 @@ Authors:
 import os
 from typing import List, Optional, Tuple
 import abc
-
-from . import k2  # import k2 from ./__init__.py
-
 import torch
 import logging
 
+from . import k2  # import k2 from ./__init__.py
 from . import lexicon
-
 
 logger = logging.getLogger(__name__)
 

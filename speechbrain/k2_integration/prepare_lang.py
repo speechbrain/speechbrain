@@ -17,6 +17,10 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
+from speechbrain.k2_integration.lexicon import read_lexicon, write_lexicon
+import torch
+
+logger = logging.getLogger(__name__)
 
 from . import k2  # import k2 from ./__init__.py
 from .lexicon import read_lexicon, write_lexicon, EPS

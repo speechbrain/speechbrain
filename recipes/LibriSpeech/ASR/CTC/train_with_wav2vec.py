@@ -85,6 +85,16 @@ class ASR(sb.Brain):
         elif stage == sb.Stage.TEST:
             p_tokens = test_searcher(p_ctc, wav_lens)
 
+            candidates = []
+            scores = []
+
+            for batch in p_tokens:
+                candidates.append([hyp.text for hyp in batch])
+                scores.append([hyp.score for hyp in batch])
+
+            if hasattr(self.hparams, "rescorer"):
+                p_tokens, _ = self.hparams.rescorer.rescore(candidates, scores)
+
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -109,9 +119,14 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
         elif stage == sb.Stage.TEST:
-            predicted_words = [
-                hyp[0].text.split(" ") for hyp in predicted_tokens
-            ]
+            if hasattr(self.hparams, "rescorer"):
+                predicted_words = [
+                    hyp[0].split(" ") for hyp in predicted_tokens
+                ]
+            else:
+                predicted_words = [
+                    hyp[0].text.split(" ") for hyp in predicted_tokens
+                ]
 
         if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -164,6 +179,10 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
+
+        if stage == sb.Stage.TEST:
+            if hasattr(self.hparams, "rescorer"):
+                self.hparams.rescorer.move_rescorers_to_device()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -337,7 +356,6 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -393,6 +411,7 @@ if __name__ == "__main__":
 
     ind2lab = label_encoder.ind2lab
     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
+
     test_searcher = hparams["test_searcher"](
         blank_index=hparams["blank_index"],
         vocab_list=vocab_list,

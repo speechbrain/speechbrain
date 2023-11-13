@@ -6,10 +6,10 @@ Authors:
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
 """
+
 from . import k2  # import k2 from ./__init__.py
 
 import torch
-
 
 def ctc_k2(
     log_probs,
@@ -59,6 +59,7 @@ def ctc_k2(
 
     >>> # Create a random batch of log-probs
     >>> batch_size = 4
+
     >>> log_probs = torch.randn(batch_size, 100, 30)
     >>> log_probs.requires_grad = True
     >>> # Assume all utterances have the same length so no padding was needed.

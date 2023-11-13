@@ -41,7 +41,6 @@ sample_rate: 16000
 # n_fft: 400
 # n_mels: 40
 
-
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
 # dropout: 0.15
@@ -75,16 +74,11 @@ test_dataloader_opts:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-# compute_features: !new:speechbrain.lobes.features.Fbank
-#    sample_rate: !ref <sample_rate>
-#    n_fft: !ref <n_fft>
-#    n_mels: !ref <n_mels>
-
 augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
     sample_rate: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec.Wav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
@@ -95,8 +89,6 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     activation: !ref <activation>
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
-
-jit_module_keys: [enc]
 
 enc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
@@ -128,9 +120,6 @@ output: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <joint_dim>
     n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
     bias: False
-
-#log_softmax: !new:speechbrain.nnet.activations.Softmax
-#    apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
     use_torchaudio: True

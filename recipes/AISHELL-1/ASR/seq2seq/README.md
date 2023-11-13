@@ -9,9 +9,8 @@ To train a full recipe:
 
 ```
 cd ../../Tokenizer
-python train.py hparams/tokenizer_bpe5000.yaml --data_folder=/localscratch/aishell/
+python train.py hparams/tokenizer_bpe5000.yaml --data_folder=/path/to/aishell/
 ```
-If not present in the specified data_folder, the dataset will be automatically downloaded there.
 This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not
 specify a different tokenizer in the speech recognition recipe.
 
