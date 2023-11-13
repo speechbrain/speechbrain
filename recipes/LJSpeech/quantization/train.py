@@ -13,12 +13,10 @@ import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
-from tqdm.contrib import tqdm
-from sklearn.cluster import MiniBatchKMeans
 from torch.utils.data import DataLoader
 from speechbrain.dataio.dataloader import LoopedLoader
-from speechbrain.utils.kmeans  import fetch_kmeans_model, train , save_model
-import joblib
+from speechbrain.utils.kmeans import fetch_kmeans_model, train, save_model
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +44,7 @@ def dataio_prepare(hparams):
 
     return datasets
 
-
-
-
     return datasets
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -90,7 +81,7 @@ if __name__ == "__main__":
     hparams["ssl_model"] = hparams["ssl_model"].to(run_opts["device"])
 
     # Make training Dataloader
-    train_set = dataio_prepare(hparams) ["train"]
+    train_set = dataio_prepare(hparams)["train"]
     if not (
         isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
     ):
@@ -116,8 +107,14 @@ if __name__ == "__main__":
     )
 
     # Train and save Kmeans model
-    train(kmeans_model, train_set,hparams['ssl_model'],hparams['ssl_layer_num'], kmeans_batch_size=hparams['kmeans_batch_size'],device=run_opts["device"])
+    train(
+        kmeans_model,
+        train_set,
+        hparams["ssl_model"],
+        hparams["ssl_layer_num"],
+        kmeans_batch_size=hparams["kmeans_batch_size"],
+        device=run_opts["device"],
+    )
 
     logger.info(f"Saving kmeans model at {checkpoint_path}.")
-    save_model(kmeans_model,checkpoint_path)
-
+    save_model(kmeans_model, checkpoint_path)

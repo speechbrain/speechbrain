@@ -13,14 +13,17 @@ import joblib
 
 logger = logging.getLogger(__name__)
 
-def accumulate_and_extract_features(batch, features_list,ssl_model,ssl_layer_num,device):
+
+def accumulate_and_extract_features(
+    batch, features_list, ssl_model, ssl_layer_num, device
+):
     """ Extract features (output of SSL model) and acculamte them on cpu to be used for clustering.
     Args:
         batch: single batch of data.
         features_list (list):   accumulate features list.
         ssl_model : SSL-model used to  extract features used for clustering.
         ssl_layer_num: specify output of which layer of the ssl_model should be used.
-        device:  CPU or  GPU. 
+        device:  CPU or  GPU.
     """
     batch = batch.to(device)
     wavs, wav_lens = batch.sig
@@ -28,9 +31,7 @@ def accumulate_and_extract_features(batch, features_list,ssl_model,ssl_layer_num
         wavs.to(device),
         wav_lens.to(device),
     )
-    feats = ssl_model(wavs, wav_lens)[
-        ssl_layer_num
-    ].flatten(end_dim=-2)
+    feats = ssl_model(wavs, wav_lens)[ssl_layer_num].flatten(end_dim=-2)
     features_list.extend(feats.to("cpu").detach().numpy())
 
 
@@ -86,30 +87,36 @@ def fetch_kmeans_model(
     )
 
 
-def train(model, train_set,ssl_model,ssl_layer_num, kmeans_batch_size=1000,device='cpu'):
+def train(
+    model,
+    train_set,
+    ssl_model,
+    ssl_layer_num,
+    kmeans_batch_size=1000,
+    device="cpu",
+):
     """Train a  Kmeans model .
     Args:
         model (MiniBatchKMeans): the initial kmenas model for training.
         train_set (Dataloader):   Batches of tarining data.
         ssl_model : SSL-model used to  extract features used for clustering.
         ssl_layer_num: specify output of which layer of the ssl_model should be used.
-        device:  CPU or  GPU. 
+        device:  CPU or  GPU.
         kmeans_batch_size (int): Size of the mini batches.
     """
     logger.info("Start training kmeans model.")
     features_list = []
-    i = 0
     with tqdm(train_set, dynamic_ncols=True,) as t:
         for batch in t:
-            i += 1
-            if i > 3:
-                return
             # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
             if len(features_list) >= kmeans_batch_size:
                 model = model.fit(features_list)
                 features_list = []
             # extract features from the SSL model
-            accumulate_and_extract_features(batch, features_list,ssl_model,ssl_layer_num,device)
+            accumulate_and_extract_features(
+                batch, features_list, ssl_model, ssl_layer_num, device
+            )
+
 
 def save_model(model, checkpoint_path):
     """Save a  Kmeans model .
