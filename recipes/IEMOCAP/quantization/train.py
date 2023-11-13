@@ -50,7 +50,6 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-   
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
@@ -69,6 +68,7 @@ def dataio_prepare(hparams):
     # mappinng.
 
     return datasets
+
 
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     # Data preparation, to be run on only one process.
     if not hparams["skip_prep"]:
-        sb.utils.distributed.run_on_main(
+        run_on_main(
             prepare_data,
             kwargs={
                 "data_original": hparams["data_folder"],
