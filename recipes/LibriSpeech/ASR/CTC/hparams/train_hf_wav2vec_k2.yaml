@@ -15,7 +15,7 @@
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 11111
+seed: 1111
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/train_wav2vec2_char_k2/<seed>
 save_folder: !ref <output_folder>/save
@@ -74,12 +74,10 @@ lm_dir: lm
 # G_arpa_name: own_3gram.arpa # Custom G_arpa trained on train.csv
 # G_fst_output_name: own_G_3_gram.fst.txt  # for HLG creation
 G_arpa_name: 3-gram.pruned.1e-7.arpa
-# G_arpa_name: mine3gramsrilm.arpa
 G_rescoring_arpa_name: 4-gram.arpa
-# G_fst_output_name: G_BIG_gram.fst.txt  # for HLG creation
 G_fst_output_name: G_3_gram.fst.txt  # for HLG creation
 G_rescoring_fst_output_name: G_4_gram.fst.txt  # for LM rescoring
-caching: False
+# caching: False
 
 # Training parameters
 number_of_epochs: 1
