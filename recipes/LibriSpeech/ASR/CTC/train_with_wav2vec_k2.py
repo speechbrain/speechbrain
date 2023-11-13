@@ -90,11 +90,18 @@ class ASR(sb.Brain):
             p_ctc = torch.flip(p_ctc, (0,))
             wav_lens = torch.flip(wav_lens, (0,))
             texts = [batch.wrd[i] for i in reversed(range(len(batch.wrd)))]
+            ids = [ids[i] for i in reversed(range(len(ids)))]
         elif self.hparams.sorting == "descending":
             texts = batch.wrd
+        elif self.hparams["sorting"] == "random":
+            indices = torch.argsort(wav_lens, descending=True)
+            p_ctc = p_ctc[indices]
+            wav_lens = wav_lens[indices]
+            texts = [batch.wrd[i] for i in indices]
+            ids = [ids[i] for i in indices]
         else:
             raise NotImplementedError(
-                "Only ascending or descending sorting is "
+                "Only random, ascending or descending sorting is "
                 "implemented, but got {}".format(self.hparams.sorting)
             )
 
@@ -308,8 +315,11 @@ def dataio_prepare(hparams):
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
+    elif hparams["sorting"] == "random":
+        pass
+
     else:
-        raise NotImplementedError("sorting must be ascending or descending")
+        raise NotImplementedError("sorting must be random, ascending or descending")
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
