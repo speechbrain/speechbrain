@@ -25,8 +25,8 @@ ssl_hub: facebook/wav2vec2-large-960h-lv60-self
 freeze_feature_extractor: True
 freeze_ssl: True
 ssl_folder: !ref <save_folder>/wav2vec_checkpoint
-ssl_layer_num: -3
-batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
+ssl_layer_num: 7
+batch_size: 64 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
 
 sorting: ascending
 
@@ -46,7 +46,7 @@ ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2V
 ####################
 # Model Parameters #
 ####################
-num_clusters: 100
+num_clusters: 128
 init: k-means++
 max_iter: 100
 kmeans_batch_size: 1000 # should be >= num_clusters
