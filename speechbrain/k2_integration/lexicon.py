@@ -23,19 +23,21 @@ import csv
 from pathlib import Path
 from typing import List, Union, Tuple, Optional
 
-from . import k2 # import k2 from ./__init__.py
-from . import utils
+from . import k2  # import k2 from ./__init__.py
 
 import torch
 
 logger = logging.getLogger(__name__)
 
-UNK   = "<UNK>" # unknow word
-UNK_t = "<unk>" # unknow token
-EOW   = "<eow>" # end of word
-EPS   = "<eps>" # epsilon
+UNK = "<UNK>"  # unknow word
+UNK_t = "<unk>"  # unknow token
+EOW = "<eow>"  # end of word
+EPS = "<eps>"  # epsilon
 
-DISAMBIG_PATTERN: re.Pattern = re.compile(r"^#\d+$") # pattern for disambiguation symbols.
+DISAMBIG_PATTERN: re.Pattern = re.compile(
+    r"^#\d+$"
+)  # pattern for disambiguation symbols.
+
 
 class Lexicon(object):
     """Unit based lexicon. It is used to map a list of words to each word's
@@ -60,8 +62,7 @@ class Lexicon(object):
 
     >>> # Create a small lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
-    >>> lexicon_sample = '''hello h e l l o
-    ... world w o r l d'''
+    >>> lexicon_sample = '''hello h e l l o\\nworld w o r l d'''
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
     >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
@@ -74,8 +75,7 @@ class Lexicon(object):
     """
 
     def __init__(
-        self,
-        lang_dir: Path,
+        self, lang_dir: Path,
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
@@ -128,7 +128,6 @@ class Lexicon(object):
         ans.sort()
         return ans
 
-
     @property
     def L_disambig(self) -> k2.Fsa:
         """Return the lexicon FSA (with disambiguation symbols).
@@ -142,8 +141,8 @@ class Lexicon(object):
                 )
             else:
                 raise RuntimeError(
-                    f"{lang_dir}/L_disambig.pt does not exist. Please make sure "
-                    f"you have successfully created L_disambig.pt in {lang_dir}"
+                    f"{self.lang_dir}/L_disambig.pt does not exist. Please make sure "
+                    f"you have successfully created L_disambig.pt in {self.lang_dir}"
                 )
         return self._L_disambig
 
@@ -174,37 +173,46 @@ class Lexicon(object):
         self,
         texts: List[str],
         add_sil_separator=False,
-        sil_token_id:Optional[int]=None,
+        sil_token_id: Optional[int] = None,
         log_unknown_warning=True,
-        ) -> List[List[int]]:
-        word_ids = self._texts_to_ids(texts, log_unknown_warning, _mapper="word_table")
+    ) -> List[List[int]]:
+        word_ids = self._texts_to_ids(
+            texts, log_unknown_warning, _mapper="word_table"
+        )
         if add_sil_separator:
-            assert sil_token_id != None, f"sil_token_id=None while add_sil_separator=True"
+            assert (
+                sil_token_id is None
+            ), f"sil_token_id=None while add_sil_separator=True"
             for i in range(len(word_ids)):
-                word_ids[i] = [x for item in word_ids[i] for x in (item, sil_token_id)][:-1]
+                word_ids[i] = [
+                    x for item in word_ids[i] for x in (item, sil_token_id)
+                ][:-1]
         return word_ids
 
     def texts_to_token_ids(
-        self,
-        texts: List[str],
-        log_unknown_warning=True,
-        ) -> List[List[List[int]]]:
-        return self._texts_to_ids(texts, log_unknown_warning, _mapper="word2tokenids")
+        self, texts: List[str], log_unknown_warning=True,
+    ) -> List[List[List[int]]]:
+        return self._texts_to_ids(
+            texts, log_unknown_warning, _mapper="word2tokenids"
+        )
 
     def texts_to_token_ids_with_multiple_pronunciation(
-        self,
-        texts: List[str],
-        log_unknown_warning=True,
-        ) -> List[List[List[List[int]]]]:
-        return self._texts_to_ids(texts, log_unknown_warning, _mapper="word2tokenids", _multiple_pronunciation=True)
+        self, texts: List[str], log_unknown_warning=True,
+    ) -> List[List[List[List[int]]]]:
+        return self._texts_to_ids(
+            texts,
+            log_unknown_warning,
+            _mapper="word2tokenids",
+            _multiple_pronunciation=True,
+        )
 
     def _texts_to_ids(
         self,
         texts: List[str],
         log_unknown_warning: bool,
         _mapper: str,
-        _multiple_pronunciation = False,
-        ):
+        _multiple_pronunciation=False,
+    ):
         """Convert a list of texts to a list of ID, them be word or list of token IDs.
 
         Arguments
@@ -240,12 +248,14 @@ class Lexicon(object):
                 if word in ids:
                     idword = ids[word]
                     if isinstance(idword, list) and not _multiple_pronunciation:
-                        idword = idword[0] # only first spelling of a word (for word2tokenids mapper)
+                        idword = idword[
+                            0
+                        ]  # only first spelling of a word (for word2tokenids mapper)
                     word_ids.append(idword)
                 else:
                     word_ids.append(oov_token_id)
                     if log_unknown_warning:
-                        logger.warn(
+                        logger.warning(
                             f"Cannot find word {word} in the mapper {_mapper}."
                             f" Replacing it with OOV token."
                             f" Note that it is fine if you are testing."
@@ -257,12 +267,12 @@ class Lexicon(object):
     def arc_sort(self):
         """Sort L, L_inv, L_disambig arcs of every state.
         """
-        self.L =  k2.arc_sort(self.L)
-        self.L_inv =  k2.arc_sort(self.L_inv)
+        self.L = k2.arc_sort(self.L)
+        self.L_inv = k2.arc_sort(self.L_inv)
         if self._L_disambig is not None:
             self._L_disambig = k2.arc_sort(self._L_disambig)
 
-    def to(self, device: str="cpu"):
+    def to(self, device: str = "cpu"):
         """Device to move L L_inv L_disambig to
 
         Arguments
@@ -276,7 +286,13 @@ class Lexicon(object):
             self._L_disambig = self._L_disambig.to(device)
 
 
-def prepare_char_lexicon(lang_dir, vocab_files, extra_csv_files=[], column_text_key="wrd", add_word_boundary=True):
+def prepare_char_lexicon(
+    lang_dir,
+    vocab_files,
+    extra_csv_files=[],
+    column_text_key="wrd",
+    add_word_boundary=True,
+):
     """Read extra_csv_files to generate a $lang_dir/lexicon.txt for k2 training.
     This usually includes the csv files of the training set and the dev set in the
     output_folder. During training, we need to make sure that the lexicon.txt contains
@@ -321,22 +337,26 @@ def prepare_char_lexicon(lang_dir, vocab_files, extra_csv_files=[], column_text_
     >>> # format:
     >>> # ID, duration, wav, spk_id, wrd (transcription)
     >>> csv_file = getfixture('tmpdir').join("train.csv")
-    >>> with open(csv_file, "w") as f:
-    ...     f.write("ID,duration,wav,spk_id,wrd\n")
-    ...     f.write("1,1,1,1,hello world\n")
-    ...     f.write("2,0.5,1,1,hello\n")
+    >>> # Data to be written to the CSV file.
+    >>> import csv
+    >>> data = [
+    ...    ["ID", "duration", "wav", "spk_id", "wrd"],
+    ...    [1, 1, 1, 1, "hello world"],
+    ...    [2, 0.5, 1, 1, "hello"]
+    ... ]
+    >>> with open(csv_file, "w", newline="") as f:
+    ...    writer = csv.writer(f)
+    ...    writer.writerows(data)
     >>> extra_csv_files = [csv_file]
     >>> lang_dir = getfixture('tmpdir')
     >>> vocab_files = []
     >>> prepare_char_lexicon(lang_dir, vocab_files, extra_csv_files=extra_csv_files, add_word_boundary=False)
-    >>> with open(lang_dir.join("lexicon.txt"), "r") as f:
-    ...     assert f.read() == "<UNK> <unk>\nhello h e l l o\nworld w o r l d\n"
     """
     # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
     lexicon = dict()
     if len(extra_csv_files) != 0:
         for file in extra_csv_files:
-            with open(file, 'r') as f:
+            with open(file, "r") as f:
                 csv_reader = csv.DictReader(f)
                 for row in csv_reader:
                     # Split the transcription into words

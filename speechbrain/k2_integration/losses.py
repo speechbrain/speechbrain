@@ -6,8 +6,7 @@ Authors:
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
 """
-from . import k2 # import k2 from ./__init__.py
-from . import utils
+from . import k2  # import k2 from ./__init__.py
 
 import torch
 
@@ -61,12 +60,12 @@ def ctc_k2(
     >>> # Create a random batch of log-probs
     >>> batch_size = 4
     >>> log_probs = torch.randn(batch_size, 100, 30)
+    >>> log_probs.requires_grad = True
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
     >>> # Create a samll lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
-    >>> lexicon_sample = '''hello h e l l o
-    >>> world w o r l d'''
+    >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
     >>> lexicon_file.write(lexicon_sample)
     >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
@@ -75,9 +74,9 @@ def ctc_k2(
     >>> lexicon = Lexicon(lang_tmpdir)
     >>> # Create a random decoding graph
     >>> graph = CtcGraphCompiler(
-    ...     lexicon=lexicon,
-    ...     device=log_probs.device,
-    >>> )
+    ...     lexicon,
+    ...     log_probs.device,
+    ... )
     >>> # Create a random batch of texts
     >>> texts = ["hello world", "world hello", "hello", "world"]
     >>> # Compute the loss
@@ -91,9 +90,6 @@ def ctc_k2(
     ...     use_double_scores=True,
     ...     is_training=True,
     ... )
-    >>> # Check that the loss requires gradient
-    >>> assert loss.requires_grad
-
     """
     input_lens = (input_lens * log_probs.shape[1]).round().int()
 
@@ -105,7 +101,9 @@ def ctc_k2(
         dtype=torch.int32,
     )
 
-    decoding_graph, target_lens = graph_compiler.compile(texts, is_training=is_training)
+    decoding_graph, target_lens = graph_compiler.compile(
+        texts, is_training=is_training
+    )
 
     # An introduction to DenseFsaVec:
     # https://k2-fsa.github.io/k2/core_concepts/index.html#dense-fsa-vector

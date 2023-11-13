@@ -12,22 +12,21 @@ Authors:
 
 
 import os
-from pathlib import Path
-from typing import List, Union, Optional, Tuple
+from typing import List, Optional, Tuple
 import abc
 
-from . import k2 # import k2 from ./__init__.py
+from . import k2  # import k2 from ./__init__.py
 
 import torch
 import logging
 
-from . import lexicon, utils
+from . import lexicon
 
 
 logger = logging.getLogger(__name__)
 
-class GraphCompiler(abc.ABC):
 
+class GraphCompiler(abc.ABC):
     @abc.abstractproperty
     def topo(self) -> k2.Fsa:
         pass
@@ -44,7 +43,7 @@ class GraphCompiler(abc.ABC):
     def compile(self, texts: List[str], is_training: bool = True):
         pass
 
-    def compile_HL(self, cache_to: Optional[str] = None):
+    def compile_HL(self, cache_dir: Optional[str] = None, cache: bool = False):
         """
         Compile the decoding graph by composing H with L.
         This is for decoding without language model.
@@ -53,9 +52,9 @@ class GraphCompiler(abc.ABC):
         L = k2.arc_sort(self.lexicon.L).to("cpu")
         H = self.topo.to("cpu")
 
-        file_hash = str(hash(H.shape[0]))+str(hash(L.shape[0]))
-        if cache_to is not None:
-            path = cache_to+"/.HL_"+file_hash+".pt"
+        file_hash = str(hash(H.shape[0])) + str(hash(L.shape[0]))
+        if cache and cache_dir is not None:
+            path = cache_dir + "/.HL_" + file_hash + ".pt"
             if os.path.exists(path):
                 logger.warning(
                     f"Loading HL '{path}' from its cached .pt format."
@@ -75,13 +74,16 @@ class GraphCompiler(abc.ABC):
         HL = k2.arc_sort(HL)
         logger.debug(f"HL.shape: {HL.shape}")
 
-        if cache_to is not None:
-            logger.info("Caching HL to: "+cache_to)
+        if cache_dir is not None:
+            path = cache_dir + "/.HL_" + file_hash + ".pt"
+            logger.info("Caching HL to: " + path)
             torch.save(HL.as_dict(), path)
 
         return HL
 
-    def compile_HLG(self, G, cache_to: Optional[str] = None):
+    def compile_HLG(
+        self, G, cache_dir: Optional[str] = None, cache: bool = False
+    ):
         """
         Compile the decoding graph by composing H with LG.
         This is for decoding with language model.
@@ -91,9 +93,13 @@ class GraphCompiler(abc.ABC):
         G = k2.arc_sort(G).to("cpu")
         H = self.topo.to("cpu")
 
-        file_hash = str(hash(H.shape[0]))+str(hash(L.shape[0]))+str(hash(G.shape[0]))
-        if cache_to is not None:
-            path = cache_to+"/.HLG_"+file_hash+".pt"
+        file_hash = (
+            str(hash(H.shape[0]))
+            + str(hash(L.shape[0]))
+            + str(hash(G.shape[0]))
+        )
+        if cache and cache_dir is not None:
+            path = cache_dir + "/.HLG_" + file_hash + ".pt"
             if os.path.exists(path):
                 logger.warning(
                     f"Loading HLG '{path}' from its cached .pt format."
@@ -133,8 +139,9 @@ class GraphCompiler(abc.ABC):
         HLG = k2.arc_sort(HLG)
         logger.debug(f"HLG.shape: {HLG.shape}")
 
-        if cache_to is not None:
-            logger.info("Caching HLG to: "+cache_to)
+        if cache_dir is not None:
+            path = cache_dir + "/.HLG_" + file_hash + ".pt"
+            logger.info("Caching HLG to: " + path)
             torch.save(HLG.as_dict(), path)
 
         return HLG
@@ -194,7 +201,9 @@ class CtcGraphCompiler(GraphCompiler):
     def device(self):
         return self._device
 
-    def compile(self, texts: List[str], is_training: bool = True) -> Tuple[k2.Fsa, torch.Tensor]:
+    def compile(
+        self, texts: List[str], is_training: bool = True
+    ) -> Tuple[k2.Fsa, torch.Tensor]:
         """Build decoding graphs by composing ctc_topo with
         given transcripts.
 
@@ -220,12 +229,14 @@ class CtcGraphCompiler(GraphCompiler):
             each target sequence.
         """
 
-        word_idx = self.lexicon.texts_to_word_ids(texts,
-                                       log_unknown_warning=is_training)
+        word_idx = self.lexicon.texts_to_word_ids(
+            texts, log_unknown_warning=is_training
+        )
 
         # ["test", "testa"] -> [[23, 8, 22, 23], [23, 8, 22, 23, 5]] -> [4, 5]
-        word2tids = self.lexicon.texts_to_token_ids(texts,
-                                   log_unknown_warning=is_training)
+        word2tids = self.lexicon.texts_to_token_ids(
+            texts, log_unknown_warning=is_training
+        )
         scentence_ids = [sum(inner, []) for inner in word2tids]
 
         target_lens = torch.tensor(
@@ -237,7 +248,9 @@ class CtcGraphCompiler(GraphCompiler):
         )
 
         fsa = k2.intersect(
-            self.lexicon.L_inv, word_fsa_with_self_loops, treat_epsilons_specially=False
+            self.lexicon.L_inv,
+            word_fsa_with_self_loops,
+            treat_epsilons_specially=False,
         )
         # fsa has word ID as labels and token ID as aux_labels, so
         # we need to invert it

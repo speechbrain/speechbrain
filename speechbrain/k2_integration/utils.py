@@ -15,9 +15,9 @@ from pathlib import Path
 
 import torch
 
-from . import k2 # import k2 from ./__init__.py
+from . import k2  # import k2 from ./__init__.py
 
-from typing import Dict, List, Optional, Union
+from typing import List, Union
 
 
 logger = logging.getLogger(__name__)
@@ -82,7 +82,9 @@ def lattice_paths_to_text(best_paths: k2.Fsa, word_table) -> List[str]:
     A list of strings, each of which is the decoding result of the
     corresponding utterance.
     """
-    hyps: List[List[int]] = lattice_path_to_textid(best_paths, return_ragged=False)
+    hyps: List[List[int]] = lattice_path_to_textid(
+        best_paths, return_ragged=False
+    )
     texts = []
     for wids in hyps:
         texts.append(" ".join([word_table[wid] for wid in wids]))
@@ -126,10 +128,12 @@ def arpa_to_fst(
     ---------
         ImportError: If kaldilm is not installed.
     """
-    assert len(in_arpa_files) == len(out_fst_files),\
-    f"in_arpa_files {len(in_arpa_files)} != out_fst_files {len(out_fst_files)} "
-    assert len(in_arpa_files) == len(lms_ngram_orders),\
-    f"in_arpa_files {len(in_arpa_files)} != lms_ngram_orders {len(lms_ngram_orders)} "
+    assert len(in_arpa_files) == len(
+        out_fst_files
+    ), f"in_arpa_files {len(in_arpa_files)} != out_fst_files {len(out_fst_files)} "
+    assert len(in_arpa_files) == len(
+        lms_ngram_orders
+    ), f"in_arpa_files {len(in_arpa_files)} != lms_ngram_orders {len(lms_ngram_orders)} "
     try:
         from kaldilm.arpa2fst import arpa2fst
     except ImportError:
@@ -184,9 +188,7 @@ def arpa_to_fst(
         _arpa_to_fst_single(a, f, max_order=n)
 
 
-def load_G(
-    path: Union[str, Path], cache: bool = True
-) -> k2.Fsa:
+def load_G(path: Union[str, Path], cache: bool = True) -> k2.Fsa:
     """load a lm to be used in the decoding graph creation (or lm rescoring).
 
     Arguments
@@ -209,19 +211,19 @@ def load_G(
             " Set 'caching: False' in the yaml"
             " if this is not what you want."
         )
-        G = k2.Fsa.from_dict(torch.load(path.replace(".fst.txt", ".pt"), map_location="cpu"))
+        G = k2.Fsa.from_dict(
+            torch.load(path.replace(".fst.txt", ".pt"), map_location="cpu")
+        )
         return G
 
     logger.info(f"Loading G LM: {path}")
     # If G_path is an fst.txt file then convert to .pt file
     if not os.path.isfile(path):
         raise FileNotFoundError(
-            f"File {path} not found. "
-            "You need to run arpa_to_fst to get it."
+            f"File {path} not found. " "You need to run arpa_to_fst to get it."
         )
     with open(path) as f:
         G = k2.Fsa.from_openfst(f.read(), acceptor=False)
-    if cache:
         torch.save(G.as_dict(), path[:-8] + ".pt")
     return G
 

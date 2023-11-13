@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 from collections import OrderedDict
 
-from . import k2 # import k2 from ./__init__.py
+from . import k2  # import k2 from ./__init__.py
 from speechbrain.utils.distributed import run_on_main
 
 import torch
@@ -24,11 +24,10 @@ from . import graph_compiler, utils
 
 logger = logging.getLogger(__name__)
 
+
 def get_decoding(
-    hparams,
-    graphCompiler: graph_compiler.GraphCompiler,
-    device="cpu"
-    ):
+    hparams, graphCompiler: graph_compiler.GraphCompiler, device="cpu"
+):
     """This function reads a config and creates the decoder for k2 graph
     compiler decoding.
     There are the following cases:
@@ -64,44 +63,57 @@ def get_decoding(
         hparams.get("decoding_method") == "whole-lattice-rescoring"
     )
 
-    caching = None if "caching" in hparams and hparams["caching"] == False else hparams["output_folder"]
+    caching = (
+        False if "caching" in hparams and hparams["caching"] is False else True
+    )
 
     if compose_HL_with_G or use_G_rescoring:
-        arpa_cache = {"cache": False} if caching==None else {}
         G_path = Path(hparams["lm_dir"]) / hparams["G_fst_output_name"]
         G_rescoring_path = (
-            Path(hparams["lm_dir"]) / hparams["G_rescoring_fst_output_name"]
-        ) if use_G_rescoring else None
+            (Path(hparams["lm_dir"]) / hparams["G_rescoring_fst_output_name"])
+            if use_G_rescoring
+            else None
+        )
         lm_dir = Path(hparams["lm_dir"])
         run_on_main(
             utils.arpa_to_fst,
             kwargs={
                 "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "in_arpa_files":
-                     ([ lm_dir / hparams["G_arpa_name"]] if compose_HL_with_G else [])
-                   + ([lm_dir / hparams["G_rescoring_arpa_name"]] if use_G_rescoring else []),
-                "out_fst_files":
-                      ([G_path] if compose_HL_with_G else [])
-                    + ([ G_rescoring_path] if use_G_rescoring else []),
-                "lms_ngram_orders":
-                      ([ 3 ] if compose_HL_with_G else [])
-                    + ([4] if use_G_rescoring else []),
-                **arpa_cache,
+                "in_arpa_files": (
+                    [lm_dir / hparams["G_arpa_name"]]
+                    if compose_HL_with_G
+                    else []
+                )
+                + (
+                    [lm_dir / hparams["G_rescoring_arpa_name"]]
+                    if use_G_rescoring
+                    else []
+                ),
+                "out_fst_files": ([G_path] if compose_HL_with_G else [])
+                + ([G_rescoring_path] if use_G_rescoring else []),
+                "lms_ngram_orders": ([3] if compose_HL_with_G else [])
+                + ([4] if use_G_rescoring else []),
+                "cache": caching,
             },
         )
 
     if compose_HL_with_G:
-        G = utils.load_G(G_path, cache=caching!=None)
-        decoding_graph = graphCompiler.compile_HLG(G, cache_to=caching)
+        G = utils.load_G(G_path, cache=caching)
+        decoding_graph = graphCompiler.compile_HLG(
+            G, cache_dir=hparams["output_folder"], cache=caching
+        )
     else:
-        decoding_graph = graphCompiler.compile_HL(cache_to=caching)
+        decoding_graph = graphCompiler.compile_HL(
+            cache_dir=hparams["output_folder"], cache=caching
+        )
 
     if not isinstance(hparams["rescoring_lm_scale"], list):
         hparams["rescoring_lm_scale"] = [hparams["rescoring_lm_scale"]]
 
     if hparams.get("decoding_method") == "whole-lattice-rescoring":
         G_rescoring = None
-        def decoding_method(lattice:k2.Fsa) -> Dict[str, k2.Fsa]:
+
+        def decoding_method(lattice: k2.Fsa) -> Dict[str, k2.Fsa]:
             """Get the best path from a lattice given rescoring_lm_scale."""
 
             # Lazy load rescoring G (takes a lot of time) for developer happiness
@@ -109,8 +121,10 @@ def get_decoding(
             if G_rescoring is None:
                 logger.info(f"Decoding method: whole-lattice-rescoring")
                 logger.info(f"Loading rescoring LM: {G_rescoring_path}")
-                G_rescoring_pt = utils.load_G(G_rescoring_path, cache=caching!=None)
-                graphCompiler.lexicon.remove_G_rescoring_disambig_symbols(G_rescoring_pt)
+                G_rescoring_pt = utils.load_G(G_rescoring_path, cache=caching)
+                graphCompiler.lexicon.remove_G_rescoring_disambig_symbols(
+                    G_rescoring_pt
+                )
                 G_rescoring = utils.prepare_rescoring_G(G_rescoring_pt)
 
             # rescore_with_whole_lattice returns a list of paths depending on
@@ -123,17 +137,22 @@ def get_decoding(
 
     elif hparams.get("decoding_method") in ["1best", "onebest"]:
         logger.info(f"Decoding method: one-best-decoding")
-        def decoding_method(lattice:k2.Fsa) -> Dict[str, k2.Fsa]:
+
+        def decoding_method(lattice: k2.Fsa) -> Dict[str, k2.Fsa]:
             """Get the best path from a lattice."""
             return OrderedDict({"1best": one_best_decoding(lattice)})
 
     else:
-        def decoding_method(lattice:k2.Fsa):
-            raise NotImplementedError(f"{hparams.get('decoding_method')} not implemented as a decoding_method")
 
+        def decoding_method(lattice: k2.Fsa):
+            raise NotImplementedError(
+                f"{hparams.get('decoding_method')} not implemented as a decoding_method"
+            )
 
-    return {"decoding_graph":decoding_graph.to(device),
-            "decoding_method":decoding_method}
+    return {
+        "decoding_graph": decoding_graph.to(device),
+        "decoding_method": decoding_method,
+    }
 
 
 @torch.no_grad()
@@ -145,8 +164,8 @@ def get_lattice(
     output_beam: int = 5,
     min_active_states: int = 300,
     max_active_states: int = 1000,
-    ac_scale:float = 1.0, 
-    subsampling_factor:int =1
+    ac_scale: float = 1.0,
+    subsampling_factor: int = 1,
 ) -> k2.Fsa:
     """Get the decoding lattice from a decoding graph and neural network output.
 
@@ -188,8 +207,10 @@ def get_lattice(
     device = log_probs_nnet_output.device
     input_lens = input_lens.to(device)
     if decoder.device != device:
-        logger.warn("Decoding graph (HL or HLG) not loaded on the same device"
-                   "  as nnet, this will cause decoding speed degradation")
+        logger.warn(
+            "Decoding graph (HL or HLG) not loaded on the same device"
+            "  as nnet, this will cause decoding speed degradation"
+        )
         decoder = decoder.to(device)
 
     input_lens = (input_lens * log_probs_nnet_output.shape[1]).round().int()
@@ -212,8 +233,7 @@ def get_lattice(
 
 @torch.no_grad()
 def one_best_decoding(
-    lattice: k2.Fsa,
-    use_double_scores: bool = True,
+    lattice: k2.Fsa, use_double_scores: bool = True,
 ) -> k2.Fsa:
     """Get the best path from a lattice.
     Arguments

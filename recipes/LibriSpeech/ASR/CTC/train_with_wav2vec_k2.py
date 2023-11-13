@@ -23,7 +23,6 @@ Authors
 
 import os
 import sys
-from typing import List
 import torch
 import logging
 import speechbrain as sb
@@ -120,10 +119,10 @@ class ASR(sb.Brain):
                 max_active_states=self.hparams.test_max_active_state,
                 min_active_states=self.hparams.test_min_active_state,
             )
-             # 1best decoding for fast valid
+            # 1best decoding for fast valid
             paths = {"1best": sbk2.lattice_decoder.one_best_decoding(lattice)}
 
-        if stage == sb.Stage.TEST: 
+        if stage == sb.Stage.TEST:
             lattice = sbk2.lattice_decoder.get_lattice(
                 p_ctc,
                 wav_lens,
@@ -138,7 +137,9 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TEST or stage == sb.Stage.VALID:
             for k, path in paths.items():
-                predicted_texts = sbk2.utils.lattice_paths_to_text(path, self.lexicon.word_table)
+                predicted_texts = sbk2.utils.lattice_paths_to_text(
+                    path, self.lexicon.word_table
+                )
 
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
                 target_words = [wrd.split(" ") for wrd in texts]
@@ -213,8 +214,12 @@ class ASR(sb.Brain):
             self.train_stats = stage_stats
         else:
             # Only report the fist config (first rescoring_lm_scale value)
-            stage_stats["CER"] = list(self.cer_metrics.values())[0].summarize("error_rate")
-            stage_stats["WER"] = list(self.wer_metrics.values())[0].summarize("error_rate")
+            stage_stats["CER"] = list(self.cer_metrics.values())[0].summarize(
+                "error_rate"
+            )
+            stage_stats["WER"] = list(self.wer_metrics.values())[0].summarize(
+                "error_rate"
+            )
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
@@ -249,7 +254,7 @@ class ASR(sb.Brain):
             )
             if if_main_process():
                 for k, stat in self.wer_metrics.items():
-                    with open(self.hparams.wer_file+f"_{k}.txt", "w") as w:
+                    with open(self.hparams.wer_file + f"_{k}.txt", "w") as w:
                         stat.write_stats(w)
 
     def init_optimizers(self):
@@ -393,9 +398,7 @@ if __name__ == "__main__":
 
     run_on_main(
         librispeech_prepare.download_librispeech_lm,
-        kwargs={
-            "destination": hparams["lm_dir"],
-        },
+        kwargs={"destination": hparams["lm_dir"]},
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -409,14 +412,20 @@ if __name__ == "__main__":
             "vocab_files": [hparams["vocab_file"]],
             "extra_csv_files": [
                 hparams["output_folder"] + "/train.csv",
+                hparams["output_folder"] + "/dev-clean.csv",
+                hparams["output_folder"] + "/dev-other.csv",
             ],
             "add_word_boundary": hparams["add_word_boundary"],
         },
     )
 
-    caching = {"cache":False} if "caching" in hparams and hparams["caching"] == False else {}
+    caching = (
+        {"cache": False}
+        if "caching" in hparams and hparams["caching"] is False
+        else {}
+    )
 
-    # create arpa lm on train dataset (lm prefix = 960_)
+    # create arpa lm on train dataset (lm prefix = own_)
     if hparams["G_arpa_name"].startswith("own_"):
         run_on_main(
             sb.lm.arpa.make_from_csv,
@@ -424,9 +433,9 @@ if __name__ == "__main__":
                 "input_csv_file": hparams["train_csv"],
                 "output_arpa_dir": hparams["lm_dir"],
                 "column_name": "wrd",
-                "ngram_order":3,
-                "prefix_name":"960_",
-                **caching
+                "ngram_order": 3,
+                "prefix_name": "own_",
+                **caching,
             },
         )
 
@@ -436,7 +445,7 @@ if __name__ == "__main__":
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "sil_prob": hparams["sil_prob"],
-            **caching
+            **caching,
         },
     )
 
@@ -450,10 +459,11 @@ if __name__ == "__main__":
 
     lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
     graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
-        lexicon,
-        device=asr_brain.device,
+        lexicon, device=asr_brain.device,
     )
-    decoder = sbk2.lattice_decoder.get_decoding(hparams, graph_compiler, device=asr_brain.device)
+    decoder = sbk2.lattice_decoder.get_decoding(
+        hparams, graph_compiler, device=asr_brain.device
+    )
 
     # Add attributes to asr_brain
     setattr(asr_brain, "lexicon", lexicon)

@@ -18,7 +18,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
-from . import k2 # import k2 from ./__init__.py
+from . import k2  # import k2 from ./__init__.py
 from .lexicon import read_lexicon, write_lexicon, EPS
 
 import torch
@@ -433,7 +433,12 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
     lexicon_filename = out_dir / "lexicon.txt"
 
     # if source lexicon_filename has been re-created (only use 'Linv.pt' for date modification query)
-    if cache and (out_dir / "Linv.pt").exists() and (out_dir / "Linv.pt").stat().st_mtime < lexicon_filename.stat().st_mtime:
+    if (
+        cache
+        and (out_dir / "Linv.pt").exists()
+        and (out_dir / "Linv.pt").stat().st_mtime
+        < lexicon_filename.stat().st_mtime
+    ):
         logger.warning(
             f"Skipping lang preparation of '{out_dir}'."
             " Set 'caching: False' in the yaml"
@@ -485,7 +490,9 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
     token2id = generate_id_map(tokens)
     word2id = generate_id_map(words)
 
-    logger.info(f"Saving tokens.txt, words.txt, lexicon_disambig.txt to '{out_dir}'")
+    logger.info(
+        f"Saving tokens.txt, words.txt, lexicon_disambig.txt to '{out_dir}'"
+    )
     write_mapping(out_dir / "tokens.txt", token2id)
     write_mapping(out_dir / "words.txt", word2id)
     write_lexicon(out_dir / "lexicon_disambig.txt", lexicon_disambig)

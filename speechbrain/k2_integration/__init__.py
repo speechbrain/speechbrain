@@ -7,6 +7,17 @@ Intended loading manner:
 
 """
 
+
+__all__ = [
+    "k2",
+    "utils",
+    "graph_compiler",
+    "lattice_decoder",
+    "lexicon",
+    "losses",
+    "prepare_lang",
+]
+
 try:
     import k2
 except ImportError:

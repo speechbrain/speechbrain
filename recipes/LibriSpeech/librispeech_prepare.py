@@ -457,6 +457,7 @@ def check_librispeech_folders(data_folder, splits):
             )
             raise OSError(err_msg)
 
+
 def download_librispeech_lm(destination):
     """Download librispeech lm and unpack it.
 
@@ -466,12 +467,17 @@ def download_librispeech_lm(destination):
         Place to put dataset.
     """
     os.makedirs(destination, exist_ok=True)
-    for f in ["3-gram.arpa.gz", "3-gram.pruned.1e-7.arpa.gz", "3-gram.pruned.3e-7.arpa.gz", "4-gram.arpa.gz"]:
+    for f in [
+        "3-gram.arpa.gz",
+        "3-gram.pruned.1e-7.arpa.gz",
+        "3-gram.pruned.3e-7.arpa.gz",
+        "4-gram.arpa.gz",
+    ]:
         d = os.path.join(destination, f)
         download_file("http://www.openslr.org/resources/11/" + f, d)
         out = d.replace(".gz", "")
         if os.path.exists(out):
             continue
-        with gzip.open(d, 'rb') as f_in:
-            with open(out, 'wb') as f_out:
+        with gzip.open(d, "rb") as f_in:
+            with open(out, "wb") as f_out:
                 shutil.copyfileobj(f_in, f_out)

@@ -315,7 +315,9 @@ class NgramCounts:
 
         self.counts = []
         for n in range(ngram_order):
-            self.counts.append(collections.defaultdict(lambda: CountsForHistory()))
+            self.counts.append(
+                collections.defaultdict(lambda: CountsForHistory())
+            )
 
         self.d = []  # list of discounting factor for each order of ngram
 
@@ -334,7 +336,9 @@ class NgramCounts:
         if line == "":
             words = [self.bos_symbol, self.eos_symbol]
         else:
-            words = [self.bos_symbol] + whitespace.split(line) + [self.eos_symbol]
+            words = (
+                [self.bos_symbol] + whitespace.split(line) + [self.eos_symbol]
+            )
 
         for i in range(len(words)):
             for n in range(1, self.ngram_order + 1):
@@ -382,7 +386,9 @@ class NgramCounts:
             n1 = 0
             n2 = 0
             for hist, counts_for_hist in this_order_counts.items():
-                stat = collections.Counter(counts_for_hist.word_to_count.values())
+                stat = collections.Counter(
+                    counts_for_hist.word_to_count.values()
+                )
                 n1 += stat[1]
                 n2 += stat[2]
             assert n1 + 2 * n2 > 0
@@ -476,9 +482,9 @@ class NgramCounts:
 
                         if sum_z1_f_z < 1:
                             # assert sum_z1_f_a_z < 1
-                            counts_for_hist.word_to_bow[w] = (1.0 - sum_z1_f_a_z) / (
-                                1.0 - sum_z1_f_z
-                            )
+                            counts_for_hist.word_to_bow[w] = (
+                                1.0 - sum_z1_f_a_z
+                            ) / (1.0 - sum_z1_f_z)
                         else:
                             counts_for_hist.word_to_bow[w] = None
 
@@ -493,7 +499,9 @@ class NgramCounts:
                     ngram = ngram.strip(strip_chars)
 
                     res.append(
-                        "{0}\t{1}".format(ngram, counts_for_hist.word_to_count[w])
+                        "{0}\t{1}".format(
+                            ngram, counts_for_hist.word_to_count[w]
+                        )
                     )
         res.sort(reverse=True)
         for r in res:
@@ -580,7 +588,9 @@ class NgramCounts:
                     sum(
                         [
                             len(counts_for_hist.word_to_f)
-                            for counts_for_hist in self.counts[hist_len].values()
+                            for counts_for_hist in self.counts[
+                                hist_len
+                            ].values()
                         ]
                     ),
                 ),
@@ -602,7 +612,9 @@ class NgramCounts:
                     if prob == 0:  # f(<s>) is always 0
                         prob = 1e-99
 
-                    line = "{0}\t{1}".format("%.7f" % math.log10(prob), " ".join(ngram))
+                    line = "{0}\t{1}".format(
+                        "%.7f" % math.log10(prob), " ".join(ngram)
+                    )
                     if bow is not None:
                         line += "\t{0}".format("%.7f" % math.log10(bow))
                     print(line, file=fout)
@@ -610,7 +622,9 @@ class NgramCounts:
         print("\\end\\", file=fout)
 
 
-def make(input_text_file, output_arpa_dir, ngram_order=3, prefix_name="", cache=True):
+def make(
+    input_text_file, output_arpa_dir, ngram_order=3, prefix_name="", cache=True
+):
     """
     Generate kneser-ney language model as arpa format.
     Read the corpus from `input_text_file`, and output to `output_arpa_dir`.
@@ -630,9 +644,11 @@ def make(input_text_file, output_arpa_dir, ngram_order=3, prefix_name="", cache=
     assert os.path.isdir(output_arpa_dir)
     out = os.path.join(output_arpa_dir, f"{prefix_name}{ngram_order}gram.arpa")
     if cache and os.path.exists(out):
-        logger.critical(f"Ingoring '{out}' creation as the file already exists, "
-                        "Consider deleting the previous .pt file if this is not "
-                        "what you want.")
+        logger.critical(
+            f"Ingoring '{out}' creation as the file already exists, "
+            "Consider deleting the previous .pt file if this is not "
+            "what you want."
+        )
         return
 
     logger.info(f"Making '{out}' kneser-ney language model.")
@@ -643,7 +659,15 @@ def make(input_text_file, output_arpa_dir, ngram_order=3, prefix_name="", cache=
     with open(out, "w", encoding=default_encoding) as f:
         ngram_counts.print_as_arpa(fout=f)
 
-def make_from_csv(input_csv_file, output_arpa_dir, column_name="wrd", ngram_order=3, prefix_name="", cache=True):
+
+def make_from_csv(
+    input_csv_file,
+    output_arpa_dir,
+    column_name="wrd",
+    ngram_order=3,
+    prefix_name="",
+    cache=True,
+):
     """
     Generate kneser-ney language model as arpa format.
     Read the csv corpus from `input_csv_file`, and output to `output_arpa_dir`.
@@ -662,20 +686,29 @@ def make_from_csv(input_csv_file, output_arpa_dir, column_name="wrd", ngram_orde
         Order of n-gram (default 3)
     """
     temp_dir = tempfile.gettempdir()
-    output_file = tempfile.NamedTemporaryFile(delete=False, dir=temp_dir, mode='w')
+    output_file = tempfile.NamedTemporaryFile(
+        delete=False, dir=temp_dir, mode="w"
+    )
 
     with open(input_csv_file, "r", newline="") as csvfile:
         reader = csv.DictReader(csvfile)
         # Check if the specified column name exists in the header
         if column_name not in reader.fieldnames:
-            logger.critical(f"Column '{column_name}' not found in the CSV {input_csv_file} file.")
+            logger.critical(
+                f"Column '{column_name}' not found in the CSV {input_csv_file} file."
+            )
         else:
             for row in reader:
                 text = row[column_name]
                 output_file.write(text + "\n")
 
-
-    make(output_file.name, output_arpa_dir, ngram_order=ngram_order, prefix_name=prefix_name, cache=cache)
+    make(
+        output_file.name,
+        output_arpa_dir,
+        ngram_order=ngram_order,
+        prefix_name=prefix_name,
+        cache=cache,
+    )
 
     output_file.close()
     os.remove(output_file.name)
