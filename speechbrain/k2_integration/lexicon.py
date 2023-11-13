@@ -75,7 +75,8 @@ class Lexicon(object):
     """
 
     def __init__(
-        self, lang_dir: Path,
+        self,
+        lang_dir: Path,
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
@@ -147,6 +148,9 @@ class Lexicon(object):
         return self._L_disambig
 
     def remove_G_rescoring_disambig_symbols(self, G: k2.Fsa):
+        """
+        Remove the disambiguation symbols of a G graph
+        """
         G.labels[G.labels >= self.word_table["#0"]] = 0
 
     def remove_LG_disambig_symbols(self, LG: k2.Fsa) -> k2.Fsa:
@@ -182,7 +186,7 @@ class Lexicon(object):
         if add_sil_separator:
             assert (
                 sil_token_id is None
-            ), f"sil_token_id=None while add_sil_separator=True"
+            ), "sil_token_id=None while add_sil_separator=True"
             for i in range(len(word_ids)):
                 word_ids[i] = [
                     x for item in word_ids[i] for x in (item, sil_token_id)
@@ -190,14 +194,18 @@ class Lexicon(object):
         return word_ids
 
     def texts_to_token_ids(
-        self, texts: List[str], log_unknown_warning=True,
+        self,
+        texts: List[str],
+        log_unknown_warning=True,
     ) -> List[List[List[int]]]:
         return self._texts_to_ids(
             texts, log_unknown_warning, _mapper="word2tokenids"
         )
 
     def texts_to_token_ids_with_multiple_pronunciation(
-        self, texts: List[str], log_unknown_warning=True,
+        self,
+        texts: List[str],
+        log_unknown_warning=True,
     ) -> List[List[List[List[int]]]]:
         return self._texts_to_ids(
             texts,
@@ -265,8 +273,7 @@ class Lexicon(object):
         return ids_list
 
     def arc_sort(self):
-        """Sort L, L_inv, L_disambig arcs of every state.
-        """
+        """Sort L, L_inv, L_disambig arcs of every state."""
         self.L = k2.arc_sort(self.L)
         self.L_inv = k2.arc_sort(self.L_inv)
         if self._L_disambig is not None:

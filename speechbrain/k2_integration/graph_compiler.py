@@ -24,20 +24,35 @@ logger = logging.getLogger(__name__)
 
 
 class GraphCompiler(abc.ABC):
+    """
+    This class is used to compile graphs for training and decoding.
+    """
     @abc.abstractproperty
     def topo(self) -> k2.Fsa:
+        """
+        Return the topology used to compile the graph.
+        """
         pass
 
     @abc.abstractproperty
     def lexicon(self) -> lexicon.Lexicon:
+        """
+        Return the lexicon used to compile the graph.
+        """
         pass
 
     @abc.abstractproperty
     def device(self):
+        """
+        Return the device used to compile the graph.
+        """
         pass
 
     @abc.abstractmethod
     def compile(self, texts: List[str], is_training: bool = True):
+        """
+        Compile the graph for the given texts.
+        """
         pass
 
     def compile_HL(self, cache_dir: Optional[str] = None, cache: bool = False):
@@ -168,7 +183,6 @@ class CtcGraphCompiler(GraphCompiler):
         device: torch.device,
         need_repeat_flag: bool = False,
     ):
-
         self._device = device
 
         self._lexicon = _lexicon
@@ -196,6 +210,7 @@ class CtcGraphCompiler(GraphCompiler):
 
     @property
     def device(self):
+        """Return the device used for compiling graphs."""
         return self._device
 
     def compile(

@@ -119,7 +119,7 @@ def get_decoding(
             # Lazy load rescoring G (takes a lot of time) for developer happiness
             nonlocal G_rescoring
             if G_rescoring is None:
-                logger.info(f"Decoding method: whole-lattice-rescoring")
+                logger.info("Decoding method: whole-lattice-rescoring")
                 logger.info(f"Loading rescoring LM: {G_rescoring_path}")
                 G_rescoring_pt = utils.load_G(G_rescoring_path, cache=caching)
                 graphCompiler.lexicon.remove_G_rescoring_disambig_symbols(
@@ -136,7 +136,7 @@ def get_decoding(
             )
 
     elif hparams.get("decoding_method") in ["1best", "onebest"]:
-        logger.info(f"Decoding method: one-best-decoding")
+        logger.info("Decoding method: one-best-decoding")
 
         def decoding_method(lattice: k2.Fsa) -> Dict[str, k2.Fsa]:
             """Get the best path from a lattice."""
@@ -145,6 +145,7 @@ def get_decoding(
     else:
 
         def decoding_method(lattice: k2.Fsa):
+            """A dummy decoding method that raises an error."""
             raise NotImplementedError(
                 f"{hparams.get('decoding_method')} not implemented as a decoding_method"
             )
@@ -233,7 +234,8 @@ def get_lattice(
 
 @torch.no_grad()
 def one_best_decoding(
-    lattice: k2.Fsa, use_double_scores: bool = True,
+    lattice: k2.Fsa,
+    use_double_scores: bool = True,
 ) -> k2.Fsa:
     """Get the best path from a lattice.
     Arguments
@@ -346,7 +348,9 @@ def rescore_with_whole_lattice(
                 "decode, you will meet this exception."
             )
             inv_lattice = k2.prune_on_arc_post(
-                inv_lattice, prune_th_list[loop_count], True,
+                inv_lattice,
+                prune_th_list[loop_count],
+                True,
             )
             logger.info(
                 f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"

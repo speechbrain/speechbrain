@@ -11,6 +11,7 @@ from . import k2  # import k2 from ./__init__.py
 
 import torch
 
+
 def ctc_k2(
     log_probs,
     input_lens,

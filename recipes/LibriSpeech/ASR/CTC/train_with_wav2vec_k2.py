@@ -252,7 +252,8 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -299,7 +300,8 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -319,10 +321,13 @@ def dataio_prepare(hparams):
         pass
 
     else:
-        raise NotImplementedError("sorting must be random, ascending or descending")
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -360,7 +365,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "char_list"],
+        datasets,
+        ["id", "sig", "wrd", "char_list"],
     )
 
     return train_data, valid_data, test_datasets
@@ -453,7 +459,8 @@ if __name__ == "__main__":
 
     lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
     graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
-        lexicon, device=asr_brain.device,
+        lexicon,
+        device=asr_brain.device,
     )
     decoder = sbk2.lattice_decoder.get_decoding(
         hparams, graph_compiler, device=asr_brain.device
