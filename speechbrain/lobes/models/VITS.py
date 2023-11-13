@@ -13,6 +13,11 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.lobes.models.FastSpeech2 import PositionalEmbedding
 
+def convert_pad_shape(pad_shape):
+    l = pad_shape[::-1]
+    pad_shape = [item for sublist in l for item in sublist]
+    return pad_shape
+
 def mask_from_lengths(lengths):    
     max_length = torch.max(lengths)
     mask = torch.arange(max_length).to(lengths).view(1, -1)
@@ -244,7 +249,9 @@ class DurationPredictor(nn.Module):
         x = self.dropout(self.norm2(self.relu(self.conv2(x.permute(0, 2, 1)).permute(0, 2, 1)))) * x_mask
         x = self.conv3(x.permute(0, 2, 1)).permute(0, 2, 1) * x_mask
         return x
+
     
+        
 class ResidualCouplingLayer(nn.Module):
     def __init__(
         self,
@@ -300,7 +307,7 @@ class ResidualCouplingLayer(nn.Module):
             mu = x0_d
             log_s = torch.zeros_like(mu)
             
-        x1 = (x1 - m) * torch.exp(-log_s) * x_mask
+        x1 = (x1 - mu) * torch.exp(-log_s) * x_mask
         x = torch.cat([x0, x1], 1)
         return x   
 
@@ -447,21 +454,40 @@ class VITS(nn.Module):
         z, mu_q, log_s_q, target_mask = self.posterior_encoder(mels, mel_lengths)
         z_p = self.flow_decoder(z, target_mask)
         path = self.mas(mu_p, log_s_p, z_p, token_mask, target_mask)   
-
-        m_p = torch.einsum("klmn, kjm -> kjn", [path.unsqueeze(1), mu_p])
         mu_p = torch.bmm(path.permute(0, 2, 1), mu_p.permute(0, 2, 1))    
-        
-        
-        # logs_p = torch.einsum("klmn, kjm -> kjn", [attn, logs_p])
-        
         log_s_p = torch.bmm(path.permute(0, 2, 1), log_s_p.permute(0, 2, 1))
-        # print(mu_p.shape, log_s_p.shape, mu_q.shape, log_s_q.shape, attn.shape)
-        # exit()
+        
         predicted_durations = self.duration_predictor(tokens, token_mask)
         return z, predicted_durations, path, target_mask, z_p, log_s_p, mu_p, log_s_q
 
-    def infer(self, inputs):
-        return
+    def infer(self, inputs, noise_scale=0.667):
+        (tokens, token_lengths) = inputs
+        tokens, mu_p, log_s_p, token_mask = self.prior_encoder(tokens, token_lengths)
+        predicted_durations = self.duration_predictor(tokens, token_mask)
+        
+        predicted_durations = torch.ceil(predicted_durations).squeeze()
+        target_lengths = torch.clamp_min(torch.sum(predicted_durations, 1), 1).long()
+        target_mask = mask_from_lengths(target_lengths)
+        attn_mask = (torch.unsqueeze(token_mask, 2) * torch.unsqueeze(target_mask, -1)).squeeze().permute(0, 2, 1)
+        bs, ty, tx = attn_mask.shape
+        cummulative_dur = torch.cumsum(predicted_durations, 1)
+        cummulative_dur_flat = cummulative_dur.view(bs*tx)
+        
+        path = mask_from_lengths(cummulative_dur_flat)
+        path = path.view(bs, tx, ty)
+        path = path.int() - torch.nn.functional.pad(path, convert_pad_shape([[0, 0], [1, 0], [0, 0]]))[:, :-1].int()
+        path = path.float() * attn_mask.transpose(1,2)
+        
+        mu_p = torch.bmm(path.permute(0, 2, 1), mu_p.permute(0, 2, 1))    
+        log_s_p = torch.bmm(path.permute(0, 2, 1), log_s_p.permute(0, 2, 1))
+        
+        z = mu_p + torch.randn_like(mu_p) * torch.exp(log_s_p) * noise_scale
+        z_p = self.flow_decoder.reverse(z.permute(0, 2, 1), target_mask)
+        
+        return z_p, target_lengths
+        
+        
+        
 
 def get_mas_path(attn, mask, device, dtype, max_neg_val=-np.inf):
     attn = attn.cpu().detach().numpy()

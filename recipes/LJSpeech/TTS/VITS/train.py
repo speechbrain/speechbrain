@@ -11,13 +11,14 @@
 
 import os
 import sys
+import copy
 import torch
 import logging 
 import torchaudio
+from pathlib import Path
 import numpy as np
 import speechbrain as sb
 from speechbrain.pretrained import HIFIGAN
-from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
 from itertools import chain
@@ -50,27 +51,13 @@ class VITSBrain(sb.Brain):
         -------
         the model output
         """
+        self.last_batch = batch
+        
         inputs1, inputs2, _ = self.batch_to_device(batch)
 
 
-
-        # Forward pass for the VITS module
         pred = self.modules.vits_mel_predict(inputs1)
-        # num_params = sum(p.numel() for p in self.modules.vits_mel_predict.parameters() if p.requires_grad)
-        # num_paramsg = sum(p.numel() for p in self.modules.generator.parameters() if p.requires_grad)
-        # num_paramsd = sum(p.numel() for p in self.modules.discriminator.parameters() if p.requires_grad)
-        # print(num_params / 1000000, num_paramsg / 1000000, num_paramsd / 1000000)
-        # num_params_pe = sum(p.numel() for p in self.modules.vits_mel_predict.prior_encoder.parameters() if p.requires_grad)
-        # num_params_poe = sum(p.numel() for p in self.modules.vits_mel_predict.posterior_encoder.parameters() if p.requires_grad)
-        # num_params_dp = sum(p.numel() for p in self.modules.vits_mel_predict.duration_predictor.parameters() if p.requires_grad)
-        # num_params_fd = sum(p.numel() for p in self.modules.vits_mel_predict.flow_decoder.parameters() if p.requires_grad)
-        # print(self.modules.vits_mel_predict.flow_decoder)
-        # print(self.modules.discriminator)
-        # print("pe", num_params_pe / 1000000)
-        # print("poe", num_params_poe / 1000000)
-        # print("dp", num_params_dp / 1000000)
-        # print("fd", num_params_fd / 1000000)
-        # exit()
+        
         z_slices, y_slices = self.hparams.vits_random_slicer(
             z=pred[0], 
             z_lengths=inputs1[-1],
@@ -274,9 +261,72 @@ class VITSBrain(sb.Brain):
                 and epoch % self.hparams.progress_samples_interval == 0
                 and epoch >= self.hparams.progress_samples_min_run
             )
-            
+            output_progress_sample = True
             if output_progress_sample:
-                pass
+                self.run_inference_sample(stage)
+    
+    def run_inference_sample(self, stage):
+        
+        with torch.no_grad():
+            if self.last_batch is None:
+                return
+            text_padded = self.last_batch[0].to(self.device, non_blocking=True).long()
+            input_lengths = self.last_batch[1].to(self.device, non_blocking=True).long()
+            mel = self.last_batch[2][0]
+            y = self.last_batch[4][0].squeeze()
+            name = Path(self.last_batch[-1][0]).stem
+            
+            inference_generator = copy.deepcopy(self.hparams.generator)
+            inference_generator.remove_weight_norm()
+            pred, target_lengths = self.modules.vits_mel_predict.infer((text_padded, input_lengths))
+            y_g_hat = inference_generator(pred)[0]
+            
+            spec_out = self.hparams.mel_spectogram(
+                audio=y_g_hat.squeeze().cpu()
+            )[0]
+            
+            if self.hparams.use_tensorboard:
+                self.tensorboard_logger.log_audio(
+                    f"{name}/audio_target", y, self.hparams.sample_rate
+                )
+                self.tensorboard_logger.log_audio(
+                    f"{name}/audio_pred",
+                    y_g_hat,
+                    self.hparams.sample_rate,
+                )
+                self.tensorboard_logger.log_figure(f"{name}/mel_target", mel)
+                self.tensorboard_logger.log_figure(f"{name}/mel_pred", spec_out)
+            else:
+                # folder name is the current epoch for validation and "test" for test
+                folder = (
+                    self.hparams.epoch_counter.current
+                    if name == "Valid"
+                    else "test"
+                )
+                self.save_audio("target", y, folder)
+                self.save_audio("synthesized", y_g_hat, folder)
+    
+    def save_audio(self, name, data, epoch):
+        """Saves a single wav
+
+        Arguments
+        ---------
+        name: str
+            the name of the saved audio
+        data: torch.Tensor
+            the  wave data to save
+        epoch: int or str
+            the epoch number (used in file path calculations)
+            or "test" for test stage
+        """
+        target_path = os.path.join(
+            self.hparams.progress_sample_path, str(epoch)
+        )
+        if not os.path.exists(target_path):
+            os.makedirs(target_path)
+        file_name = f"{name}.wav"
+        effective_file_name = os.path.join(target_path, file_name)
+        torchaudio.save(effective_file_name, data.cpu(), 22050)
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
@@ -343,7 +393,7 @@ def dataio_prepare(hparams):
     lexicon = ["@@"] + lexicon
     input_encoder.update_from_iterable(lexicon, sequence_input=False)
     input_encoder.add_unk()
-
+    input_encoder.expect_len(len(lexicon)+1)
     # load audio, text on the fly; encode audio and text.
     @sb.utils.data_pipeline.takes(
         "wav",
