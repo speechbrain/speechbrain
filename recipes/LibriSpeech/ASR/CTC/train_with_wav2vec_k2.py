@@ -412,8 +412,6 @@ if __name__ == "__main__":
             "vocab_files": [hparams["vocab_file"]],
             "extra_csv_files": [
                 hparams["output_folder"] + "/train.csv",
-                hparams["output_folder"] + "/dev-clean.csv",
-                hparams["output_folder"] + "/dev-other.csv",
             ],
             "add_word_boundary": hparams["add_word_boundary"],
         },
