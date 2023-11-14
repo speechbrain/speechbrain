@@ -11,7 +11,6 @@ import os
 import sys
 import logging
 import speechbrain as sb
-import torch
 import torchaudio
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
@@ -74,7 +73,6 @@ def dataio_prepare(hparams):
         return resampled
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
