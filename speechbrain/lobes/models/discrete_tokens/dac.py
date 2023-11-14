@@ -56,14 +56,47 @@ __MODEL_URLS__ = {
 
 
 def WNConv1d(*args, **kwargs):
+    """
+    Apply weight normalization to a 1D convolutional layer.
+
+    Parameters
+    ----------
+    *args
+        Variable length argument list for nn.Conv1d.
+    **kwargs
+        Arbitrary keyword arguments for nn.Conv1d.
+
+    Returns
+    -------
+    torch.nn.Module
+        The weight-normalized nn.Conv1d layer.
+    """
     return weight_norm(nn.Conv1d(*args, **kwargs))
 
 
 def WNConvTranspose1d(*args, **kwargs):
+    """
+    Apply weight normalization to a 1D transposed convolutional layer.
+
+    Parameters
+    ----------
+    *args
+        Variable length argument list for nn.ConvTranspose1d.
+    **kwargs
+        Arbitrary keyword arguments for nn.ConvTranspose1d.
+
+    Returns
+    -------
+    torch.nn.Module
+        The weight-normalized nn.ConvTranspose1d layer.
+    """
     return weight_norm(nn.ConvTranspose1d(*args, **kwargs))
 
 
 def init_weights(m):
+    """
+    Initialize the weights of a 1D convolutional layer.
+    """
     if isinstance(m, nn.Conv1d):
         nn.init.trunc_normal_(m.weight, std=0.02)
         nn.init.constant_(m.bias, 0)
@@ -75,6 +108,31 @@ def download(
     tag: str = "latest",
     local_path: Path = None,
 ):
+    """
+    Downloads a specified model file based on model type, bitrate, and tag, saving it to a local path.
+
+    Parameters
+    ----------
+    model_type : str, optional
+        The type of model to download. Can be '44khz', '24khz', or '16khz'. Default is '44khz'.
+    model_bitrate : str, optional
+        The bitrate of the model. Can be '8kbps' or '16kbps'. Default is '8kbps'.
+    tag : str, optional
+        A specific version tag for the model. Default is 'latest'.
+    local_path : Path, optional
+        The local file path where the model will be saved. If not provided, a default path will be used.
+
+    Returns
+    -------
+    Path
+        The local path where the model is saved.
+
+    Raises
+    ------
+    ValueError
+        If the model type or bitrate is not supported, or if the model cannot be found or downloaded.
+    """
+
     model_type = model_type.lower()
     tag = tag.lower()
 
@@ -126,6 +184,24 @@ def download(
 # Scripting this brings model speed up 1.4x
 @torch.jit.script
 def snake(x, alpha):
+    """
+    Applies the 'snake' activation function on the input tensor.
+
+    This function reshapes the input tensor, applies a modified sine function to it, and then reshapes it back
+    to its original shape.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        The input tensor to which the snake activation function will be applied.
+    alpha : float
+        A scalar value that modifies the sine function within the snake activation.
+
+    Returns
+    -------
+    torch.Tensor
+        The transformed tensor after applying the snake activation function.
+    """
     shape = x.shape
     x = x.reshape(shape[0], shape[1], -1)
     x = x + (alpha + 1e-9).reciprocal() * torch.sin(alpha * x).pow(2)
@@ -154,7 +230,7 @@ class VectorQuantize(nn.Module):
         self.out_proj = WNConv1d(codebook_dim, input_dim, kernel_size=1)
         self.codebook = nn.Embedding(codebook_size, codebook_dim)
 
-    def forward(self, z):
+    def forward(self, z: torch.Tensor):
         """Quantized the input tensor using a fixed codebook and returns
         the corresponding codebook vectors
 
@@ -196,13 +272,57 @@ class VectorQuantize(nn.Module):
 
         return z_q, commitment_loss, codebook_loss, indices, z_e
 
-    def embed_code(self, embed_id):
+    def embed_code(self, embed_id: torch.Tensor):
+        """
+        Embeds an ID using the codebook weights.
+
+        This method utilizes the codebook weights to embed the given ID.
+
+        Parameters
+        ----------
+        embed_id : torch.Tensor
+            The tensor containing IDs that need to be embedded.
+
+        Returns
+        -------
+        torch.Tensor
+            The embedded output tensor after applying the codebook weights.
+        """
         return F.embedding(embed_id, self.codebook.weight)
 
-    def decode_code(self, embed_id):
+    def decode_code(self, embed_id: torch.Tensor):
+        """
+        Decodes the embedded ID by transposing the dimensions.
+
+        This method decodes the embedded ID by applying a transpose operation to the dimensions of the
+        output tensor from the `embed_code` method.
+
+        Parameters
+        ----------
+        embed_id : torch.Tensor
+            The tensor containing embedded IDs.
+
+        Returns
+        -------
+        torch.Tensor
+            The decoded tensor
+        """
         return self.embed_code(embed_id).transpose(1, 2)
 
-    def decode_latents(self, latents):
+    def decode_latents(self, latents: torch.Tensor):
+        """
+        Decodes latent representations into discrete codes by comparing with the codebook.
+
+        Parameters
+        ----------
+        latents : torch.Tensor
+            The latent tensor representations to be decoded.
+
+        Returns
+        -------
+        Tuple[torch.Tensor, torch.Tensor]
+            A tuple containing the decoded latent tensor (`z_q`) and the indices of the codes.
+        """
         encodings = latents.permute(0, 2, 1).reshape(-1, latents.size(1))
         codebook = self.codebook.weight  # codebook: (N x D)
 
@@ -396,6 +516,15 @@ class ResidualVectorQuantize(nn.Module):
 
 
 class Snake1d(nn.Module):
+    """
+    A PyTorch module implementing the Snake activation function in 1D.
+
+    Parameters
+    ----------
+    channels : int
+        The number of channels in the input tensor.
+    """
+
     def __init__(self, channels):
         super().__init__()
         self.alpha = nn.Parameter(torch.ones(1, channels, 1))
@@ -405,6 +534,18 @@ class Snake1d(nn.Module):
 
 
 class ResidualUnit(nn.Module):
+    """
+    A residual unit module for convolutional neural networks.
+
+    Parameters
+    ----------
+    dim : int, optional
+        The number of channels in the input tensor. Default is 16.
+    dilation : int, optional
+        The dilation rate for the convolutional layers. Default is 1.
+
+    """
+
     def __init__(self, dim: int = 16, dilation: int = 1):
         super().__init__()
         pad = ((7 - 1) * dilation) // 2
@@ -424,6 +565,21 @@ class ResidualUnit(nn.Module):
 
 
 class EncoderBlock(nn.Module):
+    """
+    An encoder block module for convolutional neural networks.
+
+    This module constructs an encoder block consisting of a series of ResidualUnits and a final Snake1d
+    activation followed by a weighted normalized 1D convolution. This block can be used as part of an
+    encoder in architectures like autoencoders.
+
+    Parameters
+    ----------
+    dim : int, optional
+        The number of output channels. Default is 16.
+    stride : int, optional
+        The stride for the final convolutional layer. Default is 1.
+    """
+
     def __init__(self, dim: int = 16, stride: int = 1):
         super().__init__()
         self.block = nn.Sequential(
@@ -445,6 +601,19 @@ class EncoderBlock(nn.Module):
 
 
 class Encoder(nn.Module):
+    """
+    A PyTorch module for the Encoder part of DAC.
+
+    Parameters
+    ----------
+    d_model : int, optional
+        The initial dimensionality of the model. Default is 64.
+    strides : list, optional
+        A list of stride values for downsampling in each EncoderBlock. Default is [2, 4, 8, 8].
+    d_latent : int, optional
+        The dimensionality of the output latent space. Default is 64.
+    """
+
     def __init__(
         self,
         d_model: int = 64,
@@ -475,6 +644,19 @@ class Encoder(nn.Module):
 
 
 class DecoderBlock(nn.Module):
+    """
+    A PyTorch module representing a block within the Decoder architecture.
+
+    Parameters
+    ----------
+    input_dim : int, optional
+        The number of input channels. Default is 16.
+    output_dim : int, optional
+        The number of output channels. Default is 8.
+    stride : int, optional
+        The stride for the transposed convolution, controlling the upsampling. Default is 1.
+    """
+
     def __init__(
         self, input_dim: int = 16, output_dim: int = 8, stride: int = 1
     ):
@@ -498,6 +680,21 @@ class DecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
+    """
+    A PyTorch module for the Decoder part of DAC.
+
+    Parameters
+    ----------
+    input_channel : int
+        The number of channels in the input tensor.
+    channels : int
+        The base number of channels for the convolutional layers.
+    rates : list
+        A list of stride rates for each decoder block
+    d_out: int
+        The out dimension of the final conv layer, Default is 1.
+    """
+
     def __init__(
         self, input_channel, channels, rates, d_out: int = 1,
     ):
@@ -526,6 +723,71 @@ class Decoder(nn.Module):
 
 
 class DAC(nn.Module):
+    """
+    Discrete Autoencoder Codec (DAC) for audio data encoding and decoding.
+
+    This class implements an autoencoder architecture with quantization for efficient audio processing. It includes an encoder, quantizer, and decoder for transforming audio data into a compressed latent representation and reconstructing it back into audio. This implementation supports both initializing a new model and loading a pretrained model.
+
+    Parameters
+    ----------
+    encoder_dim : int
+        Dimensionality of the encoder.
+    encoder_rates : List[int]
+        Downsampling rates for each encoder layer.
+    latent_dim : int, optional
+        Dimensionality of the latent space, automatically calculated if None.
+    decoder_dim : int
+        Dimensionality of the decoder.
+    decoder_rates : List[int]
+        Upsampling rates for each decoder layer.
+    n_codebooks : int
+        Number of codebooks for vector quantization.
+    codebook_size : int
+        Size of each codebook.
+    codebook_dim : Union[int, list]
+        Dimensionality of each codebook entry.
+    quantizer_dropout : bool
+        Whether to use dropout in the quantizer.
+    sample_rate : int
+        Sample rate of the audio data.
+    model_type : str
+        Type of the model to load (if pretrained).
+    model_bitrate : str
+        Bitrate of the model to load (if pretrained).
+    tag : str
+        Specific tag of the model to load (if pretrained).
+    load_path : str, optional
+        Path to load the pretrained model from, automatically downloaded if None.
+    strict : bool
+        Whether to strictly enforce the state dictionary match.
+    load_pretrained : bool
+        Whether to load a pretrained model.
+
+    Examples
+    --------
+    Creating a new DAC instance:
+
+    ```python
+        dac = DAC()
+
+        # Example audio data (replace with actual data)
+        audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
+        audio_data = dac.preprocess(audio_data)
+        tokens, embeddings = dac(audio_data)
+    ```
+
+    Loading a pretrained DAC instance:
+
+    ```python
+        dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
+
+        # Example audio data (replace with actual data)
+        audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
+        audio_data = dac.preprocess(audio_data)
+        tokens, embeddings = dac(audio_data)
+    ```
+    """
+
     def __init__(
         self,
         encoder_dim: int = 64,
@@ -538,6 +800,12 @@ class DAC(nn.Module):
         codebook_dim: Union[int, list] = 8,
         quantizer_dropout: bool = False,
         sample_rate: int = 44100,
+        model_type: str = "44khz",
+        model_bitrate: str = "8kbps",
+        tag: str = "latest",
+        load_path: str = None,
+        strict: bool = False,
+        load_pretrained: bool = False,
     ):
         super().__init__()
 
@@ -546,74 +814,44 @@ class DAC(nn.Module):
         self.decoder_dim = decoder_dim
         self.decoder_rates = decoder_rates
         self.sample_rate = sample_rate
-
-        if latent_dim is None:
-            latent_dim = encoder_dim * (2 ** len(encoder_rates))
-
-        self.latent_dim = latent_dim
-
-        self.hop_length = np.prod(encoder_rates)
-        self.encoder = Encoder(encoder_dim, encoder_rates, latent_dim)
-
         self.n_codebooks = n_codebooks
         self.codebook_size = codebook_size
         self.codebook_dim = codebook_dim
-        self.quantizer = ResidualVectorQuantize(
-            input_dim=latent_dim,
-            n_codebooks=n_codebooks,
-            codebook_size=codebook_size,
-            codebook_dim=codebook_dim,
-            quantizer_dropout=quantizer_dropout,
-        )
+        self.latent_dim = latent_dim
+        self.quantizer_dropout = quantizer_dropout
 
-        self.decoder = Decoder(latent_dim, decoder_dim, decoder_rates,)
-        self.sample_rate = sample_rate
+        if load_pretrained:
+            if not load_path:
+                load_path = download(
+                    model_type=model_type, model_bitrate=model_bitrate, tag=tag
+                )
+                print(f"Obtained load path as: {load_path}")
+            model_dict = torch.load(load_path, "cpu")
+            metadata = model_dict["metadata"]
+            for key, value in metadata["kwargs"].items():
+                setattr(self, key, value)
+
+        self.hop_length = np.prod(self.encoder_rates)
+        if self.latent_dim is None:
+            self.latent_dim = self.encoder_dim * (2 ** len(self.encoder_rates))
+        self.encoder = Encoder(
+            self.encoder_dim, self.encoder_rates, self.latent_dim
+        )
+        self.quantizer = ResidualVectorQuantize(
+            input_dim=self.latent_dim,
+            n_codebooks=self.n_codebooks,
+            codebook_size=self.codebook_size,
+            codebook_dim=self.codebook_dim,
+            quantizer_dropout=self.quantizer_dropout,
+        )
+        self.decoder = Decoder(
+            self.latent_dim, self.decoder_dim, self.decoder_rates,
+        )
         self.apply(init_weights)
 
-        self.delay = self.get_delay()
-
-    def get_delay(self):
-        # Any number works here, delay is invariant to input length
-        l_out = self.get_output_length(0)
-        L = l_out
-
-        layers = []
-        for layer in self.modules():
-            if isinstance(layer, (nn.Conv1d, nn.ConvTranspose1d)):
-                layers.append(layer)
-
-        for layer in reversed(layers):
-            d = layer.dilation[0]
-            k = layer.kernel_size[0]
-            s = layer.stride[0]
-
-            if isinstance(layer, nn.ConvTranspose1d):
-                L = ((L - d * (k - 1) - 1) / s) + 1
-            elif isinstance(layer, nn.Conv1d):
-                L = (L - 1) * s + d * (k - 1) + 1
-
-            L = math.ceil(L)
-
-        l_in = L
-
-        return (l_in - l_out) // 2
-
-    def get_output_length(self, input_length):
-        L = input_length
-        # Calculate output length
-        for layer in self.modules():
-            if isinstance(layer, (nn.Conv1d, nn.ConvTranspose1d)):
-                d = layer.dilation[0]
-                k = layer.kernel_size[0]
-                s = layer.stride[0]
-
-                if isinstance(layer, nn.Conv1d):
-                    L = ((L - d * (k - 1) - 1) / s) + 1
-                elif isinstance(layer, nn.ConvTranspose1d):
-                    L = (L - 1) * s + d * (k - 1) + 1
-
-                L = math.floor(L)
-        return L
+        if load_pretrained:
+            self.load_state_dict(model_dict["state_dict"], strict=strict)
+            self.metadata = metadata
 
     def preprocess(self, audio_data, sample_rate):
         if sample_rate is None:
@@ -643,22 +881,20 @@ class DAC(nn.Module):
 
         Returns
         -------
-        dict
-            A dictionary with the following keys:
-            "z" : Tensor[B x D x T]
-                Quantized continuous representation of input
-            "codes" : Tensor[B x N x T]
-                Codebook indices for each codebook
-                (quantized discrete representation of input)
-            "latents" : Tensor[B x N*D x T]
-                Projected latents (continuous representation of input before quantization)
-            "vq/commitment_loss" : Tensor[1]
-                Commitment loss to train encoder to predict vectors closer to codebook
-                entries
-            "vq/codebook_loss" : Tensor[1]
-                Codebook loss to update the codebook
-            "length" : int
-                Number of samples in input audio
+        "z" : Tensor[B x D x T]
+            Quantized continuous representation of input
+        "codes" : Tensor[B x N x T]
+            Codebook indices for each codebook
+            (quantized discrete representation of input)
+        "latents" : Tensor[B x N*D x T]
+            Projected latents (continuous representation of input before quantization)
+        "vq/commitment_loss" : Tensor[1]
+            Commitment loss to train encoder to predict vectors closer to codebook
+            entries
+        "vq/codebook_loss" : Tensor[1]
+            Codebook loss to update the codebook
+        "length" : int
+            Number of samples in input audio
         """
         z = self.encoder(audio_data)
         z, codes, latents, commitment_loss, codebook_loss = self.quantizer(
@@ -706,58 +942,12 @@ class DAC(nn.Module):
 
         Returns
         -------
-        dict
-            A dictionary with the following keys:
-            "z" : Tensor[B x D x T]
-                Quantized continuous representation of input
-            "codes" : Tensor[B x N x T]
-                Codebook indices for each codebook
-                (quantized discrete representation of input)
-            "latents" : Tensor[B x N*D x T]
-                Projected latents (continuous representation of input before quantization)
-            "vq/commitment_loss" : Tensor[1]
-                Commitment loss to train encoder to predict vectors closer to codebook
-                entries
-            "vq/codebook_loss" : Tensor[1]
-                Codebook loss to update the codebook
-            "length" : int
-                Number of samples in input audio
-            "audio" : Tensor[B x 1 x length]
-                Decoded audio data.
+        "tokens" : Tensor[B x N x T]
+            Codebook indices for each codebook
+            (quantized discrete representation of input)
+        "embeddings" : Tensor[B x D x T]
+            Quantized continuous representation of input
         """
-        length = audio_data.shape[-1]
         audio_data = self.preprocess(audio_data, sample_rate)
-        z, codes, latents, commitment_loss, codebook_loss = self.encode(
-            audio_data, n_quantizers
-        )
-
-        x = self.decode(z)
-        return {
-            "audio": x[..., :length],
-            "z": z,
-            "codes": codes,
-            "latents": latents,
-            "vq/commitment_loss": commitment_loss,
-            "vq/codebook_loss": codebook_loss,
-        }
-
-    @classmethod
-    def load_dac(
-        cls,
-        model_type: str = "44khz",
-        model_bitrate: str = "8kbps",
-        tag: str = "latest",
-        load_path: str = None,
-        strict: bool = False,
-    ):
-        if not load_path:
-            load_path = download(
-                model_type=model_type, model_bitrate=model_bitrate, tag=tag
-            )
-        print(f"Got model path as : {load_path}")
-        model_dict = torch.load(load_path, "cpu")
-        metadata = model_dict["metadata"]
-        model = cls(**metadata["kwargs"])
-        model.load_state_dict(model_dict["state_dict"], strict=strict)
-        model.metadata = metadata
-        return model
+        z, codes, _, _, _ = self.encode(audio_data, n_quantizers)
+        return codes, z
