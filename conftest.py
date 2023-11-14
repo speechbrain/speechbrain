@@ -47,6 +47,7 @@ except ModuleNotFoundError:
     collect_ignore.append(
         "speechbrain/lobes/models/huggingface_transformers/discrete_wavlm.py"
     )
+    collect_ignore.append("speechbrain/utils/kmeans.py")
 try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
