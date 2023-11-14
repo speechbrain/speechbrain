@@ -12,7 +12,6 @@ Author
 import math
 from pathlib import Path
 from typing import List, Union
-import inspect
 
 import numpy as np
 import torch
@@ -72,7 +71,7 @@ def init_weights(m):
 
 def download(
     model_type: str = "44khz",
-    model_bitrate: str = "8kbps", 
+    model_bitrate: str = "8kbps",
     tag: str = "latest",
     local_path: Path = None,
 ):
@@ -102,8 +101,11 @@ def download(
         )
 
     if local_path is None:
-        local_path =  Path.home() / f".cache/descript/dac/weights_{model_type}_{model_bitrate}_{tag}.pth"
-        
+        local_path = (
+            Path.home()
+            / f".cache/descript/dac/weights_{model_type}_{model_bitrate}_{tag}.pth"
+        )
+
     if not local_path.exists():
         local_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -179,8 +181,12 @@ class VectorQuantize(nn.Module):
         z_e = self.in_proj(z)  # z_e : (B x D x T)
         z_q, indices = self.decode_latents(z_e)
 
-        commitment_loss = F.mse_loss(z_e, z_q.detach(), reduction="none").mean([1, 2])
-        codebook_loss = F.mse_loss(z_q, z_e.detach(), reduction="none").mean([1, 2])
+        commitment_loss = F.mse_loss(z_e, z_q.detach(), reduction="none").mean(
+            [1, 2]
+        )
+        codebook_loss = F.mse_loss(z_q, z_e.detach(), reduction="none").mean(
+            [1, 2]
+        )
 
         z_q = (
             z_e + (z_q - z_e).detach()
@@ -301,13 +307,18 @@ class ResidualVectorQuantize(nn.Module):
             if self.training is False and i >= n_quantizers:
                 break
 
-            z_q_i, commitment_loss_i, codebook_loss_i, indices_i, z_e_i = quantizer(
-                residual
-            )
+            (
+                z_q_i,
+                commitment_loss_i,
+                codebook_loss_i,
+                indices_i,
+                z_e_i,
+            ) = quantizer(residual)
 
             # Create mask to apply quantizer dropout
             mask = (
-                torch.full((z.shape[0],), fill_value=i, device=z.device) < n_quantizers
+                torch.full((z.shape[0],), fill_value=i, device=z.device)
+                < n_quantizers
             )
             z_q = z_q + z_q_i * mask[:, None, None]
             residual = residual - z_q_i
@@ -367,12 +378,14 @@ class ResidualVectorQuantize(nn.Module):
         codes = []
         dims = np.cumsum([0] + [q.codebook_dim for q in self.quantizers])
 
-        n_codebooks = np.where(dims <= latents.shape[1])[0].max(axis=0, keepdims=True)[
-            0
-        ]
+        n_codebooks = np.where(dims <= latents.shape[1])[0].max(
+            axis=0, keepdims=True
+        )[0]
         for i in range(n_codebooks):
             j, k = dims[i], dims[i + 1]
-            z_p_i, codes_i = self.quantizers[i].decode_latents(latents[:, j:k, :])
+            z_p_i, codes_i = self.quantizers[i].decode_latents(
+                latents[:, j:k, :]
+            )
             z_p.append(z_p_i)
             codes.append(codes_i)
 
@@ -462,7 +475,9 @@ class Encoder(nn.Module):
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self, input_dim: int = 16, output_dim: int = 8, stride: int = 1):
+    def __init__(
+        self, input_dim: int = 16, output_dim: int = 8, stride: int = 1
+    ):
         super().__init__()
         self.block = nn.Sequential(
             Snake1d(input_dim),
@@ -484,11 +499,7 @@ class DecoderBlock(nn.Module):
 
 class Decoder(nn.Module):
     def __init__(
-        self,
-        input_channel,
-        channels,
-        rates,
-        d_out: int = 1,
+        self, input_channel, channels, rates, d_out: int = 1,
     ):
         super().__init__()
 
@@ -497,7 +508,7 @@ class Decoder(nn.Module):
 
         # Add upsampling + MRF blocks
         for i, stride in enumerate(rates):
-            input_dim = channels // 2**i
+            input_dim = channels // 2 ** i
             output_dim = channels // 2 ** (i + 1)
             layers += [DecoderBlock(input_dim, output_dim, stride)]
 
@@ -555,11 +566,7 @@ class DAC(nn.Module):
             quantizer_dropout=quantizer_dropout,
         )
 
-        self.decoder = Decoder(
-            latent_dim,
-            decoder_dim,
-            decoder_rates,
-        )
+        self.decoder = Decoder(latent_dim, decoder_dim, decoder_rates,)
         self.sample_rate = sample_rate
         self.apply(init_weights)
 
@@ -590,7 +597,7 @@ class DAC(nn.Module):
         l_in = L
 
         return (l_in - l_out) // 2
-    
+
     def get_output_length(self, input_length):
         L = input_length
         # Calculate output length
@@ -607,22 +614,22 @@ class DAC(nn.Module):
 
                 L = math.floor(L)
         return L
-    
+
     def preprocess(self, audio_data, sample_rate):
         if sample_rate is None:
             sample_rate = self.sample_rate
         assert sample_rate == self.sample_rate
 
         length = audio_data.shape[-1]
-        right_pad = math.ceil(length / self.hop_length) * self.hop_length - length
+        right_pad = (
+            math.ceil(length / self.hop_length) * self.hop_length - length
+        )
         audio_data = nn.functional.pad(audio_data, (0, right_pad))
 
         return audio_data
 
     def encode(
-        self,
-        audio_data: torch.Tensor,
-        n_quantizers: int = None,
+        self, audio_data: torch.Tensor, n_quantizers: int = None,
     ):
         """Encode given audio data and return quantized latent codes
 
@@ -735,13 +742,13 @@ class DAC(nn.Module):
         }
 
     @classmethod
-    def load_dac( 
-        cls,   
+    def load_dac(
+        cls,
         model_type: str = "44khz",
         model_bitrate: str = "8kbps",
         tag: str = "latest",
         load_path: str = None,
-        strict: bool = False
+        strict: bool = False,
     ):
         if not load_path:
             load_path = download(
