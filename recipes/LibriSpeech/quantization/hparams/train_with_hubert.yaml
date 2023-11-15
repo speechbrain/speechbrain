@@ -20,6 +20,7 @@ test_splits: []
 skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
+sample_rate: 16000
 
 ssl_hub: facebook/hubert-base-ls960
 freeze_feature_extractor: True
