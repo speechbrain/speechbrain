@@ -6,10 +6,9 @@ import torch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import logging
+from speechbrain.k2_integration import k2
 
 logger = logging.getLogger(__name__)
-
-from speechbrain.k2_integration import k2
 
 
 @pytest.fixture

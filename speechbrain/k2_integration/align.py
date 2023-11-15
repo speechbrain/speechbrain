@@ -131,9 +131,7 @@ class Aligner(abc.ABC):
 
     @abc.abstractmethod
     def get_log_prob_and_targets(
-        self,
-        audio_files: List[str],
-        transcripts: List[str],
+        self, audio_files: List[str], transcripts: List[str],
     ) -> (torch.Tensor, torch.Tensor):
         """
         Align transcripts to input_speech.
@@ -191,9 +189,7 @@ class Aligner(abc.ABC):
         graph = k2.ctc_graph(targets)
 
         lattice = k2.get_lattice(
-            log_prob=log_prob,
-            log_prob_len=log_prob_len,
-            decoding_graph=graph,
+            log_prob=log_prob, log_prob_len=log_prob_len, decoding_graph=graph,
         )
 
         best_path = k2.shortest_path(lattice, use_double_scores=True)
@@ -211,9 +207,7 @@ class Aligner(abc.ABC):
         return alignments
 
     def align_batch(
-        self,
-        audio_files: List[str],
-        transcripts: List[str],
+        self, audio_files: List[str], transcripts: List[str],
     ) -> List[List[int]]:
         """
         Align targets to log_probs.
@@ -233,9 +227,7 @@ class Aligner(abc.ABC):
         return self.align(log_probs, log_prob_len, targets)
 
     def get_word_alignment(
-        self,
-        alignments: List[List[int]],
-        transcripts: List[str],
+        self, alignments: List[List[int]], transcripts: List[str],
     ) -> List[List[Tuple[int, int, str]]]:
         """
         Get word alignment from character alignment.
@@ -293,9 +285,7 @@ class Aligner(abc.ABC):
         return word_alignments
 
     def align_audio_to_tokens(
-        self,
-        audio_file: str,
-        transcript: str,
+        self, audio_file: str, transcript: str,
     ) -> List[int]:
         """
         Align audio to tokens.
@@ -320,10 +310,7 @@ class Aligner(abc.ABC):
         return alignments[0]
 
     def align_audio_to_words(
-        self,
-        audio_file: str,
-        transcript: str,
-        frame_shift: float = 0.02,
+        self, audio_file: str, transcript: str, frame_shift: float = 0.02,
     ) -> List[Tuple[int, int, str]]:
         """
         Align audio to words.
@@ -358,9 +345,7 @@ class Aligner(abc.ABC):
         return word_alignments[0]
 
     def align_batch_to_tokens(
-        self,
-        audio_files: List[str],
-        transcripts: List[str],
+        self, audio_files: List[str], transcripts: List[str],
     ) -> List[List[int]]:
         """
         Align a batch of audio files to tokens.
@@ -421,10 +406,7 @@ class Aligner(abc.ABC):
         return word_alignments
 
     def align_csv_to_tokens(
-        self,
-        input_csv: str,
-        output_file: str,
-        batch_size: int = 4,
+        self, input_csv: str, output_file: str, batch_size: int = 4,
     ):
         """
         Align all the audio files in the input_csv and write the token alignments to output_csv.
@@ -616,9 +598,7 @@ class CTCAligner(Aligner):
         return encoded_texts
 
     def get_log_prob_and_targets(
-        self,
-        audio_files: List[str],
-        transcripts: List[str],
+        self, audio_files: List[str], transcripts: List[str],
     ) -> (torch.Tensor, torch.Tensor):
         """
         Align transcripts to input_speech.

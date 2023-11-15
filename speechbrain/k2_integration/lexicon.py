@@ -75,8 +75,7 @@ class Lexicon(object):
     """
 
     def __init__(
-        self,
-        lang_dir: Path,
+        self, lang_dir: Path,
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
@@ -194,18 +193,14 @@ class Lexicon(object):
         return word_ids
 
     def texts_to_token_ids(
-        self,
-        texts: List[str],
-        log_unknown_warning=True,
+        self, texts: List[str], log_unknown_warning=True,
     ) -> List[List[List[int]]]:
         return self._texts_to_ids(
             texts, log_unknown_warning, _mapper="word2tokenids"
         )
 
     def texts_to_token_ids_with_multiple_pronunciation(
-        self,
-        texts: List[str],
-        log_unknown_warning=True,
+        self, texts: List[str], log_unknown_warning=True,
     ) -> List[List[List[List[int]]]]:
         return self._texts_to_ids(
             texts,

@@ -252,8 +252,7 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]},
-                min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -300,8 +299,7 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -326,8 +324,7 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -365,8 +362,7 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets,
-        ["id", "sig", "wrd", "char_list"],
+        datasets, ["id", "sig", "wrd", "char_list"],
     )
 
     return train_data, valid_data, test_datasets
@@ -426,9 +422,7 @@ if __name__ == "__main__":
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "vocab_files": [hparams["vocab_file"]],
-            "extra_csv_files": [
-                hparams["output_folder"] + "/train.csv",
-            ],
+            "extra_csv_files": [hparams["output_folder"] + "/train.csv"],
             "add_word_boundary": hparams["add_word_boundary"],
         },
     )
@@ -459,27 +453,21 @@ if __name__ == "__main__":
 
     lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
     graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
-        lexicon,
-        device=asr_brain.device,
+        lexicon, device=asr_brain.device,
     )
 
     if hparams["decoding_method"] in ["1best", "onebest"]:
         arpa_path = Path(hparams["lm_dir"]) / hparams["G_arpa_name"]
         fst_output_path = Path(hparams["lm_dir"]) / hparams["G_fst_output_name"]
-        logger.info(
-            f"Decoding method {hparams['decoding_method']} with following files: "
-            f"arpa: {arpa_path}, fst: {fst_output_path}."
-        )
+        assert arpa_path.is_file(), f"{arpa_path} does not exist"
     elif hparams["decoding_method"] == "whole-lattice-rescoring":
         arpa_path = Path(hparams["lm_dir"]) / hparams["G_rescoring_arpa_name"]
         fst_output_path = (
             Path(hparams["lm_dir"]) / hparams["G_rescoring_fst_output_name"]
         )
-        logger.info(
-            f"Decoding method {hparams['decoding_method']} with following files: "
-            f"arpa: {arpa_path}, fst: {fst_output_path},"
-            f"and a rescoring_lm_scale of {hparams['rescoring_lm_scale']}."
-        )
+        rescoring_lm_scale = hparams["rescoring_lm_scale"]
+        assert arpa_path.is_file(), f"{arpa_path} does not exist"
+        assert rescoring_lm_scale > 0, "rescoring_lm_scale must be > 0"
 
     decoder = sbk2.lattice_decoder.get_decoding(
         hparams, graph_compiler, device=asr_brain.device

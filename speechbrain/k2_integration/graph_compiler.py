@@ -27,6 +27,7 @@ class GraphCompiler(abc.ABC):
     """
     This class is used to compile graphs for training and decoding.
     """
+
     @abc.abstractproperty
     def topo(self) -> k2.Fsa:
         """
@@ -202,10 +203,16 @@ class CtcGraphCompiler(GraphCompiler):
 
     @property
     def topo(self):
+        """
+        Return the ctc_topo.
+        """
         return self.ctc_topo
 
     @property
     def lexicon(self):
+        """
+        Return the lexicon.
+        """
         return self._lexicon
 
     @property

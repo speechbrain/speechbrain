@@ -234,8 +234,7 @@ def get_lattice(
 
 @torch.no_grad()
 def one_best_decoding(
-    lattice: k2.Fsa,
-    use_double_scores: bool = True,
+    lattice: k2.Fsa, use_double_scores: bool = True,
 ) -> k2.Fsa:
     """Get the best path from a lattice.
     Arguments
@@ -348,9 +347,7 @@ def rescore_with_whole_lattice(
                 "decode, you will meet this exception."
             )
             inv_lattice = k2.prune_on_arc_post(
-                inv_lattice,
-                prune_th_list[loop_count],
-                True,
+                inv_lattice, prune_th_list[loop_count], True,
             )
             logger.info(
                 f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"
