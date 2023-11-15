@@ -462,6 +462,25 @@ if __name__ == "__main__":
         lexicon,
         device=asr_brain.device,
     )
+
+    if hparams["decoding_method"] in ["1best", "onebest"]:
+        arpa_path = Path(hparams["lm_dir"]) / hparams["G_arpa_name"]
+        fst_output_path = Path(hparams["lm_dir"]) / hparams["G_fst_output_name"]
+        logger.info(
+            f"Decoding method {hparams['decoding_method']} with following files: "
+            f"arpa: {arpa_path}, fst: {fst_output_path}."
+        )
+    elif hparams["decoding_method"] == "whole-lattice-rescoring":
+        arpa_path = Path(hparams["lm_dir"]) / hparams["G_rescoring_arpa_name"]
+        fst_output_path = (
+            Path(hparams["lm_dir"]) / hparams["G_rescoring_fst_output_name"]
+        )
+        logger.info(
+            f"Decoding method {hparams['decoding_method']} with following files: "
+            f"arpa: {arpa_path}, fst: {fst_output_path},"
+            f"and a rescoring_lm_scale of {hparams['rescoring_lm_scale']}."
+        )
+
     decoder = sbk2.lattice_decoder.get_decoding(
         hparams, graph_compiler, device=asr_brain.device
     )
