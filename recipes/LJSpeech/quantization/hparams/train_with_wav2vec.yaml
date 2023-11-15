@@ -22,6 +22,7 @@ test_json: !ref <save_folder>/test.json
 splits: ["train"]
 split_ratio: [100]
 skip_prep: False
+sample_rate: 16000
 
 ssl_hub: facebook/wav2vec2-large-960h-lv60-self
 freeze_feature_extractor: True

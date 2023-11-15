@@ -16,6 +16,7 @@ from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.utils.kmeans import fetch_kmeans_model, train, save_model
+import torchaudio
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,11 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+        info = torchaudio.info(wav)
+        resampled = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"],
+        )(sig)
+        return resampled
 
     datasets = {}
     data_info = {
