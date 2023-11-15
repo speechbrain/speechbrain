@@ -61,7 +61,7 @@ class WN(nn.Module):
             
             res_skip_layer = torch.nn.Conv1d(hidden_features, res_skip_features, 1)
             # res_skip_layer = torch.nn.utils.parametrizations.weight_norm(res_skip_layer, name='weight')
-            es_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
+            res_skip_layer = torch.nn.utils.weight_norm(res_skip_layer, name='weight')
             res_skip_layers.append(res_skip_layer)
         
         self.layers = layers
@@ -118,8 +118,8 @@ class PosteriorEncoder(nn.Module):
         # pre_encoder = torch.nn.utils.parametrizations.weight_norm(pre_encoder)
         pre_encoder = torch.nn.utils.weight_norm(pre_encoder)
         post_encoder = nn.Conv1d(hidden_features, out_features*2, kernel_size=1)
-        post_encoder.weight.data.zero_()
-        post_encoder.bias.data.zero_()
+        # post_encoder.weight.data.zero_()
+        # post_encoder.bias.data.zero_()
         
         self.wavenet = WN(
             in_features, 
@@ -139,7 +139,7 @@ class PosteriorEncoder(nn.Module):
         x = self.wavenet(x, x_mask)
         x = self.post_encoder(x) * x_mask
         mu, log_s = torch.split(x, self.out_features, dim=1)
-        z = (mu + torch.randn_like(mu) * torch.exp(log_s)) 
+        z = ((mu + torch.randn_like(mu) * torch.exp(log_s))) * x_mask
         # print(z.mean(), mu.mean(), log_s.mean())
         return z, mu, log_s, x_mask
     
@@ -178,9 +178,7 @@ class PriorEncoder(nn.Module):
         
     def forward(self, x, x_lengths):
         
-        srcmask = get_key_padding_mask(x, pad_idx=self.padding_idx)
-        
-        
+        srcmask = get_key_padding_mask(x, pad_idx=self.padding_idx)        
         x = self.token_embedding(x) * math.sqrt(self.hidden_features)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         pos_embed = self.sinusoidal_positional_embed_encoder(
@@ -194,7 +192,7 @@ class PriorEncoder(nn.Module):
             .permute(0, 2, 1)
             .bool()
         )
-        
+
         x, _ = self.encoder(
             x, src_mask=attn_mask, src_key_padding_mask=srcmask
         )
@@ -282,16 +280,16 @@ class ResidualCouplingLayer(nn.Module):
 
     def forward(self, x, x_mask):
         x0, x1 = torch.split(x, [self.features] * 2, 1)
-        h = self.pre_decoder(x0) 
+        h = self.pre_decoder(x0) * x_mask
         h = self.decoder(h, x_mask)
-        x0_d = self.post_decoder(h) 
+        x0_d = self.post_decoder(h) * x_mask
         if not self.mean_only:
             mu, log_s = torch.split(x0_d, [self.features] * 2, 1)
         else:
             mu = x0_d
             log_s = torch.zeros_like(mu)
 
-        x1 = mu + x1 * torch.exp(log_s) 
+        x1 = (mu + x1 * torch.exp(log_s)) * x_mask
         x = torch.cat([x0, x1], 1)
         logdet = torch.sum(log_s, [1, 2])
         return x, logdet
@@ -307,7 +305,7 @@ class ResidualCouplingLayer(nn.Module):
             mu = x0_d
             log_s = torch.zeros_like(mu)
             
-        x1 = (x1 - mu) * torch.exp(-log_s) * x_mask
+        x1 = ((x1 - mu) * torch.exp(-log_s)) * x_mask
         x = torch.cat([x0, x1], 1)
         return x   
 
