@@ -26,6 +26,7 @@ valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
 split_ratio: [80, 10, 10]
 skip_prep: False
+sample_rate: 16000
 
 ssl_hub: facebook/wav2vec2-large-960h-lv60-self
 freeze_feature_extractor: True

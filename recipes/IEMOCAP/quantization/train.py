@@ -16,7 +16,7 @@ from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.utils.kmeans import fetch_kmeans_model, train, save_model
-
+import torchaudio
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,11 @@ def dataio_prepare(hparams):
         """Load the signal, and pass it and its length to the corruption class.
         This is done on the CPU in the `collate_fn`."""
         sig = sb.dataio.dataio.read_audio(wav)
-        return sig
+        info = torchaudio.info(wav)
+        resampled = torchaudio.transforms.Resample(
+            info.sample_rate, hparams["sample_rate"],
+        )(sig)
+        return resampled
 
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
