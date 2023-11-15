@@ -19,6 +19,7 @@ accented_letters: False
 language: en # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
 train_csv: !ref <save_folder>/train.csv
 skip_prep: False # Skip data preparation
+sample_rate: 16000
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
