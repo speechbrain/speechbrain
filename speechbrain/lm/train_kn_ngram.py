@@ -157,7 +157,6 @@ class NgramCounts:
             words = [self.bos_symbol, self.eos_symbol]
         else:
             words = [self.bos_symbol] + self.whitespace.split(line) + [self.eos_symbol]
-
         for i in range(len(words)):
             for n in range(1, self.ngram_order + 1):
                 if i + n > len(words):
@@ -182,7 +181,7 @@ class NgramCounts:
             self.add_raw_counts_from_line(line)
             lines_processed += 1
         logger.debug(
-            "make_phone_lm.py: processed {0} lines of input".format(
+            "processed {0} lines of input".format(
                 lines_processed
             )
         )
@@ -203,7 +202,7 @@ class NgramCounts:
                 self.add_raw_counts_from_line(line)
                 lines_processed += 1
         logger.debug(
-            "make_phone_lm.py: processed {0} lines of input".format(
+            "processed {0} lines of input".format(
                 lines_processed
             )
         )
@@ -225,7 +224,7 @@ class NgramCounts:
             # if lines_processed == 10:
             #     raise
         logger.debug(
-            "make_phone_lm.py: processed {0} lines of input".format(
+            "processed {0} lines of input".format(
                 lines_processed
             )
         )
@@ -589,10 +588,12 @@ def _make_kn_lm(text, lm: str, ngram_order: int = 3, encoding: str = DEFAULT_ENC
 
     if text is None:
         ngram_counts.add_raw_counts_from_standard_input()
+    elif isinstance(text, str) and os.path.isfile(text):
+        ngram_counts.add_raw_counts_from_file(text)
     elif isinstance(text, Iterable):
         ngram_counts.add_raw_counts_from_list_of_strs(text)
     else:
-        ngram_counts.add_raw_counts_from_file(text)
+        raise ValueError("Unsupported type of text: {0}".format(type(text)))
 
     ngram_counts.cal_discounting_constants()
     ngram_counts.cal_f()
