@@ -16,6 +16,7 @@ from collections import OrderedDict
 
 from . import k2  # import k2 from ./__init__.py
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.lm.arpa import arpa_to_fst
 
 import torch
 import logging
@@ -76,7 +77,7 @@ def get_decoding(
         )
         lm_dir = Path(hparams["lm_dir"])
         run_on_main(
-            utils.arpa_to_fst,
+            arpa_to_fst,
             kwargs={
                 "words_txt": Path(hparams["lang_dir"]) / "words.txt",
                 "in_arpa_files": (
