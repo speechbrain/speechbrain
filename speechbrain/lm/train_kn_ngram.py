@@ -20,6 +20,7 @@ Modified by:
 import io
 import math
 import os
+from pathlib import Path
 import re
 import sys
 import logging
@@ -588,7 +589,7 @@ def _make_kn_lm(text, lm: str, ngram_order: int = 3, encoding: str = DEFAULT_ENC
 
     if text is None:
         ngram_counts.add_raw_counts_from_standard_input()
-    elif isinstance(text, str) and os.path.isfile(text):
+    elif (isinstance(text, str) or isinstance(text, Path)) and os.path.isfile(text):
         ngram_counts.add_raw_counts_from_file(text)
     elif isinstance(text, Iterable):
         ngram_counts.add_raw_counts_from_list_of_strs(text)
@@ -602,6 +603,7 @@ def _make_kn_lm(text, lm: str, ngram_order: int = 3, encoding: str = DEFAULT_ENC
     if lm is None:
         ngram_counts.print_as_arpa(io.TextIOWrapper(sys.stdout.buffer, encoding="latin-1"))
     else:
+        logger.info(f"Saving ARPA LM to {lm}.")
         ngram_counts.save_as_arpa(out_file=lm, encoding=encoding)
 
 

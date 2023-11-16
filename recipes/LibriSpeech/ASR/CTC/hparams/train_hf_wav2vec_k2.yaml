@@ -45,6 +45,9 @@ test_csv:
 # For k2 CTC training
 lang_dir: !ref <output_folder>/lang
 vocab_file: !ref <data_folder>/librispeech-vocab.txt
+# You need to download it and extract (gunzip) from:
+# http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz
+extra_transcripts_paths: !ref <data_folder>/librispeech-lm-norm.txt
 sil_prob: 0.
 add_word_boundary: True
 # For k2 decoding
@@ -67,14 +70,14 @@ rescoring_lm_scale: 0.4
 # using kaldilm.
 lm_dir: lm
 # The ARPA LM file names need to exist under the lm_dir.
-# - If the don't exist, then we download them.
+# - If they don't exist, then we download them or create them.
 # - If the ARPA LM files exist and the FSTs don't exist, then
 #   they will be created by using kaldilm.
 # - If both exist, then only the FST LMs will be used.
 # G_arpa_name: own_3gram.arpa # Custom G_arpa trained on train.csv
 # G_fst_output_name: own_G_3_gram.fst.txt  # for HLG creation
-G_arpa_name: 3-gram.pruned.1e-7.arpa
-G_rescoring_arpa_name: 4-gram.arpa
+G_arpa_name: 3-gram_new.arpa
+G_rescoring_arpa_name: 4-gram_new.arpa
 G_fst_output_name: G_3_gram.fst.txt  # for HLG creation
 G_rescoring_fst_output_name: G_4_gram.fst.txt  # for LM rescoring
 # caching: False

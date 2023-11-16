@@ -21,11 +21,14 @@ Authors
  * Samuele Cornell 2020
 """
 
+import csv
 import os
 import sys
+from typing import List
 import torch
 import logging
 import speechbrain as sb
+from speechbrain.lm.train_kn_ngram import create_arpa_lm
 from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 from collections import defaultdict
@@ -367,6 +370,72 @@ def dataio_prepare(hparams):
 
     return train_data, valid_data, test_datasets
 
+def arpa_prepare(
+        csv_paths: List[str],
+        extra_text_paths: List[str],
+        out_file: str,
+        out_transcripts_path: str,
+        ngram_order: int = 3,
+        overwrite: bool = False,
+    ):
+    """Create a text file with all the transcriptions from the csv_paths
+    and extra_text_paths. The csv_paths should probably be [path/to/train.csv]
+    and the extra_text_paths could point to librispeech-lm-norm.txt or any
+    other text file with transcriptions.
+    
+    Arguments
+    ---------
+    csv_paths : List[str]
+        List of paths to csv files with transcriptions. We assume that the
+        `wrd` column exists.
+    extra_text_paths : List[str]
+        List of paths to text files with transcriptions.
+    out_file : str
+        Path to the output ARPA file.
+    out_transcripts_path : str
+        Path to the output file with all the transcriptions.
+    ngram_order : int
+        The order of the n-gram ARPA LM that will be created.
+    overwrite : bool
+        Whether to overwrite the output file if it exists.
+    """
+    if os.path.isfile(out_file) and not overwrite:
+        logger.info(f"{out_file} already exists. Skipping.")
+        return
+    if not os.path.isfile(out_transcripts_path):
+        # NOTE: If there are duplicates between the train.csv and the
+        # extra_text_paths, then we will have duplicates in the output file.
+        # You need to make sure this is what you want.
+        n_lines = 0
+        strip_chars = " \t\r\n"
+        os.makedirs(os.path.dirname(out_transcripts_path), exist_ok=True)
+        with open(out_transcripts_path, "w") as fw:
+            for file in csv_paths:
+                with open(file, "r") as fr:
+                    csv_reader = csv.DictReader(fr)
+                    for row in csv_reader:
+                        transcript = row["wrd"].strip(strip_chars)
+                        fw.write(transcript + "\n")
+                        n_lines += 1
+
+            for file in extra_text_paths:
+                with open(file) as fr:
+                    for line in fr:
+                        # Split the line
+                        transcript = line.strip(strip_chars)
+                        fw.write(transcript + "\n")
+                        n_lines += 1
+        logger.info(f"Created {out_transcripts_path} with {n_lines} lines.")
+    else:
+        logger.info(f"{out_transcripts_path} already exists. Skipping.")
+
+    logger.info(f"Training a {ngram_order}-gram ARPA LM. This may take a while...")
+    create_arpa_lm(
+        transcripts_path=out_transcripts_path,
+        out_path=out_file,
+        ngram_order=ngram_order,
+    )
+
 
 if __name__ == "__main__":
     # CLI:
@@ -408,13 +477,46 @@ if __name__ == "__main__":
         },
     )
 
-    run_on_main(
-        librispeech_prepare.download_librispeech_lm,
-        kwargs={"destination": hparams["lm_dir"]},
-    )
+    if hparams["compose_HL_with_G"] or \
+        hparams["decoding_method"] == "whole-lattice-rescoring":
+        run_on_main(
+            librispeech_prepare.download_librispeech_lm,
+            kwargs={"destination": hparams["lm_dir"]},
+        )
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams)
+
+    if hparams["compose_HL_with_G"]:
+        # Prepare the ARPA 3gram LM for HLG (if required)
+        run_on_main(
+            arpa_prepare,
+            kwargs={
+                "csv_paths": [hparams["output_folder"] + "/train.csv"],
+                "extra_text_paths": [
+                    hparams["extra_transcripts_paths"]
+                ],
+                "out_file": Path(hparams["lm_dir"]) / hparams["G_arpa_name"],
+                "out_transcripts_path": Path(hparams["lang_dir"]) / "transcripts.txt",
+                "ngram_order": 3,  # Use 3-gram by default for HLG
+                "overwrite": False,  # By default use the existing file
+            },
+        )
+    if hparams["decoding_method"] == "whole-lattice-rescoring":
+        # Prepare the ARPA 4gram LM for rescoring (if required)
+        run_on_main(
+            arpa_prepare,
+            kwargs={
+                "csv_paths": [hparams["output_folder"] + "/train.csv"],
+                "extra_text_paths": [
+                    hparams["extra_transcripts_paths"]
+                ],
+                "out_file": Path(hparams["lm_dir"]) / hparams["G_rescoring_arpa_name"],
+                "out_transcripts_path": Path(hparams["lang_dir"]) / "transcripts.txt",
+                "ngram_order": 4,  # Use 3-gram by default for HLG
+                "overwrite": False,  # By default use the existing file
+            },
+        )
 
     # Create the lexicon.txt for k2
     run_on_main(
