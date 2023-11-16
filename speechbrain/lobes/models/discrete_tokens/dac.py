@@ -536,10 +536,26 @@ class Snake1d(nn.Module):
     """
 
     def __init__(self, channels):
+        """
+        Initializes Snake1d
+        Parameters
+        ----------
+        channels : int
+        """
         super().__init__()
         self.alpha = nn.Parameter(torch.ones(1, channels, 1))
 
     def forward(self, x):
+        """
+
+        Parameters
+        ----------
+        x : torch.Tensor
+
+        Returns
+        -------
+        torch.Tensor
+        """
         return snake(x, self.alpha)
 
 
