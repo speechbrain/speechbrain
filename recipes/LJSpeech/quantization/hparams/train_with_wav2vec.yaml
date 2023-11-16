@@ -39,7 +39,7 @@ train_dataloader_opts:
 
 ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
    source: !ref <ssl_hub>
-   output_norm: True
+   output_norm: False
    freeze: !ref <freeze_ssl>
    freeze_feature_extractor: !ref <freeze_feature_extractor>
    output_all_hiddens: True
