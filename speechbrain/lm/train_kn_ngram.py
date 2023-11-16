@@ -202,7 +202,7 @@ class NgramCounts:
                 line = line.strip(self.strip_chars)
                 self.add_raw_counts_from_line(line)
                 lines_processed += 1
-        logger.debug(
+        logger.info(
             "processed {0} lines of input".format(
                 lines_processed
             )
@@ -260,6 +260,7 @@ class NgramCounts:
             # which could happen if the number of symbols is small.
             # Otherwise, zero discounting constant can cause division by zero in computing BOW.
             self.d.append(max(0.1, n1 * 1.0) / (n1 + 2 * n2))
+        logger.info("`cal_discounting_constants` done.")
 
     def cal_f(self):
         """This function calculates the discounted probability of each N-gram.
@@ -309,6 +310,7 @@ class NgramCounts:
                             * 1.0
                             / counts_for_hist.total_count
                         )
+        logger.info("`cal_f` done.")
 
     def cal_bow(self):
         """Backoff weights (BOWs) are only necessary for ngrams which form a prefix 
@@ -362,6 +364,7 @@ class NgramCounts:
                             )
                         else:
                             counts_for_hist.word_to_bow[w] = None
+        logger.info("`cal_bow` done.")
 
     def print_raw_counts(self, info_string):
         """Print the raw counts of each N-gram.
