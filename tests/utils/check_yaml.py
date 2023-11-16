@@ -7,6 +7,7 @@ Authors
 
 import os
 import re
+from speechbrain.core import run_opt_defaults
 
 
 def get_yaml_var(hparam_file):
@@ -181,29 +182,8 @@ def check_yaml_vs_script(hparam_file, script_file):
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
-    default_run_opt_keys = [
-        "debug",
-        "debug_batches",
-        "debug_epochs",
-        "device",
-        "cpu",
-        "data_parallel_backend",
-        "distributed_launch",
-        "distributed_backend",
-        "find_unused_parameters",
-        "jit_module_keys",
-        "compile_module_keys",
-        "--compile_mode",
-        "--compile_using_fullgraph",
-        "--compile_using_dynamic_shape_tracing",
-        "auto_mix_prec",
-        "max_grad_norm",
-        "nonfinite_patience",
-        "noprogressbar",
-        "ckpt_interval_minutes",
-        "grad_accumulation_factor",
-        "optimizer_step_limit",
-    ]
+    default_run_opt_keys = list(run_opt_defaults.keys())
+
     unused_vars = list(
         set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)
     )

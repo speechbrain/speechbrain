@@ -30,7 +30,7 @@ tensorboard_logs: !ref <output_folder>/logs/
 dereverberate: False
 
 # Experiment params
-auto_mix_prec: True
+precision: fp16 # bf16, fp16 or fp32
 test_only: False
 num_spks: 1
 noprogressbar: False

@@ -54,7 +54,7 @@ ckpt_interval_minutes: 30  # save checkpoint every N min
 # Training parameters
 # To make Transformers converge, the global batch size should be large enough.
 # The global batch size is computed as:
-# batch_size * n_gpus * gradient_accumulation.
+# batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 100

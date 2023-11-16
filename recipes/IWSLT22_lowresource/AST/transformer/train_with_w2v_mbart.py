@@ -105,45 +105,9 @@ class ST(sb.core.Brain):
 
         return loss
 
-    def init_optimizers(self):
-        # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
-        if not self.hparams.wav2vec2_frozen:
-            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.wav2vec2.parameters()
-            )
-        # Initializes the mbart optimizer if the model is not mbart_frozen
-        if not self.hparams.mbart_frozen:
-            self.mbart_optimizer = self.hparams.mbart_opt_class(
-                self.modules.mBART.parameters()
-            )
-        self.adam_optimizer = self.hparams.adam_opt_class(
-            self.hparams.model.parameters()
-        )
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not fini
-            if self.check_gradients(loss):
-                if not self.hparams.wav2vec2_frozen:
-                    self.wav2vec_optimizer.step()
-                if not self.hparams.mbart_frozen:  # if mbart is not frozen
-                    self.mbart_optimizer.step()
-                self.adam_optimizer.step()
-
-            if not self.hparams.wav2vec2_frozen:
-                self.wav2vec_optimizer.zero_grad()
-            if not self.hparams.mbart_frozen:
-                self.mbart_optimizer.zero_grad()
-            self.adam_optimizer.zero_grad()
-
-            self.optimizer_step += 1
-
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             if not self.hparams.wav2vec2_frozen:
                 self.hparams.lr_annealing_wav2vec(
                     self.wav2vec_optimizer, self.optimizer_step
@@ -153,14 +117,26 @@ class ST(sb.core.Brain):
                     self.mbart_optimizer, self.optimizer_step
                 )
 
-        return loss.detach().cpu()
+    def init_optimizers(self):
+        self.adam_optimizer = self.hparams.adam_opt_class(
+            self.hparams.model.parameters()
+        )
 
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
+        self.optimizers_dict = {"model_optimizer": self.adam_optimizer}
+
+        # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
+        if not self.hparams.wav2vec2_frozen:
+            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
+                self.modules.wav2vec2.parameters()
+            )
+            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+
+        # Initializes the mbart optimizer if the model is not mbart_frozen
+        if not self.hparams.mbart_frozen:
+            self.mbart_optimizer = self.hparams.mbart_opt_class(
+                self.modules.mBART.parameters()
+            )
+            self.optimizers_dict["mbart_optimizer"] = self.mbart_optimizer
 
     def on_stage_start(self, stage, epoch):
         """Gets called when a stage (either training, validation, test) starts."""

@@ -89,43 +89,28 @@ class ST(sb.core.Brain):
         return loss
 
     def init_optimizers(self):
+        self.adam_optimizer = self.hparams.adam_opt_class(
+            self.hparams.model.parameters()
+        )
+
+        self.optimizers_dict = {"model_optimizer": self.adam_optimizer}
+
         # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )
-        self.adam_optimizer = self.hparams.adam_opt_class(
-            self.hparams.model.parameters()
-        )
+            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
 
-    def zero_grad(self, set_to_none=False):
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
         if not self.hparams.wav2vec2_frozen:
-            self.wav2vec_optimizer.zero_grad(set_to_none)
-        self.adam_optimizer.zero_grad(set_to_none)
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-
-        if self.check_gradients(loss):
-            if not self.hparams.wav2vec2_frozen:  # if wav2vec2 is not frozen
-                self.wav2vec_optimizer.step()
-            self.adam_optimizer.step()
-
-        if not self.hparams.wav2vec2_frozen:
-            self.wav2vec_optimizer.zero_grad()
-        self.adam_optimizer.zero_grad()
-
-        return loss.detach().cpu()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
 
     def on_stage_start(self, stage, epoch):
         """Gets called when a stage (either training, validation, test) starts."""

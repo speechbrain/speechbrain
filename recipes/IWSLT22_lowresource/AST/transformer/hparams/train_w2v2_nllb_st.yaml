@@ -43,7 +43,7 @@ lr_wav2vec: 0.0001
 lr_mbart: 0.0001
 batch_size: 2
 test_batch_size: 1
-gradient_accumulation: 6
+grad_accumulation_factor: 6
 valid_search_interval: 4
 loss_reduction: batchmean
 ckpt_interval_minutes: 15 # save checkpoint every N min

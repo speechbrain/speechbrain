@@ -36,9 +36,10 @@ test_csv:
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
-# The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
+# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
+precision: fp32 # bf16, fp16 or fp32
 number_of_epochs: 120
 batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
@@ -59,20 +60,31 @@ n_fft: 400
 n_mels: 80
 win_length: 25
 n_time_mask: 7
+
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 800
-max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
+max_batch_length_train: 800
+max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
+shuffle: True
+batch_ordering: random
+max_batch_ex: 128
 
-dynamic_batch_sampler:
-    max_batch_len: !ref <max_batch_len>
-    max_batch_len_val: !ref <max_batch_len_val>
+dynamic_batch_sampler_train:
+    max_batch_length: !ref <max_batch_length_train>
     num_buckets: !ref <num_bucket>
-    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
-    max_batch_ex: 128
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+dynamic_batch_sampler_valid:
+    max_batch_length: !ref <max_batch_length_val>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
 
 # Dataloader options
 train_dataloader_opts:
@@ -171,32 +183,40 @@ Adam: !name:torch.optim.AdamW
     eps: 0.000000001
     weight_decay: !ref <weight_decay>
 
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <ctc_scorer>]
+    weights:
+        ctc: !ref <ctc_weight_decode>
+
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
+    scorer: !ref <scorer>
 
-
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     temperature: 1.15
-    temperature_lm: 1.15
     using_eos_threshold: False
     length_normalization: True
+    scorer: !ref <scorer>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1

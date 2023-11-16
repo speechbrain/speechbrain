@@ -49,6 +49,7 @@ lr: 1.0
 ctc_weight: 0.5
 sorting: ascending
 dynamic_batching: False
+precision: fp32 # bf16, fp16 or fp32
 
 # dynamic batching parameters, if used
 feats_hop_size: 0.01

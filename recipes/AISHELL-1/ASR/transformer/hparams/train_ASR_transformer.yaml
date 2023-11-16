@@ -31,10 +31,11 @@ tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 number_of_epochs: 50
 batch_size: 8
 ctc_weight: 0.3
-gradient_accumulation: 4
+grad_accumulation_factor: 4
 loss_reduction: 'batchmean'
 sorting: random
 avg_checkpoints: 10 # Number of checkpoints to average for evaluation
+precision: fp32 # bf16, fp16 or fp32
 
 dynamic_batching: False
 max_batch_length: 15 # in terms of "duration" in annotations by default, second here
