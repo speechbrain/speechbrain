@@ -31,7 +31,7 @@ skip_prep: False
 ckpt_interval_minutes: 60
 
 # Experiment params
-auto_mix_prec: True # Set it to True for mixed precision
+precision: fp16 # bf16, fp16 or fp32 # Set it to True for mixed precision
 num_spks: 3
 noprogressbar: False
 save_audio: False # Save estimated sources on disk

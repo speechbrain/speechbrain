@@ -36,7 +36,7 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
-# The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
+# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 60
@@ -203,7 +203,7 @@ valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
-    length_normalization: False
+    length_normalization: True
     scorer: !ref <valid_scorer>
 
 test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher

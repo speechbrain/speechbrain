@@ -39,6 +39,7 @@ jobs:
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install ctc-segmentation
+                  pip install protobuf
             - name: Consistency tests with pytest
               run: |
                   pytest tests/consistency

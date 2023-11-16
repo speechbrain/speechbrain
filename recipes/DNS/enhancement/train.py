@@ -35,7 +35,6 @@ import torchaudio
 import braceexpand
 import webdataset as wds
 import torch.nn.functional as F
-from torch.cuda.amp import autocast
 
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -45,6 +44,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.core import AMPConfig
 
 from pesq import pesq
 from pystoi import stoi
@@ -137,19 +137,59 @@ class Enhancement(sb.Brain):
 
     def fit_batch(self, batch):
         """Trains one batch"""
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
+
         # Unpacking batch list
         noisy = batch.noisy_sig
         clean = batch.clean_sig
         noise = batch.noise_sig[0]
 
-        if self.auto_mix_prec:
-            with autocast():
+        with self.no_sync(not should_step):
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                ):
+                    predictions, clean = self.compute_forward(
+                        noisy, clean, sb.Stage.TRAIN, noise
+                    )
+                    loss = self.compute_objectives(predictions, clean)
+
+                    # hard threshold the easy dataitems
+                    if self.hparams.threshold_byloss:
+                        th = self.hparams.threshold
+                        loss_to_keep = loss[loss > th]
+                        if loss_to_keep.nelement() > 0:
+                            loss = loss_to_keep.mean()
+                    else:
+                        loss = loss.mean()
+
+                if (
+                    loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                ):  # the fix for computational problems
+                    self.scaler.scale(loss).backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.nonfinite_count += 1
+                    logger.info(
+                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                            self.nonfinite_count
+                        )
+                    )
+                    loss.data = torch.tensor(0).to(self.device)
+            else:
                 predictions, clean = self.compute_forward(
                     noisy, clean, sb.Stage.TRAIN, noise
                 )
                 loss = self.compute_objectives(predictions, clean)
 
-                # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
                     loss_to_keep = loss[loss > th]
@@ -158,56 +198,24 @@ class Enhancement(sb.Brain):
                 else:
                     loss = loss.mean()
 
-            if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
-                self.scaler.scale(loss).backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm,
+                if (
+                    loss < self.hparams.loss_upper_lim and loss.nelement() > 0
+                ):  # the fix for computational problems
+                    loss.backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
+                    self.optimizer.step()
+                else:
+                    self.nonfinite_count += 1
+                    logger.info(
+                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                            self.nonfinite_count
+                        )
                     )
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
-        else:
-            predictions, clean = self.compute_forward(
-                noisy, clean, sb.Stage.TRAIN, noise
-            )
-            loss = self.compute_objectives(predictions, clean)
-
-            if self.hparams.threshold_byloss:
-                th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
-            else:
-                loss = loss.mean()
-
-            if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
-                loss.backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm
-                    )
-                self.optimizer.step()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()

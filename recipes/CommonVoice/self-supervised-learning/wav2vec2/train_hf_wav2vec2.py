@@ -78,51 +78,10 @@ class W2VBrain(sb.core.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-
-        # Here we manage mixed precision
-        if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
-                predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(
-                    predictions, batch, sb.Stage.TRAIN
-                )
-
-            # normalize the loss by gradient_accumulation step
-            self.scaler.scale(
-                loss / self.hparams.gradient_accumulation
-            ).backward()
-
-            if self.step % self.hparams.gradient_accumulation == 0:
-                # gradient clipping & early stop if loss is not fini
-                self.check_gradients(loss)
-
-                self.scaler.unscale_(self.optimizer)
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer.zero_grad()
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-            # normalize the loss by gradient_accumulation step
-            (loss / self.hparams.gradient_accumulation).backward()
-
-            if self.step % self.hparams.gradient_accumulation == 0:
-                # gradient clipping & early stop if loss is not fini
-                self.check_gradients(loss)
-
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach()
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""

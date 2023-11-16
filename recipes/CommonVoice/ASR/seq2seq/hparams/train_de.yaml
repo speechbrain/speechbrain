@@ -36,6 +36,7 @@ number_of_ctc_epochs: 20
 lr: 1.0
 ctc_weight: 0.3
 sorting: ascending
+precision: fp32 # bf16, fp16 or fp32
 ckpt_interval_minutes: 30
 
 # With data_parallel batch_size is split into N jobs

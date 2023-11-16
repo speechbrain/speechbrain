@@ -35,6 +35,7 @@ number_of_ctc_epochs: 40
 lr: 1.0
 ctc_weight: 0.3
 sorting: ascending
+precision: fp32 # bf16, fp16 or fp32
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs

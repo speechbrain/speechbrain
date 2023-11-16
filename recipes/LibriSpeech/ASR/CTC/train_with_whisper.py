@@ -102,45 +102,6 @@ class ASR(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        should_step = self.step % self.grad_accumulation_factor == 0
-
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.whisper_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.whisper_optimizer)
-                self.scaler.unscale_(self.model_optimizer)
-                if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        # Here we added a warmup to the CTC encoder to make sure that
-                        # it does not screw the whisper with too large gradients.
-                        self.scaler.step(self.whisper_optimizer)
-                    self.scaler.step(self.model_optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    # Here we added a warmup to the CTC encoder to make sure that
-                    # it does not screw the whisper with too large gradients.
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        self.whisper_optimizer.step()
-                    self.model_optimizer.step()
-                self.whisper_optimizer.zero_grad()
-                self.model_optimizer.zero_grad()
-                self.optimizer_step += 1
-
-        return loss.detach().cpu()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
@@ -202,11 +163,31 @@ class ASR(sb.Brain):
             self.hparams.model.parameters()
         )
 
+        # save the optimizers in a dictionary
+        # the key will be used in `freeze_optimizers()`
+        self.optimizers_dict = {
+            "model_optimizer": self.model_optimizer,
+            "whisper_optimizer": self.whisper_optimizer,
+        }
+
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "whisper_opt", self.whisper_optimizer
             )
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
+
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
+        if not self.hparams.freeze_whisper:
+            # Here we added a warmup to the CTC encoder to make sure that
+            # it does not break the whisper with too large gradients.
+            if self.optimizer_step > self.hparams.warmup_steps:
+                valid_optimizers["whisper_optimizer"] = optimizers[
+                    "whisper_optimizer"
+                ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
 
 
 def dataio_prepare(hparams, tokenizer):
