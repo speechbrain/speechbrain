@@ -210,6 +210,10 @@ def snake(x, alpha):
 
 
 class VectorQuantize(nn.Module):
+    """
+    An implementation for Vector Quamtization
+    """
+
     def __init__(self, input_dim: int, codebook_size: int, codebook_dim: int):
         """
         Implementation of VQ similar to Karpathy's repo:
