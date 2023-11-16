@@ -210,18 +210,17 @@ def snake(x, alpha):
 
 
 class VectorQuantize(nn.Module):
-    """
-    Implementation of VQ similar to Karpathy's repo:
-    https://github.com/karpathy/deep-vector-quantization
-    Additionally uses following tricks from Improved VQGAN
-    (https://arxiv.org/pdf/2110.04627.pdf):
-        1. Factorized codes: Perform nearest neighbor lookup in low-dimensional space
-            for improved codebook usage
-        2. l2-normalized codes: Converts euclidean distance to cosine similarity which
-            improves training stability
-    """
-
     def __init__(self, input_dim: int, codebook_size: int, codebook_dim: int):
+        """
+        Implementation of VQ similar to Karpathy's repo:
+        https://github.com/karpathy/deep-vector-quantization
+        Additionally uses following tricks from Improved VQGAN
+        (https://arxiv.org/pdf/2110.04627.pdf):
+            1. Factorized codes: Perform nearest neighbor lookup in low-dimensional space
+                for improved codebook usage
+            2. l2-normalized codes: Converts euclidean distance to cosine similarity which
+                improves training stability
+        """
         super().__init__()
         self.codebook_size = codebook_size
         self.codebook_dim = codebook_dim
@@ -361,6 +360,17 @@ class ResidualVectorQuantize(nn.Module):
         codebook_dim: Union[int, list] = 8,
         quantizer_dropout: float = 0.0,
     ):
+        """
+        Initializes the ResidualVectorQuantize
+
+        Parameters
+        ----------
+        input_dim : int, optional, by default 512
+        n_codebooks : int, optional, by default 9
+        codebook_size : int, optional, by default 1024
+        codebook_dim : Union[int, list], optional,  by default 8
+        quantizer_dropout : float, optional, by default 0.0
+        """
         super().__init__()
         if isinstance(codebook_dim, int):
             codebook_dim = [codebook_dim for _ in range(n_codebooks)]
@@ -547,6 +557,13 @@ class ResidualUnit(nn.Module):
     """
 
     def __init__(self, dim: int = 16, dilation: int = 1):
+        """
+        Initializes the ResidualUnit
+        Parameters
+        ----------
+        dim : int, optional, by default 16
+        dilation : int, optional, by default 1
+        """
         super().__init__()
         pad = ((7 - 1) * dilation) // 2
         self.block = nn.Sequential(
@@ -556,7 +573,16 @@ class ResidualUnit(nn.Module):
             WNConv1d(dim, dim, kernel_size=1),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.tensor) -> torch.tensor:
+        """
+        Parameters
+        ----------
+        x : torch.tensor
+
+        Returns
+        -------
+        torch.tensor
+        """
         y = self.block(x)
         pad = (x.shape[-1] - y.shape[-1]) // 2
         if pad > 0:
@@ -581,6 +607,13 @@ class EncoderBlock(nn.Module):
     """
 
     def __init__(self, dim: int = 16, stride: int = 1):
+        """
+        Initializes the EncoderBlock
+        Parameters
+        ----------
+        dim : int, optional, by default 16
+        stride : int, optional, by default 1
+        """
         super().__init__()
         self.block = nn.Sequential(
             ResidualUnit(dim // 2, dilation=1),
@@ -596,7 +629,16 @@ class EncoderBlock(nn.Module):
             ),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.tensor):
+        """
+        Parameters
+        ----------
+        x : torch.tensor
+
+        Returns
+        -------
+        torch.tensor
+        """
         return self.block(x)
 
 
@@ -620,6 +662,15 @@ class Encoder(nn.Module):
         strides: list = [2, 4, 8, 8],
         d_latent: int = 64,
     ):
+        """
+        Initializes the Encoder
+
+        Parameters
+        ----------
+        d_model : int, optional, by default 64
+        strides : list, optional, by default [2, 4, 8, 8]
+        d_latent : int, optional, by default 64
+        """
         super().__init__()
         # Create first convolution
         self.block = [WNConv1d(1, d_model, kernel_size=7, padding=3)]
@@ -640,6 +691,15 @@ class Encoder(nn.Module):
         self.enc_dim = d_model
 
     def forward(self, x):
+        """
+        Parameters
+        ----------
+        x : torch.tensor
+
+        Returns
+        -------
+        torch.tensor
+        """
         return self.block(x)
 
 
@@ -660,6 +720,15 @@ class DecoderBlock(nn.Module):
     def __init__(
         self, input_dim: int = 16, output_dim: int = 8, stride: int = 1
     ):
+        """
+        Initializes the DecoderBlock
+
+        Parameters
+        ----------
+        input_dim : int, optional, by default 16
+        output_dim : int, optional, by default 8
+        stride : int, optional, by default 1
+        """
         super().__init__()
         self.block = nn.Sequential(
             Snake1d(input_dim),
@@ -676,6 +745,16 @@ class DecoderBlock(nn.Module):
         )
 
     def forward(self, x):
+        """
+
+        Parameters
+        ----------
+        x : torch.tensor
+
+        Returns
+        -------
+        torch.tensor
+        """
         return self.block(x)
 
 
@@ -696,8 +775,21 @@ class Decoder(nn.Module):
     """
 
     def __init__(
-        self, input_channel, channels, rates, d_out: int = 1,
+        self,
+        input_channel: int,
+        channels: int,
+        rates: List[int],
+        d_out: int = 1,
     ):
+        """Initializes Decoder
+
+        Parameters
+        ----------
+        input_channel : int
+        channels : int
+        rates : List[int]
+        d_out : int, optional, by default 1
+        """
         super().__init__()
 
         # Add first conv layer
@@ -719,6 +811,16 @@ class Decoder(nn.Module):
         self.model = nn.Sequential(*layers)
 
     def forward(self, x):
+        """
+
+        Parameters
+        ----------
+        x : torch.tensor
+
+        Returns
+        -------
+        torch.tensor
+        """
         return self.model(x)
 
 
@@ -807,6 +909,28 @@ class DAC(nn.Module):
         strict: bool = False,
         load_pretrained: bool = False,
     ):
+        """ Initializes DAC
+
+        Parameters
+        ----------
+        encoder_dim : int, optional, by default 64
+        encoder_rates : List[int], optional, by default [2, 4, 8, 8]
+        latent_dim : int, optional, by default None
+        decoder_dim : int, optional, by default 1536
+        decoder_rates : List[int], optional, by default [8, 8, 4, 2]
+        n_codebooks : int, optional, by default 9
+        codebook_size : int, optional, by default 1024
+        codebook_dim : Union[int, list], optional, by default 8
+        quantizer_dropout : bool, optional, by default False
+        sample_rate : int, optional, by default 44100
+        model_type : str, optional, by default "44khz"
+        model_bitrate : str, optional, by default "8kbps"
+        tag : str, optional, by default "latest"
+        load_path : str, optional, by default None
+        strict : bool, optional, by default False
+        load_pretrained : bool, optional
+             If True, then a pretrained model is loaded, by default False
+        """
         super().__init__()
 
         self.encoder_dim = encoder_dim
@@ -853,7 +977,18 @@ class DAC(nn.Module):
             self.load_state_dict(model_dict["state_dict"], strict=strict)
             self.metadata = metadata
 
-    def preprocess(self, audio_data, sample_rate):
+    def preprocess(self, audio_data: torch.Tensor, sample_rate: int):
+        """
+
+        Parameters
+        ----------
+        audio_data : torch.Tensor
+        sample_rate : int
+
+        Returns
+        -------
+        torch.Tensor
+        """
         if sample_rate is None:
             sample_rate = self.sample_rate
         assert sample_rate == self.sample_rate
