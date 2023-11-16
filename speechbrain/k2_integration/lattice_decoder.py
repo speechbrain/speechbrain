@@ -17,6 +17,7 @@ from collections import OrderedDict
 from . import k2  # import k2 from ./__init__.py
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.lm.arpa import arpa_to_fst
+from speechbrain.lm.train_kn_ngram import create_arpa_lm
 
 import torch
 import logging
@@ -76,27 +77,28 @@ def get_decoding(
             else None
         )
         lm_dir = Path(hparams["lm_dir"])
-        run_on_main(
-            arpa_to_fst,
-            kwargs={
-                "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                "in_arpa_files": (
-                    [lm_dir / hparams["G_arpa_name"]]
-                    if compose_HL_with_G
-                    else []
-                )
-                + (
-                    [lm_dir / hparams["G_rescoring_arpa_name"]]
-                    if use_G_rescoring
-                    else []
-                ),
-                "out_fst_files": ([G_path] if compose_HL_with_G else [])
-                + ([G_rescoring_path] if use_G_rescoring else []),
-                "lms_ngram_orders": ([3] if compose_HL_with_G else [])
-                + ([4] if use_G_rescoring else []),
-                "cache": caching,
-            },
-        )
+        if compose_HL_with_G:
+            run_on_main(
+                arpa_to_fst,
+                kwargs={
+                    "words_txt": Path(hparams["lang_dir"]) / "words.txt",
+                    "in_arpa": lm_dir / hparams["G_arpa_name"],
+                    "out_fst": G_path,
+                    "ngram_order": 3,  # by default use 3-gram for HLG's LM
+                    "cache": caching,
+                },
+            )
+        if use_G_rescoring:
+            run_on_main(
+                arpa_to_fst,
+                kwargs={
+                    "words_txt": Path(hparams["lang_dir"]) / "words.txt",
+                    "in_arpa": lm_dir / hparams["G_rescoring_arpa_name"],
+                    "out_fst": G_rescoring_path,
+                    "ngram_order": 4,  # by default use 4-gram for rescoring LM
+                    "cache": caching,
+                },
+            )
 
     if compose_HL_with_G:
         G = utils.load_G(G_path, cache=caching)

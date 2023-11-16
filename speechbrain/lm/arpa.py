@@ -62,7 +62,7 @@ Authors
 import collections
 import logging
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 logger = logging.getLogger(__name__)
 
@@ -232,9 +232,9 @@ def _ends_arpa(line):
 
 def arpa_to_fst(
     words_txt: Union[str, Path],
-    in_arpa_files: List[str],
-    out_fst_files: List[str],
-    lms_ngram_orders: List[int],
+    in_arpa: Union[str, Path],
+    out_fst: Union[str, Path],
+    ngram_order: int,
     disambig_symbol: str = "#0",
     cache: bool = True,
 ):
@@ -242,7 +242,7 @@ def arpa_to_fst(
     speechbrain.lm.train_ngram to create an ARPA LM and then use this function
     to convert it to an FST.
 
-    It is worth noting that if the fsts already exist in the output_dir,
+    It is worth noting that if the fst already exists in the output_dir,
     then they will not be converted again (so you may need to delete them
     by hand if you, at any point, change your ARPA model).
 
@@ -250,12 +250,12 @@ def arpa_to_fst(
     ---------
     words_txt: str | Path
         path to the words.txt file created by prepare_lang.
-    in_arpa_files: List[str]
-        List of ARPA files to convert to fst.
-    out_fst_files: List[Str]
-        List of fst path where the fsts will be saved, len(in) == len(out).
-    lms_ngram_orders: List[int]
-        List of the ARPA ngram orders, len(in) == len(out).
+    in_arpa: str | Path
+        Path to an ARPA LM to convert to an FST.
+    out_fst: str | Path
+        Path to where the fst will be saved.
+    ngram_order: int
+        ARPA (and FST) ngram order.
     disambig_symbol: str
         the disambiguation symbol to use.
     cache: bool
@@ -265,12 +265,6 @@ def arpa_to_fst(
     ---------
         ImportError: If kaldilm is not installed.
     """
-    assert len(in_arpa_files) == len(
-        out_fst_files
-    ), f"in_arpa_files {len(in_arpa_files)} != out_fst_files {len(out_fst_files)} "
-    assert len(in_arpa_files) == len(
-        lms_ngram_orders
-    ), f"in_arpa_files {len(in_arpa_files)} != lms_ngram_orders {len(lms_ngram_orders)} "
     try:
         from kaldilm.arpa2fst import arpa2fst
     except ImportError:
@@ -282,44 +276,28 @@ def arpa_to_fst(
             "Install using `pip install kaldilm`."
         )
 
-    def _arpa_to_fst_single(
-        arpa_path: Union[str, Path], out_fst_path: Union[str, Path], max_order: int
-    ):
-        """Convert a single ARPA LM to FST.
-        Arguments
-        ---------
-        arpa_path: str | Path
-            Path to the ARPA LM file.
-        out_fst_path: str | Path
-            Path to the output FST file.
-        max_order: int
-            The maximum order of the ARPA LM.
-        """
-        if cache and out_fst_path.exists():
-            return
-        if not arpa_path.exists():
-            raise FileNotFoundError(
-                f"{arpa_path} not found while trying to create"
-                f" the {max_order} FST."
-            )
-        try:
-            logger.info(f"Converting arpa LM '{arpa_path}' to FST")
-            s = arpa2fst(
-                input_arpa=str(arpa_path),
-                disambig_symbol=disambig_symbol,
-                read_symbol_table=str(words_txt),
-                max_order=max_order,
-            )
-        except Exception as e:
-            logger.info(
-                f"Failed to create {max_order}-gram FST from input={arpa_path}"
-                f", disambig_symbol={disambig_symbol},"
-                f" read_symbol_table={words_txt}"
-            )
-            raise e
-        logger.info(f"Writing {out_fst_path}")
-        with open(out_fst_path, "w") as f:
-            f.write(s)
-
-    for a, f, n in zip(in_arpa_files, out_fst_files, lms_ngram_orders):
-        _arpa_to_fst_single(a, f, max_order=n)
+    if cache and out_fst.exists():
+        return
+    if not in_arpa.exists():
+        raise FileNotFoundError(
+            f"{in_arpa} not found while trying to create"
+            f" the {ngram_order} FST."
+        )
+    try:
+        logger.info(f"Converting arpa LM '{in_arpa}' to FST")
+        s = arpa2fst(
+            input_arpa=str(in_arpa),
+            disambig_symbol=disambig_symbol,
+            read_symbol_table=str(words_txt),
+            max_order=ngram_order,
+        )
+    except Exception as e:
+        logger.info(
+            f"Failed to create {ngram_order}-gram FST from input={in_arpa}"
+            f", disambig_symbol={disambig_symbol},"
+            f" read_symbol_table={words_txt}"
+        )
+        raise e
+    logger.info(f"Writing {out_fst}")
+    with open(out_fst, "w") as f:
+        f.write(s)
