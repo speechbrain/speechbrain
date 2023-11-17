@@ -20,7 +20,9 @@ import torchaudio
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.processing.speech_augmentation import AddNoise
 from esc50_prepare import prepare_esc50
+from wham_prepare import WHAMDataset, combine_batches
 from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
@@ -37,6 +39,10 @@ class ESC50Brain(sb.core.Brain):
         """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
+
+        # augment batch with WHAM!
+        wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power

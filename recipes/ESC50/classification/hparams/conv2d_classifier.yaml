@@ -17,6 +17,10 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
+wham_folder: !PLACEHOLDER
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
+
 experiment_name: conv2dv2_classifier-16k
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
@@ -50,6 +54,12 @@ base_lr: 0.000002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 16000
+signal_length_s: 5
+
+wham_dataset: !new:wham_prepare.WHAMDataset
+  data_dir: !ref <wham_audio_folder>
+  target_length: !ref <signal_length_s>
+  sample_rate: !ref <sample_rate>
 
 device: "cpu"
 
