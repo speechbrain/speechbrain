@@ -186,6 +186,13 @@ class PaddedBatch:
     def batchsize(self):
         """Returns the bach size"""
         return self.__length
+    
+    def as_dict(self):
+        """Converts this batch to a dictionary"""
+        return {
+            key: getattr(self, key)
+            for key in self.__keys
+        }
 
 
 class BatchsizeGuesser:
