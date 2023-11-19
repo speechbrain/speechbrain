@@ -319,7 +319,8 @@ def dataio_prepare(hparams):
         tokens = label_encoder.encode_sequence_torch(label)
         yield tokens
 
-    silence_token, _ = get_silence_token(hparams["token_model"]).cpu()
+    silence_token, _ = get_silence_token(hparams["token_model"])
+    silence_token = silence_token.cpu()
     silence_padding = silence_token[None, :].expand(
         (int(math.ceil(hparams["silence_padding"])), silence_token.size(0))
     )
