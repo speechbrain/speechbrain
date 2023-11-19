@@ -188,7 +188,6 @@ def prepare_ljspeech(
         extract_features_context = get_context(
             extract_features=extract_features,
             extract_features_opts=extract_features_opts or {},
-            save_path=save_folder,
             device=device
         )
         extract_features_folder = Path(save_folder) / "features"
@@ -817,13 +816,14 @@ def prepare_features(
         return PaddedData(sig_data, sig.lengths)
 
     @sb.utils.data_pipeline.takes("sig_resampled")
-    @sb.utils.data_pipeline.provides("audio_tokens")
-    def encodec_pipeline(sig):
-        tokens = context.encodec.encode(sig.data.unsqueeze(1), sig.lengths)
-        return PaddedData(tokens, sig.lengths)
+    @sb.utils.data_pipeline.provides("audio_tokens", "audio_emb")
+    def token_pipeline(sig):
+        tokens, emb = context.token_model.encode(sig.data.unsqueeze(1), sig.lengths)
+        yield PaddedData(tokens, sig.lengths)
+        yield PaddedData(emb, sig.lengths)
 
     feature_extractor.add_dynamic_item(resample_pipeline)
-    feature_extractor.add_dynamic_item(encodec_pipeline)
+    feature_extractor.add_dynamic_item(token_pipeline)
     feature_extractor.set_output_features(features)
     feature_extractor.extract(dataset)
 
@@ -831,15 +831,29 @@ def prepare_features(
 def get_context(
     extract_features,
     extract_features_opts,
-    save_path,
     device
 ):
-    """Gets the context (pretrained models, etc) for feature extraction"""
-    context = {}
-    if "audio_tokens" in extract_features:
-        context["encodec"] = Encodec(
-            source=extract_features_opts.get("encodec_model", "facebook/encodec_24khz"),
-            save_path=save_path,
-        ).to(device)
+    """
+    Gets the context (pretrained models, etc) for feature extraction
 
+    Arguments
+    ---------
+    extract_features : list
+        A list of features to extract
+        Available features:
+        audio_tokens - raw tokens
+        audio_emb - embeddings from the model
+    extract_features_opts : dict
+        Options for feature extraction
+    device : str|torch.Device
+        The device on which extraction will be run
+
+    Returns
+    --------
+    context: SimpleNamespace
+        The context object
+    """
+    context = {}
+    if any(key in extract_features for key in ["audio_tokens", "audio_emb"]):
+        context["token_model"] = extract_features_opts["token_model"].to(device)
     return SimpleNamespace(**context)

@@ -11,7 +11,7 @@ output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-encodec_model: "facebook/encodec_24khz"
+token_model_src: "facebook/encodec_24khz"
 vocoder_model: "charactr/vocos-encodec-24khz"
 
 # Data files
@@ -64,6 +64,9 @@ guided_attention_weight: 1.0
 guided_attention_sigma: 0.5
 gate_loss_weight: 1.0
 gate_threshold: 0.5
+gate_distance_diff_loss_beta: 0.2
+gate_distance_diff_loss_gamma: 0.01
+gate_distance_diff_loss_max_weight: 1.
 
 # Feature parameters
 sample_rate: 22050
@@ -71,10 +74,24 @@ model_sample_rate: 24000
 infer_max_audio_tokens: 700
 debug_infer_max_audio_tokens: 10
 
-#label encoder
+# Label encoder
 label_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 token_list_file: ./hparams/char_en.txt
 
+# Gate offset
+gate_offset: !apply:speechbrain.nnet.losses.distance_diff_loss_ramp
+    beta: !ref <gate_distance_diff_loss_beta>
+    gamma: !ref <gate_distance_diff_loss_gamma>
+    max_weight: !ref <gate_distance_diff_loss_max_weight>
+
+silence_padding: !ref <gate_offset>
+
+
+# Token model (pretrained)
+token_model: !new:speechbrain.lobes.models.huggingface_transformers.Encodec
+    source: !ref <token_model_src>
+    save_path: !ref <data_folder>
+    flat_embeddings: true
 
 # Dataloader options
 train_dataloader_opts:
@@ -109,7 +126,7 @@ sample_dataloader_opts:
 extract_features_opts:
     dataloader_opts:
         batch_size: !ref <batch_size>
-    encodec_model: !ref <encodec_model>
+    token_model: !ref <token_model>
     sample_rate: !ref <sample_rate>
     model_sample_rate: !ref <model_sample_rate>
 
@@ -154,6 +171,7 @@ model: !new:speechbrain.lobes.models.transformer.Tokotron.TokotronModel # yamlli
     activation: !ref <activation>
     attention_type: !ref <attention_type>
     vocoder: !ref <vocoder>
+    gate_offset: !ref <gate_offset>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
    apply_log: True
@@ -170,7 +188,11 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
     label_smoothing: !ref <label_smoothing>
     reduction: mean
 
-gate_cost: !name:speechbrain.nnet.losses.bce_loss
+gate_cost: !name:speechbrain.nnet.losses.distance_diff_loss
+    beta: !ref <gate_distance_diff_loss_beta>
+    gamma: !ref <gate_distance_diff_loss_gamma>
+    max_weight: !ref <gate_distance_diff_loss_max_weight>
+    two_sided: true
 
 attn_cost: !new:speechbrain.nnet.loss.guidedattn_loss.GuidedAttentionLoss
     sigma: !ref <guided_attention_sigma>

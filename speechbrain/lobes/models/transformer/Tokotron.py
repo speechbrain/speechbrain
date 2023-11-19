@@ -78,7 +78,7 @@ TokotronInfernceOutput = namedtuple(
 class TokotronDecoder(nn.Module):
     """The Tokotron decoder - can be used in a standalone model or as
     a component of a larger model
-    
+
     Arguments
     ---------
     num_tokens : int
@@ -98,7 +98,11 @@ class TokotronDecoder(nn.Module):
     gate_threshold : int
         The minimum gate value (post-sigmoid) to consider the sequence
         as complete during auto-regressive inference
-
+    gate_offset : int, optional
+        the number of steps from the gate activation threshold until inference
+        stops. By default, inference stops immediately. This parameter is useful
+        for "soft" gate implementations where the gate starts outputting positive
+        probabilities before actual EOS
     """
     def __init__(
         self,
@@ -117,6 +121,7 @@ class TokotronDecoder(nn.Module):
         max_decoder_steps=1000,
         show_inference_progress=True,
         gate_threshold=0.5,
+        gate_offset=0,
     ):
         super().__init__()
         self.num_tokens = num_tokens
@@ -160,6 +165,7 @@ class TokotronDecoder(nn.Module):
         self.show_inference_progress = show_inference_progress
         self.attention_type = attention_type
         self.gate_threshold = gate_threshold
+        self.gate_offset = gate_offset
 
     def forward(
         self,
@@ -249,7 +255,7 @@ class TokotronDecoder(nn.Module):
             dec_attn,
             get_alignments(dec_attn),
         )
-
+    
     def get_bos(self, batch_size, device="cpu"):
         """Constructs a beginning-of-sequence (BOS) sequence for
         autoregressive inference
@@ -296,14 +302,25 @@ class TokotronDecoder(nn.Module):
         """
         with torch.no_grad():
             batch_size = enc_out.size(0)
+
+            # Initialize BOS
             bos = self.get_bos(batch_size, device=enc_out.device)
             audio_tokens = bos
             audio_tokens_length = torch.ones(batch_size, device=enc_out.device)
-
             steps_range = range(self.max_decoder_steps)
+
+            # Initialize the gate activation index
+            seq_gate_idx = torch.ones(batch_size) * self.max_decoder_steps
+
+            # Initialize an indicator that tells whether the gate has activated
+            # for a given sample
+            seq_gate_act = torch.zeros(batch_size).bool()
+
+            # Show progress if enabled
             if self.show_inference_progress:
                 steps_range = tqdm(steps_range, desc="Inference")
-            for _ in steps_range:
+            for idx in steps_range:
+                # One autoregressive step
                 step_out = self.forward(
                     enc_out=enc_out,
                     src_length=length,
@@ -311,18 +328,52 @@ class TokotronDecoder(nn.Module):
                     tgt_length=audio_tokens_length,
                 )
                 audio_tokens_out = step_out.out.argmax(-1)
+
+                # The model outputs predictions without BOS. Add the BOS back for the
+                # following step
                 audio_tokens = torch.cat(
                     [bos, audio_tokens_out],
                     dim=1
                 )
-                seq_done = F.sigmoid(step_out.gate_out) > self.gate_threshold
-                done = seq_done.any(dim=-1).all()
+                # Find the gate activation of the current step
+                step_gate_out = step_out.gate_out[:, -1]
+
+                # Compute the gate activation (final sigmoid)
+                step_gate_act = step_gate_out.sigmoid() > self.gate_threshold
+
+                # Update the gat eactivation index as follows
+                #
+                # - If the gate has already activated in a previous step, leave the index as is
+                # - Otherwise:
+                #   - If the gate has activated in the current step, update it with the current
+                #     step index
+                #   - Otherwise, leave it as is
+                seq_gate_idx = torch.where(
+                    seq_gate_act,
+                    seq_gate_idx,
+                    torch.where(
+                        step_gate_act,
+                        torch.tensor(idx, device=step_gate_out.device),
+                        seq_gate_idx
+                    )
+                )
+
+                # Update the gate indicator
+                seq_gate_act = seq_gate_act | step_gate_act
+
+                # For a given sample, consider it done if the gate has activated at least
+                # gate_offset steps ago
+                seq_done = seq_gate_act & (seq_gate_idx - idx >= self.gate_offset)
+
+                # Terminate inference if all samples are done
+                done = seq_done.all()
                 if done.item():
                     break
 
-            length_abs = seq_done.int().argmax(dim=-1) + 1
-            length_abs[length_abs == 1] = seq_done.size(1)
-            length = length_abs.float() / seq_done.size(1)
+            # Length = gate activation index + the offset, not exceeding 
+            length_abs = (seq_gate_idx + self.gate_offset).clip(max=self.max_decoder_steps)
+            # Compute relative lengths
+            length = length_abs.float() / audio_tokens_out.size(1)
 
         return TokotronDecoderInfernceOutput(
             audio_tokens=audio_tokens_out,
@@ -366,6 +417,11 @@ class TokotronModel(nn.Module):
         e.g., relu or gelu or swish.
     bos_idx : int
         the Beginning-of-Sequence index
+    gate_offset : int, optional
+        the number of steps from the gate activation threshold until inference
+        stops. By default, inference stops immediately. This parameter is useful
+        for "soft" gate implementations where the gate starts outputting positive
+        probabilities before actual EOS        
 
     """
     def __init__(
@@ -385,6 +441,7 @@ class TokotronModel(nn.Module):
         bos_idx=0,
         vocoder=None,
         max_input_length=1000,
+        gate_offset=0,
     ):
         super().__init__()
         self.in_emb = Embedding(
@@ -416,12 +473,21 @@ class TokotronModel(nn.Module):
         self.bos_idx = bos_idx
         self.vocoder = vocoder
         self.attention_type = attention_type
+        self.gate_offset = gate_offset
         if attention_type == "RelPosMHAXL":
             self.positional_encoding = RelPosEncXL(d_model)
         else:
             self.positional_encoding = PositionalEncoding(
                 d_model, max_input_length
             )
+
+    @property
+    def gate_offset(self):
+        return self.decoder.gate_offset
+
+    @gate_offset.setter
+    def gate_offset(self, value):
+        self.decoder.gate_offset = value
 
     def forward(
         self,
@@ -454,11 +520,9 @@ class TokotronModel(nn.Module):
             src_key_padding_mask=src_key_padding_mask,
             pos_embs=pos_embs_encoder,
         )
-        tgt_mask = get_lookahead_mask(audio_tokens)
         dec_out = self.decoder(
             enc_out=enc_out,
             tgt=audio_tokens,
-            tgt_mask=tgt_mask,
             tgt_length=audio_length,
             src_length=input_length,
             src_key_padding_mask=src_key_padding_mask,

@@ -9,18 +9,18 @@ Authors
  * Artem Ploujnikov
 """
 
-import sys
-import torch
+
 import logging
 import speechbrain as sb
-import multiprocessing
+import math
+import torch
+import sys
 from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
-from tqdm.auto import tqdm
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.preparation import add_prepared_features
+from speechbrain.utils.tokens import get_silence_token
 from matplotlib import pyplot as plt
-from torch.nn import functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ SPECIAL_TOKEN_COUNT = 3
 
 
 # Brain class for speech recognition training
-class TokTTSBrain(sb.Brain):
+class TokotronBrain(sb.Brain):
     """Class that manages the training loop. See speechbrain.core.Brain."""
 
     def compute_forward(self, batch, stage):
@@ -80,7 +80,7 @@ class TokTTSBrain(sb.Brain):
         """
         batch = batch.to(self.device)
 
-        audio_tokens, lengths = batch.audio_tokens
+        audio_tokens, lengths = batch.audio_tokens_pad
         p_seq = self.hparams.log_softmax(predictions.out)
         batch_size, out_len, heads, tok_dim = p_seq.shape
         max_len = out_len - 1
@@ -106,16 +106,11 @@ class TokTTSBrain(sb.Brain):
             input_lengths=batch.tokens.lengths * batch.tokens.data.size(1),
             target_lengths=lengths_abs
         )
-        gate_targets, gate_weights = self.get_gate_targets(lengths, out_len)
-        gate_loss_raw = self.hparams.gate_cost(
-            predictions.gate_out,
-            gate_targets,
-            reduction=None
-        )
-        gate_loss = (
-            (gate_loss_raw * gate_weights)
-            .mean(dim=-1)
-            .mean(dim=0)
+        # NOTE: This adjustment will allow the gate to be "off" by up to silence_padding,
+        # resulting in extra silence being output
+        gate_loss = self.hparams.gate_cost(
+            predictions.gate_out.sigmoid(),
+            lengths_abs - self.hparams.silence_padding
         )
         loss = (
             seq_loss
@@ -124,33 +119,6 @@ class TokTTSBrain(sb.Brain):
         )
         return loss
     
-    def get_gate_targets(self, lengths, out_len):
-        """Computes gate tarets and weights for each position
-        
-        Arguments
-        ---------
-        lengths : torch.Tensor
-            Relative lengths
-        out_len: int
-            The maximum output length
-
-        Returns
-        -------
-        tagrets : torch.Tensor
-            Targets for gate outputs - EOS positions are marked as 1,
-            non-EOS positions are marked at 0
-        weights : torch.Tensor
-            Weights by which individual position losses will be multiplied
-        """
-        pos = torch.arange(out_len, device=lengths.device)[None, :]
-        gate_targets = pos > (lengths * out_len)[:, None]
-        gate_weights = torch.where(
-            gate_targets,
-            .5 / (1. - lengths)[:, None],
-            .5 / lengths[:, None],
-        )
-        return gate_targets.float(), gate_weights
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch.
 
@@ -351,20 +319,29 @@ def dataio_prepare(hparams):
         tokens = label_encoder.encode_sequence_torch(label)
         yield tokens
 
+    silence_token, _ = get_silence_token(hparams["token_model"]).cpu()
+    silence_padding = silence_token[None, :].expand(
+        (int(math.ceil(hparams["silence_padding"])), silence_token.size(0))
+    )
     audio_bos = torch.ones(1, hparams["audio_tokens_per_step"]) * hparams["bos_index"]
 
     @sb.utils.data_pipeline.takes("audio_tokens")
-    @sb.utils.data_pipeline.provides(
-        "audio_tokens_bos"
-    )
-    def audio_add_bos(audio_tokens):
-        return torch.cat(
+    @sb.utils.data_pipeline.provides("audio_tokens_pad", "audio_tokens_bos")
+    def audio_pipeline(audio_tokens):
+        audio_tokens = torch.from_numpy(audio_tokens)
+        audio_tokens_pad = torch.cat(
+            [audio_tokens, silence_padding],
+            dim=0
+        )
+        yield audio_tokens_pad
+        audio_tokens_bos = torch.cat(
             [
                 audio_bos,
-                torch.from_numpy(audio_tokens)
+                audio_tokens_pad
             ],
             dim=0
         )
+        yield audio_tokens_bos
 
     init_sequence_encoder(hparams)
 
@@ -372,11 +349,11 @@ def dataio_prepare(hparams):
         dynamic_dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=data_info[dataset],
             replacements={"data_root": data_folder},
-            dynamic_items=[text_pipeline, audio_add_bos],
+            dynamic_items=[text_pipeline, audio_pipeline],
             output_keys=[
                 "uttid",
                 "tokens",
-                "audio_tokens",
+                "audio_tokens_pad",
                 "audio_tokens_bos",
             ],
         )
@@ -467,30 +444,6 @@ def read_token_list(file_name):
         return [line.strip("\r\n") for line in token_file if line]
 
 
-def check_multiprocessing(hparams, run_opts=None):
-    """Adjusts multiprocessing parameters depending on the operating
-    system's capabilities"""
-    if run_opts is None:
-        run_opts = {}
-    start_methods = multiprocessing.get_all_start_methods()
-    multiprocessing_enabled = True
-    if "fork" in start_methods:
-        multiprocessing.set_start_method("fork")
-    else:
-        multiprocessing_enabled = False
-        logger.warning(
-            "Fork multiprocessing is not supported, in-process dataloading will be used"
-        )
-    drop_last = run_opts.get("data_parallel_backend", False)
-    for key in ["train", "valid", "test"]:
-        opts = hparams[f"{key}_dataloader_opts"]
-        if not multiprocessing_enabled:
-            opts["num_workers"] = 0
-        if opts["num_workers"] == 0 and "prefetch_factor" in opts:
-            del opts["prefetch_factor"]
-        opts["drop_last"] = drop_last
-
-
 def apply_overfit_test(hparams, dataset):
     """Helper for applying an overfit test conditionally based
     on hyperparameters:
@@ -567,9 +520,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # Check/adjust multiprocessing settings
-    #check_multiprocessing(hparams, run_opts)
-
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -591,7 +541,7 @@ if __name__ == "__main__":
                     "seed": hparams["seed"],
                     "extract_features": ["audio_tokens"],
                     "extract_features_opts": hparams["extract_features_opts"],
-                    "model_name": "toktts",
+                    "model_name": "tokotron",
                     "device": run_opts.get("device", "cpu")
                 },
             )
@@ -603,7 +553,7 @@ if __name__ == "__main__":
     datasets = apply_overfit_test(hparams, datasets)
 
     # Trainer initialization
-    tts_brain = TokTTSBrain(
+    tts_brain = TokotronBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
