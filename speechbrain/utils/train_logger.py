@@ -477,3 +477,19 @@ def detach(value):
     else:
         result = value
     return result
+
+
+class ArchiveTrainLogger:
+    def __init__(self, archive_path, current_path):
+        """A logger implementation that saves per-epoch progress (e.g. spectorgrams, audio samples,
+        diagrams) in an archive
+
+        Arguments
+        ---------
+        archive_path : str
+            the path to the archive. It will be created if it does not exist
+            and opened for appending as needed if it does
+        
+        current_path : str | path-like
+            the path under which current/latest samples will be saved
+        """
