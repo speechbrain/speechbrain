@@ -26,7 +26,6 @@ Authors
 """
 import os
 import sys
-import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
@@ -75,18 +74,9 @@ class SpkIdBrain(sb.Brain):
         """
         wavs, lens = wavs
 
-        # Add augmentation if specified. In this version of augmentation, we
-        # concatenate the original and the augment batches in a single bigger
-        # batch. This is more memory-demanding, but helps to improve the
-        # performance. Change it if you run OOM.
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                lens = torch.cat([lens, lens])
-
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -116,9 +106,9 @@ class SpkIdBrain(sb.Brain):
         spkid, _ = batch.spk_id_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
-            spkid = torch.cat([spkid, spkid], dim=0)
-            lens = torch.cat([lens, lens])
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            spkid = self.hparams.wav_augment.replicate_labels(spkid)
+            lens = self.hparams.wav_augment.replicate_labels(lens)
 
         # Compute the cost function
         loss = sb.nnet.losses.nll_loss(predictions, spkid, lens)
@@ -308,6 +298,7 @@ if __name__ == "__main__":
                 "split_ratio": hparams["split_ratio"],
             },
         )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
 
     # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams)

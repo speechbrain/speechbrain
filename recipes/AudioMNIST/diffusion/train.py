@@ -103,10 +103,12 @@ class DiffusionBrain(sb.Brain):
     def init_optimizers(self):
         """Initializes the diffusion model optimizer - and the
         autoencoder optimizer, if applicable"""
+        self.optimizers_dict = {}
         if self.opt_class is not None:
             self.optimizer = self.opt_class(self.modules.unet.parameters())
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
+            self.optimizers_dict["opt_class"] = self.optimizer
 
         if self.use_done_detector:
             self.optimizer_done = self.hparams.opt_class_done(
@@ -116,6 +118,7 @@ class DiffusionBrain(sb.Brain):
                 self.checkpointer.add_recoverable(
                     "optimizer_done", self.optimizer
                 )
+            self.optimizers_dict["opt_class_done"] = self.optimizer_done
 
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.autoencoder_optimizer = self.hparams.opt_class_autoencoder(
@@ -125,6 +128,9 @@ class DiffusionBrain(sb.Brain):
                 self.checkpointer.add_recoverable(
                     "autoencoder_optimizer", self.autoencoder_optimizer
                 )
+            self.optimizers_dict[
+                "opt_class_autoencoder"
+            ] = self.autoencoder_optimizer
 
     def compute_forward(self, batch, stage):
         """Runs all the computation of that transforms the input into the
@@ -315,7 +321,7 @@ class DiffusionBrain(sb.Brain):
                 )
 
         if should_step:
-            if self.train_diffusion and self.check_gradients(loss):
+            if self.train_diffusion:
                 self.optimizer.step()
             self.optimizer.zero_grad()
 
@@ -330,7 +336,10 @@ class DiffusionBrain(sb.Brain):
         ):
             with self.no_sync(not should_step):
                 (loss_autoencoder / self.grad_accumulation_factor).backward()
-            if should_step and self.check_gradients(loss_autoencoder):
+            if should_step:
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.max_grad_norm
+                )
                 self.autoencoder_optimizer.step()
             self.autoencoder_optimizer.zero_grad()
 

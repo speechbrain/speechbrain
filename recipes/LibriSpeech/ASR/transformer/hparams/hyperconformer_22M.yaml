@@ -42,7 +42,7 @@ test_csv:
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
-# The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
+# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 110
@@ -53,6 +53,7 @@ max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 # stages related parameters
 lr_adam: 0.001
@@ -272,21 +273,64 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
-    time_warp_window: 5
-    time_warp_mode: bicubic
-    freq_mask: True
-    n_freq_mask: 2
-    time_mask: True
-    n_time_mask: 2
-    replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
+    speeds: !ref <speed_changes>
+
+# Time Drop
+time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
+time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram
+time_drop_count_low: 4  # Min number of chunks to drop in time in the spectrogram
+time_drop_count_high: 4  # Max number of chunks to drop in time in the spectrogram
+time_drop_replace: "mean"  # Method of dropping chunks
+
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: !ref <time_drop_length_low>
+    drop_length_high: !ref <time_drop_length_high>
+    drop_count_low: !ref <time_drop_count_low>
+    drop_count_high: !ref <time_drop_count_high>
+    replace: !ref <time_drop_replace>
+    dim: 1
+
+# Frequency Drop
+freq_drop_length_low: 10  # Min length for chunks to drop in frequency in the spectrogram
+freq_drop_length_high: 20  # Max length for chunks to drop in frequency in the spectrogram
+freq_drop_count_low: 4  # Min number of chunks to drop in frequency in the spectrogram
+freq_drop_count_high: 4  # Max number of chunks to drop in frequency in the spectrogram
+freq_drop_replace: "mean"  # Method of dropping chunks
+
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: !ref <freq_drop_length_low>
+    drop_length_high: !ref <freq_drop_length_high>
+    drop_count_low: !ref <freq_drop_count_low>
+    drop_count_high: !ref <freq_drop_count_high>
+    replace: !ref <freq_drop_replace>
+    dim: 2
+
+# Time warp
+time_warp_window: 5  # Length of time warping window
+time_warp_mode: "bicubic"  # Time warping method
+
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+    warp_window: !ref <time_warp_window>
+    warp_mode: !ref <time_warp_mode>
+    dim: 1
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <time_drop>,
+        !ref <freq_drop>,
+        !ref <time_warp>]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

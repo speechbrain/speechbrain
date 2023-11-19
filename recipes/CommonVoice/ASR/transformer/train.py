@@ -47,15 +47,20 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         tokens_bos, _ = batch.tokens_bos
 
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
+
         # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
-        # Augmentation
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
 
         # forward modules
         src = self.modules.CNN(feats)
@@ -99,6 +104,31 @@ class ASR(sb.core.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
+        # Augment Labels
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                tokens = self.hparams.wav_augment.replicate_labels(tokens)
+                tokens_lens = self.hparams.wav_augment.replicate_labels(
+                    tokens_lens
+                )
+                tokens_eos = self.hparams.wav_augment.replicate_labels(
+                    tokens_eos
+                )
+                tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                    tokens_eos_lens
+                )
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                tokens_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_lens
+                )
+                tokens_eos = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos
+                )
+                tokens_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos_lens
+                )
+
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
         )
@@ -131,37 +161,16 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-
+    def on_fit_batch_start(self, batch, should_step):
+        """Gets called at the beginning of each fit_batch."""
         # check if we need to switch optimizer
         # if so change the optimizer from Adam to SGD
         self.check_and_reset_optimizer()
 
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-            # anneal lr every update
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        with torch.no_grad():
-            predictions = self.compute_forward(batch, stage=stage)
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""

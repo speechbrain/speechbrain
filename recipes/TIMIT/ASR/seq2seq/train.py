@@ -41,14 +41,10 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         phns_bos, _ = batch.phn_encoded_bos
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                phns_bos = torch.cat([phns_bos, phns_bos])
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            phns_bos = self.hparams.wav_augment.replicate_labels(phns_bos)
 
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
@@ -82,11 +78,13 @@ class ASR(sb.Brain):
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
-            phns_eos = torch.cat([phns_eos, phns_eos], dim=0)
-            phn_lens_eos = torch.cat([phn_lens_eos, phn_lens_eos], dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+            phns_eos = self.hparams.wav_augment.replicate_labels(phns_eos)
+            phn_lens_eos = self.hparams.wav_augment.replicate_labels(
+                phn_lens_eos
+            )
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq = self.hparams.seq_cost(p_seq, phns_eos, phn_lens_eos)
@@ -102,22 +100,6 @@ class ASR(sb.Brain):
             )
 
         return loss
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         "Gets called when a stage (either training, validation, test) starts."
