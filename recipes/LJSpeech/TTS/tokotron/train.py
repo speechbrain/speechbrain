@@ -19,7 +19,9 @@ from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.preparation import add_prepared_features
-from speechbrain.utils.tokens import get_silence_token
+from speechbrain.utils.audio_tokens import (
+    get_silence_token, use_silence_padding, feature_pad_to
+)
 from matplotlib import pyplot as plt
 
 logger = logging.getLogger(__name__)
@@ -221,7 +223,7 @@ class TokotronBrain(sb.Brain):
         )
         for batch in sample_loader:
             batch = batch.to(self.device)
-            sample_tokens, length = batch.audio_tokens
+            sample_tokens, length = batch.audio_tokens_pad
             samples, length = self.modules.vocoder(sample_tokens, length)
             self.write_samples(
                 samples_folder,
@@ -295,6 +297,8 @@ def dataio_prepare(hparams):
     datasets : dict
         Dictionary containing "train", "valid", and "test" keys that correspond
         to the DynamicItemDataset objects.
+    silence_token : dict
+        the token used for silence
     """
 
     # Define datasets from json data manifest file
@@ -321,18 +325,17 @@ def dataio_prepare(hparams):
 
     silence_token, _ = get_silence_token(hparams["token_model"])
     silence_token = silence_token.cpu()
-    silence_padding = silence_token[None, :].expand(
-        (int(math.ceil(hparams["silence_padding"])), silence_token.size(0))
-    )
+    silence_padding_len = int(math.ceil(hparams["silence_padding"]))
     audio_bos = torch.ones(1, hparams["audio_tokens_per_step"]) * hparams["bos_index"]
 
     @sb.utils.data_pipeline.takes("audio_tokens")
     @sb.utils.data_pipeline.provides("audio_tokens_pad", "audio_tokens_bos")
     def audio_pipeline(audio_tokens):
         audio_tokens = torch.from_numpy(audio_tokens)
-        audio_tokens_pad = torch.cat(
-            [audio_tokens, silence_padding],
-            dim=0
+        audio_tokens_pad = feature_pad_to(
+            audio_tokens,
+            len(audio_tokens) + silence_padding_len,
+            silence_token
         )
         yield audio_tokens_pad
         audio_tokens_bos = torch.cat(
@@ -354,7 +357,6 @@ def dataio_prepare(hparams):
             output_keys=[
                 "uttid",
                 "tokens",
-                "audio_tokens",
                 "audio_tokens_pad",
                 "audio_tokens_bos",
             ],
@@ -395,7 +397,7 @@ def dataio_prepare(hparams):
     datasets["sample"] = datasets["valid"].batch_shuffle(1).filtered_sorted(
         select_n=hparams["num_audio_samples"]
     )
-    return datasets
+    return datasets, silence_token
 
 
 def init_sequence_encoder(hparams):
@@ -549,10 +551,11 @@ if __name__ == "__main__":
             )
 
     # We can now directly create the datasets for training, valid, and test
-    datasets = dataio_prepare(hparams)
+    datasets, silence_token = dataio_prepare(hparams)
 
     # Apply overfit test settings
     datasets = apply_overfit_test(hparams, datasets)
+    token_keys = ["audio_tokens_pad", "audio_tokens_bos"]
 
     # Trainer initialization
     tts_brain = TokotronBrain(
@@ -572,15 +575,27 @@ if __name__ == "__main__":
         tts_brain.hparams.epoch_counter,
         datasets["train"],
         datasets["valid"],
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=use_silence_padding(
+            hparams["train_dataloader_opts"],
+            silence_token,
+            token_keys
+        ),
+        valid_loader_kwargs=use_silence_padding(
+            hparams["valid_dataloader_opts"],
+            silence_token,
+            token_keys
+        )
     )
 
     # Load best checkpoint for evaluation
     test_stats = tts_brain.evaluate(
         test_set=datasets["test"],
-        min_key="WER",
-        test_loader_kwargs=hparams["test_dataloader_opts"],
+        min_key="loss",
+        test_loader_kwargs=use_silence_padding(
+            hparams["test_dataloader_opts"],
+            silence_token,
+            token_keys
+        )
     )
 
     # Save final checkpoint (fixed name)

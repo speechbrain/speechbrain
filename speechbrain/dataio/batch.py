@@ -51,6 +51,8 @@ class PaddedBatch:
         Whether to apply PyTorch-default_collate-like stacking on values that
         didn't get padded. This stacks if it can, but doesn't error out if it
         cannot. Default:True, usually does the right thing.
+    key_padding_func : dict, optional
+        A special padding function for specific keys
 
     Example
     -------
@@ -110,11 +112,17 @@ class PaddedBatch:
         padding_kwargs={},
         apply_default_convert=True,
         nonpadded_stack=True,
+        key_padding_func=None,
+        key_padding_kwargs=None,
     ):
         self.__length = len(examples)
         self.__keys = list(examples[0].keys())
         self.__padded_keys = []
         self.__device_prep_keys = []
+        if key_padding_func is None:
+            key_padding_func = {}
+        if key_padding_kwargs is None:
+            key_padding_kwargs = {}
         for key in self.__keys:
             values = [example[key] for example in examples]
             # Default convert usually does the right thing (numpy2torch etc.)
@@ -125,7 +133,9 @@ class PaddedBatch:
             ):
                 # Padding and PaddedData
                 self.__padded_keys.append(key)
-                padded = PaddedData(*padding_func(values, **padding_kwargs))
+                effective_padding_func = key_padding_func.get(key, padding_func)
+                effective_padding_kwargs = key_padding_kwargs.get(key, padding_kwargs)
+                padded = PaddedData(*effective_padding_func(values, **effective_padding_kwargs))
                 setattr(self, key, padded)
             else:
                 # Default PyTorch collate usually does the right thing
