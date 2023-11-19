@@ -14,6 +14,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
 from speechbrain.utils.metric_stats import MetricStats
+from wham_prepare import WHAMDataset, combine_batches
 from os import makedirs
 import torch.nn.functional as F
 from speechbrain.processing.NMF import spectral_phase
@@ -21,6 +22,24 @@ import matplotlib.pyplot as plt
 
 eps = 1e-10
 
+def tv_loss(mask, tv_weight=1, power=2, border_penalty=0.3):
+    if tv_weight is None or tv_weight == 0:
+        return 0.0
+    # https://github.com/chongyangma/cs231n/blob/master/assignments/assignment3/style_transfer_pytorch.py
+    # https://github.com/PiotrDabkowski/pytorch-saliency/blob/bfd501ec7888dbb3727494d06c71449df1530196/sal/utils/mask.py#L5
+    w_variance = torch.sum(
+        torch.pow(mask[:, :, :-1] - mask[:, :, 1:], power)
+    )
+    h_variance = torch.sum(
+        torch.pow(mask[:, :-1, :] - mask[:, 1:, :], power)
+    )
+
+    loss = (
+        tv_weight
+        * (h_variance + w_variance)
+        / float(power * mask.size(0))
+    )
+    return loss
 
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
@@ -323,6 +342,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
+        # augment batch with WHAM!
+        wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
 
         # Embeddings + sound classifier
@@ -357,14 +379,14 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.overlap_test(batch)
                 self.debug_files(X_stft, xhat, X_stft_logpower, batch, wavs)
 
-        return predictions, xhat, hcat, z_q_x, garbage
+        return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
 
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
-        predictions, xhat, hcat, z_q_x, garbage = pred
+        batch_sig, predictions, xhat, hcat, z_q_x, garbage = pred
 
-        batch = batch.to(self.device)
-        wavs, lens = batch.sig
+        # taking them from forward because they are augmented there!
+        wavs, lens = batch_sig
 
         uttid = batch.id
         classid, _ = batch.class_string_encoded
@@ -373,39 +395,27 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         Tmax = xhat.shape[1]
 
-        hcat_theta, embeddings, theta_out, _ = self.classifier_forward(
-            xhat * X_stft_logpower[:, :Tmax, :]
-        )
+        mask_in = xhat * X_stft_logpower[:, :Tmax, :]
+        mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
 
-        # if there is a separator, we need to add sigmoid to the sum
-        loss_fid = 0
+        mask_in_preds = self.classifier_forward(
+            mask_in
+        )[2].log_softmax(1)
 
-        if self.hparams.use_mask_output:
-            eps = 1e-10
-            target_spec = X_stft_logpower[:, : xhat.shape[1], :]
-            # target_mask = target_spec > (target_spec.max() * self.hparams.mask_th)
+        mask_out_preds = self.classifier_forward(
+            mask_out
+        )[2].log_softmax(1)
 
-            target_mask = target_spec > (
-                target_spec.max(keepdim=True, dim=-1)[0].max(
-                    keepdim=True, dim=-2
-                )[0]
-                * self.hparams.mask_th
-            )
-            target_mask = target_mask.float()
-            rec_loss = (
-                -target_mask * torch.log(xhat + eps)
-                - (1 - target_mask) * torch.log(1 - xhat + eps)
-            ).mean()
-        else:
-            rec_loss = (
-                (X_stft_logpower[:, : xhat.shape[1], :] - xhat).pow(2).mean()
-            )
-        if self.hparams.use_vq:
-            loss_vq = F.mse_loss(z_q_x, hcat.detach())
-            loss_commit = F.mse_loss(hcat, z_q_x.detach())
-        else:
-            loss_vq = 0
-            loss_commit = 0
+
+        class_pred = predictions.argmax(1)
+        l_in = F.nll_loss(mask_in_preds, class_pred)
+        l_out = -F.nll_loss(mask_out_preds, class_pred)
+        ao_loss = l_in * self.hparams.l_in_w + self.hparams.l_out_w * l_out
+
+        # only regularize samples that are not using SAM guidance
+        r_m = (xhat.abs().mean((-1, -2, -3)) * self.hparams.reg_w_l1).sum()
+        r_m += (tv_loss(xhat) * self.hparams.reg_w_tv).sum()
+
         self.acc_metric.append(
             uttid, predict=predictions, target=classid, length=lens
         )
@@ -413,12 +423,12 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.recons_err.append(
             uttid, xhat, X_stft_logpower[:, : xhat.shape[1], :]
         )
-        if self.hparams.use_mask_output:
-            self.mask_ll.append(uttid, xhat, target_mask)
+        # if self.hparams.use_mask_output:
+            # self.mask_ll.append(uttid, xhat, target_mask)
 
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.top_3_fidelity.append(
-                [batch.id] * theta_out.shape[0], theta_out, predictions
+                [batch.id] * mask_in.shape[0], mask_in_preds, predictions
             )
             self.faithfulness.append(batch.id, wavs, predictions)
 
@@ -426,12 +436,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        return (
-            self.hparams.rec_loss_coef * rec_loss
-            + loss_vq
-            + loss_commit
-            + loss_fid
-        )
+        return ao_loss + r_m
 
     def on_stage_start(self, stage, epoch=None):
         """Steps taken before stage start"""
@@ -514,10 +519,10 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.recons_err = sb.utils.metric_stats.MetricStats(
             metric=compute_rec_error
         )
-        if self.hparams.use_mask_output:
-            self.mask_ll = sb.utils.metric_stats.MetricStats(
-                metric=compute_bern_ll
-            )
+        # if self.hparams.use_mask_output:
+            # self.mask_ll = sb.utils.metric_stats.MetricStats(
+                # metric=compute_bern_ll
+            # )
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -532,8 +537,8 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "acc": self.acc_metric.summarize("average"),
                 "rec_error": self.recons_err.summarize("average"),
             }
-            if self.hparams.use_mask_output:
-                self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
+            # if self.hparams.use_mask_output:
+                # self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
 
         if stage == sb.Stage.VALID:
             current_fid = self.top_3_fidelity.summarize("average")
@@ -553,8 +558,8 @@ class InterpreterESC50Brain(sb.core.Brain):
                     self.faithfulness.scores
                 ).mean(),
             }
-            if self.hparams.use_mask_output:
-                valid_stats["mask_ll"] = self.mask_ll.summarize("average")
+            # if self.hparams.use_mask_output:
+                # valid_stats["mask_ll"] = self.mask_ll.summarize("average")
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
