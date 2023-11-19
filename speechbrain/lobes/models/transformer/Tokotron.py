@@ -310,11 +310,11 @@ class TokotronDecoder(nn.Module):
             steps_range = range(self.max_decoder_steps)
 
             # Initialize the gate activation index
-            seq_gate_idx = torch.ones(batch_size) * self.max_decoder_steps
+            seq_gate_idx = torch.ones(batch_size, device=enc_out.device) * self.max_decoder_steps
 
             # Initialize an indicator that tells whether the gate has activated
             # for a given sample
-            seq_gate_act = torch.zeros(batch_size).bool()
+            seq_gate_act = torch.zeros(batch_size, device=enc_out.device).bool()
 
             # Show progress if enabled
             if self.show_inference_progress:
