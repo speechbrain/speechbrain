@@ -17,16 +17,14 @@ train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/aishell
-# noise/ris dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder> # Change this is needed
 skip_prep: False
 remove_compressed_wavs: False
 ckpt_interval_minutes: 30 # save checkpoint every N min
-train_data: !ref <output_folder>/train.csv
-valid_data: !ref <output_folder>/dev.csv
-test_data: !ref <output_folder>/test.csv
+train_data: !ref <save_folder>/train.csv
+valid_data: !ref <save_folder>/dev.csv
+test_data: !ref <save_folder>/test.csv
 tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
-
+sample_rate: 16000
 # Self-supervised pre-training
 wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
@@ -53,7 +51,7 @@ dynamic_batch_sampler:
     num_buckets: !ref <num_buckets>
     batch_ordering: !ref <batch_ordering>
 
-num_workers: 6
+num_workers: 4
 
 # stages related parameters
 stage_one_epochs: 40
@@ -63,13 +61,16 @@ lr_sgd: 0.000025
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
     shuffle: True
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
 
 test_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
 
 ####################### Model parameters ###########################
 # Transformer
@@ -128,23 +129,63 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
     n_neurons: !ref <output_neurons>
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
 
 modules:
     wav2vec2: !ref <wav2vec2>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
     ctc_lin: !ref <ctc_lin>
-    env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
     - [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
 
 # define two optimizers here for two-stage training
 Adam: !name:torch.optim.Adam
@@ -228,19 +269,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
-    time_warp_window: 5
-    time_warp_mode: bicubic
-    freq_mask: True
-    n_freq_mask: 2
-    time_mask: True
-    n_time_mask: 2
-    replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
 
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

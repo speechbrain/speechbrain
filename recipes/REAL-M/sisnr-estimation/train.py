@@ -58,7 +58,7 @@ class Separation(sb.Brain):
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
-                    mix, targets = self.add_speed_perturb(targets, mix_lens)
+                    mix, targets = self.add_speed_perturb(targets)
 
                     if self.hparams.use_reverb_augment:
                         targets_rev = [
@@ -83,7 +83,8 @@ class Separation(sb.Brain):
                         targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
-                    mix = self.hparams.wavedrop(mix, mix_lens)
+                    mix = self.hparams.drop_chunk(mix, mix_lens)
+                    mix = self.hparams.drop_freq(mix)
 
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
@@ -321,7 +322,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speedperturb(
+                new_target = self.hparams.speed_perturb(
                     targets[:, :, i], targ_lens
                 )
                 new_targets.append(new_target)

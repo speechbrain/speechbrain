@@ -35,19 +35,14 @@ class ASR(sb.Brain):
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "SpeedPerturb"):
-                wavs = self.hparams.SpeedPerturb(wavs, wav_lens)
-
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
+                wavs = self.hparams.speed_perturb(wavs, wav_lens)
 
         # Forward pass
         feats = self.modules.wav2vec2(wavs, wav_lens)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "SpecAugment"):
-                feats = self.hparams.SpecAugment(feats)
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
 
         x = self.modules.enc(feats)
         logits = self.modules.ctc_lin(x)
@@ -61,9 +56,12 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens = torch.cat([tokens, tokens], dim=0)
-            tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                tokens_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_lens
+                )
 
         loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
 

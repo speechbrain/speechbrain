@@ -29,10 +29,10 @@ class ASR_Brain(sb.Brain):
         wavs, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
 
-        # Adding optional augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            phns = self.hparams.wav_augment.replicate_labels(phns)
 
         # Model computations
         feats = self.modules.wav2vec2(wavs, wav_lens)
@@ -57,7 +57,7 @@ class ASR_Brain(sb.Brain):
 
         if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.Greedysearcher(x)
-            return logits, hyps
+            return logits, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
             (
@@ -66,16 +66,22 @@ class ASR_Brain(sb.Brain):
                 nbest_hyps,
                 nbest_scores,
             ) = self.hparams.Beamsearcher(x)
-            return logits, best_hyps
-        return logits
+            return logits, wav_lens, best_hyps
+        return logits, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the loss."
         ids = batch.id
-        _, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
-        if stage != sb.Stage.TRAIN:
-            predictions, hyps = predictions
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+
+        if stage == sb.Stage.TRAIN:
+            predictions, wav_lens = predictions
+        else:
+            predictions, wav_lens, hyps = predictions
 
         # Transducer loss use logits from RNN-T model.
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)

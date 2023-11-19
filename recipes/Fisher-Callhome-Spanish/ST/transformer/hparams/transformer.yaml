@@ -54,9 +54,12 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 4
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+# Speed perturbation
+speed_changes: [90, 100, 110]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: [90, 100, 110]
+    speeds: !ref <speed_changes>
 
 # Trainer settings
 number_of_epochs: 50
