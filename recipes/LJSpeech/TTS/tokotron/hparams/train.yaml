@@ -40,7 +40,7 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 100
+number_of_epochs: 1000
 batch_size: 16
 grad_accumulation_factor: 1
 max_grad_norm: 5.0
@@ -60,7 +60,7 @@ bos_index: 0
 # stages related parameters
 lr: 0.001
 lr_warmup_steps: 10000
-guided_attention_weight: 1.0
+guided_attention_weight: 50.0
 guided_attention_sigma: 0.5
 gate_loss_weight: 1.0
 gate_threshold: 0.5
@@ -138,8 +138,8 @@ nhead: 4
 num_encoder_layers: 6
 num_decoder_layers: 12
 d_ffn: 2048
-transformer_dropout: 0.1
-target_dropout: 0.1
+transformer_dropout: 0.2
+target_dropout: 0.2
 activation: !name:torch.nn.GELU
 audio_num_tokens: 1024
 audio_emb_size: 512
