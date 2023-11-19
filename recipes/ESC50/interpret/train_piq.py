@@ -264,11 +264,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 		xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
 
 		Tmax = Xspec_est.shape[1]
-		if self.hparams.use_mask_output:
-			X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
-		else:
-			th = xhat[0].max() * 0.15
-			X_masked = (xhat[0] > th) * X_stft_logpower[0, :Tmax, :]
+		X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
 
 		X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
 		xhat_tm_masked = self.invert_stft_with_phase(X_est_masked, X_stft_phase)
@@ -278,22 +274,11 @@ class InterpreterESC50Brain(sb.core.Brain):
 		plt.subplot(141)
 		X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
 		plt.imshow(X_target)
+		plt.title("input")
 		plt.colorbar()
 
 		plt.subplot(142)
-		input_masked = X_target > (
-			X_target.max(keepdim=True, dim=-1)[0].max(keepdim=True, dim=-2)[0]
-			* self.hparams.mask_th
-		)
-		plt.imshow(input_masked)
-		plt.title("input masked")
-		plt.colorbar()
-
-		plt.subplot(143)
-		if self.hparams.use_mask_output:
-			mask = xhat[0]
-		else:
-			mask = xhat[0] > th  # (xhat[0] / xhat[0] + 1e-10)
+		mask = xhat[0]
 		X_masked = mask * X_stft_logpower[0, :Tmax, :]
 		plt.imshow(X_masked.permute(1, 0).data.cpu())
 		plt.colorbar()
@@ -329,7 +314,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 		)
 
 		torchaudio.save(
-			os.path.join(out_folder, "true.wav"),
+			os.path.join(out_folder, "original.wav"),
 			wavs[0:1].data.cpu(),
 			self.hparams.sample_rate,
 		)
@@ -375,8 +360,8 @@ class InterpreterESC50Brain(sb.core.Brain):
 				% self.hparams.interpret_period
 			) == 0 and self.hparams.save_interpretations:
 				wavs = wavs[0].unsqueeze(0)
-				self.interpret_sample(wavs, batch)
-				self.overlap_test(batch)
+				# self.interpret_sample(wavs, batch)
+				# self.overlap_test(batch)
 				self.debug_files(X_stft, xhat, X_stft_logpower, batch, wavs)
 
 		return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
