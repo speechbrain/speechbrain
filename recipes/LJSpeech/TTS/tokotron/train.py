@@ -354,6 +354,7 @@ def dataio_prepare(hparams):
             output_keys=[
                 "uttid",
                 "tokens",
+                "audio_tokens",
                 "audio_tokens_pad",
                 "audio_tokens_bos",
             ],
