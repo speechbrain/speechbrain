@@ -18,11 +18,11 @@ import logging
 import torchaudio
 import numpy as np
 import speechbrain as sb
-from speechbrain.pretrained import HIFIGAN
+from speechbrain.inference.vocoders import HIFIGAN
 from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
-from speechbrain.pretrained import GraphemeToPhoneme
+from speechbrain.inference.text import GraphemeToPhoneme
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)

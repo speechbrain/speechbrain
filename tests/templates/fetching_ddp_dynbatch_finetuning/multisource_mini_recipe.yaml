@@ -65,7 +65,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 
 # Models
-asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
+asr_model: !apply:speechbrain.inference.ASR.EncoderDecoderASR.from_hparams
     # source: speechbrain/asr-crdnn-rnnlm-librispeech  # could create a local path issue; specific to this testing folder
     source: speechbrain/asr-crdnn-transformerlm-librispeech
     run_opts: {"device":"cuda:0"}

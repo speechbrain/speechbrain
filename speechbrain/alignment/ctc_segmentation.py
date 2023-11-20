@@ -18,7 +18,7 @@ import torch
 from typing import List
 
 # speechbrain interface
-from speechbrain.pretrained.interfaces import EncoderASR, EncoderDecoderASR
+from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
 
 # imports for CTC segmentation
 try:
@@ -178,7 +178,7 @@ class CTCSegmentation:
     Example
     -------
         >>> # using example file included in the SpeechBrain repository
-        >>> from speechbrain.pretrained import EncoderDecoderASR
+        >>> from speechbrain.inference.ASR import EncoderDecoderASR
         >>> from speechbrain.alignment.ctc_segmentation import CTCSegmentation
         >>> # load an ASR model
         >>> pre_trained = "speechbrain/asr-transformer-transformerlm-librispeech"

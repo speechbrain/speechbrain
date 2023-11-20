@@ -6,7 +6,7 @@
 #
 # Goal: more clarity on when, where & how to use
 #    speechbrain.utils.parameter_transfer.Pretrainer
-#    speechbrain.pretrained.interfaces.Pretrained
+#    speechbrain.inference.interfaces.Pretrained
 #
 # Authors:  Andreas Nautsch 2023
 # # ############################################################################
@@ -168,14 +168,14 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 # Pretraining diversified
-pretrained_path_ASR: !new:speechbrain.pretrained.fetching.FetchSource
-    - !name:speechbrain.pretrained.fetching.FetchFrom.LOCAL
+pretrained_path_ASR: !new:speechbrain.utils.fetching.FetchSource
+    - !name:speechbrain.utils.fetching.FetchFrom.LOCAL
     - speechbrain/asr-crdnn-rnnlm-librispeech/model.ckpt
-pretrained_path_LM: !new:speechbrain.pretrained.fetching.FetchSource
-    - !name:speechbrain.pretrained.fetching.FetchFrom.HUGGING_FACE
+pretrained_path_LM: !new:speechbrain.utils.fetching.FetchSource
+    - !name:speechbrain.utils.fetching.FetchFrom.HUGGING_FACE
     - speechbrain/asr-crdnn-rnnlm-librispeech/lm.ckpt
-pretrained_path_tokenizer: !new:speechbrain.pretrained.fetching.FetchSource
-    - !name:speechbrain.pretrained.fetching.FetchFrom.URI
+pretrained_path_tokenizer: !new:speechbrain.utils.fetching.FetchSource
+    - !name:speechbrain.utils.fetching.FetchFrom.URI
     - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/resolve/main/tokenizer.ckpt
 
 pretrainer_ASR: !new:speechbrain.utils.parameter_transfer.Pretrainer

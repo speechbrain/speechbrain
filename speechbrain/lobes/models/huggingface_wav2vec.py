@@ -19,7 +19,7 @@ import numpy as np
 import torch.nn.functional as F
 from torch import nn
 from huggingface_hub import model_info
-from speechbrain.pretrained.fetching import fetch
+from speechbrain.utils.fetching import fetch
 from speechbrain.dataio.dataio import length_to_mask
 
 # We check if transformers is installed.

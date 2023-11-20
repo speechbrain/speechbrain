@@ -26,7 +26,7 @@ from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
 from functools import partial
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.pretrained.training import save_for_pretrained
+from speechbrain.utils.pretrained import save_for_pretrained
 from speechbrain.lobes.models.g2p.dataio import (
     enable_eos_bos,
     grapheme_pipeline,

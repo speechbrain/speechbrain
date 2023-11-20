@@ -1,4 +1,4 @@
-from speechbrain.pretrained import EncoderDecoderASR
+from speechbrain.inference.ASR import EncoderDecoderASR
 import pytest
 
 pytest.importorskip(
