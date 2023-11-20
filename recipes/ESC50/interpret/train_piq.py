@@ -284,7 +284,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 		plt.colorbar()
 		plt.title("masked")
 
-		plt.subplot(144)
+		plt.subplot(143)
 		plt.imshow(mask.permute(1, 0).data.cpu())
 		plt.colorbar()
 		plt.title("mask")
@@ -301,14 +301,9 @@ class InterpreterESC50Brain(sb.core.Brain):
 		)
 		plt.close()
 
-		torchaudio.save(
-			os.path.join(out_folder, "reconstruction.wav"),
-			xhat_tm.data.cpu(),
-			self.hparams.sample_rate,
-		)
 
 		torchaudio.save(
-			os.path.join(out_folder, "reconstruction_masked.wav"),
+			os.path.join(out_folder, "interpretation.wav"),
 			xhat_tm_masked.data.cpu(),
 			self.hparams.sample_rate,
 		)
