@@ -142,12 +142,8 @@ class ConvolutionModule(nn.Module):
         )
 
     def _do_conv(self, x, inhibit_padding: bool):
-        out = self.layer_norm(x)
-        out = out.transpose(1, 2)
-        out = self.bottleneck(out)
-
         if not inhibit_padding:
-            out = self.conv(out)
+            out = self.conv(x)
         else:
             # let's keep backwards compat by pointing at the weights from the
             # already declared Conv1d.
@@ -156,13 +152,13 @@ class ConvolutionModule(nn.Module):
             # time step by time step), thus, it doesn't need padding along the
             # time dimension
             out = F.conv1d(
-                out,
+                x,
                 weight=self.conv.weight,
                 bias=self.conv.bias,
                 stride=self.conv.stride,
                 padding=0,
                 dilation=self.conv.dilation,
-                groups=out.shape[-2],
+                groups=x.shape[-2],
             )
 
         if self.causal:
@@ -219,6 +215,11 @@ class ConvolutionModule(nn.Module):
                 for i in range(chunk_count)
             ]
 
+            out = [self.layer_norm(chk) for chk in out]
+            out = [chk.transpose(1, 2) for chk in out]
+            out = [self.bottleneck(chk) for chk in out]
+            out = [chk.transpose(1, 2) for chk in out]
+
             # TODO: experiment around reflect padding, which is difficult
             # because small chunks have too little time steps to reflect from
             out = [
@@ -249,6 +250,8 @@ class ConvolutionModule(nn.Module):
             # -> [batch_size * num_chunks, chunk_size + lc + rpad, in_channels]
             out = torch.flatten(out, end_dim=1)
 
+            out = out.transpose(1, 2)
+
             # -> [batch_size * num_chunks, chunk_size, out_channels]
             out = self._do_conv(out, inhibit_padding=True)
 
@@ -262,7 +265,10 @@ class ConvolutionModule(nn.Module):
             if final_right_padding > 0:
                 out = out[:, :-final_right_padding, :]
         else:
-            out = self._do_conv(x, inhibit_padding=False)
+            out = self.layer_norm(x)
+            out = out.transpose(1, 2)
+            out = self.bottleneck(out)
+            out = self._do_conv(out, inhibit_padding=False)
 
         if mask is not None:
             out.masked_fill_(mask, 0.0)
