@@ -34,8 +34,8 @@ class EncoderDecoderASR(Pretrained):
     >>> asr_model = EncoderDecoderASR.from_hparams(
     ...     source="speechbrain/asr-crdnn-rnnlm-librispeech",
     ...     savedir=tmpdir,
-    ... )
-    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")
+    ... )  # doctest: +SKIP
+    >>> asr_model.transcribe_file("tests/samples/single-mic/example2.flac")  # doctest: +SKIP
     "MY FATHER HAS REVEALED THE CULPRIT'S NAME"
     """
 

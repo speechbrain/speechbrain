@@ -23,7 +23,6 @@ from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
-from copy import copy
 from speechbrain.utils.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -42,9 +41,11 @@ def foreign_class(
     pymodule_file="custom.py",
     classname="CustomInterface",
     overrides={},
+    overrides_must_match=True,
     savedir=None,
     use_auth_token=False,
     download_only=False,
+    huggingface_cache_dir=None,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -67,7 +68,7 @@ def foreign_class(
     ---------
     source : str or Path or FetchSource
         The location to use for finding the model. See
-        ``speechbrain.inference.fetching.fetch`` for details.
+        ``speechbrain.pretrained.fetching.fetch`` for details.
     hparams_file : str
         The name of the hyperparameters file to use for constructing
         the modules necessary for inference. Must contain two keys:
@@ -78,6 +79,9 @@ def foreign_class(
         The name of the Class, of which an instance is created and returned
     overrides : dict
         Any changes to make to the hparams file when it is loaded.
+    overrides_must_match : bool
+        Whether an error will be thrown when an override does not match
+        a corresponding key in the yaml_stream.
     savedir : str or Path
         Where to put the pretraining material. If not given, will use
         ./pretrained_models/<class-name>-hash(source).
@@ -86,6 +90,8 @@ def foreign_class(
         default is False because the majority of models are public.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
+    huggingface_cache_dir : str
+        Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
 
     Returns
     -------
@@ -102,6 +108,7 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
+        huggingface_cache_dir=huggingface_cache_dir,
     )
     pymodule_local_path = fetch(
         filename=pymodule_file,
@@ -111,24 +118,23 @@ def foreign_class(
         save_filename=None,
         use_auth_token=use_auth_token,
         revision=None,
+        huggingface_cache_dir=huggingface_cache_dir,
     )
     sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
     with open(hparams_local_path) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+        hparams = load_hyperpyyaml(fin, overrides, overrides_must_match)
 
     # Pretraining:
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
-    run_on_main(
-        pretrainer.collect_files, kwargs={"default_source": source},
-    )
+    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
-        pretrainer.load_collected(device="cpu")
+        pretrainer.load_collected()
 
         # Import class and create instance
         module = import_from_path(pymodule_local_path)
@@ -261,7 +267,7 @@ class Pretrained(torch.nn.Module):
             for p in self.mods.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path, savedir="audio_cache", **kwargs):
+    def load_audio(self, path, savedir="."):
         """Load an audio file with this model's input spec
 
         When using a speech model, it is important to use the same type of data,
@@ -272,28 +278,8 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
-        kwargs = copy(kwargs)  # shallow copy of references only
-        channels_first = kwargs.pop(
-            "channels_first", False
-        )  # False as default value: SB consistent tensor format
-        if kwargs:
-            fetch_kwargs = dict()
-            for key in [
-                "overwrite",
-                "save_filename",
-                "use_auth_token",
-                "revision",
-                "cache_dir",
-                "silent_local_fetch",
-            ]:
-                if key in kwargs:
-                    fetch_kwargs[key] = kwargs.pop(key)
-            path = fetch(fl, source=source, savedir=savedir, **fetch_kwargs)
-        else:
-            path = fetch(fl, source=source, savedir=savedir)
-        signal, sr = torchaudio.load(
-            str(path), channels_first=channels_first, **kwargs
-        )
+        path = fetch(fl, source=source, savedir=savedir)
+        signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
     def _compile(self):
@@ -401,6 +387,7 @@ class Pretrained(torch.nn.Module):
         use_auth_token=False,
         revision=None,
         download_only=False,
+        huggingface_cache_dir=None,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -420,9 +407,9 @@ class Pretrained(torch.nn.Module):
 
         Arguments
         ---------
-        source : str or Path or FetchSource
+        source : str
             The location to use for finding the model. See
-            ``speechbrain.inference.fetching.fetch`` for details.
+            ``speechbrain.pretrained.fetching.fetch`` for details.
         hparams_file : str
             The name of the hyperparameters file to use for constructing
             the modules necessary for inference. Must contain two keys:
@@ -450,6 +437,12 @@ class Pretrained(torch.nn.Module):
             version of a model hosted at HuggingFace.
         download_only : bool (default: False)
             If true, class and instance creation is skipped.
+        revision : str
+            The model revision corresponding to the HuggingFace Hub model revision.
+            This is particularly useful if you wish to pin your code to a particular
+            version of a model hosted at HuggingFace.
+        huggingface_cache_dir : str
+            Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
         """
         if savedir is None:
             clsname = cls.__name__
@@ -462,6 +455,7 @@ class Pretrained(torch.nn.Module):
             save_filename=None,
             use_auth_token=use_auth_token,
             revision=revision,
+            huggingface_cache_dir=huggingface_cache_dir,
         )
         try:
             pymodule_local_path = fetch(
@@ -472,6 +466,7 @@ class Pretrained(torch.nn.Module):
                 save_filename=None,
                 use_auth_token=use_auth_token,
                 revision=revision,
+                huggingface_cache_dir=huggingface_cache_dir,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
@@ -492,13 +487,11 @@ class Pretrained(torch.nn.Module):
         pretrainer = hparams["pretrainer"]
         pretrainer.set_collect_in(savedir)
         # For distributed setups, have this here:
-        run_on_main(
-            pretrainer.collect_files, kwargs={"default_source": source},
-        )
+        run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
         # Load on the CPU. Later the params can be moved elsewhere by specifying
         if not download_only:
             # run_opts={"device": ...}
-            pretrainer.load_collected(device="cpu")
+            pretrainer.load_collected()
 
             # Now return the system
             return cls(hparams["modules"], hparams, **kwargs)

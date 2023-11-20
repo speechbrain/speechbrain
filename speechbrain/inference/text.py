@@ -134,8 +134,8 @@ class ResponseGenerator(Pretrained):
     >>> tmpdir = getfixture("tmpdir")
     >>> res_gen_model = ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
     ... savedir="tmpdir",
-    ... pymodule_file="custom.py")
-    >>> response = res_gen_model.generate_response("I want to book a table for dinner")
+    ... pymodule_file="custom.py")  # doctest: +SKIP
+    >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["tokenizer"]

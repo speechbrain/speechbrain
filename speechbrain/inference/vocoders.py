@@ -117,6 +117,7 @@ class HIFIGAN(Pretrained):
         waveform: torch.Tensor
             waveform [1, time]
         audio can be saved by:
+        >>> import torchaudio
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
         >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)
@@ -249,6 +250,7 @@ class DiffWaveVocoder(Pretrained):
             waveform [1, time]
 
         audio can be saved by:
+        >>> import torchaudio
         >>> waveform = torch.rand(1, 666666)
         >>> sample_rate = 22050
         >>> torchaudio.save(str(getfixture('tmpdir') / "test.wav"), waveform, sample_rate)

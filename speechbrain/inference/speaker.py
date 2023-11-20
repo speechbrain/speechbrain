@@ -25,7 +25,7 @@ class SpeakerRecognition(EncoderClassifier):
     Example
     -------
     >>> import torchaudio
-    >>> from speechbrain.inference,speaker import SpeakerRecognition
+    >>> from speechbrain.inference.speaker import SpeakerRecognition
     >>> # Model is downloaded from the speechbrain HuggingFace repo
     >>> tmpdir = getfixture("tmpdir")
     >>> verification = SpeakerRecognition.from_hparams(
