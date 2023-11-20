@@ -20,6 +20,7 @@ import os
 import sys
 import torch
 import torchaudio
+import logging
 import speechbrain as sb
 from pesq import pesq
 from pystoi import stoi
@@ -27,6 +28,8 @@ from composite_eval import eval_composite
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main, if_main_process
+
+logger = logging.getLogger(__name__)
 
 
 def pesq_eval(pred_wav, target_wav):
@@ -74,7 +77,7 @@ class MTLbrain(sb.Brain):
 
         predictions = {}
         if self.hparams.enhance_type is not None:
-            noisy_wavs, lens = self.prepare_wavs(batch.noisy_sig)
+            noisy_wavs, lens = self.prepare_wavs(batch.noisy_sig, stage)
 
             # Mask with "signal approximation (SA)"
             if self.hparams.enhance_type == "masking":
@@ -89,14 +92,14 @@ class MTLbrain(sb.Brain):
 
         # Generate clean features for ASR pre-training
         if self.hparams.ctc_type == "clean" or self.hparams.seq_type == "clean":
-            clean_wavs, lens = self.prepare_wavs(batch.clean_sig)
+            clean_wavs, lens = self.prepare_wavs(batch.clean_sig, stage)
             clean_feats = self.prepare_feats(clean_wavs)
 
         # Compute seq outputs
         if self.hparams.seq_type is not None:
 
             # Prepare target inputs
-            tokens, token_lens = self.prepare_targets(batch.tokens_bos)
+            tokens, token_lens = self.prepare_targets(batch.tokens_bos, stage)
             tokens = self.modules.tgt_embedding(tokens)
 
             if self.hparams.seq_type == "clean":
@@ -105,8 +108,6 @@ class MTLbrain(sb.Brain):
                 embed = self.modules.src_embedding(clean_feats)
             if self.hparams.seq_type == "joint":
                 asr_feats = predictions["wavs"]
-                if stage == sb.Stage.TRAIN:
-                    asr_feats = self.hparams.augment(asr_feats, lens)
                 asr_feats = self.hparams.fbank(asr_feats)
                 asr_feats = self.hparams.normalizer(asr_feats, lens)
                 embed = self.modules.src_embedding(asr_feats)
@@ -119,9 +120,10 @@ class MTLbrain(sb.Brain):
                 predictions["ctc_pout"] = torch.log_softmax(out, dim=-1)
 
             if stage != sb.Stage.TRAIN:
-                predictions["hyps"], _ = self.hparams.beam_searcher(
-                    embed.detach(), lens
-                )
+                hyps, _, _, _ = self.hparams.beam_searcher(embed.detach(), lens)
+
+                # Convert best hypothesis to list
+                predictions["hyps"] = hyps
 
         elif self.hparams.ctc_type is not None:
             if self.hparams.ctc_type == "clean":
@@ -137,18 +139,12 @@ class MTLbrain(sb.Brain):
 
         return predictions
 
-    def prepare_wavs(self, signal, augment=True):
+    def prepare_wavs(self, signal, stage):
         """Prepare possibly enhanced waveforms"""
         wavs, wav_lens = signal
-
-        if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
-            if augment:
-                wavs_noise = self.hparams.env_corr(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-            else:
-                wavs = torch.cat([wavs, wavs], dim=0)
-            wav_lens = torch.cat([wav_lens, wav_lens])
-
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
         return wavs, wav_lens
 
     def prepare_feats(self, wavs):
@@ -158,13 +154,13 @@ class MTLbrain(sb.Brain):
         feats = torch.log1p(feats)
         return feats
 
-    def prepare_targets(self, tokens):
+    def prepare_targets(self, tokens, stage):
         """Prepare target by concatenating self if "env_corr" is used"""
         tokens, token_lens = tokens
 
-        if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
-            tokens = torch.cat([tokens, tokens], dim=0)
-            token_lens = torch.cat([token_lens, token_lens])
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens = self.hparams.wav_augment.replicate_labels(tokens)
+            token_lens = self.hparams.wav_augment.replicate_labels(token_lens)
 
         return tokens, token_lens
 
@@ -172,7 +168,7 @@ class MTLbrain(sb.Brain):
         """Compute possibly several loss terms: enhance, mimic, ctc, seq"""
 
         # Do not augment targets
-        clean_wavs, lens = self.prepare_wavs(batch.clean_sig, augment=False)
+        clean_wavs, lens = self.prepare_wavs(batch.clean_sig, stage)
         loss = 0
 
         # Compute enhancement loss
@@ -237,7 +233,7 @@ class MTLbrain(sb.Brain):
             not hasattr(self.hparams, "ctc_epochs")
             or self.hparams.epoch_counter.current < self.hparams.ctc_epochs
         ):
-            tokens, token_lens = self.prepare_targets(batch.tokens)
+            tokens, token_lens = self.prepare_targets(batch.tokens, stage)
             ctc_loss = sb.nnet.losses.ctc_loss(
                 predictions["ctc_pout"],
                 tokens,
@@ -264,7 +260,7 @@ class MTLbrain(sb.Brain):
         # Compute nll loss for seq2seq model
         if self.hparams.seq_weight > 0:
 
-            tokens, token_lens = self.prepare_targets(batch.tokens_eos)
+            tokens, token_lens = self.prepare_targets(batch.tokens_eos, stage)
             seq_loss = self.hparams.seq_loss(
                 predictions["seq_pout"], tokens, token_lens
             )
@@ -411,6 +407,7 @@ class MTLbrain(sb.Brain):
             min_key=min_key,
             max_num_checkpoints=self.hparams.checkpoint_avg,
         )
+        logger.info(f"Averaging {len(checkpoints)} Checkpoints...")
         for model in self.modules:
             if (
                 model not in self.hparams.frozen_models
@@ -516,6 +513,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    if "prepare_noise_data" in hparams:
+        run_on_main(hparams["prepare_noise_data"])
 
     # Load pretrained models
     for model in ["asr", "enhance", "perceptual"]:

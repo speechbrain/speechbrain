@@ -63,22 +63,10 @@ class Tacotron2Brain(sb.Brain):
         max_input_length = input_lengths.max().item()
         return self.modules.model(inputs, alignments_dim=max_input_length)
 
-    def fit_batch(self, batch):
-        """Fits a single batch and applies annealing
-
-        Arguments
-        ---------
-        batch: tuple
-            a training batch
-
-        Returns
-        -------
-        loss: torch.Tensor
-            detached loss
-        """
-        result = super().fit_batch(batch)
-        self.hparams.lr_annealing(self.optimizer)
-        return result
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.lr_annealing(self.optimizer)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.

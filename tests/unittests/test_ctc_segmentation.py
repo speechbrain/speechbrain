@@ -17,6 +17,9 @@ def asr_model():
     return asr_model
 
 
+@pytest.mark.skip(
+    reason="interface refactoring still pending (incl. YAML files on HuggingFace)"
+)
 def test_CTCSegmentation(asr_model: EncoderDecoderASR):
     """Test CTC segmentation.
 

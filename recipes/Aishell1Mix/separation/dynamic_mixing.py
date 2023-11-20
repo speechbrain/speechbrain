@@ -1,3 +1,10 @@
+"""
+The file implement Dynamic Mixing For SpeechSeparation
+
+Authors
+    * Samuele Cornell 2021
+    * Cem Subakan 2021
+"""
 import speechbrain as sb
 import numpy as np
 import torch
@@ -9,13 +16,6 @@ from tqdm import tqdm
 import warnings
 import pyloudnorm
 import random
-
-"""
-The functions to implement Dynamic Mixing For SpeechSeparation
-Authors
-    * Samuele Cornell 2021
-    * Cem Subakan 2021
-"""
 
 
 def build_spk_hashtable_aishell1mix(hparams):

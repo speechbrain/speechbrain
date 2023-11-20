@@ -54,12 +54,6 @@ class ASR(sb.core.Brain):
         # Enhanced signal is to be fed into ASR
         wavs = predictions[0]
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                if self.hparams.do_augmentation:
-                    wavs = self.hparams.augmentation(wavs, wav_lens)
-
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
@@ -76,9 +70,11 @@ class ASR(sb.core.Brain):
 
         hyps = None
         if stage == sb.Stage.VALID:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
+            hyps, _, _, _ = self.hparams.valid_greedy_searcher(
+                enc_out, wav_lens
+            )
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
+            hyps, _, _, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
 
         return predictions, clean, [log_probs, hyps, wav_lens]
 
@@ -118,9 +114,6 @@ class ASR(sb.core.Brain):
 
                     # fix the length of clean also
                     clean = clean[:, :min_len, :]
-
-                if self.hparams.use_wavedrop:
-                    noisy = self.hparams.wavedrop(noisy, noisy_lens)
 
                 if self.hparams.limit_training_signal_len:
                     noisy, clean = self.cut_signals(noisy, clean)
@@ -164,6 +157,8 @@ class ASR(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
+
+            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
 
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
@@ -227,8 +222,10 @@ class ASR(sb.core.Brain):
         if loss.requires_grad:
             loss.backward()
 
-        if self.check_gradients(loss):
-            self.optimizer.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer.step()
         self.optimizer.zero_grad()
 
         return loss.detach()
@@ -369,9 +366,7 @@ class ASR(sb.core.Brain):
             recombine = True
 
             for i in range(clean.shape[-1]):
-                new_target = self.hparams.speedperturb(
-                    clean[:, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(clean[:, :, i])
                 new_clean.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[-1]

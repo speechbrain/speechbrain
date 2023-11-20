@@ -27,18 +27,15 @@ class seq2seqBrain(sb.Brain):
         logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
 
+        seq = None
         if stage != sb.Stage.TRAIN:
-            seq, _ = self.hparams.searcher(x, wav_lens)
-            return outputs, seq
+            seq, _, _, _ = self.hparams.searcher(x, wav_lens)
 
-        return outputs
+        return outputs, seq
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the NLL loss."
-        if stage == sb.Stage.TRAIN:
-            outputs = predictions
-        else:
-            outputs, seq = predictions
+        outputs, seq = predictions
 
         ids = batch.id
         phns, phn_lens = batch.phn_encoded_eos
@@ -49,22 +46,6 @@ class seq2seqBrain(sb.Brain):
             self.per_metrics.append(ids, seq, phns, target_len=phn_lens)
 
         return loss
-
-    def fit_batch(self, batch):
-        """Fits train batches"""
-        preds = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(preds, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
-        """Evaluates test batches"""
-        out = self.compute_forward(batch, stage)
-        loss = self.compute_objectives(out, batch, stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
         "Gets called when a stage (either training, validation, test) starts."

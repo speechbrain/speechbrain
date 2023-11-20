@@ -72,37 +72,9 @@ class LM(sb.core.Brain):
         )
         return loss
 
-    def fit_batch(self, batch):
-        """Runs all the steps needed to train the model on a single batch.
-
-        Arguments
-        ---------
-        batch : PaddedBatch
-            This batch object contains all the relevant tensors for computation.
-
-        Returns
-        -------
-        Loss : torch.Tensor
-            A tensor containing the loss (single real number).
-        """
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # Loss backpropagation (gradient computation)
-        (loss / self.hparams.accu_steps).backward()
-
-        # Manage gradient accumulation
-        if self.step % self.hparams.accu_steps == 0:
-
-            # Gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            # Update the parameters
-            self.optimizer.step()
-
-            # Reset the gradient
-            self.optimizer.zero_grad()
-
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             if isinstance(
                 self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
             ) or isinstance(
@@ -110,8 +82,6 @@ class LM(sb.core.Brain):
                 sb.nnet.schedulers.CyclicCosineScheduler,
             ):
                 self.hparams.lr_annealing(self.optimizer)
-
-        return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -255,7 +225,7 @@ if __name__ == "__main__":
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Create dataset objects "train", "valid", and "test"
     train_data, valid_data, test_data = dataio_prepare(hparams)

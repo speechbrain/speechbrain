@@ -15,7 +15,10 @@ Authors:
 """
 import torch
 from itertools import chain
-from speechbrain.inference.interfaces import Pretrained, EncodeDecodePipelineMixin
+from speechbrain.inference.interfaces import (
+    Pretrained,
+    EncodeDecodePipelineMixin,
+)
 
 
 class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):

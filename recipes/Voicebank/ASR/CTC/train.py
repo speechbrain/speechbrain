@@ -26,7 +26,9 @@ class ASR_Brain(sb.Brain):
         "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs = self.modules.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         out = self.modules.model(feats)
@@ -39,6 +41,10 @@ class ASR_Brain(sb.Brain):
         "Given the network predictions and targets computed the CTC loss."
         pout, pout_lens = predictions
         phns, phn_lens = batch.phn_encoded
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
         self.ctc_metrics.append(batch.id, pout, phns, pout_lens, phn_lens)
 

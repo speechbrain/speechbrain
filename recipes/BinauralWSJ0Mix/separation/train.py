@@ -29,7 +29,6 @@ import torchaudio
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from speechbrain.utils.distributed import run_on_main
-from torch.cuda.amp import autocast
 from hyperpyyaml import load_hyperpyyaml
 import numpy as np
 from tqdm import tqdm
@@ -38,6 +37,7 @@ import logging
 from pyroomacoustics.experimental.localization import tdoa
 from speechbrain.processing.features import STFT, spectral_magnitude
 from torch.nn import Conv1d
+from speechbrain.core import AMPConfig
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,8 @@ class Separation(sb.Brain):
                         targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
-                    mix = self.hparams.wavedrop(mix, mix_lens)
+                    mix = self.hparams.drop_chunk(mix, mix_lens)
+                    mix = self.hparams.drop_freq(mix)
 
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
@@ -197,6 +198,9 @@ class Separation(sb.Brain):
 
     def fit_batch(self, batch):
         """Trains one batch"""
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
+
         # Unpacking batch list
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
@@ -208,14 +212,51 @@ class Separation(sb.Brain):
         if "noise" in self.hparams.experiment_name:
             noise = batch.noise_sig[0]
 
-        if self.auto_mix_prec:
-            with autocast():
+        with self.no_sync(not should_step):
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                ):
+                    predictions, targets = self.compute_forward(
+                        mixture, targets, sb.Stage.TRAIN, noise
+                    )
+                    loss = self.compute_objectives(predictions, targets)
+
+                    # hard threshold the easy dataitems
+                    if self.hparams.threshold_byloss:
+                        th = self.hparams.threshold
+                        loss = loss[loss > th]
+                        if loss.nelement() > 0:
+                            loss = loss.mean()
+                    else:
+                        loss = loss.mean()
+
+                if (
+                    loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
+                ):  # the fix for computational problems
+                    self.scaler.scale(loss).backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.nonfinite_count += 1
+                    logger.info(
+                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                            self.nonfinite_count
+                        )
+                    )
+                    loss.data = torch.tensor(0).to(self.device)
+            else:
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
                 )
                 loss = self.compute_objectives(predictions, targets)
 
-                # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
                     loss = loss[loss > th]
@@ -224,56 +265,24 @@ class Separation(sb.Brain):
                 else:
                     loss = loss.mean()
 
-            if (
-                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
-            ):  # the fix for computational problems
-                self.scaler.scale(loss).backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm,
+                if (
+                    loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
+                ):  # the fix for computational problems
+                    loss.backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
+                    self.optimizer.step()
+                else:
+                    self.nonfinite_count += 1
+                    logger.info(
+                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                            self.nonfinite_count
+                        )
                     )
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
-        else:
-            predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN, noise
-            )
-            loss = self.compute_objectives(predictions, targets)
-
-            if self.hparams.threshold_byloss:
-                th = self.hparams.threshold
-                loss = loss[loss > th]
-                if loss.nelement() > 0:
-                    loss = loss.mean()
-            else:
-                loss = loss.mean()
-
-            if (
-                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
-            ):  # the fix for computational problems
-                loss.backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm
-                    )
-                self.optimizer.step()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -349,9 +358,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speedperturb(
-                    targets[:, :, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(targets[:, :, :, i])
                 new_targets.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[1]
