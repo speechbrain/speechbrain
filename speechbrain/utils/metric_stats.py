@@ -428,8 +428,12 @@ class BinaryMetricStats(MetricStats):
         """
 
         if isinstance(self.scores, list):
-            self.scores = torch.stack(self.scores)
-            self.labels = torch.stack(self.labels)
+            if self.scores[0].shape:
+                self.scores = torch.cat(self.scores)
+                self.labels = torch.cat(self.labels)
+            else:
+                self.scores = torch.stack(self.scores)
+                self.labels = torch.stack(self.labels)
 
         if threshold is None:
             positive_scores = self.scores[

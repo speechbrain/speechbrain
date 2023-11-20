@@ -39,6 +39,7 @@ skip_prep: False # Skip data preparation
 
 # Training parameters
 N_epochs: 100
+N_workers: 2
 lr: 1.0
 lr_final: 0.1
 batch_size: 2
@@ -47,10 +48,13 @@ sample_rate: 16000
 time_resolution: 0.01 # in seconds
 train_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <N_workers>
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <N_workers>
 test_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <N_workers>
 
 # Feature parameters
 n_fft: 400
