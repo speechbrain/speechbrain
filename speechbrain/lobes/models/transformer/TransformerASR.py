@@ -119,6 +119,7 @@ class TransformerASR(TransformerInterface):
         csgu_linear_units: Optional[int] = 3072,
         gate_activation: Optional[nn.Module] = nn.Identity,
         use_linear_after_conv: Optional[bool] = False,
+        output_hidden_states = False,
     ):
         super().__init__(
             d_model=d_model,
@@ -141,6 +142,7 @@ class TransformerASR(TransformerInterface):
             csgu_linear_units=csgu_linear_units,
             gate_activation=gate_activation,
             use_linear_after_conv=use_linear_after_conv,
+            output_hidden_states=output_hidden_states
         )
 
         self.custom_src_module = ModuleList(
@@ -205,12 +207,7 @@ class TransformerASR(TransformerInterface):
         tgt = self.custom_tgt_module(tgt)
 
         if self.attention_type == "RelPosMHAXL":
-            # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            # FIXME we use pos embs also on enc output
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif (
@@ -283,12 +280,7 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
-            # we use fixed positional encodings in the decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
-            # pos_embs_target = self.positional_encoding(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif (
@@ -338,12 +330,22 @@ class TransformerASR(TransformerInterface):
             src = src + self.positional_encoding(src)
             pos_embs_source = None
 
-        encoder_out, _ = self.encoder(
-            src=src,
-            src_key_padding_mask=src_key_padding_mask,
-            pos_embs=pos_embs_source,
-        )
-        return encoder_out
+        if self.output_hidden_states:
+            encoder_out, _, hidden_state_lst = self.encoder(
+                src=src,
+                src_key_padding_mask=src_key_padding_mask,
+                pos_embs=pos_embs_source,
+            )
+
+            return encoder_out, hidden_state_lst 
+        else:
+            encoder_out, _ = self.encoder(
+                src=src,
+                src_key_padding_mask=src_key_padding_mask,
+                pos_embs=pos_embs_source,
+            )
+
+            return encoder_out
 
     def _init_params(self):
         for p in self.parameters():
@@ -384,3 +386,72 @@ class EncoderWrapper(nn.Module):
         """ Processes the input tensor x and returns an output tensor."""
         x = self.transformer.encode(x, wav_lens, pad_idx)
         return x
+    
+
+class WeightedEncoderWrapper(nn.Module):
+    """This is a wrapper of any ASR transformer encoder. By default, the
+    TransformerASR .forward() function encodes and decodes. With this wrapper
+    the .forward() function becomes .encode() only.
+
+    Important: The TransformerASR class must contain a .encode() function.
+
+    Arguments
+    ----------
+    transformer : sb.lobes.models.TransformerInterface
+        A Transformer instance that contains a .encode() function.
+
+    Example
+    -------
+    >>> src = torch.rand([8, 120, 512])
+    >>> tgt = torch.randint(0, 720, [8, 120])
+    >>> net = TransformerASR(
+    ...     720, 512, 512, 8, 1, 1, 1024, activation=torch.nn.GELU
+    ... )
+    >>> encoder = EncoderWrapper(net)
+    >>> enc_out = encoder(src)
+    >>> enc_out.shape
+    torch.Size([8, 120, 512])
+    """
+
+    def __init__(self, transformer, num_layers, layernorm=False, freeze=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.transformer = transformer
+        assert (
+            self.transformer.output_hidden_states
+        ), "output_hidden_states must be True to use Weighted Encoder Wrapper"
+        self.num_layers = num_layers
+        # self.num_layers = self.num_encoder_layers + 1
+        # Initializing the learnable weights
+        zero_init = torch.cat([torch.zeros(self.num_layers)])
+        self.weights = torch.nn.Parameter(zero_init, requires_grad=True)
+        self.layernorm = layernorm
+
+        if freeze:
+            for param in self.transformer.parameters():
+                param.requires_grad = False
+
+    def forward(self, x, wav_lens=None, pad_idx=0):
+        """ Processes the input tensor x and returns an output tensor."""
+        _, hidden_states = self.transformer.encode(x, wav_lens, pad_idx)
+
+        hidden_states = torch.stack(hidden_states, dim=0).detach()
+
+        # First dimension should be equal to the number of layers in the hparams
+        assert (
+            self.num_layers == hidden_states.shape[0]
+        ), "Num layers not equal to num hidden states"
+
+        norm_weights = nn.functional.softmax(self.weights, dim=-1)
+        
+        # Layernorming the layers representations if asked
+        if self.layernorm:
+            hidden_states = [
+                nn.functional.layer_norm(t, (t.shape[-1],)) for t in hidden_states
+            ]
+
+        # Summing the weighted layers
+        weighted_feats = hidden_states[0] * norm_weights[0]
+        for i in range(1, len(hidden_states)):
+            weighted_feats += hidden_states[i] * norm_weights[i]
+        # print(norm_weights)
+        return weighted_feats

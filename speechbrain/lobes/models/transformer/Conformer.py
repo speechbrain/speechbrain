@@ -309,6 +309,14 @@ class ConformerEncoder(nn.Module):
     >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
     torch.Size([8, 60, 512])
+
+    >>> import torch
+    >>> from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
+    >>> x = torch.rand((8, 60, 512)); pos_emb = torch.rand((1, 2*60-1, 512)); 
+    >>> net = ConformerEncoder(4, 512, 512, 8, output_hidden_states=True)
+    >>> output, _, hs = net(x, pos_embs=pos_emb)
+    >>> hs[0].shape
+    torch.Size([8, 60, 512])
     """
 
     def __init__(
@@ -325,6 +333,7 @@ class ConformerEncoder(nn.Module):
         dropout=0.0,
         causal=False,
         attention_type="RelPosMHAXL",
+        output_hidden_states=False
     ):
         super().__init__()
 
@@ -348,6 +357,7 @@ class ConformerEncoder(nn.Module):
         )
         self.norm = LayerNorm(d_model, eps=1e-6)
         self.attention_type = attention_type
+        self.output_hidden_states = output_hidden_states
 
     def forward(
         self,
@@ -379,6 +389,10 @@ class ConformerEncoder(nn.Module):
 
         output = src
         attention_lst = []
+
+        if self.output_hidden_states:
+            hidden_state_lst = [output]
+
         for enc_layer in self.layers:
             output, attention = enc_layer(
                 output,
@@ -387,8 +401,13 @@ class ConformerEncoder(nn.Module):
                 pos_embs=pos_embs,
             )
             attention_lst.append(attention)
-        output = self.norm(output)
 
+            if self.output_hidden_states:
+                hidden_state_lst.append(output)
+
+        output = self.norm(output)
+        if self.output_hidden_states:
+            return output, attention_lst, hidden_state_lst
         return output, attention_lst
 
 
