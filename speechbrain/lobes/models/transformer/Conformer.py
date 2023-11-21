@@ -158,15 +158,9 @@ class ConvolutionModule(nn.Module):
                 stride=self.conv.stride,
                 padding=0,
                 dilation=self.conv.dilation,
-                groups=x.shape[-2],
+                groups=self.conv.groups,
             )
 
-        if self.causal:
-            # chomp
-            out = out[..., : -self.padding]
-
-        out = out.transpose(1, 2)
-        out = self.after_conv(out)
         return out
 
     def forward(self, x, mask=None, chunk_size=-1):
@@ -236,6 +230,7 @@ class ConvolutionModule(nn.Module):
                         self.padding
                         + (final_right_padding if i == len(out) - 1 else 0),
                     ),
+                    value=0
                 )
                 for i in range(len(out))
             ]
@@ -250,10 +245,17 @@ class ConvolutionModule(nn.Module):
             # -> [batch_size * num_chunks, chunk_size + lc + rpad, in_channels]
             out = torch.flatten(out, end_dim=1)
 
+            # for the convolution:
+            # -> [batch_size * num_chunks, in_channels, chunk_size + lc + rpad]
             out = out.transpose(1, 2)
 
-            # -> [batch_size * num_chunks, chunk_size, out_channels]
+            # -> [batch_size * num_chunks, out_channels, chunk_size + rpad]
             out = self._do_conv(out, inhibit_padding=True)
+
+            # -> [batch_size * num_chunks, chunk_size + rpad, out_channels]
+            out = out.transpose(1, 2)
+
+            out = self.after_conv(out)
 
             # -> [batch_size, num_chunks, chunk_size, out_channels]
             out = torch.unflatten(out, dim=0, sizes=(batch_size, -1))
@@ -269,6 +271,13 @@ class ConvolutionModule(nn.Module):
             out = out.transpose(1, 2)
             out = self.bottleneck(out)
             out = self._do_conv(out, inhibit_padding=False)
+
+            out = out.transpose(1, 2)
+            out = self.after_conv(out)
+
+            if self.causal:
+                # chomp
+                out = out[..., : -self.padding]
 
         if mask is not None:
             out.masked_fill_(mask, 0.0)
