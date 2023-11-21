@@ -1,5 +1,5 @@
 # CommonVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
+This folder contains scripts necessary to run an ASR experiment with the CommonVoice 14.0 dataset: CommonVoice Homepage and pytorch 2.0
 
 # How to run
 python train.py hparams/{hparam_file}.yaml
