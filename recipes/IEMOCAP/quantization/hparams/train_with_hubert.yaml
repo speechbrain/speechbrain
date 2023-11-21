@@ -9,17 +9,23 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/LibriSpeech/clustering/hubert/<seed>
+output_folder: !ref results/IEMOCAP/clustering/hubert/<seed>
 save_folder: !ref <output_folder>/save
 
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: []
-test_splits: []
+# Dataset will be downloaded to the `data_original`
+data_folder: !PLACEHOLDER  # e.g., /path/to/IEMOCAP_full_release
+
+# different speakers for train, valid and test sets
+different_speakers: False
+# which speaker is used for test set, value from 1 to 10
+test_spk_id: 1
+# Path where data manifest files will be stored
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/valid.json
+test_annotation: !ref <output_folder>/test.json
+split_ratio: [80, 10, 10]
 skip_prep: False
-ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: !ref <output_folder>/train.csv
 sample_rate: 16000
 
 ssl_hub: facebook/hubert-base-ls960

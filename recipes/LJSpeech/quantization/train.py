@@ -2,7 +2,7 @@
 Recipe  to train K-means clustering model on self-supervised representations.
 
 To run this recipe, do the following:
-> python train.py hparams/train_with_[SSL-model].yaml --data_folder=/path/to/LibriSPeech
+> python train.py hparams/train_with_[SSL-model].yaml --data_folder=/path/to/LJSpeech
 Author
  * Pooneh Mousavi 2023
 """
@@ -18,42 +18,13 @@ from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.utils.kmeans import fetch_kmeans_model, train, save_model
 import torchaudio
 
+
 logger = logging.getLogger(__name__)
 
 
 def dataio_prepare(hparams):
-    """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
-    data_folder = hparams["data_folder"]
 
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
-    )
-
-    if hparams["sorting"] == "ascending":
-        # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "random":
-        pass
-
-    else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
-
-    datasets = [train_data]
-
-    # 2. Define audio pipeline:
+    # Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
@@ -64,13 +35,21 @@ def dataio_prepare(hparams):
         )(sig)
         return resampled
 
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
+    datasets = {}
+    data_info = {
+        "train": hparams["train_json"],
+    }
+    for dataset in hparams["splits"]:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=data_info[dataset],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline],
+            output_keys=["id", "sig"],
+        )
 
-    # 4. Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig"],
-    )
-    return train_data
+    return datasets
+
+    return datasets
 
 
 if __name__ == "__main__":
@@ -88,19 +67,17 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    from ljspeech_prepare import prepare_ljspeech  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_librispeech,
+        prepare_ljspeech,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "save_folder": hparams["save_folder"],
+            "splits": hparams["splits"],
+            "split_ratio": hparams["split_ratio"],
+            "seed": hparams["seed"],
             "skip_prep": hparams["skip_prep"],
         },
     )
@@ -109,7 +86,7 @@ if __name__ == "__main__":
     hparams["ssl_model"] = hparams["ssl_model"].to(run_opts["device"])
 
     # Make training Dataloader
-    train_set = dataio_prepare(hparams)
+    train_set = dataio_prepare(hparams)["train"]
     if not (
         isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
     ):

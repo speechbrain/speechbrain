@@ -23,40 +23,30 @@ logger = logging.getLogger(__name__)
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
-    data_folder = hparams["data_folder"]
+    It also defines the data processing pipeline through user-defined
+    functions. We expect `prepare_mini_librispeech` to have been called before
+    this, so that the `train.json`, `valid.json`,  and `valid.json` manifest
+    files are available.
 
-    train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
-    )
+    Arguments
+    ---------
+    hparams : dict
+        This dictionary is loaded from the `train.yaml` file, and it includes
+        all the hyperparameters needed for dataset construction and loading.
 
-    if hparams["sorting"] == "ascending":
-        # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+    Returns
+    -------
+    datasets : dict
+        Contains two keys, "train" and "valid" that correspond
+        to the appropriate DynamicItemDataset object.
+    """
 
-    elif hparams["sorting"] == "descending":
-        train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
-        )
-        # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
-
-    elif hparams["sorting"] == "random":
-        pass
-
-    else:
-        raise NotImplementedError(
-            "sorting must be random, ascending or descending"
-        )
-
-    datasets = [train_data]
-
-    # 2. Define audio pipeline:
+    # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
+        """Load the signal, and pass it and its length to the corruption class.
+        This is done on the CPU in the `collate_fn`."""
         sig = sb.dataio.dataio.read_audio(wav)
         info = torchaudio.info(wav)
         resampled = torchaudio.transforms.Resample(
@@ -64,13 +54,24 @@ def dataio_prepare(hparams):
         )(sig)
         return resampled
 
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
+    # Define datasets. We also connect the dataset with the data processing
+    # functions defined above.
+    datasets = {}
+    data_info = {
+        "train": hparams["train_annotation"],
+    }
+    for dataset in data_info:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=data_info[dataset],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline],
+            output_keys=["id", "sig"],
+        )
+    # Load or compute the label encoder (with multi-GPU DDP support)
+    # Please, take a look into the lab_enc_file to see the label to index
+    # mappinng.
 
-    # 4. Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig"],
-    )
-    return train_data
+    return datasets
 
 
 if __name__ == "__main__":
@@ -88,22 +89,23 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    from iemocap_prepare import prepare_data  # noqa E402
 
-    # multi-gpu (ddp) save data preparation
-    run_on_main(
-        prepare_librispeech,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
-            "skip_prep": hparams["skip_prep"],
-        },
-    )
+    # Data preparation, to be run on only one process.
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_data,
+            kwargs={
+                "data_original": hparams["data_folder"],
+                "save_json_train": hparams["train_annotation"],
+                "save_json_valid": hparams["valid_annotation"],
+                "save_json_test": hparams["test_annotation"],
+                "split_ratio": hparams["split_ratio"],
+                "different_speakers": hparams["different_speakers"],
+                "test_spk_id": hparams["test_spk_id"],
+                "seed": hparams["seed"],
+            },
+        )
 
     # Load SSL model
     hparams["ssl_model"] = hparams["ssl_model"].to(run_opts["device"])

@@ -9,18 +9,21 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/LibriSpeech/clustering/hubert/<seed>
+output_folder: !ref results/CommonVoice/clustering/hubert/<seed>
 save_folder: !ref <output_folder>/save
 
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: []
-test_splits: []
-skip_prep: False
-ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: !ref <output_folder>/train.csv
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
+train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
+accented_letters: False
+language: en # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+train_csv: !ref <save_folder>/train.csv
+skip_prep: False # Skip data preparation
 sample_rate: 16000
+
+# We remove utterance slonger than 10s in the train/dev/test sets as
+# longer sentences certainly correspond to "open microphones".
+avoid_if_longer_than: 10.0
 
 ssl_hub: facebook/hubert-base-ls960
 freeze_feature_extractor: True

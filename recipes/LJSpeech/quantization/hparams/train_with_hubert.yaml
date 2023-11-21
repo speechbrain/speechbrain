@@ -9,17 +9,18 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/LibriSpeech/clustering/hubert/<seed>
+output_folder: !ref results/LJSpeech/clustering/hubert/<seed>
 save_folder: !ref <output_folder>/save
 
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: []
-test_splits: []
+data_folder: !PLACEHOLDER # e,g./path/to/LJSpeech-1.1
+
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+splits: ["train"]
+split_ratio: [100]
 skip_prep: False
-ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: !ref <output_folder>/train.csv
 sample_rate: 16000
 
 ssl_hub: facebook/hubert-base-ls960
