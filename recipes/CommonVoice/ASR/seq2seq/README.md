@@ -1,6 +1,5 @@
 # CommonVoice ASR with CTC + Attention based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the CommonVoice dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/)
-
+This folder contains scripts necessary to run an ASR experiment with the CommonVoice 14.0 dataset: [CommonVoice Homepage](https://commonvoice.mozilla.org/) and pytorch 2.0
 # How to run
 python train.py hparams/{hparam_file}.py
 
@@ -15,22 +14,20 @@ Here is a list of the different languages that we tested within the CommonVoice 
 - Kinyarwanda
 - Italian
 - English
+- German
+- Spanish
 
 # Results
 
 | Language | CommonVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
-| French | 2020-12-11 | train_fr.yaml | No | 5.22 | 13.92 | 6.43 | 15.99 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-fr) | [model](https://www.dropbox.com/sh/nskc700cheejyu9/AADnRP1TO1Yh92jC-WuYCFf5a?dl=0) | 2xV100 16GB |
-| French | 2020-12-11 | train_fr_with_wav2vec.yaml | No | 6.13 | 11.82 | 9.78 | 13.34 | Not Avail. | 2xV100 32GB |
-| Kinyarwanda | 2020-12-11 | train_rw.yaml | No | 7.30 | 21.36 | 9.55 | 24.27 | Not Avail. | [model](https://www.dropbox.com/sh/glzq0hrqw2khcjq/AADfl_7ra0cLWi1VOzpy74NUa?dl=0) | 2xV100 32GB |
-| Kinyarwanda | 2020-12-11 | train_rw_with_wav2vec.yaml | No | 5.08 | 15.88 | 8.33 | 18.91 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-rw) | [model](https://www.dropbox.com/sh/x714xp9wq1a9azr/AADoxhS7JVDQ7IY1lYL7U8rJa?dl=0) | 2xV100 16GB |
-| English | 2020-12-11 | train_en.yaml | No | 8.66 | 20.16 | 12.93 | 24.89 | Not Avail. | [model](https://www.dropbox.com/sh/bdetfgii7xwscyj/AABYQL_eso8K1937QAg1GK66a?dl=0) | 2xV100 16GB |
-| English | 2020-12-11 | train_en_with_wav2vec.yaml | No | 14.50 | 13.21 | 24.65 | 15.69 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-en) | [model](https://www.dropbox.com/sh/s4khqzp7qe5iiaa/AADkWpWPE1UAbu2isycykcAAa?dl=0) | 2xV100 32GB |
-| Italian | 2020-12-11 | train_it.yaml | No | 5.14 | 15.59 | 15.40 | 16.61 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-it) | [model](https://www.dropbox.com/sh/438hgcl1wwdzmbo/AAAPZGfNXMztNYHyWwT_kk8la?dl=0) | 2xV100 16GB |
-| Italian | 2020-12-11 | train_it_with_wav2vec.yaml | No | 3.11 | 8.30 | 5.75 | 9.86 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-it) | [model](https://www.dropbox.com/sh/46z6xbydqjaxbb2/AACyQ_NaErAfev6JVjeaIWyea?dl=0) | 2xV100 16GB |
-| German | 2021-10-28 | train_de.yaml | No | 4.32 | 13.99 | 4.93 | 15.37 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-de) | -- | 1x V100 16GB |
+| French | 2023-08-15 | train_fr.yaml | No | 4.40 | 12.17 | 5.93 | 14.88 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-fr) | [model](https://www.dropbox.com/sh/07a5lt21wxp98x5/AABhNwmWFaNFyA734bNZUO03a?dl=0) | 1xV100 32GB |
+| Kinyarwanda | 2023-08-15 | train_rw.yaml | No | 6.75 | 23.66 | 10.80 | 29.22 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-rw) | [model](https://www.dropbox.com/sh/i1fv4f8miilqgii/AAB3gE97kmFDA0ISkIDSUW_La?dl=0) | 1xV100 32GB |
+| English | 2023-08-15 | train_en.yaml | No | 9.75 | 20.23 | 12.76 | 23.88 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-en) | [model](https://www.dropbox.com/sh/h8ged0yu3ztypkh/AAAu-12k_Ceg-tTjuZnrg7dza?dl=0) | 1xV100 32GB |
+| Italian | 2023-08-15 | train_it.yaml | No | 5.89 | 15.99 | 6.27 | 17.02 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-it) | [model](https://www.dropbox.com/sh/ss59uu0j5boscvp/AAASsiFhlB1nDWPkFX410bzna?dl=0) | 1xV100 32GB |
+| German | 2023-08-15 | train_de.yaml | No | 2.90 | 10.21 | 3.82 | 12.25 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-de) | [model](https://www.dropbox.com/sh/zgatirb118f79ef/AACmjh-D94nNDWcnVI4Ef5K7a?dl=0) | 1xV100 32GB |
+| Spanish | 2023-08-15 | train_es.yaml | No | 4.10 | 14.10 | 4.68 | 14.77 | [model](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-es) | [model](https://www.dropbox.com/sh/r3w0b2tm1p73vft/AADCxdhUwDN6j4PVT9TYe-d5a?dl=0) | 1xV100 32GB |
 
-The output folders with checkpoints and logs can be found [here](https://www.dropbox.com/sh/852eq7pbt6d65ai/AACv4wAzk1pWbDo4fjVKLICYa?dl=0).
 
 ## How to simply use pretrained models to transcribe my audio file?
 
