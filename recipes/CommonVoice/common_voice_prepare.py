@@ -6,6 +6,7 @@ Author
 Titouan Parcollet
 Luca Della Libera 2022
 Pooneh Mousavi 2022
+Salima Mdhaffar 2023
 """
 
 from dataclasses import dataclass
@@ -215,7 +216,7 @@ def process_line(line, data_folder, language, accented_letters):
     chars = " ".join([char for char in chars][:])
 
     # Remove too short sentences (or empty):
-    if language in ["ja", "ch"]:
+    if language in ["ja", "zh-CN"]:
         if len(chars) < 3:
             return None
     else:
@@ -330,11 +331,55 @@ def language_specific_preprocess(language, words):
             "0000SS0000", "ß"
         )  # replace 0000SS0000 back to ß as its initial presence in the corpus
 
-    if language == "fr":
-        # Replace J'y D'hui etc by J_ D_hui
-        words = words.replace("'", " ")
-        words = words.replace("’", " ")
+    elif language == "fr":  # SM
+        words = re.sub(
+            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
+        )
+        words = words.replace("’", "'")
+        words = words.replace("é", "é")
+        words = words.replace("æ", "ae")
+        words = words.replace("œ", "oe")
+        words = words.replace("â", "â")
+        words = words.replace("ç", "ç")
+        words = words.replace("è", "è")
+        words = words.replace("à", "à")
+        words = words.replace("û", "û")
+        words = words.replace("î", "î")
+        words = words.upper()
 
+        # Case of apostrophe collés
+        words = words.replace("L'", "L' ")
+        words = words.replace("L'  ", "L' ")
+        words = words.replace("S'", "S' ")
+        words = words.replace("S'  ", "S' ")
+        words = words.replace("D'", "D' ")
+        words = words.replace("D'  ", "D' ")
+        words = words.replace("J'", "J' ")
+        words = words.replace("J'  ", "J' ")
+        words = words.replace("N'", "N' ")
+        words = words.replace("N'  ", "N' ")
+        words = words.replace("C'", "C' ")
+        words = words.replace("C'  ", "C' ")
+        words = words.replace("QU'", "QU' ")
+        words = words.replace("QU'  ", "QU' ")
+        words = words.replace("M'", "M' ")
+        words = words.replace("M'  ", "M' ")
+
+        # Case of apostrophe qui encadre quelques mots
+        words = words.replace(" '", " ")
+        words = words.replace("A'", "A")
+        words = words.replace("B'", "B")
+        words = words.replace("E'", "E")
+        words = words.replace("F'", "F")
+        words = words.replace("G'", "G")
+        words = words.replace("K'", "K")
+        words = words.replace("Q'", "Q")
+        words = words.replace("V'", "V")
+        words = words.replace("W'", "W")
+        words = words.replace("Z'", "Z")
+        words = words.replace("O'", "O")
+        words = words.replace("X'", "X")
+        words = words.replace("AUJOURD' HUI", "AUJOURD'HUI")
     elif language == "ar":
         HAMZA = "\u0621"
         ALEF_MADDA = "\u0622"
