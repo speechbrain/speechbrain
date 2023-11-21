@@ -3908,7 +3908,7 @@ class WhisperASR(Pretrained):
         predicted_words, predicted_tokens = self.transcribe_batch(
             batch, rel_length
         )
-        return predicted_words
+        return " ".join(predicted_words[0])
 
     def encode_batch(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states
