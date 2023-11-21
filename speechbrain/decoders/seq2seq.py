@@ -866,7 +866,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         scores = alived_hyps.sequence_scores.unsqueeze(1).expand(-1, self.n_out)
         scores = scores + log_probs
 
-
         # length normalization
         if self.length_normalization:
             scores = scores / (step + 1)
@@ -893,7 +892,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             torch.div(candidates, self.n_out, rounding_mode="floor")
             + self.beam_offset.unsqueeze(1).expand_as(candidates)
         ).view(self.n_bh)
-
 
         return (
             scores,
@@ -1047,12 +1045,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     continue
                 hyp = alived_hyps.alived_seq[index, :]
                 log_probs = alived_hyps.alived_log_probs[index, :]
-                final_scores = scores[index].clone() 
+                final_scores = scores[index].clone()
                 eos_hyps_and_log_probs_scores[batch_id].append(
                     (hyp, log_probs, final_scores)
                 )
 
         return is_eos
+
     def _get_topk_prediction(self, eos_hyps_and_log_probs_scores):
         """This method sorts the scores and return corresponding hypothesis and log probs.
 
@@ -1182,7 +1181,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         (log_probs, memory, attn,) = self._attn_weight_step(
             inp_tokens, memory, enc_states, enc_lens, attn, log_probs,
         )
-        
+
         # Keep the original value
         log_probs_clone = log_probs.clone().reshape(self.batch_size, -1)
 
@@ -1199,7 +1198,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         (log_probs, scorer_memory,) = self._scorer_step(
             inp_tokens, scorer_memory, attn, log_probs,
         )
-   
+
         (
             scores,
             candidates,
@@ -1219,7 +1218,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         )
 
         is_eos = self._update_hyps_and_scores_if_eos_token(
-            inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores, 
+            inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
 
         # Block the paths that have reached eos.
@@ -1264,7 +1263,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
                 .long()
             )
             self._update_hyps_and_scores_if_eos_token(
-                inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores, 
+                inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores,
             )
 
         return eos_hyps_and_log_probs_scores
