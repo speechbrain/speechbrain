@@ -8,14 +8,13 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023
 """
-
-
 import sys
 import torch
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
+from wham_prepare import WHAMDataset, combine_batches
 from train_l2i import dataio_prep
 
 
@@ -31,6 +30,8 @@ class NMFBrain(sb.core.Brain):
 
         batch = batch.to(self.device)
         wavs, lens = batch.sig
+        # augment batch with WHAM!
+        wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
         X_stft = self.hparams.compute_stft(wavs)
         X_stft_power = self.hparams.compute_stft_mag(X_stft)
@@ -38,14 +39,15 @@ class NMFBrain(sb.core.Brain):
         z = self.hparams.nmf_encoder(X_stft_tf.permute(0, 2, 1))
         Xhat = self.hparams.nmf_decoder(z)
 
-        return Xhat
+        # returning wavs because they are augmented
+        return Xhat, wavs
 
     def compute_objectives(self, predictions, batch, stage=sb.Stage.TRAIN):
         """
         this function computes the l2-error to train the NMF model.
         """
-        batch = batch.to(self.device)
-        wavs, lens = batch.sig
+        # extracting augmented wavs
+        predictions, wavs = predictions
 
         X_stft = self.hparams.compute_stft(wavs)
         X_stft_power = self.hparams.compute_stft_mag(X_stft)

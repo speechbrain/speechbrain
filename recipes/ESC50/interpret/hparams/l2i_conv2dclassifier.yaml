@@ -21,6 +21,10 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+wham_folder: !PLACEHOLDER
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
+
 test_only: False
 save_interpretations: False
 
@@ -47,6 +51,12 @@ lr: 0.0002
 sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
+signal_length_s: 5
+
+wham_dataset: !new:wham_prepare.WHAMDataset
+    data_dir: !ref <wham_audio_folder>
+    target_length: !ref <signal_length_s>
+    sample_rate: !ref <sample_rate>
 
 device: "cuda"
 
@@ -145,9 +155,9 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
-embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
-classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
-nmf_decoder_path: "speechbrain/PIQ-ESC50/nmf_decoder.ckpt"
+embedding_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/embedding_model.ckpt"
+classifier_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/classifier.ckpt"
+nmf_decoder_path: "results/train_nmf/1234/save/CKPT+2023-11-21+07-35-37+00/nmf_decoder.ckpt"
 use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

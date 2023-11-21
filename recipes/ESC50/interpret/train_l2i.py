@@ -13,6 +13,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
+from wham_prepare import WHAMDataset, combine_batches
 from speechbrain.utils.metric_stats import MetricStats
 from os import makedirs
 import torch.nn.functional as F
@@ -311,6 +312,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
+        # augment batch with WHAM!
+        wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
@@ -359,20 +362,22 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.interpret_sample(wavs, batch)
                 self.overlap_test(batch)
 
-        return (reconstructed, psi_out), (predictions, theta_out)
+        return (reconstructed, psi_out), (predictions, theta_out), wavs
 
     def compute_objectives(self, pred, batch, stage):
         """Computes the loss using class-id as label."""
+        batch = batch.to(self.device)
+        wavs, lens = batch.sig
+
         (
             (reconstructions, time_activations),
             (classification_out, theta_out),
+            # take augmented wavs
+            wavs
         ) = pred
 
         uttid = batch.id
         classid, _ = batch.class_string_encoded
-
-        batch = batch.to(self.device)
-        wavs, lens = batch.sig
 
         X_stft = self.modules.compute_stft(wavs).to(self.device)
         X_stft_power = sb.processing.features.spectral_magnitude(
@@ -380,13 +385,37 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
         X_stft_logpower = torch.log1p(X_stft_power)
 
-        # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            self.top_3_fidelity.append(batch.id, theta_out, classification_out)
-            self.input_fidelity.append(batch.id, wavs, classification_out)
-            self.faithfulness.append(batch.id, wavs, classification_out)
+            self.inp_fid.append(
+                uttid,
+                theta_out,
+                classification_out.softmax(1),
+            )
+            self.AD.append(
+                uttid,
+                theta_out,
+                classification_out.softmax(1),
+            )
+            self.AI.append(
+                uttid,
+                theta_out,
+                classification_out.softmax(1),
+            )
+            self.AG.append(
+                uttid,
+                theta_out,
+                classification_out.softmax(1),
+            )
+            # self.faithfulness.append(
+                # uttid,
+                # classification_out.softmax(1),
+                # mask_out_preds,
+            # )
+
         self.acc_metric.append(
-            uttid, predict=classification_out, target=classid, length=lens
+            uttid,
+            predict=classification_out,
+            target=classid,
         )
 
         X_stft_logpower = X_stft_logpower[:, : reconstructions.shape[1], :]
@@ -407,115 +436,106 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         return loss_nmf + loss_fdi
 
+    @torch.no_grad()
+    def accuracy_value(self, predict, target):
+        """Computes Accuracy"""
+        predict = predict.argmax(1)
+
+        return ((predict == target).sum() / predict.numel()).unsqueeze(0)
+
+    @torch.no_grad()
+    def compute_fidelity(self, theta_out, predictions):
+        """Computes top-`k` fidelity of interpreter."""
+        # predictions = F.softmax(predictions, dim=1)
+        # theta_out = F.softmax(theta_out, dim=1)
+
+        pred_cl = torch.argmax(predictions, dim=1)
+        k_top = torch.topk(theta_out, k=1, dim=1)[1]
+
+        # 1 element for each sample in batch, is 0 if pred_cl is in top k
+        temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
+
+        return temp
+
+    @torch.no_grad()
+    def compute_faithfulness(self, predictions, predictions_masked):
+        # get the prediction indices
+        pred_cl = predictions.argmax(dim=1, keepdim=True)
+
+        # get the corresponding output probabilities
+        predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
+        predictions_masked_selected = torch.gather(
+            predictions_masked, dim=1, index=pred_cl
+        )
+
+        faithfulness = (
+            predictions_selected - predictions_masked_selected
+        ).squeeze()
+
+        return faithfulness
+
+    @torch.no_grad()
+    def compute_AD(self, theta_out, predictions):
+        """Computes top-`k` fidelity of interpreter."""
+        predictions = F.softmax(predictions, dim=1)
+        theta_out = F.softmax(theta_out, dim=1)
+
+        pc = torch.gather(
+            predictions, dim=1, index=predictions.argmax(1, keepdim=True)
+        ).squeeze()
+        oc = torch.gather(
+            theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
+        ).squeeze()
+
+        # 1 element for each sample in batch, is 0 if pred_cl is in top k
+        temp = (F.relu(pc - oc) / (pc + eps)) * 100
+
+        return temp
+
+    @torch.no_grad()
+    def compute_AI(self, theta_out, predictions):
+        """Computes top-`k` fidelity of interpreter."""
+        # predictions = F.softmax(predictions, dim=1)
+        # theta_out = F.softmax(theta_out, dim=1)
+
+        pc = torch.gather(
+            predictions, dim=1, index=predictions.argmax(1, keepdim=True)
+        ).squeeze()
+        oc = torch.gather(
+            theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
+        ).squeeze()
+
+        # 1 element for each sample in batch, is 0 if pred_cl is in top k
+        temp = (pc < oc).float() * 100
+
+        return temp
+
+    @torch.no_grad()
+    def compute_AG(self, theta_out, predictions):
+        """Computes top-`k` fidelity of interpreter."""
+        # predictions = F.softmax(predictions, dim=1)
+        # theta_out = F.softmax(theta_out, dim=1)
+
+        pc = torch.gather(
+            predictions, dim=1, index=predictions.argmax(1, keepdim=True)
+        ).squeeze()
+        oc = torch.gather(
+            theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
+        ).squeeze()
+
+        # 1 element for each sample in batch, is 0 if pred_cl is in top k
+        temp = (F.relu(oc - pc) / (1 - pc + eps)) * 100
+
+        return temp
+
     def on_stage_start(self, stage, epoch=None):
-        def accuracy_value(predict, target, length):
-            """Computes Accuracy"""
-            nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
-                predict.unsqueeze(1), target, length
-            )
-            acc = torch.tensor([nbr_correct / nbr_total])
-            return acc
-
-        @torch.no_grad()
-        def compute_fidelity(theta_out, predictions):
-            """Computes top-`k` fidelity of interpreter."""
-            predictions = F.softmax(predictions, dim=1)
-
-            pred_cl = torch.argmax(predictions, dim=1)
-            k_top = torch.topk(theta_out, k=self.hparams.k_fidelity, dim=1)[1]
-
-            # 1 element for each sample in batch, is 0 if pred_cl is in top k
-            temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
-
-            return temp
-
-        @torch.no_grad()
-        def compute_inp_fidelity(wavs, predictions):
-            """Computes top-1 input fidelity of interpreter."""
-            X2 = self.interpret_sample(wavs[0].unsqueeze(0)).unsqueeze(0)
-            for (i, wav) in enumerate(wavs[1:, ...]):
-                X2 = torch.cat(
-                    (X2, self.interpret_sample(wav.unsqueeze(0)).unsqueeze(0)),
-                    axis=0,
-                )
-
-            if self.hparams.use_melspectra:
-                net_input = self.modules.compute_fbank(X2.transpose(1, 2))
-            else:
-                net_input = torch.log1p(X2.transpose(1, 2))
-
-            temp = self.hparams.embedding_model(net_input)
-
-            if isinstance(temp, tuple):
-                embeddings = temp[0]
-            else:
-                embeddings = temp
-
-            if embeddings.ndim == 4:
-                embeddings = embeddings.mean((-1, -2))
-
-            predictions_interpret = self.hparams.classifier(embeddings).squeeze(
-                1
-            )
-            predictions = F.softmax(predictions, dim=1)
-            predictions_interpret = F.softmax(predictions_interpret, dim=1)
-
-            pred_cl = torch.argmax(predictions, dim=1)
-            k_top = torch.argmax(predictions_interpret, dim=1)
-
-            return (pred_cl == k_top).float()
-
-        @torch.no_grad()
-        def compute_faithfulness(wavs, predictions):
-            X2 = self.interpret_sample(wavs[0].unsqueeze(0)).unsqueeze(0)
-            for (i, wav) in enumerate(wavs[1:, ...]):
-                X2 = torch.cat(
-                    (X2, self.interpret_sample(wav.unsqueeze(0)).unsqueeze(0)),
-                    axis=0,
-                )
-
-            if self.hparams.use_melspectra:
-                net_input = self.modules.compute_fbank(X2.transpose(1, 2))
-            else:
-                net_input = torch.log1p(X2.transpose(1, 2))
-
-            temp = self.hparams.embedding_model(net_input)
-
-            if isinstance(temp, tuple):
-                embeddings = temp[0]
-            else:
-                embeddings = temp
-
-            if embeddings.ndim == 4:
-                embeddings = embeddings.mean((-1, -2))
-
-            predictions_masked = self.hparams.classifier(embeddings).squeeze(1)
-
-            predictions = F.softmax(predictions, dim=1)
-            predictions_masked = F.softmax(predictions_masked, dim=1)
-
-            # get the prediction indices
-            pred_cl = predictions.argmax(dim=1, keepdim=True)
-
-            # get the corresponding output probabilities
-            predictions_selected = torch.gather(
-                predictions, dim=1, index=pred_cl
-            )
-            predictions_masked_selected = torch.gather(
-                predictions_masked, dim=1, index=pred_cl
-            )
-
-            faithfulness = (
-                predictions_selected - predictions_masked_selected
-            ).squeeze(1)
-
-            return faithfulness
-
-        self.top_3_fidelity = MetricStats(metric=compute_fidelity)
-        self.input_fidelity = MetricStats(metric=compute_inp_fidelity)
-        self.faithfulness = MetricStats(metric=compute_faithfulness)
+        self.inp_fid = MetricStats(metric=self.compute_fidelity)
+        self.AD = MetricStats(metric=self.compute_AD)
+        self.AI = MetricStats(metric=self.compute_AI)
+        self.AG = MetricStats(metric=self.compute_AG)
+        self.faithfulness = MetricStats(metric=self.compute_faithfulness)
         self.acc_metric = sb.utils.metric_stats.MetricStats(
-            metric=accuracy_value, n_jobs=1
+            metric=self.accuracy_value, n_jobs=1
         )
         return super().on_stage_start(stage, epoch)
 
@@ -532,8 +552,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             }
 
         if stage == sb.Stage.VALID:
-            current_fid = self.top_3_fidelity.summarize("average")
-            current_inpfid = self.input_fidelity.summarize("average")
+            current_fid = self.inp_fid.summarize("average")
             old_lr, new_lr = self.hparams.lr_annealing(
                 [self.optimizer], epoch, -current_fid
             )
@@ -541,14 +560,16 @@ class InterpreterESC50Brain(sb.core.Brain):
             valid_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
-                "top-3_fid": current_fid,
-                "input-fidelity": current_inpfid,
+                "input_fid": current_fid,
                 "faithfulness_median": torch.Tensor(
                     self.faithfulness.scores
                 ).median(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
                 ).mean(),
+                "AD": self.AD.summarize("average"),
+                "AI": self.AI.summarize("average"),
+                "AG": self.AG.summarize("average"),
             }
 
             # The train_logger writes a summary to stdout and to the logfile.
@@ -560,23 +581,28 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             # Save the current checkpoint and delete previous checkpoints,
             self.checkpointer.save_and_keep_only(
-                meta=valid_stats, max_keys=["top-3_fid"]
+                meta=valid_stats, max_keys=["faithfulness_mean"]
             )
 
         if stage == sb.Stage.TEST:
-            current_fid = self.top_3_fidelity.summarize("average")
-            current_inpfid = self.input_fidelity.summarize("average")
+            current_fid = self.inp_fid.summarize("average")
             test_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
-                "top-3_fid": current_fid,
-                "input-fidelity": current_inpfid,
+                "input_fid": current_fid,
                 "faithfulness_median": torch.Tensor(
                     self.faithfulness.scores
                 ).median(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
                 ).mean(),
+                "faithfulness_std": torch.Tensor(
+                    self.faithfulness.scores
+                ).std(),
+                "AD": self.AD.summarize("average"),
+                "AI": self.AI.summarize("average"),
+                "AG": self.AG.summarize("average"),
+                # "freche": self.fid.compute(),
             }
 
             # The train_logger writes a summary to stdout and to the logfile.
