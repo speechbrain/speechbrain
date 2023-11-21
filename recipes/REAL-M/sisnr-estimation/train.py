@@ -765,8 +765,10 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    from speechbrain.pretrained import SepformerSeparation as separator
-    from speechbrain.pretrained.interfaces import fetch
+    from speechbrain.inference.separation import (
+        SepformerSeparation as separator,
+    )
+    from speechbrain.utils.fetch import fetch
 
     all_separators = []
     for separator_model in hparams["separators_to_use"]:

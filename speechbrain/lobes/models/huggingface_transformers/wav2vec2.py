@@ -16,7 +16,6 @@ import torch
 import logging
 import numpy as np
 import torch.nn.functional as F
-
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )

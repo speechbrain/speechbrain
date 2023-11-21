@@ -15,7 +15,8 @@ import logging
 import pathlib as pl
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
-from speechbrain.pretrained import UnitHIFIGAN, EncoderDecoderASR
+from speechbrain.inference.vocoders import UnitHIFIGAN
+from speechbrain.inference.ASR import EncoderDecoderASR
 import tqdm
 import torchaudio
 import numpy as np
