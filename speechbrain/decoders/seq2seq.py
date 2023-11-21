@@ -894,7 +894,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             + self.beam_offset.unsqueeze(1).expand_as(candidates)
         ).view(self.n_bh)
 
-        #print(predecessors)
 
         return (
             scores,
