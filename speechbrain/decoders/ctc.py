@@ -55,7 +55,7 @@ class CTCPrefixScore:
         self.minus_inf = -1e20
         self.last_frame_index = enc_lens - 1
         self.ctc_window_size = ctc_window_size
-        self.prefix_length = 0
+        self.prefix_length = -1
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
