@@ -16,8 +16,7 @@ save_folder: !ref <output_folder>/save
 data_folder: !PLACEHOLDER # e,g./path/to/LJSpeech-1.1
 
 train_json: !ref <save_folder>/train.json
-valid_json: !ref <save_folder>/valid.json
-test_json: !ref <save_folder>/test.json
+
 splits: ["train"]
 split_ratio: [100]
 skip_prep: False
@@ -30,7 +29,6 @@ ssl_folder: !ref <save_folder>/hubert_checkpoint
 ssl_layer_num: 7
 batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
 
-sorting: ascending
 
 # Dataloader options
 train_dataloader_opts:
