@@ -1,4 +1,4 @@
-""" Specifies the inference interfaces for tex-processing modules.
+""" Specifies the inference interfaces for text-processing modules.
 
 Authors:
  * Aku Rouhe 2021

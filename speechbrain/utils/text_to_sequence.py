@@ -324,7 +324,7 @@ def _g2p_keep_punctuations(g2p_model, text):
     """do grapheme to phoneme and keep the punctuations between the words
     Arguments
     ---------
-    g2p_model: speechbraininference.text g2p model
+    g2p_model: speechbrain.inference.text g2p model
     text: string
         the input text
 
