@@ -37,6 +37,7 @@ class HIFIGAN(Pretrained):
     >>> # You can use the vocoder coupled with a TTS system
     >>>	# Initialize TTS (tacotron2)
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
+    >>> from speechbrain.inference.TTS import Tacotron2
     >>>	tacotron2 = Tacotron2.from_hparams(source="speechbrain/tts-tacotron2-ljspeech", savedir=tmpdir_tts)
     >>>	# Running the TTS
     >>>	mel_output, mel_length, alignment = tacotron2.encode_text("Mary had a little lamb")
