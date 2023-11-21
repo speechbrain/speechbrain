@@ -22,6 +22,8 @@ from speechbrain.lobes.models.transformer.Transformer import (
 from speechbrain.nnet.attention import RelPosEncXL
 from speechbrain.nnet.embedding import Embedding
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.losses import kldiv_loss, distance_diff_loss
+from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
 from speechbrain.dataio.dataio import length_to_mask
 from collections import namedtuple
 from tqdm.auto import tqdm
@@ -31,6 +33,7 @@ TokotronOutput = namedtuple(
     [
         "out",
         "gate_out",
+        "p_eos",
         "enc_self_attn",
         "dec_self_attn",
         "dec_attn",
@@ -57,6 +60,7 @@ TokotronDecoderInfernceOutput = namedtuple(
         "dec_self_attn",
         "dec_attn",
         "alignments",
+        "p_eos",
     ]
 )
 
@@ -71,6 +75,7 @@ TokotronInfernceOutput = namedtuple(
         "dec_self_attn",
         "dec_attn",
         "alignments",
+        "p_eos",
     ]
 )
 
@@ -103,6 +108,8 @@ class TokotronDecoder(nn.Module):
         stops. By default, inference stops immediately. This parameter is useful
         for "soft" gate implementations where the gate starts outputting positive
         probabilities before actual EOS
+    use_tgt_padding_mask : bool, optional
+        whether to use a target padding mask
     """
     def __init__(
         self,
@@ -122,6 +129,7 @@ class TokotronDecoder(nn.Module):
         show_inference_progress=True,
         gate_threshold=0.5,
         gate_offset=0,
+        use_tgt_padding_mask=False,
     ):
         super().__init__()
         self.num_tokens = num_tokens
@@ -166,6 +174,7 @@ class TokotronDecoder(nn.Module):
         self.attention_type = attention_type
         self.gate_threshold = gate_threshold
         self.gate_offset = gate_offset
+        self.use_tgt_padding_mask = use_tgt_padding_mask
 
     def forward(
         self,
@@ -196,7 +205,12 @@ class TokotronDecoder(nn.Module):
                 src_length * src_max_len,
                 src_max_len
             ).logical_not()
-        if tgt_length is not None and tgt_key_padding_mask is None:
+
+        if (
+            tgt_length is not None
+            and tgt_key_padding_mask is None
+            and self.use_tgt_padding_mask
+        ):
             tgt_max_len = tgt.size(1)
             tgt_key_padding_mask = length_to_mask(
                 tgt_length * tgt_max_len,
@@ -255,7 +269,7 @@ class TokotronDecoder(nn.Module):
             dec_attn,
             get_alignments(dec_attn),
         )
-    
+
     def get_bos(self, batch_size, device="cpu"):
         """Constructs a beginning-of-sequence (BOS) sequence for
         autoregressive inference
@@ -381,6 +395,7 @@ class TokotronDecoder(nn.Module):
             dec_self_attn=step_out.dec_self_attn,
             dec_attn=step_out.dec_attn,
             alignments=step_out.alignments,
+            p_eos=step_out.gate_out.sigmoid()
         )
 
 
@@ -421,8 +436,9 @@ class TokotronModel(nn.Module):
         the number of steps from the gate activation threshold until inference
         stops. By default, inference stops immediately. This parameter is useful
         for "soft" gate implementations where the gate starts outputting positive
-        probabilities before actual EOS        
-
+        probabilities before actual EOS
+    use_tgt_padding_mask : bool, optional
+        whether to use a target padding mask
     """
     def __init__(
         self,
@@ -442,6 +458,7 @@ class TokotronModel(nn.Module):
         vocoder=None,
         max_input_length=1000,
         gate_offset=0,
+        use_tgt_padding_mask=False,
     ):
         super().__init__()
         self.in_emb = Embedding(
@@ -469,6 +486,7 @@ class TokotronModel(nn.Module):
             activation=activation,
             dropout=dropout,
             target_dropout=target_dropout,
+            use_tgt_padding_mask=use_tgt_padding_mask,
         )
         self.bos_idx = bos_idx
         self.vocoder = vocoder
@@ -531,6 +549,7 @@ class TokotronModel(nn.Module):
         return TokotronOutput(
             out=dec_out.out,
             gate_out=dec_out.gate_out,
+            p_eos=dec_out.gate_out.sigmoid(),
             enc_self_attn=enc_self_attn,
             dec_self_attn=dec_out.dec_self_attn,
             dec_attn=dec_out.dec_attn,
@@ -628,6 +647,7 @@ class TokotronModel(nn.Module):
             dec_self_attn=dec_out.dec_self_attn,
             dec_attn=dec_out.dec_attn,
             alignments=dec_out.alignments,
+            p_eos=dec_out.p_eos,
         )
 
 
@@ -676,3 +696,141 @@ def get_alignments(attn):
         [item.unsqueeze(-1) for item in attn],
         dim=-1
     ).mean(dim=-1)
+
+
+TokotronLossDetails = namedtuple(
+    "TokotronLossDetails",
+    [
+        "loss",
+        "seq_loss",
+        "gate_loss",
+        "attn_loss"
+    ]
+)
+
+
+class TokotronLoss(nn.Module):
+    """The loss module for the Tokotron module, combining
+    a sequence loss a guided attention loss and a gate loss
+    for end-of-sequence prediction
+    
+    Arguments
+    ---------
+    guided_attention_weight : float
+        The relative weight of the guided attention loss
+    guided_attention_sigma : float
+        The sigma hyperparameter for the guided attention loss
+        A higher sigma means a lower penalties for attention off
+        the diagonal
+    gate_weight : float
+        The weight of the gate loss
+    gate_beta : float
+        The beta parameter for the distance difference loss
+        used for the EOS gate
+
+        See speechbrain.nnet.losses.distance_diff_loss
+        - the beta parameter
+    gate_gamma : float
+        The gamma parameter for the distance difference loss
+        used for the EOS gate
+
+        See speechbrain.nnet.losses.distance_diff_loss
+        - the gamma parameter
+    gate_max_weight : float
+        The maximum distance difference loss weight
+
+        See speechbrain.nnet.losses.distance_diff_loss
+        - the max_weight parameter
+
+    silence_padding : float
+        The amount of silence padding added to sequences
+
+    seq_cost : float
+        The type of sequence loss to be used
+    """
+    def __init__(
+        self,
+        guided_attention_weight,
+        guided_attention_sigma,
+        gate_weight,
+        gate_beta,
+        gate_gamma,
+        gate_max_weight=1.,
+        silence_padding=0,
+        seq_cost=None
+    ):
+        super().__init__()
+        self.guided_attention_weight = guided_attention_weight
+        self.gate_weight = gate_weight
+        self.gate_beta = gate_beta
+        self.gate_gamma = gate_gamma
+        self.gate_max_weight = gate_max_weight
+        self.silence_padding = silence_padding
+        if seq_cost is None:
+            seq_cost = kldiv_loss
+        self.seq_cost = seq_cost
+        self.attn_cost = GuidedAttentionLoss(
+            sigma=guided_attention_sigma,
+        )
+
+    def forward(
+        self,
+        predictions,
+        audio_tokens,
+        audio_length,
+        input_tokens,
+        input_length,
+        reduction="mean"
+    ):
+        p_seq = predictions.out.log_softmax(dim=-1)
+        batch_size, out_len, heads, tok_dim = p_seq.shape
+        max_len = out_len - 1
+        p_seq_reshaped = (
+            p_seq
+            .transpose(1, 2)
+            .reshape(batch_size * heads, out_len, tok_dim)
+        )[:, :max_len, :]
+        audio_tokens_reshaped = (
+            audio_tokens
+            .transpose(1, 2)
+            .reshape(batch_size * heads, max_len)
+        )
+        lengths_reshaped = audio_length.repeat(heads)
+        seq_loss = self.seq_cost(
+            p_seq_reshaped,
+            audio_tokens_reshaped,
+            length=lengths_reshaped,
+            reduction=reduction
+        )
+        if reduction == "batch":
+            seq_loss = (
+                seq_loss
+                .reshape(batch_size, heads)
+                .mean(-1)
+            )
+        lengths_abs = audio_length * out_len
+        attn_loss = self.attn_cost(
+            predictions.alignments,
+            input_lengths=input_length * input_tokens.size(1),
+            target_lengths=lengths_abs,
+            reduction=reduction
+        )
+        # NOTE: This adjustment will allow the gate to be "off" by up to silence_padding,
+        # resulting in extra silence being output
+        gate_loss = distance_diff_loss(
+            predictions.p_eos,
+            lengths_abs - self.silence_padding,
+            beta=self.gate_beta,
+            gamma=self.gate_gamma,
+            max_weight=self.gate_max_weight,
+            two_sided=True,
+            reduction=reduction
+        )
+        loss = (
+            seq_loss
+            + self.guided_attention_weight * attn_loss
+            + self.gate_weight * gate_loss
+        )
+        return TokotronLossDetails(
+            loss, seq_loss, gate_loss, attn_loss
+        )

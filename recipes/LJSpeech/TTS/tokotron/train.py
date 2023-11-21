@@ -22,7 +22,6 @@ from speechbrain.dataio.preparation import add_prepared_features
 from speechbrain.utils.audio_tokens import (
     get_silence_token, use_silence_padding, feature_pad_to
 )
-from matplotlib import pyplot as plt
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +33,7 @@ class TokotronBrain(sb.Brain):
     """Class that manages the training loop. See speechbrain.core.Brain."""
 
     def compute_forward(self, batch, stage):
-        """Runs all the computation of the CTC + seq2seq ASR. It returns the
-        posterior probabilities of the CTC and seq2seq networks.
+        """Runs all the computation of the Tokotron TTS
 
         Arguments
         ---------
@@ -81,46 +79,24 @@ class TokotronBrain(sb.Brain):
             A one-element tensor used for backpropagating the gradient.
         """
         batch = batch.to(self.device)
+        loss_details = self.hparams.compute_cost(
+            predictions=predictions,
+            audio_tokens=batch.audio_tokens_pad.data,
+            audio_length=batch.audio_tokens_pad.lengths,
+            input_tokens=batch.tokens.data,
+            input_length=batch.tokens.lengths,
+        )
+        self.loss_metric.append(
+            batch.uttid,
+            predictions=predictions,
+            audio_tokens=batch.audio_tokens_pad.data,
+            audio_length=batch.audio_tokens_pad.lengths,
+            input_tokens=batch.tokens.data,
+            input_length=batch.tokens.lengths,
+            reduction="batch"
+        )
+        return loss_details.loss
 
-        audio_tokens, lengths = batch.audio_tokens_pad
-        p_seq = self.hparams.log_softmax(predictions.out)
-        batch_size, out_len, heads, tok_dim = p_seq.shape
-        max_len = out_len - 1
-        p_seq_reshaped = (
-            p_seq
-            .transpose(1, 2)
-            .reshape(batch_size * heads, out_len, tok_dim)
-        )[:, :max_len, :]
-        audio_tokens_reshaped = (
-            audio_tokens
-            .transpose(1, 2)
-            .reshape(batch_size * heads, max_len)
-        )
-        lengths_reshaped = lengths.repeat(heads)
-        seq_loss = self.hparams.seq_cost(
-            p_seq_reshaped,
-            audio_tokens_reshaped,
-            length=lengths_reshaped,
-        )
-        lengths_abs = lengths * out_len
-        attn_loss = self.hparams.attn_cost(
-            predictions.alignments,
-            input_lengths=batch.tokens.lengths * batch.tokens.data.size(1),
-            target_lengths=lengths_abs
-        )
-        # NOTE: This adjustment will allow the gate to be "off" by up to silence_padding,
-        # resulting in extra silence being output
-        gate_loss = self.hparams.gate_cost(
-            predictions.gate_out.sigmoid(),
-            lengths_abs - self.hparams.silence_padding
-        )
-        loss = (
-            seq_loss
-            + self.hparams.guided_attention_weight * attn_loss
-            + self.hparams.gate_loss_weight * gate_loss
-        )
-        return loss
-    
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch.
 
@@ -136,6 +112,10 @@ class TokotronBrain(sb.Brain):
         # In this case, we would like to keep track of the word error rate (wer)
         # and the character error rate (cer)
         self.create_perfect_samples()
+        self.loss_metric = sb.utils.metric_stats.MultiMetricStats(
+            metric=self.hparams.compute_cost,
+            batch_eval=True,
+        )
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -152,7 +132,8 @@ class TokotronBrain(sb.Brain):
         """
 
         # Store the train loss until the validation stage.
-        stage_stats = {"loss": stage_loss}
+        loss_stats = self.loss_metric.summarize(flat=True)
+        stage_stats = {"loss": stage_loss, **loss_stats}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
 
@@ -187,8 +168,6 @@ class TokotronBrain(sb.Brain):
             return
         if self.debug:
             self.modules.model.decoder.max_decoder_steps = self.hparams.debug_infer_max_audio_tokens            
-        samples_folder = Path(self.hparams.samples_folder) / str(epoch)
-        samples_folder.mkdir(parents=True, exist_ok=True)
         sample_loader = sb.dataio.dataloader.make_dataloader(
             self.sample_data, **self.hparams.sample_dataloader_opts
         )
@@ -199,86 +178,39 @@ class TokotronBrain(sb.Brain):
                 input_tokens=tokens,
                 input_length=tokens_length
             )
-            self.write_samples(
-                samples_folder,
-                batch.uttid,
-                infer_out.wav,
-                infer_out.wav_length
-            )
-            self.write_attentions(
-                samples_folder,
-                batch.uttid,
-                infer_out.alignments
+            self.hparams.progress_report.write(
+                ids=batch.uttid,
+                audio=infer_out.wav,
+                length_pred=infer_out.wav_length,
+                length=batch.audio_tokens_pad.lengths,
+                alignments=infer_out.alignments,
+                p_eos=infer_out.p_eos
             )
 
     def create_perfect_samples(self):
         """Creates the best samples that can be created using
         the vocoder provided, for comparison purposes"""
-        samples_folder = Path(self.hparams.samples_folder) / "_perfect"
-        if samples_folder.exists():
-            return
-        samples_folder.mkdir(parents=True, exist_ok=True)
-        sample_loader = sb.dataio.dataloader.make_dataloader(
-            self.sample_data, **self.hparams.sample_dataloader_opts
-        )
-        for batch in sample_loader:
-            batch = batch.to(self.device)
-            sample_tokens, length = batch.audio_tokens_pad
-            samples, length = self.modules.vocoder(sample_tokens, length)
-            self.write_samples(
-                samples_folder,
-                batch.uttid,
-                samples,
-                length
+        if not self.hparams.progress_logger["perfect_samples_created"]:
+            sample_loader = sb.dataio.dataloader.make_dataloader(
+                self.sample_data, **self.hparams.sample_dataloader_opts
             )
-
-    def write_samples(self, samples_folder, item_ids, sig, length):
-        """Writes a series of audio samples
-
-        Arguments
-        ---------
-        samples_folder : path-like
-            the destination folder
-        item_ids : enumerable
-            a list of IDs
-        sig : torch.Tensor
-            raw waveform
-        length: torch.Tensor
-            relative lengths
-        """
-        max_len = sig.size(1)
-        for item_id, item_sig, item_length in zip(item_ids, sig, length):
-            file_name = samples_folder / f"{item_id}.wav"
-            item_length_abs = (item_length * max_len).int().item()
-            item_sig_cut = item_sig[:item_length_abs]
-            sb.dataio.dataio.write_audio(
-                file_name,
-                item_sig_cut.detach().cpu(),
-                samplerate=self.hparams.model_sample_rate)
-
-    def write_attentions(self, sample_path, item_ids, alignments):
-        """Outputs attention plots
-        
-        Arguments
-        ---------
-        sample_path : path-like
-            the path where samples will be saved
-        item_id : list
-            a list of sample identifiers
-        alignments : list
-            a list of alignments matrices
-        """
-        for item_id, item_attn in zip(item_ids, alignments):
-            fig, ax = plt.subplots(figsize=(8, 2))
-            try:
-                file_name = sample_path / f"{item_id}_attn.png"
-                ax.imshow(item_attn.detach().cpu().transpose(-1, -2), origin="lower")
-                ax.set_title(f"{item_id} Alignment")
-                ax.set_xlabel("Audio")
-                ax.set_ylabel("Text")
-                fig.savefig(file_name)
-            finally:
-                plt.close(fig)
+            for batch in sample_loader:
+                batch = batch.to(self.device)
+                sample_tokens, length = batch.audio_tokens_pad
+                samples, samples_length = self.modules.vocoder(sample_tokens, length)
+                max_len = samples.size(1)
+                samples_length_abs = (samples_length * max_len).int()
+                with self.hparams.progress_logger:
+                    for item_id, item_wav, item_length in zip(batch.uttid, samples, samples_length_abs):
+                        item_cut = item_wav[:item_length.item()]
+                        self.hparams.progress_logger.save(
+                            name=f"{item_id}.wav",
+                            content=item_cut.detach().cpu(),
+                            mode="audio",
+                            folder="_perfect"
+                        )
+                    self.hparams.progress_logger["perfect_samples_created"] = True
+                    self.hparams.progress_logger.clear()
 
 
 def dataio_prepare(hparams):
