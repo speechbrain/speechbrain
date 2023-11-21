@@ -87,9 +87,10 @@ dynamic_chunk_prob: 0.6
 dynamic_chunk_min: 8
 dynamic_chunk_max: 32
 
+# Left context gets expressed as a number of chunks
 dynamic_left_context_prob: 0.75
-dynamic_left_context_min: 16
-dynamic_left_context_max: 64
+dynamic_left_context_min: 2
+dynamic_left_context_max: 32
 
 # Dataloader options
 train_dataloader_opts:
