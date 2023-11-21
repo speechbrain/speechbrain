@@ -115,7 +115,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
     max_augmentations: 3
     augment_prob: 1.0
     augmentations: [
-        !ref <speed_perturb>,]
+        !ref <speed_perturb>]
 
 enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <wav2vec_output_dim>]
@@ -158,7 +158,6 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Ve
 #    freeze: False
 #    save_path: !ref <save_folder>/wav2vec2_checkpoint/model.pt
 #####
-
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
