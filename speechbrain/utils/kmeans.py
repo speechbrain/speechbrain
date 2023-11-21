@@ -8,7 +8,11 @@ Author
 import os
 import logging
 from tqdm.contrib import tqdm
-from sklearn.cluster import MiniBatchKMeans
+
+try:
+    from sklearn.cluster import MiniBatchKMeans
+except ImportError:
+    print("Please install sklearn  in order to use the k-means model")
 import joblib
 
 logger = logging.getLogger(__name__)
