@@ -497,14 +497,11 @@ class Tacotron2Brain(sb.Brain):
 def dataio_prepare(hparams):
     # Define audio pipeline:
 
-    @sb.utils.data_pipeline.takes("wav", "label_phoneme")
+    @sb.utils.data_pipeline.takes("wav", "label")
     @sb.utils.data_pipeline.provides("mel_text_pair")
-    def audio_pipeline(wav, label_phoneme):
-
-        label_phoneme = "{" + label_phoneme + "}"
-
+    def audio_pipeline(wav, label):
         text_seq = torch.IntTensor(
-            text_to_sequence(label_phoneme, hparams["text_cleaners"])
+            text_to_sequence(label, hparams["text_cleaners"])
         )
 
         audio, sig_sr = torchaudio.load(wav)
@@ -531,6 +528,11 @@ def dataio_prepare(hparams):
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
             output_keys=["mel_text_pair", "wav", "label", "uttid"],
+        )
+
+        datasets[dataset] = datasets[dataset].filtered_sorted(
+            sort_key="duration",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
 
     return datasets
