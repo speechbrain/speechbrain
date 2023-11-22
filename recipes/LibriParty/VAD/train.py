@@ -233,6 +233,9 @@ if __name__ == "__main__":
         },
     )
 
+    # Prepare openrir
+    run_on_main(hparams["prepare_noise_data"])
+
     # Prepare Musan
     from musan_prepare import prepare_musan
 

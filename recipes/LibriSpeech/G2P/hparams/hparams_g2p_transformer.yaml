@@ -402,7 +402,7 @@ beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <beam_search_beam_size>
     eos_threshold: !ref <beam_search_eos_threshold>
     using_max_attn_shift: False
-    length_normalization: False
+    length_normalization: True
     max_attn_shift: !ref <beam_search_max_attn_shift>
     temperature: !ref <beam_search_temperature>
     scorer: !ref <scorer>
@@ -416,7 +416,7 @@ beam_searcher_lm: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <beam_search_beam_size>
     eos_threshold: !ref <beam_search_eos_threshold>
     using_max_attn_shift: False
-    length_normalization: False
+    length_normalization: True
     max_attn_shift: !ref <beam_search_max_attn_shift>
     temperature: !ref <beam_search_temperature>
     scorer: !ref <scorer_lm>
@@ -430,7 +430,7 @@ beam_searcher_valid: !new:speechbrain.decoders.S2STransformerBeamSearcher
     beam_size: !ref <beam_search_beam_size_valid>
     eos_threshold: !ref <beam_search_eos_threshold>
     using_max_attn_shift: False
-    length_normalization: False
+    length_normalization: True
     max_attn_shift: !ref <beam_search_max_attn_shift>
     temperature: !ref <beam_search_temperature>
     scorer: !ref <scorer_lm>

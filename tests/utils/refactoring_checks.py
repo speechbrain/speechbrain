@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main  # noqa
 from speechbrain.utils.train_logger import FileTrainLogger
-from speechbrain.pretrained.interfaces import foreign_class  # noqa
+from speechbrain.inference.interfaces import foreign_class  # noqa
 from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
 
 
@@ -93,7 +93,7 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
 
     Returns
     -------
-    A pretrained model with a speechbrain.pretrained.interface or a custom interface.
+    A pretrained model with a speechbrain.inference.interface or a custom interface.
     """
     # get the pretrained class; model & predictions
     kwargs = {
@@ -132,9 +132,9 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
     print(f"\trepo: {repo}")
     # load pretrained model either via specified pretrained class or custom interface
     if "foreign" not in values.keys():
-        print(f'\tspeechbrain.pretrained.{values["cls"]}')
+        print(f'\tspeechbrain.inference.{values["cls"]}')
         print(f"\tobj.from_hparams({kwargs})")
-        obj = eval(f'speechbrain.pretrained.{values["cls"]}')
+        obj = eval(f'speechbrain.inference.{values["cls"]}')
         model = obj.from_hparams(**kwargs)
     else:
         kwargs["pymodule_file"] = values["foreign"]

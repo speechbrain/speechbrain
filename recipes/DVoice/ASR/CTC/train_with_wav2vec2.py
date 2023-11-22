@@ -43,12 +43,11 @@ class ASR(sb.core.Brain):
 
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         # Forward pass
         feats = self.modules.wav2vec2(wavs, wav_lens)
@@ -64,8 +63,12 @@ class ASR(sb.core.Brain):
         p_ctc, wav_lens = predictions
 
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
+
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens = self.hparams.wav_augment.replicate_labels(tokens)
+            tokens_lens = self.hparams.wav_augment.replicate_labels(tokens_lens)
 
         loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
 
@@ -85,61 +88,6 @@ class ASR(sb.core.Brain):
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        # TOFIX: CTC fine-tuning currently is unstable
-        # This is certainly due to CTC being done in fp16 instead of fp32
-        if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
-                with self.no_sync():
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-
-                if not self.hparams.wav2vec2.freeze:
-                    self.scaler.unscale_(self.wav2vec_optimizer)
-                self.scaler.unscale_(self.model_optimizer)
-                if self.check_gradients(loss):
-                    if not self.hparams.wav2vec2.freeze:
-                        self.scaler.step(self.wav2vec_optimizer)
-                    self.scaler.step(self.model_optimizer)
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
-        else:
-            # This is mandatory because HF models have a weird behavior with DDP
-            # on the forward pass
-            with self.no_sync():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    if not self.hparams.wav2vec2.freeze:
-                        self.wav2vec_optimizer.step()
-                    self.model_optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
-
-        self.on_fit_batch_end(batch, outputs, loss, should_step)
-        return loss.detach().cpu()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -196,6 +144,10 @@ class ASR(sb.core.Brain):
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
 
+        self.model_optimizer = self.hparams.model_opt_class(
+            self.hparams.model.parameters()
+        )
+
         # If the wav2vec encoder is unfrozen, we create the optimizer
         if not self.hparams.wav2vec2.freeze:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
@@ -205,18 +157,25 @@ class ASR(sb.core.Brain):
                 self.checkpointer.add_recoverable(
                     "wav2vec_opt", self.wav2vec_optimizer
                 )
-
-        self.model_optimizer = self.hparams.model_opt_class(
-            self.hparams.model.parameters()
-        )
+            self.optimizers_dict = {
+                "wav2vec_optimizer": self.wav2vec_optimizer,
+                "model_optimizer": self.model_optimizer,
+            }
+        else:
+            self.optimizers_dict = {"model_optimizer": self.model_optimizer}
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
-    def zero_grad(self, set_to_none=False):
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
         if not self.hparams.wav2vec2.freeze:
-            self.wav2vec_optimizer.zero_grad(set_to_none)
-        self.model_optimizer.zero_grad(set_to_none)
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
 
 
 # Define custom data procedure

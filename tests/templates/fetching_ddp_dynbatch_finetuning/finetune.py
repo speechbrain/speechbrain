@@ -16,7 +16,7 @@ from copy import deepcopy
 from tqdm.contrib import tqdm
 from torch.utils.data import DataLoader
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.pretrained import EncoderDecoderASR
+from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.utils.distributed import run_on_main, ddp_barrier
 from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.dataio.dataset import DynamicItemDataset
@@ -67,11 +67,11 @@ def eval_reporting(reports, single_node=False):
 def eval_test_use_recipe_dataio(
     encoder_decoder_asr, test_set, test_kwargs, reporter, single_node=False
 ):
-    """Bypassing speechbrain.pretrained.Pretrained.load_audio with recipe dataio (speechbrain.dataio.dataio.read_audio).
+    """Bypassing speechbrain.inference.interfaces.Pretrained.load_audio with recipe dataio (speechbrain.dataio.dataio.read_audio).
 
     Parameters
     ----------
-    encoder_decoder_asr: speechbrain.pretrained.EncoderDecoderASR
+    encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: dict
         Data loader options for testing.
@@ -118,7 +118,7 @@ def eval_test_batch_from_scratch(
 
     Parameters
     ----------
-    encoder_decoder_asr: speechbrain.pretrained.EncoderDecoderASR
+    encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: Dataset, DataLoader
         If a DataLoader is given, it is iterated directly. Otherwise passed to `sb.dataio.dataloader.make_dataloader()`.

@@ -14,7 +14,7 @@ import logging
 import torchaudio
 import torch
 from tqdm import tqdm
-from speechbrain.pretrained import GraphemeToPhoneme
+from speechbrain.inference.txt import GraphemeToPhoneme
 
 logger = logging.getLogger(__name__)
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"

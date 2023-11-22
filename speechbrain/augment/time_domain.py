@@ -1,19 +1,18 @@
-"""Classes for mutating speech data for data augmentation.
+"""Time-Domain Sequential Data Augmentation Classes
 
-This module provides classes that produce realistic distortions of speech
-data for the purpose of training speech processing models. The list of
-distortions includes adding noise, adding reverberation, changing speed,
-and more. All the classes are of type `torch.nn.Module`. This gives the
-possibility to have end-to-end differentiability and
-backpropagate the gradient through them. In addition, all operations
-are expected to be performed on the GPU (where available) for efficiency.
+This module contains classes designed for augmenting sequential data in the time domain.
+It is particularly useful for enhancing the robustness of neural models during training.
+The available data distortions include adding noise, applying reverberation, adjusting playback speed, and more.
+All classes are implemented as `torch.nn.Module`, enabling end-to-end differentiability and gradient backpropagation.
 
-Authors
- * Peter Plantinga 2020
+Authors:
+- Peter Plantinga (2020)
+- Mirco Ravanelli (2023)
 """
 
 # Importing libraries
 import math
+import random
 import torch
 import torch.nn.functional as F
 from speechbrain.dataio.legacy import ExtendedCSVDataset
@@ -51,9 +50,6 @@ class AddNoise(torch.nn.Module):
         If True, copy noise signals that are shorter than
         their corresponding clean signals so as to cover the whole clean
         signal. Otherwise, leave the noise un-padded.
-    mix_prob : float
-        The probability that a batch of signals will be mixed
-        with a noise signal. By default, every batch is mixed with noise.
     start_index : int
         The index in the noise waveforms to start from. By default, chooses
         a random index in [0, len(noise) - len(waveforms)].
@@ -97,7 +93,6 @@ class AddNoise(torch.nn.Module):
         snr_low=0,
         snr_high=0,
         pad_noise=False,
-        mix_prob=1.0,
         start_index=None,
         normalize=False,
         noise_funct=torch.randn_like,
@@ -114,14 +109,12 @@ class AddNoise(torch.nn.Module):
         self.snr_low = snr_low
         self.snr_high = snr_high
         self.pad_noise = pad_noise
-        self.mix_prob = mix_prob
         self.start_index = start_index
         self.normalize = normalize
         self.replacements = replacements
         self.noise_funct = noise_funct
-
-        if noise_sample_rate != clean_sample_rate:
-            self.resampler = Resample(noise_sample_rate, clean_sample_rate)
+        self.noise_sample_rate = noise_sample_rate
+        self.clean_sample_rate = clean_sample_rate
 
     def forward(self, waveforms, lengths):
         """
@@ -140,10 +133,6 @@ class AddNoise(torch.nn.Module):
         # Copy clean waveform to initialize noisy waveform
         noisy_waveform = waveforms.clone()
         lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
-
-        # Don't add noise (return early) 1-`mix_prob` portion of the batches
-        if torch.rand(1) > self.mix_prob:
-            return noisy_waveform
 
         # Compute the average amplitude of the clean waveforms
         clean_amplitude = compute_amplitude(waveforms, lengths, amp_type="rms")
@@ -164,6 +153,11 @@ class AddNoise(torch.nn.Module):
         # Loop through clean samples and create mixture
         if self.csv_file is None:
             noise_waveform = self.noise_funct(waveforms)
+            if noise_waveform.shape[0] == 1:
+                noise_waveform = torch.cat(
+                    [noise_waveform] * waveforms.shape[0], dim=0
+                )
+
             noise_length = lengths
         else:
             tensor_length = waveforms.shape[1]
@@ -194,6 +188,12 @@ class AddNoise(torch.nn.Module):
 
         # Load a noise batch
         if not hasattr(self, "data_loader"):
+
+            if self.noise_sample_rate != self.clean_sample_rate:
+                self.resampler = Resample(
+                    self.noise_sample_rate, self.clean_sample_rate
+                )
+
             # Set parameters based on input
             self.device = lengths.device
 
@@ -317,9 +317,8 @@ class AddReverb(torch.nn.Module):
     sorting : str
         The order to iterate the csv file, from one of
         the following options: random, original, ascending, and descending.
-    reverb_prob : float
-        The chance that the audio signal will be reverbed.
-        By default, every batch is reverbed.
+    num_workers : int
+        Number of workers in the DataLoader (See PyTorch DataLoader docs).
     rir_scale_factor: float
         It compresses or dilates the given impulse response.
         If 0 < scale_factor < 1, the impulse response is compressed
@@ -344,14 +343,14 @@ class AddReverb(torch.nn.Module):
     >>> clean = signal.unsqueeze(0) # [batch, time, channels]
     >>> reverb = AddReverb('tests/samples/annotation/RIRs.csv',
     ...                     replacements={'rir_folder': 'tests/samples/RIRs'})
-    >>> reverbed = reverb(clean, torch.ones(1))
+    >>> reverbed = reverb(clean)
     """
 
     def __init__(
         self,
         csv_file,
         sorting="random",
-        reverb_prob=1.0,
+        num_workers=0,
         rir_scale_factor=1.0,
         replacements={},
         reverb_sample_rate=16000,
@@ -360,50 +359,34 @@ class AddReverb(torch.nn.Module):
         super().__init__()
         self.csv_file = csv_file
         self.sorting = sorting
-        self.reverb_prob = reverb_prob
+        self.num_workers = num_workers
         self.replacements = replacements
+        self.reverb_sample_rate = reverb_sample_rate
+        self.clean_sample_rate = clean_sample_rate
         self.rir_scale_factor = rir_scale_factor
 
-        # Create a data loader for the RIR waveforms
-        dataset = ExtendedCSVDataset(
-            csvpath=self.csv_file,
-            sorting=self.sorting if self.sorting != "random" else "original",
-            replacements=self.replacements,
-        )
-        self.data_loader = make_dataloader(
-            dataset, shuffle=(self.sorting == "random")
-        )
-        self.rir_data = iter(self.data_loader)
-
-        if reverb_sample_rate != clean_sample_rate:
-            self.resampler = Resample(reverb_sample_rate, clean_sample_rate)
-
-    def forward(self, waveforms, lengths):
+    def forward(self, waveforms):
         """
         Arguments
         ---------
         waveforms : tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
-            Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
 
-        # Don't add reverb (return early) 1-`reverb_prob` portion of the time
-        if torch.rand(1) > self.reverb_prob:
-            return waveforms.clone()
+        if self.reverb_sample_rate != self.clean_sample_rate:
+            self.resampler = Resample(
+                self.reverb_sample_rate, self.clean_sample_rate
+            )
 
         # Add channels dimension if necessary
         channel_added = False
         if len(waveforms.shape) == 2:
             waveforms = waveforms.unsqueeze(-1)
             channel_added = True
-
-        # Convert length from ratio to number of indices
-        # lengths = (lengths * waveforms.shape[1])[:, None, None]
 
         # Load and prepare RIR
         rir_waveform = self._load_rir(waveforms)
@@ -431,6 +414,22 @@ class AddReverb(torch.nn.Module):
         return rev_waveform
 
     def _load_rir(self, waveforms):
+        # Create a data loader for the RIR waveforms
+        if not hasattr(self, "data_loader"):
+            dataset = ExtendedCSVDataset(
+                csvpath=self.csv_file,
+                sorting=self.sorting
+                if self.sorting != "random"
+                else "original",
+                replacements=self.replacements,
+            )
+            self.data_loader = make_dataloader(
+                dataset,
+                shuffle=(self.sorting == "random"),
+                num_workers=self.num_workers,
+            )
+            self.rir_data = iter(self.data_loader)
+
         try:
             rir_waveform, length = next(self.rir_data).at_position(0)
         except StopIteration:
@@ -460,9 +459,6 @@ class SpeedPerturb(torch.nn.Module):
     speeds : list
         The speeds that the signal should be changed to, as a percentage of the
         original signal (i.e. `speeds` is divided by 100 to get a ratio).
-    perturb_prob : float
-        The chance that the batch will be speed-
-        perturbed. By default, every batch is perturbed.
 
     Example
     -------
@@ -477,12 +473,10 @@ class SpeedPerturb(torch.nn.Module):
     torch.Size([1, 46956])
     """
 
-    def __init__(self, orig_freq, speeds=[90, 100, 110], perturb_prob=1.0):
+    def __init__(self, orig_freq, speeds=[90, 100, 110]):
         super().__init__()
         self.orig_freq = orig_freq
         self.speeds = speeds
-        self.perturb_prob = perturb_prob
-
         # Initialize index of perturbation
         self.samp_index = 0
 
@@ -501,22 +495,15 @@ class SpeedPerturb(torch.nn.Module):
         ---------
         waveforms : tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
-            Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
 
-        # Don't perturb (return early) 1-`perturb_prob` portion of the batches
-        if torch.rand(1) > self.perturb_prob:
-            return waveform.clone()
-
         # Perform a random perturbation
-        self.samp_index = torch.randint(len(self.speeds), (1,))[0]
+        self.samp_index = torch.randint(0, len(self.speeds), (1,))
         perturbed_waveform = self.resamplers[self.samp_index](waveform)
-
         return perturbed_waveform
 
 
@@ -830,89 +817,6 @@ class Resample(torch.nn.Module):
         self.weights = weights
 
 
-class AddBabble(torch.nn.Module):
-    """Simulate babble noise by mixing the signals in a batch.
-
-    Arguments
-    ---------
-    speaker_count : int
-        The number of signals to mix with the original signal.
-    snr_low : int
-        The low end of the mixing ratios, in decibels.
-    snr_high : int
-        The high end of the mixing ratios, in decibels.
-    mix_prob : float
-        The probability that the batch of signals will be
-        mixed with babble noise. By default, every signal is mixed.
-
-    Example
-    -------
-    >>> import pytest
-    >>> babbler = AddBabble()
-    >>> dataset = ExtendedCSVDataset(
-    ...     csvpath='tests/samples/annotation/speech.csv',
-    ...     replacements={"data_folder": "tests/samples/single-mic"}
-    ... )
-    >>> loader = make_dataloader(dataset, batch_size=5)
-    >>> speech, lengths = next(iter(loader)).at_position(0)
-    >>> noisy = babbler(speech, lengths)
-    """
-
-    def __init__(self, speaker_count=3, snr_low=0, snr_high=0, mix_prob=1):
-        super().__init__()
-        self.speaker_count = speaker_count
-        self.snr_low = snr_low
-        self.snr_high = snr_high
-        self.mix_prob = mix_prob
-
-    def forward(self, waveforms, lengths):
-        """
-        Arguments
-        ---------
-        waveforms : tensor
-            A batch of audio signals to process, with shape `[batch, time]` or
-            `[batch, time, channels]`.
-        lengths : tensor
-            The length of each audio in the batch, with shape `[batch]`.
-
-        Returns
-        -------
-        Tensor with processed waveforms.
-        """
-
-        babbled_waveform = waveforms.clone()
-        lengths = (lengths * waveforms.shape[1]).unsqueeze(1)
-        batch_size = len(waveforms)
-
-        # Don't mix (return early) 1-`mix_prob` portion of the batches
-        if torch.rand(1) > self.mix_prob:
-            return babbled_waveform
-
-        # Pick an SNR and use it to compute the mixture amplitude factors
-        clean_amplitude = compute_amplitude(waveforms, lengths)
-        SNR = torch.rand(batch_size, 1, device=waveforms.device)
-        SNR = SNR * (self.snr_high - self.snr_low) + self.snr_low
-        noise_amplitude_factor = 1 / (dB_to_amplitude(SNR) + 1)
-        new_noise_amplitude = noise_amplitude_factor * clean_amplitude
-
-        # Scale clean signal appropriately
-        babbled_waveform *= 1 - noise_amplitude_factor
-
-        # For each speaker in the mixture, roll and add
-        babble_waveform = waveforms.roll((1,), dims=0)
-        babble_len = lengths.roll((1,), dims=0)
-        for i in range(1, self.speaker_count):
-            babble_waveform += waveforms.roll((1 + i,), dims=0)
-            babble_len = torch.max(babble_len, babble_len.roll((1,), dims=0))
-
-        # Rescale and add to mixture
-        babble_amplitude = compute_amplitude(babble_waveform, babble_len)
-        babble_waveform *= new_noise_amplitude / (babble_amplitude + 1e-14)
-        babbled_waveform += babble_waveform
-
-        return babbled_waveform
-
-
 class DropFreq(torch.nn.Module):
     """This class drops a random frequency from the signal.
 
@@ -927,16 +831,13 @@ class DropFreq(torch.nn.Module):
     drop_freq_high : float
         The high end of frequencies that can be
         dropped, as a fraction of the sampling rate / 2.
-    drop_count_low : int
+    drop_freq_count_low : int
         The low end of number of frequencies that could be dropped.
-    drop_count_high : int
+    drop_freq_count_high : int
         The high end of number of frequencies that could be dropped.
-    drop_width : float
+    drop_freq_width : float
         The width of the frequency band to drop, as
         a fraction of the sampling_rate / 2.
-    drop_prob : float
-        The probability that the batch of signals will  have a frequency
-        dropped. By default, every batch has frequencies dropped.
 
     Example
     -------
@@ -950,18 +851,16 @@ class DropFreq(torch.nn.Module):
         self,
         drop_freq_low=1e-14,
         drop_freq_high=1,
-        drop_count_low=1,
-        drop_count_high=2,
-        drop_width=0.05,
-        drop_prob=1,
+        drop_freq_count_low=1,
+        drop_freq_count_high=3,
+        drop_freq_width=0.05,
     ):
         super().__init__()
         self.drop_freq_low = drop_freq_low
         self.drop_freq_high = drop_freq_high
-        self.drop_count_low = drop_count_low
-        self.drop_count_high = drop_count_high
-        self.drop_width = drop_width
-        self.drop_prob = drop_prob
+        self.drop_freq_count_low = drop_freq_count_low
+        self.drop_freq_count_high = drop_freq_count_high
+        self.drop_freq_width = drop_freq_width
 
     def forward(self, waveforms):
         """
@@ -977,8 +876,6 @@ class DropFreq(torch.nn.Module):
 
         # Don't drop (return early) 1-`drop_prob` portion of the batches
         dropped_waveform = waveforms.clone()
-        if torch.rand(1) > self.drop_prob:
-            return dropped_waveform
 
         # Add channels dimension
         if len(waveforms.shape) == 2:
@@ -986,7 +883,9 @@ class DropFreq(torch.nn.Module):
 
         # Pick number of frequencies to drop
         drop_count = torch.randint(
-            low=self.drop_count_low, high=self.drop_count_high + 1, size=(1,)
+            low=self.drop_freq_count_low,
+            high=self.drop_freq_count_high + 1,
+            size=(1,),
         )
 
         # Pick a frequency to drop
@@ -1006,7 +905,7 @@ class DropFreq(torch.nn.Module):
         # Subtract each frequency
         for frequency in drop_frequency:
             notch_kernel = notch_filter(
-                frequency, filter_length, self.drop_width
+                frequency, filter_length, self.drop_freq_width
             ).to(waveforms.device)
             drop_filter = convolve1d(drop_filter, notch_kernel, pad)
 
@@ -1055,10 +954,6 @@ class DropChunk(torch.nn.Module):
         The first index for which dropping will be allowed.
     drop_end : int
         The last index for which dropping will be allowed.
-    drop_prob : float
-        The probability that the batch of signals will
-        have a portion dropped. By default, every batch
-        has portions dropped.
     noise_factor : float
         The factor relative to average amplitude of an utterance
         to use for scaling the white noise inserted. 1 keeps
@@ -1081,10 +976,9 @@ class DropChunk(torch.nn.Module):
         drop_length_low=100,
         drop_length_high=1000,
         drop_count_low=1,
-        drop_count_high=10,
+        drop_count_high=3,
         drop_start=0,
         drop_end=None,
-        drop_prob=1,
         noise_factor=0.0,
     ):
         super().__init__()
@@ -1094,7 +988,6 @@ class DropChunk(torch.nn.Module):
         self.drop_count_high = drop_count_high
         self.drop_start = drop_start
         self.drop_end = drop_end
-        self.drop_prob = drop_prob
         self.noise_factor = noise_factor
 
         # Validate low < high
@@ -1131,10 +1024,6 @@ class DropChunk(torch.nn.Module):
         lengths = (lengths * waveforms.size(1)).long()
         batch_size = waveforms.size(0)
         dropped_waveform = waveforms.clone()
-
-        # Don't drop (return early) 1-`drop_prob` portion of the batches
-        if torch.rand(1) > self.drop_prob:
-            return dropped_waveform
 
         # Store original amplitude for computing white noise amplitude
         clean_amplitude = compute_amplitude(waveforms, lengths.unsqueeze(1))
@@ -1379,6 +1268,8 @@ class FastDropChunk(torch.nn.Module):
 
 class DoClip(torch.nn.Module):
     """This function mimics audio clipping by clamping the input tensor.
+    First, it normalizes the waveforms from -1 to -1. Then, clipping is applied.
+    Finally, the original amplitude is restored.
 
     Arguments
     ---------
@@ -1386,9 +1277,6 @@ class DoClip(torch.nn.Module):
         The low end of amplitudes for which to clip the signal.
     clip_high : float
         The high end of amplitudes for which to clip the signal.
-    clip_prob : float
-        The probability that the batch of signals will have a portion clipped.
-        By default, every batch has portions clipped.
 
     Example
     -------
@@ -1396,15 +1284,12 @@ class DoClip(torch.nn.Module):
     >>> clipper = DoClip(clip_low=0.01, clip_high=0.01)
     >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> clipped_signal = clipper(signal.unsqueeze(0))
-    >>> "%.2f" % clipped_signal.max()
-    '0.01'
     """
 
-    def __init__(self, clip_low=0.5, clip_high=1, clip_prob=1):
+    def __init__(self, clip_low=0.5, clip_high=0.5):
         super().__init__()
         self.clip_low = clip_low
         self.clip_high = clip_high
-        self.clip_prob = clip_prob
 
     def forward(self, waveforms):
         """
@@ -1418,22 +1303,30 @@ class DoClip(torch.nn.Module):
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
 
-        # Don't clip (return early) 1-`clip_prob` portion of the batches
-        if torch.rand(1) > self.clip_prob:
-            return waveforms.clone()
+        # Normalize the signal
+        abs_max, _ = torch.max(torch.abs(waveforms), dim=1, keepdim=True)
+        waveforms = waveforms / abs_max
 
         # Randomly select clip value
         clipping_range = self.clip_high - self.clip_low
-        clip_value = torch.rand(1)[0] * clipping_range + self.clip_low
+        clip_value = (
+            torch.rand(1, device=waveforms.device)[0] * clipping_range
+            + self.clip_low
+        )
 
         # Apply clipping
         clipped_waveform = waveforms.clamp(-clip_value, clip_value)
+
+        # Restore orignal amplitude
+        clipped_waveform = clipped_waveform * abs_max / clip_value
 
         return clipped_waveform
 
 
 class RandAmp(torch.nn.Module):
-    """This function multiples the signal by a random amplitude
+    """This function multiples the signal by a random amplitude. Firist, the
+    signal is normalized to have amplitude between -1 and 1. Then it is
+    multiplied with a random number.
 
     Arguments
     ---------
@@ -1466,6 +1359,10 @@ class RandAmp(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
+
+        # Normalize the signal
+        abs_max, _ = torch.max(torch.abs(waveforms), dim=1, keepdim=True)
+        waveforms = waveforms / abs_max
 
         # Pick a frequency to drop
         rand_range = self.amp_high - self.amp_low
@@ -1512,8 +1409,7 @@ class ChannelDrop(torch.nn.Module):
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
 
-        # Pick a frequency to drop
-        waveforms = waveforms.detach().clone()
+        # Pick a channel to drop
         x = torch.rand(waveforms.shape[-1], device=waveforms.device)
         channel_mask = x.ge(self.drop_rate)
         waveforms = waveforms * channel_mask.unsqueeze(0).unsqueeze(1)
@@ -1563,7 +1459,6 @@ class ChannelSwap(torch.nn.Module):
         """
 
         # Pick a frequency to drop
-        waveforms = waveforms.detach().clone()
         rand_perm1 = torch.randperm(waveforms.shape[-1])
         rand_perm2 = torch.randperm(waveforms.shape[-1])
         N_swaps = torch.randint(
@@ -1582,65 +1477,16 @@ class ChannelSwap(torch.nn.Module):
         return waveforms
 
 
-class RandomShift(torch.nn.Module):
-    """This function shifts the input tensor by a random amount. Depending
-    on the axis it can perform time pr channel shift.
-
-    Arguments
-    ---------
-    min_shift : int
-        The mininum channel shift.
-    max_shift : int
-        The maximum channel shift.
-    dim: int
-        The dimension to shift.
-
-    Example
-    -------
-    >>> signal = torch.rand(4, 256, 8)
-    >>> rand_shift =  RandomShift()
-    >>> output_signal = rand_shift(signal)
-    """
-
-    def __init__(self, min_shift=0, max_shift=0, dim=1):
-        super().__init__()
-        self.min_shift = min_shift
-        self.max_shift = max_shift
-        self.dim = dim
-
-        # Check arguments
-        if self.max_shift < self.min_shift:
-            raise ValueError("max_shift must be  >= min_shift")
-
-    def forward(self, waveforms):
-        """
-        Arguments
-        ---------
-        waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, time, channels]`.
-
-        Returns
-        -------
-        Tensor of shape `[batch, time]` or `[batch, time, channels]`
-        """
-
-        # Pick a frequency to drop
-        waveforms = waveforms.detach().clone()
-        N_shifts = torch.randint(
-            low=self.min_shift, high=self.max_shift + 1, size=(1,)
-        )
-        waveforms = torch.roll(waveforms, shifts=N_shifts.item(), dims=self.dim)
-        return waveforms
-
-
 class CutCat(torch.nn.Module):
     """This function combines segments (with equal length in time) of the time series contained in the batch.
     Proposed for EEG signals in https://doi.org/10.1016/j.neunet.2021.05.032.
 
     Arguments
     ---------
-    num_segments : int
+    min_num_segments : int
         The number of segments to combine.
+    max_num_segments : int
+        The maximum number of segments to combine. Default is 10.
 
     Example
     -------
@@ -1668,8 +1514,6 @@ class CutCat(torch.nn.Module):
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`
         """
-
-        waveforms = waveforms.detach().clone()
         if (
             waveforms.shape[0] > 1
         ):  # only if there are at least 2 examples in batch
@@ -1775,125 +1619,69 @@ def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     return pink_noise
 
 
-def muscolar_noise(
-    waveforms: torch.Tensor,
-    pink_alpha_low: float = 1.110,
-    pink_alpha_high: float = 1.432,
-    bb_offset_low: float = 3.072,
-    bb_offset_high: float = 5.686,
-    sample_rate: int = 250,
-) -> torch.Tensor:
-    """Creates a sequence of bio-inspired noise that resembles muscular artifacts
-    in EEG. The muscular noise is modeled as a combination of pink noise and a
-    broad-band colored component after 20Hz (modeled by a parabolic spectral
-    curve with negative concavity).
-
-    Arguments
-    ---------
-    waveforms : torch.Tensor
-        The original waveform. It is just used to infer the shape.
-    pink_alpha_low : float
-        The minimum value for the alpha spectral smoothing factor.
-    pink_alpha_high : float
-        The maximum value for the alpha spectral smoothing factor.
-    bb_offset_low:
-    sample_rate : float
-        The sample rate of the original signal.
-
-    Example
-    -------
-    >>> waveforms = torch.randn(4,257,10)
-    >>> noise = muscolar_noise(waveforms)
-    >>> noise.shape
-    torch.Size([4, 257, 10])
+class DropBitResolution(torch.nn.Module):
     """
-    # Sample parameters
-    def sample_params(low, high):
-        """It randomly samples the parameter that creates the spectral mask."""
-        vrange = high - low
-        var = (
-            torch.rand(waveforms.shape[0], device=waveforms.device) * vrange
-            + low
-        )
+    This class transforms a float32 tensor into a lower resolution one
+    (e.g., int16, int8, float16) and then converts it back to a float32.
+    This process loses information and can be used for data augmentation.
 
-        return var.unsqueeze(1)
+    Arguments:
+    ---------
+        target_dtype: str
+            One of "int16", "int8", "float16". If "random", the bit resolution
+            is randomly selected among the options listed above.
 
-    alpha = sample_params(pink_alpha_low, pink_alpha_high)
-    bb_offset = sample_params(bb_offset_low, bb_offset_high)
+    Example:
+        >>> dropper = DropBitResolution()
+        >>> signal = torch.rand(4, 16000)
+        >>> signal_dropped = dropper(signal)
+    """
 
-    def emg_spectral_mask(f, device="cpu"):
-        """It creates the spectral mask for the muscular noise.
-        The mask decays as 1/f^alpha in the first part of the spectrum
-        (pink noise-like). Then a colored noise is added with a parabolic
-        trajectory with negative concavity.
+    def __init__(self, target_dtype="random"):
+        super().__init__()
+
+        self.target_dtype = target_dtype
+        self.bit_depths = {
+            "int16": (16, torch.int16),
+            "int8": (8, torch.int8),
+            "float16": (16, torch.float16),
+        }
+
+        if (
+            self.target_dtype != "random"
+            and self.target_dtype not in self.bit_depths
+        ):
+            raise ValueError(
+                f"target_dtype must be one of {list(self.bit_depths.keys())}"
+            )
+
+    def forward(self, float32_tensor):
         """
-        stage_1_model_params = {
-            "a": alpha,
-            "b": torch.ones(size=alpha.shape, device=device) * 46.42,
-            "d": torch.ones(size=alpha.shape, device=device) * 8.01,
-        }
+        Arguments:
+        ---------
+            float32_tensor: torch.Tensor
+                Float32 tensor with shape `[batch, time]` or `[batch, time, channels]`.
 
-        stage_2_model_params = {
-            "b": torch.ones(size=alpha.shape, device=device) * 1.13,
-            "d": torch.ones(size=alpha.shape, device=device) * 2.02,
-            "e": bb_offset,
-        }
+        Returns:
+        ---------
+            torch.Tensor
+                Tensor of shape `[batch, time]` or `[batch, time, channels]` (Float32)
+        """
 
-        def stage1_model(f, a, b, d):
-            """Compute stage 1 decay"""
-            return b / ((f) ** a) + d
+        if self.target_dtype == "random":
+            random_key = random.choice(list(self.bit_depths.keys()))
+            bit, target_dtype = self.bit_depths[random_key]
+        else:
+            bit, target_dtype = self.bit_depths[self.target_dtype]
 
-        def stage2_model(f, b, d, e):
-            """Compute stage 2 decay"""
-            return -1 * (f) ** b + d * f + e
+        # Define a scale factor to map the float32 range to the target bit depth
+        if target_dtype != torch.float16:
+            scale_factor = (2 ** (bit - 1) - 1) / float32_tensor.abs().max()
+            quantized_tensor = (float32_tensor * scale_factor).to(target_dtype)
+        else:
+            quantized_tensor = float32_tensor.half()
+            scale_factor = 1
 
-        k = 20
-        return torch.clip(torch.sign(-f + k) + 1, -1, 1) * stage1_model(
-            f, **stage_1_model_params
-        ) + torch.clip(torch.sign(f - k) + 1, -1, 1) * stage2_model(
-            f, **stage_2_model_params
-        )
-
-    # Sampling white noise (flat spectrum)
-    white_noise = torch.randn_like(waveforms)
-
-    # Computing the fft of the input white noise
-    white_noise_fft = torch.fft.fft(white_noise, dim=1)
-
-    # preparing the spectral mask (1/f^alpha)
-    f = torch.linspace(
-        0,
-        sample_rate / 2,
-        int(white_noise.shape[1] / 2),
-        device=waveforms.device,
-    )
-
-    spectral_mask = emg_spectral_mask(f.unsqueeze(0), device=waveforms.device)
-    spectral_mask[:, 0] = spectral_mask[:, 1]
-
-    # Mask for the upper part of the spectrum (f > sample_rate/2)
-    spectral_mask = spectral_mask
-    spectral_mask_up = torch.flip(spectral_mask, dims=(1,))
-
-    # Managing odd/even sequences
-    if white_noise.shape[1] % 2:
-        mid_element = spectral_mask[
-            :, int(white_noise.shape[1] / 2) - 1
-        ].unsqueeze(1)
-        spectral_mask = torch.cat(
-            [spectral_mask, mid_element, spectral_mask_up], dim=1
-        )
-    else:
-        spectral_mask = torch.cat([spectral_mask, spectral_mask_up], dim=1)
-
-    # Managing multi-channel inputs
-    if len(white_noise.shape) == 3:
-        spectral_mask = spectral_mask.unsqueeze(2)
-
-    # Spectral masking
-    emg_noise_fft = white_noise_fft * spectral_mask
-
-    # Return to the time-domain
-    emg_noise = torch.fft.ifft(emg_noise_fft, dim=1).real
-
-    return emg_noise
+        # To dequantize and recover the original float32 values
+        dequantized_tensor = quantized_tensor.to(torch.float32) / scale_factor
+        return dequantized_tensor
