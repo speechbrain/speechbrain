@@ -359,14 +359,14 @@ class TransformerEncoderLayer(nn.Module):
                     in_channels=d_model,
                     out_channels=d_ffn,
                     kernel_size=ffn_cnn_kernel_size_list[0],
-                    padding="same",
+                    padding="causal",
                 ),
                 nn.ReLU(),
                 Conv1d(
                     in_channels=d_ffn,
                     out_channels=d_model,
                     kernel_size=ffn_cnn_kernel_size_list[1],
-                    padding="same",
+                    padding="causal",
                 ),
             )
 
