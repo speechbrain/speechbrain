@@ -515,7 +515,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_seq=torch.empty(self.n_bh, 0, device=self.device).long(),
             alived_log_probs=torch.empty(self.n_bh, 0, device=self.device),
             sequence_scores=torch.empty(self.n_bh, device=self.device)
-            .fill_(self.minus_inf)
+            .fill_(float("-inf"))
             .index_fill_(0, self.beam_offset, 0.0),
         )
 
@@ -852,8 +852,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         Returns
         -------
-        log_probs_clone : torch.Tensor
-            The log-probabilities of the current step output.
         scores : torch.Tensor
             The scores of the current step output.
         candidates : torch.Tensor
@@ -867,9 +865,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         """
         scores = alived_hyps.sequence_scores.unsqueeze(1).expand(-1, self.n_out)
         scores = scores + log_probs
-
-        # Keep the original value
-        log_probs_clone = log_probs.clone().reshape(self.batch_size, -1)
 
         # length normalization
         if self.length_normalization:
@@ -899,7 +894,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
         ).view(self.n_bh)
 
         return (
-            log_probs_clone,
             scores,
             candidates,
             predecessors,
@@ -1051,13 +1045,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     continue
                 hyp = alived_hyps.alived_seq[index, :]
                 log_probs = alived_hyps.alived_log_probs[index, :]
-                final_scores = scores[index]
+                final_scores = scores[index].clone()
                 eos_hyps_and_log_probs_scores[batch_id].append(
                     (hyp, log_probs, final_scores)
                 )
 
-        # Block the paths that have reached eos.
-        alived_hyps.sequence_scores.masked_fill_(is_eos, self.minus_inf)
+        return is_eos
 
     def _get_topk_prediction(self, eos_hyps_and_log_probs_scores):
         """This method sorts the scores and return corresponding hypothesis and log probs.
@@ -1189,6 +1182,9 @@ class S2SBeamSearcher(S2SBaseSearcher):
             inp_tokens, memory, enc_states, enc_lens, attn, log_probs,
         )
 
+        # Keep the original value
+        log_probs_clone = log_probs.clone().reshape(self.batch_size, -1)
+
         (log_probs, prev_attn_peak,) = self._max_attn_shift_step(
             attn, prev_attn_peak, log_probs,
         )
@@ -1197,14 +1193,13 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs, step, self.min_decode_steps,
         )
 
+        log_probs = self._eos_threshold_step(log_probs)
+
         (log_probs, scorer_memory,) = self._scorer_step(
             inp_tokens, scorer_memory, attn, log_probs,
         )
 
-        log_probs = self._eos_threshold_step(log_probs)
-
         (
-            log_probs_clone,
             scores,
             candidates,
             predecessors,
@@ -1222,9 +1217,12 @@ class S2SBeamSearcher(S2SBaseSearcher):
             log_probs_clone, inp_tokens, predecessors, candidates, alived_hyps,
         )
 
-        self._update_hyps_and_scores_if_eos_token(
+        is_eos = self._update_hyps_and_scores_if_eos_token(
             inp_tokens, alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
+
+        # Block the paths that have reached eos.
+        alived_hyps.sequence_scores.masked_fill_(is_eos, float("-inf"))
 
         return (
             alived_hyps,
