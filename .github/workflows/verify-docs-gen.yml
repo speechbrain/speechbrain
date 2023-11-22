@@ -20,6 +20,7 @@ jobs:
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install -r docs/docs-requirements.txt
+                  pip install k2==1.24.4.dev20231021+cpu.torch2.1.0 -f https://k2-fsa.github.io/k2/cpu.html
             - name: Generate docs
               run: |
                   cd docs
