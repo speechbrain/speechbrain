@@ -273,7 +273,7 @@ if __name__ == "__main__":
     hparams["pretrainer"].load_collected()
 
     # Download pretrained ASR model
-    from speechbrain.pretrained import EncoderDecoderASR
+    from speechbrain.inference.ASR import EncoderDecoderASR
 
     hparams["asr_model"] = EncoderDecoderASR.from_hparams(
         source=hparams["asr_model_source"],
