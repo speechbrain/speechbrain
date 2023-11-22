@@ -203,6 +203,7 @@ def check_yaml_vs_script(hparam_file, script_file):
         "ckpt_interval_minutes",
         "grad_accumulation_factor",
         "optimizer_step_limit",
+        "rescoring_lm_scale", # k2 lm weight
     ]
     unused_vars = list(
         set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)

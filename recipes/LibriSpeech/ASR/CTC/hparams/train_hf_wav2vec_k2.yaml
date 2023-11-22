@@ -87,7 +87,7 @@ number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending  # only ascending and descending are supported currently
-auto_mix_prec: False
+precision: fp32
 sample_rate: 16000
 
 # With data_parallel batch_size is split into N jobs
