@@ -1,6 +1,7 @@
 better-apidoc>=0.3.1
 ctc-segmentation>=1.7.0
 fairseq
+k2
 kenlm
 numba>=0.54.1
 pyctcdecode
