@@ -25,12 +25,14 @@ def test_get_lexicon(tmp_path, tmp_csv_file):
     # Define the inputs
     lang_dir = tmp_path
     csv_files = [tmp_csv_file]
-    extra_vocab_files = []  # This list is empty for simplicity in this test.
+    vocab_files = []  # This list is empty for simplicity in this test.
 
     # Call the function
-    from speechbrain.k2_integration.lexicon import get_lexicon
+    from speechbrain.k2_integration.lexicon import prepare_char_lexicon
 
-    get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=False)
+    prepare_char_lexicon(
+        lang_dir, vocab_files, csv_files, add_word_boundary=False
+    )
 
     # Read the output and assert its content
     with open(lang_dir / "lexicon.txt", "r") as f:
@@ -41,12 +43,14 @@ def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
     # Define the inputs
     lang_dir = tmp_path
     csv_files = [tmp_csv_file]
-    extra_vocab_files = []
+    vocab_files = []
 
     # Call the function with word boundaries
-    from speechbrain.k2_integration.lexicon import get_lexicon
+    from speechbrain.k2_integration.lexicon import prepare_char_lexicon
 
-    get_lexicon(lang_dir, csv_files, extra_vocab_files, add_word_boundary=True)
+    prepare_char_lexicon(
+        lang_dir, vocab_files, csv_files, add_word_boundary=True
+    )
 
     # Read the output and assert its content
     with open(lang_dir / "lexicon.txt", "r") as f:
@@ -307,7 +311,7 @@ def test_lexicon_loading_and_conversion():
         tmpdir_path = Path(tmpdir)
 
         # Create a small lexicon containing only two words.
-        lexicon_sample = """<UNK> <UNK>
+        lexicon_sample = """<UNK> <unk>
 hello h e l l o
 world w o r l d"""
         lexicon_file = tmpdir_path.joinpath("lexicon.txt")
@@ -326,27 +330,36 @@ world w o r l d"""
 
         # Assert instance types
         assert isinstance(lexicon.token_table, k2.SymbolTable)
+        assert isinstance(lexicon.word_table, k2.SymbolTable)
         assert isinstance(lexicon.L, k2.Fsa)
 
         # Test conversion from texts to token IDs
-        hello_tids = lexicon.texts2tids(["hello"])[0]
-        world_tids = lexicon.texts2tids(["world"])[0]
-        expected_tids = hello_tids + world_tids
-        assert lexicon.texts2tids(["hello world"])[0] == expected_tids
+        hello_tids = lexicon.word_table["hello"]
+        world_tids = lexicon.word_table["world"]
+        expected_tids = [hello_tids] + [world_tids]
+        assert lexicon.texts_to_word_ids(["hello world"])[0] == expected_tids
 
         # Test out-of-vocabulary words
         # Assuming that <UNK> exists in the tokens:
-        unk_tid = lexicon.token2idx["<UNK>"]
-        expected_oov_tids = hello_tids + [unk_tid]
-        assert lexicon.texts2tids(["hello universe"])[0] == expected_oov_tids
+        unk_tid = lexicon.word_table["<UNK>"]
+        hello_tids = lexicon.word_table["hello"]
+        expected_oov_tids = [hello_tids] + [unk_tid]
+        assert (
+            lexicon.texts_to_word_ids(["hello universe"])[0]
+            == expected_oov_tids
+        )
 
         # Test with sil_token as separator
         # Assuming that SIL exists in the tokens:
-        sil_tid = lexicon.token2idx["SIL"]
-        expected_sil_tids = hello_tids + [sil_tid] + world_tids
+        sil_tid = lexicon.token_table["SIL"]
+        hello_tids = lexicon.word_table["hello"]
+        world_tids = lexicon.word_table["world"]
+        expected_sil_tids = [hello_tids] + [sil_tid] + [world_tids]
         assert (
-            lexicon.texts2tids(
-                ["hello world"], add_sil_token_as_separator=True
+            lexicon.texts_to_word_ids(
+                ["hello world"],
+                add_sil_token_as_separator=True,
+                sil_token_id=sil_tid,
             )[0]
             == expected_sil_tids
         )
@@ -362,7 +375,7 @@ def test_ctc_k2_loss():
     # Create a temporary directory for lexicon and other files
     with TemporaryDirectory() as tmpdir:
         # Create a small lexicon containing only two words and write it to a file.
-        lexicon_sample = """<UNK> <UNK>
+        lexicon_sample = """<UNK> <unk>
 hello h e l l o
 world w o r l d"""
         lexicon_file_path = f"{tmpdir}/lexicon.txt"
@@ -380,16 +393,9 @@ world w o r l d"""
         lexicon = Lexicon(tmpdir)
 
         # Create a graph compiler
-        from speechbrain.k2_integration.graph_compiler import (
-            CtcTrainingGraphCompiler,
-        )
+        from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
 
-        graph_compiler = CtcTrainingGraphCompiler(
-            lexicon=lexicon,
-            device=log_probs.device,
-            G_path=None,  # use_HLG=False
-            rescoring_lm_path=None,  # decoding_method=1best
-        )
+        graph_compiler = CtcGraphCompiler(lexicon, device=log_probs.device,)
 
         # Create a random batch of texts
         texts = ["hello world", "world hello", "hello", "world"]

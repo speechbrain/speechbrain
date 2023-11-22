@@ -230,6 +230,7 @@ def _parse_order(line):
 def _ends_arpa(line):
     return line == "\\end\\"
 
+
 def arpa_to_fst(
     words_txt: Union[str, Path],
     in_arpa: Union[str, Path],

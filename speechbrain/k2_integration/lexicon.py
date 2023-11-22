@@ -175,17 +175,17 @@ class Lexicon(object):
     def texts_to_word_ids(
         self,
         texts: List[str],
-        add_sil_separator=False,
+        add_sil_token_as_separator=False,
         sil_token_id: Optional[int] = None,
         log_unknown_warning=True,
     ) -> List[List[int]]:
         word_ids = self._texts_to_ids(
             texts, log_unknown_warning, _mapper="word_table"
         )
-        if add_sil_separator:
+        if add_sil_token_as_separator:
             assert (
-                sil_token_id is None
-            ), "sil_token_id=None while add_sil_separator=True"
+                sil_token_id is not None
+            ), "sil_token_id=None while add_sil_token_as_separator=True"
             for i in range(len(word_ids)):
                 word_ids[i] = [
                     x for item in word_ids[i] for x in (item, sil_token_id)

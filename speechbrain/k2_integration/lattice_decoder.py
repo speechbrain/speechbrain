@@ -17,7 +17,6 @@ from collections import OrderedDict
 from . import k2  # import k2 from ./__init__.py
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.lm.arpa import arpa_to_fst
-from speechbrain.lm.train_kn_ngram import create_arpa_lm
 
 import torch
 import logging
@@ -28,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_decoding(
-    hparams, graphCompiler: graph_compiler.GraphCompiler, device="cpu"
+    hparams: Dict, graphCompiler: graph_compiler.GraphCompiler, device="cpu"
 ):
     """This function reads a config and creates the decoder for k2 graph
     compiler decoding.
@@ -69,20 +68,20 @@ def get_decoding(
         False if "caching" in hparams and hparams["caching"] is False else True
     )
 
+    lm_dir = Path(hparams["lm_dir"])
     if compose_HL_with_G or use_G_rescoring:
-        G_path = Path(hparams["lm_dir"]) / hparams["G_fst_output_name"]
+        G_path = lm_dir / (hparams["G_arpa"].replace("arpa", "fst.txt"))
         G_rescoring_path = (
-            (Path(hparams["lm_dir"]) / hparams["G_rescoring_fst_output_name"])
+            lm_dir / (hparams["G_rescoring_arpa"].replace("arpa", "fst.txt"))
             if use_G_rescoring
             else None
         )
-        lm_dir = Path(hparams["lm_dir"])
         if compose_HL_with_G:
             run_on_main(
                 arpa_to_fst,
                 kwargs={
                     "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                    "in_arpa": lm_dir / hparams["G_arpa_name"],
+                    "in_arpa": lm_dir / hparams["G_arpa"],
                     "out_fst": G_path,
                     "ngram_order": 3,  # by default use 3-gram for HLG's LM
                     "cache": caching,
@@ -93,7 +92,7 @@ def get_decoding(
                 arpa_to_fst,
                 kwargs={
                     "words_txt": Path(hparams["lang_dir"]) / "words.txt",
-                    "in_arpa": lm_dir / hparams["G_rescoring_arpa_name"],
+                    "in_arpa": lm_dir / hparams["G_rescoring_arpa"],
                     "out_fst": G_rescoring_path,
                     "ngram_order": 4,  # by default use 4-gram for rescoring LM
                     "cache": caching,

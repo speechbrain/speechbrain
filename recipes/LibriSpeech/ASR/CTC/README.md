@@ -79,7 +79,7 @@ Note: by default, `topk` is set to 20 as it gives a good trade-off between WER a
 | 08-12-23 | train_hf_whisper.yaml (small) | CTCBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.37 | 3.16 | 11.76 | 3.43 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
 | 08-12-23 | train_hf_whisper.yaml (small) | CTCPrefixBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.44 | 3.30 | 11.89 | 3.47 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
 | 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HL graph + test batch size = 1 | 960h | 1.84 | Not Avail. | 3.81 | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
-| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + test batch size = 1 | 960h | 1.95 | Not Avail. | 3.75 | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
+| 10-05-23 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + test batch size = 1 | 960h | 1.72 | Not Avail. | 3.46 | Not Avail. | Not Avail. | Not Avail. |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
 | 08-12-23 | train_hf_wav2vec.yaml | CTCBeamSearch + RNNLM Rescorer  + test batch size = 1 + topk = 100  | 960h | 1.69 | 26mins15 | 3.55 | 32min44s | Not Avail. | [Link](https://www.dropbox.com/sh/k4ixa211yp5b1tm/AAD85sgYw2CH7NKk_qKMO9Tja?dl=0) |  1x A100 40GB | 2xTesla V100 40GB |
 | 08-12-23 | train_hf_wav2vec.yaml | CTCBeamSearch + TransformerLM Rescorer + test batch size = 1 + topk = 100 | 960h | 1.57 | 26mins56s | 3.37 | 32min46 | Not Avail. | [Link](https://www.dropbox.com/sh/ijqalvre7mm08ng/AAD_hsN-8dBneUMMkELsOOxga?dl=0) |  1x A100 40GB | 2xTesla V100 32GB |
 
