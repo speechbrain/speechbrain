@@ -51,10 +51,14 @@ class ASR(sb.core.Brain):
 
         predictions, clean = self.compute_forward_enhance(batch, stage)
 
+        # Enhanced signal is to be fed into ASR
+        wavs = predictions[0]
+
         # Add augmentation if specified
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+                if self.hparams.do_augmentation:
+                    wavs = self.hparams.augmentation(wavs, wav_lens)
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -214,10 +218,14 @@ class ASR(sb.core.Brain):
             self.compute_objectives_enhance(predictions, clean)
             * self.hparams.sepformer_weight
         )
-        loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+        loss = (
+            self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+            * self.hparams.asr_weight
+        )
         loss = torch.add(enhance_loss, loss)
 
-        loss.backward()
+        if loss.requires_grad:
+            loss.backward()
 
         if self.check_gradients(loss):
             self.optimizer.step()
@@ -230,7 +238,15 @@ class ASR(sb.core.Brain):
         predictions, clean, outputs = self.compute_forward(batch, stage=stage)
 
         with torch.no_grad():
-            loss = self.compute_objectives(outputs, batch, stage=stage)
+            enhance_loss = (
+                self.compute_objectives_enhance(predictions, clean)
+                * self.hparams.sepformer_weight
+            )
+            loss = (
+                self.compute_objectives(outputs, batch, stage=stage)
+                * self.hparams.asr_weight
+            )
+            loss = torch.add(enhance_loss, loss)
 
         if stage != sb.Stage.TRAIN:
             self.pesq_metric.append(
@@ -278,7 +294,6 @@ class ASR(sb.core.Brain):
                     self.modules[model].train()
                     for p in self.modules[model].parameters():
                         p.requires_grad = True  # Model's weight will be updated
-                    print(model)
                 else:
                     self.modules[model].eval()
                     for p in self.modules[model].parameters():
@@ -336,7 +351,7 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
+            with open(self.hparams.test_wer_file, "w") as w:
                 self.wer_metric.write_stats(w)
 
     def add_speed_perturb(self, clean, targ_lens):
@@ -522,9 +537,14 @@ class ASR(sb.core.Brain):
                         )
 
                     # Write enhanced wavs for sanity check
-                    self.save_audio(
-                        snt_id[0], batch.noisy_sig, clean, predictions[0], batch
-                    )
+                    if self.hparams.save_audio:
+                        self.save_audio(
+                            snt_id[0],
+                            batch.noisy_sig,
+                            clean,
+                            predictions[0],
+                            batch,
+                        )
 
                     psq_mode = (
                         "wb"
@@ -755,7 +775,6 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -829,18 +848,15 @@ if __name__ == "__main__":
     asr_brain.use_freq_domain = use_freq_domain
 
     # Training
-    if hparams["test_only"] is False:
-        # Training
-        asr_brain.fit(
-            asr_brain.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["train_loader_kwargs"],
-            valid_loader_kwargs=hparams["valid_loader_kwargs"],
-        )
+    asr_brain.fit(
+        asr_brain.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["train_loader_kwargs"],
+        valid_loader_kwargs=hparams["valid_loader_kwargs"],
+    )
 
-    # Test
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    # Testing
     asr_brain.evaluate(
         test_data,
         min_key="WER",

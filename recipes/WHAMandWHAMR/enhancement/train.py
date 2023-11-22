@@ -628,10 +628,9 @@ if __name__ == "__main__":
     if hparams["dynamic_mixing"] and not os.path.exists(
         hparams["base_folder_dm"]
     ):
-        print(
+        raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
-        sys.exit(1)
 
     # Data preparation
     from prepare_data import prepare_wham_whamr_csv
@@ -760,15 +759,14 @@ if __name__ == "__main__":
     use_freq_domain = hparams.get("use_freq_domain", False)
     separator.use_freq_domain = use_freq_domain
 
-    if not hparams["test_only"]:
-        # Training
-        separator.fit(
-            separator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts_valid"],
-        )
+    # Training
+    separator.fit(
+        separator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts_valid"],
+    )
 
     # Eval
     separator.evaluate(test_data, max_key="pesq")

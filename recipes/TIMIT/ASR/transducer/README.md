@@ -15,8 +15,12 @@ pip install numba
 # How to run
 Update the path to the dataset in the yaml config file and run the following.
 ```
-python train.py hparams/train.yaml
+python train.py hparams/train.yaml --data_folde=your/data/folder/TIMIT --jit
 ```
+
+**Note on Compilation**:
+Enabling the just-in-time (JIT) compiler with --jit significantly improves code performance, resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
+This speed improvement is observed specifically when using the CRDNN model.
 
 # Results
 

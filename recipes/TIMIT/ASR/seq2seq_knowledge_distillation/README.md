@@ -32,8 +32,11 @@ Models training can be done in parallel using `train_teacher.py`.
 
 Example:
 ```
-python train_teacher.py hparams/teachers/tea0.yaml --data_folder /path-to/data_folder
+python train_teacher.py hparams/teachers/tea0.yaml --data_folder /path-to/data_folder --jit
 ```
+
+**Note on Compilation**:
+Enabling the just-in-time (JIT) compiler with --jit significantly improves code performance, resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
 
 #### 2. Run inference on all teacher models
 This part run inference on all teacher models and store them on disk using `save_teachers.py`. It is only required that you setup the `tea_models_dir` variable corresponding to the path to a txt file. The latter txt file needs to contain

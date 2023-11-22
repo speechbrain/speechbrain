@@ -25,12 +25,18 @@ pip install -r ../extra-requirements.txt
 
 To run it:
 
-```
+```shell
 python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath
 python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+
+```shell
+python train.py hparams/sepformer-aishell1mix2.yaml --data_folder /yourdatapath --test_only
+python train.py hparams/sepformer-aishell1mix3.yaml --data_folder /yourdatapath --test_only
+```
 
 # Aishell1Mix2/3
 * Your data folder should contain data_aishell (aishell1), resource_aishell (aishell1), wham_noise and aishell1mix, which can be created using the scripts at `https://github.com/huangzj421/Aishell1Mix`. Otherwise train.py will download and prepare data into your data path automatically.
@@ -71,8 +77,8 @@ The output folders with model checkpoints and logs is available [here](https://w
 
 You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
 
-```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
+```bash
+torchrun --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath
 ```
 You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 

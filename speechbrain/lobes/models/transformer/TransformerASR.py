@@ -187,7 +187,9 @@ class TransformerASR(TransformerInterface):
 
         src = self.custom_src_module(src)
         # add pos encoding to queries if are sinusoidal ones else
-        if self.attention_type == "RelPosMHAXL":
+        if self.attention_type == "hypermixing":
+            pos_embs_encoder = None
+        elif self.attention_type == "RelPosMHAXL":
             pos_embs_encoder = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)  # add the encodings here
@@ -202,13 +204,14 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
 
-        # Add positional encoding to the target before feeding the decoder.
         if self.attention_type == "RelPosMHAXL":
-            # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
-        elif self.positional_encoding_type == "fixed_abs_sine":
+        elif (
+            self.positional_encoding_type == "fixed_abs_sine"
+            or self.attention_type == "hypermixing"
+        ):
             tgt = tgt + self.positional_encoding(tgt)
             pos_embs_target = None
             pos_embs_encoder = None
@@ -275,12 +278,14 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
-            # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
-        elif self.positional_encoding_type == "fixed_abs_sine":
-            tgt = tgt + self.positional_encoding(tgt)
+        elif (
+            self.positional_encoding_type == "fixed_abs_sine"
+            or self.attention_type == "hypermixing"
+        ):
+            tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
             pos_embs_target = None
             pos_embs_encoder = None
 
@@ -315,9 +320,10 @@ class TransformerASR(TransformerInterface):
         )
 
         src = self.custom_src_module(src)
-        if self.attention_type == "RelPosMHAXL":
+        if self.attention_type == "hypermixing":
+            pos_embs_source = None
+        elif self.attention_type == "RelPosMHAXL":
             pos_embs_source = self.positional_encoding(src)
-
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)
             pos_embs_source = None

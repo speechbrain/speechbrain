@@ -5,7 +5,11 @@ reported in " Distilling Knowledge from Ensembles of Acoustic Models for Joint
 CTC-Attention End-to-End Speech Recognition", Yan Gao et al.
 
 To run this recipe, do the following:
-> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT
+> python experiment.py hyperparams.yaml --data_folder /path/to/TIMIT --jit
+
+Note on Compilation:
+Enabling the just-in-time (JIT) compiler with --jit significantly improves code performance,
+resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
 
 Authors
  * Yan Gao 2021
@@ -15,7 +19,7 @@ import os
 import sys
 import torch
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 
 
@@ -139,17 +143,18 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("CTC loss stats:\n")
-                self.ctc_metrics.write_stats(w)
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "CTC, seq2seq, and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+            if if_main_process():
+                with open(self.hparams.test_wer_file, "w") as w:
+                    w.write("CTC loss stats:\n")
+                    self.ctc_metrics.write_stats(w)
+                    w.write("\nseq2seq loss stats:\n")
+                    self.seq_metrics.write_stats(w)
+                    w.write("\nPER stats:\n")
+                    self.per_metrics.write_stats(w)
+                    print(
+                        "CTC, seq2seq, and PER stats written to file",
+                        self.hparams.test_wer_file,
+                    )
 
 
 def data_io_prep(hparams):

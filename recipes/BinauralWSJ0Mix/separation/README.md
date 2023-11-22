@@ -20,7 +20,13 @@ python train.py hparams/convtasnet-parallel.yaml
 The training data will be automatically created from the `wsj_root`, which is the root folder that contains
 Note that during training we print the negative SNR instead of SI-SNR because the scale-invariance property of SI-SNR makes it insensitive to power rescaling of the estimated signal, which may fail in preserving the ILD between the outputs.
 
-
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+```
+python train.py hparams/convtasnet-parallel.yaml
+                --data_folder yourpath/binaural-wsj0mix/2speakers
+                --wsj_root yourpath/to/wsj/
+                --test_only
+```
 # Binaural WSJ0-2mix and WSJ0-3mix dataset creation
 * The training data generation scripts can be found from [https://github.com/huangzj421/Binaural-WSJ0Mix](https://github.com/huangzj421/Binaural-WSJ0Mix). But the `train.py` also automatically downloads and generates the data. It puts the data under the path specified in `data_folder`.
 * The default command to run that automatically generate the data given wsj0 folder:`python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/wsj0-mix/wsj0`
@@ -63,8 +69,8 @@ The output folders with the checkpoints, logs, etc are available [here](https://
 
 You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
 
-```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
+```bash
+torchrun --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath
 ```
 You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 

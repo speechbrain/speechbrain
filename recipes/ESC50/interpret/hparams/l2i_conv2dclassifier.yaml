@@ -21,7 +21,6 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-test_only: False
 save_interpretations: False
 
 # Tensorboard logs
@@ -48,7 +47,6 @@ sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
 
-device: "cuda"
 
 # Feature parameters
 n_mels: 80

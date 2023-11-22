@@ -11,7 +11,7 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/augment_noise_CRDNN/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -145,9 +145,6 @@ output: !new:speechbrain.nnet.linear.Linear
     input_size: 128
     n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
     bias: False
-
-# log_softmax: !new:speechbrain.nnet.activations.Softmax
-#    apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
     use_torchaudio: True

@@ -21,7 +21,6 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-test_only: False
 
 # if true we save the nmf dictionary at the end of training
 save_nmfdictionary: False
@@ -46,8 +45,6 @@ number_of_epochs: 100
 batch_size: 2
 lr: 0.0002
 sample_rate: 44100
-
-device: "cpu"
 
 shuffle: True
 dataloader_options:
