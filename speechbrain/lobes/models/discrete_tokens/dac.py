@@ -891,7 +891,6 @@ class DAC(nn.Module):
     --------
     Creating a new DAC instance:
 
-    >>> python
     >>> dac = DAC()
     >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
     >>> tokens, embeddings = dac(audio_data)
