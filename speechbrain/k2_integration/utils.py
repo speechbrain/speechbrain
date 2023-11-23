@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 def lattice_path_to_textid(
     best_paths: k2.Fsa, return_ragged: bool = False
 ) -> Union[List[List[int]], k2.RaggedTensor]:
-    """Extract the texts (as word IDs) from the best-path FSAs.
+    """
+    Extract the texts (as word IDs) from the best-path FSAs.
 
     Arguments
     ---------
@@ -66,7 +67,8 @@ def lattice_path_to_textid(
 
 
 def lattice_paths_to_text(best_paths: k2.Fsa, word_table) -> List[str]:
-    """Convert the best path to a list of strings.
+    """
+    Convert the best path to a list of strings.
 
     Arguments
     ---------
@@ -76,8 +78,9 @@ def lattice_paths_to_text(best_paths: k2.Fsa, word_table) -> List[str]:
 
     Returns
     -------
-    A list of strings, each of which is the decoding result of the
-    corresponding utterance.
+    texts: List[str]
+        A list of strings, each of which is the decoding result of the
+        corresponding utterance.
     """
     hyps: List[List[int]] = lattice_path_to_textid(
         best_paths, return_ragged=False
@@ -89,7 +92,8 @@ def lattice_paths_to_text(best_paths: k2.Fsa, word_table) -> List[str]:
 
 
 def load_G(path: Union[str, Path], cache: bool = True) -> k2.Fsa:
-    """load a lm to be used in the decoding graph creation (or lm rescoring).
+    """
+    load a lm to be used in the decoding graph creation (or lm rescoring).
 
     Arguments
     ---------
@@ -101,7 +105,7 @@ def load_G(path: Union[str, Path], cache: bool = True) -> k2.Fsa:
 
     Returns
     -------
-    G:
+    G: k2.Fsa
         An FSA representing the LM.
     """
     path = str(path)
@@ -129,7 +133,8 @@ def load_G(path: Union[str, Path], cache: bool = True) -> k2.Fsa:
 
 
 def prepare_rescoring_G(G: k2.Fsa) -> k2.Fsa:
-    """Prepare a LM with the purpose of using it for LM rescoring.
+    """
+    Prepare a LM with the purpose of using it for LM rescoring.
     For instance, in the librispeech recipe this is a 4-gram LM (while a
     3gram LM is used for HLG construction).
 
@@ -141,7 +146,7 @@ def prepare_rescoring_G(G: k2.Fsa) -> k2.Fsa:
 
     Returns
     -------
-    G:
+    G: k2.Fsa
         An FSA representing the LM.
     """
     if "_properties" in G.__dict__:

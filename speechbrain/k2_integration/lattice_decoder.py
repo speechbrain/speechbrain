@@ -29,8 +29,9 @@ logger = logging.getLogger(__name__)
 def get_decoding(
     hparams: Dict, graphCompiler: graph_compiler.GraphCompiler, device="cpu"
 ):
-    """This function reads a config and creates the decoder for k2 graph
-    compiler decoding.
+    """
+    This function reads a config and creates the decoder for k2 graph compiler
+    decoding.
     There are the following cases:
         - HLG is compiled and LM rescoring is used. In that case,
           compose_HL_with_G and use_G_rescoring are both True and we will
@@ -57,6 +58,18 @@ def get_decoding(
         The graphCompiler (H)
     device : torch.device
         The device to use.
+
+    Returns
+    -------
+    Dict:
+        decoding_graph: k2.Fsa
+            A HL or HLG decoding graph.
+            Used with a nnet output and the function `get_lattice` to
+            obtain a decoding lattice `k2.Fsa`.
+        decoding_method: Callable[[k2.Fsa], k2.Fsa]
+            A function to call with a decoding lattice `k2.Fsa` (obtained
+            after nnet output intersect with a HL or HLG).
+            Retuns an FsaVec containing linear FSAs
     """
 
     compose_HL_with_G = hparams.get("compose_HL_with_G")
@@ -170,8 +183,8 @@ def get_lattice(
     ac_scale: float = 1.0,
     subsampling_factor: int = 1,
 ) -> k2.Fsa:
-    """Get the decoding lattice from a decoding graph and neural network output.
-
+    """
+    Get the decoding lattice from a decoding graph and neural network output.
 
     Arguments
     ---------
@@ -204,7 +217,8 @@ def get_lattice(
 
     Returns
     -------
-      An FsaVec containing the decoding result. It has axes [utt][state][arc].
+    lattice:
+        An FsaVec containing the decoding result. It has axes [utt][state][arc].
     """
 
     device = log_probs_nnet_output.device
@@ -238,7 +252,9 @@ def get_lattice(
 def one_best_decoding(
     lattice: k2.Fsa, use_double_scores: bool = True,
 ) -> k2.Fsa:
-    """Get the best path from a lattice.
+    """
+    Get the best path from a lattice.
+
     Arguments
     ---------
       lattice:
@@ -246,9 +262,11 @@ def one_best_decoding(
       use_double_scores:
         True to use double precision floating point in the computation.
         False to use single precision.
+
     Returns
     -------
-      An FsaVec containing linear paths.
+    best_path:
+        An FsaVec containing linear paths.
     """
     best_path = k2.shortest_path(lattice, use_double_scores=use_double_scores)
     return best_path
@@ -261,12 +279,14 @@ def rescore_with_whole_lattice(
     lm_scale_list: Optional[List[float]] = None,
     use_double_scores: bool = True,
 ) -> Union[k2.Fsa, Dict[str, k2.Fsa]]:
-    """Intersect the lattice with an n-gram LM and use shortest path to decode.
+    """
+    Intersect the lattice with an n-gram LM and use shortest path to decode.
     The input lattice is obtained by intersecting `HLG` with
     a DenseFsaVec, where the `G` in `HLG` is in general a 3-gram LM.
     The input `G_with_epsilon_loops` is usually a 4-gram LM. You can consider
     this function as a second pass decoding. In the first pass decoding, we
     use a small G, while we use a larger G in the second pass decoding.
+
     Arguments
     ---------
     lattice: k2.Fsa
@@ -283,12 +303,13 @@ def rescore_with_whole_lattice(
     use_double_scores: bool
         True to use double precision in the computation.
         False to use single precision.
+
     Returns
     -------
-    If `lm_scale_list` is None, return a new lattice which is the intersection
-    result of `lattice` and `G_with_epsilon_loops`.
-    Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
-    value is the decoding result (i.e., an FsaVec containing linear FSAs).
+        If `lm_scale_list` is None, return a new lattice which is the intersection
+        result of `lattice` and `G_with_epsilon_loops`.
+        Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
+        value is the decoding result (i.e., an FsaVec containing linear FSAs).
     """
     assert G_with_epsilon_loops.shape == (1, None, None)
     G_with_epsilon_loops = G_with_epsilon_loops.to(lattice.device)

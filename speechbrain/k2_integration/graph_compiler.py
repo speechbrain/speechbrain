@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class GraphCompiler(abc.ABC):
     """
-    This class is used to compile graphs for training and decoding.
+    This abstract class is used to compile graphs for training and decoding.
     """
 
     @abc.abstractproperty
@@ -50,9 +50,32 @@ class GraphCompiler(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def compile(self, texts: List[str], is_training: bool = True):
+    def compile(
+        self, texts: List[str], is_training: bool = True
+    ) -> Tuple[k2.Fsa, torch.Tensor]:
         """
         Compile the graph for the given texts.
+
+        Arguments
+        ---------
+        texts: List[str]
+            A list of strings. Each string contains a sentence for an utterance.
+            A sentence consists of spaces separated words. An example `texts`
+            looks like:
+
+                ['hello world', 'CTC training with k2']
+
+        is_training: bool
+            Indictating whether this is for training or not
+            (OOV warning in training).
+        Returns
+        -------
+        graph: GraphCompiler
+            An FsaVec, the composition result of `self.ctc_topo` and the
+            transcript FSA.
+        target_lens: Torch.tensor
+            It is an long tensor of shape (batch,). It contains lengths of
+            each target sequence.
         """
         pass
 
@@ -60,6 +83,19 @@ class GraphCompiler(abc.ABC):
         """
         Compile the decoding graph by composing H with L.
         This is for decoding without language model.
+
+        Arguments
+        ---------
+        cache_dir: str
+            The path to store the composition in a .pt format.
+        cache: bool
+            Whether or not to load the composition from the .pt format (in the
+            cache_dir dir).
+
+        Returns
+        -------
+        HL: k2.Fsa
+            The HL composition
         """
         logger.info("Arc sorting L")
         L = k2.arc_sort(self.lexicon.L).to("cpu")
@@ -99,7 +135,20 @@ class GraphCompiler(abc.ABC):
     ):
         """
         Compile the decoding graph by composing H with LG.
-        This is for decoding with language model.
+        This is for decoding with small language model.
+
+        Arguments
+        ---------
+        cache_dir: str
+            The path to store the composition in a .pt format.
+        cache: bool
+            Whether or not to load the composition from the .pt format (in the
+            cache_dir dir).
+
+        Returns
+        -------
+        HL: k2.Fsa
+            The HLG composition
         """
         logger.info("Arc sorting L")
         L = k2.arc_sort(self.lexicon.L_disambig).to("cpu")
@@ -161,7 +210,8 @@ class GraphCompiler(abc.ABC):
 
 
 class CtcGraphCompiler(GraphCompiler):
-    """This class is used to compile decoding graphs for CTC training.
+    """
+    This class is used to compile decoding graphs for CTC training.
 
     Arguments
     ---------
@@ -223,8 +273,8 @@ class CtcGraphCompiler(GraphCompiler):
     def compile(
         self, texts: List[str], is_training: bool = True
     ) -> Tuple[k2.Fsa, torch.Tensor]:
-        """Build decoding graphs by composing ctc_topo with
-        given transcripts.
+        """
+        Build decoding graphs by composing ctc_topo with given transcripts.
 
         Arguments
         ---------
@@ -233,10 +283,11 @@ class CtcGraphCompiler(GraphCompiler):
             A sentence consists of spaces separated words. An example `texts`
             looks like:
 
-                ['hello icefall', 'CTC training with k2']
+                ['hello world', 'CTC training with k2']
 
-        is_training : bool
-            If true, in training mode.
+        is_training: bool
+            Indictating whether this is for training or not
+            (OOV warning in training).
 
         Returns
         -------

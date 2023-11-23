@@ -479,7 +479,21 @@ def download_librispeech_lm_training_text(destination):
         Place to put dataset.
     """
     f = "librispeech-lm-norm.txt.gz"
-    download_link_and_extract(
+    download_file_and_extract(
+        OPEN_SLR_11_LINK + f, os.path.join(destination, f)
+    )
+
+
+def download_librispeech_vocab_text(destination):
+    """Download librispeech vocab file and unpack it.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put vocab file.
+    """
+    f = "librispeech-vocab.txt"
+    download_file(
         OPEN_SLR_11_LINK + f, os.path.join(destination, f)
     )
 
@@ -499,7 +513,7 @@ def download_openslr_librispeech_lm(destination, rescoring_lm=True):
         if f.startswith("4") and not rescoring_lm:
             continue
         d = os.path.join(destination, f)
-        download_link_and_extract(OPEN_SLR_11_LINK + f, d)
+        download_file_and_extract(OPEN_SLR_11_LINK + f, d)
 
 
 def download_sb_librispeech_lm(destination, rescoring_lm=True):
@@ -524,7 +538,7 @@ def download_sb_librispeech_lm(destination, rescoring_lm=True):
         )
 
 
-def download_link_and_extract(link, destination):
+def download_file_and_extract(link, destination):
     """Download link and unpack it.
 
     Arguments

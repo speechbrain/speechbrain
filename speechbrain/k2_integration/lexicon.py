@@ -40,7 +40,8 @@ DISAMBIG_PATTERN: re.Pattern = re.compile(
 
 
 class Lexicon(object):
-    """Unit based lexicon. It is used to map a list of words to each word's
+    """
+    Unit based lexicon. It is used to map a list of words to each word's
     sequence of tokens (characters). It also stores the lexicon graph which
     can be used by a graph compiler to decode sequences.
 
@@ -117,7 +118,8 @@ class Lexicon(object):
 
     @property
     def tokens(self) -> List[int]:
-        """Return a list of token IDs excluding those from
+        """
+        Return a list of token IDs excluding those from
         disambiguation symbols and epsilon.
         """
         symbols = self.token_table.symbols
@@ -130,7 +132,8 @@ class Lexicon(object):
 
     @property
     def L_disambig(self) -> k2.Fsa:
-        """Return the lexicon FSA (with disambiguation symbols).
+        """
+        Return the lexicon FSA (with disambiguation symbols).
         Needed for HLG construction.
         """
         if self._L_disambig is None:
@@ -153,7 +156,8 @@ class Lexicon(object):
         G.labels[G.labels >= self.word_table["#0"]] = 0
 
     def remove_LG_disambig_symbols(self, LG: k2.Fsa) -> k2.Fsa:
-        """Rmove the disambiguation symbols of an LG graph
+        """
+        Remove the disambiguation symbols of an LG graph
         Needed for HLG construction.
         """
 
@@ -179,6 +183,36 @@ class Lexicon(object):
         sil_token_id: Optional[int] = None,
         log_unknown_warning=True,
     ) -> List[List[int]]:
+        """
+        Convert a list of texts into word IDs.
+
+        This method performs the mapping of each word in the input texts to its corresponding ID.
+        The result is a list of lists, where each inner list contains the word IDs for a sentence.
+        If the `add_sil_token_as_separator` flag is True, a silence token is inserted between words,
+        and the `sil_token_id` parameter specifies the ID for the silence token.
+        If a word is not found in the vocabulary, a warning is logged if `log_unknown_warning` is True.
+
+        Arguments
+        ---------
+        texts: List[str]
+            A list of strings where each string represents a sentence.
+            Each sentence is composed of space-separated words.
+
+        add_sil_token_as_separator: bool
+            Flag indicating whether to add a silence token as a separator between words.
+
+        sil_token_id: Optional[int]
+            The ID of the silence token. If not provided, the separator is not added.
+
+        log_unknown_warning: bool
+            Flag indicating whether to log a warning for unknown words.
+
+        Returns
+        -------
+        word_ids: List[List[int]]
+            A list of lists where each inner list represents the word IDs for a sentence.
+            The word IDs are obtained based on the vocabulary mapping.
+        """
         word_ids = self._texts_to_ids(
             texts, log_unknown_warning, _mapper="word_table"
         )
@@ -195,6 +229,41 @@ class Lexicon(object):
     def texts_to_token_ids(
         self, texts: List[str], log_unknown_warning=True,
     ) -> List[List[List[int]]]:
+        """
+        Convert a list of text sentences into token IDs.
+
+        Parameters
+        ----------
+        texts: List[str]
+            A list of strings, where each string represents a sentence.
+            Each sentence consists of space-separated words.
+            Example:
+                ['hello world', 'tokenization with lexicon']
+
+        log_unknown_warning: bool
+            Flag indicating whether to log warnings for out-of-vocabulary tokens.
+            If True, warnings will be logged when encountering unknown tokens.
+
+        Returns
+        -------
+        token_ids: List[List[List[int]]]
+            A list containing token IDs for each sentence in the input.
+            The structure of the list is as follows:
+            [
+                [  # For the first sentence
+                    [token_id_1, token_id_2, ..., token_id_n],
+                    [token_id_1, token_id_2, ..., token_id_m],
+                    ...
+                ],
+                [  # For the second sentence
+                    [token_id_1, token_id_2, ..., token_id_p],
+                    [token_id_1, token_id_2, ..., token_id_q],
+                    ...
+                ],
+                ...
+            ]
+            Each innermost list represents the token IDs for a word in the sentence.
+        """
         return self._texts_to_ids(
             texts, log_unknown_warning, _mapper="word2tokenids"
         )
@@ -202,6 +271,31 @@ class Lexicon(object):
     def texts_to_token_ids_with_multiple_pronunciation(
         self, texts: List[str], log_unknown_warning=True,
     ) -> List[List[List[List[int]]]]:
+        """
+        Convert a list of input texts to token IDs with multiple pronunciation variants.
+
+        This method converts input texts into token IDs, considering multiple pronunciation variants.
+        The resulting structure allows for handling various pronunciations of words within the given texts.
+
+        Arguments
+        ---------
+        texts: List[str]
+            A list of strings, where each string represents a sentence for an utterance.
+            Each sentence consists of space-separated words.
+
+        log_unknown_warning: bool
+            Indicates whether to log warnings for out-of-vocabulary (OOV) tokens.
+            If set to True, warnings will be logged for OOV tokens during the conversion.
+
+        Returns
+        -------
+        token_ids: List[List[List[List[int]]]]
+            A nested list structure containing token IDs for each utterance. The structure is as follows:
+            - Outer List: Represents different utterances.
+            - Middle List: Represents different pronunciation variants for each utterance.
+            - Inner List: Represents the sequence of token IDs for each pronunciation variant.
+            - Innermost List: Represents the token IDs for each word in the sequence.
+        """
         return self._texts_to_ids(
             texts,
             log_unknown_warning,
@@ -216,27 +310,32 @@ class Lexicon(object):
         _mapper: str,
         _multiple_pronunciation=False,
     ):
-        """Convert a list of texts to a list of ID, them be word or list of token IDs.
+        """
+        Convert a list of texts to a list of IDs, which can be either word IDs or
+        a list of token IDs.
 
         Arguments
         ---------
         texts: List[str]
-            It is a list of strings. Each string consists of space(s)
-            separated words. An example containing two strings is given below:
+            A list of strings where each string consists of space-separated words.
+            Example:
+                ['hello world', 'tokenization with lexicon']
 
-                ['HELLO ICEFALL', 'HELLO k2']
         log_unknown_warning: bool
-            Log if word not found in token to ids
+            Log a warning if a word is not found in the token-to-IDs mapping.
+
         _mapper: str
-            The mapper to use word_table ("TEST" -> 176838) or word2tokenids ("TEST" -> [23, 8, 22, 23])
+            The mapper to use, either "word_table" (e.g., "TEST" -> 176838) or
+            "word2tokenids" (e.g., "TEST" -> [23, 8, 22, 23]).
+
         _multiple_pronunciation: bool
-            Allow returning all pronunciation of a word from the lexicon
-            If False, only return the first pronunciation
+            Allow returning all pronunciations of a word from the lexicon.
+            If False, only return the first pronunciation.
 
         Returns
         -------
-        ids_list:
-            Return a list-of-list of word IDs or list of token IDs.
+        ids_list: List[List[int] or int]
+            Returns a list-of-list of word IDs or a list of token IDs.
         """
         oov_token_id = self.word_table[UNK]
         if _mapper == "word2tokenids":
@@ -268,14 +367,17 @@ class Lexicon(object):
         return ids_list
 
     def arc_sort(self):
-        """Sort L, L_inv, L_disambig arcs of every state."""
+        """
+        Sort L, L_inv, L_disambig arcs of every state.
+        """
         self.L = k2.arc_sort(self.L)
         self.L_inv = k2.arc_sort(self.L_inv)
         if self._L_disambig is not None:
             self._L_disambig = k2.arc_sort(self._L_disambig)
 
     def to(self, device: str = "cpu"):
-        """Device to move L L_inv L_disambig to
+        """
+        Device to move L, L_inv and L_disambig to
 
         Arguments
         ---------
@@ -295,7 +397,8 @@ def prepare_char_lexicon(
     column_text_key="wrd",
     add_word_boundary=True,
 ):
-    """Read extra_csv_files to generate a $lang_dir/lexicon.txt for k2 training.
+    """
+    Read extra_csv_files to generate a $lang_dir/lexicon.txt for k2 training.
     This usually includes the csv files of the training set and the dev set in the
     output_folder. During training, we need to make sure that the lexicon.txt contains
     all (or the majority of) the words in the training set and the dev set.
@@ -391,7 +494,8 @@ def prepare_char_lexicon(
 
 
 def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
-    """Read a lexicon from `filename`.
+    """
+    Read a lexicon from `filename`.
 
     Each line in the lexicon contains "word p1 p2 p3 ...".
     That is, the first field is a word and the remaining
@@ -434,7 +538,8 @@ def read_lexicon(filename: str) -> List[Tuple[str, List[str]]]:
 def write_lexicon(
     filename: Union[str, Path], lexicon: List[Tuple[str, List[str]]]
 ) -> None:
-    """Write a lexicon to a file.
+    """
+    Write a lexicon to a file.
 
     Arguments
     ---------

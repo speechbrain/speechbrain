@@ -408,6 +408,11 @@ if __name__ == "__main__":
         },
     )
 
+    run_on_main(
+        librispeech_prepare.download_librispeech_vocab_text,
+        kwargs={"destination": hparams["data_folder"]},
+    )
+
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams)
 

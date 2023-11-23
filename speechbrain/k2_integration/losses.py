@@ -22,7 +22,8 @@ def ctc_k2(
     use_double_scores=True,
     is_training=True,
 ):
-    """CTC loss implemented with k2. Make sure that k2 has been installed properly.
+    """
+    CTC loss implemented with k2. Make sure that k2 has been installed properly.
     Note that the blank index must be 0 in this implementation.
 
     Arguments

@@ -27,7 +27,8 @@ Lexicon = List[Tuple[str, List[str]]]
 
 
 def write_mapping(filename: Union[str, Path], sym2id: Dict[str, int]) -> None:
-    """Write a symbol to ID mapping to a file.
+    """
+    Write a symbol to ID mapping to a file.
 
     NOTE: No need to implement `read_mapping` as it can be done through
       :func:`k2.SymbolTable.from_file`.
@@ -47,7 +48,8 @@ def write_mapping(filename: Union[str, Path], sym2id: Dict[str, int]) -> None:
 def get_tokens(
     lexicon: Lexicon, sil_token="SIL", manually_add_sil_to_tokens=False
 ) -> List[str]:
-    """Get tokens from a lexicon.
+    """
+    Get tokens from a lexicon.
 
     Arguments
     ---------
@@ -75,7 +77,8 @@ def get_tokens(
 
 
 def get_words(lexicon: Lexicon) -> List[str]:
-    """Get words from a lexicon.
+    """
+    Get words from a lexicon.
 
     Arguments
     ---------
@@ -95,7 +98,8 @@ def get_words(lexicon: Lexicon) -> List[str]:
 
 
 def add_disambig_symbols(lexicon: Lexicon) -> Tuple[Lexicon, int]:
-    """It adds pseudo-token disambiguation symbols #1, #2 and so on
+    """
+    It adds pseudo-token disambiguation symbols #1, #2 and so on
     at the ends of tokens to ensure that all pronunciations are different,
     and that none is a prefix of another.
 
@@ -165,7 +169,8 @@ def add_disambig_symbols(lexicon: Lexicon) -> Tuple[Lexicon, int]:
 
 
 def generate_id_map(symbols: List[str]) -> Dict[str, int]:
-    """Generate ID maps, i.e., map a symbol to a unique ID.
+    """
+    Generate ID maps, i.e., map a symbol to a unique ID.
 
     Arguments
     ---------
@@ -182,7 +187,8 @@ def generate_id_map(symbols: List[str]) -> Dict[str, int]:
 def add_self_loops(
     arcs: List[List[Any]], disambig_token: int, disambig_word: int
 ) -> List[List[Any]]:
-    """Adds self-loops to states of an FST to propagate disambiguation symbols
+    """
+    Adds self-loops to states of an FST to propagate disambiguation symbols
     through it. They are added on each state with non-epsilon output symbols
     on at least one arc out of the state.
 
@@ -229,8 +235,9 @@ def lexicon_to_fst(
     sil_prob: float = 0.5,
     need_self_loops: bool = False,
 ) -> k2.Fsa:
-    """Convert a lexicon to an FST (in k2 format) with optional silence at
-    the beginning and end of each word.
+    """
+    Convert a lexicon to an FST (in k2 format) with optional silence at the
+    beginning and end of each word.
 
     Arguments
     ---------
@@ -252,8 +259,8 @@ def lexicon_to_fst(
 
     Returns
     -------
-    fsa:
-        An instance of `k2.Fsa` representing the given lexicon.
+    fsa: k2.Fsa
+        An FSA representing the given lexicon.
     """
     assert sil_prob > 0.0 and sil_prob < 1.0
     # CAUTION: we use score, i.e, negative cost.
@@ -326,7 +333,8 @@ def lexicon_to_fst_no_sil(
     word2id: Dict[str, int],
     need_self_loops: bool = False,
 ) -> k2.Fsa:
-    """Convert a lexicon to an FST (in k2 format).
+    """
+    Convert a lexicon to an FST (in k2 format).
 
     Arguments
     ---------
@@ -343,8 +351,8 @@ def lexicon_to_fst_no_sil(
 
     Returns
     -------
-    fsa:
-        An instance of `k2.Fsa` representing the given lexicon.
+    fsa: k2.Fsa
+        An FSA representing the given lexicon.
     """
     loop_state = 0  # words enter and leave from here
     next_state = 1  # the next un-allocated state, will be incremented as we go
