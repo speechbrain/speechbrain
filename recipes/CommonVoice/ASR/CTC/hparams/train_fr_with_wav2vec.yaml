@@ -87,6 +87,7 @@ prune_history: True
 topk: 1
 alpha: 1.0
 beta: 0.5
+space_token: "▁"
 # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
 # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
 # If you don't want to use an LM, comment it out or set it to null
