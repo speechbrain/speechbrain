@@ -353,6 +353,7 @@ if __name__ == "__main__":
         prune_history=hparams["prune_history"],
         topk=hparams["topk"],
         kenlm_model_path=hparams.get("kenlm_model_path"),
+        space_token="▁",
     )
 
     # Training
