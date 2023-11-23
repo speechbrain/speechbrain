@@ -58,7 +58,6 @@ class ASR(sb.Brain):
                     tokens_with_bos
                 )
 
-        # Forward pass
         feats = self.hparams.compute_features(wavs)
 
         # Add feature augmentation if specified.
