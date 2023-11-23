@@ -12,6 +12,7 @@ Author
 import math
 from pathlib import Path
 from typing import List, Union
+import logging
 
 import numpy as np
 import torch
@@ -19,6 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 
+logger = logging.getLogger(__name__)
 
 SUPPORTED_VERSIONS = ["1.0.0"]
 
@@ -151,7 +153,7 @@ def download(
         tag = __MODEL_LATEST_TAGS__[(model_type, model_bitrate)]
 
     download_link = __MODEL_URLS__.get((model_type, tag, model_bitrate), None)
-    print(f"Download link: {download_link}")
+    logger.info(f"Download link: {download_link}")
 
     if download_link is None:
         raise ValueError(
@@ -211,7 +213,7 @@ def snake(x, alpha):
 
 class VectorQuantize(nn.Module):
     """
-    An implementation for Vector Quamtization
+    An implementation for Vector Quantization
     """
 
     def __init__(self, input_dim: int, codebook_size: int, codebook_dim: int):
@@ -889,25 +891,18 @@ class DAC(nn.Module):
     --------
     Creating a new DAC instance:
 
-    ```python
-        dac = DAC()
+    >>> python
+    >>> dac = DAC()
+    >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
+    >>> tokens, embeddings = dac(audio_data)
 
-        # Example audio data (replace with actual data)
-        audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
-        audio_data = dac.preprocess(audio_data)
-        tokens, embeddings = dac(audio_data)
-    ```
 
     Loading a pretrained DAC instance:
 
-    ```python
-        dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
+    >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
+    >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
+    >>> tokens, embeddings = dac(audio_data)
 
-        # Example audio data (replace with actual data)
-        audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
-        audio_data = dac.preprocess(audio_data)
-        tokens, embeddings = dac(audio_data)
-    ```
     """
 
     def __init__(
@@ -969,7 +964,7 @@ class DAC(nn.Module):
                 load_path = download(
                     model_type=model_type, model_bitrate=model_bitrate, tag=tag
                 )
-                print(f"Obtained load path as: {load_path}")
+                logger.info(f"Obtained load path as: {load_path}")
             model_dict = torch.load(load_path, "cpu")
             metadata = model_dict["metadata"]
             for key, value in metadata["kwargs"].items():
@@ -996,30 +991,6 @@ class DAC(nn.Module):
         if load_pretrained:
             self.load_state_dict(model_dict["state_dict"], strict=strict)
             self.metadata = metadata
-
-    def preprocess(self, audio_data: torch.Tensor, sample_rate: int):
-        """
-
-        Parameters
-        ----------
-        audio_data : torch.Tensor
-        sample_rate : int
-
-        Returns
-        -------
-        torch.Tensor
-        """
-        if sample_rate is None:
-            sample_rate = self.sample_rate
-        assert sample_rate == self.sample_rate
-
-        length = audio_data.shape[-1]
-        right_pad = (
-            math.ceil(length / self.hop_length) * self.hop_length - length
-        )
-        audio_data = nn.functional.pad(audio_data, (0, right_pad))
-
-        return audio_data
 
     def encode(
         self, audio_data: torch.Tensor, n_quantizers: int = None,
@@ -1103,6 +1074,12 @@ class DAC(nn.Module):
         "embeddings" : Tensor[B x D x T]
             Quantized continuous representation of input
         """
-        audio_data = self.preprocess(audio_data, sample_rate)
+        # Preprocess the audio data to have the right padded lengths
+        length = audio_data.shape[-1]
+        right_pad = (
+            math.ceil(length / self.hop_length) * self.hop_length - length
+        )
+        audio_data = nn.functional.pad(audio_data, (0, right_pad))
+
         z, codes, _, _, _ = self.encode(audio_data, n_quantizers)
         return codes, z
