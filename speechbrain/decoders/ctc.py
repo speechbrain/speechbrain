@@ -14,6 +14,7 @@ import numpy as np
 import heapq
 import logging
 import torch
+import warnings
 from typing import Dict, List, Optional, Union, Any, Tuple
 
 logger = logging.getLogger(__name__)
@@ -647,9 +648,15 @@ class CTCBaseSearcher(torch.nn.Module):
         self.topk = topk
         self.spm_token = spm_token
 
-        # check if the vocab is coming from SentencePiece
-        self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
-
+        # in the case of using SentencePiece to build char vocab,
+        # we need to explicitly force the is_spm to be False as only
+        # the space_token will have the prefix/value "▁"
+        if self.space_token == self.spm_token:
+            self.is_spm = False
+        else:
+            # check if the vocab is coming from SentencePiece
+            self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
+        
         # fetch the index of space_token
         if not self.is_spm:
             try:
@@ -956,7 +963,7 @@ class CTCBaseSearcher(torch.nn.Module):
         """
         # check that the last dimension of log_probs is equal to the vocab size
         if log_probs.size(2) != len(self.vocab_list):
-            logger.warning(
+            warnings.warn(
                 f"Vocab size mismatch: log_probs vocab dim is {log_probs.size(2)} "
                 f"while vocab_list is {len(self.vocab_list)}. "
                 "During decoding, going to truncate the log_probs vocab dim to match vocab_list."
@@ -1332,7 +1339,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
             log_probs, start=processed_frames
         ):
             # skip the frame if the blank probability is higher than the threshold
-            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+            if logit_col[self.blank_index] > self.blank_skip_threshold:
                 continue
 
             # get the tokens with the highest probability
@@ -1823,7 +1830,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             log_probs, start=processed_frames
         ):
             # skip the frame if the blank probability is higher than the threshold
-            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+            if logit_col[self.blank_index] > self.blank_skip_threshold:
                 continue
 
             # get the tokens with the highest probability
