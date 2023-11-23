@@ -344,7 +344,7 @@ if __name__ == "__main__":
 
     from speechbrain.decoders.ctc import CTCBeamSearcher
 
-    test_searcher = CTCBeamSearcher(**hparams["test_beam_search"],)
+    test_searcher = CTCBeamSearcher(**hparams["test_beam_search"])
 
     # Training
     asr_brain.fit(
