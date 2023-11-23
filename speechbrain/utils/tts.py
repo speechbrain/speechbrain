@@ -107,7 +107,10 @@ class TTSProgressReport:
             try:
                 fig, ax = plt.subplots(figsize=(8, 2))
                 ax.imshow(
-                    item_alignment.detach().cpu(),
+                    item_alignment
+                    .transpose(-1, -2)
+                    .detach()
+                    .cpu(),
                     origin="lower",
                 )
                 ax.set_title(f"{item_id} Alignment")

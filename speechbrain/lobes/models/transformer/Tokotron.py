@@ -355,7 +355,7 @@ class TokotronDecoder(nn.Module):
                 # Compute the gate activation (final sigmoid)
                 step_gate_act = step_gate_out.sigmoid() > self.gate_threshold
 
-                # Update the gat eactivation index as follows
+                # Update the gate activation index as follows
                 #
                 # - If the gate has already activated in a previous step, leave the index as is
                 # - Otherwise:
@@ -425,7 +425,7 @@ class TokotronModel(nn.Module):
         The number of decoder layers in the decoder.
     dropout : int, optional
         The dropout value.
-    target_dropout : int, optional
+    target_dropout : float, optional
         The dropout probability for targets
     activation : torch.nn.Module, optional
         The activation function for Feed-Forward Netowrk layer,
@@ -473,6 +473,7 @@ class TokotronModel(nn.Module):
             attention_type=attention_type,
             dropout=dropout,
             activation=activation,
+            normalize_before=True,
         )
         self.decoder = TokotronDecoder(
             num_tokens=audio_num_tokens,
