@@ -493,9 +493,7 @@ def download_librispeech_vocab_text(destination):
         Place to put vocab file.
     """
     f = "librispeech-vocab.txt"
-    download_file(
-        OPEN_SLR_11_LINK + f, os.path.join(destination, f)
-    )
+    download_file(OPEN_SLR_11_LINK + f, os.path.join(destination, f))
 
 
 def download_openslr_librispeech_lm(destination, rescoring_lm=True):
