@@ -648,15 +648,9 @@ class CTCBaseSearcher(torch.nn.Module):
         self.topk = topk
         self.spm_token = spm_token
 
-        # in the case of using SentencePiece to build char vocab,
-        # we need to explicitly force the is_spm to be False as only
-        # the space_token will have the prefix/value "▁"
-        if self.space_token == self.spm_token:
-            self.is_spm = False
-        else:
-            # check if the vocab is coming from SentencePiece
-            self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
-        
+        # check if the vocab is coming from SentencePiece
+        self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
+
         # fetch the index of space_token
         if not self.is_spm:
             try:
