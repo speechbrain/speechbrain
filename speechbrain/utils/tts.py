@@ -136,8 +136,9 @@ class TTSProgressReport:
             probabilities
         """
         p_eos, length = [x.detach().cpu() for x in [p_eos, length]]
-        max_len = length.max().item()
-        for item_id, item_length, item_p_eos in zip(ids, length, p_eos):
+        max_len = p_eos.size(1)
+        length_abs = length * max_len
+        for item_id, item_length, item_p_eos in zip(ids, length_abs, p_eos):
             fig, ax = plt.subplots(figsize=(8, 2))
             try:
                 ax.set_title(f"{item_id} Gate")
@@ -147,7 +148,7 @@ class TTSProgressReport:
                 x = [item_length, item_length]
                 y = [0., 1.]
                 ax.plot(x, y, color="blue", marker="o", label="Ground Truth")
-                x = [0., max_len]
+                x = [0., max_len - 1]
                 y = [self.eos_threshold, self.eos_threshold]
                 ax.plot(x, y, color="red", marker="x", label="Threshold")
                 ax.legend()
