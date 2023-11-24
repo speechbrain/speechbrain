@@ -1259,51 +1259,32 @@ class Brain:
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
                     break
+                
+                if self.checkpointer is not None:
+                    # Check if we've run for the requested amount of time
+                    elapsed_minutes = (time.time() - last_ckpt_time) / 60.0
+                    decision = 0 < self.ckpt_interval_minutes < elapsed_minutes
 
-                if self._should_save_intra_epoch_ckpt(
-                    last_ckpt_time, steps_since_ckpt
-                ):
-                    # Checkpointer class will handle running this on main only
-                    self._save_intra_epoch_ckpt()
-                    last_ckpt_time = time.time()
-                    steps_since_ckpt = 0
+                    # Save after requested # of steps
+                    decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
+                    
+                    if decision:
+                        # This should not use run_on_main, because that
+                        # includes a DDP barrier. That eventually leads to a
+                        # crash when the processes'
+                        # time.time() - last_ckpt_time differ and some
+                        # processes enter this block while others don't,
+                        # missing the barrier.
+                        if sb.utils.distributed.if_main_process():
+                            self._save_intra_epoch_ckpt()
+                        last_ckpt_time = time.time()
+                        steps_since_ckpt = 0
 
         # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
-
-    def _should_save_intra_epoch_ckpt(self, last_ckpt_time, steps_since_ckpt):
-        """Determines if an intra-epoch checkpoint should be saved.
-
-        Returns True if there's a checkpointer and time or steps has exceeded limit.
-        """
-        if self.checkpointer is None:
-            return False
-
-        # Return early if mid-epoch checkpoints are disabled to avoid sync
-        if self.ckpt_interval_minutes <= 0 and self.ckpt_interval_steps <= 0:
-            return False
-
-        # Check if we've run for the requested amount of time
-        elapsed_minutes = (time.time() - last_ckpt_time) / 60.0
-        decision = 0 < self.ckpt_interval_minutes < elapsed_minutes
-
-        # Save after requested # of steps
-        decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
-
-        # If the program is not distributed, just return
-        if not torch.distributed.is_initialized():
-            return decision
-
-        # Otherwise, broadcast decision to all processes from main (rank 0)
-        # This solves synchronization issues where main gets a different
-        # timing result than the other processes.
-        else:
-            broadcast_list = [decision]
-            torch.distributed.broadcast_object_list(broadcast_list, src=0)
-            return broadcast_list[0]
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage
