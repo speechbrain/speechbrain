@@ -649,7 +649,9 @@ class CTCBaseSearcher(torch.nn.Module):
         self.spm_token = spm_token
 
         # check if the vocab is coming from SentencePiece
-        self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
+        self.is_spm = any(
+            [str(s).startswith(self.spm_token) for s in vocab_list]
+        )
 
         # fetch the index of space_token
         if not self.is_spm:
