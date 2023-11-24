@@ -56,7 +56,7 @@ class Lexicon(object):
 
     Example
     -------
-    >>> import k2
+    >>> from speechbrain.k2_integration import k2
     >>> from speechbrain.k2_integration.lexicon import Lexicon
     >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
     >>> from speechbrain.k2_integration.prepare_lang import prepare_lang

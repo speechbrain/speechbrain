@@ -70,6 +70,47 @@ def get_decoding(
             A function to call with a decoding lattice `k2.Fsa` (obtained
             after nnet output intersect with a HL or HLG).
             Retuns an FsaVec containing linear FSAs
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.k2_integration.losses import ctc_k2
+    >>> from speechbrain.k2_integration.utils import lattice_paths_to_text
+    >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.k2_integration.lexicon import Lexicon
+    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
+    >>> from speechbrain.k2_integration.lattice_decoder import get_decoding
+    >>> from speechbrain.k2_integration.lattice_decoder import get_lattice
+
+    >>> batch_size = 1
+
+    >>> log_probs = torch.randn(batch_size, 40, 10)
+    >>> log_probs.requires_grad = True
+    >>> # Assume all utterances have the same length so no padding was needed.
+    >>> input_lens = torch.ones(batch_size)
+    >>> # Create a samll lexicon containing only two words and write it to a file.
+    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
+    >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
+    >>> lexicon_file.write(lexicon_sample)
+    >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
+    >>> prepare_lang(lang_tmpdir)
+    >>> # Create a lexicon object
+    >>> lexicon = Lexicon(lang_tmpdir)
+    >>> # Create a random decoding graph
+    >>> graph = CtcGraphCompiler(
+    ...     lexicon,
+    ...     log_probs.device,
+    ... )
+
+    >>> decode = get_decoding(
+    ...     {"compose_HL_with_G": False,
+    ...      "decoding_method": "onebest",
+    ...      "lang_dir": lang_tmpdir},
+    ...     graph)
+    >>> lattice = get_lattice(log_probs, input_lens, decode["decoding_graph"])
+    >>> path = decode["decoding_method"](lattice)['1best']
+    >>> text = lattice_paths_to_text(path, lexicon.word_table)
     """
 
     compose_HL_with_G = hparams.get("compose_HL_with_G")
@@ -81,8 +122,8 @@ def get_decoding(
         False if "caching" in hparams and hparams["caching"] is False else True
     )
 
-    lm_dir = Path(hparams["lm_dir"])
     if compose_HL_with_G or use_G_rescoring:
+        lm_dir = Path(hparams["lm_dir"])
         G_path = lm_dir / (hparams["G_arpa"].replace("arpa", "fst.txt"))
         G_rescoring_path = (
             lm_dir / (hparams["G_rescoring_arpa"].replace("arpa", "fst.txt"))
@@ -112,21 +153,24 @@ def get_decoding(
                 },
             )
 
+    output_folder = None
+    if "output_folder" in hparams:
+        output_folder = output_folder
+
     if compose_HL_with_G:
         G = utils.load_G(G_path, cache=caching)
         decoding_graph = graphCompiler.compile_HLG(
-            G, cache_dir=hparams["output_folder"], cache=caching
+            G, cache_dir=output_folder, cache=caching
         )
     else:
         decoding_graph = graphCompiler.compile_HL(
-            cache_dir=hparams["output_folder"], cache=caching
+            cache_dir=output_folder, cache=caching
         )
-
-    if not isinstance(hparams["rescoring_lm_scale"], list):
-        hparams["rescoring_lm_scale"] = [hparams["rescoring_lm_scale"]]
 
     if hparams.get("decoding_method") == "whole-lattice-rescoring":
         G_rescoring = None
+        if not isinstance(hparams["rescoring_lm_scale"], list):
+            hparams["rescoring_lm_scale"] = [hparams["rescoring_lm_scale"]]
 
         def decoding_method(lattice: k2.Fsa) -> Dict[str, k2.Fsa]:
             """Get the best path from a lattice given rescoring_lm_scale."""

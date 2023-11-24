@@ -239,7 +239,8 @@ def arpa_to_fst(
     disambig_symbol: str = "#0",
     cache: bool = True,
 ):
-    """Use kaldilm to convert an ARPA LM to FST. For example, you could use
+    r"""
+    Use kaldilm to convert an ARPA LM to FST. For example, you could use
     speechbrain.lm.train_ngram to create an ARPA LM and then use this function
     to convert it to an FST.
 
@@ -265,6 +266,41 @@ def arpa_to_fst(
     Raises
     ---------
         ImportError: If kaldilm is not installed.
+
+    Example
+    -------
+    >>> from speechbrain.lm.arpa import arpa_to_fst
+
+    >>> # Create a small arpa model
+    >>> arpa_file = getfixture('tmpdir').join("bigram.arpa")
+    >>> arpa_file.write(
+    ...     "Anything can be here\n"
+    ...     + "\n"
+    ...     + "\\data\\\n"
+    ...     + "ngram 1=3\n"
+    ...     + "ngram 2=4\n"
+    ...     + "\n"
+    ...     + "\\1-grams:\n"
+    ...     + "0 <s>\n"
+    ...     + "-0.6931 a\n"
+    ...     + "-0.6931 b 0.\n"
+    ...     + "" # Ends unigram section
+    ...     + "\\2-grams:\n"
+    ...     + "-0.6931 <s> a\n"
+    ...     + "-0.6931 a a\n"
+    ...     + "-0.6931 a b\n"
+    ...     + "-0.6931 b a\n"
+    ...     + "\n"  # Ends bigram section
+    ...     + "\\end\\\n")  # Ends whole file
+    >>> # Create words vocab
+    >>> vocav = getfixture('tmpdir').join("words.txt")
+    >>> vocav.write(
+    ...     "a 1\n"
+    ...     + "b 2\n"
+    ...     + "<s> 3\n"
+    ...     + "#0 4")  # Ends whole file
+    >>> out = getfixture('tmpdir').join("bigram.txt.fst")
+    >>> arpa_to_fst(vocav, arpa_file, out, 2)
     """
     try:
         from kaldilm.arpa2fst import arpa2fst

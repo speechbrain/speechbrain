@@ -226,6 +226,39 @@ class CtcGraphCompiler(GraphCompiler):
         ctc loss. See https://github.com/k2-fsa/k2/pull/1086 for more
         details. Note: The above change MUST be included in k2 to enable this
         flag so make sure you have an up-to-date version.
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.k2_integration.losses import ctc_k2
+    >>> from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
+    >>> from speechbrain.k2_integration.lexicon import Lexicon
+    >>> from speechbrain.k2_integration.prepare_lang import prepare_lang
+
+    >>> # Create a random batch of log-probs
+    >>> batch_size = 4
+
+    >>> log_probs = torch.randn(batch_size, 100, 30)
+    >>> log_probs.requires_grad = True
+    >>> # Assume all utterances have the same length so no padding was needed.
+    >>> input_lens = torch.ones(batch_size)
+    >>> # Create a samll lexicon containing only two words and write it to a file.
+    >>> lang_tmpdir = getfixture('tmpdir')
+    >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
+    >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
+    >>> lexicon_file.write(lexicon_sample)
+    >>> # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt
+    >>> prepare_lang(lang_tmpdir)
+    >>> # Create a lexicon object
+    >>> lexicon = Lexicon(lang_tmpdir)
+    >>> # Create a random decoding graph
+    >>> graph = CtcGraphCompiler(
+    ...     lexicon,
+    ...     log_probs.device,
+    ... )
+    >>> isinstance(graph.topo, k2.Fsa)
+    True
+
     """
 
     def __init__(
