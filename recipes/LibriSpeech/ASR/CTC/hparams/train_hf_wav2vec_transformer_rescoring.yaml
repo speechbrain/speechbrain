@@ -87,12 +87,13 @@ tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 # Decoding parameters
 lm_weight: 0.5
+blank_index: 0
 # topk is the number of hypotheses that will be rescored in the rescorer
 # lowering this value might decrease the wer, but will increase speed.
 test_beam_search:
    beam_size: 20
    topk: 20
-   blank_index: 0
+   blank_index: !ref <blank_index>
    space_token: ' ' # make sure this is the same as the one used in the tokenizer
    beam_prune_logp: -12.0
    token_prune_min_logp: -12.0
