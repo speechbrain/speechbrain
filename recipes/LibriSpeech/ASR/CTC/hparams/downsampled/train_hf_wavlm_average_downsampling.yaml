@@ -69,7 +69,7 @@ dnn_neurons: 1024
 freeze_wav2vec: True
 
 # Outputs
-ctc_neurons: 29
+ctc_neurons: 58 # Twice bigger than the number of characters for upsampling
 output_neurons: 29  # Characters size, index(blank/eos/bos) = 0
 blank_index: 0
 
