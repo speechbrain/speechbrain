@@ -26,7 +26,7 @@ train_annotation: !ref <data_folder>/train.json
 valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
 progress_folder: !ref <output_folder>/progress
-progress_archive: !ref <progress_folder>/progress.tar.gz
+progress_archive: !ref <progress_folder>/progress.tar
 progress_current: !ref <progress_folder>/current
 progress_meta: !ref <progress_folder>/meta.yaml
 num_audio_samples: 32 
@@ -161,7 +161,7 @@ vocoder: !new:speechbrain.lobes.models.huggingface_transformers.vocos.Vocos
     source: !ref <vocoder_model>
     save_path: !ref <prepare_save_folder>
 
-model: !new:speechbrain.lobes.models.transformer.Tokotron.TokotronModel # yamllint disable-line rule:line-length
+model: !new:speechbrain.lobes.models.Tokotron.TokotronTransformerModel # yamllint disable-line rule:line-length
     input_num_tokens: !ref <text_num_tokens>
     audio_num_tokens: !ref <audio_num_tokens>
     audio_tokens_per_step: !ref <audio_tokens_per_step>
@@ -184,7 +184,7 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-compute_cost: !new:speechbrain.lobes.models.transformer.Tokotron.TokotronLoss
+compute_cost: !new:speechbrain.lobes.models.Tokotron.TokotronLoss
     guided_attention_weight: !ref <guided_attention_weight>
     guided_attention_sigma: !ref <guided_attention_sigma>
     gate_weight: !ref <gate_loss_weight>
@@ -218,6 +218,7 @@ progress_logger: !new:speechbrain.utils.train_logger.ArchiveTrainLogger
     current_path: !ref <progress_current>
     archive_path: !ref <progress_archive>
     meta_path: !ref <progress_meta>
+    epoch_counter: !ref <epoch_counter>
 
 progress_report: !new:speechbrain.utils.tts.TTSProgressReport
     logger: !ref <progress_logger>

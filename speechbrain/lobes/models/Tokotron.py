@@ -80,7 +80,7 @@ TokotronInfernceOutput = namedtuple(
 )
 
 
-class TokotronDecoder(nn.Module):
+class TokotronTransformerDecoder(nn.Module):
     """The Tokotron decoder - can be used in a standalone model or as
     a component of a larger model
 
@@ -399,7 +399,7 @@ class TokotronDecoder(nn.Module):
         )
 
 
-class TokotronModel(nn.Module):
+class TokotronTransformerModel(nn.Module):
     """An end-to-end Tokotron model receiving characters or phonemes
     as inputs and outputting audio tokens
 
@@ -475,7 +475,7 @@ class TokotronModel(nn.Module):
             activation=activation,
             normalize_before=True,
         )
-        self.decoder = TokotronDecoder(
+        self.decoder = TokotronTransformerDecoder(
             num_tokens=audio_num_tokens,
             tokens_per_step=audio_tokens_per_step,
             d_model=d_model,
@@ -682,7 +682,7 @@ def get_gate_targets(lengths, out_len):
 
 def get_alignments(attn):
     """Aggregates alignments from multiple layers and heads
-    
+
     Arguments
     ---------
     attn: list
