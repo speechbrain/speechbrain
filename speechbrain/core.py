@@ -1313,7 +1313,10 @@ class Brain:
                         break
 
                 self.step = 0
-                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
+                sb.utils.distributed.run_on_main(
+                    self.on_stage_end,
+                    args=[Stage.VALID, avg_valid_loss, epoch],
+                )
 
     def fit(
         self,
@@ -1587,7 +1590,10 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-            self.on_stage_end(Stage.TEST, avg_test_loss, None)
+            # Only run evaluation "on_stage_end" on main process
+            sb.utils.distributed.run_on_main(
+                self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
+            )
         self.step = 0
         return avg_test_loss
 
