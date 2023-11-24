@@ -101,7 +101,7 @@ def train(
 ):
     """Train a  Kmeans model .
     Args:
-        model (MiniBatchKMeans): the initial kmenas model for training.
+        model (MiniBatchKMeans): the initial kmeans model for training.
         train_set (Dataloader):   Batches of tarining data.
         ssl_model : SSL-model used to  extract features used for clustering.
         ssl_layer_num: specify output of which layer of the ssl_model should be used.
@@ -125,7 +125,7 @@ def train(
 def save_model(model, checkpoint_path):
     """Save a  Kmeans model .
     Args:
-        model (MiniBatchKMeans): the  kmenas model to be saved.
+        model (MiniBatchKMeans): the  kmeans model to be saved.
         checkpoint_path (str):   Path to save the model..
     """
     joblib.dump(model, open(checkpoint_path, "wb"))
