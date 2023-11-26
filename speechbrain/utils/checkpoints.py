@@ -990,10 +990,22 @@ class Checkpointer:
                 )
             )
 
+        # Sync before deleting to avoid another process saving at the same time.
+        # This has led to errors as documented here:
+        # https://github.com/speechbrain/speechbrain/issues/2250
+        if torch.distributed.is_initialized():
+            torch.distributed.barrier()
+
         # Delete unprotected checkpoints
         for ckpt in potential_deletions:
             if ckpt not in protected_checkpoints:
                 Checkpointer._delete_checkpoint(ckpt, verbosity=verbosity)
+
+        # Sync after deleting to avoid another process saving at the same time.
+        # This has led to errors as documented here:
+        # https://github.com/speechbrain/speechbrain/issues/2250
+        if torch.distributed.is_initialized():
+            torch.distributed.barrier()
 
     @staticmethod
     @main_process_only
