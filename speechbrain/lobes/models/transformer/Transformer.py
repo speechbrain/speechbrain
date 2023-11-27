@@ -117,6 +117,7 @@ class TransformerInterface(nn.Module):
         gate_activation: Optional[nn.Module] = nn.Identity,
         use_linear_after_conv: Optional[bool] = False,
         output_hidden_states = False,
+        layerdrop_prob = 0.0,
     ):
         super().__init__()
         self.causal = causal
@@ -127,6 +128,7 @@ class TransformerInterface(nn.Module):
         self.decoder_kdim = decoder_kdim
         self.decoder_vdim = decoder_vdim
         self.output_hidden_states = output_hidden_states
+        self.layerdrop_prob = layerdrop_prob
         
         assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
         assert positional_encoding in ["fixed_abs_sine", None]
@@ -178,7 +180,8 @@ class TransformerInterface(nn.Module):
                     bias=bias,
                     causal=self.causal,
                     attention_type=self.attention_type,
-                    output_hidden_states=self.output_hidden_states
+                    output_hidden_states=self.output_hidden_states,
+                    layerdrop_prob=self.layerdrop_prob,
                 )
                 assert (
                     normalize_before

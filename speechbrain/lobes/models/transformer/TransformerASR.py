@@ -120,6 +120,8 @@ class TransformerASR(TransformerInterface):
         gate_activation: Optional[nn.Module] = nn.Identity,
         use_linear_after_conv: Optional[bool] = False,
         output_hidden_states = False,
+        layerdrop_prob=0.0,
+
     ):
         super().__init__(
             d_model=d_model,
@@ -142,7 +144,8 @@ class TransformerASR(TransformerInterface):
             csgu_linear_units=csgu_linear_units,
             gate_activation=gate_activation,
             use_linear_after_conv=use_linear_after_conv,
-            output_hidden_states=output_hidden_states
+            output_hidden_states=output_hidden_states,
+            layerdrop_prob=layerdrop_prob,
         )
 
         self.custom_src_module = ModuleList(
