@@ -12,6 +12,7 @@ Authors
 import torch
 import torch.nn as nn
 from typing import Optional
+import numpy as np
 
 from speechbrain.nnet.attention import RelPosMHAXL, MultiheadAttention
 from speechbrain.nnet.normalization import LayerNorm
@@ -290,6 +291,8 @@ class BranchformerEncoder(nn.Module):
         csgu_linear_units=3072,
         gate_activation=nn.Identity,
         use_linear_after_conv=False,
+        output_hidden_states=False,
+        layerdrop_prob=0.0,
     ):
         super().__init__()
 
@@ -312,7 +315,10 @@ class BranchformerEncoder(nn.Module):
             ]
         )
         self.norm = LayerNorm(d_model, eps=1e-6)
+        self.layerdrop_prob = layerdrop_prob
+        self.rng = np.random.default_rng()
         self.attention_type = attention_type
+        self.output_hidden_states = output_hidden_states
 
     def forward(
         self,
@@ -343,15 +349,35 @@ class BranchformerEncoder(nn.Module):
                 )
 
         output = src
-        attention_lst = []
-        for enc_layer in self.layers:
-            output, attention = enc_layer(
-                output,
-                src_mask=src_mask,
-                src_key_padding_mask=src_key_padding_mask,
-                pos_embs=pos_embs,
-            )
-            attention_lst.append(attention)
-        output = self.norm(output)
+        if self.layerdrop_prob > 0.0:
+            keep_probs = self.rng.random(len(self.layers))
+            # print('probs: ', keep_probs)
+        else:
+            keep_probs = None
 
+        attention_lst = []
+        if self.output_hidden_states:
+            hidden_state_lst = [output]
+
+        for i, enc_layer in enumerate(self.layers):
+            if (
+                not self.training
+                or self.layerdrop_prob == 0.0
+                or keep_probs[i] > self.layerdrop_prob
+            ):
+                # print('going through layer: ', i)
+                output, attention = enc_layer(
+                    output,
+                    src_mask=src_mask,
+                    src_key_padding_mask=src_key_padding_mask,
+                    pos_embs=pos_embs,
+                )
+                attention_lst.append(attention)
+
+                if self.output_hidden_states:
+                    hidden_state_lst.append(output)
+        
+        output = self.norm(output)
+        if self.output_hidden_states:
+            return output, attention_lst, hidden_state_lst
         return output, attention_lst
