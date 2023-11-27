@@ -1123,7 +1123,9 @@ class Brain:
                     dtype=amp.dtype, device_type=torch.device(self.device).type,
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
             else:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                 loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
