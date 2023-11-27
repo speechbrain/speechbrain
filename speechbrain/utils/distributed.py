@@ -3,11 +3,14 @@
 Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
+ * Peter Plantinga 2023
 """
 import datetime
 import os
 import torch
 from functools import wraps
+
+MAIN_PROC_ENV = "MAIN_PROC_ONLY"
 
 
 def run_on_main(
@@ -54,27 +57,15 @@ def run_on_main(
     if post_kwargs is None:
         post_kwargs = {}
 
-    if if_main_process():
-        # Main comes here
-        try:
-            func(*args, **kwargs)
-        finally:
-            ddp_barrier()
-    else:
-        # Others go here
-        ddp_barrier()
+    main_process_only(func)(*args, **kwargs)
+    ddp_barrier()
+
     if post_func is not None:
         if run_post_on_main:
             # Just run on every process without any barrier.
             post_func(*post_args, **post_kwargs)
-        elif not if_main_process():
-            # Others go here
-            try:
-                post_func(*post_args, **post_kwargs)
-            finally:
-                ddp_barrier()
         else:
-            # But main comes here
+            main_process_only(post_func)(*post_args, **post_kwargs)
             ddp_barrier()
 
 
@@ -103,8 +94,10 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
+        os.environ[MAIN_PROC_ENV] = "1"
         if if_main_process():
             return function(*args, **kwargs)
+        os.environ[MAIN_PROC_ENV] = "0"
 
     return main_proc_wrapped_func
 
@@ -114,7 +107,10 @@ def ddp_barrier():
     torch.distributed.barrier() will block processes until the whole
     group enters this function.
     """
-    if torch.distributed.is_initialized():
+    # Check if we're in a single-threaded section, skip barrier
+    if os.environ.get(MAIN_PROC_ENV, "0") == "1":
+        return
+    elif torch.distributed.is_initialized():
         torch.distributed.barrier()
 
 
