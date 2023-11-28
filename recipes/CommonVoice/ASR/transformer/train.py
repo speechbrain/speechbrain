@@ -25,6 +25,7 @@ Authors
  * Jianyuan Zhong 2020
 """
 import sys
+import os
 import torch
 import torchaudio
 import logging
@@ -272,8 +273,12 @@ class ASR(sb.core.Brain):
         self.init_optimizers()
 
         # Load latest checkpoint to check to current epoch number
-        if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible()
+        if "pretrainer" in hparams.keys() and os.path.exists(
+            hparams["pretrainer"].paths["counter"]
+        ):
+            run_on_main(hparams["pretrainer"].collect_files)
+            hparams["pretrainer"].load_collected()
+            # self.checkpointer.recover_if_possible()
 
         # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
