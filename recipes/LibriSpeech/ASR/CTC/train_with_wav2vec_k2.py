@@ -48,10 +48,9 @@ class ASR(sb.Brain):
         if hasattr(self.modules, "downsampler"):
             wavs = self.modules.downsampler(wavs)
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         # Forward pass
 
@@ -76,45 +75,8 @@ class ASR(sb.Brain):
             )
 
         p_ctc = self.hparams.log_softmax(logits)
-        return p_ctc, wav_lens
-
-    def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
-
-        p_ctc, wav_lens = predictions
-
-        ids = batch.id
-
-        # Sort batch to be descending by length of wav files, which is demanded by k2
-        if self.hparams.sorting == "ascending":
-            p_ctc = torch.flip(p_ctc, (0,))
-            wav_lens = torch.flip(wav_lens, (0,))
-            texts = [batch.wrd[i] for i in reversed(range(len(batch.wrd)))]
-            ids = [ids[i] for i in reversed(range(len(ids)))]
-        elif self.hparams.sorting == "descending":
-            texts = batch.wrd
-        elif self.hparams["sorting"] == "random":
-            indices = torch.argsort(wav_lens, descending=True)
-            p_ctc = p_ctc[indices]
-            wav_lens = wav_lens[indices]
-            texts = [batch.wrd[i] for i in indices]
-            ids = [ids[i] for i in indices]
-        else:
-            raise NotImplementedError(
-                "Only random, ascending or descending sorting is "
-                "implemented, but got {}".format(self.hparams.sorting)
-            )
-
-        is_training = stage == sb.Stage.TRAIN
-        loss = self.hparams.ctc_cost(
-            log_probs=p_ctc,
-            input_lens=wav_lens,
-            graph_compiler=self.graph_compiler,
-            texts=texts,
-            is_training=is_training,
-        )
-
-        if stage == sb.Stage.VALID:
+        paths = None
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             # Decode token terms to words
             lattice = sbk2.lattice_decoder.get_lattice(
                 p_ctc,
@@ -126,21 +88,37 @@ class ASR(sb.Brain):
                 max_active_states=self.hparams.test_max_active_state,
                 min_active_states=self.hparams.test_min_active_state,
             )
+        if stage == sb.Stage.VALID:
             # 1best decoding for fast valid
-            paths = {"1best": sbk2.lattice_decoder.one_best_decoding(lattice)}
-
-        if stage == sb.Stage.TEST:
-            lattice = sbk2.lattice_decoder.get_lattice(
-                p_ctc,
-                wav_lens,
-                self.decoder["decoding_graph"],
-                search_beam=self.hparams.test_search_beam,
-                output_beam=self.hparams.test_output_beam,
-                ac_scale=self.hparams.ac_scale,
-                max_active_states=self.hparams.test_max_active_state,
-                min_active_states=self.hparams.test_min_active_state,
-            )
+            paths = {"onebest": sbk2.lattice_decoder.one_best_decoding(lattice)}
+        elif stage == sb.Stage.TEST:
+            # user defined decoding for test
             paths = self.decoder["decoding_method"](lattice)
+
+        return p_ctc, wav_lens, paths
+
+    def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss (CTC+NLL) given predictions and targets."""
+
+        p_ctc, wav_lens, paths = predictions
+        ids = batch.id
+
+        # Sort batch to be descending by length of wav files, which is required
+        # by `k2.intersect_dense` called in `k2.ctc_loss`
+        indices = torch.argsort(wav_lens, descending=True)
+        p_ctc = p_ctc[indices]
+        wav_lens = wav_lens[indices]
+        texts = [batch.wrd[i] for i in indices]
+        ids = [ids[i] for i in indices]
+
+        is_training = stage == sb.Stage.TRAIN
+        loss = self.hparams.ctc_cost(
+            log_probs=p_ctc,
+            input_lens=wav_lens,
+            graph_compiler=self.graph_compiler,
+            texts=texts,
+            is_training=is_training,
+        )
 
         if stage == sb.Stage.TEST or stage == sb.Stage.VALID:
             for k, path in paths.items():
@@ -157,45 +135,6 @@ class ASR(sb.Brain):
             # As such, sentences with <UNK> have a higher loss during CTC loss 'mean' reduction mode.
             # It does not impact training.
         return loss
-
-    def fit_batch(self, batch):
-        should_step = self.step % self.grad_accumulation_factor == 0
-
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                with self.no_sync():
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-                if not self.hparams.freeze_wav2vec:
-                    self.scaler.unscale_(self.wav2vec_optimizer)
-                self.scaler.unscale_(self.model_optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.wav2vec_optimizer)
-                    self.scaler.step(self.model_optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-        else:
-            with self.no_sync():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.wav2vec_optimizer.step()
-                    self.model_optimizer.step()
-                self.wav2vec_optimizer.zero_grad()
-                self.model_optimizer.zero_grad()
-                self.optimizer_step += 1
-
-        return loss.detach().cpu()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch. In this case,
@@ -266,7 +205,7 @@ class ASR(sb.Brain):
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
-        # Handling SpeechBrain vs HuggingFance pretrained models
+        # Handling SpeechBrain vs HuggingFace pretrained models
         if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.encoder_wrapper.parameters()
@@ -281,15 +220,19 @@ class ASR(sb.Brain):
             self.hparams.model.parameters()
         )
 
+        # save the optimizers in a dictionary
+        # the key will be used in `freeze_optimizers()`
+        self.optimizers_dict = {
+            "model_optimizer": self.model_optimizer,
+        }
+        if not self.hparams.freeze_wav2vec:
+            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "wav2vec_opt", self.wav2vec_optimizer
             )
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
-
-    def zero_grad(self, set_to_none=False):
-        self.wav2vec_optimizer.zero_grad(set_to_none)
-        self.model_optimizer.zero_grad(set_to_none)
 
 
 def dataio_prepare(hparams):
@@ -410,7 +353,7 @@ if __name__ == "__main__":
 
     run_on_main(
         librispeech_prepare.download_librispeech_vocab_text,
-        kwargs={"destination": hparams["data_folder"]},
+        kwargs={"destination": hparams["vocab_file"]},
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -422,7 +365,9 @@ if __name__ == "__main__":
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "vocab_files": [hparams["vocab_file"]],
-            "extra_csv_files": [hparams["output_folder"] + "/train.csv"],
+            "extra_csv_files": [hparams["output_folder"] + "/train.csv"]
+            if not hparams["skip_prep"]
+            else [],
             "add_word_boundary": hparams["add_word_boundary"],
         },
     )

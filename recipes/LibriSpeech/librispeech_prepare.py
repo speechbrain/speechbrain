@@ -5,7 +5,7 @@ Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
+Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch, Pierre Champion 2020
 """
 
 import os
@@ -493,7 +493,7 @@ def download_librispeech_vocab_text(destination):
         Place to put vocab file.
     """
     f = "librispeech-vocab.txt"
-    download_file(OPEN_SLR_11_LINK + f, os.path.join(destination, f))
+    download_file(OPEN_SLR_11_LINK + f, destination)
 
 
 def download_openslr_librispeech_lm(destination, rescoring_lm=True):
