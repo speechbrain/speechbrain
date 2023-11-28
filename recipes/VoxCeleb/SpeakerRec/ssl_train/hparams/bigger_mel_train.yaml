@@ -1,0 +1,216 @@
+# ################################
+# Recipe for training then testing speaker embeddings using the VoxCeleb1 Dataset.
+# Embeddings are used using the ECAPA-TDNN network
+#
+# Authors
+# * Salah Zaiem 2023
+# * Youcef Kemiche 2023
+# ################################
+
+# Basic parameters
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/bigger_mel_all_train/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+# Data files
+data_folder: /gpfsscratch/rech/nou/uzn19yk/vc2/
+train_annotation: /gpfswork/rech/nou/uzn19yk/speaker_verification/train_files/all_train.csv
+valid_annotation:  results/VoxCeleb1/1986/save/dev.csv
+verif_folder: results/VoxCeleb1/1986/save/
+num_layers_ssl: 13
+ssl_hub: /gpfsstore/rech/nou/uzn19yk/wavlm-base-plus/
+rir_folder: /gpfsscratch/rech/nou/uzn19yk/voxceleb/
+verification_file: /gpfsscratch/rech/nou/uzn19yk/voxceleb/veri_test2.txt #path/to/veri_test2.txt
+
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
+pretrain: True
+# Training parameters
+number_of_epochs: 11
+batch_size: 16
+lr: 0.001
+lr_final: 0.0001
+mask_length: 10
+mask_prob: 0.65
+lr_weights: 0.01
+sample_rate: 16000
+shuffle: True
+random_chunk: True
+sentence_len: 3
+
+# Feature parameters
+
+encoder_dim: 768
+
+# Number of speakers
+out_n_neurons: 12692  #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
+
+freeze_wav2vec: True
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+
+
+n_mels: 80
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Functions
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+    input_size: !ref <n_mels>
+    channels: [1024, 1024, 1024, 1024, 3072]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    groups: [1, 1, 1, 1, 1]
+    attention_channels: 128
+    lin_neurons: 192
+
+classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    input_size: 192
+    out_neurons: !ref <out_n_neurons>
+ 
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
+
+
+modules:
+    compute_features: !ref <compute_features>
+    augment_wavedrop: !ref <augment_wavedrop>
+    augment_speed: !ref <augment_speed>
+    add_rev: !ref <add_rev>
+    add_noise: !ref <add_noise>
+    mean_var_norm: !ref <mean_var_norm>
+    add_rev_noise: !ref <add_rev_noise>
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <embedding_model>, !ref <classifier>]
+
+augment_wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [100]
+
+augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+add_rev: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 0.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 0.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
+    openrir_folder: !ref <rir_folder>
+    openrir_max_noise_len: 3.0  # seconds
+    reverb_prob: 1.0
+    noise_prob: 1.0
+    noise_snr_low: 0
+    noise_snr_high: 15
+    rir_scale_factor: 1.0
+
+
+# Definition of the augmentation pipeline.
+# If concat_augment = False, the augmentation techniques are applied
+# in sequence. If concat_augment = True, all the augmented signals
+# # are concatenated in a single big batch.
+
+augment_pipeline: [
+    !ref <augment_wavedrop>,
+    !ref <augment_speed>,
+    !ref <add_rev>,
+    !ref <add_noise>,
+    !ref <add_rev_noise>
+]
+concat_augment: True
+
+
+# Cost + optimization
+compute_error: !name:speechbrain.nnet.losses.classification_error
+
+compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+        margin: 0.2
+        scale: 30
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+base_lr: 0.00000001
+max_lr: !ref <lr>
+step_size: 65000
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
+
+
+# Used to load the SB checkpoint of w2v2
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        lr_annealing: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+train_data: !ref <verif_folder>/train.csv
+enrol_data: !ref <verif_folder>/enrol.csv
+test_data: !ref <verif_folder>/test.csv
+
+verif_batch_size: 2
+n_train_snts: 300000 # used for normalization stats
+
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+enrol_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+
+
+mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    std_norm: False
