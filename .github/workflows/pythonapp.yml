@@ -43,9 +43,9 @@ jobs:
             - name: Unit+doc+integration tests with pytest + coverage
               run: |
                   pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered \
-                    --cov=speechbrain --cov-context=test --doctest-modules \
-                    ../speechbrain ../tests \
-                    | tee pytest-coverage.txt
+                  --cov=speechbrain --cov-context=test --doctest-modules \
+                  ../speechbrain ../tests \
+                  | tee pytest-coverage.txt
             - name: Pytest coverage comment
               uses: MishaKav/pytest-coverage-comment@main
               with:
