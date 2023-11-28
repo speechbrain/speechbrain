@@ -44,7 +44,7 @@ jobs:
               run: |
                   pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered \
                   --cov=speechbrain --cov-context=test --doctest-modules \
-                  ../speechbrain ../tests \
+                  ./speechbrain ./tests \
                   | tee pytest-coverage.txt
             - name: Pytest coverage comment
               uses: MishaKav/pytest-coverage-comment@main
