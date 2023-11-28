@@ -170,6 +170,8 @@ def process_line(line, data_folder, language, accented_letters):
     # Path is at indice 1 in Common Voice tsv files. And .mp3 files
     # are located in datasets/lang/clips/
     mp3_path = data_folder + "/clips/" + line.split("\t")[1]
+    relative_path = "{data_root}/clips/" + line.split("\t")[1]
+
     file_name = mp3_path.split(".")[-2].split("/")[-1]
     spk_id = line.split("\t")[0]
     snt_id = file_name
@@ -224,7 +226,7 @@ def process_line(line, data_folder, language, accented_letters):
             return None
 
     # Composition of the csv_line
-    return CVRow(snt_id, duration, mp3_path, spk_id, words)
+    return CVRow(snt_id, duration, relative_path, spk_id, words)
 
 
 def create_csv(

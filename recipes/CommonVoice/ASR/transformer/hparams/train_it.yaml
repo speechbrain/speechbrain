@@ -277,3 +277,12 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
     split_tokens: True
+# Path to the epoch_counter_path checkpoint if exist to load the correct optimizer: adam vs SGD
+# eg: !ref <save_folder>/CKPT+2023-07-21+23-04-15+00/couunter.ckpt
+epoch_counter_path: !PLACEHOLDER
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        counter: !ref <epoch_counter>
+    paths:
+        counter: !ref <epoch_counter_path>
