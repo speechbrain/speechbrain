@@ -230,7 +230,7 @@ class ConvolutionModule(nn.Module):
                         self.padding
                         + (final_right_padding if i == len(out) - 1 else 0),
                     ),
-                    value=0
+                    value=0,
                 )
                 for i in range(len(out))
             ]
