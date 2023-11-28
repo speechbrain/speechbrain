@@ -96,8 +96,9 @@ def main_process_only(function):
         """This decorated function runs only if this is the main process."""
         os.environ[MAIN_PROC_ENV] = "1"
         if if_main_process():
-            return function(*args, **kwargs)
+            result = function(*args, **kwargs)
         os.environ[MAIN_PROC_ENV] = "0"
+        return result
 
     return main_proc_wrapped_func
 
