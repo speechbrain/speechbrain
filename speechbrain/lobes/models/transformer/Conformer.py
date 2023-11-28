@@ -272,12 +272,12 @@ class ConvolutionModule(nn.Module):
             out = self.bottleneck(out)
             out = self._do_conv(out, inhibit_padding=False)
 
-            out = out.transpose(1, 2)
-            out = self.after_conv(out)
-
             if self.causal:
                 # chomp
                 out = out[..., : -self.padding]
+
+            out = out.transpose(1, 2)
+            out = self.after_conv(out)
 
         if mask is not None:
             out.masked_fill_(mask, 0.0)
