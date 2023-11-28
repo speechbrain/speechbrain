@@ -138,9 +138,11 @@ class ASR_Brain(sb.Brain):
             )
             run_on_main(
                 save_metrics_to_file,
-                self.hparams.test_wer_file,
-                self.transducer_metrics,
-                self.per_metrics,
+                args=[
+                    self.hparams.test_wer_file,
+                    self.transducer_metrics,
+                    self.per_metrics,
+                ],
             )
 
 
