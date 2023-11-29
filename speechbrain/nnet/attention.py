@@ -621,7 +621,7 @@ class RelPosMHAXL(nn.Module):
             attn_score = attn_score.masked_fill(
                 key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
             )
-
+        # todo force fp32
         attn_score = F.softmax(attn_score, dim=-1)
         attn_score = self.dropout_att(attn_score)
         x = torch.matmul(

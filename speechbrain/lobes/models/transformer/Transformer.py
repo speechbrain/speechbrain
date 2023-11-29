@@ -116,6 +116,8 @@ class TransformerInterface(nn.Module):
         csgu_linear_units: Optional[int] = 3072,
         gate_activation: Optional[nn.Module] = nn.Identity,
         use_linear_after_conv: Optional[bool] = False,
+        output_hidden_states = False,
+        layerdrop_prob = 0.0,
     ):
         super().__init__()
         self.causal = causal
@@ -125,7 +127,9 @@ class TransformerInterface(nn.Module):
         self.encoder_vdim = encoder_vdim
         self.decoder_kdim = decoder_kdim
         self.decoder_vdim = decoder_vdim
-
+        self.output_hidden_states = output_hidden_states
+        self.layerdrop_prob = layerdrop_prob
+        
         assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
         assert positional_encoding in ["fixed_abs_sine", None]
 
@@ -176,6 +180,8 @@ class TransformerInterface(nn.Module):
                     bias=bias,
                     causal=self.causal,
                     attention_type=self.attention_type,
+                    output_hidden_states=self.output_hidden_states,
+                    layerdrop_prob=self.layerdrop_prob,
                 )
                 assert (
                     normalize_before
@@ -196,6 +202,8 @@ class TransformerInterface(nn.Module):
                     csgu_linear_units=csgu_linear_units,
                     gate_activation=gate_activation,
                     use_linear_after_conv=use_linear_after_conv,
+                    output_hidden_states=self.output_hidden_states,
+                    layerdrop_prob=self.layerdrop_prob,
                 )
 
         # initialize the decoder
@@ -494,6 +502,7 @@ class TransformerEncoder(nn.Module):
         attention_type="regularMHA",
         ffn_type="regularFFN",
         ffn_cnn_kernel_size_list=[3, 3],
+        output_hidden_states = False
     ):
         super().__init__()
 
@@ -519,6 +528,7 @@ class TransformerEncoder(nn.Module):
         self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.layerdrop_prob = layerdrop_prob
         self.rng = np.random.default_rng()
+        self.output_hidden_states = output_hidden_states
 
     def forward(
         self,
@@ -543,6 +553,8 @@ class TransformerEncoder(nn.Module):
         else:
             keep_probs = None
         attention_lst = []
+        if self.output_hidden_states:
+            hidden_state_lst = [output]
         for i, enc_layer in enumerate(self.layers):
             if (
                 not self.training
@@ -555,9 +567,14 @@ class TransformerEncoder(nn.Module):
                     src_key_padding_mask=src_key_padding_mask,
                     pos_embs=pos_embs,
                 )
-
                 attention_lst.append(attention)
+
+                if self.output_hidden_states:
+                    hidden_state_lst.append(output)
+        
         output = self.norm(output)
+        if self.output_hidden_states:
+            return output, attention_lst, hidden_state_lst
         return output, attention_lst
 
 
