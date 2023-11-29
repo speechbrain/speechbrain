@@ -13,7 +13,6 @@ Authors
 
 import torch
 import logging
-import numpy as np
 import torch.nn.functional as F
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
@@ -21,7 +20,7 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
 
 logger = logging.getLogger(__name__)
 
- 
+
 class WeightedSSLModel(HFTransformersInterface):
     """This lobe enables the integration of use of weighted sum representations
     from different layers in a SSL encoder.
@@ -35,7 +34,7 @@ class WeightedSSLModel(HFTransformersInterface):
     ---------
     hub : str
         HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
-    layernorm: bool
+    layernorm: bool, (default: False)
         Whether layer representations should be layernormed before sum
 
     Example
@@ -79,7 +78,9 @@ class WeightedSSLModel(HFTransformersInterface):
                 F.layer_norm(t, (t.shape[-1],)) for t in hidden_states
             ]
         # Summing the weighted layers
-        weighted_feats = (hidden_states * norm_weights[:, None, None, None]).sum(axis=0)
+        weighted_feats = (
+            hidden_states * norm_weights[:, None, None, None]
+        ).sum(axis=0)
         return weighted_feats
 
     def override_config(self, config):
