@@ -139,7 +139,7 @@ model: !new:torch.nn.ModuleList
 
 # We define two optimizers as we have two stages (training + finetuning)
 Adam: !name:torch.optim.Adam
-    lr: 0
+    lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
 

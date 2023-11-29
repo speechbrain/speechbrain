@@ -170,6 +170,7 @@ def process_line(line, data_folder, language, accented_letters):
     # Path is at indice 1 in Common Voice tsv files. And .mp3 files
     # are located in datasets/lang/clips/
     mp3_path = data_folder + "/clips/" + line.split("\t")[1]
+
     file_name = mp3_path.split(".")[-2].split("/")[-1]
     spk_id = line.split("\t")[0]
     snt_id = file_name
