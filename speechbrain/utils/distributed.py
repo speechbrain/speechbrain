@@ -10,7 +10,7 @@ import os
 import torch
 from functools import wraps
 
-MAIN_PROC_ENV = "MAIN_PROC_ONLY"
+MAIN_PROC_ONLY = 0
 
 
 def run_on_main(
@@ -94,12 +94,13 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
-        os.environ[MAIN_PROC_ENV] = "1"
+        global MAIN_PROC_ONLY
+        MAIN_PROC_ONLY += 1
         if if_main_process():
             result = function(*args, **kwargs)
         else:
             result = None
-        os.environ[MAIN_PROC_ENV] = "0"
+        MAIN_PROC_ONLY -= 1
         return result
 
     return main_proc_wrapped_func
@@ -111,7 +112,7 @@ def ddp_barrier():
     group enters this function.
     """
     # Check if we're in a single-threaded section, skip barrier
-    if os.environ.get(MAIN_PROC_ENV, "0") == "1":
+    if MAIN_PROC_ONLY >= 1:
         return
     elif torch.distributed.is_initialized():
         torch.distributed.barrier()
