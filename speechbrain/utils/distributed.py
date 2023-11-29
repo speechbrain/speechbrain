@@ -97,6 +97,8 @@ def main_process_only(function):
         os.environ[MAIN_PROC_ENV] = "1"
         if if_main_process():
             result = function(*args, **kwargs)
+        else:
+            result = None
         os.environ[MAIN_PROC_ENV] = "0"
         return result
 
