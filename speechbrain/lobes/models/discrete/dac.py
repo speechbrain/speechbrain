@@ -18,7 +18,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils import weight_norm
+from torch.nn.utils.parametrizations import weight_norm
 
 logger = logging.getLogger(__name__)
 
@@ -356,6 +356,17 @@ class ResidualVectorQuantize(nn.Module):
     """
     Introduced in SoundStream: An end2end neural audio codec
     https://arxiv.org/abs/2107.03312
+
+
+    Examples
+    --------
+    Using a pretrained RVQ unit.
+
+    >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
+    >>> quantizer = dac.quantizer
+    >>> continuous_embeddings = torch.randn(32, 1024, 300) # Example shape: [Batch, Channels, Time]
+    >>> discrete_embeddings, codes, _, _, _ = quantizer(continuous_embeddings)
+
     """
 
     def __init__(
@@ -406,21 +417,18 @@ class ResidualVectorQuantize(nn.Module):
                 when in training mode, and a random number of quantizers is used.
         Returns
         -------
-        dict
-            A dictionary with the following keys:
-
-            "z" : Tensor[B x D x T]
-                Quantized continuous representation of input
-            "codes" : Tensor[B x N x T]
-                Codebook indices for each codebook
-                (quantized discrete representation of input)
-            "latents" : Tensor[B x N*D x T]
-                Projected latents (continuous representation of input before quantization)
-            "vq/commitment_loss" : Tensor[1]
-                Commitment loss to train encoder to predict vectors closer to codebook
-                entries
-            "vq/codebook_loss" : Tensor[1]
-                Codebook loss to update the codebook
+        z : Tensor[B x D x T]
+            Quantized continuous representation of input
+        codes : Tensor[B x N x T]
+            Codebook indices for each codebook
+            (quantized discrete representation of input)
+        latents : Tensor[B x N*D x T]
+            Projected latents (continuous representation of input before quantization)
+        vq/commitment_loss : Tensor[1]
+            Commitment loss to train encoder to predict vectors closer to codebook
+            entries
+        vq/codebook_loss : Tensor[1]
+            Codebook loss to update the codebook
         """
         z_q = 0
         residual = z
@@ -676,6 +684,21 @@ class Encoder(nn.Module):
         A list of stride values for downsampling in each EncoderBlock. Default is [2, 4, 8, 8].
     d_latent : int, optional
         The dimensionality of the output latent space. Default is 64.
+
+    Examples
+    --------
+    Creating an Encoder instance
+
+    >>> encoder = Encoder()
+    >>> audio_input = torch.randn(32, 1, 88200) # Example shape: [Batch, Channels, Time]
+    >>> continuous_embedding = encoder(audio_input)
+
+    Using a pretrained encoder.
+
+    >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
+    >>> encoder = dac.encoder
+    >>> audio_input = torch.randn(32, 1, 88200) # Example shape: [Batch, Channels, Time]
+    >>> continuous_embeddings = encoder(audio_input)
     """
 
     def __init__(
@@ -794,6 +817,22 @@ class Decoder(nn.Module):
         A list of stride rates for each decoder block
     d_out: int
         The out dimension of the final conv layer, Default is 1.
+
+    Examples
+    --------
+    Creating a Decoder instance
+
+    >>> decoder = Decoder(1024, 1536,  [8, 8, 4, 2])
+    >>> discrete_embeddings = torch.randn(32, 1024, 500) # Example shape: [Batch, Channels, Time]
+    >>> recovered_audio = decoder(discrete_embeddings)
+
+    Using a pretrained decoder. Note that the actual input should be proper discrete representation.
+    Using randomly generated input here for illustration of use.
+
+    >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
+    >>> decoder = dac.decoder
+    >>> discrete_embeddings = torch.randn(32, 1024, 500) # Example shape: [Batch, Channels, Time]
+    >>> recovered_audio = decoder(discrete_embeddings)
     """
 
     def __init__(
@@ -850,7 +889,9 @@ class DAC(nn.Module):
     """
     Discrete Autoencoder Codec (DAC) for audio data encoding and decoding.
 
-    This class implements an autoencoder architecture with quantization for efficient audio processing. It includes an encoder, quantizer, and decoder for transforming audio data into a compressed latent representation and reconstructing it back into audio. This implementation supports both initializing a new model and loading a pretrained model.
+    This class implements an autoencoder architecture with quantization for efficient audio processing.
+    It includes an encoder, quantizer, and decoder for transforming audio data into a compressed latent representation and reconstructing it back into audio.
+    This implementation supports both initializing a new model and loading a pretrained model.
 
     Parameters
     ----------
@@ -902,6 +943,12 @@ class DAC(nn.Module):
     >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
     >>> tokens, embeddings = dac(audio_data)
 
+    The tokens and the discrete embeddings obtained above or from other sources can be decoded:
+
+    >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
+    >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
+    >>> tokens, embeddings = dac(audio_data)
+    >>> decoded_audio = dac.decode(embeddings)
     """
 
     def __init__(
@@ -1039,10 +1086,8 @@ class DAC(nn.Module):
 
         Returns
         -------
-        dict
-            A dictionary with the following keys:
-            "audio" : Tensor[B x 1 x length]
-                Decoded audio data.
+        torch.Tensor: shape B x 1 x length
+            Decoded audio data.
         """
         return self.decoder(z)
 
