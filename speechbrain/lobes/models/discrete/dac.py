@@ -933,7 +933,7 @@ class DAC(nn.Module):
     Examples
     --------
     Creating a new DAC instance:
-    
+
     >>> # doctest: +SKIP
     >>> dac = DAC()
     >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
