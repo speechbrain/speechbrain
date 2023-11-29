@@ -65,7 +65,9 @@ def run_on_main(
             # Just run on every process without any barrier.
             post_func(*post_args, **post_kwargs)
         else:
-            main_process_only(post_func)(*post_args, **post_kwargs)
+            # Do the opposite of `run_on_main`
+            if not if_main_process():
+                post_func(*post_args, **post_kwargs)
             ddp_barrier()
 
 
