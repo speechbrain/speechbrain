@@ -358,11 +358,11 @@ class ResidualVectorQuantize(nn.Module):
     https://arxiv.org/abs/2107.03312
 
 
-    Examples
-    --------
+    Example
+    -------
     Using a pretrained RVQ unit.
 
-    >>> # doctest: +SKIP
+    # doctest: +SKIP
     >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
     >>> quantizer = dac.quantizer
     >>> continuous_embeddings = torch.randn(32, 1024, 300) # Example shape: [Batch, Channels, Time]
@@ -686,10 +686,10 @@ class Encoder(nn.Module):
     d_latent : int, optional
         The dimensionality of the output latent space. Default is 64.
 
-    Examples
-    --------
+    Example
+    -------
     Creating an Encoder instance
-    >>> # doctest: +SKIP
+    # doctest: +SKIP
     >>> encoder = Encoder()
     >>> audio_input = torch.randn(32, 1, 88200) # Example shape: [Batch, Channels, Time]
     >>> continuous_embedding = encoder(audio_input)
@@ -819,11 +819,11 @@ class Decoder(nn.Module):
     d_out: int
         The out dimension of the final conv layer, Default is 1.
 
-    Examples
-    --------
+    Example
+    -------
     Creating a Decoder instance
 
-    >>> # doctest: +SKIP
+    # doctest: +SKIP
     >>> decoder = Decoder(1024, 1536,  [8, 8, 4, 2])
     >>> discrete_embeddings = torch.randn(32, 1024, 500) # Example shape: [Batch, Channels, Time]
     >>> recovered_audio = decoder(discrete_embeddings)
@@ -930,11 +930,10 @@ class DAC(nn.Module):
     load_pretrained : bool
         Whether to load a pretrained model.
 
-    Examples
-    --------
+    Example
+    -------
     Creating a new DAC instance:
-
-    >>> # doctest: +SKIP
+    # doctest: +SKIP
     >>> dac = DAC()
     >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
     >>> tokens, embeddings = dac(audio_data)
