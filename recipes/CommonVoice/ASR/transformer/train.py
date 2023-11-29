@@ -277,6 +277,9 @@ class ASR(sb.core.Brain):
 
         current_epoch = self.hparams.epoch_counter.current
         if current_epoch > self.hparams.stage_one_epochs:
+            logger.info(
+                f"The checkpoint's epoch(= {current_epoch}) is greater than stage_one_epochs(= {self.hparams.stage_one_epochs}). Using SGD as the optimizer instead of Adam"
+            )
             self.optimizer = self.hparams.SGD(self.modules.parameters())
 
             if self.checkpointer is not None:
