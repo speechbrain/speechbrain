@@ -42,7 +42,7 @@ class DiscreteWavLM(WavLM):
     kmeans_filename : str
         Name of the file in HF repo that need to be downloaded.
     kmeans_cache_dir: str
-        Path (dir) of the downloaded kmenas model.
+        Path (dir) of the downloaded kmeans model.
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the WavLM model.
@@ -73,12 +73,12 @@ class DiscreteWavLM(WavLM):
     >>> save_path = "savedir"
     >>> ssl_layer_num = -1
     >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
-    >>> kmeans_filename = "Librispeech_wavlm_kmeans_100.pt"
+    >>> kmeans_filename = "LJSpeech_wavlm_k128_L7.pt"
     >>> kmeans_cache_dir="savedir"
     >>> model = DiscreteWavLM(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, kmeans_filename=kmeans_filename, kmeans_cache_dir=kmeans_cache_dir)
     >>> embs, tokens = model(inputs)
     >>> embs.shape
-    torch.Size([10, 1, 768])
+    torch.Size([10, 1, 1024])
     >>> tokens.shape
     torch.Size([10, 1])
     """

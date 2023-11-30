@@ -11,12 +11,13 @@ import os
 import sys
 import logging
 import speechbrain as sb
+import torchaudio
 from speechbrain.utils.distributed import run_on_main
 from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.utils.kmeans import fetch_kmeans_model, train, save_model
-import torchaudio
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
+
+    # 1. Define datasets
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -32,16 +35,21 @@ def dataio_prepare(hparams):
 
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
+        train_data = train_data.filtered_sorted(
+            sort_key="duration",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+        hparams["dataloader_options"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
+            sort_key="duration",
+            reverse=True,
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+        hparams["dataloader_options"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -57,8 +65,8 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
         info = torchaudio.info(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         resampled = torchaudio.transforms.Resample(
             info.sample_rate, hparams["sample_rate"],
         )(sig)
@@ -88,19 +96,17 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    from common_voice_prepare import prepare_common_voice  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_librispeech,
+        prepare_common_voice,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "save_folder": hparams["save_folder"],
+            "train_tsv_file": hparams["train_tsv_file"],
+            "accented_letters": hparams["accented_letters"],
+            "language": hparams["language"],
             "skip_prep": hparams["skip_prep"],
         },
     )
@@ -114,7 +120,7 @@ if __name__ == "__main__":
         isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
     ):
         train_set = sb.dataio.dataloader.make_dataloader(
-            train_set, **hparams["train_dataloader_opts"]
+            train_set, **hparams["dataloader_options"]
         )
 
     # Load pretrained KMeans model if it exists. Otherwise,  create new one.
