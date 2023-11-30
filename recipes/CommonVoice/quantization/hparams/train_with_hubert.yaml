@@ -37,7 +37,7 @@ sorting: ascending
 # Dataloader options
 dataloader_options:
     batch_size: !ref <batch_size>
-    num_workers: !ref <dataloader_num_workers
+    num_workers: !ref <dataloader_num_workers>
 
 ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
     source: !ref <ssl_hub>
