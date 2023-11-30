@@ -1,8 +1,8 @@
 ################################
-# Recipe for Training K-Means Clustering on LibriSpeech Data
+# Recipe for Training K-Means Clustering on IEMOCAP Data
 # Using Self-Supervised Model-Based Representations
 #
-# It is used for creating discrete audio representations from LibriSpeech data.
+# It is used for creating discrete audio representations from IEMOCAP data.
 #
 # Author: Pooneh Mousavi (2023)
 ################################

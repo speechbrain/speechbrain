@@ -1,10 +1,10 @@
 
 # K-means (Quantization)
 This folder contains recipes for training K-means clustering model for the CommonVoice Dataset.
-The model serves to quantize self-supervised representations into discrete representation. Thus representations can be used as a discrete audio input for various tasks including classification, ASR and speech gneration.
+The model serves to quantize self-supervised representations into discrete representation. Thus representations can be used as a discrete audio input for various tasks including classification, ASR and speech generation.
 It supports  kmeans model using the features from  HuBERT, WAVLM or Wav2Vec.
 
-You can download LibriSpeech at http://www.openslr.org/12
+You can download CommonVoice at https://commonvoice.mozilla.org/en
 
 ## Installing Extra Dependencies
 

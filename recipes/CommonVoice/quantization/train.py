@@ -120,7 +120,7 @@ if __name__ == "__main__":
         isinstance(train_set, DataLoader) or isinstance(train_set, LoopedLoader)
     ):
         train_set = sb.dataio.dataloader.make_dataloader(
-            train_set, **hparams["train_dataloader_opts"]
+            train_set, **hparams["dataloader_options"]
         )
 
     # Load pretrained KMeans model if it exists. Otherwise,  create new one.

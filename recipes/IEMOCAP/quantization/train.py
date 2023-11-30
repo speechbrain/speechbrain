@@ -71,7 +71,7 @@ def dataio_prepare(hparams):
     # Please, take a look into the lab_enc_file to see the label to index
     # mappinng.
 
-    return datasets
+    return datasets["train"]
 
 
 if __name__ == "__main__":
