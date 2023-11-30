@@ -70,10 +70,10 @@ run_opt_defaults = {
     "compile_using_fullgraph": False,
     "compile_using_dynamic_shape_tracing": False,
     "precision": "fp32",
-    "init_scale": 65536.0,
-    "growth_factor": 2.0,
-    "backoff_factor": 0.5,
-    "growth_interval": 2000,
+    "gradscaler_init_scale": 65536.0,
+    "gradscaler_growth_factor": 2.0,
+    "gradscaler_backoff_factor": 0.5,
+    "gradscaler_growth_interval": 2000,
     "auto_mix_prec": False,
     "bfloat16_mix_prec": False,
     "max_grad_norm": 5.0,
@@ -365,27 +365,27 @@ def parse_arguments(arg_list=None):
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
-        "--init_scale",
+        "--gradscaler_init_scale",
         type=float,
         default=65536.0,
         help="GradScaler initial scale factor.",
     )
     parser.add_argument(
-        "--growth_factor",
+        "--gradscaler_growth_factor",
         type=float,
         default=2.0,
         help="GradScaler factor by which the scale is multiplied during "
         "`update` if no inf/NaN gradients occur for ``growth_interval`` consecutive iterations.",
     )
     parser.add_argument(
-        "--backoff_factor",
+        "--gradscaler_backoff_factor",
         type=float,
         default=0.5,
         help="GradScaler factor by which the scale is multiplied during `update`"
         "if inf/NaN gradients occur in an iteration.",
     )
     parser.add_argument(
-        "--growth_interval",
+        "--gradscaler_growth_interval",
         type=float,
         default=2000,
         help="Gradscaler number of consecutive iterations without inf/NaN gradients that must occur for the scale"
@@ -586,6 +586,14 @@ class Brain:
             The location for performing computations.
         precision (str)
             One of ``fp32``, ``fp16``, ``bf16``.
+        gradscaler_init_scale (float)
+            Initial scale for the GradScaler. Default: ``65536.0``.
+        gradscaler_growth_factor (float)
+            Growth factor for the GradScaler. Default: ``2.0``.
+        gradscaler_backoff_factor (float)
+            Backoff factor for the GradScaler. Default: ``0.5``.
+        gradscaler_growth_interval (int)
+            Growth interval for the GradScaler. Default: ``2000``.
         auto_mix_prec (bool)
             If ``True``, automatic mixed-precision (fp16) is used.
             Activate it only with cuda. Note: this is a
