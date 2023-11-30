@@ -223,7 +223,7 @@ class ASR(sb.Brain):
             stage_stats["WER"] = self.wer_metric.summarize("error_rate")
 
         # Perform end-of-iteration things, like annealing, logging, etc.
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
 
             lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step
