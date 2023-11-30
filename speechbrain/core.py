@@ -1219,7 +1219,7 @@ class Brain:
                 )
             else:
                 logger.warning(
-                    "Patience not yet exhausted, ignoring this batch."
+                    "Patience not yet exhausted."
                 )
 
     def check_gradients(self):
