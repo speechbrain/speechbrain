@@ -364,7 +364,7 @@ class ResidualVectorQuantize(nn.Module):
 
     >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
     >>> quantizer = dac.quantizer
-    >>> continuous_embeddings = torch.randn(32, 1024, 300) # Example shape: [Batch, Channels, Time]
+    >>> continuous_embeddings = torch.randn(1, 1024, 100) # Example shape: [Batch, Channels, Time]
     >>> discrete_embeddings, codes, _, _, _ = quantizer(continuous_embeddings)
 
     """
@@ -689,14 +689,14 @@ class Encoder(nn.Module):
     -------
     Creating an Encoder instance
     >>> encoder = Encoder()
-    >>> audio_input = torch.randn(2, 1, 88200) # Example shape: [Batch, Channels, Time]
+    >>> audio_input = torch.randn(1, 1, 44100) # Example shape: [Batch, Channels, Time]
     >>> continuous_embedding = encoder(audio_input)
 
     Using a pretrained encoder.
 
     >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
     >>> encoder = dac.encoder
-    >>> audio_input = torch.randn(2, 1, 88200) # Example shape: [Batch, Channels, Time]
+    >>> audio_input = torch.randn(1, 1, 44100) # Example shape: [Batch, Channels, Time]
     >>> continuous_embeddings = encoder(audio_input)
     """
 
@@ -821,8 +821,8 @@ class Decoder(nn.Module):
     -------
     Creating a Decoder instance
 
-    >>> decoder = Decoder(1024, 1536,  [8, 8, 4, 2])
-    >>> discrete_embeddings = torch.randn(2, 1024, 500) # Example shape: [Batch, Channels, Time]
+    >>> decoder = Decoder(256, 1536,  [8, 8, 4, 2])
+    >>> discrete_embeddings = torch.randn(2, 256, 200) # Example shape: [Batch, Channels, Time]
     >>> recovered_audio = decoder(discrete_embeddings)
 
     Using a pretrained decoder. Note that the actual input should be proper discrete representation.
@@ -830,7 +830,7 @@ class Decoder(nn.Module):
 
     >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
     >>> decoder = dac.decoder
-    >>> discrete_embeddings = torch.randn(2, 1024, 500) # Example shape: [Batch, Channels, Time]
+    >>> discrete_embeddings = torch.randn(1, 1024, 500) # Example shape: [Batch, Channels, Time]
     >>> recovered_audio = decoder(discrete_embeddings)
     """
 
