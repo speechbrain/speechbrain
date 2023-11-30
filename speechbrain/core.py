@@ -1218,9 +1218,7 @@ class Brain:
                     "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
                 )
             else:
-                logger.warning(
-                    "Patience not yet exhausted."
-                )
+                logger.warning("Patience not yet exhausted.")
 
     def check_gradients(self):
         """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
