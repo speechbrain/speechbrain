@@ -361,6 +361,33 @@ def parse_arguments(arg_list=None):
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
+        "--init_scale",
+        type=float,
+        default=65536.0,
+        help="GradScaler initial scale factor.",
+    )
+    parser.add_argument(
+        "--growth_factor",
+        type=float,
+        default=2.0,
+        help="GradScaler factor by which the scale is multiplied during "
+        "`update` if no inf/NaN gradients occur for ``growth_interval`` consecutive iterations.",
+    )
+    parser.add_argument(
+        "--backoff_factor",
+        type=float,
+        default=0.5,
+        help="GradScaler factor by which the scale is multiplied during `update`"
+        "if inf/NaN gradients occur in an iteration.",
+    )
+    parser.add_argument(
+        "--growth_interval",
+        type=float,
+        default=2000,
+        help="Gradscaler number of consecutive iterations without inf/NaN gradients that must occur for the scale"
+        "to be multiplied by `growth_factor`.",
+    )
+    parser.add_argument(
         "--auto_mix_prec",
         default=None,
         action="store_true",
@@ -753,7 +780,13 @@ class Brain:
         logger.info(
             f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
         )
-        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+        self.scaler = torch.cuda.amp.GradScaler(
+            init_scale=self.gradscaler_init_scale,
+            growth_factor=self.gradscaler_growth_factor,
+            backoff_factor=self.gradscaler_backoff_factor,
+            growth_interval=self.gradscaler_growth_interval,
+            enabled=gradscaler_enabled,
+        )
 
         self.use_amp = False
         if self.device == "cpu" and self.precision == "bf16":
