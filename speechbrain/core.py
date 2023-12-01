@@ -1202,13 +1202,7 @@ class Brain:
         """
         if not torch.isfinite(loss):
             self.nonfinite_count += 1
-
-            # Print helpful debug info
-            logger.warning(f"Loss is {loss}.")
-            for p in self.modules.parameters():
-                if not torch.isfinite(p).all():
-                    logger.warning("Parameter is not finite: " + str(p))
-
+            
             # Check if patience is exhausted
             if self.nonfinite_count > self.nonfinite_patience:
                 raise ValueError(
