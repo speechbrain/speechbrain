@@ -65,7 +65,7 @@ lr_wav2vec: 0.00001
 loss_reduction: batchmean
 
 # Outputs
-blank_index: 102
+# blank_index: 102
 bos_index: 100
 eos_index: 101
 pad_index: 102
