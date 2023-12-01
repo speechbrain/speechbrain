@@ -367,7 +367,7 @@ class SPNPredictor(nn.Module):
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
+            token_feats.shape[1], ~srcmask, token_feats.dtype
         )
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
 
@@ -702,7 +702,7 @@ class FastSpeech2(nn.Module):
         # prenet & encoder
         token_feats = self.encPreNet(tokens)
         pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
+            token_feats.shape[1], ~srcmask, token_feats.dtype
         )
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
@@ -2404,7 +2404,7 @@ class FastSpeech2WithAlignment(nn.Module):
         # encoder
         token_feats = self.encPreNet(tokens)
         pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
+            token_feats.shape[1], ~srcmask, token_feats.dtype
         )
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
