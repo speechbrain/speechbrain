@@ -721,6 +721,7 @@ class FastSpeech2(nn.Module):
             pace=pace,
         )
         srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -2448,6 +2449,7 @@ class FastSpeech2WithAlignment(nn.Module):
             pace=pace,
         )
         srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
             srcmask.unsqueeze(-1)
