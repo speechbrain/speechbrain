@@ -40,17 +40,19 @@ jobs:
                   pip install --editable .
                   pip install ctc-segmentation
                   pip install pytest-cov
+            - name: Save PR number
+              run: |
+                  mkdir -p ./testresults
+                  echo ${{ github.event.number }} > ./testresults/issue_id.txt
             - name: Unit+doc+integration tests with pytest + coverage
               run: |
-                  pytest --junitxml=pytest.xml \
+                  pytest --junitxml=testresults/pytest.xml \
                   --cov-report=term-missing:skip-covered \
                   --cov=speechbrain --cov-context=test \
                   --doctest-modules \
                   ./speechbrain ./tests \
-                  | tee pytest-coverage.txt
-            - name: Pytest coverage comment
-              uses: MishaKav/pytest-coverage-comment@main
+                  | tee testresults/pytest-coverage.txt
+            - uses: actions/upload-artifact@v2
               with:
-                  pytest-coverage-path: ./pytest-coverage.txt
-                  junitxml-path: ./pytest.xml
-                  report-only-changed-files: True
+                  name: testresults
+                  path: testresults/

@@ -1,0 +1,56 @@
+name: Comment coverage status on the pull request
+
+# IMPORTANT NOTE:
+# This workflow has read-write access to the repository.
+# Do **not** checkout or execute any code external to this repository!
+# Only process untrusted data in a safe way.
+
+# See:
+# https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
+# https://github.com/speechbrain/speechbrain/pull/2277
+
+on: # yamllint disable-line rule:truthy
+    workflow_run:
+        workflows: ["Receive PR"]
+        types:
+            - completed
+
+jobs:
+    upload:
+        runs-on: ubuntu-latest
+        if: >
+            github.event.workflow_run.event == 'pull_request'
+        steps:
+            - name: 'Download artifact'
+              uses: actions/github-script@v3.1.0
+              with:
+                  script: |
+                      var artifacts = await github.actions.listWorkflowRunArtifacts({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          run_id: ${{ github.event.workflow_run.id }},
+                      });
+                      var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+                          return artifact.name == "pr"
+                      })[0];
+                      var download = await github.actions.downloadArtifact({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          artifact_id: matchArtifact.id,
+                          archive_format: 'zip',
+                      });
+                      var fs = require('fs');
+                      fs.writeFileSync('${{github.workspace}}/testresults.zip', Buffer.from(download.data));
+            - run: unzip testresults.zip
+            - name: Read the pull_request_number.txt file
+              id: pr_id_reader
+              uses: juliangruber/read-file-action@v1.1.6
+              with:
+                  path: ./testresults/issue_id.txt
+            - name: Pytest coverage comment
+              uses: MishaKav/pytest-coverage-comment@main
+              with:
+                  pytest-coverage-path: ./testresults/pytest-coverage.txt
+                  junitxml-path: ./testresults/pytest.xml
+                  report-only-changed-files: True
+                  issue-number: ${{ steps.pr_id_reader.outputs.content }}
