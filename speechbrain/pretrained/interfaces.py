@@ -411,6 +411,7 @@ class Pretrained(torch.nn.Module):
         use_auth_token=False,
         revision=None,
         download_only=False,
+        save_filename=None, 
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -469,7 +470,7 @@ class Pretrained(torch.nn.Module):
             source=source,
             savedir=savedir,
             overwrite=False,
-            save_filename=None,
+            save_filename=save_filename,
             use_auth_token=use_auth_token,
             revision=revision,
         )
@@ -479,7 +480,7 @@ class Pretrained(torch.nn.Module):
                 source=source,
                 savedir=savedir,
                 overwrite=False,
-                save_filename=None,
+                save_filename=save_filename,
                 use_auth_token=use_auth_token,
                 revision=revision,
             )
