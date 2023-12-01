@@ -40,6 +40,7 @@ Authors
 
 from math import sqrt
 from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+from speechbrain.lobes.models.transformer.Transformer import get_mask_from_lengths
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -1521,31 +1522,6 @@ class Tacotron2(nn.Module):
         alignments = alignments.unfold(1, BS, BS).transpose(0, 2)
 
         return mel_outputs_postnet, mel_lengths, alignments
-
-
-def get_mask_from_lengths(lengths, max_len=None):
-    """Creates a mask from a tensor of lengths
-
-    Arguments
-    ---------
-    lengths: torch.Tensor
-        a tensor of sequence lengths
-
-    Returns
-    -------
-    mask: torch.Tensor
-        the mask
-    max_len: int
-        The maximum length, i.e. the last dimension of
-        the mask tensor. If not provided, it will be
-        calculated automatically
-    """
-    if max_len is None:
-        max_len = torch.max(lengths).item()
-    ids = torch.arange(0, max_len, device=lengths.device, dtype=lengths.dtype)
-    mask = (ids < lengths.unsqueeze(1)).byte()
-    mask = torch.le(mask, 0)
-    return mask
 
 
 def infer(model, text_sequences, input_lengths):

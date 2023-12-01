@@ -234,8 +234,7 @@ class PositionalEncoding(nn.Module):
     Example
     -------
     >>> a = torch.rand((8, 120, 512))
-    >>> enc = 
-    (input_size=a.shape[-1])
+    >>> enc = PositionalEncoding(input_size=a.shape[-1])
     >>> b = enc(a)
     >>> b.shape
     torch.Size([1, 120, 512])
@@ -246,7 +245,7 @@ class PositionalEncoding(nn.Module):
         if input_size % 2 != 0:
             raise ValueError(
                 f"Cannot use sin/cos positional encoding with odd channels (got channels={input_size})"
-        )
+            )
         self.max_len = max_len
         pe = torch.zeros(self.max_len, input_size, requires_grad=False)
         positions = torch.arange(0, self.max_len).unsqueeze(1).float()
@@ -951,5 +950,7 @@ def get_mask_from_lengths(lengths, max_len=None):
     """
     if max_len is None:
         max_len = torch.max(lengths).item()
-    seq_range = torch.arange(max_len, device=lengths.device, dtype=lengths.dtype)
+    seq_range = torch.arange(
+        max_len, device=lengths.device, dtype=lengths.dtype
+    )
     return ~(seq_range.unsqueeze(0) < lengths.unsqueeze(1))
