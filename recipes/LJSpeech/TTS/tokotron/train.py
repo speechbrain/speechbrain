@@ -117,6 +117,14 @@ class TokotronBrain(sb.Brain):
         self.loss_metric = sb.utils.metric_stats.MultiMetricStats(
             metric=self.hparams.compute_cost, batch_eval=True,
         )
+        if (
+            self.hparams.audio_emb_pretrained
+            and epoch == 1
+            and stage == sb.Stage.TRAIN
+        ):
+            self.modules.model.init_audio_emb(
+                self.hparams.token_model.vocabulary
+            )
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.

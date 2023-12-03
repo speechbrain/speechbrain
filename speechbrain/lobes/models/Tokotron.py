@@ -15,7 +15,6 @@ from torch.nn import functional as F
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerEncoder,
     TransformerDecoder,
-    NormalizedEmbedding,
     PositionalEncoding,
     get_lookahead_mask,
 )
@@ -24,6 +23,7 @@ from speechbrain.nnet.embedding import Embedding
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.losses import kldiv_loss, distance_diff_loss
 from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+from speechbrain.nnet.embedding import MultiEmbedding
 from speechbrain.dataio.dataio import length_to_mask
 from collections import namedtuple
 from tqdm.auto import tqdm
@@ -80,19 +80,19 @@ class TokotronTransformerDecoder(nn.Module):
 
     Arguments
     ---------
-    num_tokens : int
+    num_tokens : int, optional
         the number of tokens
-    tokens_per_step : int
+    tokens_per_step : int, optional
         the number of tokens to be output, per transformer time step
-    d_model : int
+    d_model : int, optional
         The number of expected features in the encoder/decoder inputs (default=512).
     d_ffn : int, optional
         The dimension of the feedforward network model hidden layer.
-    nhead : int
+    nhead : int, optional
         The number of heads in the multi-head attention models (default=8).
-    audio_emb : torch.nn.Module
+    audio_emb : torch.nn.Module, optional
         The audio embedding to be used
-    activation : torch.nn.Module
+    activation : torch.nn.Module, optional
         The activation function to be used
     gate_threshold : int
         The minimum gate value (post-sigmoid) to consider the sequence
@@ -104,6 +104,8 @@ class TokotronTransformerDecoder(nn.Module):
         probabilities before actual EOS
     use_tgt_padding_mask : bool, optional
         whether to use a target padding mask
+    audio_emb_freeze : bool, optional
+        Whether audio embeddings should be frozen
     """
 
     def __init__(
@@ -119,12 +121,14 @@ class TokotronTransformerDecoder(nn.Module):
         target_dropout=None,
         bos_idx=0,
         audio_emb=None,
+        audio_emb_size=128,
         activation=nn.LeakyReLU,
         max_decoder_steps=1000,
         show_inference_progress=True,
         gate_threshold=0.5,
         gate_offset=0,
         use_tgt_padding_mask=False,
+        audio_emb_freeze=False,
     ):
         super().__init__()
         self.num_tokens = num_tokens
@@ -140,14 +144,20 @@ class TokotronTransformerDecoder(nn.Module):
             dropout=dropout,
         )
         self.tgt_in_proj = Linear(
-            input_size=d_model * tokens_per_step, n_neurons=d_model,
+            input_size=audio_emb_size * tokens_per_step, n_neurons=d_model,
         )
         self.out_proj = Linear(
             input_size=d_model, n_neurons=num_tokens * tokens_per_step,
         )
         self.gate = Linear(input_size=d_model, n_neurons=1)
         if audio_emb is None:
-            audio_emb = NormalizedEmbedding(d_model=d_model, vocab=num_tokens)
+            audio_emb = MultiEmbedding(
+                num_embeddings=num_tokens,
+                embedding_dim=audio_emb_size,
+                num_heads=tokens_per_step,
+                normalized=True,
+                d_model=d_model,
+            )
         self.positional_encoding = PositionalEncoding(
             d_model, max_decoder_steps
         )
@@ -162,6 +172,10 @@ class TokotronTransformerDecoder(nn.Module):
         self.gate_threshold = gate_threshold
         self.gate_offset = gate_offset
         self.use_tgt_padding_mask = use_tgt_padding_mask
+        self.audio_emb_freeze = audio_emb_freeze
+        if self.audio_emb_freeze:
+            for parameter in self.audio_emb.parameters():
+                parameter.requires_grad_(False)
 
     def forward(
         self,
@@ -241,6 +255,17 @@ class TokotronTransformerDecoder(nn.Module):
             dec_attn,
             get_alignments(dec_attn),
         )
+
+    def init_audio_emb(self, emb):
+        """Initializes audio embeddings with the specified embedding tensor - useful for re-using the
+        embeddings from a pre-trained model
+
+        Arguments
+        ---------
+        emb : torch.Tensor
+            The embedding tensor with which to initialize
+        """
+        self.audio_emb.initialize(emb)
 
     def get_bos(self, batch_size, device="cpu"):
         """Constructs a beginning-of-sequence (BOS) sequence for
@@ -407,12 +432,14 @@ class TokotronTransformerModel(nn.Module):
     bos_idx : int
         the Beginning-of-Sequence index
     gate_offset : int, optional
-        the number of steps from the gate activation threshold until inference
+        The number of steps from the gate activation threshold until inference
         stops. By default, inference stops immediately. This parameter is useful
         for "soft" gate implementations where the gate starts outputting positive
         probabilities before actual EOS
     use_tgt_padding_mask : bool, optional
-        whether to use a target padding mask
+        Whether to use a target padding mask
+    audio_emb_freeze : bool, optional
+        Whether audio embeddings should be frozen
     """
 
     def __init__(
@@ -434,6 +461,7 @@ class TokotronTransformerModel(nn.Module):
         max_input_length=1000,
         gate_offset=0,
         use_tgt_padding_mask=False,
+        audio_emb_freeze=False,
     ):
         super().__init__()
         self.in_emb = Embedding(
@@ -618,6 +646,17 @@ class TokotronTransformerModel(nn.Module):
             alignments=dec_out.alignments,
             p_eos=dec_out.p_eos,
         )
+
+    def init_audio_emb(self, emb):
+        """Initializes audio embeddings with the specified embedding tensor - useful for re-using the
+        embeddings from a pre-trained model
+
+        Arguments
+        ---------
+        emb : torch.Tensor
+            The embedding tensor with which to initialize
+        """
+        self.decoder.init_audio_emb(emb)
 
 
 def get_gate_targets(lengths, out_len):

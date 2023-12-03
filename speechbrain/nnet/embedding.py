@@ -7,6 +7,7 @@ Authors
 import torch
 import logging
 import torch.nn as nn
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,16 @@ class Embedding(nn.Module):
                 self.num_embeddings, self.embedding_dim
             )
 
+    def initialize(self, emb):
+        """Initializes the embeddings with the specified embedding tensor
+
+        Arguments
+        ---------
+        emb : torch.Tensor
+            A (Embeddings x Embedding Dim) tensor"""
+        with torch.no_grad():
+            self.Embedding.weight.copy_(emb)
+
     def forward(self, x):
         """Returns the embedding of input tensor.
 
@@ -112,3 +123,65 @@ class Embedding(nn.Module):
         """
         # pytorch embedding layer only accept long dtype
         return self.Embedding(x.long())
+
+
+class MultiEmbedding(nn.Module):
+    """A wrapper module with multiple embedding 'heads' - for
+    cases with multiple tokens per sequence
+
+    Arguments
+    ---------
+    num_embeddings : int
+        Size of the dictionary of embeddings.
+    embedding_dim : int
+        It is the dim of embedding (i.e, the dimensionality of the output).
+    num_heads : int
+        The number of embedding "heads" (i.e. tokens per step)
+    normalized : bool
+        Whether to normalize the embeddings (for transformers)
+    d_model : int
+        The model dimension (igored if not normalized)
+    norm_factor : float
+        The normalization factor (multiplier)
+    """
+
+    def __init__(
+        self,
+        num_embeddings,
+        embedding_dim,
+        num_heads,
+        normalized=False,
+        d_model=512,
+    ):
+        super().__init__()
+        self.emb = torch.nn.ModuleList(
+            torch.nn.Embedding(num_embeddings, embedding_dim)
+            for _ in range(num_heads)
+        )
+        self.normalized = normalized
+        self.norm_factor = math.sqrt(d_model) if normalized else 1.0
+
+    def forward(self, x):
+        """Computes the forward pass"""
+        emb = (
+            torch.cat(
+                [
+                    emb(x[..., idx].int()).unsqueeze(-2)
+                    for idx, emb in enumerate(self.emb)
+                ],
+                dim=-2,
+            )
+            * self.norm_factor
+        )
+        return emb
+
+    def initialize(self, emb):
+        """Initializes the embeddings with the specified embedding tensor
+
+        Arguments
+        ---------
+        emb : torch.Tensor
+            A (Layer x Embeddings x Embedding Dim) tensor"""
+        with torch.no_grad():
+            for head, head_emb in zip(self.emb, emb,):
+                head.weight.copy_(head_emb)

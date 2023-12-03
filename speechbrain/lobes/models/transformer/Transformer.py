@@ -863,6 +863,15 @@ class NormalizedEmbedding(nn.Module):
         """ Processes the input tensor x and returns an output tensor."""
         return self.emb(x) * math.sqrt(self.d_model)
 
+    def initialize(self, emb):
+        """Initializes the embeddings with the specified embedding tensor
+
+        Arguments
+        ---------
+        emb : torch.Tensor
+            A (Embeddings x Embedding Dim) tensor"""
+        self.Embedding.initialize(emb)
+
 
 def get_key_padding_mask(padded_input, pad_idx):
     """Creates a binary mask to prevent attention to padded locations.
