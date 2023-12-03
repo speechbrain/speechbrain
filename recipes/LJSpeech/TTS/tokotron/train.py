@@ -20,7 +20,9 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.preparation import add_prepared_features
 from speechbrain.utils.audio_tokens import (
-    get_silence_token, use_silence_padding, feature_pad_to
+    get_silence_token,
+    use_silence_padding,
+    feature_pad_to,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,7 +95,7 @@ class TokotronBrain(sb.Brain):
             audio_length=batch.audio_tokens_pad.lengths,
             input_tokens=batch.tokens.data,
             input_length=batch.tokens.lengths,
-            reduction="batch"
+            reduction="batch",
         )
         return loss_details.loss
 
@@ -113,8 +115,7 @@ class TokotronBrain(sb.Brain):
         # and the character error rate (cer)
         self.create_perfect_samples()
         self.loss_metric = sb.utils.metric_stats.MultiMetricStats(
-            metric=self.hparams.compute_cost,
-            batch_eval=True,
+            metric=self.hparams.compute_cost, batch_eval=True,
         )
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -167,7 +168,9 @@ class TokotronBrain(sb.Brain):
         if epoch % self.hparams.samples_interval != 0:
             return
         if self.debug:
-            self.modules.model.decoder.max_decoder_steps = self.hparams.debug_infer_max_audio_tokens            
+            self.modules.model.decoder.max_decoder_steps = (
+                self.hparams.debug_infer_max_audio_tokens
+            )
         sample_loader = sb.dataio.dataloader.make_dataloader(
             self.sample_data, **self.hparams.sample_dataloader_opts
         )
@@ -175,8 +178,7 @@ class TokotronBrain(sb.Brain):
             batch = batch.to(self.device)
             tokens, tokens_length = batch.tokens
             infer_out = self.modules.model.infer(
-                input_tokens=tokens,
-                input_length=tokens_length
+                input_tokens=tokens, input_length=tokens_length
             )
             self.hparams.progress_report.write(
                 ids=batch.uttid,
@@ -184,7 +186,7 @@ class TokotronBrain(sb.Brain):
                 length_pred=infer_out.wav_length,
                 length=batch.audio_tokens_pad.lengths,
                 alignments=infer_out.alignments,
-                p_eos=infer_out.p_eos
+                p_eos=infer_out.p_eos,
             )
 
     def create_perfect_samples(self):
@@ -197,19 +199,25 @@ class TokotronBrain(sb.Brain):
             for batch in sample_loader:
                 batch = batch.to(self.device)
                 sample_tokens, length = batch.audio_tokens_pad
-                samples, samples_length = self.modules.vocoder(sample_tokens, length)
+                samples, samples_length = self.modules.vocoder(
+                    sample_tokens, length
+                )
                 max_len = samples.size(1)
                 samples_length_abs = (samples_length * max_len).int()
                 with self.hparams.progress_logger:
-                    for item_id, item_wav, item_length in zip(batch.uttid, samples, samples_length_abs):
-                        item_cut = item_wav[:item_length.item()]
+                    for item_id, item_wav, item_length in zip(
+                        batch.uttid, samples, samples_length_abs
+                    ):
+                        item_cut = item_wav[: item_length.item()]
                         self.hparams.progress_logger.save(
                             name=f"{item_id}.wav",
                             content=item_cut.detach().cpu(),
                             mode="audio",
-                            folder="_perfect"
+                            folder="_perfect",
                         )
-                    self.hparams.progress_logger["perfect_samples_created"] = True
+                    self.hparams.progress_logger[
+                        "perfect_samples_created"
+                    ] = True
                     self.hparams.progress_logger.clear()
 
 
@@ -245,9 +253,7 @@ def dataio_prepare(hparams):
     label_encoder = hparams["label_encoder"]
 
     @sb.utils.data_pipeline.takes("label")
-    @sb.utils.data_pipeline.provides(
-        "label", "tokens"
-    )
+    @sb.utils.data_pipeline.provides("label", "tokens")
     def text_pipeline(label):
         """Processes the transcriptions to generate proper labels"""
         label = label.upper()
@@ -258,25 +264,19 @@ def dataio_prepare(hparams):
     silence_token, _ = get_silence_token(hparams["token_model"])
     silence_token = silence_token.cpu()
     silence_padding_len = int(math.ceil(hparams["silence_padding"]))
-    audio_bos = torch.ones(1, hparams["audio_tokens_per_step"]) * hparams["bos_index"]
+    audio_bos = (
+        torch.ones(1, hparams["audio_tokens_per_step"]) * hparams["bos_index"]
+    )
 
     @sb.utils.data_pipeline.takes("audio_tokens")
     @sb.utils.data_pipeline.provides("audio_tokens_pad", "audio_tokens_bos")
     def audio_pipeline(audio_tokens):
         audio_tokens = torch.from_numpy(audio_tokens)
         audio_tokens_pad = feature_pad_to(
-            audio_tokens,
-            len(audio_tokens) + silence_padding_len,
-            silence_token
+            audio_tokens, len(audio_tokens) + silence_padding_len, silence_token
         )
         yield audio_tokens_pad
-        audio_tokens_bos = torch.cat(
-            [
-                audio_bos,
-                audio_tokens_pad
-            ],
-            dim=0
-        )
+        audio_tokens_bos = torch.cat([audio_bos, audio_tokens_pad], dim=0)
         yield audio_tokens_bos
 
     init_sequence_encoder(hparams)
@@ -298,7 +298,7 @@ def dataio_prepare(hparams):
             dataset=dynamic_dataset,
             save_path=Path(hparams["data_folder"]) / "features",
             id_key="uttid",
-            features=["audio_tokens"]
+            features=["audio_tokens"],
         )
 
         datasets[dataset] = dynamic_dataset
@@ -326,8 +326,10 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
 
-    datasets["sample"] = datasets["valid"].batch_shuffle(1).filtered_sorted(
-        select_n=hparams["num_audio_samples"]
+    datasets["sample"] = (
+        datasets["valid"]
+        .batch_shuffle(1)
+        .filtered_sorted(select_n=hparams["num_audio_samples"])
     )
     return datasets, silence_token
 
@@ -443,7 +445,6 @@ def apply_overfit_test(hparams, dataset):
     return result
 
 
-
 if __name__ == "__main__":
 
     # Reading command line arguments
@@ -464,6 +465,7 @@ if __name__ == "__main__":
     )
 
     from ljspeech_prepare import prepare_ljspeech
+
     # Data preparation, to be run on only one process.
     if not hparams["skip_prep"]:
         with hparams["freezer"]:
@@ -478,7 +480,7 @@ if __name__ == "__main__":
                     "extract_features": ["audio_tokens"],
                     "extract_features_opts": hparams["extract_features_opts"],
                     "model_name": "tokotron",
-                    "device": run_opts.get("device", "cpu")
+                    "device": run_opts.get("device", "cpu"),
                 },
             )
 
@@ -508,15 +510,11 @@ if __name__ == "__main__":
         datasets["train"],
         datasets["valid"],
         train_loader_kwargs=use_silence_padding(
-            hparams["train_dataloader_opts"],
-            silence_token,
-            token_keys
+            hparams["train_dataloader_opts"], silence_token, token_keys
         ),
         valid_loader_kwargs=use_silence_padding(
-            hparams["valid_dataloader_opts"],
-            silence_token,
-            token_keys
-        )
+            hparams["valid_dataloader_opts"], silence_token, token_keys
+        ),
     )
 
     # Load best checkpoint for evaluation
@@ -524,10 +522,8 @@ if __name__ == "__main__":
         test_set=datasets["test"],
         min_key="loss",
         test_loader_kwargs=use_silence_padding(
-            hparams["test_dataloader_opts"],
-            silence_token,
-            token_keys
-        )
+            hparams["test_dataloader_opts"], silence_token, token_keys
+        ),
     )
 
     # Save final checkpoint (fixed name)

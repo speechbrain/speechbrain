@@ -2,7 +2,7 @@
 discrete/tokenized audio representations
 
 NOTE: This model does not use the standard Transformer interface
-in order to make it usable as both as a full model and as a 
+in order to make it usable as both as a full model and as a
 decoder-only model
 
 Authors
@@ -38,18 +38,12 @@ TokotronOutput = namedtuple(
         "dec_self_attn",
         "dec_attn",
         "alignments",
-    ]
+    ],
 )
 
 TokotronDecoderOutput = namedtuple(
     "TokotronDecoderOutput",
-    [
-        "out",
-        "gate_out",
-        "dec_self_attn",
-        "dec_attn",
-        "alignments",
-    ]
+    ["out", "gate_out", "dec_self_attn", "dec_attn", "alignments"],
 )
 
 TokotronDecoderInfernceOutput = namedtuple(
@@ -61,7 +55,7 @@ TokotronDecoderInfernceOutput = namedtuple(
         "dec_attn",
         "alignments",
         "p_eos",
-    ]
+    ],
 )
 
 TokotronInfernceOutput = namedtuple(
@@ -76,7 +70,7 @@ TokotronInfernceOutput = namedtuple(
         "dec_attn",
         "alignments",
         "p_eos",
-    ]
+    ],
 )
 
 
@@ -93,7 +87,7 @@ class TokotronTransformerDecoder(nn.Module):
     d_model : int
         The number of expected features in the encoder/decoder inputs (default=512).
     d_ffn : int, optional
-        The dimension of the feedforward network model hidden layer.        
+        The dimension of the feedforward network model hidden layer.
     nhead : int
         The number of heads in the multi-head attention models (default=8).
     audio_emb : torch.nn.Module
@@ -111,6 +105,7 @@ class TokotronTransformerDecoder(nn.Module):
     use_tgt_padding_mask : bool, optional
         whether to use a target padding mask
     """
+
     def __init__(
         self,
         num_tokens=1024,
@@ -145,22 +140,14 @@ class TokotronTransformerDecoder(nn.Module):
             dropout=dropout,
         )
         self.tgt_in_proj = Linear(
-            input_size=d_model * tokens_per_step,
-            n_neurons=d_model,
+            input_size=d_model * tokens_per_step, n_neurons=d_model,
         )
         self.out_proj = Linear(
-            input_size=d_model,
-            n_neurons=num_tokens * tokens_per_step,
+            input_size=d_model, n_neurons=num_tokens * tokens_per_step,
         )
-        self.gate = Linear(
-            input_size=d_model,
-            n_neurons=1
-        )
+        self.gate = Linear(input_size=d_model, n_neurons=1)
         if audio_emb is None:
-            audio_emb = NormalizedEmbedding(
-                d_model=d_model,
-                vocab=num_tokens
-            )
+            audio_emb = NormalizedEmbedding(d_model=d_model, vocab=num_tokens)
         self.positional_encoding = PositionalEncoding(
             d_model, max_decoder_steps
         )
@@ -202,8 +189,7 @@ class TokotronTransformerDecoder(nn.Module):
         if src_length is not None and src_key_padding_mask is None:
             src_max_len = enc_out.size(1)
             src_key_padding_mask = length_to_mask(
-                src_length * src_max_len,
-                src_max_len
+                src_length * src_max_len, src_max_len
             ).logical_not()
 
         if (
@@ -213,24 +199,17 @@ class TokotronTransformerDecoder(nn.Module):
         ):
             tgt_max_len = tgt.size(1)
             tgt_key_padding_mask = length_to_mask(
-                tgt_length * tgt_max_len,
-                tgt_max_len
+                tgt_length * tgt_max_len, tgt_max_len
             ).logical_not()
 
         audio_emb = self.audio_emb(tgt)
 
         batch_size, audio_max_len, heads, audio_dim = audio_emb.shape
         audio_emb_combined = audio_emb.reshape(
-            batch_size,
-            audio_max_len,
-            heads * audio_dim
+            batch_size, audio_max_len, heads * audio_dim
         )
         tgt = self.tgt_in_proj(audio_emb_combined)
-        tgt = F.dropout(
-            tgt,
-            self.target_dropout,
-            training=self.training
-        )
+        tgt = F.dropout(tgt, self.target_dropout, training=self.training)
 
         tgt_mask = get_lookahead_mask(tgt)
         if self.attention_type == "RelPosMHAXL":
@@ -238,11 +217,7 @@ class TokotronTransformerDecoder(nn.Module):
         else:
             tgt = tgt + self.positional_encoding(tgt)
             pos_embs_tgt = None
-        (
-            dec_out,
-            dec_self_attn,
-            dec_attn,
-        ) = self.dec(
+        (dec_out, dec_self_attn, dec_attn,) = self.dec(
             tgt=tgt,
             memory=enc_out,
             memory_mask=None,
@@ -256,10 +231,7 @@ class TokotronTransformerDecoder(nn.Module):
         lin_out = self.out_proj(dec_out)
         batch_size, text_max_len, _ = lin_out.shape
         lin_out_heads = lin_out.reshape(
-            batch_size,
-            text_max_len,
-            self.tokens_per_step,
-            self.num_tokens,
+            batch_size, text_max_len, self.tokens_per_step, self.num_tokens,
         )
         gate_out = self.gate(dec_out).squeeze(-1)
         return TokotronDecoderOutput(
@@ -285,12 +257,10 @@ class TokotronTransformerDecoder(nn.Module):
         -------
         seq: torch.Tensor
             the target sequence"""
-        return torch.ones(
-            batch_size,
-            1,
-            self.tokens_per_step,
-            device=device
-        ) * self.bos_idx
+        return (
+            torch.ones(batch_size, 1, self.tokens_per_step, device=device)
+            * self.bos_idx
+        )
 
     def infer(self, enc_out, length):
         """Performs autoregressive inference
@@ -324,7 +294,10 @@ class TokotronTransformerDecoder(nn.Module):
             steps_range = range(self.max_decoder_steps)
 
             # Initialize the gate activation index
-            seq_gate_idx = torch.ones(batch_size, device=enc_out.device) * self.max_decoder_steps
+            seq_gate_idx = (
+                torch.ones(batch_size, device=enc_out.device)
+                * self.max_decoder_steps
+            )
 
             # Initialize an indicator that tells whether the gate has activated
             # for a given sample
@@ -345,10 +318,7 @@ class TokotronTransformerDecoder(nn.Module):
 
                 # The model outputs predictions without BOS. Add the BOS back for the
                 # following step
-                audio_tokens = torch.cat(
-                    [bos, audio_tokens_out],
-                    dim=1
-                )
+                audio_tokens = torch.cat([bos, audio_tokens_out], dim=1)
                 # Find the gate activation of the current step
                 step_gate_out = step_out.gate_out[:, -1]
 
@@ -368,8 +338,8 @@ class TokotronTransformerDecoder(nn.Module):
                     torch.where(
                         step_gate_act,
                         torch.tensor(idx, device=step_gate_out.device),
-                        seq_gate_idx
-                    )
+                        seq_gate_idx,
+                    ),
                 )
 
                 # Update the gate indicator
@@ -377,15 +347,19 @@ class TokotronTransformerDecoder(nn.Module):
 
                 # For a given sample, consider it done if the gate has activated at least
                 # gate_offset steps ago
-                seq_done = seq_gate_act & (seq_gate_idx - idx >= self.gate_offset)
+                seq_done = seq_gate_act & (
+                    seq_gate_idx - idx >= self.gate_offset
+                )
 
                 # Terminate inference if all samples are done
                 done = seq_done.all()
                 if done.item():
                     break
 
-            # Length = gate activation index + the offset, not exceeding 
-            length_abs = (seq_gate_idx + self.gate_offset).clip(max=self.max_decoder_steps)
+            # Length = gate activation index + the offset, not exceeding
+            length_abs = (seq_gate_idx + self.gate_offset).clip(
+                max=self.max_decoder_steps
+            )
             # Compute relative lengths
             length = length_abs.float() / audio_tokens_out.size(1)
 
@@ -395,7 +369,7 @@ class TokotronTransformerDecoder(nn.Module):
             dec_self_attn=step_out.dec_self_attn,
             dec_attn=step_out.dec_attn,
             alignments=step_out.alignments,
-            p_eos=step_out.gate_out.sigmoid()
+            p_eos=step_out.gate_out.sigmoid(),
         )
 
 
@@ -411,12 +385,12 @@ class TokotronTransformerModel(nn.Module):
         The number of audio tokens
     audio_tokens_per_step : int
         The number of output audio tokens per tranformer step.
-        When using Vocodec, this corresponds to the number of 
+        When using Vocodec, this corresponds to the number of
         quantizers in the model used
     d_model : int
         The number of expected features in the encoder/decoder inputs (default=512).
     d_ffn : int, optional
-        The dimension of the feedforward network model hidden layer.        
+        The dimension of the feedforward network model hidden layer.
     nhead : int
         The number of heads in the multi-head attention models (default=8).
     num_encoder_layers : int, optional
@@ -440,6 +414,7 @@ class TokotronTransformerModel(nn.Module):
     use_tgt_padding_mask : bool, optional
         whether to use a target padding mask
     """
+
     def __init__(
         self,
         input_num_tokens,
@@ -462,8 +437,7 @@ class TokotronTransformerModel(nn.Module):
     ):
         super().__init__()
         self.in_emb = Embedding(
-            num_embeddings=input_num_tokens,
-            embedding_dim=d_model,
+            num_embeddings=input_num_tokens, embedding_dim=d_model,
         )
         self.encoder = TransformerEncoder(
             num_layers=num_encoder_layers,
@@ -509,11 +483,7 @@ class TokotronTransformerModel(nn.Module):
         self.decoder.gate_offset = value
 
     def forward(
-        self,
-        input_tokens,
-        input_length,
-        audio_tokens,
-        audio_length,
+        self, input_tokens, input_length, audio_tokens, audio_length,
     ):
         """Computes the forward pass, for training
 
@@ -556,7 +526,7 @@ class TokotronTransformerModel(nn.Module):
             dec_attn=dec_out.dec_attn,
             alignments=dec_out.alignments,
         )
-    
+
     def process_inputs(self, input_tokens, input_length):
         """Computes embeddings, the padding mask and encoder
         positional embeddings
@@ -584,19 +554,20 @@ class TokotronTransformerModel(nn.Module):
             src = in_emb
             pos_embs_encoder = self.positional_encoding(in_emb)
         else:
-            src = in_emb + self.positional_encoding(in_emb)  # add the encodings here
+            src = in_emb + self.positional_encoding(
+                in_emb
+            )  # add the encodings here
             pos_embs_encoder = None
 
         input_max_len = input_tokens.size(1)
         src_key_padding_mask = length_to_mask(
-            input_length * input_max_len,
-            input_max_len,
+            input_length * input_max_len, input_max_len,
         ).logical_not()
         return src, src_key_padding_mask, pos_embs_encoder
 
     def infer(self, input_tokens, input_length):
         """Performs end-to-end inference
-        
+
         Arguments
         ---------
         input_tokens : torch.Tensor
@@ -635,10 +606,7 @@ class TokotronTransformerModel(nn.Module):
         dec_out = self.decoder.infer(enc_out, input_length)
         wav, wav_length = None, None
         if self.vocoder is not None:
-            wav, wav_length = self.vocoder(
-                dec_out.audio_tokens,
-                input_length
-            )
+            wav, wav_length = self.vocoder(dec_out.audio_tokens, input_length)
         return TokotronInfernceOutput(
             audio_tokens=dec_out.audio_tokens,
             length=dec_out.audio_tokens,
@@ -673,9 +641,7 @@ def get_gate_targets(lengths, out_len):
     pos = torch.arange(out_len, device=lengths.device)[None, :]
     gate_targets = pos >= (lengths * out_len)[:, None]
     gate_weights = torch.where(
-        gate_targets,
-        .5 / (1. - lengths)[:, None],
-        .5 / lengths[:, None],
+        gate_targets, 0.5 / (1.0 - lengths)[:, None], 0.5 / lengths[:, None],
     )
     return gate_targets.float(), gate_weights
 
@@ -693,20 +659,11 @@ def get_alignments(attn):
     alignments: torch.Tensor
         The resulting alignments
     """
-    return torch.cat(
-        [item.unsqueeze(-1) for item in attn],
-        dim=-1
-    ).mean(dim=-1)
+    return torch.cat([item.unsqueeze(-1) for item in attn], dim=-1).mean(dim=-1)
 
 
 TokotronLossDetails = namedtuple(
-    "TokotronLossDetails",
-    [
-        "loss",
-        "seq_loss",
-        "gate_loss",
-        "attn_loss"
-    ]
+    "TokotronLossDetails", ["loss", "seq_loss", "gate_loss", "attn_loss"]
 )
 
 
@@ -714,7 +671,7 @@ class TokotronLoss(nn.Module):
     """The loss module for the Tokotron module, combining
     a sequence loss a guided attention loss and a gate loss
     for end-of-sequence prediction
-    
+
     Arguments
     ---------
     guided_attention_weight : float
@@ -749,6 +706,7 @@ class TokotronLoss(nn.Module):
     seq_cost : float
         The type of sequence loss to be used
     """
+
     def __init__(
         self,
         guided_attention_weight,
@@ -756,9 +714,9 @@ class TokotronLoss(nn.Module):
         gate_weight,
         gate_beta,
         gate_gamma,
-        gate_max_weight=1.,
+        gate_max_weight=1.0,
         silence_padding=0,
-        seq_cost=None
+        seq_cost=None,
     ):
         super().__init__()
         self.guided_attention_weight = guided_attention_weight
@@ -770,9 +728,7 @@ class TokotronLoss(nn.Module):
         if seq_cost is None:
             seq_cost = kldiv_loss
         self.seq_cost = seq_cost
-        self.attn_cost = GuidedAttentionLoss(
-            sigma=guided_attention_sigma,
-        )
+        self.attn_cost = GuidedAttentionLoss(sigma=guided_attention_sigma,)
 
     def forward(
         self,
@@ -781,40 +737,32 @@ class TokotronLoss(nn.Module):
         audio_length,
         input_tokens,
         input_length,
-        reduction="mean"
+        reduction="mean",
     ):
         p_seq = predictions.out.log_softmax(dim=-1)
         batch_size, out_len, heads, tok_dim = p_seq.shape
         max_len = out_len - 1
         p_seq_reshaped = (
-            p_seq
-            .transpose(1, 2)
-            .reshape(batch_size * heads, out_len, tok_dim)
+            p_seq.transpose(1, 2).reshape(batch_size * heads, out_len, tok_dim)
         )[:, :max_len, :]
-        audio_tokens_reshaped = (
-            audio_tokens
-            .transpose(1, 2)
-            .reshape(batch_size * heads, max_len)
+        audio_tokens_reshaped = audio_tokens.transpose(1, 2).reshape(
+            batch_size * heads, max_len
         )
         lengths_reshaped = audio_length.repeat(heads)
         seq_loss = self.seq_cost(
             p_seq_reshaped,
             audio_tokens_reshaped,
             length=lengths_reshaped,
-            reduction=reduction
+            reduction=reduction,
         )
         if reduction == "batch":
-            seq_loss = (
-                seq_loss
-                .reshape(batch_size, heads)
-                .mean(-1)
-            )
+            seq_loss = seq_loss.reshape(batch_size, heads).mean(-1)
         lengths_abs = audio_length * out_len
         attn_loss = self.attn_cost(
             predictions.alignments,
             input_lengths=input_length * input_tokens.size(1),
             target_lengths=lengths_abs,
-            reduction=reduction
+            reduction=reduction,
         )
         # NOTE: This adjustment will allow the gate to be "off" by up to silence_padding,
         # resulting in extra silence being output
@@ -825,13 +773,11 @@ class TokotronLoss(nn.Module):
             gamma=self.gate_gamma,
             max_weight=self.gate_max_weight,
             two_sided=True,
-            reduction=reduction
+            reduction=reduction,
         )
         loss = (
             seq_loss
             + self.guided_attention_weight * attn_loss
             + self.gate_weight * gate_loss
         )
-        return TokotronLossDetails(
-            loss, seq_loss, gate_loss, attn_loss
-        )
+        return TokotronLossDetails(loss, seq_loss, gate_loss, attn_loss)

@@ -39,7 +39,7 @@ class FeatureExtractor:
 
     dataloader_opts: dict
         parameters to be passed to the data loader (batch size, etc)
-    
+
     dynamic_items : list
         Configuration for the dynamic items produced when fetching an example.
         List of DynamicItems or dicts with the format::
@@ -48,16 +48,17 @@ class FeatureExtractor:
             provides: key # key or list of keys that this provides
 
     """
+
     def __init__(
-            self,
-            save_path,
-            src_keys,
-            id_key="id",
-            save_format="npy",
-            device="cpu",
-            dataloader_opts=None,
-            dynamic_items=None,
-            description=None
+        self,
+        save_path,
+        src_keys,
+        id_key="id",
+        save_format="npy",
+        device="cpu",
+        dataloader_opts=None,
+        dynamic_items=None,
+        description=None,
     ):
         if not dataloader_opts:
             dataloader_opts = {}
@@ -74,8 +75,7 @@ class FeatureExtractor:
             raise ValueError(f"Unsupported save_format: {save_format}")
         self.device = device
         self.pipeline = DataPipeline(
-            static_data_keys=src_keys,
-            dynamic_items=dynamic_items or []
+            static_data_keys=src_keys, dynamic_items=dynamic_items or []
         )
         self.description = description
 
@@ -90,7 +90,7 @@ class FeatureExtractor:
         if isinstance(dataset, dict):
             dataset = DynamicItemDataset(dataset)
         dataset.set_output_keys(self.src_keys + [self.id_key])
-       
+
         dataloader = make_dataloader(dataset, **self.dataloader_opts)
         batch_size = self.dataloader_opts.get("batch_size", 1)
         batch_count = int(math.ceil(len(dataset) / batch_size))
@@ -100,7 +100,7 @@ class FeatureExtractor:
 
     def process_batch(self, batch):
         """Processes a batch of data
-        
+
         Arguments
         ---------
         batch: speechbrain.dataio.batch.PaddedBatch
@@ -190,8 +190,7 @@ def load_pt(save_path, item_id, features):
 
 def load_npy(save_path, item_id, features):
     return {
-        key: np.load(save_path / f"{key}_{item_id}.npy")
-        for key in features
+        key: np.load(save_path / f"{key}_{item_id}.npy") for key in features
     }
 
 
@@ -207,14 +206,10 @@ LOAD_FORMATS = {
 
 
 def add_prepared_features(
-    dataset,
-    save_path,
-    features,
-    id_key="id",
-    save_format="npy"
+    dataset, save_path, features, id_key="id", save_format="npy"
 ):
     """Adds prepared features to a pipeline
-    
+
     Arguments
     ---------
     dataset : speechbrains.dataio.dataset.DynamicItemDataset
@@ -241,19 +236,14 @@ def add_prepared_features(
     dataset.add_dynamic_item(prepared_features_pipeline)
 
 
-DEFAULT_PATTERNS = [
-    "*.csv",
-    "*.json",
-    "features",
-    "*_prepare.pkl"
-]
+DEFAULT_PATTERNS = ["*.csv", "*.json", "features", "*_prepare.pkl"]
 
 
 class Freezer:
     """A utility class that helps archive and restore prepared
-    data. This is particularly useful on compute clusters where 
+    data. This is particularly useful on compute clusters where
     preparation needs to be done on non-permanent storage
-    
+
     Arguments
     ---------
     save_path : str|path-like
@@ -263,12 +253,8 @@ class Freezer:
     patterns : enumerable
         a list of glob patterns with prepared files
     """
-    def __init__(
-        self,
-        save_path,
-        archive_path,
-        patterns=None
-    ):
+
+    def __init__(self, save_path, archive_path, patterns=None):
         self.save_path = Path(save_path)
         self.archive_path = Path(archive_path) if archive_path else None
         self.patterns = patterns or DEFAULT_PATTERNS
@@ -281,20 +267,20 @@ class Freezer:
         if self.archive_path.exists():
             logger.info(
                 "The prepared dataset has already been archived in %s",
-                self.archive_path
+                self.archive_path,
             )
             return
         file_names = self.get_files()
         logger.info(
             "Arhiving %d files from the prepared dataset in %s",
             len(file_names),
-            self.archive_path
+            self.archive_path,
         )
         with TarFile.open(self.archive_path, "w") as tar_file:
             for file_name in file_names:
                 tar_file.add(
                     name=file_name,
-                    arcname=file_name.relative_to(self.save_path)
+                    arcname=file_name.relative_to(self.save_path),
                 )
 
     def unfreeze(self):
@@ -320,8 +306,7 @@ class Freezer:
             result = True
         else:
             logger.info(
-                "No frozen prepared dataset exists in %s",
-                self.archive_path
+                "No frozen prepared dataset exists in %s", self.archive_path
             )
             result = False
         return result
@@ -339,7 +324,7 @@ class Freezer:
             for pattern in self.patterns
             for file_name in self.save_path.glob(pattern)
         ]
-    
+
     def __enter__(self):
         self.freeze()
 

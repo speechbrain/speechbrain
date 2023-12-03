@@ -29,7 +29,7 @@ progress_folder: !ref <output_folder>/progress
 progress_archive: !ref <progress_folder>/progress.tar
 progress_current: !ref <progress_folder>/current
 progress_meta: !ref <progress_folder>/meta.yaml
-num_audio_samples: 32 
+num_audio_samples: 32
 samples_interval: 5
 
 splits: ["train", "valid", "test"]
@@ -49,7 +49,7 @@ grad_accumulation_factor: 1
 max_grad_norm: 5.0
 sorting: random
 num_workers: 4
-skip_prep: false
+skip_prep: False
 num_inference_samples: 16
 overfit_test: False
 overfit_test_sample_count: !ref <batch_size>
@@ -94,7 +94,7 @@ silence_padding: !ref <gate_offset>
 token_model: !new:speechbrain.lobes.models.huggingface_transformers.Encodec
     source: !ref <token_model_src>
     save_path: !ref <data_folder>
-    flat_embeddings: true
+    flat_embeddings: True
 
 # Dataloader options
 train_dataloader_opts:
@@ -124,7 +124,7 @@ sample_dataloader_opts:
     num_workers: !ref <num_workers>
     collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
         padding_kwargs:
-            value: !ref <pad_index>            
+            value: !ref <pad_index>
 
 extract_features_opts:
     dataloader_opts:

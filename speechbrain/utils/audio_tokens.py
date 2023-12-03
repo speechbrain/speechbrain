@@ -61,7 +61,9 @@ def feature_pad_to(tensor, length, padding=None):
     """
     if padding is None:
         padding = torch.zeros(tensor.shape[1:])
-    padding = padding[None, ...].expand((length - tensor.size(0),) + tensor.shape[1:])
+    padding = padding[None, ...].expand(
+        (length - tensor.size(0),) + tensor.shape[1:]
+    )
     return torch.cat([tensor, padding], dim=0)
 
 
@@ -75,20 +77,18 @@ def batch_feature_pad(tensors, padding=None):
         The list of tensors to be padded
     padding : torch.Tensor
         The padding tensor
-    
+
     Returns
     -------
     result : torch.Tensor
         the padded tensor
     """
     lengths_abs = torch.tensor(
-        [len(item) for item in tensors], device=tensors[0].device)
+        [len(item) for item in tensors], device=tensors[0].device
+    )
     max_length = lengths_abs.max()
     data = torch.stack(
-        [
-            feature_pad_to(item, max_length, padding)
-            for item in tensors
-        ]
+        [feature_pad_to(item, max_length, padding) for item in tensors]
     )
     lengths = lengths_abs / max_length
     return data, lengths
@@ -109,24 +109,18 @@ def token_collate_fn(examples, silence_token, token_keys):
 
     token_keys : list
         The list of keys to which special padding will be applied
-   
+
     Returns
     -------
     result : speechbrain.dataio.batch.PaddedBatch
         A padded batch
     """
-    key_padding_func = {
-        key: batch_feature_pad
-        for key in token_keys 
-    }
-    key_padding_kwargs = {
-        key: {"padding": silence_token}
-        for key in token_keys
-    }
+    key_padding_func = {key: batch_feature_pad for key in token_keys}
+    key_padding_kwargs = {key: {"padding": silence_token} for key in token_keys}
     return PaddedBatch(
         examples,
         key_padding_func=key_padding_func,
-        key_padding_kwargs=key_padding_kwargs
+        key_padding_kwargs=key_padding_kwargs,
     )
 
 
@@ -151,8 +145,6 @@ def use_silence_padding(dataloader_opts, silence_token, token_keys):
     return {
         **dataloader_opts,
         "collate_fn": partial(
-            token_collate_fn,
-            silence_token=silence_token,
-            token_keys=token_keys
-        )
+            token_collate_fn, silence_token=silence_token, token_keys=token_keys
+        ),
     }

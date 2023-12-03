@@ -9,7 +9,7 @@ from speechbrain.utils.data_utils import (
     mod_default_collate,
     recursive_to,
     batch_pad_right,
-    undo_padding
+    undo_padding,
 )
 from torch.utils.data._utils.collate import default_convert
 from torch.utils.data._utils.pin_memory import (
@@ -134,8 +134,12 @@ class PaddedBatch:
                 # Padding and PaddedData
                 self.__padded_keys.append(key)
                 effective_padding_func = key_padding_func.get(key, padding_func)
-                effective_padding_kwargs = key_padding_kwargs.get(key, padding_kwargs)
-                padded = PaddedData(*effective_padding_func(values, **effective_padding_kwargs))
+                effective_padding_kwargs = key_padding_kwargs.get(
+                    key, padding_kwargs
+                )
+                padded = PaddedData(
+                    *effective_padding_func(values, **effective_padding_kwargs)
+                )
                 setattr(self, key, padded)
             else:
                 # Default PyTorch collate usually does the right thing
@@ -199,13 +203,10 @@ class PaddedBatch:
     def batchsize(self):
         """Returns the bach size"""
         return self.__length
-    
+
     def as_dict(self):
         """Converts this batch to a dictionary"""
-        return {
-            key: getattr(self, key)
-            for key in self.__keys
-        }
+        return {key: getattr(self, key) for key in self.__keys}
 
 
 class BatchsizeGuesser:
@@ -322,8 +323,5 @@ def _unpack_feature(feature):
     if isinstance(feature, PaddedData):
         device = feature.data.device
         feature = undo_padding(feature.data, feature.lengths)
-        feature = [
-            torch.tensor(item, device=device)
-            for item in feature
-        ]
+        feature = [torch.tensor(item, device=device) for item in feature]
     return feature

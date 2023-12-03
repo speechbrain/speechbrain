@@ -115,7 +115,7 @@ class GuidedAttentionLoss(nn.Module):
         soft_mask = self.guided_attentions(
             input_lengths, target_lengths, max_input_len, max_target_len
         )
-        loss = (attention * soft_mask.transpose(-1, -2))
+        loss = attention * soft_mask.transpose(-1, -2)
         if reduction == "mean":
             loss = loss.mean()
         else:

@@ -637,7 +637,7 @@ def distance_diff_loss(
         lengths (for masking in padded batches)
 
     beta : float
-        a hyperparameter controlling the penalties, an exponent multiplier. 
+        a hyperparameter controlling the penalties, an exponent multiplier.
         With a higher beta, penalties will increase faster
 
     max_weight: torch.Tensor
@@ -670,8 +670,11 @@ def distance_diff_loss(
     """
     return compute_masked_loss(
         functools.partial(
-            _distance_diff_loss, beta=beta, max_weight=max_weight,
-            two_sided=two_sided, gamma=gamma
+            _distance_diff_loss,
+            beta=beta,
+            max_weight=max_weight,
+            two_sided=two_sided,
+            gamma=gamma,
         ),
         predictions=predictions,
         targets=targets,
@@ -684,7 +687,7 @@ def distance_diff_loss(
 def distance_diff_loss_ramp(beta, max_weight, gamma):
     """For distance_diff_loss, calculates the number of steps from the ground truth
     at which the weight reaches the maximum
-    
+
 
     beta : float
         a hyperparameter controlling the penalties. With a higher beta,
@@ -702,7 +705,9 @@ def distance_diff_loss_ramp(beta, max_weight, gamma):
     return math.log(max_weight / gamma - 1) / beta
 
 
-def _distance_diff_loss(predictions, targets, beta, max_weight, gamma, two_sided=False):
+def _distance_diff_loss(
+    predictions, targets, beta, max_weight, gamma, two_sided=False
+):
     """Computes the raw (unreduced) distance difference loss
 
     Arguments
@@ -734,7 +739,9 @@ def _distance_diff_loss(predictions, targets, beta, max_weight, gamma, two_sided
         predictions.device
     )
     diff_range = (pos_range - targets.unsqueeze(-1)).abs()
-    loss_weights = (((beta * diff_range).exp() - 1.0) * gamma).clamp(max=max_weight)
+    loss_weights = (((beta * diff_range).exp() - 1.0) * gamma).clamp(
+        max=max_weight
+    )
     loss = loss_weights * predictions
     if two_sided:
         flip_loss = (max_weight - loss_weights) * (1 - predictions)

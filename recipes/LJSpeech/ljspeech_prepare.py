@@ -30,7 +30,6 @@ from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 from speechbrain.dataio.batch import PaddedData
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.preparation import FeatureExtractor
-from speechbrain.lobes.models.huggingface_transformers.encodec import Encodec
 from torchaudio.functional import resample
 
 
@@ -188,7 +187,7 @@ def prepare_ljspeech(
         extract_features_context = get_context(
             extract_features=extract_features,
             extract_features_opts=extract_features_opts or {},
-            device=device
+            device=device,
         )
         extract_features_folder = Path(save_folder) / "features"
 
@@ -591,7 +590,7 @@ def prepare_json(
             features=extract_features,
             context=extract_features_context,
             options=extract_features_opts,
-            device=device
+            device=device,
         )
 
     # Writing the dictionary to the json file
@@ -773,12 +772,7 @@ def custom_clean(text, model_name):
 
 
 def prepare_features(
-        data,
-        save_path,
-        features,
-        context,
-        options=None,
-        device="cpu"
+    data, save_path, features, context, options=None, device="cpu"
 ):
     """Performs feature extraction
 
@@ -794,7 +788,7 @@ def prepare_features(
         src_keys=["sig"],
         id_key="uttid",
         dataloader_opts=options.get("dataloader_opts", {}),
-        device=device
+        device=device,
     )
 
     @sb.utils.data_pipeline.takes("wav")
@@ -803,6 +797,7 @@ def prepare_features(
         """Load the audio signal. """
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
+
     dataset.add_dynamic_item(audio_pipeline)
 
     @sb.utils.data_pipeline.takes("sig")
@@ -811,14 +806,16 @@ def prepare_features(
         sig_data = resample(
             waveform=sig.data,
             orig_freq=options["sample_rate"],
-            new_freq=options["model_sample_rate"]
+            new_freq=options["model_sample_rate"],
         )
         return PaddedData(sig_data, sig.lengths)
 
     @sb.utils.data_pipeline.takes("sig_resampled")
     @sb.utils.data_pipeline.provides("audio_tokens", "audio_emb")
     def token_pipeline(sig):
-        tokens, emb = context.token_model.encode(sig.data.unsqueeze(1), sig.lengths)
+        tokens, emb = context.token_model.encode(
+            sig.data.unsqueeze(1), sig.lengths
+        )
         yield PaddedData(tokens, sig.lengths)
         yield PaddedData(emb, sig.lengths)
 
@@ -828,11 +825,7 @@ def prepare_features(
     feature_extractor.extract(dataset)
 
 
-def get_context(
-    extract_features,
-    extract_features_opts,
-    device
-):
+def get_context(extract_features, extract_features_opts, device):
     """
     Gets the context (pretrained models, etc) for feature extraction
 

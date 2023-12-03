@@ -4,6 +4,7 @@ Authors
  * Artem Ploujnikov 2023
 """
 import logging
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -28,38 +29,33 @@ class TTSProgressReport:
         The threshold probability at which the end-of-sequence gate
         output is considered as positive
     """
+
     def __init__(self, logger, sample_rate=24000, eos_threshold=0.5):
         self.logger = logger
         self.sample_rate = sample_rate
         self.eos_threshold = eos_threshold
 
     def write(
-        self,
-        ids,
-        audio,
-        length_pred,
-        length,
-        alignments=None,
-        p_eos=None,
+        self, ids, audio, length_pred, length, alignments=None, p_eos=None,
     ):
         """Reports TTS inferents results
 
         Arguments
         ---------
         ids : list
-            the list of IDs, from the dataset
+            The list of IDs, from the dataset
         audio : torch.Tensor
-            a padded tensor of audio samples
+            A padded tensor of audio samples
         length_pred : torch.Tensor
-            a tensor of predicted relative lengths
+            A tensor of predicted relative lengths
         length : torch.Tensor
-            a tensor of ground truth relative lengths
+            A tensor of ground truth relative lengths
 
         alignments : torch.Tensor, optional
             Attention alignments
         p_eos : torch.Tensor
             A (Batch x Length) tensor of end-of-sequence
-            probabilities        
+            probabilities
         """
         with self.logger:
             self.write_audio(ids, audio, length_pred)
@@ -76,20 +72,20 @@ class TTSProgressReport:
         Arguments
         ---------
         ids : list
-            the list of IDs, from the dataset
+            The list of IDs, from the dataset
         audio : torch.Tensor
-            a padded tensor of audio samples
+            A padded tensor of audio samples
         length : torch.Tensor
-            a tensor of relative lengths
+            A tensor of relative lengths
         """
         length_abs = (length * audio.size(1)).int()
         for item_id, item_audio, item_length in zip(ids, audio, length_abs):
-            item_audio_cut = item_audio[:item_length.item()]
+            item_audio_cut = item_audio[: item_length.item()]
             self.logger.save(
                 name=f"{item_id}.wav",
                 content=item_audio_cut.detach().cpu(),
                 mode="audio",
-                samplerate=self.sample_rate
+                samplerate=self.sample_rate,
             )
 
     def write_alignments(self, ids, alignments):
@@ -107,19 +103,14 @@ class TTSProgressReport:
             try:
                 fig, ax = plt.subplots(figsize=(8, 2))
                 ax.imshow(
-                    item_alignment
-                    .transpose(-1, -2)
-                    .detach()
-                    .cpu(),
+                    item_alignment.transpose(-1, -2).detach().cpu(),
                     origin="lower",
                 )
                 ax.set_title(f"{item_id} Alignment")
                 ax.set_xlabel("Audio")
                 ax.set_ylabel("Text")
                 self.logger.save(
-                    name=f"{item_id}_alignment.png",
-                    content=fig,
-                    mode="figure",
+                    name=f"{item_id}_alignment.png", content=fig, mode="figure",
                 )
             finally:
                 plt.close(fig)
@@ -146,16 +137,14 @@ class TTSProgressReport:
                 ax.set_ylabel("Gate Output")
                 ax.plot(item_p_eos)
                 x = [item_length, item_length]
-                y = [0., 1.]
+                y = [0.0, 1.0]
                 ax.plot(x, y, color="blue", marker="o", label="Ground Truth")
-                x = [0., max_len - 1]
+                x = [0.0, max_len - 1]
                 y = [self.eos_threshold, self.eos_threshold]
                 ax.plot(x, y, color="red", marker="x", label="Threshold")
                 ax.legend()
                 self.logger.save(
-                    name=f"{item_id}_gate.png",
-                    content=fig,
-                    mode="figure",
+                    name=f"{item_id}_gate.png", content=fig, mode="figure",
                 )
             finally:
                 plt.close(fig)
@@ -169,7 +158,7 @@ class TTSProgressReport:
         ids : list
             The list of IDs, from the dataset
         alignments : torch.Tensor
-            Attention alignments       
+            Attention alignments
         p_eos : torch.Tensor
             A (Batch x Length) tensor of end-of-sequence
             probabilities
@@ -179,8 +168,4 @@ class TTSProgressReport:
             "alignments": alignments,
             "p_eos": p_eos,
         }
-        self.logger.save(
-            name="details.pt",
-            content=details,
-            mode="tensor"
-        )
+        self.logger.save(name="details.pt", content=details, mode="tensor")

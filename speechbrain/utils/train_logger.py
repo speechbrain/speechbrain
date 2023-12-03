@@ -505,13 +505,14 @@ class ArchiveTrainLogger:
     epoch : int, optional
         The epoch number (not allowed if the epoch counter is supplied)
     """
+
     def __init__(
         self,
         archive_path,
         current_path,
         meta_path=None,
         epoch_counter=None,
-        epoch=None
+        epoch=None,
     ):
         self.archive_path = Path(archive_path)
         self.current_path = Path(current_path)
@@ -536,7 +537,7 @@ class ArchiveTrainLogger:
 
     def __getitem__(self, key):
         return self._meta.get(key)
-    
+
     def __setitem__(self, key, value):
         self._meta[key] = value
 
@@ -609,15 +610,9 @@ class ArchiveTrainLogger:
         arcname = folder / Path(name)
         if self.archive is None:
             with tarfile.open(self.archive_path, "a") as archive:
-                archive.add(
-                    current_file_name,
-                    str(arcname)
-                )
+                archive.add(current_file_name, str(arcname))
         else:
-            self.archive.add(
-                current_file_name,
-                str(arcname)
-            )
+            self.archive.add(current_file_name, str(arcname))
 
     def add_content_handler(self, mode, handler):
         """Adds a content handler, which saves content
