@@ -490,6 +490,7 @@ class TokotronTransformerModel(nn.Module):
             dropout=dropout,
             target_dropout=target_dropout,
             use_tgt_padding_mask=use_tgt_padding_mask,
+            audio_emb_freeze=audio_emb_freeze
         )
         self.bos_idx = bos_idx
         self.vocoder = vocoder
