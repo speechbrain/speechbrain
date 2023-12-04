@@ -18,6 +18,7 @@ from speechbrain.utils.metric_stats import MetricStats
 from os import makedirs
 import torch.nn.functional as F
 from speechbrain.processing.NMF import spectral_phase
+import torchvision
 
 eps = 1e-10
 
@@ -385,32 +386,65 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
         X_stft_logpower = torch.log1p(X_stft_power)
 
+        with torch.no_grad():
+            interpretations = torch.empty(wavs.shape[0], 417, 513).to(X_stft_logpower.device)
+            for i in range(interpretations.shape[0]):
+                tmp, _, _ = self.interpret_computation_steps(wavs[0:1])
+                # tmp = tmp[:, :X_stft_power.shape[1]].t()
+                interpretations[i] = torch.log1p(tmp.t())
+
+            # Embeddings + sound classifier
+            temp = self.hparams.embedding_model(interpretations)
+            if isinstance(temp, tuple):
+                embeddings, f_I = temp
+            else:
+                embeddings, f_I = temp, temp
+
+            if embeddings.ndim == 4:
+                embeddings = embeddings.mean((-1, -2))
+
+            maskin_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+
+            X_stft_logpower = X_stft_logpower[:, :interpretations.shape[-2], :]
+            temp = self.hparams.embedding_model(X_stft_logpower - interpretations)
+            if isinstance(temp, tuple):
+                embeddings, f_I = temp
+            else:
+                embeddings, f_I = temp, temp
+
+            if embeddings.ndim == 4:
+                embeddings = embeddings.mean((-1, -2))
+
+            maskout_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+
+        torchvision.utils.save_image(interpretations.unsqueeze(1), "ints.png")
+        torchvision.utils.save_image(X_stft_logpower.unsqueeze(1), "ints.png")
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.inp_fid.append(
                 uttid,
-                theta_out,
+                maskin_preds,
                 classification_out.softmax(1),
             )
             self.AD.append(
                 uttid,
-                theta_out,
+                maskin_preds,
                 classification_out.softmax(1),
             )
             self.AI.append(
                 uttid,
-                theta_out,
+                maskin_preds,
                 classification_out.softmax(1),
             )
             self.AG.append(
                 uttid,
-                theta_out,
+                maskin_preds,
                 classification_out.softmax(1),
             )
-            # self.faithfulness.append(
-                # uttid,
-                # classification_out.softmax(1),
-                # mask_out_preds,
-            # )
+            self.faithfulness.append(
+                uttid,
+                classification_out.softmax(1),
+                maskout_preds,
+            )
 
         self.acc_metric.append(
             uttid,
@@ -561,9 +595,9 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "input_fid": current_fid,
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
+                # "faithfulness_median": torch.Tensor(
+                    # self.faithfulness.scores
+                # ).median(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
                 ).mean(),
@@ -581,7 +615,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             # Save the current checkpoint and delete previous checkpoints,
             self.checkpointer.save_and_keep_only(
-                meta=valid_stats, max_keys=["faithfulness_mean"]
+                meta=valid_stats, min_keys=["loss"]
             )
 
         if stage == sb.Stage.TEST:
@@ -590,15 +624,15 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "input_fid": current_fid,
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
+                # "faithfulness_median": torch.Tensor(
+                    # self.faithfulness.scores
+                # ).median(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
                 ).mean(),
-                "faithfulness_std": torch.Tensor(
-                    self.faithfulness.scores
-                ).std(),
+                # "faithfulness_std": torch.Tensor(
+                    # self.faithfulness.scores
+                # ).std(),
                 "AD": self.AD.summarize("average"),
                 "AI": self.AI.summarize("average"),
                 "AG": self.AG.summarize("average"),
