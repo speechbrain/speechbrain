@@ -271,7 +271,9 @@ class Attention(nn.Module):
     -------
     >>> import torch
     >>> from speechbrain.lobes.models.Tacotron2 import (
-    ...     Attention, get_mask_from_lengths)
+    ... Attention)
+    >>> from speechbrain.lobes.models.transformer.Transformer import (
+    ... get_mask_from_lengths)
     >>> layer = Attention()
     >>> attention_hidden_state = torch.randn(2, 1024)
     >>> memory = torch.randn(2, 173, 512)
