@@ -63,7 +63,7 @@ precision: fp32 # bf16, fp16 or fp32
 batch_size: 8
 grad_accumulation_factor: 4
 sorting: random
-avg_checkpoints: 1 # Number of checkpoints to average for evaluation
+avg_checkpoints: 5 # Number of checkpoints to average for evaluation
 
 # Feature parameters
 sample_rate: 16000
