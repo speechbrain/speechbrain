@@ -24,10 +24,7 @@ from tqdm import tqdm
 from pathlib import Path
 from speechbrain.utils.data_utils import download_file
 from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.pretrained import GraphemeToPhoneme
-import tgt
 from speechbrain.inference.text import GraphemeToPhoneme
-import re
 from unidecode import unidecode
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 from speechbrain.dataio.batch import PaddedData

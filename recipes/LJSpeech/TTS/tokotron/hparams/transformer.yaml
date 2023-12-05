@@ -163,7 +163,7 @@ vocoder: !new:speechbrain.lobes.models.huggingface_transformers.vocos.Vocos
     source: !ref <vocoder_model>
     save_path: !ref <prepare_save_folder>
 
-model: !new:speechbrain.lobes.models.Tokotron.TokotronTransformerModel # yamllint disable-line rule:line-length
+model: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronTransformerModel # yamllint disable-line rule:line-length
     input_num_tokens: !ref <text_num_tokens>
     audio_num_tokens: !ref <audio_num_tokens>
     audio_tokens_per_step: !ref <audio_tokens_per_step>
@@ -188,7 +188,7 @@ modules:
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
-compute_cost: !new:speechbrain.lobes.models.Tokotron.TokotronLoss
+compute_cost: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronLoss
     guided_attention_weight: !ref <guided_attention_weight>
     guided_attention_sigma: !ref <guided_attention_sigma>
     gate_weight: !ref <gate_loss_weight>

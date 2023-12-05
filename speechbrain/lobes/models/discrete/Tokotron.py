@@ -254,6 +254,7 @@ class TokotronTransformerDecoder(nn.Module):
             dec_self_attn,
             dec_attn,
             get_alignments(dec_attn),
+            {},
         )
 
     def init_audio_emb(self, emb):
@@ -396,18 +397,20 @@ class TokotronTransformerModel(nn.Module):
     ---------
     input_num_tokens : int
         The number of input characters or phonemes available
-    audio_num_tokens : int
+    audio_num_tokens : int, optional
         The number of audio tokens
-    audio_tokens_per_step : int
+    audio_tokens_per_step : int, optional
         The number of output audio tokens per tranformer step.
         When using Vocodec, this corresponds to the number of
         quantizers in the model used
-    d_model : int
+    d_model : int, optional
         The number of expected features in the encoder/decoder inputs (default=512).
     d_ffn : int, optional
         The dimension of the feedforward network model hidden layer.
-    nhead : int
+    nhead : int, optional
         The number of heads in the multi-head attention models (default=8).
+    attention_type : str, optional
+        The type of attention to be used
     enc_num_layers : int, optional
         The number of encoder layers in1ì the encoder.
     dec_num_layers : int, optional
@@ -419,7 +422,9 @@ class TokotronTransformerModel(nn.Module):
     activation : torch.nn.Module, optional
         The activation function for Feed-Forward Netowrk layer,
         e.g., relu or gelu or swish.
-    bos_idx : int
+    max_audio_length: int
+        The maximum number of tokens to be output
+    bos_idx : int, optional
         the Beginning-of-Sequence index
     gate_threshold : int
         The minimum gate value (post-sigmoid) to consider the sequence
@@ -429,12 +434,14 @@ class TokotronTransformerModel(nn.Module):
         stops. By default, inference stops immediately. This parameter is useful
         for "soft" gate implementations where the gate starts outputting positive
         probabilities before actual EOS
-    max_audio_length: int
-        The maximum number of tokens to be output
     use_tgt_padding_mask : bool, optional
         Whether to use a target padding mask
     audio_emb_freeze : bool, optional
         Whether audio embeddings should be frozen
+    show_inference_progress : bool, optional
+        Whether to show inference progress in the console
+    vocoder : nn.Module
+        The vocoder module
     """
 
     def __init__(
@@ -622,6 +629,10 @@ class TokotronTransformerModel(nn.Module):
             Decoder self-attentions
         dec_attn : torch.Tensor
             Decoder multihead attentions (or equivalent)
+        alignments : torch.Tensor
+            Aggregated alignments
+        p_eos : torch.Tensor
+            End-of-sequence probability at each step
 
         """
         src, src_key_padding_mask, pos_embs_encoder = self.process_inputs(
@@ -669,15 +680,51 @@ class TokotronRNNModel(nn.Module):
     ---------
     input_num_tokens : int
         The number of input characters or phonemes available
-    audio_num_tokens : int
+    audio_num_tokens : int, optional
         The number of audio tokens
-    audio_tokens_per_step : int
+    audio_tokens_per_step : int, optional
         The number of output audio tokens per tranformer step.
         When using Vocodec, this corresponds to the number of
         quantizers in the model used
-    bos_idx : int
+    enc_rnn_type : str, optional
+        The type of RNN to be used for the encoder: "gru", "lstm"
+        or a custom module
+    enc_hidden_size : int, optional
+        The size of the hidden dimension in the encoder
+    enc_num_layers : int, optional
+        The number of layers in the encoder
+    enc_bidirectional : bool, optional
+        Whether a bi-directional RNN is used in the encoder
+    dec_rnn_type : str, optional
+        The type of RNN to be used for the decoder: "gru", "lstm"
+        or a custom module
+    dec_input_size : int, optional
+        The decoder input size
+    dec_hidden_size : int, optional
+        The size of the decoder hidden dimension
+    dec_num_layers : int, optional
+        The number of layers in teh decoder
+    dec_attn_type : str, optional
+        The type of attention to be used in the decoder,
+        "content", "location" or "keyvalue"
+    dec_attn_dim : int, optional
+        The attention dimension
+    dec_attn_kernel_size: int, optional
+        The attention convolutional kernel size
+        (for location-aware attention)
+    dec_attn_channels : int, optional
+        The attention convolutional channels
+        (for location-aware attention)
+    dec_scaling : float, optional
+        The attention scaling factor
+        (for location-aware attention)
+    dropout : float, optional
+        The dropout rate
+    bos_idx : int, optional
         the Beginning-of-Sequence index
-    gate_threshold : int
+    max_audio_length: int, optional
+        The maximum number of tokens to be output
+    gate_threshold : int, optional
         The minimum gate value (post-sigmoid) to consider the sequence
         as complete during auto-regressive inference
     gate_offset : int, optional
@@ -685,8 +732,12 @@ class TokotronRNNModel(nn.Module):
         stops. By default, inference stops immediately. This parameter is useful
         for "soft" gate implementations where the gate starts outputting positive
         probabilities before actual EOS
-    max_audio_length: int
-        The maximum number of tokens to be output
+    audio_emb_freeze : bool, optional
+        Whether audio embeddings should be frozen
+    show_inference_progress : bool, optional
+        Whether to show inference progress in the console
+    vocoder : nn.Module, optional
+        The vocoder to be used (if applicable)
     """
 
     def __init__(
@@ -764,6 +815,14 @@ class TokotronRNNModel(nn.Module):
 
         self.vocoder = vocoder
 
+    @property
+    def gate_offset(self):
+        return self.decoder.gate_offset
+
+    @gate_offset.setter
+    def gate_offset(self, value):
+        self.decoder.gate_offset = value
+
     def forward(
         self, input_tokens, input_length, audio_tokens, audio_length,
     ):
@@ -832,12 +891,15 @@ class TokotronRNNModel(nn.Module):
         wav_length : torch.Tensor
             Waveform lengths
         enc_self_attn : torch.Tensor
-            Encoder self-attentions
+            Encoder self-attentions (None for RNN)
         dec_self_attn : torch.Tensor
-            Decoder self-attentions
+            Decoder self-attentions (None for RNN)
         dec_attn : torch.Tensor
             Decoder multihead attentions (or equivalent)
-
+        alignments : torch.Tensor
+            Aggregated alignments
+        p_eos : torch.Tensor
+            EOS probability at each step
         """
         src = self.in_emb(input_tokens)
         enc_out, _ = self.encoder(src)
@@ -868,26 +930,56 @@ class TokotronRNNDecoder(nn.Module):
         The number of tokens
     tokens_per_step : int, optional
         The number of tokens to be output, per transformer time step
+    rnn_type : str | nn.Module, optional
+        The type of RNN to be used ("gru", "lstm" or a custom module)
+    enc_dim : int, optional
+        The encoder deimension
+    input_size : int, optional
+        The input tensor size
+    hidden_size : int, optional
+        The hidden dimension size
+    hidden_size : int, optional
+        The number of neurons in RNN hidden layers
+    num_layers : int, optional
+        The number of layers
+    attn_type : str, optional
+        The type of attention to use (location, content).
+    attn_dim : int, optional
+        Number of attention module internal and output neurons.
+    attn_kernel_size : int, optional
+        The kernel size for location-aware attention
+    attn_channels : int, optional
+        The number of channels for location-aware attention
+    attn_scaling : float, optional
+        The scaling factor for location-aware attention
+    nonlinearity : str, optional
+        The non-linearity to be used ("relu" or "tanh")
+    normalization : str, optional
+        The normalization to be used
+    dropout : float, optional
+        The dropout rate
+    target : float, optional
+        The drop-out rate for autoregressive targets
     audio_emb : nn.Module, optional
         The audio embedding module
     audio_emb_size : int
         The audio emedding size
-    rnn_type : str|nn.Module
-        The type of RNN to be used
-    hidden_size : int
-        The number of neurons in RNN hidden layers
-    attn_type : str
-        The type of attention to use (location, content).
-    attn_dim : int
-        Number of attention module internal and output neurons.
-    attn_kernel_size : int
-        The kernel size for location-aware attention
-    attn_channels : int
-        The number of channels for location-aware attention
-    attn_scaling : float
-        The scaling factor for location-aware attention
     audio_emb_freeze : bool, optional
         Whether audio embeddings should be frozen
+    max_decoder_steps : int
+        The maximum number of steps for autoregressive decoding
+    bos_idx : int
+        the Beginning-of-Sequence index
+    gate_threshold : int
+        The minimum gate value (post-sigmoid) to consider the sequence
+        as complete during auto-regressive inference
+    gate_offset : int, optional
+        The number of steps from the gate activation threshold until inference
+        stops. By default, inference stops immediately. This parameter is useful
+        for "soft" gate implementations where the gate starts outputting positive
+        probabilities before actual EOS
+    show_inference_progress : bool
+        Whether to show inference progress in the console
     """
 
     def __init__(
@@ -963,14 +1055,6 @@ class TokotronRNNDecoder(nn.Module):
             for parameter in self.audio_emb.parameters():
                 parameter.requires_grad_(False)
 
-    @property
-    def gate_offset(self):
-        return self.decoder.gate_offset
-
-    @gate_offset.setter
-    def gate_offset(self, value):
-        self.decoder.gate_offset = value
-
     def forward(
         self, enc_out, tgt, src_length=None, tgt_length=None,
     ):
@@ -986,6 +1070,11 @@ class TokotronRNNDecoder(nn.Module):
             The relative lengths of the source sequence
         tgt_length : torch.Tensor
             Target lengths
+
+        Returns
+        -------
+        result : TokotronDecoderOutput
+            The forward step output
         """
         audio_emb = self.audio_emb(tgt)
 
@@ -1016,12 +1105,21 @@ class TokotronRNNDecoder(nn.Module):
         """
         Performs a single RNN step - used in inference
 
+        Arguments
+        ---------
         src : torch.Tensor
             Raw encoder outputs
         tgt : torch.Tensor
             Targets (audio tokens)
         src_length : torch.Tensor
             The relative lengths of the source sequence
+        context : dict
+            The context to pass from one step to the next
+
+        Returns
+        -------
+        result : TokotronDecoderOutput
+            The single-step output
         """
         audio_emb = self.audio_emb(tgt)
 
@@ -1085,9 +1183,13 @@ class TokotronRNNDecoder(nn.Module):
         length : torch.Tensor
             Inferred relative lengths
         dec_self_attn : torch.Tensor
-            Decoder self-attentions
+            Decoder self-attentions (None in RNN)
         dec_attn : torch.Tensor
             Decoder multihead attentions (or equivalent)
+        alignments : torch.Tensor
+            Aggregated alignments
+        p_eos : torch.Tensor
+            End-of-sequence probability for each step
         """
         with torch.no_grad():
             context = None
