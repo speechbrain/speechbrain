@@ -94,12 +94,10 @@ num_decoder_layers: 0
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 128
-token_type: bpe
 
 
 # Outputs
 blank_index: 0
-label_smoothing: 0.0
 
 ############################## models ################################
 
@@ -126,8 +124,6 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     attention_type: !ref <attention_type>
     normalize_before: True
     causal: False
-
-label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
