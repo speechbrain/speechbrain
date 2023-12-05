@@ -580,6 +580,7 @@ class NoamIntervalScheduler:
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
 
+
 @checkpoints.register_checkpoint_hooks
 class LinearNoamScheduler:
     """The is an implementation of the extended Noam scheduler in the Squeezeformer paper.
@@ -595,7 +596,7 @@ class LinearNoamScheduler:
     n_warmup_steps : int
         number of warm-up steps.
     n_keep_steps : int
-        after warmp-up steps, number of steps that the lr is kept unchanged. 
+        after warmp-up steps, number of steps that the lr is kept unchanged.
 
     Example
     -------

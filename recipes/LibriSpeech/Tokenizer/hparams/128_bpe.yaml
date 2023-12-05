@@ -1,5 +1,5 @@
 # ############################################################################
-# Tokenizer: subword 128 BPE 
+# Tokenizer: subword 128 BPE
 # Training: Librispeech 960h
 # Authors:  Abdel Heba 2021
 #           Shucong Zhang 2023

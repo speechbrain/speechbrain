@@ -32,7 +32,7 @@ test_csv:
     - !ref <output_folder>/test-clean.csv
     - !ref <output_folder>/test-other.csv
 
-pretrained_tokenizer_path: !PLACEHOLDER # e.g., /path/to/128_bpe_model 
+pretrained_tokenizer_path: !PLACEHOLDER # e.g., /path/to/128_bpe_model
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 number_of_epochs: 500
@@ -44,8 +44,8 @@ num_workers: 8
 loss_reduction: batchmean
 valid_search_interval: 1
 
-lr_adam: 0.001 
-weight_decay: 0.0005 
+lr_adam: 0.001
+weight_decay: 0.0005
 
 # Feature parameters
 sample_rate: 16000
@@ -55,11 +55,11 @@ win_length: 25
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
-# The global batch size is computed as max_batch_len * n_gpus * gradient_accumulation.
+# The global batch size is max_batch_len * n_gpus * gradient_accumulation.
 # Empirically, we used 850 * 8 A40 45G GPUs * 2 or 1700 * 4 A100 80G * 2.
 # Please, set your parameters accordingly.
 dynamic_batching: True
-max_batch_len: 850 
+max_batch_len: 850
 max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -67,7 +67,7 @@ dynamic_batch_sampler:
     max_batch_len: !ref <max_batch_len>
     max_batch_len_val: !ref <max_batch_len_val>
     num_buckets: !ref <num_bucket>
-    shuffle_ex: false # if true re-creates batches at each epoch shuffling examples.
+    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
     batch_ordering: random
     max_batch_ex: 128
 

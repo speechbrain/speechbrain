@@ -4,7 +4,7 @@ The system employs an encoder and CTC greedy decoding.
 
 To run this recipe, do the following:
 > python train_from_scratch.py hparams/train_conformer.yaml
-or 
+or
 > python train_from_scratch.py hparams/train_branchformer.yaml
 
 With the default hyperparameters, the system employs a convolutional frontend and a transformer.
@@ -27,7 +27,6 @@ from pathlib import Path
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main, if_main_process
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from torch.utils.data import DataLoader
 from speechbrain.dataio.dataloader import LoopedLoader
@@ -81,11 +80,16 @@ class ASR(sb.core.Brain):
             sequence = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
-            predicted_words = [self.tokenizer.decode_ids(hyp).split(" ") for hyp in sequence]
+            predicted_words = [
+                self.tokenizer.decode_ids(hyp).split(" ") for hyp in sequence
+            ]
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
-            target_words = [self.tokenizer.decode_ids(words).split(" ") for words in target_words]
+            target_words = [
+                self.tokenizer.decode_ids(words).split(" ")
+                for words in target_words
+            ]
 
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
