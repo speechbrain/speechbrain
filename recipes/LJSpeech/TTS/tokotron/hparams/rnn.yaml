@@ -6,7 +6,7 @@
 
 seed: 74443
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/rnn/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -81,7 +81,7 @@ debug_infer_max_audio_tokens: 10
 label_encoder: !new:speechbrain.dataio.encoder.TextEncoder
 token_list_file: ./hparams/char_en.txt
 
-# Gate offset
+# Gate parameters
 gate_offset: !apply:speechbrain.nnet.losses.distance_diff_loss_ramp
     beta: !ref <gate_loss_beta>
     gamma: !ref <gate_loss_gamma>
@@ -136,21 +136,30 @@ extract_features_opts:
 
 ####################### Model parameters ###########################
 # Transformer
-d_model: 512
-nhead: 4
+## d_model: 512
+## nhead: 4
 enc_num_layers: 6
-dec_num_layers: 12
+enc_rnn_type: gru
+enc_hidden_size: 512
+enc_bidirectional: True
+dec_rnn_type: gru
+dec_hidden_size: 512
+dec_num_layers: 6
+dec_attn_type: "location"
+dec_attn_dim: 512
+dec_attn_kernel_size: 100
+dec_attn_channels: 10
+dec_attn_scaling: 1.0
+
 d_ffn: 2048
 transformer_dropout: 0.2
 target_dropout: 0.2
-activation: !name:torch.nn.GELU
 audio_num_tokens: 1024
 audio_emb_size: 128
 audio_emb_freeze: True
 audio_emb_pretrained: True
 text_num_tokens: 31
 audio_tokens_per_step: 2
-attention_type: regularMHA
 
 # Outputs
 blank_index: 0
@@ -163,18 +172,23 @@ vocoder: !new:speechbrain.lobes.models.huggingface_transformers.vocos.Vocos
     source: !ref <vocoder_model>
     save_path: !ref <prepare_save_folder>
 
-model: !new:speechbrain.lobes.models.Tokotron.TokotronTransformerModel # yamllint disable-line rule:line-length
+model: !new:speechbrain.lobes.models.Tokotron.TokotronRNNModel # yamllint disable-line rule:line-length
     input_num_tokens: !ref <text_num_tokens>
     audio_num_tokens: !ref <audio_num_tokens>
     audio_tokens_per_step: !ref <audio_tokens_per_step>
-    d_model: !ref <d_model>
-    d_ffn: !ref <d_ffn>
-    nhead: !ref <nhead>
+    enc_rnn_type: !ref <enc_rnn_type>
+    enc_hidden_size: !ref <enc_hidden_size>
     enc_num_layers: !ref <enc_num_layers>
+    enc_bidirectional: !ref <enc_bidirectional>
+    dec_rnn_type: !ref <dec_rnn_type>
+    dec_hidden_size: !ref <dec_hidden_size>
     dec_num_layers: !ref <dec_num_layers>
+    dec_attn_type: !ref <dec_attn_type>
+    dec_attn_dim: !ref <dec_attn_dim>
+    dec_attn_kernel_size: !ref <dec_attn_kernel_size>
+    dec_attn_channels: !ref <dec_attn_channels>
+    dec_attn_scaling: !ref <dec_attn_scaling>
     dropout: !ref <transformer_dropout>
-    activation: !ref <activation>
-    attention_type: !ref <attention_type>
     vocoder: !ref <vocoder>
     gate_threshold: !ref <gate_threshold>
     gate_offset: !ref <gate_offset>

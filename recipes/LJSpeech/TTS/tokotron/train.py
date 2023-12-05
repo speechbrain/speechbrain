@@ -4,9 +4,12 @@
 Inspired by WhisperSpeech
 https://github.com/collabora/WhisperSpeech
 
+However, this is not an implementation of WhisperSpeech, but rather
+a radical simplification of it that uses only an acoustic model
+
 
 Authors
- * Artem Ploujnikov
+ * Artem Ploujnikov 2023
 """
 
 
