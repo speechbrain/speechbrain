@@ -183,7 +183,6 @@ class TokotronTransformerDecoder(nn.Module):
         tgt_length=None,
         tgt_key_padding_mask=None,
         pos_embs_src=None,
-        context=None,
     ):
         """Computes the forward pass, for training
 
@@ -294,7 +293,6 @@ class TokotronTransformerDecoder(nn.Module):
             Decoder multihead attentions (or equivalent)
         """
         with torch.no_grad():
-            context = {}
             batch_size = enc_out.size(0)
 
             # Initialize BOS
@@ -328,7 +326,6 @@ class TokotronTransformerDecoder(nn.Module):
                     src_length=length,
                     tgt=audio_tokens,
                     tgt_length=audio_tokens_length,
-                    context=context,
                 )
                 audio_tokens_out = step_out.out.argmax(-1)
 
@@ -1133,6 +1130,7 @@ class TokotronRNNDecoder(nn.Module):
                 ),
                 "hs": None,
             }
+            self.dec.attn.reset()
         dec_out, hs, c, w = self.dec.forward_step(
             tgt, context["hs"], context["c"], enc_out, src_length
         )
