@@ -24,6 +24,17 @@ To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster train
 ```
 python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampling.yaml --downsampling_factor 2
 ```
+To train a model from scratch (without any pre-training), please firstly go to the Tokenizer folder to train a tokenizer:
+
+```
+cd ../../Tokenizer
+python train.py hparams/128_bpe.yaml
+```
+Then, go back to this directory. You can train a Branchformer CTC model with:
+
+```
+python train_from_scratch.py hparams/
+```
 
 # KenLM n-gram CTC rescoring
 To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. Results are reported without rescoring.
