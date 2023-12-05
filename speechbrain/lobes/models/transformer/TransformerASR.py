@@ -152,9 +152,12 @@ class TransformerASR(TransformerInterface):
             ),
             torch.nn.Dropout(dropout),
         )
-        self.custom_tgt_module = ModuleList(
-            NormalizedEmbedding(d_model, tgt_vocab)
-        )
+
+        # if we only have the ctc branch
+        if num_decoder_layers > 0:
+            self.custom_tgt_module = ModuleList(
+                NormalizedEmbedding(d_model, tgt_vocab)
+            )
 
         # reset parameters using xavier_normal_
         self._init_params()
@@ -201,6 +204,10 @@ class TransformerASR(TransformerInterface):
             src_key_padding_mask=src_key_padding_mask,
             pos_embs=pos_embs_encoder,
         )
+
+        # if encoder only, we return the output of the encoder
+        if tgt is None:
+            return encoder_out, None
 
         tgt = self.custom_tgt_module(tgt)
 
