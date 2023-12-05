@@ -20,13 +20,14 @@ test_splits: []
 skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref  <output_folder>/train.csv
+sample_rate: 16000
 
 ssl_hub: microsoft/wavlm-large
 freeze_feature_extractor: True
 freeze_ssl: True
 ssl_folder: !ref <save_folder>/wavlm_checkpoint
-ssl_layer_num: -3
-batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
+ssl_layer_num: 7
+batch_size: 32 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
 
 sorting: ascending
 
@@ -36,7 +37,7 @@ train_dataloader_opts:
 
 ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
    source: !ref <ssl_hub>
-   output_norm: True
+   output_norm: False
    freeze: !ref <freeze_ssl>
    freeze_feature_extractor: !ref <freeze_feature_extractor>
    output_all_hiddens: True
@@ -46,7 +47,7 @@ ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
 ####################
 # Model Parameters #
 ####################
-num_clusters: 100
+num_clusters: 128
 init: k-means++
 max_iter: 100
 kmeans_batch_size: 1000 # should be >= num_clusters

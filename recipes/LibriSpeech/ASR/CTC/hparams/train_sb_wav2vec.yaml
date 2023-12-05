@@ -66,22 +66,23 @@ freeze_wav2vec: False
 
 # Outputs
 output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
+blank_index: 0
 
 # Decoding parameters
-test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
-blank_index: 0
-space_token: ' ' # make sure this is the same as the one used in the tokenizer
-beam_size: 200
-beam_prune_logp: -10.0
-token_prune_min_logp: -5.0
-prune_history: True
-topk: 1
-alpha: 0.5
-beta: 1.5
-# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
-# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
-# If you don't want to use an LM, comment it out or set it to null
-kenlm_model_path: null
+test_beam_search:
+   beam_size: 200
+   topk: 1
+   blank_index: !ref <blank_index>
+   space_token: ' ' # make sure this is the same as the one used in the tokenizer
+   beam_prune_logp: -10.0
+   token_prune_min_logp: -5.0
+   prune_history: True
+   alpha: 0.8
+   beta: 1.2
+   # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+   # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+   # If you don't want to use an LM, comment it out or set it to null
+   kenlm_model_path: null
 
 #
 # Functions and classes

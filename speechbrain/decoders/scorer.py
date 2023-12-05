@@ -1087,7 +1087,7 @@ class ScorerBuilder:
         weights=dict(),
         full_scorers=list(),
         partial_scorers=list(),
-        scorer_beam_scale=1.5,
+        scorer_beam_scale=2,
     ):
         assert len(weights) == len(full_scorers) + len(
             partial_scorers
@@ -1144,6 +1144,10 @@ class ScorerBuilder:
         new_memory = dict()
         # score full candidates
         for k, impl in self.full_scorers.items():
+            if k == "ctc":
+                # block blank token if CTC is used
+                log_probs[:, impl.blank_index] = impl.ctc_score.minus_inf
+
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
             log_probs += score * self.weights[k]
 

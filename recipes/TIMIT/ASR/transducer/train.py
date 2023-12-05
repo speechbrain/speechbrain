@@ -20,7 +20,7 @@ import sys
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -133,16 +133,25 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
-                    w.write("Transducer loss stats:\n")
-                    self.transducer_metrics.write_stats(w)
-                    w.write("\nPER stats:\n")
-                    self.per_metrics.write_stats(w)
-                    print(
-                        "Transducer and PER stats written to file",
-                        self.hparams.test_wer_file,
-                    )
+            run_on_main(
+                save_metrics_to_file,
+                args=[
+                    self.hparams.test_wer_file,
+                    self.transducer_metrics,
+                    self.per_metrics,
+                ],
+            )
+
+
+def save_metrics_to_file(wer_file, transducer_metrics, per_metrics):
+    with open(wer_file, "w") as w:
+        w.write("Transducer loss stats:\n")
+        transducer_metrics.write_stats(w)
+        w.write("\nPER stats:\n")
+        per_metrics.write_stats(w)
+        print(
+            "Transducer and PER stats written to file", hparams.test_wer_file,
+        )
 
 
 def dataio_prep(hparams):

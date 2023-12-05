@@ -70,6 +70,8 @@ run_opt_defaults = {
     "compile_using_fullgraph": False,
     "compile_using_dynamic_shape_tracing": False,
     "precision": "fp32",
+    "auto_mix_prec": False,
+    "bfloat16_mix_prec": False,
     "max_grad_norm": 5.0,
     "skip_nonfinite_grads": False,
     "nonfinite_patience": 3,
@@ -359,6 +361,18 @@ def parse_arguments(arg_list=None):
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
+        "--auto_mix_prec",
+        default=None,
+        action="store_true",
+        help="This flag enables training with automatic mixed-precision.",
+    )
+    parser.add_argument(
+        "--bfloat16_mix_prec",
+        default=None,
+        action="store_true",
+        help="This flag enables training with bfloat16 mixed-precision.",
+    )
+    parser.add_argument(
         "--max_grad_norm",
         type=float,
         help="Gradient norm will be clipped to this value, "
@@ -541,6 +555,14 @@ class Brain:
             The location for performing computations.
         precision (str)
             One of ``fp32``, ``fp16``, ``bf16``.
+        auto_mix_prec (bool)
+            If ``True``, automatic mixed-precision (fp16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
+        bfloat16_mix_prec (bool)
+            If ``True``, automatic mixed-precision (bf16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
         max_grad_norm (float)
             Default implementation of ``fit_batch()`` uses
             ``clip_grad_norm_`` with this value. Default: ``5``.
@@ -697,6 +719,20 @@ class Brain:
         # this.train_sampler = your_sampler
         # to have your_sampler.set_epoch() called on each epoch.
         self.train_sampler = None
+
+        if self.auto_mix_prec:
+            logger.warning(
+                "The option `--auto_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=fp16` instead."
+            )
+            self.precision = "fp16"
+
+        if self.bfloat16_mix_prec:
+            logger.warning(
+                "The option `--bfloat16_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=bf16` instead."
+            )
+            self.precision = "bf16"
 
         if self.device == "cpu" and self.precision == "fp16":
             raise ValueError(
@@ -1087,12 +1123,12 @@ class Brain:
                     dtype=amp.dtype, device_type=torch.device(self.device).type,
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
             else:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            # The objectives are removed from Autocast to avoid
-            # potential numerical instabilities with CTC loss, etc.
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor

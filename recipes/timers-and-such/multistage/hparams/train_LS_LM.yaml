@@ -142,7 +142,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_chunk>]
 
 # Models
-asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
+asr_model: !apply:speechbrain.inference.ASR.EncoderDecoderASR.from_hparams
     source: speechbrain/asr-crdnn-rnnlm-librispeech
     run_opts: {"device":"cuda:0"}
     overrides: {"beam_size": !ref <asr_beam_size>}
