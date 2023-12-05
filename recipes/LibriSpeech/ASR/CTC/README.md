@@ -33,9 +33,13 @@ python train.py hparams/128_bpe.yaml
 Then, go back to this directory. You can train a Branchformer CTC model with:
 
 ```
-python train_from_scratch.py hparams/
+python train_from_scratch.py hparams/train_branchformer.yaml
 ```
+or a Conformer CTC model with:
 
+```
+python train_from_scratch.py hparams/train_conformer.yaml
+```
 # KenLM n-gram CTC rescoring
 To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. Results are reported without rescoring.
 
@@ -46,6 +50,9 @@ To enable n-gram rescoring during the decoding, you can download the LibriSpeech
 | 09-09-21 | train_hf_wav2vec.yaml | 960h | 1.90 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX8000 48GB |
 | 22-09-22 | train_sb_wav2vec.yaml | 960h | 4.2 | Not Avail. | Not Avail. | 2xTesla V100 32GB |
 | 06-12-23 | train_hf_whisper.yaml (small) | 960h | 4.89 | Not Avail. | Not Avail. | 4xRTX 2080 Ti |
+| 06-12-23 | train_branchformer.yaml (25.9M) | 960h | 3.6 (no LM) | Not Avail. | Not Avail. | 8xA40 46G |
+| 06-12-23 | train_conformer.yaml (28.8M) | 960h | 3.7 (no LM) | Not Avail. | Not Avail. | 8xA40 46G |
+
 
 # Downsampling inputs for faster fine-tuning and inferences using SSL Models
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study"
