@@ -351,9 +351,9 @@ if __name__ == "__main__":
         },
     )
 
-    run_on_main(
-        librispeech_prepare.download_librispeech_vocab_text,
-        kwargs={"destination": hparams["vocab_file"]},
+    # Download the vocabulary file for librispeech
+    librispeech_prepare.download_librispeech_vocab_text(
+        destination=hparams["vocab_file"]
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -399,13 +399,11 @@ if __name__ == "__main__":
             or hparams["decoding_method"] == "whole-lattice-rescoring"
         )
     ):
-        run_on_main(
-            librispeech_prepare.download_openslr_librispeech_lm,
-            kwargs={
-                "destination": hparams["lm_dir"],
-                "rescoring_lm": hparams["decoding_method"]
-                == "whole-lattice-rescoring",
-            },
+        librispeech_prepare.download_openslr_librispeech_lm(
+            destination=hparams["lm_dir"],
+            rescoring_lm=(
+                hparams["decoding_method"] == "whole-lattice-rescoring"
+            ),
         )
     # SB ngram models
     elif (
@@ -416,28 +414,31 @@ if __name__ == "__main__":
             or hparams["decoding_method"] == "whole-lattice-rescoring"
         )
     ):
-        run_on_main(
-            librispeech_prepare.download_sb_librispeech_lm,
-            kwargs={
-                "destination": hparams["lm_dir"],
-                "rescoring_lm": hparams["decoding_method"]
-                == "whole-lattice-rescoring",
-            },
+        librispeech_prepare.download_sb_librispeech_lm(
+            destination=hparams["lm_dir"],
+            rescoring_lm=(
+                hparams["decoding_method"] == "whole-lattice-rescoring"
+            ),
         )
+
     # Train your ngram models
-    else:
+    elif (
+        hparams["compose_HL_with_G"]
+        or hparams["decoding_method"] == "whole-lattice-rescoring"
+    ):
         output_arpa = os.path.join(hparams["lm_dir"], hparams["G_arpa"])
-        run_on_main(
-            librispeech_prepare.dataprep_lm_training,
-            kwargs={
-                "lm_dir": hparams["lm_dir"],
-                "output_arpa": output_arpa,
-                "csv_files": [hparams["output_folder"] + "/train.csv"],
-                "external_lm_corpus": [
-                    os.path.join(hparams["lm_dir"], "librispeech-lm-norm.txt")
-                ],
-                "vocab_file": os.path.join(hparams["lang_dir"], "words.txt"),
-            },
+        librispeech_prepare.dataprep_lm_training(
+            lm_dir=hparams["lm_dir"],
+            output_arpa=output_arpa,
+            csv_files=[hparams["output_folder"] + "/train.csv"],
+            external_lm_corpus=[
+                os.path.join(hparams["lm_dir"], "librispeech-lm-norm.txt")
+            ],
+            vocab_file=os.path.join(hparams["lang_dir"], "words.txt"),
+        )
+    else:
+        logging.info(
+            "No LM will be used as compose_HL_with_G is False and decoding_method is not whole-lattice-rescoring."
         )
 
     # Trainer initialization
