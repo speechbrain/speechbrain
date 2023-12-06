@@ -68,7 +68,7 @@ test_dataloader_options:
 padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
 
 #LLAMA2 model
-llama2_model: !new:speechbrain.lobes.models.huggingface_transformers.llama2.HuggingFaceLLAMA2
+llama2_model: !new:speechbrain.lobes.models.huggingface_transformers.llama2.LLAMA2
     source: !ref <model_hub>
     freeze: !ref <freeze_model>
     save_path: !ref <llama2_folder>
@@ -76,6 +76,7 @@ llama2_model: !new:speechbrain.lobes.models.huggingface_transformers.llama2.Hugg
     num_beams: !ref <num_beams>
     top_k: !ref  <top_k>
     top_p: !ref <top_p>
+    with_peft: True
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>

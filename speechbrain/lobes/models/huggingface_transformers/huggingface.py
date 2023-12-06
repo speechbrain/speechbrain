@@ -20,6 +20,7 @@ Authors
  * Luca Della Libera 2022
  * Heitor Guimarães 2022
  * Ha Nguyen 2023
+ * Pooneh Mousavi 2023
 """
 import os
 import torch
@@ -27,7 +28,7 @@ import logging
 import pathlib
 from torch import nn
 from huggingface_hub import model_info
-from speechbrain.utils.fetching import fetch
+from speechbrain.pretrained.fetching import fetch
 from speechbrain.dataio.dataio import length_to_mask
 
 from transformers import (
@@ -38,6 +39,7 @@ from transformers import (
     AutoModel,
     AutoModelWithLMHead,
     AutoModelForSeq2SeqLM,
+    AutoModelForCausalLM,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,6 +90,8 @@ class HFTransformersInterface(nn.Module):
         save_path="",
         for_pretraining=False,
         with_lm_head=False,
+        with_casual_lm=False,
+        quantization_config=None,
         seq2seqlm=False,
         freeze=False,
         cache_dir="pretrained_models",
@@ -109,6 +113,8 @@ class HFTransformersInterface(nn.Module):
             model = AutoModelForPreTraining.from_config(self.config)
         elif with_lm_head:
             model = AutoModelWithLMHead.from_config(self.config)
+        elif with_casual_lm:
+            model = AutoModelForCausalLM.from_config(self.config)
         elif seq2seqlm:
             model = AutoModelForSeq2SeqLM.from_config(self.config)
         else:
@@ -121,6 +127,7 @@ class HFTransformersInterface(nn.Module):
             model=model,
             save_path=save_path,
             cache_dir=cache_dir,
+            quantization_config=quantization_config,
         )
 
         # Prepare for training, fine-tuning, or inference
@@ -135,7 +142,13 @@ class HFTransformersInterface(nn.Module):
             self.model.train()
 
     def _from_pretrained(
-        self, source, config, model, save_path, cache_dir,
+        self,
+        source,
+        config,
+        model,
+        save_path,
+        cache_dir,
+        quantization_config=None,
     ):
         """This function manages the source checking and loading of the params.
 
@@ -159,14 +172,11 @@ class HFTransformersInterface(nn.Module):
         is_sb, ckpt_file, is_local = self._check_model_source(source, save_path)
         if is_sb:
             config = config.from_pretrained(source, cache_dir=save_path)
-            self.model = model(config)
+            self.model = model
             self.model.gradient_checkpointing_disable()  # Required by DDP
             # fetch the checkpoint file
             ckpt_full_path = fetch(
-                filename=ckpt_file,
-                source=source,
-                savedir=save_path,
-                cache_dir=cache_dir,
+                filename=ckpt_file, source=source, savedir=save_path,
             )
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_parameters(ckpt_full_path)
@@ -178,7 +188,10 @@ class HFTransformersInterface(nn.Module):
                 self.model = model
             else:
                 self.model = model.from_pretrained(
-                    source, config=config, cache_dir=save_path
+                    source,
+                    config=config,
+                    cache_dir=save_path,
+                    quantization_config=quantization_config,
                 )
 
     def _check_model_source(self, path, save_path):
