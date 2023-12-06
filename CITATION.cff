@@ -92,7 +92,7 @@ abstract: >-
   recipes, pretrained models, and inference scripts for
   popular speech datasets, as well as tutorials which allow
   anyone with basic Python proficiency to familiarize
-  themselves with speech technologies. 
+  themselves with speech technologies.
 keywords:
   - speech toolkit
   - audio
