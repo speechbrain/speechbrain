@@ -28,7 +28,7 @@ import logging
 import pathlib
 from torch import nn
 from huggingface_hub import model_info
-from speechbrain.pretrained.fetching import fetch
+from speechbrain.utils.fetching import fetch
 from speechbrain.dataio.dataio import length_to_mask
 
 from transformers import (
