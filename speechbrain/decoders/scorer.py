@@ -1087,7 +1087,7 @@ class ScorerBuilder:
         weights=dict(),
         full_scorers=list(),
         partial_scorers=list(),
-        scorer_beam_scale=1.5,
+        scorer_beam_scale=2,
     ):
         assert len(weights) == len(full_scorers) + len(
             partial_scorers
@@ -1144,6 +1144,10 @@ class ScorerBuilder:
         new_memory = dict()
         # score full candidates
         for k, impl in self.full_scorers.items():
+            if k == "ctc":
+                # block blank token if CTC is used
+                log_probs[:, impl.blank_index] = impl.ctc_score.minus_inf
+
             score, new_memory[k] = impl.score(inp_tokens, memory[k], None, attn)
             log_probs += score * self.weights[k]
 
@@ -1225,3 +1229,833 @@ class ScorerBuilder:
                 raise ValueError(
                     "Pure CTC scorer doesn't have attention weights for coverage scorer"
                 )
+
+
+class BaseRescorerInterface(BaseScorerInterface):
+    """A scorer abstraction intended for inheritance by other scoring approaches used in beam search.
+
+    In this approach, a neural network is employed to assign scores to potential text transcripts.
+    The beam search decoding process produces a collection of the top K hypotheses.
+    These candidates are subsequently sent to a language model (LM) for ranking.
+    The ranking is carried out by the LM, which assigns a score to each candidate.
+
+    The score is computed as follows:
+
+    score = beam_search_score + lm_weight * rescorer_score
+
+    See:
+        - speechbrain.decoders.scorer.RNNLMRescorer
+        - speechbrain.decoders.scorer.TransformerLMRescorer
+        - speechbrain.decoders.scorer.HuggingFaceLMRescorer
+    """
+
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Arguments
+        ---------
+        text : list of str
+            The text to be normalized.
+        """
+        return text
+
+    def preprocess_func(self, hyps):
+        """This method should implement the preprocessing of the hypotheses before scoring.
+
+        Arguments
+        ---------
+        hyps : list of str
+            The hypotheses to be preprocessed.
+        """
+        raise NotImplementedError
+
+    def rescore_hyps(self, hyps):
+        """This method should implement the rescoring of the hypotheses.
+
+        Arguments
+        ---------
+        hyps : list of str
+            The hypotheses to be rescored.
+        """
+        raise NotImplementedError
+
+    def to_device(self, device=None):
+        """This method should implement the moving of the scorer to a device.
+
+        If device is None, the scorer should be moved to the default device provided
+        in the constructor.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        raise NotImplementedError
+
+
+class RNNLMRescorer(BaseRescorerInterface):
+    """A wrapper of RNNLM based on the BaseRescorerInterface.
+
+    Arguments
+    ---------
+    language_model : torch.nn.Module
+        A RNN-based language model.
+    tokenizer : SentencePieceProcessor
+        A SentencePiece tokenizer.
+    device : str
+        The device to move the scorer to.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    bos_index : int
+        The index of the beginning-of-sequence (bos) token.
+    eos_index : int
+        The index of the end-of-sequence (eos) token.
+    pad_index : int
+        The index of the padding token.
+
+    NOTE
+    ----
+    This class is intented to be used with a pretrained TransformerLM model.
+    Please see: https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech
+
+    By default, this model is using SentencePiece tokenizer.
+
+    Example
+    -------
+    >>> import torch
+    >>> from sentencepiece import SentencePieceProcessor
+    >>> from speechbrain.lobes.models.RNNLM import RNNLM
+    >>> from speechbrain.utils.parameter_transfer import Pretrainer
+    >>> source = "speechbrain/asr-crdnn-rnnlm-librispeech"
+    >>> lm_model_path = source + "/lm.ckpt"
+    >>> tokenizer_path = source + "/tokenizer.ckpt"
+    >>> # define your tokenizer and RNNLM from the HF hub
+    >>> tokenizer = SentencePieceProcessor()
+    >>> lm_model = RNNLM(
+    ...    output_neurons = 1000,
+    ...    embedding_dim = 128,
+    ...    activation = torch.nn.LeakyReLU,
+    ...    dropout = 0.0,
+    ...    rnn_layers = 2,
+    ...    rnn_neurons = 2048,
+    ...    dnn_blocks = 1,
+    ...    dnn_neurons = 512,
+    ...    return_hidden = True,
+    ... )
+    >>> pretrainer = Pretrainer(
+    ...     collect_in = getfixture("tmp_path"),
+    ...    loadables = {
+    ...     "lm" : lm_model,
+    ...     "tokenizer" : tokenizer,
+    ...     },
+    ...    paths = {
+    ...     "lm" : lm_model_path,
+    ...     "tokenizer" : tokenizer_path,
+    ... })
+    >>> _ = pretrainer.collect_files()
+    >>> pretrainer.load_collected()
+    >>> from speechbrain.decoders.scorer import RNNLMRescorer, RescorerBuilder
+    >>> rnnlm_rescorer = RNNLMRescorer(
+    ...    language_model = lm_model,
+    ...    tokenizer = tokenizer,
+    ...    temperature = 1.0,
+    ...    bos_index = 0,
+    ...    eos_index = 0,
+    ...    pad_index = 0,
+    ... )
+    >>> # Define a rescorer builder
+    >>> rescorer = RescorerBuilder(
+    ...    rescorers=[rnnlm_rescorer],
+    ...    weights={"rnnlm":1.0}
+    ... )
+    >>> # topk hyps
+    >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
+    >>> topk_scores = [[-2, -2, -2]]
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> # NOTE: the returned hypotheses are already sorted by score.
+    >>> rescored_hyps # doctest: +SKIP
+    [['HELLO', 'H E L L O', 'HE LLO']]
+    >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
+    >>> rescored_scores # doctest: +SKIP
+    [[-17.863974571228027, -25.12890625, -26.075977325439453]]
+    """
+
+    def __init__(
+        self,
+        language_model,
+        tokenizer,
+        device="cuda",
+        temperature=1.0,
+        bos_index=0,
+        eos_index=0,
+        pad_index=0,
+    ):
+        self.lm = language_model
+        self.lm.eval()
+        self.tokenizer = tokenizer
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+
+        self.device = device
+        self.bos_index = bos_index
+        self.eos_index = eos_index
+        self.pad_index = pad_index
+
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Default to uppercasing the text because the (current) language models are trained on
+        LibriSpeech which is all uppercase.
+
+        Arguments
+        ---------
+        text : str
+            The text to be normalized.
+
+        Returns
+        -------
+        str
+            The normalized text.
+        """
+        return text.upper()
+
+    def to_device(self, device=None):
+        """This method moves the scorer to a device.
+
+        If device is None, the scorer is moved to the default device provided
+        in the constructor.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        if device is None:
+            self.lm.to(self.device)
+        else:
+            self.lm.to(device)
+
+    def preprocess_func(self, topk_hyps):
+        """This method preprocesses the hypotheses before scoring.
+
+        Arguments
+        ---------
+        topk_hyps : list of list of str
+            The hypotheses to be preprocessed.
+
+        Returns
+        -------
+        padded_hyps : torch.Tensor
+            The padded hypotheses.
+        enc_hyps_length : list of int
+            The length of each hypothesis.
+        """
+        # 1. normalize text
+        decoded_seq = []
+        for batch in topk_hyps:
+            for seq in batch:
+                decoded_seq.append(self.normalize_text(seq))
+
+        # 2. encode text
+        enc_hyps = []
+        for seq in decoded_seq:
+            enc_hyps.append(
+                torch.tensor(
+                    [self.bos_index]
+                    + self.tokenizer.encode_as_ids(seq)
+                    + [self.eos_index]
+                )
+            )
+
+        enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
+
+        # 3. pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(
+            enc_hyps, batch_first=True, padding_value=self.pad_index
+        ).to(self.lm.parameters().__next__().device)
+
+        return padded_hyps, enc_hyps_length
+
+    @torch.no_grad()
+    def rescore_hyps(self, topk_hyps):
+        """This method implement the rescoring of the hypotheses.
+
+        Arguments
+        ---------
+        topk_hyps : list of list of str
+            The hypotheses to be rescored.
+
+        Returns
+        -------
+        log_probs_scores : torch.Tensor[B * Topk, 1]
+            The rescored hypotheses scores
+        """
+        # preprocess hypotheses
+        padded_hyps, enc_hyps_length = self.preprocess_func(topk_hyps)
+
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(
+            bool_mask, dtype=torch.bool, device=padded_hyps.device
+        )
+
+        if not next(self.lm.parameters()).is_cuda:
+            self.lm.to(padded_hyps.device)
+
+        # compute scores
+        logits, _ = self.lm(padded_hyps)
+        log_probs = self.softmax(logits / self.temperature)
+
+        target_log_probs = (
+            log_probs[:, :-1]
+            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
+            .squeeze(2)
+        )
+
+        log_probs_scores = torch.nansum(
+            target_log_probs * bool_mask_tensor[:, 1:], dim=-1
+        )
+
+        return log_probs_scores
+
+
+class TransformerLMRescorer(BaseRescorerInterface):
+    """ A wrapper of TransformerLM based on the BaseRescorerInterface.
+
+    Arguments
+    ---------
+    language_model : torch.nn.Module
+        A Transformer-based language model.
+    tokenizer : SentencePieceProcessor
+        A SentencePiece tokenizer.
+    device : str
+        The device to move the scorer to.
+    temperature : float
+        Temperature factor applied to softmax. It changes the probability
+        distribution, being softer when T>1 and sharper with T<1. (default: 1.0)
+    bos_index : int
+        The index of the beginning-of-sequence (bos) token.
+    eos_index : int
+        The index of the end-of-sequence (eos) token.
+    pad_index : int
+        The index of the padding token.
+
+    NOTE
+    ----
+    This class is intented to be used with a pretrained TransformerLM model.
+    Please see: https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
+
+    By default, this model is using SentencePiece tokenizer.
+
+    Example
+    -------
+    >>> import torch
+    >>> from sentencepiece import SentencePieceProcessor
+    >>> from speechbrain.lobes.models.transformer.TransformerLM import TransformerLM
+    >>> from speechbrain.utils.parameter_transfer import Pretrainer
+    >>> source = "speechbrain/asr-transformer-transformerlm-librispeech"
+    >>> lm_model_path = source + "/lm.ckpt"
+    >>> tokenizer_path = source + "/tokenizer.ckpt"
+    >>> tokenizer = SentencePieceProcessor()
+    >>> lm_model = TransformerLM(
+    ...     vocab=5000,
+    ...     d_model=768,
+    ...     nhead=12,
+    ...     num_encoder_layers=12,
+    ...     num_decoder_layers=0,
+    ...     d_ffn=3072,
+    ...     dropout=0.0,
+    ...     activation=torch.nn.GELU,
+    ...     normalize_before=False,
+    ... )
+    >>> pretrainer = Pretrainer(
+    ...     collect_in = getfixture("tmp_path"),
+    ...     loadables={
+    ...         "lm": lm_model,
+    ...         "tokenizer": tokenizer,
+    ...     },
+    ...     paths={
+    ...         "lm": lm_model_path,
+    ...         "tokenizer": tokenizer_path,
+    ...     }
+    ... )
+    >>> _ = pretrainer.collect_files()
+    >>> pretrainer.load_collected()
+    >>> from speechbrain.decoders.scorer import TransformerLMRescorer, RescorerBuilder
+    >>> transformerlm_rescorer = TransformerLMRescorer(
+    ...     language_model=lm_model,
+    ...     tokenizer=tokenizer,
+    ...     temperature=1.0,
+    ...     bos_index=1,
+    ...     eos_index=2,
+    ...     pad_index=0,
+    ... )
+    >>> rescorer = RescorerBuilder(
+    ...     rescorers=[transformerlm_rescorer],
+    ...     weights={"transformerlm": 1.0}
+    ... )
+    >>> topk_hyps = [["HELLO", "HE LLO", "H E L L O"]]
+    >>> topk_scores = [[-2, -2, -2]]
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> # NOTE: the returned hypotheses are already sorted by score.
+    >>> rescored_hyps # doctest: +SKIP
+    [["HELLO", "HE L L O", "HE LLO"]]
+    >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
+    >>> rescored_scores  # doctest: +SKIP
+    [[-17.863974571228027, -25.12890625, -26.075977325439453]]
+    """
+
+    def __init__(
+        self,
+        language_model,
+        tokenizer,
+        device="cuda",
+        temperature=1.0,
+        bos_index=0,
+        eos_index=0,
+        pad_index=0,
+    ):
+        self.lm = language_model
+        self.lm.eval()
+
+        self.tokenizer = tokenizer
+        self.temperature = temperature
+        self.softmax = sb.nnet.activations.Softmax(apply_log=True)
+
+        self.device = device
+        self.bos_index = bos_index
+        self.eos_index = eos_index
+        self.pad_index = pad_index
+
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Default to uppercasing the text because the language models are trained on
+        LibriSpeech.
+
+        Arguments
+        ---------
+        text : str
+            The text to be normalized.
+
+        Returns
+        -------
+        str
+            The normalized text.
+        """
+        return text.upper()
+
+    def to_device(self, device=None):
+        """This method moves the scorer to a device.
+
+        If device is None, the scorer is moved to the default device provided
+        in the constructor.
+
+        This method is dynamically called in the recipes when the stage is equal
+        to TEST.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        if device is None:
+            self.lm.to(self.device)
+        else:
+            self.lm.to(device)
+
+    def preprocess_func(self, topk_hyps):
+        """This method preprocesses the hypotheses before scoring.
+
+        Arguments
+        ---------
+        topk_hyps : list of list of str
+            The hypotheses to be preprocessed.
+
+        Returns
+        -------
+        padded_hyps : torch.Tensor
+            The padded hypotheses.
+        enc_hyps_length : list of int
+            The length of each hypothesis.
+        """
+        # 1. normalize
+        decoded_seq = []
+        for batch in topk_hyps:
+            for seq in batch:
+                decoded_seq.append(self.normalize_text(seq))
+
+        # 2. encode text
+        enc_hyps = []
+        for seq in decoded_seq:
+            enc_hyps.append(
+                torch.tensor(
+                    [self.bos_index]
+                    + self.tokenizer.encode_as_ids(seq)
+                    + [self.eos_index]
+                )
+            )
+
+        enc_hyps_length = [enc_seq.shape[0] for enc_seq in enc_hyps]
+
+        # 3. pad sequences
+        padded_hyps = torch.nn.utils.rnn.pad_sequence(
+            enc_hyps, batch_first=True, padding_value=self.pad_index
+        ).to(self.lm.parameters().__next__().device)
+
+        return padded_hyps, enc_hyps_length
+
+    @torch.no_grad()
+    def rescore_hyps(self, topk_hyps):
+        """This method implement the rescoring of the hypotheses.
+
+        Arguments
+        ---------
+        topk_hyps : list of list of str
+            The hypotheses to be rescored.
+
+        Returns
+        -------
+        log_probs_scores : torch.Tensor[B * Topk, 1]
+            The rescored hypotheses scores
+        """
+        # preprocess hypotheses
+        padded_hyps, enc_hyps_length = self.preprocess_func(topk_hyps)
+
+        bool_mask = [
+            [1 if i < length else 0 for i in range(max(enc_hyps_length))]
+            for length in enc_hyps_length
+        ]
+
+        bool_mask_tensor = torch.tensor(
+            bool_mask, dtype=torch.bool, device=padded_hyps.device
+        )
+
+        if not next(self.lm.parameters()).is_cuda:
+            self.lm.to(padded_hyps.device)
+
+        # compute scores
+        logits = self.lm(padded_hyps)
+        log_probs = self.softmax(logits / self.temperature)
+
+        log_probs[:, :, self.pad_index] = float("-inf")
+
+        target_log_probs = (
+            log_probs[:, :-1]
+            .gather(2, padded_hyps[:, 1:].unsqueeze(2))
+            .squeeze(2)
+        )
+
+        target_log_probs = target_log_probs - log_probs[:, :-1].logsumexp(
+            dim=-1
+        )
+        log_probs_scores = torch.nansum(
+            target_log_probs * bool_mask_tensor[:, 1:], dim=-1
+        )
+
+        return log_probs_scores
+
+
+class HuggingFaceLMRescorer(BaseRescorerInterface):
+    """ A wrapper of HuggingFace's TransformerLM based on the BaseRescorerInterface.
+
+    Arguments
+    ---------
+    model_name : str
+        The name of the model to be loaded.
+    device : str
+        The device to be used for scoring. (default: "cuda")
+
+    Example
+    -------
+    >>> from speechbrain.decoders.scorer import HuggingFaceLMRescorer, RescorerBuilder
+    >>> source = "gpt2-medium"
+    >>> huggingfacelm_rescorer = HuggingFaceLMRescorer(
+    ...     model_name=source,
+    ... )
+    >>> rescorer = RescorerBuilder(
+    ...     rescorers=[huggingfacelm_rescorer],
+    ...     weights={"huggingfacelm": 1.0}
+    ... )
+    >>> topk_hyps = [["Hello everyone.", "Hell o every one.", "Hello every one"]]
+    >>> topk_scores = [[-2, -2, -2]]
+    >>> rescored_hyps, rescored_scores = rescorer.rescore(topk_hyps, topk_scores)
+    >>> # NOTE: the returned hypotheses are already sorted by score.
+    >>> rescored_hyps # doctest: +SKIP
+    [['Hello everyone.', 'Hello every one', 'Hell o every one.']]
+    >>> # NOTE: as we are returning log-probs, the more it is closer to 0, the better.
+    >>> rescored_scores # doctest: +SKIP
+    [[-20.03631591796875, -27.615638732910156, -42.662353515625]]
+    """
+
+    def __init__(
+        self, model_name, device="cuda",
+    ):
+        self.model_name = model_name
+        self.device = device
+
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+        except ImportError:
+            raise ImportError(
+                "Please install transformers with: pip install transformers"
+            )
+
+        self.lm = AutoModelForCausalLM.from_pretrained(
+            self.model_name, is_decoder=True
+        ).eval()
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_name, use_fast=True, add_special_tokens=False
+        )
+
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = "<|pad|>"
+            self.tokenizer.add_special_tokens(
+                {"additional_special_tokens": [self.tokenizer.pad_token]}
+            )
+            self.lm.resize_token_embeddings(
+                len(self.tokenizer), pad_to_multiple_of=32
+            )
+
+        self.bos_token = self.tokenizer.bos_token
+        self.eos_token = self.tokenizer.eos_token
+
+    def to_device(self, device=None):
+        """This method moves the scorer to a device.
+
+        If device is None, the scorer is moved to the default device provided
+        in the constructor.
+
+        This method is dynamically called in the recipes when the stage is equal
+        to TEST.
+
+        Arguments
+        ---------
+        device : str
+            The device to move the scorer to.
+        """
+        if device is None:
+            self.lm.to(self.device)
+        else:
+            self.lm.to(device)
+
+    def normalize_text(self, text):
+        """This method should implement the normalization of the text before scoring.
+
+        Arguments
+        ---------
+        text : str
+            The text to be normalized.
+
+        Returns
+        -------
+        normalized_text : str
+            The normalized text.
+            In this case we do not apply any normalization. However, this method
+            can be overriden to apply any normalization.
+        """
+        return text
+
+    def _add_special_tokens(self, text):
+        """This method adds the special tokens to the text.
+
+        Arguments
+        ---------
+        text : str
+            The text to be augmented.
+
+        Returns
+        -------
+        augmented_text : str
+            The augmented text.
+        """
+        return self.bos_token + text + self.eos_token
+
+    def preprocess_func(self, topk_hyps):
+        """This method preprocesses the hypotheses before scoring.
+
+        Arguments
+        ---------
+        topk_hyps : list of str
+            The hypotheses to be preprocessed.
+
+        Returns
+        -------
+        encoding : tensor
+            The encoding of the hypotheses.
+        """
+        # 1. normalize
+        normalized_hyps = []
+        for batch in topk_hyps:
+            for seq in batch:
+                normalized_hyps.append(self.normalize_text(seq))
+
+        text_augmented_with_tokens = list(
+            map(self._add_special_tokens, normalized_hyps)
+        )
+        encoding = self.tokenizer.batch_encode_plus(
+            text_augmented_with_tokens, return_tensors="pt", padding=True
+        )
+        return encoding
+
+    @torch.no_grad()
+    def rescore_hyps(self, topk_hyps):
+        """This method implement the rescoring of the hypotheses.
+
+        Arguments
+        ---------
+        topk_hyps : list of list of str
+            The hypotheses to be rescored.
+
+        Returns
+        -------
+        log_probs_scores : torch.Tensor[B * Topk, 1]
+            The rescored hypotheses scores
+        """
+        encoding = self.preprocess_func(topk_hyps)
+
+        ids = encoding["input_ids"].to(self.lm.device)
+        attention_mask = encoding["attention_mask"].to(self.lm.device)
+        logits = self.lm(ids, attention_mask=attention_mask)[0]
+
+        logits[:, :, self.tokenizer.pad_token_id :] = float("-inf")
+
+        target_log_probs = (
+            logits[:, :-1].gather(2, ids[:, 1:].unsqueeze(2)).squeeze(2)
+        )
+
+        target_log_probs = target_log_probs - logits[:, :-1].logsumexp(dim=-1)
+        log_probs_scores = torch.nansum(
+            target_log_probs * attention_mask[:, 1:], dim=-1
+        )
+
+        return log_probs_scores
+
+
+class RescorerBuilder:
+    """ Builds rescorer instance for beamsearch.
+
+    The RecorerBuilder class is responsible for building a scorer instance for
+    beam search. It takes weights and rescorers classes. It combines the scorers based
+    on the weights specified and provides methods for rescoring text.
+
+    This is the class to be used for building rescorer instances for beam search.
+
+    Arguments
+    ---------
+    weights : dict
+        Weights of rescorers specified.
+    rescorers : list
+        Rescorers that re-ranks topk hypotheses.
+    """
+
+    def __init__(
+        self, weights=dict(), rescorers=list(),
+    ):
+        assert len(weights) == len(
+            rescorers
+        ), "Weights and rescorers are not matched."
+
+        self.weights = weights
+
+        all_rescorer_names = [
+            k.lower().split("rescorer")[0]
+            for k in globals().keys()
+            if k.endswith("Rescorer")
+        ]
+        full_rescorer_names = [
+            impl.__class__.__name__.lower().split("rescorer")[0]
+            for impl in rescorers
+        ]
+
+        # Have a default 0.0 weight for scorer not specified
+        init_weights = {k: 0.0 for k in all_rescorer_names}
+        self.weights = {**init_weights, **weights}
+        self.rescorers = dict(zip(full_rescorer_names, rescorers))
+
+        self._validate_scorer(all_rescorer_names)
+
+    def rescore(self, topk_candidates, topk_scores):
+        """This method rescores the topk candidates.
+
+        Arguments
+        ---------
+        topk_candidates : list of list of str
+            The topk candidates to be rescored.
+        topk_scores : list of list of float
+            The scores of the topk candidates.
+
+        Returns
+        -------
+        output_candidates : list of list of str
+            The rescored candidates.
+        output_scores : list of list of float
+            The rescored scores.
+        """
+        new_scores = topk_scores.copy()
+
+        for k, impl in self.rescorers.items():
+            scores = impl.rescore_hyps(topk_candidates)
+
+            index_scores = 0
+            for i in range(len(new_scores)):
+                for j in range(len(new_scores[i])):
+                    new_scores[i][j] += (
+                        self.weights[k] * scores[index_scores].item()
+                    )
+                    index_scores += 1
+
+        sorted_candidates = [
+            list(
+                zip(
+                    *sorted(
+                        zip(sublist, score), key=lambda x: x[1], reverse=True
+                    )
+                )
+                for sublist, score in zip(topk_candidates, new_scores)
+            )
+        ]
+
+        output_candidates = []
+        output_scores = []
+        for sublist in sorted_candidates:
+            for item in sublist:
+                texts, scores = item
+                output_candidates.append(list(texts))
+                output_scores.append(list(scores))
+
+        return output_candidates, output_scores
+
+    def _validate_scorer(self, rescorer_names):
+        """These error messages indicate rescorers are not properly set.
+
+        Arguments
+        ---------
+        rescorer_names : list
+            Prefix of rescorers defined in speechbrain.decoders.scorer.
+        """
+        if len(self.weights) > len(rescorer_names):
+            raise ValueError(
+                "The keys of weights should be named in {}".format(
+                    rescorer_names
+                )
+            )
+
+    def move_rescorers_to_device(self, device=None):
+        """Moves rescorers to device.
+
+        Usefull to avoid having on GPU rescorers while being
+        on TRAIN and VALID Stages.
+
+        Arguments
+        ---------
+        device : str
+            The device to be used for scoring. (default: None)
+        """
+        for _, impl in self.rescorers.items():
+            impl.to_device(device)

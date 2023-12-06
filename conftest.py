@@ -26,12 +26,35 @@ except ModuleNotFoundError:
 try:
     from transformers import Wav2Vec2Model  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/huggingface_wav2vec.py")
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/wav2vec2.py"
+    )
 try:
     from transformers import WhisperModel  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append("speechbrain/lobes/models/huggingface_whisper.py")
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/whisper.py"
+    )
+try:
+    import sklearn  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/utils/kmeans.py")
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/discrete_hubert.py"
+    )
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/discrete_wav2vec2.py"
+    )
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/discrete_wavlm.py"
+    )
 try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/bleu.py")
+try:
+    import vocos  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/vocos.py"
+    )

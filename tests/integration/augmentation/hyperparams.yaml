@@ -11,18 +11,13 @@ sample_data: !new:speechbrain.dataio.legacy.ExtendedCSVDataset
     replacements:
         data_folder: !ref <data_folder>/single-mic
 
-add_babble: !new:speechbrain.processing.speech_augmentation.AddBabble
-    speaker_count: 4  # Must set batch size to 5 or more
-    snr_low: 0
-    snr_high: 0
-
-add_reverb: !new:speechbrain.processing.speech_augmentation.AddReverb
+add_reverb: !new:speechbrain.augment.speech_augment.AddReverb
     csv_file: !ref <data_folder>/annotation/RIRs.csv
     sorting: descending
     replacements:
         rir_folder: !ref <data_folder>/RIRs
 
-add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+add_noise: !new:speechbrain.augment.speech_augment.AddNoise
     csv_file: !ref <data_folder>/annotation/noise.csv
     sorting: descending
     snr_low: 0
@@ -32,14 +27,14 @@ add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
     replacements:
         noise_folder: !ref <data_folder>/noise
 
-drop_freq: !new:speechbrain.processing.speech_augmentation.DropFreq
+drop_freq: !new:speechbrain.augment.speech_augment.DropFreq
     drop_freq_low: 0.5
     drop_freq_high: 0.5
     drop_count_low: 1
     drop_count_high: 1
     drop_width: 0.05
 
-drop_chunk: !new:speechbrain.processing.speech_augmentation.DropChunk
+drop_chunk: !new:speechbrain.augment.speech_augment.DropChunk
     drop_length_low: 1000
     drop_length_high: 1000
     drop_count_low: 1
@@ -47,10 +42,10 @@ drop_chunk: !new:speechbrain.processing.speech_augmentation.DropChunk
     drop_start: 1000
     drop_end: 2000
 
-do_clip: !new:speechbrain.processing.speech_augmentation.DoClip
+do_clip: !new:speechbrain.augment.speech_augment.DoClip
     clip_low: 0.01
     clip_high: 0.01
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+speed_perturb: !new:speechbrain.augment.speech_augment.SpeedPerturb
     orig_freq: !ref <sample_rate>
     speeds: [90]

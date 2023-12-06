@@ -14,6 +14,7 @@ import numpy as np
 import heapq
 import logging
 import torch
+import warnings
 from typing import Dict, List, Optional, Union, Any, Tuple
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class CTCPrefixScore:
         self.minus_inf = -1e20
         self.last_frame_index = enc_lens - 1
         self.ctc_window_size = ctc_window_size
-        self.prefix_length = 0
+        self.prefix_length = -1
 
         # mask frames > enc_lens
         mask = 1 - length_to_mask(enc_lens)
@@ -648,7 +649,9 @@ class CTCBaseSearcher(torch.nn.Module):
         self.spm_token = spm_token
 
         # check if the vocab is coming from SentencePiece
-        self.is_spm = any([s.startswith(self.spm_token) for s in vocab_list])
+        self.is_spm = any(
+            [str(s).startswith(self.spm_token) for s in vocab_list]
+        )
 
         # fetch the index of space_token
         if not self.is_spm:
@@ -956,7 +959,7 @@ class CTCBaseSearcher(torch.nn.Module):
         """
         # check that the last dimension of log_probs is equal to the vocab size
         if log_probs.size(2) != len(self.vocab_list):
-            logger.warning(
+            warnings.warn(
                 f"Vocab size mismatch: log_probs vocab dim is {log_probs.size(2)} "
                 f"while vocab_list is {len(self.vocab_list)}. "
                 "During decoding, going to truncate the log_probs vocab dim to match vocab_list."
@@ -1332,7 +1335,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
             log_probs, start=processed_frames
         ):
             # skip the frame if the blank probability is higher than the threshold
-            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+            if logit_col[self.blank_index] > self.blank_skip_threshold:
                 continue
 
             # get the tokens with the highest probability
@@ -1823,7 +1826,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
             log_probs, start=processed_frames
         ):
             # skip the frame if the blank probability is higher than the threshold
-            if logit_col[self.blank_index] >= self.blank_skip_threshold:
+            if logit_col[self.blank_index] > self.blank_skip_threshold:
                 continue
 
             # get the tokens with the highest probability

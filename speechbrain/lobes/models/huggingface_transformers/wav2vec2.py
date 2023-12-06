@@ -16,7 +16,6 @@ import torch
 import logging
 import numpy as np
 import torch.nn.functional as F
-
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
@@ -295,86 +294,6 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
             ),
             torch_mask_time_indices,
         )
-
-    def override_config(self, config):
-        """If the config needs to be overrided, here is the place
-
-        Arguments
-        ---------
-        config : Wav2Vec2Config
-            The original config needs to be overrided.
-
-        Returns
-        -------
-        Overridded config
-        """
-        config.output_hidden_states = True
-        return config
-
-
-class WeightedSSLModel(HFTransformersInterface):
-    """This lobe enables the integration of use of weighted sum representations
-    from different layers in a SSL encoder.
-
-    The model can be used as a fixed feature extractor for SSL benchmarking. It
-    will download automatically the model from HuggingFace or use a local path.
-
-    More details in recipes/SSL_benchmark
-
-    Arguments
-    ---------
-    hub : str
-        HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
-    num_layers: int
-        Number of internal layers: e.g 13 for "Base" models.
-    layernorm: bool
-        Whether layer representations should be layernormed before sum
-
-    Example
-    -------
-    >>> inputs = torch.rand([10, 600])
-    >>> model_hub = "facebook/wav2vec2-base-960h"
-    >>> num_layers = 13
-    >>> model = WeightedSSLModel(model_hub, num_layers)
-    >>> outputs = model(inputs)
-    """
-
-    def __init__(self, hub, num_layers, layernorm=False):
-        super().__init__(source=hub)
-        self.model.eval()
-        self.num_layers = num_layers
-        # Initializing the learnable weights
-        zero_init = torch.cat([torch.zeros(self.num_layers)])
-        self.weights = torch.nn.Parameter(zero_init, requires_grad=True)
-        self.layernorm = layernorm
-
-    def forward(self, wav, wav_lens=None):
-        """This method outputs a weighted sum of the layers representations of the SSL encoder
-
-        Arguments
-        ---------
-        wav : tensor
-            The wavs
-        """
-
-        feats = self.model(wav)
-        hidden_states = torch.stack(feats.hidden_states, dim=0).detach()
-        # First dimension should be equal to the number of layers in the hparams
-        assert (
-            self.num_layers == hidden_states.shape[0]
-        ), "Num layers not equal to num hidden states"
-        norm_weights = torch.nn.functional.softmax(self.weights, dim=-1)
-        # Layernorming the layers representations if asked
-        if self.layernorm:
-            hidden_states = [
-                F.layer_norm(t, (t.shape[-1],)) for t in hidden_states
-            ]
-        # Summing the weighted layers
-        weighted_feats = hidden_states[0] * norm_weights[0]
-        for i in range(1, len(hidden_states)):
-            weighted_feats += hidden_states[i] * norm_weights[i]
-
-        return weighted_feats
 
     def override_config(self, config):
         """If the config needs to be overrided, here is the place

@@ -167,8 +167,10 @@ class SEBrain(sb.Brain):
         out_d1 = self.compute_forward_d(noisy_wavs, clean_wavs)
         loss_d1 = self.compute_objectives_d1(out_d1, batch)
         loss_d1.backward()
-        if self.check_gradients(loss_d1):
-            self.optimizer_d.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer_d.step()
         self.optimizer_d.zero_grad()
 
         # second training step
@@ -181,8 +183,10 @@ class SEBrain(sb.Brain):
         out_d2 = self.compute_forward_d(out_g2, clean_wavs)
         loss_d2 = self.compute_objectives_d2(out_d2, batch)
         loss_d2.backward(retain_graph=True)
-        if self.check_gradients(loss_d2):
-            self.optimizer_d.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer_d.step()
         self.optimizer_d.zero_grad()
 
         # third (last) training step
@@ -198,8 +202,10 @@ class SEBrain(sb.Brain):
             z_logvar=z_logvar,
         )
         loss_g3.backward()
-        if self.check_gradients(loss_g3):
-            self.optimizer_g.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer_g.step()
         self.optimizer_g.zero_grad()
         self.optimizer_d.zero_grad()
 

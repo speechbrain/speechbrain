@@ -47,22 +47,6 @@ class seq2seqBrain(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Fits train batches"""
-        preds = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(preds, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
-        """Evaluates test batches"""
-        out = self.compute_forward(batch, stage)
-        loss = self.compute_objectives(out, batch, stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch=None):
         "Gets called when a stage (either training, validation, test) starts."
         if stage != sb.Stage.TRAIN:
