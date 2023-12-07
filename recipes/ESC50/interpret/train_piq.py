@@ -404,7 +404,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
             crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
 
-            rec_loss = ((X_stft_logpower_clean - mask_in).pow(2).mean((-1, -2)) * crosscor_mask * self.hparams.g_w).sum()
+            rec_loss = ((X_stft_logpower_clean - mask_in).abs().mean((-1, -2)) * crosscor_mask * self.hparams.g_w).sum()
         else:
             rec_loss = 0
             crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
