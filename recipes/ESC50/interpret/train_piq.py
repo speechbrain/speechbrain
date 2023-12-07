@@ -363,15 +363,15 @@ class InterpreterESC50Brain(sb.core.Brain):
 
     @staticmethod
     def crosscor(spectrogram, template):
-        # TODO: needs batching using groups
-        spectrogram = (spectrogram - spectrogram.mean())
-        template = (template - template.mean())
-        tmp = F.conv2d(spectrogram, template[None], bias=None)
+        spectrogram = (spectrogram - spectrogram.mean((-1, -2), keepdim=True))
+        template = (template - template.mean((-1, -2), keepdim=True))
+        template = template.unsqueeze(1)
+        tmp = F.conv2d(spectrogram[None], template, bias=None, groups=spectrogram.shape[0])
 
-        normalization1 = F.conv2d(spectrogram**2, torch.ones_like(template)[None])
-        normalization2 = F.conv2d(torch.ones_like(spectrogram), template[None]**2)
+        normalization1 = F.conv2d(spectrogram[None]**2, torch.ones_like(template), groups=spectrogram.shape[0])
+        normalization2 = F.conv2d(torch.ones_like(spectrogram[None]), template**2, groups=spectrogram.shape[0])
 
-        ncc = tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)
+        ncc = (tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)).squeeze()
 
         return ncc
 
@@ -401,7 +401,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         mask_in = xhat * X_stft_logpower[:, :Tmax, :]
         mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
 
-        self.crosscor(X_stft_logpower_clean[0:1], mask_in[0:1])
+        self.crosscor(X_stft_logpower_clean, mask_in)
         import torchvision
         torchvision.utils.save_image(X_stft_logpower_clean[0:1], "clean.png")
         torchvision.utils.save_image(mask_in[0:1], "mask_in.png")
