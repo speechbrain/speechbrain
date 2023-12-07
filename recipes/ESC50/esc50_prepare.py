@@ -220,7 +220,6 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
                 sample_metadata["filename"],
             )
             try:
-
                 signal = read_audio(wav_file)
                 file_info = torchaudio.info(wav_file)
 

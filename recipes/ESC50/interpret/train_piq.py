@@ -22,24 +22,18 @@ import matplotlib.pyplot as plt
 
 eps = 1e-10
 
+
 def tv_loss(mask, tv_weight=1, power=2, border_penalty=0.3):
     if tv_weight is None or tv_weight == 0:
         return 0.0
     # https://github.com/chongyangma/cs231n/blob/master/assignments/assignment3/style_transfer_pytorch.py
     # https://github.com/PiotrDabkowski/pytorch-saliency/blob/bfd501ec7888dbb3727494d06c71449df1530196/sal/utils/mask.py#L5
-    w_variance = torch.sum(
-        torch.pow(mask[:, :, :-1] - mask[:, :, 1:], power)
-    )
-    h_variance = torch.sum(
-        torch.pow(mask[:, :-1, :] - mask[:, 1:, :], power)
-    )
+    w_variance = torch.sum(torch.pow(mask[:, :, :-1] - mask[:, :, 1:], power))
+    h_variance = torch.sum(torch.pow(mask[:, :-1, :] - mask[:, 1:, :], power))
 
-    loss = (
-        tv_weight
-        * (h_variance + w_variance)
-        / float(power * mask.size(0))
-    )
+    loss = tv_weight * (h_variance + w_variance) / float(power * mask.size(0))
     return loss
+
 
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
@@ -125,7 +119,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder,
+                    "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -210,7 +205,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         torchaudio.save(
@@ -267,7 +263,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
 
         X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
-        xhat_tm_masked = self.invert_stft_with_phase(X_est_masked, X_stft_phase[0:1])
+        xhat_tm_masked = self.invert_stft_with_phase(
+            X_est_masked, X_stft_phase[0:1]
+        )
 
         plt.figure(figsize=(10, 5), dpi=100)
 
@@ -290,17 +288,19 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.title("mask")
 
         out_folder = os.path.join(
-            self.hparams.output_folder, "reconstructions/" f"{batch.id[0]}",
+            self.hparams.output_folder,
+            "reconstructions/" f"{batch.id[0]}",
         )
         makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"), format="png",
+            os.path.join(out_folder, "reconstructions.png"),
+            format="png",
         )
         plt.close()
-
 
         torchaudio.save(
             os.path.join(out_folder, "interpretation.wav"),
@@ -363,18 +363,29 @@ class InterpreterESC50Brain(sb.core.Brain):
 
     @staticmethod
     def crosscor(spectrogram, template):
-        spectrogram = (spectrogram - spectrogram.mean((-1, -2), keepdim=True))
-        template = (template - template.mean((-1, -2), keepdim=True))
+        spectrogram = spectrogram - spectrogram.mean((-1, -2), keepdim=True)
+        template = template - template.mean((-1, -2), keepdim=True)
         template = template.unsqueeze(1)
-        tmp = F.conv2d(spectrogram[None], template, bias=None, groups=spectrogram.shape[0])
+        tmp = F.conv2d(
+            spectrogram[None], template, bias=None, groups=spectrogram.shape[0]
+        )
 
-        normalization1 = F.conv2d(spectrogram[None]**2, torch.ones_like(template), groups=spectrogram.shape[0])
-        normalization2 = F.conv2d(torch.ones_like(spectrogram[None]), template**2, groups=spectrogram.shape[0])
+        normalization1 = F.conv2d(
+            spectrogram[None] ** 2,
+            torch.ones_like(template),
+            groups=spectrogram.shape[0],
+        )
+        normalization2 = F.conv2d(
+            torch.ones_like(spectrogram[None]),
+            template**2,
+            groups=spectrogram.shape[0],
+        )
 
-        ncc = (tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)).squeeze()
+        ncc = (
+            tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)
+        ).squeeze()
 
         return ncc
-
 
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
@@ -389,7 +400,11 @@ class InterpreterESC50Brain(sb.core.Brain):
         uttid = batch.id
         labels, _ = batch.class_string_encoded
 
-        X_stft_logpower_clean, X_stft_clean, X_stft_power_clean = self.preprocess(wavs)
+        (
+            X_stft_logpower_clean,
+            X_stft_clean,
+            X_stft_power_clean,
+        ) = self.preprocess(wavs)
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
 
         Tmax = xhat.shape[1]
@@ -404,46 +419,52 @@ class InterpreterESC50Brain(sb.core.Brain):
             crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
             crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
 
-            rec_loss = ((X_stft_logpower_clean - mask_in).abs().mean((-1, -2)) * crosscor_mask * self.hparams.g_w).sum()
+            rec_loss = (
+                (X_stft_logpower_clean - mask_in).abs().mean((-1, -2))
+                * crosscor_mask
+                * self.hparams.g_w
+            ).sum()
         else:
             rec_loss = 0
             crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
 
         # this is just to debug the cross-correlation
         # with torch.no_grad():
-            # for idx, s in enumerate(zip(X_stft_logpower.cpu(), mask_in.cpu(), crosscor.cpu())):
-                # ax = plt.subplot(121)
-                # plt.imshow(s[0].t(), origin="lower")
-                # plt.title("Original spectrogram")
+        # for idx, s in enumerate(zip(X_stft_logpower.cpu(), mask_in.cpu(), crosscor.cpu())):
+        # ax = plt.subplot(121)
+        # plt.imshow(s[0].t(), origin="lower")
+        # plt.title("Original spectrogram")
 
-                # plt.subplot(122, sharex=ax)
-                # plt.imshow(s[1].t(), origin="lower")
-                # plt.title("Mask in")
+        # plt.subplot(122, sharex=ax)
+        # plt.imshow(s[1].t(), origin="lower")
+        # plt.title("Mask in")
 
-                # plt.suptitle("Cross correlation: %.2f" % s[2].item())
-                # plt.tight_layout()
-                # plt.savefig(f"batch/{idx}.png")
+        # plt.suptitle("Cross correlation: %.2f" % s[2].item())
+        # plt.tight_layout()
+        # plt.savefig(f"batch/{idx}.png")
 
-        mask_in_preds = self.classifier_forward(
-            mask_in
-        )[2]
+        mask_in_preds = self.classifier_forward(mask_in)[2]
 
-        mask_out_preds = self.classifier_forward(
-            mask_out
-        )[2]
-
+        mask_out_preds = self.classifier_forward(mask_out)[2]
 
         class_pred = predictions.argmax(1)
         l_in = F.nll_loss(mask_in_preds.log_softmax(1), class_pred)
         l_out = -F.nll_loss(mask_out_preds.log_softmax(1), class_pred)
         ao_loss = l_in * self.hparams.l_in_w + self.hparams.l_out_w * l_out
 
-        r_m = (xhat.abs().mean((-1, -2, -3)) * self.hparams.reg_w_l1 * torch.logical_not(crosscor_mask)).sum()
-        r_m += (tv_loss(xhat) * self.hparams.reg_w_tv * torch.logical_not(crosscor_mask)).sum()
+        r_m = (
+            xhat.abs().mean((-1, -2, -3))
+            * self.hparams.reg_w_l1
+            * torch.logical_not(crosscor_mask)
+        ).sum()
+        r_m += (
+            tv_loss(xhat)
+            * self.hparams.reg_w_tv
+            * torch.logical_not(crosscor_mask)
+        ).sum()
 
         mask_in_preds = mask_in_preds.softmax(1)
         mask_out_preds = mask_out_preds.softmax(1)
-
 
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.inp_fid.append(
@@ -601,7 +622,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "acc": self.acc_metric.summarize("average"),
             }
             # if self.hparams.use_mask_output:
-                # self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
+            # self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
 
         if stage == sb.Stage.VALID:
             current_fid = self.inp_fid.summarize("average")
@@ -624,7 +645,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "AG": self.AG.summarize("average"),
             }
             # if self.hparams.use_mask_output:
-                # valid_stats["mask_ll"] = self.mask_ll.summarize("average")
+            # valid_stats["mask_ll"] = self.mask_ll.summarize("average")
 
             # The train_logger writes a summary to stdout and to the logfile.
             self.hparams.train_logger.log_stats(
@@ -800,7 +821,9 @@ if __name__ == "__main__":
 
     if hparams["finetuning"]:
         if hparams["pretrained_PIQ"] is None:
-            raise AssertionError("You should specificy pretrained model for finetuning.")
+            raise AssertionError(
+                "You should specificy pretrained model for finetuning."
+            )
 
     Interpreter_brain = InterpreterESC50Brain(
         modules=hparams["modules"],
@@ -823,7 +846,6 @@ if __name__ == "__main__":
     hparams["classifier"].to(hparams["device"])
     hparams["embedding_model"].eval()
 
-
     if not hparams["test_only"]:
         Interpreter_brain.fit(
             epoch_counter=Interpreter_brain.hparams.epoch_counter,
@@ -844,4 +866,3 @@ if __name__ == "__main__":
         progressbar=True,
         test_loader_kwargs=hparams["dataloader_options"],
     )
-

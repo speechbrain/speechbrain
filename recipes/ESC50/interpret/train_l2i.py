@@ -202,7 +202,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder,
+                    "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -279,7 +280,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         torchaudio.save(
@@ -374,7 +376,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             (reconstructions, time_activations),
             (classification_out, theta_out),
             # take augmented wavs
-            wavs
+            wavs,
         ) = pred
 
         uttid = batch.id
@@ -387,7 +389,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            interpretations = torch.empty(wavs.shape[0], 417, 513).to(X_stft_logpower.device)
+            interpretations = torch.empty(wavs.shape[0], 417, 513).to(
+                X_stft_logpower.device
+            )
             for i in range(interpretations.shape[0]):
                 tmp, _, _ = self.interpret_computation_steps(wavs[0:1])
                 # tmp = tmp[:, :X_stft_power.shape[1]].t()
@@ -403,10 +407,14 @@ class InterpreterESC50Brain(sb.core.Brain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskin_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            maskin_preds = (
+                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            )
 
-            X_stft_logpower = X_stft_logpower[:, :interpretations.shape[-2], :]
-            temp = self.hparams.embedding_model(X_stft_logpower - interpretations)
+            X_stft_logpower = X_stft_logpower[:, : interpretations.shape[-2], :]
+            temp = self.hparams.embedding_model(
+                X_stft_logpower - interpretations
+            )
             if isinstance(temp, tuple):
                 embeddings, f_I = temp
             else:
@@ -415,7 +423,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskout_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            maskout_preds = (
+                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            )
 
         torchvision.utils.save_image(interpretations.unsqueeze(1), "ints.png")
         torchvision.utils.save_image(X_stft_logpower.unsqueeze(1), "ints.png")
@@ -596,7 +606,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "acc": self.acc_metric.summarize("average"),
                 "input_fid": current_fid,
                 # "faithfulness_median": torch.Tensor(
-                    # self.faithfulness.scores
+                # self.faithfulness.scores
                 # ).median(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
@@ -625,13 +635,13 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "acc": self.acc_metric.summarize("average"),
                 "input_fid": current_fid,
                 # "faithfulness_median": torch.Tensor(
-                    # self.faithfulness.scores
+                # self.faithfulness.scores
                 # ).median(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
                 ).mean(),
                 # "faithfulness_std": torch.Tensor(
-                    # self.faithfulness.scores
+                # self.faithfulness.scores
                 # ).std(),
                 "AD": self.AD.summarize("average"),
                 "AI": self.AI.summarize("average"),
@@ -646,7 +656,6 @@ class InterpreterESC50Brain(sb.core.Brain):
 
 
 if __name__ == "__main__":
-
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
 

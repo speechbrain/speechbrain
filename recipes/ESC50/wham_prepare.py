@@ -5,6 +5,7 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import IterableDataset, DataLoader
 
+
 class WHAMDataset(IterableDataset):
     def __init__(self, data_dir, target_length=4, sample_rate=22050):
         self.data_dir = data_dir
@@ -24,7 +25,9 @@ class WHAMDataset(IterableDataset):
 
             # Resample if needed
             if self.sample_rate != sr:
-                waveform = torchaudio.transforms.Resample(sr, self.sample_rate)(waveform)
+                waveform = torchaudio.transforms.Resample(sr, self.sample_rate)(
+                    waveform
+                )
 
             # Cut audio to the target length
             if waveform.shape[1] > self.target_length * self.sample_rate:
@@ -32,7 +35,9 @@ class WHAMDataset(IterableDataset):
                 end = int(self.target_length * self.sample_rate)
                 waveform = waveform[:, start:end]
 
-            zeros = int(self.target_length * self.sample_rate) - waveform.shape[1]
+            zeros = (
+                int(self.target_length * self.sample_rate) - waveform.shape[1]
+            )
             waveform = F.pad(waveform, (0, zeros))
 
             yield waveform
@@ -45,9 +50,9 @@ def combine_batches(clean, noise_loader):
     batch_size = clean.shape[0]
 
     noise = []
-    for _ in range(batch_size): noise.append(next(noise_loader))
+    for _ in range(batch_size):
+        noise.append(next(noise_loader))
     noise = torch.stack(noise).to(clean.device).squeeze()
-
 
     max_amplitude = torch.max(torch.abs(torch.cat([clean, noise], dim=0)))
     scaling_factor = 1.0 / max_amplitude
