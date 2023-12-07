@@ -392,7 +392,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower_clean, X_stft_clean, X_stft_power_clean = self.preprocess(wavs)
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
 
-
         Tmax = xhat.shape[1]
 
         # map clean to same dimensionality
@@ -401,11 +400,22 @@ class InterpreterESC50Brain(sb.core.Brain):
         mask_in = xhat * X_stft_logpower[:, :Tmax, :]
         mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
 
-        self.crosscor(X_stft_logpower_clean, mask_in)
-        import torchvision
-        torchvision.utils.save_image(X_stft_logpower_clean[0:1], "clean.png")
-        torchvision.utils.save_image(mask_in[0:1], "mask_in.png")
-        breakpoint()
+        crosscor = self.crosscor(X_stft_logpower, mask_in)
+
+        # this is just to debug the cross-correlation
+        # with torch.no_grad():
+            # for idx, s in enumerate(zip(X_stft_logpower.cpu(), mask_in.cpu(), crosscor.cpu())):
+                # ax = plt.subplot(121)
+                # plt.imshow(s[0].t(), origin="lower")
+                # plt.title("Original spectrogram")
+
+                # plt.subplot(122, sharex=ax)
+                # plt.imshow(s[1].t(), origin="lower")
+                # plt.title("Mask in")
+
+                # plt.suptitle("Cross correlation: %.2f" % s[2].item())
+                # plt.tight_layout()
+                # plt.savefig(f"batch/{idx}.png")
 
         mask_in_preds = self.classifier_forward(
             mask_in
