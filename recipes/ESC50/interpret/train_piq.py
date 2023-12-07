@@ -361,23 +361,51 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
 
+    @staticmethod
+    def crosscor(spectrogram, template):
+        # TODO: needs batching using groups
+        spectrogram = (spectrogram - spectrogram.mean())
+        template = (template - template.mean())
+        tmp = F.conv2d(spectrogram, template[None], bias=None)
+
+        normalization1 = F.conv2d(spectrogram**2, torch.ones_like(template)[None])
+        normalization2 = F.conv2d(torch.ones_like(spectrogram), template[None]**2)
+
+        ncc = tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)
+
+        return ncc
+
+
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
         batch_sig, predictions, xhat, hcat, z_q_x, garbage = pred
 
-        # taking them from forward because they are augmented there!
         batch = batch.to(self.device)
+        wavs_clean, lens_clean = batch.sig
+
+        # taking them from forward because they are augmented there!
         wavs, lens = batch_sig
 
         uttid = batch.id
         labels, _ = batch.class_string_encoded
 
+        X_stft_logpower_clean, X_stft_clean, X_stft_power_clean = self.preprocess(wavs)
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+
 
         Tmax = xhat.shape[1]
 
+        # map clean to same dimensionality
+        X_stft_logpower_clean = X_stft_logpower_clean[:, :Tmax, :]
+
         mask_in = xhat * X_stft_logpower[:, :Tmax, :]
         mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
+
+        self.crosscor(X_stft_logpower_clean[0:1], mask_in[0:1])
+        import torchvision
+        torchvision.utils.save_image(X_stft_logpower_clean[0:1], "clean.png")
+        torchvision.utils.save_image(mask_in[0:1], "mask_in.png")
+        breakpoint()
 
         mask_in_preds = self.classifier_forward(
             mask_in
@@ -793,3 +821,4 @@ if __name__ == "__main__":
             progressbar=True,
             test_loader_kwargs=hparams["dataloader_options"],
         )
+
