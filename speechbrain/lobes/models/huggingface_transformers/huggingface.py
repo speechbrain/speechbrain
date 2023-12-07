@@ -20,7 +20,6 @@ Authors
  * Luca Della Libera 2022
  * Heitor Guimarães 2022
  * Ha Nguyen 2023
- * Pooneh Mousavi 2023
 """
 import os
 import torch
@@ -105,29 +104,26 @@ class HFTransformersInterface(nn.Module):
         )
 
         self.config = self.override_config(self.config)
+        self.quantization_config = quantization_config
 
         self.for_pretraining = for_pretraining
-        self.with_lm_head = with_lm_head
-        self.seq2seqlm = seq2seqlm
-        if for_pretraining:
-            model = AutoModelForPreTraining.from_config(self.config)
+        
+        if self.for_pretraining:
+            self.auto_class = AutoModelForPreTraining
         elif with_lm_head:
-            model = AutoModelWithLMHead.from_config(self.config)
+            self.auto_class = AutoModelWithLMHead
         elif with_casual_lm:
-            model = AutoModelForCausalLM.from_config(self.config)
+            self.auto_class = AutoModelForCausalLM
         elif seq2seqlm:
-            model = AutoModelForSeq2SeqLM.from_config(self.config)
+            self.auto_class = AutoModelForSeq2SeqLM
         else:
-            model = AutoModel.from_config(self.config)
+            self.auto_class = AutoModel
 
         # Download model
         self._from_pretrained(
             source,
-            config=self.config,
-            model=model,
             save_path=save_path,
             cache_dir=cache_dir,
-            quantization_config=quantization_config,
         )
 
         # Prepare for training, fine-tuning, or inference
@@ -144,11 +140,8 @@ class HFTransformersInterface(nn.Module):
     def _from_pretrained(
         self,
         source,
-        config,
-        model,
         save_path,
         cache_dir,
-        quantization_config=None,
     ):
         """This function manages the source checking and loading of the params.
 
@@ -160,8 +153,6 @@ class HFTransformersInterface(nn.Module):
         ---------
         source : str
             HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
-        config : AutoConfig
-            HuggingFace generic configuration class.
         model: AutoModel
             HuggingFace generic model class.
         save_path : str
@@ -170,9 +161,11 @@ class HFTransformersInterface(nn.Module):
             Path (dir) in which a downloaded pretrained model configuration should be cached.
         """
         is_sb, ckpt_file, is_local = self._check_model_source(source, save_path)
+
+        if is_sb or self.for_pretraining:
+            self.model = self.auto_class.from_config(self.config)
+
         if is_sb:
-            config = config.from_pretrained(source, cache_dir=save_path)
-            self.model = model
             self.model.gradient_checkpointing_disable()  # Required by DDP
             # fetch the checkpoint file
             ckpt_full_path = fetch(
@@ -180,19 +173,13 @@ class HFTransformersInterface(nn.Module):
             )
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_parameters(ckpt_full_path)
-        else:
-            if self.for_pretraining:
-                # For now, we don't need to load pretrained model for pretraining
-                # To be modified in the future to support more complicated scenerios
-                # For example fine-tuning in the SSL manner
-                self.model = model
-            else:
-                self.model = model.from_pretrained(
-                    source,
-                    config=config,
-                    cache_dir=save_path,
-                    quantization_config=quantization_config,
-                )
+        elif not self.for_pretraining:
+            self.model = self.auto_class.from_pretrained(
+                source,
+                config=self.config,
+                cache_dir=save_path,
+                quantization_config=self.quantization_config,
+            )
 
     def _check_model_source(self, path, save_path):
         """Checks if the pretrained model has been trained with SpeechBrain and
