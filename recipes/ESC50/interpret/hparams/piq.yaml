@@ -22,6 +22,10 @@ reg_w_tv: 0.1
 reg_w_l1: 0.3
 ao_w: 0.5
 
+g_w: 10 # regularization weight of oracles
+crosscor_th: 0.7
+finetuning: True
+
 experiment_name: piq
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
@@ -106,7 +110,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
 
-use_pretrained: True
 
 # embedding_model: !new:custom_models.Conv2dEncoder_v2
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
@@ -116,6 +119,16 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 256
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
+
+pretrained_PIQ: null
+load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        psi: !ref <psi_model>
+    paths:
+        psi: !ref <pretrained_PIQ>
+
+use_pretrained: True
 
 embedding_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/embedding_model.ckpt"
 classifier_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/classifier.ckpt"

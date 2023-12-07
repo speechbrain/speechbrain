@@ -400,7 +400,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         mask_in = xhat * X_stft_logpower[:, :Tmax, :]
         mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
 
-        crosscor = self.crosscor(X_stft_logpower, mask_in)
+        if self.hparams.finetuning:
+            crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
+            crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
+
+            rec_loss = ((X_stft_logpower_clean - mask_in).pow(2).mean((-1, -2)) * crosscor_mask * self.hparams.g_w).sum()
+        else:
+            rec_loss = 0
+            crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
 
         # this is just to debug the cross-correlation
         # with torch.no_grad():
@@ -431,9 +438,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         l_out = -F.nll_loss(mask_out_preds.log_softmax(1), class_pred)
         ao_loss = l_in * self.hparams.l_in_w + self.hparams.l_out_w * l_out
 
-        # only regularize samples that are not using SAM guidance
-        r_m = (xhat.abs().mean((-1, -2, -3)) * self.hparams.reg_w_l1).sum()
-        r_m += (tv_loss(xhat) * self.hparams.reg_w_tv).sum()
+        r_m = (xhat.abs().mean((-1, -2, -3)) * self.hparams.reg_w_l1 * torch.logical_not(crosscor_mask)).sum()
+        r_m += (tv_loss(xhat) * self.hparams.reg_w_tv * torch.logical_not(crosscor_mask)).sum()
 
         mask_in_preds = mask_in_preds.softmax(1)
         mask_out_preds = mask_out_preds.softmax(1)
@@ -476,7 +482,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        return ao_loss + r_m
+        return ao_loss + r_m + rec_loss
 
     @torch.no_grad()
     def accuracy_value(self, predict, target):
@@ -792,6 +798,10 @@ if __name__ == "__main__":
     class_labels = list(label_encoder.ind2lab.values())
     print("Class Labels:", class_labels)
 
+    if hparams["finetuning"]:
+        if hparams["pretrained_PIQ"] is None:
+            raise AssertionError("You should specificy pretrained model for finetuning.")
+
     Interpreter_brain = InterpreterESC50Brain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
@@ -799,6 +809,10 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    if hparams["pretrained_PIQ"] is not None and hparams["finetuning"]:
+        run_on_main(hparams["load_pretrained"].collect_files)
+        hparams["load_pretrained"].load_collected()
 
     if "pretrained_esc50" in hparams and hparams["use_pretrained"]:
         print("Loading model...")
@@ -809,6 +823,7 @@ if __name__ == "__main__":
     hparams["classifier"].to(hparams["device"])
     hparams["embedding_model"].eval()
 
+
     if not hparams["test_only"]:
         Interpreter_brain.fit(
             epoch_counter=Interpreter_brain.hparams.epoch_counter,
@@ -817,18 +832,16 @@ if __name__ == "__main__":
             train_loader_kwargs=hparams["dataloader_options"],
             valid_loader_kwargs=hparams["dataloader_options"],
         )
-    else:
-        # Load the best checkpoint for evaluation
 
-        Interpreter_brain.checkpointer.recover_if_possible(
-            max_key="valid_top-3_fid",
-            device=torch.device(Interpreter_brain.device),
-        )
+    Interpreter_brain.checkpointer.recover_if_possible(
+        min_key="loss",
+        device=torch.device(Interpreter_brain.device),
+    )
 
-        test_stats = Interpreter_brain.evaluate(
-            test_set=datasets["test"],
-            min_key="loss",
-            progressbar=True,
-            test_loader_kwargs=hparams["dataloader_options"],
-        )
+    test_stats = Interpreter_brain.evaluate(
+        test_set=datasets["test"],
+        min_key="loss",
+        progressbar=True,
+        test_loader_kwargs=hparams["dataloader_options"],
+    )
 
