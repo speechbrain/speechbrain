@@ -28,9 +28,7 @@ except ImportError:
 import math
 
 
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:], float32[:,:,:], float32[:], int32[:], int32[:], int32, int32[:,:])"
-)
+@cuda.jit()
 def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     """
     Compute forward pass for the forward-backward algorithm using Numba cuda kernel.
@@ -106,9 +104,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
             ) / T[b]
 
 
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:], float32[:,:,:], float32[:], int32[:], int32[:], int32, int32[:,:])"
-)
+@cuda.jit()
 def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     """
     Compute backward pass for the forward-backward algorithm using Numba cuda kernel.
@@ -180,9 +176,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
         log_p[b] = beta[b, 0, 0] / T[b]
 
 
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:],float32[:,:,:], float32[:,:,:], float32[:,:,:,:], int32[:], int32[:], int32)"
-)
+@cuda.jit()
 def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     """
     Compute gradient for the forward-backward algorithm using Numba cuda kernel.
@@ -255,15 +249,15 @@ class Transducer(Function):
         log_probs = log_probs.detach()
         B, maxT, maxU, A = log_probs.shape
         grads = torch.zeros(
-            (B, maxT, maxU, A), dtype=torch.float32, device=log_probs.device
+            (B, maxT, maxU, A), dtype=log_probs.dtype, device=log_probs.device
         )
-        alpha = torch.zeros((B, maxT, maxU), device=log_probs.device)
-        beta = torch.zeros((B, maxT, maxU), device=log_probs.device)
+        alpha = torch.zeros((B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype)
+        beta = torch.zeros((B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype)
         lock = torch.zeros(
             (B, maxU), dtype=torch.int32, device=log_probs.device
         )
-        log_p_alpha = torch.zeros((B,), device=log_probs.device)
-        log_p_beta = torch.zeros((B,), device=log_probs.device)
+        log_p_alpha = torch.zeros((B,), device=log_probs.device, dtype=log_probs.dtype)
+        log_p_beta = torch.zeros((B,), device=log_probs.device, dtype=log_probs.dtype)
         cu_kernel_forward[B, maxU](
             log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
         )
