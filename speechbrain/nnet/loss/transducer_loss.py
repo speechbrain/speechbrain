@@ -3,6 +3,7 @@ Transducer loss implementation (depends on numba)
 
 Authors
  * Abdelwahab Heba 2020
+ * Titouan Parcollet 2023
 """
 
 import torch
@@ -251,13 +252,21 @@ class Transducer(Function):
         grads = torch.zeros(
             (B, maxT, maxU, A), dtype=log_probs.dtype, device=log_probs.device
         )
-        alpha = torch.zeros((B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype)
-        beta = torch.zeros((B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype)
+        alpha = torch.zeros(
+            (B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype
+        )
+        beta = torch.zeros(
+            (B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype
+        )
         lock = torch.zeros(
             (B, maxU), dtype=torch.int32, device=log_probs.device
         )
-        log_p_alpha = torch.zeros((B,), device=log_probs.device, dtype=log_probs.dtype)
-        log_p_beta = torch.zeros((B,), device=log_probs.device, dtype=log_probs.dtype)
+        log_p_alpha = torch.zeros(
+            (B,), device=log_probs.device, dtype=log_probs.dtype
+        )
+        log_p_beta = torch.zeros(
+            (B,), device=log_probs.device, dtype=log_probs.dtype
+        )
         cu_kernel_forward[B, maxU](
             log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
         )
