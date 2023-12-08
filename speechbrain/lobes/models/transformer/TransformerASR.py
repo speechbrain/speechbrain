@@ -205,12 +205,7 @@ class TransformerASR(TransformerInterface):
         tgt = self.custom_tgt_module(tgt)
 
         if self.attention_type == "RelPosMHAXL":
-            # use standard sinusoidal pos encoding in decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            # FIXME we use pos embs also on enc output
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif (
@@ -253,6 +248,9 @@ class TransformerASR(TransformerInterface):
 
         src_mask = None
 
+        if self.causal:
+            src_mask = get_lookahead_mask(src)
+
         # If no decoder in the transformer...
         if tgt is not None:
             tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
@@ -283,12 +281,7 @@ class TransformerASR(TransformerInterface):
 
         tgt = self.custom_tgt_module(tgt)
         if self.attention_type == "RelPosMHAXL":
-            # we use fixed positional encodings in the decoder
             tgt = tgt + self.positional_encoding_decoder(tgt)
-            encoder_out = encoder_out + self.positional_encoding_decoder(
-                encoder_out
-            )
-            # pos_embs_target = self.positional_encoding(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif (

@@ -1310,7 +1310,6 @@ class VAD(Pretrained):
         last_chunk = False
         begin_sample = 0
         while True:
-
             # Reading the big chunk
             large_chunk, fs = torchaudio.load(
                 str(audio_file),
@@ -2849,7 +2848,7 @@ class Tacotron2(Pretrained):
         self.infer = self.hparams.model.infer
 
     def text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction"""
+        """Encodes raw text into a tensor with a customer text-to-sequence function"""
         sequence = self.hparams.text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
@@ -3114,7 +3113,6 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme energies
         """
         with torch.no_grad():
-
             (
                 _,
                 post_mel_outputs,
@@ -3247,8 +3245,7 @@ class FastSpeech2InternalAlignment(Pretrained):
         )
 
     def _g2p_keep_punctuations(self, g2p_model, text):
-        """do grapheme to phoneme and keep the punctuations between the words
-        """
+        """do grapheme to phoneme and keep the punctuations between the words"""
         # find the words where a "-" or "'" or "." or ":" appears in the middle
         special_words = re.findall(r"\w+[-':\.][-':\.\w]*\w+", text)
 
@@ -3361,7 +3358,6 @@ class FastSpeech2InternalAlignment(Pretrained):
             scaling factor for phoneme energies
         """
         with torch.no_grad():
-
             (
                 _,
                 post_mel_outputs,
@@ -3650,6 +3646,95 @@ class DiffWaveVocoder(Pretrained):
     def forward(self, spectrogram):
         """Decodes the input spectrograms"""
         return self.decode_batch(spectrogram)
+
+
+class UnitHIFIGAN(Pretrained):
+    """
+    A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
+    Arguments
+    ---------
+    hparams
+        Hyperparameters (from HyperPyYAML)
+    Example
+    -------
+    >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
+    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech", savedir=tmpdir_vocoder)
+    >>> codes = torch.randint(0, 99, (100,))
+    >>> waveform = hifi_gan.decode_unit(codes)
+    """
+
+    HPARAMS_NEEDED = ["generator"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.infer = self.hparams.generator.inference
+        self.first_call = True
+        # Temporary fix for mapping indices from the range [0, k] to [1, k+1]
+        self.tokenize = True
+
+    def decode_batch(self, units):
+        """Computes waveforms from a batch of discrete units
+        Arguments
+        ---------
+        units: torch.tensor
+            Batch of discrete units [batch, codes]
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, 1, time]
+        """
+        # Remove weight norm for inference if it's the first call
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+
+        # Ensure that the units sequence has a length of at least 3
+        if units.size(1) < 3:
+            logger.error(
+                "The 'units' argument should have a length of at least 3 because of padding size."
+            )
+            quit()
+
+        # Increment units if tokenization is enabled
+        if self.tokenize:
+            units += 1
+        with torch.no_grad():
+            waveform = self.infer(units.to(self.device))
+        return waveform
+
+    def decode_unit(self, units):
+        """Computes waveforms from a single sequence of discrete units
+        Arguments
+        ---------
+        units: torch.tensor
+            codes: [time]
+        Returns
+        -------
+        waveform: torch.tensor
+            waveform [1, time]
+        """
+        # Remove weight norm for inference if it's the first call
+        if self.first_call:
+            self.hparams.generator.remove_weight_norm()
+            self.first_call = False
+
+        # Ensure that the units sequence has a length of at least 3
+        if units.size(0) < 3:
+            logger.error(
+                "The 'units' argument should have a length of at least 3 because of padding size."
+            )
+            quit()
+
+        # Increment units if tokenization is enabled
+        if self.tokenize:
+            units += 1
+        with torch.no_grad():
+            waveform = self.infer(units.unsqueeze(0).to(self.device))
+        return waveform.squeeze(0)
+
+    def forward(self, units):
+        "Decodes the input units"
+        return self.decode_batch(units)
 
 
 class WhisperASR(Pretrained):
@@ -4267,6 +4352,114 @@ class PIQAudioInterpreter(Pretrained):
         return self.interpret_batch(wavs, wav_lens)
 
 
+class EncoderDecoderS2UT(Pretrained):
+    """A ready-to-use Encoder Decoder for speech-to-unit translation model
+
+    The class can be used  to  run the entire encoder-decoder S2UT model
+    (translate_file()) to translate speech. The given YAML must contains the fields
+    specified in the *_NEEDED[] lists.
+
+    Example
+    -------
+    >>> from speechbrain.pretrained import EncoderDecoderS2UT
+    >>> tmpdir = getfixture("tmpdir")
+    >>> s2ut_model = EncoderDecoderS2UT.from_hparams(source="speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss", savedir=tmpdir) # doctest: +SKIP
+    >>> s2ut_model.translate_file("speechbrain/s2st-transformer-fr-en-hubert-l6-k100-cvss/example-fr.wav") # doctest: +SKIP
+    """
+
+    HPARAMS_NEEDED = ["sample_rate"]
+    MODULES_NEEDED = ["encoder", "decoder"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sample_rate = self.hparams.sample_rate
+
+    def translate_file(self, path):
+        """Translates the given audiofile into a sequence speech unit.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to translate.
+
+        Returns
+        -------
+        int[]
+            The audiofile translation produced by this speech-to-unit translationmodel.
+        """
+
+        audio = self.load_audio(path)
+        audio = audio.to(self.device)
+        # Fake a batch:
+        batch = audio.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+        predicted_tokens = self.translate_batch(batch, rel_length)
+        return predicted_tokens[0]
+
+    def encode_batch(self, wavs, wav_lens):
+        """Encodes the input audio into a sequence of hidden states
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderS2UT.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        torch.tensor
+            The encoded batch
+        """
+        wavs = wavs.float()
+        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        encoder_out = self.mods.encoder(wavs, wav_lens)
+        return encoder_out
+
+    def translate_batch(self, wavs, wav_lens):
+        """Translates the input audio into a sequence of words
+
+        The waveforms should already be in the model's desired format.
+        You can call:
+        ``normalized = EncoderDecoderS2UT.normalizer(signal, sample_rate)``
+        to get a correctly converted signal in most cases.
+
+        Arguments
+        ---------
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
+        wav_lens : torch.tensor
+            Lengths of the waveforms relative to the longest one in the
+            batch, tensor of shape [batch]. The longest one should have
+            relative length 1.0 and others len(waveform) / max_length.
+            Used for ignoring padding.
+
+        Returns
+        -------
+        list
+            Each waveform in the batch translated.
+        tensor
+            Each predicted token id.
+        """
+        with torch.no_grad():
+            wav_lens = wav_lens.to(self.device)
+            encoder_out = self.encode_batch(wavs, wav_lens)
+            predicted_tokens, _ = self.mods.decoder(encoder_out, wav_lens)
+        return predicted_tokens
+
+    def forward(self, wavs, wav_lens):
+        """Runs full translation"""
+        return self.encode_batch(wavs, wav_lens)
+
+
 class MelSpectrogramEncoder(Pretrained):
     """A MelSpectrogramEncoder class created for the Zero-Shot Multi-Speaker TTS models.
 
@@ -4676,7 +4869,6 @@ class ResponseGenerator(Pretrained):
     MODULES_NEEDED = ["gpt-model"]
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
         #  Load model
         self.model = self.hparams.model
@@ -4729,7 +4921,7 @@ class ResponseGenerator(Pretrained):
         return response
 
     def prepare_input(self):
-        """ Convert user input and previous histories to the format acceptable for  GPT model.
+        """Convert user input and previous histories to the format acceptable for  GPT model.
             It appends all previous history and input and truncates it based on max_history value.
             It then tokenizes the input and generates additional input that determines the type of each token (Sytem or User).
 
