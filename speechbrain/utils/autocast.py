@@ -48,7 +48,7 @@ def fwd_default_precision(
         operations may be of the autocast data type.
         Disabling autocast *without* casting inputs will not change this fact,
         so lower precision operations can happen even inside of an
-        autocast-disabled region, which this argument helps avoid if desired. 
+        autocast-disabled region, which this argument helps avoid if desired.
     """
 
     if fwd is None:
