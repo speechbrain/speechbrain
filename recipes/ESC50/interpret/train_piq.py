@@ -366,6 +366,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         spectrogram = spectrogram - spectrogram.mean((-1, -2), keepdim=True)
         template = template - template.mean((-1, -2), keepdim=True)
         template = template.unsqueeze(1)
+        # 1 x BS x T x F
+        # BS x 1 x T x F
         tmp = F.conv2d(
             spectrogram[None], template, bias=None, groups=spectrogram.shape[0]
         )
@@ -419,29 +421,50 @@ class InterpreterESC50Brain(sb.core.Brain):
             crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
             crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
 
+            max_batch = (
+                X_stft_logpower_clean.view(xhat.shape[0], -1)
+                .max(1)
+                .values.view(-1, 1, 1)
+            )
+            binarized_oracle = (
+                X_stft_logpower_clean >= self.hparams.bin_th
+            ).float()
+            # this is just to debug the cross-correlation
+            # with torch.no_grad():
+            # for idx, s in enumerate(
+            # zip(
+            # X_stft_logpower.cpu(),
+            # mask_in.cpu(),
+            # crosscor.cpu(),
+            # binarized_oracle.cpu(),
+            # )
+            # ):
+            # ax = plt.subplot(131)
+            # plt.imshow(s[0].t(), origin="lower")
+            # plt.title("Oracle")
+
+            # plt.subplot(132, sharex=ax)
+            # plt.imshow(s[3].t(), origin="lower")
+            # plt.title("Binarized Oracle")
+
+            # plt.subplot(133, sharex=ax)
+            # plt.imshow(s[1].t(), origin="lower")
+            # plt.title("Mask in")
+
+            # plt.tight_layout()
+            # plt.suptitle("Cross correlation: %.2f" % s[2].item())
+            # plt.savefig(f"batch/{idx}.png")
+
             rec_loss = (
-                (X_stft_logpower_clean - mask_in).abs().mean((-1, -2))
-                * crosscor_mask
+                F.binary_cross_entropy(
+                    xhat, binarized_oracle, reduce=False
+                ).mean((-1, -2))
                 * self.hparams.g_w
-            ).sum()
+                * crosscor_mask
+            ).mean()
         else:
             rec_loss = 0
             crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
-
-        # this is just to debug the cross-correlation
-        # with torch.no_grad():
-        # for idx, s in enumerate(zip(X_stft_logpower.cpu(), mask_in.cpu(), crosscor.cpu())):
-        # ax = plt.subplot(121)
-        # plt.imshow(s[0].t(), origin="lower")
-        # plt.title("Original spectrogram")
-
-        # plt.subplot(122, sharex=ax)
-        # plt.imshow(s[1].t(), origin="lower")
-        # plt.title("Mask in")
-
-        # plt.suptitle("Cross correlation: %.2f" % s[2].item())
-        # plt.tight_layout()
-        # plt.savefig(f"batch/{idx}.png")
 
         mask_in_preds = self.classifier_forward(mask_in)[2]
 
