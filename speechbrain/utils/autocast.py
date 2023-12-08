@@ -65,7 +65,7 @@ def fwd_default_precision(
     @functools.wraps(fwd)
     def wrapper(*args, force_allow_autocast: bool = False, **kwargs):
         """Wrapped forward function from fwd_default_precision.
-        
+
         Arguments
         ---------
         force_allow_autocast: bool
