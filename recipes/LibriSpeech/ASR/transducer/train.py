@@ -198,8 +198,10 @@ class ASR(sb.Brain):
                 with torch.autocast(torch.device(self.device).type):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
 
-                # Losses are excluded from mixed precision to avoid instabilities
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                    # Losses are excluded from mixed precision to avoid instabilities
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
 
                 self.scaler.scale(
                     loss / self.grad_accumulation_factor
