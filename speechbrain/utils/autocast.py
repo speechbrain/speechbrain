@@ -41,8 +41,9 @@ def fwd_default_precision(
         already specified implicitly.
 
     cast_inputs: Optional[torch.dtype]
-        If not `None` (the default being `torch.float32`), then any inputs to
-        the wrapped functions will be cast to the specified type.
+        If not `None` (the default being `torch.float32`), then any
+        floating-point inputs to the wrapped functions will be cast to the
+        specified type.
 
         Note: When autocasting is enabled, output tensors of autocast-compatible
         operations may be of the autocast data type.
