@@ -10,7 +10,8 @@ import torch
 
 
 def fwd_default_precision(
-    fwd: Optional[Callable] = None, *, cast_inputs = torch.float32,
+    fwd: Optional[Callable] = None,
+    cast_inputs: Optional[torch.dtype] = torch.float32,
 ):
     """Decorator for forward methods which, by default, *disables* autocast
     and casts any floating-point tensor parameters into the specified dtype

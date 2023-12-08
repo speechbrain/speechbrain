@@ -128,7 +128,7 @@ class Fbank(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    @fwd_default_precision(torch.float32)
+    @fwd_default_precision(cast_inputs=torch.float32)
     def forward(self, wav):
         """Returns a set of features generated from the input waveforms.
 
@@ -262,7 +262,7 @@ class MFCC(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
-    @fwd_default_precision(torch.float32)
+    @fwd_default_precision(cast_inputs=torch.float32)
     def forward(self, wav):
         """Returns a set of mfccs generated from the input waveforms.
 
@@ -390,7 +390,7 @@ class Leaf(torch.nn.Module):
             self.compression = None
         self.skip_transpose = skip_transpose
 
-    @fwd_default_precision(torch.float32)
+    @fwd_default_precision(cast_inputs=torch.float32)
     def forward(self, x):
         """
         Returns the learned LEAF features
