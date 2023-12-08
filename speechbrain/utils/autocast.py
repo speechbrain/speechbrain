@@ -64,6 +64,13 @@ def fwd_default_precision(
 
     @functools.wraps(fwd)
     def wrapper(*args, force_allow_autocast: bool = False, **kwargs):
+        """Wrapped forward function from fwd_default_precision.
+        
+        Arguments
+        ---------
+        force_allow_autocast: bool
+            When `True`, the wrapped function will be executed directly with no
+            change to the autocast context and no input casting."""
         if force_allow_autocast:
             return fwd(*args, **kwargs)
         else:
