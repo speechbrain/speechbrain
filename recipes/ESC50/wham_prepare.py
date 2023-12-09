@@ -55,10 +55,12 @@ def combine_batches(clean, noise_loader):
     noise = torch.stack(noise).to(clean.device).squeeze()
 
     max_amplitude = torch.max(torch.abs(torch.cat([clean, noise], dim=0)))
-    scaling_factor = 1.0 / max_amplitude
+    clean_l2 = (clean ** 2).sum(-1) ** 0.5
+    noise_l2 = (noise ** 2).sum(-1) ** 0.5
 
     # Combine the batches at 0dB
-    combined_batch = (clean + noise) * scaling_factor
+    combined_batch = clean / clean_l2[..., None] + noise / noise_l2[..., None]
+    combined_batch = combined_batch / torch.max(combined_batch, dim=1, keepdim=True).values
 
     # torchaudio.save("clean.wav", clean[0][None].cpu(), 16000)
     # torchaudio.save("noise.wav", noise[0][None].cpu(), 16000)
