@@ -24,13 +24,16 @@ if __name__ == "__main__":
 
         ppath = path_pretrained.joinpath(ut.name, "interpretation.wav")
         fpath = path_finetuned.joinpath(ut.name, "interpretation.wav")
+        opath = path_finetuned.joinpath(ut.name, "original.wav")
 
         pwav, sr = torchaudio.load(ppath)
         fwav, _ = torchaudio.load(fpath)
+        owav, _ = torchaudio.load(opath)
 
         # dump waveform for this sample
         torchaudio.save(f"{os.path.join(tmp, 'finetuned.wav')}", fwav, sr)
         torchaudio.save(f"{os.path.join(tmp, 'no_finetuning.wav')}", pwav, sr)
+        torchaudio.save(f"{os.path.join(tmp, 'original.wav')}", owav, sr)
 
         ppath = path_pretrained.joinpath(ut.name, "reconstructions.png")
         fpath = path_finetuned.joinpath(ut.name, "reconstructions.png")
