@@ -131,8 +131,8 @@ load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 use_pretrained: True
 
-embedding_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/embedding_model.ckpt"
-classifier_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/classifier.ckpt"
+embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
+classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
