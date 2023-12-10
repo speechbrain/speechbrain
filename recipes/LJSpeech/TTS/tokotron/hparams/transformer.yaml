@@ -63,6 +63,7 @@ bos_index: 0
 # stages related parameters
 lr: 0.001
 lr_warmup_steps: 10000
+lr_annealing_mode: step
 guided_attention_weight: 50.0
 guided_attention_sigma: 0.5
 gate_loss_weight: 1.0
@@ -197,7 +198,7 @@ compute_cost: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronLoss
     gate_max_weight: !ref <gate_loss_max_weight>
     silence_padding: !ref <silence_padding>
 
-noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr>
     n_warmup_steps: !ref <lr_warmup_steps>
 

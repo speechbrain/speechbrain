@@ -62,7 +62,10 @@ bos_index: 0
 
 # stages related parameters
 lr: 0.001
-lr_warmup_steps: 10000
+lr_annealing_mode: epoch
+lr_improvement_threshold: 0.02
+lr_annealing_factor: 0.8
+lr_patient: 0
 guided_attention_weight: 50.0
 guided_attention_sigma: 0.5
 gate_loss_weight: 1.0
@@ -203,6 +206,7 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
 compute_cost: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronLoss
+    seq_cost: !name:speechbrain.nnet.losses.nll_loss
     guided_attention_weight: !ref <guided_attention_weight>
     guided_attention_sigma: !ref <guided_attention_sigma>
     gate_weight: !ref <gate_loss_weight>
@@ -211,15 +215,17 @@ compute_cost: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronLoss
     gate_max_weight: !ref <gate_loss_max_weight>
     silence_padding: !ref <silence_padding>
 
-noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
-    lr_initial: !ref <lr>
-    n_warmup_steps: !ref <lr_warmup_steps>
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: !ref <lr_improvement_threshold>
+    annealing_factor: !ref <lr_annealing_factor>
+    patient: !ref <lr_patient>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         model: !ref <model>
-        noam_scheduler: !ref <noam_annealing>
+        lr_annealing: !ref <lr_annealing>
         counter: !ref <epoch_counter>
 
 freezer: !new:speechbrain.dataio.preparation.Freezer

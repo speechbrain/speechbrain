@@ -695,8 +695,6 @@ class TokotronRNNModel(nn.Module):
     dec_rnn_type : str, optional
         The type of RNN to be used for the decoder: "gru", "lstm"
         or a custom module
-    dec_input_size : int, optional
-        The decoder input size
     dec_hidden_size : int, optional
         The size of the decoder hidden dimension
     dec_num_layers : int, optional
@@ -748,7 +746,6 @@ class TokotronRNNModel(nn.Module):
         enc_num_layers=6,
         enc_bidirectional=True,
         dec_rnn_type="gru",
-        dec_input_size=512,
         dec_hidden_size=512,
         dec_num_layers=6,
         dec_attn_type="location",
@@ -794,7 +791,7 @@ class TokotronRNNModel(nn.Module):
             tokens_per_step=audio_tokens_per_step,
             rnn_type=dec_rnn_type,
             enc_dim=enc_dim,
-            input_size=dec_input_size,
+            input_size=enc_hidden_size,
             hidden_size=dec_hidden_size,
             num_layers=dec_num_layers,
             attn_type=dec_attn_type,
@@ -1122,6 +1119,7 @@ class TokotronRNNDecoder(nn.Module):
 
         batch_size, heads, audio_dim = audio_emb.shape
         audio_emb_combined = audio_emb.reshape(batch_size, heads * audio_dim)
+        src_length_abs = src_length * enc_out.size(1)
         tgt = self.tgt_in_proj(audio_emb_combined)
         if context is None:
             context = {
@@ -1132,7 +1130,7 @@ class TokotronRNNDecoder(nn.Module):
             }
             self.dec.attn.reset()
         dec_out, hs, c, w = self.dec.forward_step(
-            tgt, context["hs"], context["c"], enc_out, src_length
+            tgt, context["hs"], context["c"], enc_out, src_length_abs
         )
         context["hs"] = hs
         context["c"] = c
@@ -1267,6 +1265,9 @@ class TokotronRNNDecoder(nn.Module):
                 seq_done = seq_gate_act & (
                     seq_gate_idx - idx >= self.gate_offset
                 )
+
+                # Update the context
+                context = step_out.context
 
                 # Terminate inference if all samples are done
                 done = seq_done.all()

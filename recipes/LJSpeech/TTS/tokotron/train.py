@@ -152,6 +152,10 @@ class TokotronBrain(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
 
+            if self.hparams.lr_annealing_mode == "epoch":
+                _, new_lr = self.hparams.lr_annealing(stage_loss)
+                sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
             lr = self.optimizer.param_groups[0]["lr"]
 
             # The train_logger writes a summary to stdout and to the logfile.
@@ -170,7 +174,8 @@ class TokotronBrain(sb.Brain):
 
     def fit_batch(self, batch):
         loss = super().fit_batch(batch)
-        self.hparams.noam_annealing(self.optimizer)
+        if self.hparams.lr_annealing_mode == "step":
+            self.hparams.lr_annealing(self.optimizer)
         return loss
 
     def create_samples(self):
