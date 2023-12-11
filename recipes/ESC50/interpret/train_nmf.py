@@ -8,6 +8,7 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023
 """
+import os
 import sys
 import torch
 import speechbrain as sb
@@ -16,6 +17,7 @@ from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
 from wham_prepare import WHAMDataset, combine_batches
 from train_l2i import dataio_prep
+import matplotlib.pyplot as plt
 
 
 class NMFBrain(sb.core.Brain):
@@ -54,6 +56,21 @@ class NMFBrain(sb.core.Brain):
         target = torch.log1p(X_stft_power).permute(0, 2, 1)
 
         loss = ((target.squeeze() - predictions) ** 2).mean()
+
+        with torch.no_grad():
+            if self.hparams.epoch_counter.current % self.hparams.save_period == 0 and stage == sb.Stage.VALID:
+                os.makedirs("nmf_rec", exist_ok=True)
+                for idx in range(X_stft.shape[0]):
+                    tmp = os.path.join("nmf_rec", f"{idx}.png")
+                    plt.subplot(121)
+                    plt.imshow(target[idx].cpu(), origin="lower")
+
+                    plt.subplot(122)
+                    plt.imshow(predictions[idx].cpu(), origin="lower")
+
+                    plt.tight_layout()
+                    plt.savefig(tmp)
+
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
