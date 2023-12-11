@@ -1091,7 +1091,7 @@ class TokotronRNNDecoder(nn.Module):
             gate_out,
             None,
             dec_attn,
-            get_alignments(dec_attn),
+            dec_attn,
             {},
         )
 
