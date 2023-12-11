@@ -420,6 +420,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
             crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
 
+
             max_batch = (
                 X_stft_logpower_clean.view(X_stft_logpower_clean.shape[0], -1)
                 .max(1)
@@ -515,6 +516,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 mask_out_preds,
             )
 
+        self.in_masks.append(uttid, c=crosscor_mask)
         self.acc_metric.append(
             uttid,
             predict=predictions,
@@ -629,6 +631,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.acc_metric = sb.utils.metric_stats.MetricStats(
             metric=self.accuracy_value, n_jobs=1
         )
+        def counter(c):
+            return c
+        self.in_masks = MetricStats(metric=counter)
 
         return super().on_stage_start(stage, epoch)
 
@@ -642,6 +647,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.train_stats = {
                 "loss": self.train_loss,
                 "acc": self.acc_metric.summarize("average"),
+                "in_masks": sum(self.in_masks.scores)
             }
             # if self.hparams.use_mask_output:
             # self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
@@ -665,6 +671,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "AD": self.AD.summarize("average"),
                 "AI": self.AI.summarize("average"),
                 "AG": self.AG.summarize("average"),
+                "in_masks": sum(self.in_masks.scores)
             }
             # if self.hparams.use_mask_output:
             # valid_stats["mask_ll"] = self.mask_ll.summarize("average")
