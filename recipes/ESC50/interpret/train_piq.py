@@ -534,7 +534,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         """Computes Accuracy"""
         predict = predict.argmax(1)
 
-        return ((predict == target).sum() / predict.numel()).unsqueeze(0)
+        return (predict.unsqueeze(1) == target).float().squeeze()
 
     @torch.no_grad()
     def compute_fidelity(self, theta_out, predictions):
@@ -810,6 +810,8 @@ if __name__ == "__main__":
     # classifier is fixed here
     hparams["embedding_model"].eval()
     hparams["classifier"].eval()
+    hparams["embedding_model"].requires_grad_(False)
+    hparams["classifier"].requires_grad_(False)
 
     # Create experiment directory
     sb.create_experiment_directory(
