@@ -195,7 +195,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
 
         # Reads the signal
         signal, sig_sr = torchaudio.load(wav_file)
-        duration = signal.shape[1]/sig_sr
+        duration = signal.shape[1] / sig_sr
         # Manipulates path to get relative path and uttid
         path_parts = wav_file.split(os.path.sep)
         uttid, _ = os.path.splitext(path_parts[-1])
