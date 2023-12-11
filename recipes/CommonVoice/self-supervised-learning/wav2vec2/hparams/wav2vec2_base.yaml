@@ -42,8 +42,7 @@ number_of_epochs: 100
 lr_adam: 2.0 # This will get reduced by the training scheduler
 weight_decay: 0.01
 d_model: 768  # Needed by the scheduler. 768 is for the BASE w2v2
-sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
@@ -51,15 +50,15 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # With DDP batch_size is multiplied by N jobs
 # Must be 12 per GPU to fit 32GB of VRAM
 # IMPORTANT: To train w2v2 model, we recommand to have the effective batch_size
-# higher than 100 (batch_size * nb_gpu * gradient_accumulation)
+# higher than 100 (batch_size * nb_gpu * grad_accumulation_factor)
 # Examples are:
 # 32 Tesla V100 32GB — 12 * 32 * 1
 # 4 Tesla V100 32GB — 12 * 4 * {6-8}
 batch_size: 12
 test_batch_size: 8
-gradient_accumulation: 8
+grad_accumulation_factor: 8
 num_workers: 4
-
+sorting: ascending
 dataloader_options:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
@@ -72,19 +71,22 @@ test_dataloader_options:
 # Instead of the default setting. While the recipe will work directly by setting
 # it to True, you will first need to read the tutorial on dynamic batching to
 # properly adapt the hyperparameters to your GPU memory! Using Dynamic Batching
-# will drastically optimise your GPU utilization and decrease your training time.
+# will drastically optimise your GPU utilization and decrease your training time.
 # Be careful to also adjust the gradient accumulation when using dynamic batching.
 # This setup will work with 32GB GPUs.
 # Dynamic Batching parameters, if used are:
 dynamic_batching: False
-dyn_batch_len: 120 # Cumulative length of each batch, per gpu.
-max_batch_size: 64 # Max number of samples per batch, per gpu.
+max_batch_length: 120 # Cumulative length of each batch, per gpu.
+max_batch_ex: 64 # Max number of samples per batch, per gpu.
+shuffle: True
+num_buckets: 30
+
 dynamic_batch_sampler:
-    max_batch_len: !ref <dyn_batch_len>
-    max_batch_ex: !ref <max_batch_size>
-    shuffle_ex: True
+    max_batch_length: !ref <max_batch_length>
+    max_batch_ex: !ref <max_batch_ex>
+    shuffle: !ref <shuffle>
     batch_ordering: !ref <sorting>
-    num_buckets: 30
+    num_buckets: !ref <num_buckets>
 
 #
 # Functions and classes
@@ -92,7 +94,7 @@ dynamic_batch_sampler:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2Pretrain
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2Pretrain
     source: !ref <wav2vec2_hub>
     save_path: !ref <wav2vec2_folder>
     mask_prob: !ref <mask_prob>

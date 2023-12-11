@@ -7,6 +7,7 @@ Authors
 
 import os
 import re
+from speechbrain.core import run_opt_defaults
 
 
 def get_yaml_var(hparam_file):
@@ -38,8 +39,8 @@ def get_yaml_var(hparam_file):
             # Remove trailing characters
             line = line.rstrip()
 
-            # Check for variables (e.g., 'key:' or '- !ref')
-            if line.find(":") != -1 or line.find("- !ref") != -1:
+            # Check for variables (e.g., 'key:' or '!ref')
+            if line.find(":") != -1 or line.find("!ref") != -1:
                 var_name = line[: line.find(":")]
                 # The variables to check are like "key:" (we do not need to check
                 # subvariavles as " key:")
@@ -98,6 +99,11 @@ def detect_script_vars(script_file, var_lst):
                         continue  # no need to go through the other cases for this var
                 # case: hparams[f"{dataset}_annotation"] - only that structure at the moment
                 re_match = re.search(r"\[f.\{.*\}(.*).\]", line)
+                # case: getattr(self.hparams, f"{stage.name}_search".lower())
+                if re_match is None:
+                    re_match = re.search(
+                        r"self\.hparams, f\"\{.*\}(.*)\"", line
+                    )
                 if re_match is not None:
                     if re_match.group(1) in var:
                         print(
@@ -176,29 +182,8 @@ def check_yaml_vs_script(hparam_file, script_file):
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
-    default_run_opt_keys = [
-        "debug",
-        "debug_batches",
-        "debug_epochs",
-        "device",
-        "cpu",
-        "data_parallel_backend",
-        "distributed_launch",
-        "distributed_backend",
-        "find_unused_parameters",
-        "jit_module_keys",
-        "compile_module_keys",
-        "--compile_mode",
-        "--compile_using_fullgraph",
-        "--compile_using_dynamic_shape_tracing",
-        "auto_mix_prec",
-        "max_grad_norm",
-        "nonfinite_patience",
-        "noprogressbar",
-        "ckpt_interval_minutes",
-        "grad_accumulation_factor",
-        "optimizer_step_limit",
-    ]
+    default_run_opt_keys = list(run_opt_defaults.keys())
+
     unused_vars = list(
         set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)
     )

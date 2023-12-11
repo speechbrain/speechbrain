@@ -19,7 +19,6 @@ import torch
 from itertools import chain
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from transformers import GPT2Tokenizer
 import math
 from speechbrain.dataio.batch import PaddedBatch
 
@@ -107,18 +106,6 @@ class ResGenBrain(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Trains the parameters given a single batch in input"""
-
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
@@ -199,8 +186,9 @@ class ResGenBrain(sb.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
-    def zero_grad(self, set_to_none=False):
-        self.optimizer.zero_grad(set_to_none)
+        self.optimizers_dict = {
+            "optimizer": self.optimizer,
+        }
 
 
 def add_special_tokens_(model, tokenizer, attr_to_special_token,) -> None:
@@ -426,9 +414,7 @@ if __name__ == "__main__":
     )
 
     # Load tokenizer and add special tokens
-    tokenizer = GPT2Tokenizer.from_pretrained(
-        hparams["gpt_hub"], pad_token=None
-    )
+    tokenizer = hparams["gpt_model"].tokenizer
 
     #  Load pretrained GPT
     hparams["gpt_model"] = hparams["gpt_model"].to(device=run_opts["device"])

@@ -376,7 +376,7 @@ def set_writing_permissions(folder_path):
 
 
 def pad_right_to(
-    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
+    tensor: torch.Tensor, target_shape, mode="constant", value=0,
 ):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target
@@ -596,10 +596,10 @@ def split_path(path):
             # Interpret as path to file in current directory.
             return "./", src
 
-    if isinstance(path, sb.pretrained.fetching.FetchSource):
+    if isinstance(path, sb.utils.fetching.FetchSource):
         fetch_from, fetch_path = path
         source, filename = split(fetch_path)
-        return sb.pretrained.fetching.FetchSource(fetch_from, source), filename
+        return sb.utils.fetching.FetchSource(fetch_from, source), filename
     else:
         return split(path)
 

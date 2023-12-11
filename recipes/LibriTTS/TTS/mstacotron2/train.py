@@ -20,7 +20,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.text_to_sequence import text_to_sequence
 from speechbrain.utils.data_utils import scalarize
 import os
-from speechbrain.pretrained import HIFIGAN
+from speechbrain.inference.vocoders import HIFIGAN
 import torchaudio
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

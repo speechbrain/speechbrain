@@ -10,7 +10,7 @@
 
 seed: 2
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/ctc_wav2vec/<seed>
+output_folder: !ref results/ctc_wav2vec2/<seed>
 cer_file: !ref <output_folder>/cer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -33,24 +33,25 @@ number_of_epochs: 80
 lr: 1.0
 lr_wav2vec: 0.0001
 sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 8 per GPU to fit 32GB of VRAM
 batch_size: 10
-test_batch_size: 4
+test_batch_size: 1
 
 dynamic_batching: False
+max_batch_length: 15 # in terms of "duration" in annotations by default, second here
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+batch_ordering: ascending
 dynamic_batch_sampler:
-   feats_hop_size: 0.01
-   max_batch_len: 15 # in terms of "duration" in annotations by default, second here
-   left_bucket_len: 200 # old implementation attributs
-   multiplier: 1.1 # old implementation attributs
-   shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-   num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
-   batch_ordering: ascending
+   max_batch_length: !ref <max_batch_length>
+   shuffle: !ref <shuffle>
+   num_buckets: !ref <num_buckets>
+   batch_ordering: !ref <batch_ordering>
 
 num_workers: 6
 
@@ -77,7 +78,21 @@ output_neurons: 21128
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones
+# Decoding parameters
+test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
 blank_index: 0
+beam_size: 100
+beam_prune_logp: -12.0
+token_prune_min_logp: -1.2
+prune_history: True
+topk: 1
+alpha: 1.0
+beta: 0.5
+# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+# If you don't want to use an LM, comment it out or set it to null
+# kenlm_model_path: none
+
 
 # AISHELL-1 has spaces between words in the transcripts,
 # which Chinese writing normally does not do.
@@ -90,21 +105,64 @@ split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
-SpeedPerturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-   sample_rate: !ref <sample_rate>
-   speeds: [90, 100, 110]
+# Speed perturbation
+speed_changes: [90, 100, 110]  # List of speed changes for time-stretching
 
-SpecAugment: !new:speechbrain.lobes.augment.SpecAugment
-   time_warp: True
-   time_warp_window: 5
-   time_warp_mode: bicubic
-   freq_mask: True
-   n_freq_mask: 2
-   time_mask: True
-   n_time_mask: 2
-   replace_with_zero: False
-   freq_mask_width: 30
-   time_mask_width: 40
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: !ref <speed_changes>
+
+# Time Drop
+time_drop_length_low: 35  # Min length for temporal chunk to drop in spectrogram
+time_drop_length_high: 45  # Max length for temporal chunk to drop in spectrogram
+time_drop_count_low: 2  # Min number of chunks to drop in time in the spectrogram
+time_drop_count_high: 2  # Max number of chunks to drop in time in the spectrogram
+time_drop_replace: "zeros"  # Method of dropping chunks
+
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: !ref <time_drop_length_low>
+   drop_length_high: !ref <time_drop_length_high>
+   drop_count_low: !ref <time_drop_count_low>
+   drop_count_high: !ref <time_drop_count_high>
+   replace: !ref <time_drop_replace>
+   dim: 1
+
+# Frequency Drop
+freq_drop_length_low: 25  # Min length for chunks to drop in frequency in the spectrogram
+freq_drop_length_high: 35  # Max length for chunks to drop in frequency in the spectrogram
+freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
+freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
+freq_drop_replace: "zeros"  # Method of dropping chunks
+
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: !ref <freq_drop_length_low>
+   drop_length_high: !ref <freq_drop_length_high>
+   drop_count_low: !ref <freq_drop_count_low>
+   drop_count_high: !ref <freq_drop_count_high>
+   replace: !ref <freq_drop_replace>
+   dim: 2
+
+# Time warp
+time_warp_window: 5  # Length of time warping window
+time_warp_mode: "bicubic"  # Time warping method
+
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+   warp_window: !ref <time_warp_window>
+   warp_mode: !ref <time_warp_mode>
+   dim: 1
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: False
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 3
+   max_augmentations: 3
+   augment_prob: 1.0
+   augmentations: [
+      !ref <time_drop>,
+      !ref <freq_drop>,
+      !ref <time_warp>]
 
 enc: !new:speechbrain.nnet.containers.Sequential
    input_shape: [null, null, !ref <wav2vec_output_dim>]
@@ -128,7 +186,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
    activation3: !new:torch.nn.LeakyReLU
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>

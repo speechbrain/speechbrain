@@ -13,7 +13,6 @@ Authors
 """
 import os
 import sys
-import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -30,10 +29,10 @@ class ASR_Brain(sb.Brain):
         wavs, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
 
-        # Adding optional augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            phns = self.hparams.wav_augment.replicate_labels(phns)
 
         # Model computations
         feats = self.modules.wav2vec2(wavs, wav_lens)
@@ -57,8 +56,8 @@ class ASR_Brain(sb.Brain):
         logits = self.modules.output(joint)
 
         if stage == sb.Stage.VALID:
-            hyps, scores, _, _ = self.hparams.Greedysearcher(x)
-            return logits, hyps
+            hyps, _, _, _ = self.hparams.Greedysearcher(x)
+            return logits, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
             (
@@ -67,16 +66,22 @@ class ASR_Brain(sb.Brain):
                 nbest_hyps,
                 nbest_scores,
             ) = self.hparams.Beamsearcher(x)
-            return logits, best_hyps
-        return logits
+            return logits, wav_lens, best_hyps
+        return logits, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the loss."
         ids = batch.id
-        _, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
-        if stage != sb.Stage.TRAIN:
-            predictions, hyps = predictions
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+
+        if stage == sb.Stage.TRAIN:
+            predictions, wav_lens = predictions
+        else:
+            predictions, wav_lens, hyps = predictions
 
         # Transducer loss use logits from RNN-T model.
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
@@ -146,61 +151,6 @@ class ASR_Brain(sb.Brain):
                         self.hparams.test_wer_file,
                     )
 
-    def fit_batch(self, batch):
-        """Fit one batch, override to do multiple updates.
-
-        The default implementation depends on a few methods being defined
-        with a particular behavior:
-
-        * ``compute_forward()``
-        * ``compute_objectives()``
-
-        Also depends on having optimizers passed at initialization.
-
-        Arguments
-        ---------
-        batch : list of torch.Tensors
-            Batch of data to use for training. Default implementation assumes
-            this batch has two elements: inputs and targets.
-
-        Returns
-        -------
-        detached loss
-        """
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-
-            self.wav2vec_optimizer.zero_grad()
-            self.adam_optimizer.zero_grad()
-
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.wav2vec_optimizer)
-            self.scaler.unscale_(self.adam_optimizer)
-
-            if self.check_gradients(loss):
-                self.scaler.step(self.wav2vec_optimizer)
-                self.scaler.step(self.adam_optimizer)
-
-            self.scaler.update()
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            loss.backward()
-
-            if self.check_gradients(loss):
-                self.wav2vec_optimizer.step()
-                self.adam_optimizer.step()
-
-            self.wav2vec_optimizer.zero_grad()
-            self.adam_optimizer.zero_grad()
-
-        return loss.detach()
-
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
         self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
@@ -216,9 +166,10 @@ class ASR_Brain(sb.Brain):
             )
             self.checkpointer.add_recoverable("adam_opt", self.adam_optimizer)
 
-    def zero_grad(self, set_to_none=False):
-        self.wav2vec_optimizer.zero_grad(set_to_none)
-        self.adam_optimizer.zero_grad(set_to_none)
+        self.optimizers_dict = {
+            "wav2vec": self.wav2vec_optimizer,
+            "adam": self.adam_optimizer,
+        }
 
 
 def dataio_prep(hparams):
