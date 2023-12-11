@@ -155,9 +155,9 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
-embedding_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/embedding_model.ckpt"
-classifier_model_path: "../classification/results/conv2dv2_classifier-16k/1234/save/CKPT+2023-11-17+23-16-32+00/classifier.ckpt"
-nmf_decoder_path: "results/train_nmf/1234/save/CKPT+2023-11-21+11-50-45+00/nmf_decoder.ckpt"
+embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
+classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
+nmf_decoder_path: "results/fix0dB_nmf/1234/save/CKPT+2023-12-10+08-50-48+00/nmf_decoder.ckpt"
 use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
