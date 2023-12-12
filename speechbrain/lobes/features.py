@@ -14,6 +14,7 @@ from speechbrain.processing.features import (
     Deltas,
     ContextWindow,
 )
+from speechbrain.utils.autocast import fwd_default_precision
 from speechbrain.nnet.CNN import GaborConv1d
 from speechbrain.nnet.normalization import PCEN
 from speechbrain.nnet.pooling import GaussianLowpassPooling
@@ -127,6 +128,7 @@ class Fbank(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
+    @fwd_default_precision(cast_inputs=torch.float32)
     def forward(self, wav):
         """Returns a set of features generated from the input waveforms.
 
@@ -260,6 +262,7 @@ class MFCC(torch.nn.Module):
             left_frames=left_frames, right_frames=right_frames,
         )
 
+    @fwd_default_precision(cast_inputs=torch.float32)
     def forward(self, wav):
         """Returns a set of mfccs generated from the input waveforms.
 
@@ -387,6 +390,7 @@ class Leaf(torch.nn.Module):
             self.compression = None
         self.skip_transpose = skip_transpose
 
+    @fwd_default_precision(cast_inputs=torch.float32)
     def forward(self, x):
         """
         Returns the learned LEAF features

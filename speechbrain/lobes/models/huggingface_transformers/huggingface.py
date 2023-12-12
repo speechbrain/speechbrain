@@ -66,14 +66,18 @@ class HFTransformersInterface(nn.Module):
         save directory of the downloaded model.
     for_pretraining: bool (default: False)
         If True, build the model for pretraining
-    with_lm_head: bool (default: False)
+    with_lm_head : bool (default: False)
         If True, build the model with lm_head
+    with_casual_lm : bool (default: False)
+        If True, build casual lm  model
     seq2seqlm : bool (default: False)
         If True, build a sequence-to-sequence model with lm_head
+    quantization_config : dict (default: None)
+        Quantization config, extremely useful for deadling with LLM
     freeze : bool (default: True)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
-    cache_dir: str or Path (default: None)
+    cache_dir : str or Path (default: None)
         Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
 
     Example
@@ -90,8 +94,8 @@ class HFTransformersInterface(nn.Module):
         for_pretraining=False,
         with_lm_head=False,
         with_casual_lm=False,
-        quantization_config=None,
         seq2seqlm=False,
+        quantization_config=None,
         freeze=False,
         cache_dir="pretrained_models",
         **kwarg,
@@ -107,7 +111,7 @@ class HFTransformersInterface(nn.Module):
         self.quantization_config = quantization_config
 
         self.for_pretraining = for_pretraining
-        
+
         if self.for_pretraining:
             self.auto_class = AutoModelForPreTraining
         elif with_lm_head:
@@ -121,9 +125,7 @@ class HFTransformersInterface(nn.Module):
 
         # Download model
         self._from_pretrained(
-            source,
-            save_path=save_path,
-            cache_dir=cache_dir,
+            source, save_path=save_path, cache_dir=cache_dir,
         )
 
         # Prepare for training, fine-tuning, or inference
@@ -138,10 +140,7 @@ class HFTransformersInterface(nn.Module):
             self.model.train()
 
     def _from_pretrained(
-        self,
-        source,
-        save_path,
-        cache_dir,
+        self, source, save_path, cache_dir,
     ):
         """This function manages the source checking and loading of the params.
 
@@ -153,8 +152,6 @@ class HFTransformersInterface(nn.Module):
         ---------
         source : str
             HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
-        model: AutoModel
-            HuggingFace generic model class.
         save_path : str
             Path (dir) of the downloaded model.
         cache_dir : str

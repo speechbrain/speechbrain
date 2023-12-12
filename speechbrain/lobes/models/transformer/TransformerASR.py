@@ -219,7 +219,7 @@ class TransformerASR(TransformerInterface):
         decoder_out, _, _ = self.decoder(
             tgt=tgt,
             memory=encoder_out,
-            memory_mask=src_mask,
+            memory_mask=None,
             tgt_mask=tgt_mask,
             tgt_key_padding_mask=tgt_key_padding_mask,
             memory_key_padding_mask=src_key_padding_mask,
