@@ -257,6 +257,13 @@ class LLAMA2(HFTransformersInterface):
         return modified_state_dict
 
     def replace_linear(self, module):
+        """Modify the loaded module linear layers with Linear4bit to be compatible
+
+        Arguments
+        ---------
+        module : nn.nodule
+            llama2 model.
+        """
         for name, child in module.named_children():
             if isinstance(child, nn.Linear) and name != "lm_head":
                 # Replace Linear layer with your custom layer
@@ -313,6 +320,18 @@ class LLAMA2(HFTransformersInterface):
         return hyp
 
     def override_config(self, config):
+        """override config to include quantization config.
+
+        Arguments
+        ---------
+        config : HuggingFace config object
+            The orginal config.
+
+        Returns
+        ---------
+        config : HuggingFace config object
+            Overridden config.
+        """
         if self.bnb_config:
             config = config.from_pretrained(
                 self.source,
