@@ -89,7 +89,7 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 
 # Interpretation hyperparams
-K: 100
+K: 200
 N_FREQ: 513
 
 # NMF Decoder

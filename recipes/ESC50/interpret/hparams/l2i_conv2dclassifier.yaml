@@ -106,7 +106,7 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     lin_blocks: 1
 
 # Interpretation hyperparams
-K: 100
+K: 200
 n_freq: 513
 
 # pre-processing
@@ -137,6 +137,7 @@ psi_model: !new:speechbrain.lobes.models.L2I.PsiOptimized
     adapter_reduce_dim: False
 
 theta: !new:speechbrain.lobes.models.L2I.Theta
+    n_comp: !ref <K>
     T: 417
 
 # NMF Decoder
