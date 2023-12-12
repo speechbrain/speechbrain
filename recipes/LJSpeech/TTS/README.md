@@ -44,7 +44,7 @@ python train.py --data_folder=/your_folder/LJSpeech-1.1 hparams/train.yaml
 ```
 Training takes about 3 minutes/epoch on 1 * V100 32G.
 
-The training logs are available [here](https://www.dropbox.com/sh/5xqq5tafeofv2y0/AABrHWGpjFr_RxDPVaVQUrSWa?dl=0).
+The training logs are available [here](https://www.dropbox.com/scl/fo/vtgbltqdrvw9r0vs7jz67/h?rlkey=cm2mwh5rce5ad9e90qaciypox&dl=0).
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-ljspeech).
 
@@ -61,7 +61,7 @@ python train_internal_alignment.py hparams/train_internal_alignment.yaml --data_
 ```
 The data preparation includes a grapheme-to-phoneme process for the entire corpus which may take several hours. Training takes about 5 minutes/epoch on 1 * V100 32G.
 
-The training logs are available [here](https://www.dropbox.com/sh/p6hjkequkb0acik/AABo6YVAlzCjM_KS7-za0hhia?dl=0).
+The training logs are available [here](https://www.dropbox.com/scl/fo/4ctkc6jjas3uij9dzcwta/h?rlkey=i0k086d77flcsdx40du1ppm2d&dl=0).
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-internal-alignment-ljspeech).
 
