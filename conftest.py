@@ -36,6 +36,12 @@ except ModuleNotFoundError:
         "speechbrain/lobes/models/huggingface_transformers/whisper.py"
     )
 try:
+    import peft  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append(
+        "speechbrain/lobes/models/huggingface_transformers/llama2.py"
+    )
+try:
     import sklearn  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/kmeans.py")
