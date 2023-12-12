@@ -18,6 +18,7 @@ from speechbrain.utils.metric_stats import MetricStats
 from os import makedirs
 import torch.nn.functional as F
 from speechbrain.processing.NMF import spectral_phase
+import matplotlib.pyplot as plt
 import torchvision
 
 eps = 1e-10
@@ -102,6 +103,23 @@ def dataio_prep(hparams):
 
 class InterpreterESC50Brain(sb.core.Brain):
     """Class for sound class embedding training" """
+    def invert_stft_with_phase(self, X_int, X_stft_phase):
+        """Inverts STFT spectra given phase."""
+        X_stft_phase_sb = torch.cat(
+            (
+                torch.cos(X_stft_phase).unsqueeze(-1),
+                torch.sin(X_stft_phase).unsqueeze(-1),
+            ),
+            dim=-1,
+        )
+
+        X_stft_phase_sb = X_stft_phase_sb[:, : X_int.shape[1], :, :]
+        if X_int.ndim == 3:
+            X_int = X_int.unsqueeze(-1)
+        X_wpsb = X_int * X_stft_phase_sb
+        x_int_sb = self.modules.compute_istft(X_wpsb)
+
+        return x_int_sb
 
     def interpret_computation_steps(self, wavs):
         """computation steps to get the interpretation spectrogram"""
@@ -361,8 +379,9 @@ class InterpreterESC50Brain(sb.core.Brain):
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
 
+                self.debug_files(X_stft, net_input, batch, wavs[0:1])
                 self.interpret_sample(wavs[0:1], batch)
-                self.overlap_test(batch)
+                # self.overlap_test(batch)
 
         return (reconstructed, psi_out), (predictions, theta_out), wavs
 
@@ -426,8 +445,6 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.hparams.classifier(embeddings).squeeze(1).softmax(1)
             )
 
-        torchvision.utils.save_image(interpretations.unsqueeze(1), "ints.png")
-        torchvision.utils.save_image(X_stft_logpower.unsqueeze(1), "ints.png")
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.inp_fid.append(
                 uttid,
@@ -570,6 +587,58 @@ class InterpreterESC50Brain(sb.core.Brain):
         temp = (F.relu(oc - pc) / (1 - pc + eps)) * 100
 
         return temp
+
+    @torch.no_grad()
+    def debug_files(self, X_stft, X_stft_logpower, batch, wavs):
+        """The helper function to create debugging images"""
+        X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
+        # X_stft_phase = X_stft_phase[..., None]
+
+        X_int = X_int[None, ..., None]
+        X_int = X_int.permute(0, 2, 1, 3)
+
+        X_stft_phase = X_stft_phase[:, :X_int.shape[1], :]
+
+        xhat_tm = self.invert_stft_with_phase(X_int, X_stft_phase)
+
+        plt.figure(figsize=(10, 5), dpi=100)
+
+        plt.subplot(121)
+        plt.imshow(X_stft_logpower[0].squeeze().cpu().t(), origin="lower")
+        plt.title("input")
+        plt.colorbar()
+
+        plt.subplot(122)
+        plt.imshow(X_int.squeeze().cpu().t(), origin="lower")
+        plt.colorbar()
+        plt.title("interpretation")
+
+        out_folder = os.path.join(
+            self.hparams.output_folder,
+            "reconstructions/" f"{batch.id[0]}",
+        )
+        makedirs(
+            out_folder,
+            exist_ok=True,
+        )
+
+        plt.savefig(
+            os.path.join(out_folder, "reconstructions.png"),
+            format="png",
+        )
+        plt.close()
+
+        torchaudio.save(
+            os.path.join(out_folder, "interpretation.wav"),
+            xhat_tm.data.cpu(),
+            self.hparams.sample_rate,
+        )
+
+        torchaudio.save(
+            os.path.join(out_folder, "original.wav"),
+            wavs.data.cpu(),
+            self.hparams.sample_rate,
+        )
 
     def on_stage_start(self, stage, epoch=None):
         self.inp_fid = MetricStats(metric=self.compute_fidelity)
