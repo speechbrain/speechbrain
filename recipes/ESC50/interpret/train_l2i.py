@@ -501,7 +501,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         """Computes Accuracy"""
         predict = predict.argmax(1)
 
-        return ((predict == target).sum() / predict.numel()).unsqueeze(0)
+        return (predict.unsqueeze(1) == target).float().squeeze()
 
     @torch.no_grad()
     def compute_fidelity(self, theta_out, predictions):
