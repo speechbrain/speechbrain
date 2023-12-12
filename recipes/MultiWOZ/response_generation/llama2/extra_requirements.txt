@@ -1,0 +1,5 @@
+accelerate
+bitsandbytes
+dprotobuf
+peft
+sacrebleu
