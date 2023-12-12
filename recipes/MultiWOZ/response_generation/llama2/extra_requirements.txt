@@ -2,3 +2,4 @@ accelerate
 bitsandbytes
 peft
 sacrebleu
+protobuf
