@@ -70,10 +70,6 @@ run_opt_defaults = {
     "compile_using_fullgraph": False,
     "compile_using_dynamic_shape_tracing": False,
     "precision": "fp32",
-    "gradscaler_init_scale": 65536.0,
-    "gradscaler_growth_factor": 2.0,
-    "gradscaler_backoff_factor": 0.5,
-    "gradscaler_growth_interval": 2000,
     "auto_mix_prec": False,
     "bfloat16_mix_prec": False,
     "max_grad_norm": 5.0,
@@ -365,29 +361,6 @@ def parse_arguments(arg_list=None):
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
-        "--gradscaler_init_scale",
-        type=float,
-        help="GradScaler initial scale factor.",
-    )
-    parser.add_argument(
-        "--gradscaler_growth_factor",
-        type=float,
-        help="GradScaler factor by which the scale is multiplied during "
-        "`update` if no inf/NaN gradients occur for ``growth_interval`` consecutive iterations.",
-    )
-    parser.add_argument(
-        "--gradscaler_backoff_factor",
-        type=float,
-        help="GradScaler factor by which the scale is multiplied during `update`"
-        "if inf/NaN gradients occur in an iteration.",
-    )
-    parser.add_argument(
-        "--gradscaler_growth_interval",
-        type=float,
-        help="Gradscaler number of consecutive iterations without inf/NaN gradients that must occur for the scale"
-        "to be multiplied by `growth_factor`.",
-    )
-    parser.add_argument(
         "--auto_mix_prec",
         default=None,
         action="store_true",
@@ -582,14 +555,6 @@ class Brain:
             The location for performing computations.
         precision (str)
             One of ``fp32``, ``fp16``, ``bf16``.
-        gradscaler_init_scale (float)
-            Initial scale for the GradScaler. Default: ``65536.0``.
-        gradscaler_growth_factor (float)
-            Growth factor for the GradScaler. Default: ``2.0``.
-        gradscaler_backoff_factor (float)
-            Backoff factor for the GradScaler. Default: ``0.5``.
-        gradscaler_growth_interval (int)
-            Growth interval for the GradScaler. Default: ``2000``.
         auto_mix_prec (bool)
             If ``True``, automatic mixed-precision (fp16) is used.
             Activate it only with cuda. Note: this is a
@@ -788,13 +753,7 @@ class Brain:
         logger.info(
             f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
         )
-        self.scaler = torch.cuda.amp.GradScaler(
-            init_scale=self.gradscaler_init_scale,
-            growth_factor=self.gradscaler_growth_factor,
-            backoff_factor=self.gradscaler_backoff_factor,
-            growth_interval=self.gradscaler_growth_interval,
-            enabled=gradscaler_enabled,
-        )
+        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
 
         self.use_amp = False
         if self.device == "cpu" and self.precision == "bf16":
@@ -1202,7 +1161,7 @@ class Brain:
         """
         if not torch.isfinite(loss):
             self.nonfinite_count += 1
-            
+
             # Check if patience is exhausted
             if self.nonfinite_count > self.nonfinite_patience:
                 raise ValueError(
