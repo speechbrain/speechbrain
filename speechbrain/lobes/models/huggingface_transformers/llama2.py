@@ -47,7 +47,7 @@ class LLAMA2(HFTransformersInterface):
     -------
     >>> model_hub = "meta-llama/Llama-2-7b-chat-hf"
     >>> save_path = "savedir"
-    >>> model = HuggingFaceLLAMA2(model_hub, save_path)
+    >>> model = LLAMA2(model_hub, save_path)
     >>> tokens = torch.tensor([[1, 1]])
     >>> attention_mask = torch.tensor([[1, 1]])
     >>> outputs = model(tokens, attention_mask)

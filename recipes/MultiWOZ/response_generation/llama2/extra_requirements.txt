@@ -1,5 +1,5 @@
 accelerate
 bitsandbytes
-dprotobuf
+protobuf
 peft
 sacrebleu
