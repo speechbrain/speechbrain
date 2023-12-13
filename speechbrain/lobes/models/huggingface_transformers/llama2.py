@@ -50,7 +50,7 @@ class LLAMA2(HFTransformersInterface):
     >>> model = HuggingFaceLLAMA2(model_hub, save_path)
     >>> tokens = torch.tensor([[1, 1]])
     >>> attention_mask = torch.tensor([[1, 1]])
-    >>> outputs = model(tokens, tokens_type, attention_mask)
+    >>> outputs = model(tokens, attention_mask)
     """
 
     def __init__(
