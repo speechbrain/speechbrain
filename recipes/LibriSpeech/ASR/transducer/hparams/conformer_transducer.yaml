@@ -83,14 +83,18 @@ test_left_context_size: 64
 valid_chunk_size: -1
 valid_left_context_size: -1
 
-dynamic_chunk_prob: 0.6
-dynamic_chunk_min: 8
-dynamic_chunk_max: 32
+dct_config_sampler: !new:speechbrain.utils.DCT.DCTConfigRandomSampler # yamllint disable-line rule:line-length
+   dct_prob: 0.6
 
-# Left context gets expressed as a number of chunks
-dynamic_left_context_prob: 0.75
-dynamic_left_context_min: 2
-dynamic_left_context_max: 32
+   chunk_size_min: 8
+   chunk_size_max: 32
+
+   limited_left_context_prob: 0.75
+   left_context_chunks_min: 2
+   left_context_chunks_max: 2
+
+   # valid_config
+   # test_config
 
 # Dataloader options
 train_dataloader_opts:

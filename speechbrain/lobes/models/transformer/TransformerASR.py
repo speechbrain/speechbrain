@@ -7,7 +7,7 @@ Authors
 from dataclasses import dataclass
 import torch  # noqa 42
 from torch import nn
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -18,20 +18,118 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.activations import Swish
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.DCT import DCTConfig
 
 
 @dataclass
 class TransformerASRStreamingContext:
     """Streaming metadata and state for a `TransformerASR` instance."""
 
-    chunk_size: int
-    """The size of a chunk expressed in input frames to the transformer."""
+    dct_config: DCTConfig
+    """DCT configuration holding chunk size and context size information."""
 
     encoder_context: Any
     """Opaque encoder context information. It is constructed by the encoder's
     `make_streaming_context` method and is passed to the encoder when using
     `encode_streaming`.
     """
+
+
+def make_asr_src_mask(
+    src: torch.Tensor,
+    causal: bool = False,
+    dct_config: Optional[DCTConfig] = None,
+) -> Optional[torch.Tensor]:
+    """Prepare the source mask of shape (TODO)"""
+
+    if causal:
+        assert dct_config is None
+        return get_lookahead_mask(src)
+
+    if dct_config is not None:
+        # init a mask that masks nothing by default
+        # 0 == no mask, 1 == mask
+        src_mask = torch.zeros(
+            (src.shape[1], src.shape[1]), device=src.device, dtype=torch.bool,
+        )
+
+        # The following is not really the sole source used to implement this,
+        # but it helps introduce the concept.
+        # ref: Unified Streaming and Non-streaming Two-pass End-to-end Model
+        # for Speech Recognition
+        # https://arxiv.org/pdf/2012.05481.pdf
+
+        timesteps = src.size(1)
+
+        # mask the future at the right of each chunk
+        for t in range(timesteps):
+            # if we have a chunk size of 8 then:
+            # for 0..7  -> mask 8..
+            # for 8..15 -> mask 16..
+            # etc.
+            next_chunk_index = (t // dct_config.chunk_size) + 1
+            visible_range = next_chunk_index * dct_config.chunk_size
+            src_mask[t, visible_range:] = True
+
+        # mask the past at the left of each chunk (accounting for left context)
+        # only relevant if using left context
+        if not dct_config.is_infinite_left_context():
+            for t in range(timesteps):
+                chunk_index = t // dct_config.chunk_size
+                chunk_first_t = chunk_index * dct_config.chunk_size
+                frame_remaining_context = max(
+                    0, chunk_first_t - dct_config.left_context_chunks
+                )
+
+                # end range is exclusive, so there is no off-by-one here
+                src_mask[t, :frame_remaining_context] = True
+
+        return src_mask
+
+    return None
+
+
+def make_asr_masks(
+    src,
+    tgt=None,
+    wav_len=None,
+    pad_idx=0,
+    causal: bool = False,
+    dct_config: Optional[DCTConfig] = None,
+):
+    """This function generates masks for training the transformer model,
+    opiniated for an ASR context with encoding masks and, optionally, decoding
+    masks (if specifying `tgt`).
+
+    Arguments
+    ---------
+    src : tensor
+        The sequence to the encoder (required).
+    tgt : tensor
+        The sequence to the decoder.
+    pad_idx : int
+        The index for <pad> token (default=0).
+    TODO: some args are missing lol
+    """
+    src_key_padding_mask = None
+
+    # mask out audio beyond the length of audio for each batch
+    if wav_len is not None:
+        abs_len = torch.round(wav_len * src.shape[1])
+        src_key_padding_mask = ~length_to_mask(abs_len).bool()
+
+    # mask out the source
+    src_mask = make_asr_src_mask(src, causal=causal, dct_config=dct_config)
+
+    # If no decoder in the transformer...
+    if tgt is not None:
+        tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
+        tgt_mask = get_lookahead_mask(tgt)
+    else:
+        tgt_key_padding_mask = None
+        tgt_mask = None
+
+    return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
 
 
 class TransformerASR(TransformerInterface):
@@ -200,7 +298,7 @@ class TransformerASR(TransformerInterface):
             tgt_key_padding_mask,
             src_mask,
             tgt_mask,
-        ) = self.make_masks(src, tgt, wav_len, pad_idx=pad_idx)
+        ) = make_asr_masks(src, tgt, wav_len, pad_idx=pad_idx)
 
         src = self.custom_src_module(src)
         # add pos encoding to queries if are sinusoidal ones else
@@ -245,82 +343,6 @@ class TransformerASR(TransformerInterface):
         )
 
         return encoder_out, decoder_out
-
-    def make_masks(
-        self,
-        src,
-        tgt=None,
-        wav_len=None,
-        pad_idx=0,
-        chunk_size: int = -1,
-        left_context_chunks: int = -1,
-    ):
-        """This method generates the masks for training the transformer model.
-
-        Arguments
-        ---------
-        src : tensor
-            The sequence to the encoder (required).
-        tgt : tensor
-            The sequence to the decoder.
-        pad_idx : int
-            The index for <pad> token (default=0).
-        """
-        src_key_padding_mask = None
-        if wav_len is not None:
-            abs_len = torch.round(wav_len * src.shape[1])
-            src_key_padding_mask = ~length_to_mask(abs_len).bool()
-
-        if chunk_size >= 0 or left_context_chunks >= 0:
-            # wav_len unspecified? make a mask that masks nothing by default
-            # 0 == no mask, 1 == mask
-            src_mask = torch.zeros(
-                (src.shape[1], src.shape[1]),
-                device=src.device,
-                dtype=torch.bool,
-            )
-
-        if left_context_chunks >= 0:
-            for i in range(src.shape[1]):
-                if chunk_size >= 0:
-                    current_chunk = (i // chunk_size) * chunk_size
-                    frame_remaining_context = max(
-                        0, current_chunk - left_context_chunks * chunk_size
-                    )
-                else:
-                    frame_remaining_context = 0
-
-                # end range is exclusive, so there is no off-by-one here
-                src_mask[i, :frame_remaining_context] = True
-
-        # The following is not really the sole source used to implement this,
-        # but it introduces the concept.
-        # ref: Unified Streaming and Non-streaming Two-pass End-to-end Model
-        # for Speech Recognition
-        # https://arxiv.org/pdf/2012.05481.pdf
-        if chunk_size >= 0:
-            for i in range(src.shape[1]):
-                # if we have a chunk size of 8 then:
-                # for 0..7  -> mask 8..
-                # for 8..15 -> mask 16..
-                # etc.
-                visible_range = ((i // chunk_size) + 1) * chunk_size
-                src_mask[i, visible_range:] = True
-        else:
-            src_mask = None
-
-        if self.causal:
-            src_mask = get_lookahead_mask(src)
-
-        # If no decoder in the transformer...
-        if tgt is not None:
-            tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
-            tgt_mask = get_lookahead_mask(tgt)
-        else:
-            tgt_key_padding_mask = None
-            tgt_mask = None
-
-        return src_key_padding_mask, tgt_key_padding_mask, src_mask, tgt_mask
 
     @torch.no_grad()
     def decode(self, tgt, encoder_out, enc_len=None):
@@ -368,8 +390,7 @@ class TransformerASR(TransformerInterface):
         src,
         wav_len=None,
         pad_idx=0,
-        chunk_size=-1,
-        left_context_chunks: int = -1,
+        dct_config: Optional[DCTConfig] = None,
     ):
         """
         Encoder forward pass
@@ -386,13 +407,12 @@ class TransformerASR(TransformerInterface):
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
 
-        (src_key_padding_mask, _, src_mask, _,) = self.make_masks(
+        (src_key_padding_mask, _, src_mask, _,) = make_asr_masks(
             src,
             None,
             wav_len,
             pad_idx=pad_idx,
-            chunk_size=chunk_size,
-            left_context_chunks=left_context_chunks,
+            dct_config=dct_config,
         )
 
         src = self.custom_src_module(src)
@@ -473,14 +493,14 @@ class TransformerASR(TransformerInterface):
         )
         return encoder_out
 
-    def make_streaming_context(self, chunk_size: int, encoder_kwargs={}):
+    def make_streaming_context(self, dct_config: DCTConfig, encoder_kwargs={}):
         """Creates a blank streaming context for this transformer and its
         encoder.
 
         Arguments
         ---------
-        chunk_size : int
-            How many frames comprise a chunk.
+        dct_config : DCTConfig
+            Runtime chunkwise attention configuration.
 
         encoder_kwargs : dict
             Parameters to be forward to the encoder's `make_streaming_context`.
@@ -488,7 +508,7 @@ class TransformerASR(TransformerInterface):
             encoder.
         """
         return TransformerASRStreamingContext(
-            chunk_size=chunk_size,
+            dct_config=dct_config,
             encoder_context=self.encoder.make_streaming_context(
                 **encoder_kwargs,
             ),

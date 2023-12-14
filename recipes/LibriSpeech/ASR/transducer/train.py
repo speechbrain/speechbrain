@@ -69,60 +69,17 @@ class ASR(sb.Brain):
 
         current_epoch = self.hparams.epoch_counter.current
 
-        # Default to infinite context visibility
-        transformer_chunk_size = -1
-        left_context_chunks = -1
-
         # Old models may not have the streaming hparam, we don't break them in
         # any other way so just check for its presence
         if hasattr(self.hparams, "streaming") and self.hparams.streaming:
-            # TODO: while this is fairly small logic, it may make sense to
-            # extract it to its own class orchestrating dynamic chunk training,
-            # partly because explantions are beneficial
-            if stage == sb.Stage.TRAIN:
-                # When training for streaming, for each batch, we have a
-                # `dynamic_chunk_prob` probability of sampling a chunk size
-                # between `dynamic_chunk_min` and `_max`, otherwise output
-                # frames can see anywhere in the future.
-                # NOTE: We use torch random to be bound to the experiment seed.
-                if torch.rand((1,)).item() < self.hparams.dynamic_chunk_prob:
-                    transformer_chunk_size = torch.randint(
-                        self.hparams.dynamic_chunk_min,
-                        self.hparams.dynamic_chunk_max + 1,
-                        (1,),
-                    ).item()
-
-                # We have a `dynamic_left_context_prob` probability of sampling
-                # a left context size between `dynamic_left_context_min` and
-                # `_max`, otherwise output frames can see anywhere in the past.
-                # Note that this only has an effect when using a chunk size
-                # above.
-                if (
-                    torch.rand((1,)).item()
-                    < self.hparams.dynamic_left_context_prob
-                ):
-                    left_context_chunks = torch.randint(
-                        self.hparams.dynamic_left_context_min,
-                        self.hparams.dynamic_left_context_max + 1,
-                        (1,),
-                    ).item()
-            elif stage == sb.Stage.TEST:
-                transformer_chunk_size = self.hparams.test_chunk_size
-                left_context_chunks = self.hparams.test_left_context_size
-            elif stage == sb.Stage.VALID:
-                transformer_chunk_size = self.hparams.valid_chunk_size
-                left_context_chunks = self.hparams.valid_left_context_size
+            dct_config = self.hparams.dct_config_sampler(stage)
 
         # logger.info(f"Batch uses tfx chunk size = {transformer_chunk_size}, frame chunk_size = {chunk_size}")
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(
-            src,
-            wav_lens,
-            pad_idx=self.hparams.pad_index,
-            chunk_size=transformer_chunk_size,
-            left_context_chunks=left_context_chunks,
+            src, wav_lens, pad_idx=self.hparams.pad_index, dct_config=dct_config
         )
         x = self.modules.proj_enc(x)
 
