@@ -7,7 +7,7 @@ Authors
 from dataclasses import dataclass
 import torch  # noqa 42
 from torch import nn
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.lobes.models.transformer.Transformer import (
@@ -40,7 +40,24 @@ def make_asr_src_mask(
     causal: bool = False,
     dct_config: Optional[DCTConfig] = None,
 ) -> Optional[torch.Tensor]:
-    """Prepare the source mask of shape (TODO)"""
+    """Prepare the source transformer mask that restricts which frames can
+    attend to which frames depending on causal or other simple restricted
+    attention methods.
+
+    Arguments
+    ---------
+    src: torch.Tensor
+        The source tensor to build a mask from. The contents of the tensor are
+        not actually used currently; only its shape and other metadata (e.g.
+        device).
+
+    causal: bool
+        Whether strict causality shall be used. Frames will not be able to
+        attend to any future frame.
+
+    dct_config: DCTConfig, optional
+        Dynamic Chunk Training configuration. This implements a simple form of
+        chunkwise attention. Incompatible with `causal`. See `DCT`"""
 
     if causal:
         assert dct_config is None
@@ -109,7 +126,10 @@ def make_asr_masks(
         The sequence to the decoder.
     pad_idx : int
         The index for <pad> token (default=0).
-    TODO: some args are missing lol
+    causal: bool
+        Whether strict causality shall be used. See `make_asr_src_mask`
+    dct_config: DCTConfig, optional
+        Dynamic Chunk Training configuration. See `make_asr_src_mask`
     """
     src_key_padding_mask = None
 
@@ -408,11 +428,7 @@ class TransformerASR(TransformerInterface):
             src = src.reshape(bz, t, ch1 * ch2)
 
         (src_key_padding_mask, _, src_mask, _,) = make_asr_masks(
-            src,
-            None,
-            wav_len,
-            pad_idx=pad_idx,
-            dct_config=dct_config,
+            src, None, wav_len, pad_idx=pad_idx, dct_config=dct_config,
         )
 
         src = self.custom_src_module(src)
@@ -429,7 +445,7 @@ class TransformerASR(TransformerInterface):
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
             pos_embs=pos_embs_source,
-            chunk_size=chunk_size,
+            dct_config=dct_config,
         )
         return encoder_out
 
