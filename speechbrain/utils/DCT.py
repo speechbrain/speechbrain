@@ -5,7 +5,7 @@ Authors
 * Sylvain de Langen 2023
 """
 
-from speechbrain.core import Stage
+import speechbrain as sb
 from dataclasses import dataclass
 from typing import Optional
 
@@ -89,7 +89,7 @@ class DCTConfigRandomSampler:
             Probability (0..1) to return True (False otherwise)."""
         return torch.rand((1,)).item() < prob
 
-    def __call__(self, stage: Stage) -> DCTConfig:
+    def __call__(self, stage: "sb.core.Stage") -> DCTConfig:
         """Samples a random (or not) DCT configuration depending on the current
         stage.
 
@@ -101,7 +101,7 @@ class DCTConfigRandomSampler:
             the specified probabilities and ranges.
             In evaluation, the relevant DCTConfig attribute will be picked.
         """
-        if stage == Stage.TRAIN:
+        if stage == sb.core.Stage.TRAIN:
             # When training for streaming, for each batch, we have a
             # `dynamic_chunk_prob` probability of sampling a chunk size
             # between `dynamic_chunk_min` and `_max`, otherwise output
@@ -122,9 +122,9 @@ class DCTConfigRandomSampler:
 
                 return DCTConfig(chunk_size, left_context_chunks)
             return None
-        elif stage == Stage.TEST:
+        elif stage == sb.core.Stage.TEST:
             return self.test_config
-        elif stage == Stage.VALID:
+        elif stage == sb.core.Stage.VALID:
             return self.valid_config
         else:
             raise AttributeError(f"Unsupported stage found {stage}")
