@@ -22,11 +22,42 @@ python train.py hparams/conformer_transducer.yaml
 
 # Librispeech Results
 
-Dev. clean is evaluated with Greedy Decoding while the test sets are using Greedy Decoding OR a RNNLM + Beam Search.
+Dev. clean is evaluated with Greedy Decoding while the test sets are using Greedy Decoding OR a RNNLM + Beam Search.  
+Evaluation is performed in fp32.
 
-| Release | Hyperparams file | Dev-clean Greedy | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM | Test-other BS+RNNLM | Model link | GPUs |
-|:-------------:|:---------------------------:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
-| 2023-07-19 | conformer_transducer.yaml `streaming: False` | 2.62 | 2.84 | 6.98 | 2.62 | 6.31 | https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing | 3x3090 24GB |
+| Release | Hyperparams file | Train precision | Dev-clean Greedy | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM | Test-other BS+RNNLM | Model link | GPUs |
+|:-------------:|:---------------------------:|:-:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
+| 2023-12-12 | conformer_transducer.yaml `streaming: True` | bf16 | 2.56% | 2.72% | 6.47% | TBD | TBD | https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing | [4x A100SXM4 40GB](https://docs.alliancecan.ca/wiki/Narval/en) |
+
+## Streaming model
+
+### WER vs chunk size & left context
+
+**Note:** High-level streaming inference code is not currently available.
+
+The following matrix presents the Word Error Rate (WER%) achieved on LibriSpeech
+`test-clean` with various chunk sizes (in ms) and left context sizes (in # of
+chunks).
+
+The relative difference is not trivial to interpret, because we are not testing
+against a continuous stream of speech, but rather against utterances of various
+lengths. This tends to bias results in favor of larger chunk sizes.
+
+The chunk size might not accurately represent expected latency due to slight
+padding differences in streaming contexts.
+
+The left chunk size is not representative of the receptive field of the model.
+Because the model caches the streaming context at different layers, the model
+may end up forming indirect dependencies to audio many seconds ago.
+
+|       | full | cs=32 (1280ms) | 24 (960ms) | 16 (640ms) | 12 (480ms) | 8 (320ms) |
+|:-----:|:----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+| full  | 2.72%| -     | -     | -     | -     | -     |
+| lc=32 | -    | 3.09% | 3.07% | 3.26% | 3.31% | 3.44% |
+| 16    | -    | 3.10% | 3.07% | 3.27% | 3.32% | 3.50% |
+| 8     | -    | 3.10% | 3.11% | 3.31% | 3.39% | 3.62% |
+| 4     | -    | 3.12% | 3.13% | 3.37% | 3.51% | 3.80% |
+| 2     | -    | 3.19% | 3.24% | 3.50% | 3.79% | 4.38% |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
