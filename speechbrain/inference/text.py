@@ -348,7 +348,7 @@ class Llama2ResponseGenerator(ResponseGenerator):
 
             Arguments
             ---------
-            idx_and_item: 
+            idx_and_item:
                 id and its corresponding text. If the id is even, it is user turn and [ INST] is added.
             Returns
             -------
