@@ -18,6 +18,8 @@ cd recipes/MultiWOZ/response_generation/[LLM_model]
 pip install -r extra_requirements.txt
 ```
 > **Note**
+> “Llama 2 is licensed under the LLAMA 2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.”
+>
 > Use of the llama2 model is governed by the Meta license. In order to download the model weights and tokenizer, please visit the [website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/) and accept the License before starting training the llama2 model.  while getting access to the original weights is usually very fast. Sometimes, It took longer to get access to the HF repo. Before proceeding, make sure that you have access to the HF repo.
 
 After receiving the email, you should log in to your HF generate a new token, and use this token to :
