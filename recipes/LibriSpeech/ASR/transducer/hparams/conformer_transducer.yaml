@@ -83,7 +83,7 @@ test_left_context_size: 64
 valid_chunk_size: -1
 valid_left_context_size: -1
 
-dct_config_sampler: !new:speechbrain.utils.DCT.DCTConfigRandomSampler # yamllint disable-line rule:line-length
+dct_config_sampler: !new:speechbrain.lobes.models.transformer.DCT.DCTConfigRandomSampler # yamllint disable-line rule:line-length
    dct_prob: 0.6
 
    chunk_size_min: 8
