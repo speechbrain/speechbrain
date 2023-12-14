@@ -344,6 +344,17 @@ class Llama2ResponseGenerator(ResponseGenerator):
         """
 
         def generate_prompt(idx_and_item):
+            """add [INST] and [/INST] prompt to the start and end ogf item.
+
+            Arguments
+            ---------
+            idx_and_item: 
+                id and its corresponding text. If the id is even, it is user turn and [ INST] is added.
+            Returns
+            -------
+            prompt_bos:
+                prompted text  for one item.
+            """
             index, item = idx_and_item
             if index % 2 == 0:
                 return "[INST] " + item + " [/INST]"
