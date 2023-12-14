@@ -43,6 +43,26 @@ class LLAMA2(HFTransformersInterface):
     freeze : bool (default: False)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
+    max_new_tokens: int (default: 200)
+    use_4bit: bool (default: True)
+    bnb_4bit_compute_dtype: str (default: "float16")
+        This sets the computational type which might be different than the input time. For example, inputs might be fp32, but computation can be set to bf16 for speedups.
+    bnb_4bit_quant_type: str (default:"nf4")
+        This sets the quantization data type in the bnb.nn.Linear4Bit layers. Options are FP4 and NF4 data types which are specified by fp4 or nf4.
+    use_nested_quant: bool (default: False)
+        You have set this to False, which means you're not using nested quantization. This seems reasonable, as nested quantization can be computationally expensive.
+    min_length: int (default: 1)
+        The minimum length of the sequence to be generated. Corresponds to the length of the input prompt + min_new_tokens. Its effect is overridden by min_new_tokens, if also set
+    top_k: int (default: 45)
+        The number of highest probability vocabulary tokens to keep for top-k-filtering.
+    top_p: float (default: 0.9)
+        If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to top_p or higher are kept for generation.
+    num_beams: int (default: 8)
+         Number of beams for beam search. 1 means no beam search.
+    early_stopping: bool (default: True)
+        Controls the stopping condition for beam-based methods, like beam-search. It accepts the following values: True, where the generation stops as soon as there are num_beams complete candidates; False, where an heuristic is applied and the generation stops when is it very unlikely to find better candidates; "never", where the beam search procedure only stops when there cannot be better candidates (canonical beam search algorithm).
+    with_peft: bool (default:False)
+        If set to True, the peft model (model + adaptors) are loaded. If set to False, the original model is loaded.
     Example
     -------
     >>> model_hub = "meta-llama/Llama-2-7b-chat-hf"

@@ -18,7 +18,6 @@ import torch
 from itertools import chain
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
-from transformers import AutoTokenizer
 import math
 from speechbrain.dataio.batch import PaddedBatch
 
@@ -377,9 +376,7 @@ if __name__ == "__main__":
     )
 
     # Load tokenizer and add special tokens
-    tokenizer = AutoTokenizer.from_pretrained(
-        hparams["model_hub"], trust_remote_code=True
-    )
+    tokenizer = hparams["llama2_model"].tokenizer
 
     #  Load pretrained LLAMA2
     hparams["llama2_model"] = hparams["llama2_model"].to(

@@ -1,5 +1,6 @@
 accelerate
 bitsandbytes
+peftpeft<=0.5.0
 protobuf
-peft
 sacrebleu
+transformers<=4.34.0
