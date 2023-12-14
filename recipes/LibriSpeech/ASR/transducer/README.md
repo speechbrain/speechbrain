@@ -20,9 +20,10 @@ pip install numba
 python train.py hparams/conformer_transducer.yaml
 ```
 
-We recommend training with `--precision=bf16` on supported GPUs (e.g. A100) for a significant speedup.  
-`--precision=fp16` was found to be stable for this recipe but might lead to slightly worse model accuracy.  
-Tweaking `max_batch_len` may also prove useful.
+## Precision Notes
+If your GPU effectively supports fp16 (half-precision) computations, it is recommended to execute the training script with the `--precision=fp16` (or `--precision=bf16`) option.
+Enabling half precision can significantly reduce the peak VRAM requirements. For example, in the case of the Conformer Transducer recipe trained with Librispeech, the peak VRAM decreases from 39GB to 12GB when using fp16.
+According to our tests, the performance is not affected.
 
 # Librispeech Results
 
