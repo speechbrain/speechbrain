@@ -1,7 +1,7 @@
 # MultiWOZ Response Generation with LLM Model.
-This folder contains the scripts to finetune a LLM using MultiWOZ for response generation task.
+This folder contains the scripts to finetune a LLM using MultiWOZ for the response generation task.
 You can download MultiWOZ at https://github.com/budzianowski/multiwoz.
-The data will be automatically download in the specified data_folder.
+The data will be automatically downloaded in the specified data_folder.
 Supported LLM models are:
  - GPT
  - LLAMA2
@@ -11,16 +11,16 @@ Supported LLM models are:
 
 Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 > **Note**
-> For Llama2 recipie, transformers and peft libararies should follow the versionz mentioned in tehe extra_requirements.
+> For the Llama2 recipe, transformers and peft libraries should follow the versions mentioned in the extra_requirements.
 
 ```
 cd recipes/MultiWOZ/response_generation/[LLM_model]
 pip install -r extra_requirements.txt
 ```
 > **Note**
-> Use of the llama2 model is governed by the Meta license. In order to download the model weights and tokenizer, please visit the [website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/) and accept the License before start training the llama2 model.  while getting access to the original weights is usually very fast. Somethime , It tooks longer to get access to the HF repo. Before procedding, make sure that you have access to the HF repo.
+> Use of the llama2 model is governed by the Meta license. In order to download the model weights and tokenizer, please visit the [website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/) and accept the License before starting training the llama2 model.  while getting access to the original weights is usually very fast. Sometimes, It took longer to get access to the HF repo. Before proceeding, make sure that you have access to the HF repo.
 
-AFter recieveing the email, you should login in your HF and generate new token and use this token to :
+After receiving the email, you should log in to your HF generate a new token, and use this token to :
 ```
 pip install huggingface_hub
 python -c "from huggingface_hub.hf_api import HfFolder; HfFolder.save_token('Your_TOKEN)"
@@ -31,7 +31,7 @@ python -c "from huggingface_hub.hf_api import HfFolder; HfFolder.save_token('You
 cd recipes/MultiWOZ/response_generation/[LLM_model]
 python train_with_[LLM_model].py hparams/train_[LLM_model].yaml --data_folder=/your/data/folder
 ```
-The data will be automatically download in the specified data_folder.
+The data will be automatically downloaded in the specified data_folder.
 
 
 # Results
