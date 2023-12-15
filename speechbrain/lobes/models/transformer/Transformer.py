@@ -530,7 +530,7 @@ class TransformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
-        dct_config = None,
+        dct_config=None,
     ):
         """
         Arguments
