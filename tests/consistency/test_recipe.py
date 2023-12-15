@@ -23,6 +23,7 @@ def test_recipe_list(
         "recipes/Voicebank/MTL/CoopNet/hparams/logger.yaml",
         "recipes/LibriParty/generate_dataset/dataset.yaml",
         "hpopt.yaml",
+        "recipes/CommonVoice/LM/hparams/train_kenlm.yaml",
         "recipes/LJSpeech/TTS/quantization/hparams/kmeans.yaml",
         "recipes/DNS/noisyspeech_synthesizer/noisyspeech_synthesizer.yaml",
     ],

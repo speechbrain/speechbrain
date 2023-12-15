@@ -1,0 +1,24 @@
+#########
+# Recipe for Training kenLM on CommonVoice Data
+# It is  used to boost Wav2Vec2 with n-grams.
+#
+# Author: Pooneh Mousavi (2023)
+################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [1986]
+output_folder: results/CommonVoice/ngrams/1986
+
+# Data files
+data_folder: !PLACEHOLDER
+train_tsv_file: !ref <output_folder>/train.tsv
+language: de
+# accented_letters should be set according to the language
+accented_letters: True
+train_csv: !ref <output_folder>/train.csv
+skip_prep: False
+sample_rate: 16000
+text_file: !ref <output_folder>/train.txt
+ngram: 5
+ngram_file: !ref <output_folder>/<ngram>gram.arpa
+
