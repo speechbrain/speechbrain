@@ -27,7 +27,7 @@ class DCTConfig:
     If chunkwise streaming should be disabled at some point, pass an optional
     streaming config parameter."""
 
-    left_context_size: Optional[int]
+    left_context_size: Optional[int] = None
     """Number of *chunks* (not frames) visible to the left, always `>=0`.
     If zero, then chunks can never attend to any past chunk.
     If `None`, the left context is infinite (but use
@@ -36,7 +36,7 @@ class DCTConfig:
     def is_infinite_left_context(self) -> bool:
         """Returns true if the left context is infinite (i.e. any chunk can
         attend to any past frame)."""
-        return self.left_context_size is not None
+        return self.left_context_size is None
 
 
 @dataclass
@@ -79,7 +79,7 @@ class DCTConfigRandomSampler:
     """The configuration that should be used for `Stage.VALID`.
     When `None`, evaluation is done with full context (i.e. non-streaming)."""
 
-    def _sample_bool(prob: float) -> bool:
+    def _sample_bool(self, prob: float) -> bool:
         """Samples a random boolean with a probability, in a way that depends on
         PyTorch's RNG seed.
 
