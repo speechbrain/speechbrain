@@ -95,7 +95,7 @@ def make_asr_src_mask(
                 chunk_index = t // dct_config.chunk_size
                 chunk_first_t = chunk_index * dct_config.chunk_size
                 frame_remaining_context = max(
-                    0, chunk_first_t - dct_config.left_context_chunks
+                    0, chunk_first_t - dct_config.left_context_size
                 )
 
                 # end range is exclusive, so there is no off-by-one here
