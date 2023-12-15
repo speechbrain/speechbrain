@@ -484,12 +484,6 @@ class ConformerEncoderLayer(nn.Module):
         # about our chunk's outputs); see above to-do
         x = x[..., -orig_len:, :]
 
-        # TODO: this is slightly suboptimal as this will add left padding inside
-        # the convolution code that we do not need. it would be better to
-        # manually add the right-padding ourselves and disable padding inside
-        # the convolution module for this usecase, but it would need some
-        # refactoring.
-
         if context.dcconv_left_context is not None:
             x = torch.cat((context.dcconv_left_context, x), dim=1)
 
