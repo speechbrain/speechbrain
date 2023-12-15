@@ -76,7 +76,6 @@ class ASR(sb.Brain):
         else:
             dct_config = None
 
-        # logger.info(f"Batch uses tfx chunk size = {transformer_chunk_size}, frame chunk_size = {chunk_size}")
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         src = self.modules.CNN(feats)
