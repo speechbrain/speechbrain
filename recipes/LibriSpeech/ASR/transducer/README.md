@@ -40,8 +40,6 @@ Evaluation is performed in fp32. However, we found that during inference, fp16 o
 
 ### WER vs chunk size & left context
 
-**Note:** High-level streaming inference code is not currently available.
-
 The following matrix presents the Word Error Rate (WER%) achieved on LibriSpeech
 `test-clean` with various chunk sizes (in ms) and left context sizes (in # of
 chunks).
