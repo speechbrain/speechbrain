@@ -323,7 +323,9 @@ class TransformerASR(TransformerInterface):
             tgt_key_padding_mask,
             src_mask,
             tgt_mask,
-        ) = make_asr_masks(src, tgt, wav_len, pad_idx=pad_idx)
+        ) = make_asr_masks(
+            src, tgt, wav_len, causal=self.causal, pad_idx=pad_idx
+        )
 
         src = self.custom_src_module(src)
         # add pos encoding to queries if are sinusoidal ones else
@@ -433,7 +435,12 @@ class TransformerASR(TransformerInterface):
             src = src.reshape(bz, t, ch1 * ch2)
 
         (src_key_padding_mask, _, src_mask, _,) = make_asr_masks(
-            src, None, wav_len, pad_idx=pad_idx, dct_config=dct_config,
+            src,
+            None,
+            wav_len,
+            pad_idx=pad_idx,
+            causal=self.causal,
+            dct_config=dct_config,
         )
 
         src = self.custom_src_module(src)
