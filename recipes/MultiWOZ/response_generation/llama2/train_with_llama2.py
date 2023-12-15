@@ -53,27 +53,18 @@ class ResGenBrain(sb.Brain):
         )
 
         if stage == sb.Stage.VALID:
-            # hyps = None
-            # current_epoch = self.hparams.epoch_counter.current
-            # if current_epoch % self.hparams.valid_search_interval == 0:
-            # history_bos = torch.LongTensor([hparams["bos_index"]] + (history_bos))
             padding_mask = ~self.hparams.padding_mask(
                 prompt_bos, pad_idx=tokenizer.pad_token_id
             )
             hyps = self.modules.llama2_model.generate(
-                prompt_bos.detach(),
-                # history_token_type.detach(),
-                padding_mask.detach(),
+                prompt_bos.detach(), padding_mask.detach(),
             )
         elif stage == sb.Stage.TEST:
             padding_mask = ~self.hparams.padding_mask(
                 prompt_bos, pad_idx=tokenizer.pad_token_id
             )
             hyps = self.modules.llama2_model.generate(
-                prompt_bos.detach(),
-                # history_token_type.detach(),
-                padding_mask.detach(),
-                "beam",
+                prompt_bos.detach(), padding_mask.detach(), "beam",
             )
 
         if stage != sb.Stage.TRAIN:
@@ -206,7 +197,6 @@ def add_special_tokens_(model, tokenizer, attr_to_special_token,) -> None:
         model.resize_token_embeddings(
             new_num_tokens=orig_num_tokens + num_added_tokens
         )
-    # model.embed_tokens = torch.nn.Embedding(model.config.vocab_size, model.config.hidden_size, model.config.padding_idx)
 
 
 def dataio_prep(hparams, tokenizer):
