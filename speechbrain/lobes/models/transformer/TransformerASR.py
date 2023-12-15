@@ -94,8 +94,13 @@ def make_asr_src_mask(
             for t in range(timesteps):
                 chunk_index = t // dct_config.chunk_size
                 chunk_first_t = chunk_index * dct_config.chunk_size
+
+                left_context_frames = (
+                    dct_config.left_context_size * dct_config.chunk_size
+                )
+
                 frame_remaining_context = max(
-                    0, chunk_first_t - dct_config.left_context_size
+                    0, chunk_first_t - left_context_frames,
                 )
 
                 # end range is exclusive, so there is no off-by-one here
