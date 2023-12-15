@@ -447,6 +447,7 @@ class TransformerASR(TransformerInterface):
             pos_embs=pos_embs_source,
             dct_config=dct_config,
         )
+
         return encoder_out
 
     def encode_streaming(self, src, context: TransformerASRStreamingContext):
