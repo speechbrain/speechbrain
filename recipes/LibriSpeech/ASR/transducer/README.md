@@ -28,7 +28,7 @@ According to our tests, the performance is not affected.
 # Librispeech Results
 
 Dev. clean is evaluated with Greedy Decoding while the test sets are using Greedy Decoding OR a RNNLM + Beam Search.
-Evaluation is performed in fp32.
+Evaluation is performed in fp32. However, we found that during inference, fp16 or bf16 autocast has very little incidence on the WER.
 
 | Release | Hyperparams file | Train precision | Dev-clean Greedy | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM | Test-other BS+RNNLM | Model link | GPUs |
 |:-------------:|:---------------------------:|:-:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
