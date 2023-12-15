@@ -85,7 +85,7 @@ dct_config_sampler: !new:speechbrain.lobes.models.transformer.DCT.DCTConfigRando
 
    limited_left_context_prob: 0.75
    left_context_chunks_min: 2
-   left_context_chunks_max: 2
+   left_context_chunks_max: 32
 
    # valid_config
    # test_config
