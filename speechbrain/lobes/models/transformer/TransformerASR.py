@@ -501,11 +501,9 @@ class TransformerASR(TransformerInterface):
         # so we craft a dummy empty (uninitialized) tensor to help...
         known_left_context = context.encoder_context.layers[0].mha_left_context
         if known_left_context is None:
-            # print(f"no lc known: using {src.shape}")
             pos_encoding_dummy = src
         else:
             target_shape = list(src.shape)
-            # print(f"computing posemb shape: from {target_shape} with lc {known_left_context.shape}")
             target_shape[-2] += known_left_context.shape[-2]
             pos_encoding_dummy = torch.empty(size=target_shape).to(src)
 
