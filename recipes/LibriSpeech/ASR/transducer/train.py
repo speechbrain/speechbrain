@@ -73,6 +73,8 @@ class ASR(sb.Brain):
         # any other way so just check for its presence
         if hasattr(self.hparams, "streaming") and self.hparams.streaming:
             dct_config = self.hparams.dct_config_sampler(stage)
+        else:
+            dct_config = None
 
         # logger.info(f"Batch uses tfx chunk size = {transformer_chunk_size}, frame chunk_size = {chunk_size}")
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
