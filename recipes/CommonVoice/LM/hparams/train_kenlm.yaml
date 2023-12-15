@@ -21,4 +21,3 @@ sample_rate: 16000
 text_file: !ref <output_folder>/train.txt
 ngram: 5
 ngram_file: !ref <output_folder>/<ngram>gram.arpa
-
