@@ -32,6 +32,8 @@ skip_prep: False
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
 # history_window, i.e. how many user-system exchanges consider as context.
 max_history: 2
 
