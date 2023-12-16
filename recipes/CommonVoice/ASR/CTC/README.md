@@ -24,7 +24,7 @@ Here is a list of the different languages that we tested within the CommonVoice 
 on the transcription of the training data.(Refer to LM recipe: recipes/CommonVoice/LM).
 
 >>Note:
-> For Chinese the concept of word is not well-defined, hence, we consider the character error rate instead of the word error rate. For teh same reason,  We don't also employ 5-gram.
+> For Chinese the concept of word is not well-defined, hence, we consider the character error rate instead of the word error rate. For the same reason,  we don't also employ 5-gram.
 # Results
 | Language | CommonVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
