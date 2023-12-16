@@ -34,6 +34,11 @@ class LLAMA2(HFTransformersInterface):
     The model can be finetuned. It will download automatically the model from
     HuggingFace or use a local path.
 
+    Notes:
+    - To use this model, you need to install the extra dependencies in recipes/MultiWOZ/response_generation/llama2/extra_requirements.txt
+    - transformers and peft libraries should follow the versions mentioned in the extra_requirements.
+    - Llama 2 is licensed under the LLAMA 2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
+
     Arguments
     ---------
     source : str
@@ -60,9 +65,13 @@ class LLAMA2(HFTransformersInterface):
     num_beams: int (default: 8)
          Number of beams for beam search. 1 means no beam search.
     early_stopping: bool (default: True)
-        Controls the stopping condition for beam-based methods, like beam-search. It accepts the following values: True, where the generation stops as soon as there are num_beams complete candidates; False, where an heuristic is applied and the generation stops when is it very unlikely to find better candidates; "never", where the beam search procedure only stops when there cannot be better candidates (canonical beam search algorithm).
+        Controls the stopping condition for beam-based methods, like beam-search. It accepts the following values:
+        - True, where the generation stops as soon as there are num_beams complete candidates
+        - False, where an heuristic is applied and the generation stops when is it very unlikely to find better candidates
+        - "never", where the beam search procedure only stops when there cannot be better candidates (canonical beam search algorithm).
     with_peft: bool (default:False)
         If set to True, the peft model (model + adaptors) are loaded. If set to False, the original model is loaded.
+    
     Example
     -------
     >>> model_hub = "meta-llama/Llama-2-7b-chat-hf"
