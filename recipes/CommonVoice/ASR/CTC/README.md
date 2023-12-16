@@ -19,8 +19,8 @@ Here is a list of the different languages that we tested within the CommonVoice 
 - Portuguese
 - Chinese(china)
 
->>Note: 
->In our experiments,  we use CTC beam search and also boost the performance using the 5-gram model previously trained  
+>>Note:
+>In our experiments,  we use CTC beam search and also boost the performance using the 5-gram model previously trained
 on the transcription of the training data.(Refer to LM recipe: recipes/CommonVoice/LM).
 
 >>Note:
