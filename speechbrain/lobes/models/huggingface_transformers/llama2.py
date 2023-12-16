@@ -71,7 +71,7 @@ class LLAMA2(HFTransformersInterface):
         - "never", where the beam search procedure only stops when there cannot be better candidates (canonical beam search algorithm).
     with_peft: bool (default:False)
         If set to True, the peft model (model + adaptors) are loaded. If set to False, the original model is loaded.
-    
+
     Example
     -------
     >>> model_hub = "meta-llama/Llama-2-7b-chat-hf"
