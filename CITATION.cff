@@ -1,0 +1,116 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: SpeechBrain
+message: A PyTorch-based Speech Toolkit
+type: software
+authors:
+  - given-names: Mirco
+    family-names: Ravanelli
+    affiliation: 'Mila - Quebec AI Institute, Université de Montréal'
+  - given-names: Titouan
+    family-names: Parcollet
+    affiliation: >-
+      LIA - Avignon Université, CaMLSys - University of
+      Cambridge
+  - given-names: Peter
+    family-names: Plantinga
+    affiliation: Ohio State University
+  - given-names: Aku
+    family-names: Rouhe
+    affiliation: Aalto University
+  - given-names: Samuele
+    family-names: Cornell
+    affiliation: Università Politecnica delle Marche
+  - given-names: Loren
+    family-names: Lugosch
+    affiliation: 'Mila - Quebec AI Institute, McGill University'
+  - given-names: Cem
+    family-names: Subakan
+    affiliation: Mila - Quebec AI Institute
+  - given-names: Nauman
+    family-names: Dawalatabad
+    affiliation: Indian Institute of Technology Madras
+  - given-names: Abdelwahab
+    family-names: Heba
+    affiliation: IRIT - Université Paul Sabatier
+  - given-names: Jianyuan
+    family-names: Zhong
+    affiliation: Mila - Quebec AI Institute
+  - given-names: Ju-Chieh
+    family-names: Chou
+    affiliation: Toyota Technological Institute at Chicago
+  - given-names: Sung-Lin
+    family-names: Yeh
+    affiliation: University of Edinburgh
+  - given-names: Szu-Wei
+    family-names: Fu
+    affiliation: 'Academia Sinica, Taiwan'
+  - given-names: Chien-Feng
+    family-names: Liao
+    affiliation: 'Academia Sinica, Taiwan'
+  - given-names: Elena
+    family-names: Rastorgueva
+    affiliation: NVIDIA
+  - given-names: François
+    family-names: Grondin
+    affiliation: Université de Sherbrooke
+  - given-names: William
+    family-names: Aris
+    affiliation: Université de Sherbrooke
+  - given-names: Hwidong
+    family-names: Na
+    affiliation: Samsung-SAIT
+  - given-names: Yan
+    family-names: Gao
+    affiliation: CaMLSys - University of Cambridge
+  - given-names: Renato
+    name-particle: De
+    family-names: Mori
+    affiliation: 'LIA - Avignon Université, McGill University'
+  - given-names: Yoshua
+    family-names: Bengio
+    affiliation: 'Mila - Quebec AI Institute, Université de Montréal'
+identifiers:
+  - type: doi
+    value: 10.48550/arXiv.2106.04624
+    description: 'SpeechBrain: A General-Purpose Speech Toolkit'
+repository-code: 'https://github.com/speechbrain/speechbrain/'
+url: 'https://speechbrain.github.io/'
+abstract: >-
+  SpeechBrain is an open-source and all-in-one speech
+  toolkit. It is designed to facilitate the research and
+  development of neural speech processing technologies by
+  being simple, flexible, user-friendly, and
+  well-documented. This paper describes the core
+  architecture designed to support several tasks of common
+  interest, allowing users to naturally conceive, compare
+  and share novel speech processing pipelines. SpeechBrain
+  achieves competitive or state-of-the-art performance in a
+  wide range of speech benchmarks. It also provides training
+  recipes, pretrained models, and inference scripts for
+  popular speech datasets, as well as tutorials which allow
+  anyone with basic Python proficiency to familiarize
+  themselves with speech technologies.
+keywords:
+  - speech toolkit
+  - audio
+  - deep learning
+  - PyTorch
+  - transformers
+  - voice recognition
+  - speech recognition
+  - speech-to-text
+  - language model
+  - speaker recognition
+  - speaker verification
+  - speech processing
+  - audio processing
+  - ASR
+  - speaker diarization
+  - speech separation
+  - speech enhancement
+  - spoken language understanding
+  - HuggingFace
+license: Apache-2.0

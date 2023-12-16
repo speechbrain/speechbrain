@@ -20,7 +20,9 @@ Training time required on NVIDIA A100 GPU using LibriTTS train-clean-100 and tra
 
 The training logs are available [here](https://www.dropbox.com/sh/ti2vk7sce8f9fgd/AABcDGWCrBvLX_ZQs76mlJRYa?dl=0).
 
-The pre-trained model with an easy-inference interface is available on [HuggingFace](https://huggingface.co/speechbrain/tts-mstacotron2-libritts).
+For now, enhancements are needed for traning the model from scratch when train-clean-360 is included. Inference can be effectuated with `clone_voice_char_input` function in the MSTacotron2 interface.
+
+The pre-trained model (a model fine-tuned from LJSpeech tacotron2) with an easy-inference interface is available on [HuggingFace](https://huggingface.co/speechbrain/tts-mstacotron2-libritts).
 
 **Please Note**: The current model effectively captures speaker identities. Nevertheless, the synthesized speech quality exhibits some metallic characteristics and may include artifacts like overly long pauses.
 We are actively working to enhancing the model and will release updates as soon as improvements are achieved. We warmly welcome contributions from the community to collaboratively make the model even better!
