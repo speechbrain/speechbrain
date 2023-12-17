@@ -150,7 +150,8 @@ def save_metrics_to_file(wer_file, transducer_metrics, per_metrics):
         w.write("\nPER stats:\n")
         per_metrics.write_stats(w)
         print(
-            "Transducer and PER stats written to file", hparams.test_wer_file,
+            "Transducer and PER stats written to file",
+            hparams["test_wer_file"],
         )
 
 
