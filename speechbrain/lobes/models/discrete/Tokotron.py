@@ -104,6 +104,21 @@ class TokotronTransformerDecoder(nn.Module):
         whether to use a target padding mask
     audio_emb_freeze : bool, optional
         Whether audio embeddings should be frozen
+    max_decoder_steps : int
+        The maximum number of steps during autoregressive
+        decoding
+    bos_idx : int
+        The index of the BOS token
+    gate_threshold : int
+        The minimum gate value (post-sigmoid) to consider the sequence
+        as complete during auto-regressive inference
+    gate_offset : int, optional
+        The number of steps from the gate activation threshold until inference
+        stops. By default, inference stops immediately. This parameter is useful
+        for "soft" gate implementations where the gate starts outputting positive
+        probabilities before actual EOS
+    show_inference_progress : bool, optional
+        Whether to show inference progress in the console
     """
 
     def __init__(
@@ -460,6 +475,7 @@ class TokotronTransformerModel(nn.Module):
         gate_threshold=0.5,
         gate_offset=0,
         use_tgt_padding_mask=False,
+        audio_emb_size=128,
         audio_emb_freeze=False,
         show_inference_progress=True,
         vocoder=None,
@@ -490,6 +506,7 @@ class TokotronTransformerModel(nn.Module):
             dropout=dropout,
             target_dropout=target_dropout,
             use_tgt_padding_mask=use_tgt_padding_mask,
+            audio_emb_size=audio_emb_size,
             audio_emb_freeze=audio_emb_freeze,
             max_decoder_steps=max_audio_length,
             bos_idx=bos_idx,
@@ -510,10 +527,12 @@ class TokotronTransformerModel(nn.Module):
 
     @property
     def gate_offset(self):
+        """The number of steps following gate activation to include"""
         return self.decoder.gate_offset
 
     @gate_offset.setter
     def gate_offset(self, value):
+        """The number of steps following gate activation to include"""
         self.decoder.gate_offset = value
 
     def forward(
@@ -715,6 +734,8 @@ class TokotronRNNModel(nn.Module):
         (for location-aware attention)
     dropout : float, optional
         The dropout rate
+    target_dropout : float, optional
+        The dropout probability for targets
     bos_idx : int, optional
         the Beginning-of-Sequence index
     max_audio_length: int, optional
@@ -727,6 +748,8 @@ class TokotronRNNModel(nn.Module):
         stops. By default, inference stops immediately. This parameter is useful
         for "soft" gate implementations where the gate starts outputting positive
         probabilities before actual EOS
+    audio_emb_size : int, optional
+        The audio emedding size
     audio_emb_freeze : bool, optional
         Whether audio embeddings should be frozen
     show_inference_progress : bool, optional
@@ -754,10 +777,12 @@ class TokotronRNNModel(nn.Module):
         dec_attn_channels=10,
         dec_attn_scaling=1.0,
         dropout=0.2,
+        target_dropout=None,
         bos_idx=0,
         max_audio_length=1000,
         gate_threshold=0.5,
         gate_offset=0.0,
+        audio_emb_size=128,
         audio_emb_freeze=False,
         show_inference_progress=True,
         vocoder=None,
@@ -799,11 +824,14 @@ class TokotronRNNModel(nn.Module):
             attn_kernel_size=dec_attn_kernel_size,
             attn_channels=dec_attn_channels,
             attn_scaling=dec_attn_scaling,
+            audio_emb_size=audio_emb_size,
             audio_emb_freeze=audio_emb_freeze,
             max_decoder_steps=max_audio_length,
             bos_idx=bos_idx,
             gate_threshold=gate_threshold,
             gate_offset=gate_offset,
+            dropout=dropout,
+            target_dropout=target_dropout,
             show_inference_progress=show_inference_progress,
         )
 
@@ -811,10 +839,12 @@ class TokotronRNNModel(nn.Module):
 
     @property
     def gate_offset(self):
+        """The number of steps following gate activation to include"""
         return self.decoder.gate_offset
 
     @gate_offset.setter
     def gate_offset(self, value):
+        """The number of steps following gate activation to include"""
         self.decoder.gate_offset = value
 
     def forward(
@@ -956,15 +986,15 @@ class TokotronRNNDecoder(nn.Module):
         The drop-out rate for autoregressive targets
     audio_emb : nn.Module, optional
         The audio embedding module
-    audio_emb_size : int
+    audio_emb_size : int, optional
         The audio emedding size
     audio_emb_freeze : bool, optional
         Whether audio embeddings should be frozen
-    max_decoder_steps : int
+    max_decoder_steps : int, optional
         The maximum number of steps for autoregressive decoding
-    bos_idx : int
+    bos_idx : int, optional
         the Beginning-of-Sequence index
-    gate_threshold : int
+    gate_threshold : int, optional
         The minimum gate value (post-sigmoid) to consider the sequence
         as complete during auto-regressive inference
     gate_offset : int, optional
@@ -972,7 +1002,7 @@ class TokotronRNNDecoder(nn.Module):
         stops. By default, inference stops immediately. This parameter is useful
         for "soft" gate implementations where the gate starts outputting positive
         probabilities before actual EOS
-    show_inference_progress : bool
+    show_inference_progress : bool, optional
         Whether to show inference progress in the console
     """
 
@@ -1089,12 +1119,7 @@ class TokotronRNNDecoder(nn.Module):
         )
         gate_out = self.gate(dec_out).squeeze(-1)
         return TokotronDecoderOutput(
-            lin_out_heads,
-            gate_out,
-            None,
-            dec_attn,
-            dec_attn,
-            {},
+            lin_out_heads, gate_out, None, dec_attn, dec_attn, {},
         )
 
     def forward_step(self, enc_out, tgt, src_length=None, context=None):

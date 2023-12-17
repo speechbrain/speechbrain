@@ -185,7 +185,7 @@ class TokotronBrain(sb.Brain):
             return
         if self.debug:
             self.modules.model.decoder.max_decoder_steps = (
-                self.hparams.debug_infer_max_audio_tokens
+                self.hparams.debug_infer_max_audio_length
             )
         sample_loader = sb.dataio.dataloader.make_dataloader(
             self.sample_data, **self.hparams.sample_dataloader_opts

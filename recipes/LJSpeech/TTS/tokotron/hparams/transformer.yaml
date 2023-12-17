@@ -7,7 +7,6 @@
 seed: 74443
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
-output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -50,7 +49,6 @@ max_grad_norm: 5.0
 sorting: random
 num_workers: 4
 skip_prep: False
-num_inference_samples: 16
 overfit_test: False
 overfit_test_sample_count: !ref <batch_size>
 overfit_test_epoch_data_count: 1000
@@ -75,8 +73,8 @@ gate_loss_max_weight: 1.
 # Feature parameters
 sample_rate: 22050
 model_sample_rate: 24000
-infer_max_audio_tokens: 700
-debug_infer_max_audio_tokens: 10
+infer_max_audio_length: 700
+debug_infer_max_audio_length: 10
 
 # Label encoder
 label_encoder: !new:speechbrain.dataio.encoder.TextEncoder
@@ -153,11 +151,6 @@ text_num_tokens: 31
 audio_tokens_per_step: 2
 attention_type: regularMHA
 
-# Outputs
-blank_index: 0
-label_smoothing: 0.0
-
-
 ############################## models ################################
 
 vocoder: !new:speechbrain.lobes.models.huggingface_transformers.vocos.Vocos
@@ -174,12 +167,15 @@ model: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronTransformerModel 
     enc_num_layers: !ref <enc_num_layers>
     dec_num_layers: !ref <dec_num_layers>
     dropout: !ref <transformer_dropout>
+    target_dropout: !ref <target_dropout>
     activation: !ref <activation>
     attention_type: !ref <attention_type>
     vocoder: !ref <vocoder>
     gate_threshold: !ref <gate_threshold>
     gate_offset: !ref <gate_offset>
+    audio_emb_size: !ref <audio_emb_size>
     audio_emb_freeze: !ref <audio_emb_freeze>
+    max_audio_length: !ref <infer_max_audio_length>
 
 modules:
     model: !ref <model>

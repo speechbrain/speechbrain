@@ -553,6 +553,7 @@ class ArchiveTrainLogger:
 
     @property
     def epoch(self):
+        """The current epoch"""
         return (
             self.epoch_counter.current
             if self.epoch_counter is not None
@@ -561,6 +562,7 @@ class ArchiveTrainLogger:
 
     @epoch.setter
     def epoch(self, value):
+        """The current epoch"""
         self._epoch = value
 
     def clear(self):

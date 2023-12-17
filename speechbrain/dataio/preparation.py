@@ -184,11 +184,38 @@ def save_npy(item_id, data, save_path):
 
 
 def load_pt(save_path, item_id, features):
+    """Loads a PyTorch pickled file
+
+    Arguments
+    ---------
+    save_path : path-like
+        The storage path
+    item_id : object
+        The item identifier
+    features : enumerable
+        Not used
+
+    Returns
+    -------
+    result : object
+        the contents of the file
+    """
     file_path = save_path / f"{item_id}.pt"
     return torch.load(file_path)
 
 
 def load_npy(save_path, item_id, features):
+    """Loads a raw NumPy array
+
+    Arguments
+    ---------
+    save_path : path-like
+        The storage path
+    item_id : object
+        The item identifier
+    features : enumerable
+        The features to be loaded
+    """
     return {
         key: np.load(save_path / f"{key}_{item_id}.npy") for key in features
     }
@@ -228,8 +255,21 @@ def add_prepared_features(
 
     @sb.utils.data_pipeline.takes(id_key)
     @sb.utils.data_pipeline.provides(*features)
-    def prepared_features_pipeline(id_key):
-        data = load_fn(save_path, id_key, features)
+    def prepared_features_pipeline(item_id):
+        """A pipeline function that provides the features defined with
+        registered loaders
+
+        Arguments
+        ---------
+        item_id : object
+            The item dentifier
+
+        Returns
+        -------
+        result : generator
+            The features
+        """
+        data = load_fn(save_path, item_id, features)
         for feature in features:
             yield data[feature]
 
