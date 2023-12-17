@@ -142,10 +142,7 @@ Training typically takes around 4 minutes per epoch when using an NVIDIA A100 40
 You can access the pre-trained model, along with an easy-to-use inference function, on [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech).
 
 # Tokotron
-The subfolder "tokotron" contains the recipe for training 
-a simple autoregressive sequence-to-sequence model (Transformer or RNN) on discrete tokens. It was inspired
-by WhisperSpeech (https://github.com/collabora/WhisperSpeech)
-but was radically simplified to perform end-to-end conversion.
+The subfolder "tokotron" contains the recipe for training  a simple autoregressive sequence-to-sequence model (Transformer or RNN) on discrete tokens. It was inspired by WhisperSpeech (https://github.com/collabora/WhisperSpeech) but was radically simplified to perform end-to-end conversion from text to audio tokens, skipping the intermediate semantic tokens. The neural architecture used is roughly similar to that of [Tacotron2](https://arxiv.org/abs/1712.05884) and [TransformerTTS](https://arxiv.org/abs/1809.08895).
 
 To train the Transformer-based model, please run the following command:
 ```
