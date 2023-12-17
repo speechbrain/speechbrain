@@ -104,9 +104,11 @@ class TokotronTransformerDecoder(nn.Module):
         whether to use a target padding mask
     audio_emb_freeze : bool, optional
         Whether audio embeddings should be frozen
-    max_decoder_steps : int
+    max_decoder_steps : int, optional
+        The maximum number of decoder steps used during training
+    infer_max_decoder_steps : int, optional
         The maximum number of steps during autoregressive
-        decoding
+        decoding (defaults to max_decoder_steps)
     bos_idx : int
         The index of the BOS token
     gate_threshold : int
@@ -120,7 +122,6 @@ class TokotronTransformerDecoder(nn.Module):
     show_inference_progress : bool, optional
         Whether to show inference progress in the console
     """
-
     def __init__(
         self,
         num_tokens=1024,
@@ -138,6 +139,7 @@ class TokotronTransformerDecoder(nn.Module):
         use_tgt_padding_mask=False,
         audio_emb_freeze=False,
         max_decoder_steps=1000,
+        infer_max_decoder_steps=None,
         bos_idx=0,
         gate_threshold=0.5,
         gate_offset=0,
@@ -178,6 +180,9 @@ class TokotronTransformerDecoder(nn.Module):
         self.target_dropout = target_dropout
         self.audio_emb = audio_emb
         self.max_decoder_steps = max_decoder_steps
+        if infer_max_decoder_steps is None:
+            infer_max_decoder_steps = max_decoder_steps
+        self.infer_max_decoder_steps = infer_max_decoder_steps
         self.attention_type = attention_type
         self.use_tgt_padding_mask = use_tgt_padding_mask
         self.audio_emb_freeze = audio_emb_freeze
@@ -319,7 +324,7 @@ class TokotronTransformerDecoder(nn.Module):
             )
             audio_tokens = bos
             audio_tokens_length = torch.ones(batch_size, device=enc_out.device)
-            steps_range = range(self.max_decoder_steps)
+            steps_range = range(self.infer_max_decoder_steps)
 
             # Initialize the gate activation index
             seq_gate_idx = (
@@ -436,6 +441,8 @@ class TokotronTransformerModel(nn.Module):
         e.g., relu or gelu or swish.
     max_audio_length: int
         The maximum number of tokens to be output
+    infer_max_audio_length: int
+        The maximum number of tokens to be output, during inference
     bos_idx : int, optional
         the Beginning-of-Sequence index
     gate_threshold : int
@@ -471,6 +478,7 @@ class TokotronTransformerModel(nn.Module):
         target_dropout=0.2,
         activation=nn.LeakyReLU,
         max_audio_length=1000,
+        infer_max_audio_length=None,
         bos_idx=0,
         gate_threshold=0.5,
         gate_offset=0,
@@ -509,6 +517,7 @@ class TokotronTransformerModel(nn.Module):
             audio_emb_size=audio_emb_size,
             audio_emb_freeze=audio_emb_freeze,
             max_decoder_steps=max_audio_length,
+            infer_max_decoder_steps=infer_max_audio_length or max_audio_length,
             bos_idx=bos_idx,
             gate_threshold=gate_threshold,
             gate_offset=gate_offset,
@@ -740,6 +749,8 @@ class TokotronRNNModel(nn.Module):
         the Beginning-of-Sequence index
     max_audio_length: int, optional
         The maximum number of tokens to be output
+    infer_max_audio_length: int, optional
+        The maximum number of tokens to be output, during inference
     gate_threshold : int, optional
         The minimum gate value (post-sigmoid) to consider the sequence
         as complete during auto-regressive inference
@@ -780,6 +791,7 @@ class TokotronRNNModel(nn.Module):
         target_dropout=None,
         bos_idx=0,
         max_audio_length=1000,
+        infer_max_audio_length=None,
         gate_threshold=0.5,
         gate_offset=0.0,
         audio_emb_size=128,
@@ -827,6 +839,7 @@ class TokotronRNNModel(nn.Module):
             audio_emb_size=audio_emb_size,
             audio_emb_freeze=audio_emb_freeze,
             max_decoder_steps=max_audio_length,
+            infer_max_decoder_steps=infer_max_audio_length or max_audio_length,
             bos_idx=bos_idx,
             gate_threshold=gate_threshold,
             gate_offset=gate_offset,
@@ -991,7 +1004,10 @@ class TokotronRNNDecoder(nn.Module):
     audio_emb_freeze : bool, optional
         Whether audio embeddings should be frozen
     max_decoder_steps : int, optional
-        The maximum number of steps for autoregressive decoding
+        The maximum number of decoder steps used during training
+    infer_max_decoder_steps : int, optional
+        The maximum number of steps during autoregressive
+        decoding (defaults to max_decoder_steps)
     bos_idx : int, optional
         the Beginning-of-Sequence index
     gate_threshold : int, optional
@@ -1028,6 +1044,7 @@ class TokotronRNNDecoder(nn.Module):
         audio_emb_size=128,
         audio_emb_freeze=False,
         max_decoder_steps=1000,
+        infer_max_decoder_steps=None,
         bos_idx=0,
         gate_threshold=0.5,
         gate_offset=0,
@@ -1071,6 +1088,9 @@ class TokotronRNNDecoder(nn.Module):
         self.gate = Linear(input_size=hidden_size, n_neurons=1)
         self.audio_emb_freeze = audio_emb_freeze
         self.max_decoder_steps = max_decoder_steps
+        if not infer_max_decoder_steps:
+            infer_max_decoder_steps = max_decoder_steps
+        self.infer_max_decoder_steps = max_decoder_steps
         self.bos_idx = bos_idx
         self.gate_threshold = gate_threshold
         self.gate_offset = gate_offset
@@ -1119,7 +1139,12 @@ class TokotronRNNDecoder(nn.Module):
         )
         gate_out = self.gate(dec_out).squeeze(-1)
         return TokotronDecoderOutput(
-            lin_out_heads, gate_out, None, dec_attn, dec_attn, {},
+            lin_out_heads,
+            gate_out,
+            None,
+            dec_attn,
+            dec_attn,
+            {},
         )
 
     def forward_step(self, enc_out, tgt, src_length=None, context=None):
@@ -1226,7 +1251,7 @@ class TokotronRNNDecoder(nn.Module):
                 device=enc_out.device,
             ).squeeze(1)
 
-            steps_range = range(self.max_decoder_steps)
+            steps_range = range(self.infer_max_decoder_steps)
 
             # Initialize the gate activation index
             seq_gate_idx = (

@@ -184,7 +184,7 @@ class TokotronBrain(sb.Brain):
         if epoch % self.hparams.samples_interval != 0:
             return
         if self.debug:
-            self.modules.model.decoder.max_decoder_steps = (
+            self.modules.model.decoder.infer_max_decoder_steps = (
                 self.hparams.debug_infer_max_audio_length
             )
         sample_loader = sb.dataio.dataloader.make_dataloader(
@@ -262,9 +262,9 @@ def dataio_prepare(hparams):
     datasets = {}
     data_folder = hparams["data_folder"]
     data_info = {
-        "train": hparams["train_annotation"],
-        "valid": hparams["valid_annotation"],
-        "test": hparams["test_annotation"],
+        "train": hparams["train_json"],
+        "valid": hparams["valid_json"],
+        "test": hparams["test_json"],
     }
     label_encoder = hparams["label_encoder"]
 

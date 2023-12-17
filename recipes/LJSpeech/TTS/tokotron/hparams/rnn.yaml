@@ -21,9 +21,9 @@ data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
 # data_folder_rirs: !ref <data_folder>
 prepare_save_folder: !ref <data_folder>/prepared
 prepare_archive_path: null
-train_annotation: !ref <data_folder>/train.json
-valid_annotation: !ref <data_folder>/valid.json
-test_annotation: !ref <data_folder>/test.json
+train_json: !ref <data_folder>/train.json
+valid_json: !ref <data_folder>/valid.json
+test_json: !ref <data_folder>/test.json
 progress_folder: !ref <output_folder>/progress
 progress_archive: !ref <progress_folder>/progress.tar
 progress_current: !ref <progress_folder>/current
@@ -75,7 +75,8 @@ gate_loss_max_weight: 1.
 # Feature parameters
 sample_rate: 22050
 model_sample_rate: 24000
-infer_max_audio_length: 700
+max_audio_length: 700
+infer_max_audio_length: !ref <max_audio_length>
 debug_infer_max_audio_length: 10
 
 # Label encoder
@@ -190,7 +191,8 @@ model: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronRNNModel # yamlli
     gate_offset: !ref <gate_offset>
     audio_emb_size: !ref <audio_emb_size>
     audio_emb_freeze: !ref <audio_emb_freeze>
-    max_audio_length: !ref <infer_max_audio_length>
+    max_audio_length: !ref <max_audio_length>
+    infer_max_audio_length: !ref <infer_max_audio_length>
 
 modules:
     model: !ref <model>
