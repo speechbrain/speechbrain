@@ -751,6 +751,10 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
+    # Update precision to bf16 if the device is CPU and precision is fp16
+    if run_opts.get("device") == "cpu" and hparams.get("precision") == "fp16":
+        hparams["precision"] = "bf16"
+
     if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 

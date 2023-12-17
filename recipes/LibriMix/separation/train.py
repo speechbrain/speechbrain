@@ -581,6 +581,10 @@ if __name__ == "__main__":
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
 
+    # Update precision to bf16 if the device is CPU and precision is fp16
+    if run_opts.get("device") == "cpu" and hparams.get("precision") == "fp16":
+        hparams["precision"] = "bf16"
+
     # Data preparation
     from prepare_data import prepare_librimix
 
