@@ -122,6 +122,7 @@ class TokotronTransformerDecoder(nn.Module):
     show_inference_progress : bool, optional
         Whether to show inference progress in the console
     """
+
     def __init__(
         self,
         num_tokens=1024,
@@ -1139,12 +1140,7 @@ class TokotronRNNDecoder(nn.Module):
         )
         gate_out = self.gate(dec_out).squeeze(-1)
         return TokotronDecoderOutput(
-            lin_out_heads,
-            gate_out,
-            None,
-            dec_attn,
-            dec_attn,
-            {},
+            lin_out_heads, gate_out, None, dec_attn, dec_attn, {},
         )
 
     def forward_step(self, enc_out, tgt, src_length=None, context=None):
