@@ -47,12 +47,13 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training parameters
 number_of_epochs: 200
 batch_size: 16
-lr: 0.0002
+lr: 0.00002
 sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
 signal_length_s: 5
 
+use_wham: True
 wham_dataset: !new:wham_prepare.WHAMDataset
     data_dir: !ref <wham_audio_folder>
     target_length: !ref <signal_length_s>
@@ -79,7 +80,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    weight_decay: 0.000002
+    weight_decay: 0.0001
 
 lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
     factor: 0.5
@@ -106,7 +107,7 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     lin_blocks: 1
 
 # Interpretation hyperparams
-K: 200
+K: 100
 n_freq: 513
 
 # pre-processing
@@ -156,9 +157,9 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
-embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
-classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
-nmf_decoder_path: "results/fix0dB_nmf/1234/save/CKPT+2023-12-10+08-50-48+00/nmf_decoder.ckpt"
+embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
+classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
+nmf_decoder_path: "speechbrain/PIQ-ESC50/nmf_decoder.ckpt"
 use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

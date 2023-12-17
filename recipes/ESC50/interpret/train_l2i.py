@@ -333,8 +333,10 @@ class InterpreterESC50Brain(sb.core.Brain):
         """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
-        # augment batch with WHAM!
-        wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+
+        if self.hparams.use_wham:
+            # augment batch with WHAM!
+            wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
@@ -471,6 +473,12 @@ class InterpreterESC50Brain(sb.core.Brain):
                 classification_out.softmax(1),
                 maskout_preds,
             )
+
+        self.l2i_fid.append(
+            uttid,
+            theta_out,
+            classid
+        )
 
         self.acc_metric.append(
             uttid,
@@ -642,6 +650,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
     def on_stage_start(self, stage, epoch=None):
         self.inp_fid = MetricStats(metric=self.compute_fidelity)
+        self.l2i_fid = MetricStats(metric=self.accuracy_value)
         self.AD = MetricStats(metric=self.compute_AD)
         self.AI = MetricStats(metric=self.compute_AI)
         self.AG = MetricStats(metric=self.compute_AG)
@@ -661,6 +670,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.train_stats = {
                 "loss": self.train_loss,
                 "acc": self.acc_metric.summarize("average"),
+                "l2i_fid": self.l2i_fid.summarize("average"),
             }
 
         if stage == sb.Stage.VALID:
@@ -672,6 +682,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             valid_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
+                "l2i_fid": self.l2i_fid.summarize("average"),
                 "input_fid": current_fid,
                 # "faithfulness_median": torch.Tensor(
                 # self.faithfulness.scores
@@ -701,6 +712,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             test_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
+                "l2i_fid": self.l2i_fid.summarize("average"),
                 "input_fid": current_fid,
                 # "faithfulness_median": torch.Tensor(
                 # self.faithfulness.scores

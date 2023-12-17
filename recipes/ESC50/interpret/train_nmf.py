@@ -33,7 +33,8 @@ class NMFBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         # augment batch with WHAM!
-        wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+        if self.hparams.use_wham:
+            wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
         X_stft = self.hparams.compute_stft(wavs)
         X_stft_power = self.hparams.compute_stft_mag(X_stft)
