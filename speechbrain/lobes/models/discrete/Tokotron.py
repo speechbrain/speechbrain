@@ -1080,6 +1080,8 @@ class TokotronRNNDecoder(nn.Module):
         tgt = F.dropout(tgt, self.target_dropout, training=self.training)
 
         dec_out, dec_attn = self.dec(tgt, enc_out, src_length)
+        if dec_attn.dim() > 3:
+            dec_attn = dec_attn.squeeze(2)
         lin_out = self.out_proj(dec_out)
         batch_size, audio_max_len, _ = lin_out.shape
         lin_out_heads = lin_out.reshape(
