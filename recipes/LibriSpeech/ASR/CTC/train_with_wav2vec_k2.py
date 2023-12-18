@@ -127,7 +127,7 @@ class ASR(sb.Brain):
                 )
 
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
-                target_words = [wrd.split(" ") for wrd in texts]
+                target_words = [wrd.split(" ") for wrd in batch.wrd]
                 self.wer_metrics[k].append(ids, predicted_words, target_words)
                 self.cer_metrics[k].append(ids, predicted_words, target_words)
             # For TEST and VALID stages, the loss value is not exact.
