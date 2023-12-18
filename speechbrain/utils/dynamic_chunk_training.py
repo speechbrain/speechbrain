@@ -1,6 +1,10 @@
 """Configuration and utility classes for classes for Dynamic Chunk Training, as
 often used for the training of streaming-capable models in speech recognition.
 
+The definition of Dynamic Chunk Training is based on that of the following
+paper, though a lot of the literature refers to the same definition:
+https://arxiv.org/abs/2012.05481
+
 Authors
 * Sylvain de Langen 2023
 """
