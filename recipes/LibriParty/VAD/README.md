@@ -1,16 +1,15 @@
 # Voice Activity Detection (VAD) with LibriParty
-This folder contains scripts for training a VAD with the [LibriParty dataset](https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0).
+This folder contains scripts for training a VAD with the [LibriParty dataset](https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=1).
 LibriParty contains sequences of 1 minute compose of speech sentences (sampled from LibriSpeech) corrupted by noise and reverberation.
 Data augmentation with open_rir, musan, CommonLanguge is used as well. Make sure you download all the datasets before staring the experiment:
-- LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
+- LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=1
 - Musan: https://www.openslr.org/resources/17/musan.tar.gz
 - CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
 
 
 # Training a RNN-based VAD
 Run the following command to train the model:
-`python train.py hparams/train.yaml --data_folder=/localscratch/LibriParty/dataset/ --musan_folder=/localscratch/musan/ --commonlanguage_folder=/localscratch/common_voice_kpd`
-(change the paths with your local ones)
+`python train.py hparams/train.yaml --data_folder=your_path/LibriParty/dataset/ --musan_folder=your_path/musan/ --commonlanguage_folder=your_path/common_voice_kpd/`
 
 
 # Results

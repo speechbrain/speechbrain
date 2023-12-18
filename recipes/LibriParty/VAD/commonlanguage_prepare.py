@@ -52,7 +52,7 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
                 for line in filelist:
 
                     # Read file for duration/channel info
-                    filename = os.path.join(folder, line.split()[-1])
+                    filename = line
                     signal, rate = torchaudio.load(filename)
 
                     # Ensure only one channel

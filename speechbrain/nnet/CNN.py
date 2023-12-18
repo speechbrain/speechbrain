@@ -659,7 +659,7 @@ class Conv2d(nn.Module):
             )
 
         elif self.padding == "causal":
-            num_pad = (self.kernel_size[0] - 1) * self.dilation[1]
+            num_pad = (self.kernel_size[1] - 1) * self.dilation[1]
             x = F.pad(x, (0, 0, num_pad, 0))
 
         elif self.padding == "valid":
