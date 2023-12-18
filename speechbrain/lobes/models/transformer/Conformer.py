@@ -173,9 +173,6 @@ class ConvolutionModule(nn.Module):
             streaming function should be used at inference time.
             """
 
-        # split the input into chunks of size `chunk_size`, but for each chunk
-        # provide a left context for left chunk dependencies to be possible.
-
         if dynchunktrain_config is not None:
             # chances are chunking+causal is unintended; i don't know where it
             # may make sense, but if it does to you, feel free to implement it.
@@ -183,12 +180,23 @@ class ConvolutionModule(nn.Module):
                 not self.causal
             ), "Chunked convolution not supported with causal padding"
 
+            # in a causal convolution, which is not the case here, an output
+            # frame would never be able to depend on a input frame from any
+            # point in the future.
+
+            # but with the dynamic chunk convolution, we instead use a "normal"
+            # convolution but where, for any output frame, the future beyond the
+            # "current" chunk gets masked.
+            # see the paper linked in the documentation for details.
+
             chunk_size = dynchunktrain_config.chunk_size
             batch_size = x.shape[0]
             chunk_left_context = self.padding
 
             chunk_count = int(math.ceil(x.shape[1] / chunk_size))
 
+            # determine the amount of padding we need to insert at the right of
+            # the last chunk so that all chunks end up with the same size.
             if x.shape[1] % chunk_size != 0:
                 final_right_padding = chunk_size - (x.shape[1] % chunk_size)
             else:
@@ -202,7 +210,7 @@ class ConvolutionModule(nn.Module):
             ]
 
             # build views of chunks with left context (but no 0-padding yet)
-            # the left context effectively becomes "left padding", we do not
+            # the left context is treated as if it were left padding: we do not
             # want to keep any convolution results centered on the left context
             out = [
                 x[
@@ -214,6 +222,10 @@ class ConvolutionModule(nn.Module):
                 ]
                 for i in range(chunk_count)
             ]
+
+            # TODO: it should be possible to insert some padding to stack all
+            # the tensors at this level. currently, this is rather inefficient
+            # as this as to be called on every individual chunk.
 
             out = [self.layer_norm(chk) for chk in out]
             out = [chk.transpose(1, 2) for chk in out]
@@ -260,11 +272,10 @@ class ConvolutionModule(nn.Module):
 
             # let's keep backwards compat by pointing at the weights from the
             # already declared Conv1d.
-
-            # we do not need to edit the bottleneck as it is pointwise (i.e.
-            # time step by time step), thus, it doesn't need padding along the
-            # time dimension
-
+            # in the prior steps, we manually applied:
+            # - left padding (known left context + zeroes if necessary)
+            # - right padding (zeroes)
+            # hence we're fully disabling conv1d's own padding.
             # -> [batch_size * num_chunks, out_channels, chunk_size + rpad]
             out = F.conv1d(
                 x,
