@@ -36,7 +36,7 @@ class TransformerASRStreamingContext:
     """
 
 
-def make_asr_src_mask(
+def make_transformer_src_mask(
     src: torch.Tensor,
     causal: bool = False,
     dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
@@ -113,7 +113,7 @@ def make_asr_src_mask(
     return None
 
 
-def make_asr_masks(
+def make_transformer_src_tgt_masks(
     src,
     tgt=None,
     wav_len=None,
@@ -146,7 +146,7 @@ def make_asr_masks(
         src_key_padding_mask = ~length_to_mask(abs_len).bool()
 
     # mask out the source
-    src_mask = make_asr_src_mask(
+    src_mask = make_transformer_src_mask(
         src, causal=causal, dynchunktrain_config=dynchunktrain_config
     )
 
@@ -327,7 +327,7 @@ class TransformerASR(TransformerInterface):
             tgt_key_padding_mask,
             src_mask,
             tgt_mask,
-        ) = make_asr_masks(
+        ) = make_transformer_src_tgt_masks(
             src, tgt, wav_len, causal=self.causal, pad_idx=pad_idx
         )
 
@@ -438,7 +438,7 @@ class TransformerASR(TransformerInterface):
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
 
-        (src_key_padding_mask, _, src_mask, _,) = make_asr_masks(
+        (src_key_padding_mask, _, src_mask, _,) = make_transformer_src_tgt_masks(
             src,
             None,
             wav_len,
