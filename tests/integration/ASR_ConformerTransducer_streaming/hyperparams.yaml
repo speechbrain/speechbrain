@@ -261,7 +261,7 @@ Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
    nbest: 1
 
 opt_class: !name:torch.optim.Adadelta
-    lr: !ref <lr>
+   lr: !ref <lr>
 
 error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
