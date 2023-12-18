@@ -278,7 +278,7 @@ class ConvolutionModule(nn.Module):
             # hence we're fully disabling conv1d's own padding.
             # -> [batch_size * num_chunks, out_channels, chunk_size + rpad]
             out = F.conv1d(
-                x,
+                out,
                 weight=self.conv.weight,
                 bias=self.conv.bias,
                 stride=self.conv.stride,
