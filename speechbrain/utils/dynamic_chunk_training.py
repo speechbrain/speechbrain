@@ -46,7 +46,32 @@ class DynChunkTrainConfig:
 @dataclass
 class DynChunkTrainConfigRandomSampler:
     """Helper class to generate a DynChunkTrainConfig at runtime depending on the current
-    stage."""
+    stage.
+
+    Example
+    -------
+    >>> from speechbrain.core import Stage
+    >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+    >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfigRandomSampler
+    >>> # for the purpose of this example, we test a scenario with a 100%
+    >>> # chance of the (24, None) scenario to occur
+    >>> sampler = DynChunkTrainConfigRandomSampler(
+    ...     chunkwise_prob=1.0,
+    ...     chunk_size_min=24,
+    ...     chunk_size_max=24,
+    ...     limited_left_context_prob=0.0,
+    ...     left_context_chunks_min=16,
+    ...     left_context_chunks_max=16,
+    ...     test_config=DynChunkTrainConfig(32, 16),
+    ...     valid_config=None
+    ... )
+    >>> one_train_config = sampler(Stage.TRAIN)
+    >>> one_train_config
+    DynChunkTrainConfig(chunk_size=24, left_context_size=None)
+    >>> one_train_config.is_infinite_left_context()
+    True
+    >>> sampler(Stage.TEST)
+    DynChunkTrainConfig(chunk_size=32, left_context_size=16)"""
 
     chunkwise_prob: float
     """When sampling (during `Stage.TRAIN`), the probability that a finite chunk
