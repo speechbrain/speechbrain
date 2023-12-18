@@ -79,7 +79,7 @@ streaming: True  # controls all DCT & chunk size & left context mechanisms
 
 # Configuration for Dynamic Chunk Training.
 # In this model, a chunk is roughly equivalent to 40ms of audio.
-dct_config_sampler: !new:speechbrain.lobes.models.transformer.DCT.DCTConfigRandomSampler # yamllint disable-line rule:line-length
+dct_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DCTConfigRandomSampler # yamllint disable-line rule:line-length
    dct_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
    chunk_size_min: 8 # Minimum chunk size (if in a DCT batch)
    chunk_size_max: 32 # Maximum chunk size (if in a DCT batch)
@@ -88,7 +88,7 @@ dct_config_sampler: !new:speechbrain.lobes.models.transformer.DCT.DCTConfigRando
    left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
    # If you specify a valid/test config, you can optionally have evaluation be
    # done with a specific DynChunkTrain configuration.
-   # valid_config: !new:speechbrain.lobes.models.transformer.DCT.DCTConfig
+   # valid_config: !new:speechbrain.utils.dynamic_chunk_training.DCTConfig
    #    chunk_size: 24
    #    left_context_size: 16
    # test_config: ...

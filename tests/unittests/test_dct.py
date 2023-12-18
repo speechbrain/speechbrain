@@ -1,6 +1,6 @@
 def test_sampler():
     from speechbrain.core import Stage
-    from speechbrain.lobes.models.transformer.DCT import (
+    from speechbrain.utils.dynamic_chunk_training import (
         DCTConfig,
         DCTConfigRandomSampler,
     )
@@ -30,7 +30,7 @@ def test_sampler():
 
 
 def test_dct():
-    from speechbrain.lobes.models.transformer.DCT import DCTConfig
+    from speechbrain.utils.dynamic_chunk_training import DCTConfig
 
     assert DCTConfig(chunk_size=16).is_infinite_left_context()
     assert not DCTConfig(

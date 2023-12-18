@@ -20,7 +20,7 @@ from speechbrain.nnet.attention import (
     MultiheadAttention,
     PositionalwiseFeedForward,
 )
-from speechbrain.lobes.models.transformer.DCT import DCTConfig
+from speechbrain.utils.dynamic_chunk_training import DCTConfig
 from speechbrain.lobes.models.transformer.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.activations import Swish

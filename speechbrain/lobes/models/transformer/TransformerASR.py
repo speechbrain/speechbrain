@@ -18,7 +18,7 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.activations import Swish
 from speechbrain.dataio.dataio import length_to_mask
-from speechbrain.lobes.models.transformer.DCT import DCTConfig
+from speechbrain.utils.dynamic_chunk_training import DCTConfig
 
 
 @dataclass
