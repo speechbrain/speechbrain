@@ -227,11 +227,14 @@ class ConvolutionModule(nn.Module):
 
             # TODO: experiment around reflect padding, which is difficult
             # because small chunks have too little time steps to reflect from
+
+            # pad zeroes manually along the time axis
             out = [
                 F.pad(
                     out[i],
                     (
-                        # channel dims, we do not to pad these
+                        # last channel is the channel dim, so do not insert any
+                        # padding at the start or end of that dimension
                         0,
                         0,
                         # add missing left 0-padding if we lacked left context
