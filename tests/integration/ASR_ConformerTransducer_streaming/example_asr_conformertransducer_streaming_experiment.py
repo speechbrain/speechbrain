@@ -17,14 +17,14 @@ class ConformerTransducerBrain(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_with_bos, token_with_bos_lens = batch.phn_encoded_bos
+        phn_with_bos, phn_with_bos_lens = batch.phn_encoded_bos
 
         # Add waveform augmentation if specified.
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "wav_augment"):
                 wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
-                tokens_with_bos = self.hparams.wav_augment.replicate_labels(
-                    tokens_with_bos
+                phn_with_bos = self.hparams.wav_augment.replicate_labels(
+                    phn_with_bos
                 )
 
         feats = self.hparams.compute_features(wavs)
@@ -32,8 +32,8 @@ class ConformerTransducerBrain(sb.Brain):
         # Add feature augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-            tokens_with_bos = self.hparams.fea_augment.replicate_labels(
-                tokens_with_bos
+            phn_with_bos = self.hparams.fea_augment.replicate_labels(
+                phn_with_bos
             )
 
         current_epoch = self.hparams.epoch_counter.current
@@ -58,7 +58,7 @@ class ConformerTransducerBrain(sb.Brain):
         )
         x = self.modules.proj_enc(x)
 
-        e_in = self.modules.emb(tokens_with_bos)
+        e_in = self.modules.emb(phn_with_bos)
         e_in = torch.nn.functional.dropout(
             e_in,
             self.hparams.dec_emb_dropout,
@@ -102,52 +102,46 @@ class ConformerTransducerBrain(sb.Brain):
         """Computes the loss (Transducer+(CTC+NLL)) given predictions and targets."""
 
         ids = batch.id
-        tokens, token_lens = batch.phn_encoded
-        tokens_eos, token_eos_lens = batch.phn_encoded_eos
+        phn, phn_lens = batch.phn_encoded
+        phn_with_eos, phn_with_eos_lens = batch.phn_encoded_eos
 
         # Train returns 4 elements vs 3 for val and test
         if len(predictions) == 4:
             p_ctc, p_ce, logits_transducer, wav_lens = predictions
         else:
-            logits_transducer, wav_lens, predicted_tokens = predictions
+            logits_transducer, wav_lens, predicted_phn = predictions
 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "wav_augment"):
-                tokens = self.hparams.wav_augment.replicate_labels(tokens)
-                token_lens = self.hparams.wav_augment.replicate_labels(
-                    token_lens
+                phn = self.hparams.wav_augment.replicate_labels(phn)
+                phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+                phn_with_eos = self.hparams.wav_augment.replicate_labels(
+                    phn_with_eos
                 )
-                tokens_eos = self.hparams.wav_augment.replicate_labels(
-                    tokens_eos
-                )
-                token_eos_lens = self.hparams.wav_augment.replicate_labels(
-                    token_eos_lens
+                phn_with_eos_lens = self.hparams.wav_augment.replicate_labels(
+                    phn_with_eos_lens
                 )
             if hasattr(self.hparams, "fea_augment"):
-                tokens = self.hparams.fea_augment.replicate_labels(tokens)
-                token_lens = self.hparams.fea_augment.replicate_labels(
-                    token_lens
+                phn = self.hparams.fea_augment.replicate_labels(phn)
+                phn_lens = self.hparams.fea_augment.replicate_labels(phn_lens)
+                phn_with_eos = self.hparams.fea_augment.replicate_labels(
+                    phn_with_eos
                 )
-                tokens_eos = self.hparams.fea_augment.replicate_labels(
-                    tokens_eos
-                )
-                token_eos_lens = self.hparams.fea_augment.replicate_labels(
-                    token_eos_lens
+                phn_with_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    phn_with_eos_lens
                 )
 
         if stage == sb.Stage.TRAIN:
             CTC_loss = 0.0
             CE_loss = 0.0
             if p_ctc is not None:
-                CTC_loss = self.hparams.ctc_cost(
-                    p_ctc, tokens, wav_lens, token_lens
-                )
+                CTC_loss = self.hparams.ctc_cost(p_ctc, phn, wav_lens, phn_lens)
             if p_ce is not None:
                 CE_loss = self.hparams.ce_cost(
-                    p_ce, tokens_eos, length=token_eos_lens
+                    p_ce, phn_with_eos, length=phn_with_eos_lens
                 )
             loss_transducer = self.hparams.transducer_cost(
-                logits_transducer, tokens, wav_lens, token_lens
+                logits_transducer, phn, wav_lens, phn_lens
             )
             loss = (
                 self.hparams.ctc_weight * CTC_loss
@@ -157,12 +151,12 @@ class ConformerTransducerBrain(sb.Brain):
             )
         else:
             loss = self.hparams.transducer_cost(
-                logits_transducer, tokens, wav_lens, token_lens
+                logits_transducer, phn, wav_lens, phn_lens
             )
 
         if stage != sb.Stage.TRAIN:
             self.per_metrics.append(
-                ids, predicted_tokens, tokens, target_len=token_lens
+                ids, predicted_phn, phn, target_len=phn_lens
             )
 
         return loss
