@@ -1318,12 +1318,19 @@ class VAD(Pretrained):
             )
             large_chunk = large_chunk.to(self.device)
 
-            # Manage padding of the last small chunk
-            if last_chunk or large_chunk.shape[-1] < small_chunk_len:
-                padding = torch.zeros(
-                    1, small_chunk_len, device=large_chunk.device
+            # Padding big chunk to an integer multiple of small chunk's length
+            if large_chunk.shape[-1] < long_chunk_len:
+                small_chunks_num = large_chunk.shape[-1] // small_chunk_len + 1
+                large_chunk = F.pad(
+                    large_chunk,
+                    (
+                        0,
+                        small_chunk_len * small_chunks_num
+                        - large_chunk.shape[-1],
+                    ),
+                    "constant",
+                    0,
                 )
-                large_chunk = torch.cat([large_chunk, padding], dim=1)
 
             # Splitting the big chunk into smaller (overlapped) ones
             small_chunks = torch.nn.functional.unfold(
