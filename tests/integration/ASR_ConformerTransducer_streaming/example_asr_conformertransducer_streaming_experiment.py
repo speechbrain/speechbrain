@@ -161,7 +161,9 @@ class ConformerTransducerBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-            self.per_metrics.append(ids, predicted_tokens, tokens, target_len=token_lens)
+            self.per_metrics.append(
+                ids, predicted_tokens, tokens, target_len=token_lens
+            )
 
         return loss
 
@@ -235,7 +237,8 @@ def data_prep(data_folder, hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "phn_encoded", "phn_encoded_bos", "phn_encoded_eos"]
+        datasets,
+        ["id", "sig", "phn_encoded", "phn_encoded_bos", "phn_encoded_eos"],
     )
     return train_data, valid_data, label_encoder
 
