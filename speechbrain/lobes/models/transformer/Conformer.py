@@ -455,6 +455,23 @@ class ConformerEncoderLayer(nn.Module):
         context: ConformerEncoderLayerStreamingContext,
         pos_embs: torch.Tensor = None,
     ):
+        """Conformer layer streaming forward (typically for
+        DynamicChunkTraining-trained models), which is to be used at inference
+        time. Relies on a mutable context object as initialized by
+        `make_streaming_context` that should be used across chunks.  
+        Invoked by `ConformerEncoder.forward_streaming`.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor for this layer. Batching is supported as long as you
+            keep the context consistent.
+        context: ConformerEncoderStreamingContext
+            Mutable streaming context; the same object should be passed across
+            calls.
+        pos_embs: torch.Tensor, optional
+            Positional embeddings, if used."""
+
         orig_len = x.shape[-2]
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
@@ -649,10 +666,26 @@ class ConformerEncoder(nn.Module):
 
     def forward_streaming(
         self,
-        src,
+        src: torch.Tensor,
         context: ConformerEncoderStreamingContext,
         pos_embs: Optional[torch.Tensor] = None,
     ):
+        """Conformer streaming forward (typically for
+        DynamicChunkTraining-trained models), which is to be used at inference
+        time. Relies on a mutable context object as initialized by
+        `make_streaming_context` that should be used across chunks.
+
+        Arguments
+        ---------
+        src : torch.Tensor
+            Input tensor. Batching is supported as long as you keep the context
+            consistent.
+        context: ConformerEncoderStreamingContext
+            Mutable streaming context; the same object should be passed across
+            calls.
+        pos_embs: torch.Tensor, optional
+            Positional embeddings, if used."""
+
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
                 raise ValueError(
