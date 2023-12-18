@@ -209,56 +209,43 @@ class ConvolutionModule(nn.Module):
                 for i in range(chunk_count)
             ]
 
+            # stacking tensors instead of dealing with lists of chunks is much
+            # more efficient especially on GPUs.
+
+            # -> [batch_size, t, in_channels]
+            out = self.layer_norm(x)
+
+            # -> [batch_size, in_channels, t] for the CNN
+            out = out.transpose(1, 2)
+
+            out = self.bottleneck(out)
+
             # build views of chunks with left context (but no 0-padding yet)
             # the left context is treated as if it were left padding: we do not
             # want to keep any convolution results centered on the left context
             out = [
-                x[
+                out[
+                    :,
                     :,
                     (i * chunk_size - applied_left_context[i]) : (
                         (i + 1) * chunk_size
                     ),
-                    ...,
                 ]
                 for i in range(chunk_count)
             ]
 
-            # TODO: it should be possible to insert some padding to stack all
-            # the tensors at this level. currently, this is rather inefficient
-            # as this as to be called on every individual chunk.
-
-            out = [self.layer_norm(chk) for chk in out]
-            out = [chk.transpose(1, 2) for chk in out]
-            out = [self.bottleneck(chk) for chk in out]
-            out = [chk.transpose(1, 2) for chk in out]
-
-            # TODO: experiment around reflect padding, which is difficult
-            # because small chunks have too little time steps to reflect from
-
             # pad zeroes manually along the time axis
-            out = [
-                F.pad(
-                    out[i],
-                    (
-                        # last channel is the channel dim, so do not insert any
-                        # padding at the start or end of that dimension
-                        0,
-                        0,
-                        # add missing left 0-padding if we lacked left context
-                        chunk_left_context - applied_left_context[i],
-                        # add missing right 0-padding as we disable default padding
-                        # also add missing frames of the rightmost chunk
-                        self.padding
-                        + (final_right_padding if i == len(out) - 1 else 0),
-                    ),
-                    value=0,
-                )
-                for i in range(len(out))
-            ]
+            for i in range(len(out)):
+                # add missing left 0-padding if we lacked left context
+                left_pad = chunk_left_context - applied_left_context[i]
+                # add missing right 0-padding as we disable default padding
+                right_pad = self.padding
 
-            # we pack together chunks in a single tensor so that we can feed it
-            # to the convolution directly. this is much more performant than
-            # doing the same with lists.
+                # ensure that the last chunk is of the chunk size
+                if i == len(out) - 1:
+                    right_pad += final_right_padding
+
+                out[i] = F.pad(out[i], (left_pad, right_pad), value=0)
 
             # -> [batch_size, num_chunks, chunk_size + lc + rpad, in_channels]
             out = torch.stack(out, dim=1)
@@ -266,9 +253,8 @@ class ConvolutionModule(nn.Module):
             # -> [batch_size * num_chunks, chunk_size + lc + rpad, in_channels]
             out = torch.flatten(out, end_dim=1)
 
-            # for the convolution:
-            # -> [batch_size * num_chunks, in_channels, chunk_size + lc + rpad]
-            out = out.transpose(1, 2)
+            # TODO: experiment around reflect padding, which is difficult
+            # because small chunks have too little time steps to reflect from
 
             # let's keep backwards compat by pointing at the weights from the
             # already declared Conv1d.
@@ -276,7 +262,8 @@ class ConvolutionModule(nn.Module):
             # - left padding (known left context + zeroes if necessary)
             # - right padding (zeroes)
             # hence we're fully disabling conv1d's own padding.
-            # -> [batch_size * num_chunks, out_channels, chunk_size + rpad]
+
+            # -> [batch_size * num_chunks, out_channels, chunk_size]
             out = F.conv1d(
                 out,
                 weight=self.conv.weight,
@@ -287,7 +274,7 @@ class ConvolutionModule(nn.Module):
                 groups=self.conv.groups,
             )
 
-            # -> [batch_size * num_chunks, chunk_size + rpad, out_channels]
+            # -> [batch_size * num_chunks, chunk_size, out_channels]
             out = out.transpose(1, 2)
 
             out = self.after_conv(out)
