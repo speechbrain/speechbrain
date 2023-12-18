@@ -163,24 +163,21 @@ class ConvolutionModule(nn.Module):
                 not self.causal
             ), "Chunked convolution not supported with causal padding"
 
+            chunk_size = dynchunktrain_config.chunk_size
             batch_size = x.shape[0]
             chunk_left_context = self.padding
 
-            chunk_count = int(
-                math.ceil(x.shape[1] / dynchunktrain_config.chunk_size)
-            )
+            chunk_count = int(math.ceil(x.shape[1] / chunk_size))
 
-            if x.shape[1] % dynchunktrain_config.chunk_size != 0:
-                final_right_padding = dynchunktrain_config.chunk_size - (
-                    x.shape[1] % dynchunktrain_config.chunk_size
-                )
+            if x.shape[1] % chunk_size != 0:
+                final_right_padding = chunk_size - (x.shape[1] % chunk_size)
             else:
                 final_right_padding = 0
 
             # compute the left context that can and should be added, for each
             # chunk. for the first few chunks, we will need to add extra padding
             applied_left_context = [
-                min(chunk_left_context, i * dynchunktrain_config.chunk_size,)
+                min(chunk_left_context, i * chunk_size)
                 for i in range(chunk_count)
             ]
 
@@ -190,10 +187,9 @@ class ConvolutionModule(nn.Module):
             out = [
                 x[
                     :,
-                    (
-                        i * dynchunktrain_config.chunk_size
-                        - applied_left_context[i]
-                    ) : ((i + 1) * dynchunktrain_config.chunk_size),
+                    (i * chunk_size - applied_left_context[i]) : (
+                        (i + 1) * chunk_size
+                    ),
                     ...,
                 ]
                 for i in range(chunk_count)
