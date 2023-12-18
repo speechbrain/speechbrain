@@ -1,8 +1,10 @@
 """Conformer implementation.
 
 Authors
+-------
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
+* Sylvain de Langen 2023
 """
 
 from dataclasses import dataclass
