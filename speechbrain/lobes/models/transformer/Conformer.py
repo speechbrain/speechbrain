@@ -34,7 +34,7 @@ class ConformerEncoderLayerStreamingContext:
 
     The multi-head attention and Dynamic Chunk Convolution require to save some
     left context that gets inserted as left padding.
-    
+
     See :class:`.ConvolutionModule` documentation for further details.
     """
 
@@ -478,7 +478,7 @@ class ConformerEncoderLayer(nn.Module):
         """Conformer layer streaming forward (typically for
         DynamicChunkTraining-trained models), which is to be used at inference
         time. Relies on a mutable context object as initialized by
-        `make_streaming_context` that should be used across chunks.  
+        `make_streaming_context` that should be used across chunks.
         Invoked by `ConformerEncoder.forward_streaming`.
 
         Arguments
