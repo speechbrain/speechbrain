@@ -11,16 +11,16 @@ from typing import Optional
 
 import torch
 
-# NOTE: this configuration object is intended to be relatively specific to DCT;
-# if you want to implement a different similar type of chunking different from
-# DCT you should consider using a different object.
+# NOTE: this configuration object is intended to be relatively specific to
+# Dynamic Chunk Training; if you want to implement a different similar type of
+# chunking different from that, you should consider using a different object.
 @dataclass
-class DCTConfig:
+class DynChunkTrainConfig:
     """Dynamic Chunk Training configuration object for use with transformers,
     often in ASR for streaming.
 
     This object may be used both to configure masking at training time and for
-    run-time configuration of DCT-ready models."""
+    run-time configuration of DynChunkTrain-ready models."""
 
     chunk_size: int
     """Size in frames of a single chunk, always `>0`.
@@ -40,11 +40,11 @@ class DCTConfig:
 
 
 @dataclass
-class DCTConfigRandomSampler:
-    """Helper class to generate a DCTConfig at runtime depending on the current
+class DynChunkTrainConfigRandomSampler:
+    """Helper class to generate a DynChunkTrainConfig at runtime depending on the current
     stage."""
 
-    dct_prob: float
+    chunkwise_prob: float
     """When sampling (during `Stage.TRAIN`), the probability that a finite chunk
     size will be used.
     In the other case, any chunk can attend to the full past and future
@@ -71,11 +71,11 @@ class DCTConfigRandomSampler:
     """When sampling a random left context size, the maximum number of left
     context chunks that can be picked."""
 
-    test_config: Optional[DCTConfig] = None
+    test_config: Optional[DynChunkTrainConfig] = None
     """The configuration that should be used for `Stage.TEST`.
     When `None`, evaluation is done with full context (i.e. non-streaming)."""
 
-    valid_config: Optional[DCTConfig] = None
+    valid_config: Optional[DynChunkTrainConfig] = None
     """The configuration that should be used for `Stage.VALID`.
     When `None`, evaluation is done with full context (i.e. non-streaming)."""
 
@@ -89,24 +89,25 @@ class DCTConfigRandomSampler:
             Probability (0..1) to return True (False otherwise)."""
         return torch.rand((1,)).item() < prob
 
-    def __call__(self, stage: "sb.core.Stage") -> DCTConfig:
-        """Samples a random (or not) DCT configuration depending on the current
-        stage.
+    def __call__(self, stage: "sb.core.Stage") -> DynChunkTrainConfig:
+        """In training stage, samples a random DynChunkTrain configuration.
+        During validation or testing, returns the relevant configuration.
 
         Arguments
         ---------
         stage : speechbrain.core.Stage
             Current stage of training or evaluation.
-            In training mode, a random DCTConfig will be sampled according to
-            the specified probabilities and ranges.
-            In evaluation, the relevant DCTConfig attribute will be picked.
+            In training mode, a random DynChunkTrainConfig will be sampled
+            according to the specified probabilities and ranges.
+            During evaluation, the relevant DynChunkTrainConfig attribute will
+            be picked.
         """
         if stage == sb.core.Stage.TRAIN:
             # When training for streaming, for each batch, we have a
             # `dynamic_chunk_prob` probability of sampling a chunk size
             # between `dynamic_chunk_min` and `_max`, otherwise output
             # frames can see anywhere in the future.
-            if self._sample_bool(self.dct_prob):
+            if self._sample_bool(self.chunkwise_prob):
                 chunk_size = torch.randint(
                     self.chunk_size_min, self.chunk_size_max + 1, (1,),
                 ).item()
@@ -120,7 +121,7 @@ class DCTConfigRandomSampler:
                 else:
                     left_context_chunks = None
 
-                return DCTConfig(chunk_size, left_context_chunks)
+                return DynChunkTrainConfig(chunk_size, left_context_chunks)
             return None
         elif stage == sb.core.Stage.TEST:
             return self.test_config

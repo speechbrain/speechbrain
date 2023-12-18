@@ -18,15 +18,16 @@ from speechbrain.lobes.models.transformer.Transformer import (
 )
 from speechbrain.nnet.activations import Swish
 from speechbrain.dataio.dataio import length_to_mask
-from speechbrain.utils.dynamic_chunk_training import DCTConfig
+from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 
 
 @dataclass
 class TransformerASRStreamingContext:
     """Streaming metadata and state for a `TransformerASR` instance."""
 
-    dct_config: DCTConfig
-    """DCT configuration holding chunk size and context size information."""
+    dynchunktrain_config: DynChunkTrainConfig
+    """Dynamic Chunk Training configuration holding chunk size and context size
+    information."""
 
     encoder_context: Any
     """Opaque encoder context information. It is constructed by the encoder's
@@ -38,7 +39,7 @@ class TransformerASRStreamingContext:
 def make_asr_src_mask(
     src: torch.Tensor,
     causal: bool = False,
-    dct_config: Optional[DCTConfig] = None,
+    dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
 ) -> Optional[torch.Tensor]:
     """Prepare the source transformer mask that restricts which frames can
     attend to which frames depending on causal or other simple restricted
@@ -55,15 +56,15 @@ def make_asr_src_mask(
         Whether strict causality shall be used. Frames will not be able to
         attend to any future frame.
 
-    dct_config: DCTConfig, optional
+    dynchunktrain_config: DynChunkTrainConfig, optional
         Dynamic Chunk Training configuration. This implements a simple form of
-        chunkwise attention. Incompatible with `causal`. See `DCT`"""
+        chunkwise attention. Incompatible with `causal`."""
 
     if causal:
-        assert dct_config is None
+        assert dynchunktrain_config is None
         return get_lookahead_mask(src)
 
-    if dct_config is not None:
+    if dynchunktrain_config is not None:
         # init a mask that masks nothing by default
         # 0 == no mask, 1 == mask
         src_mask = torch.zeros(
@@ -84,19 +85,20 @@ def make_asr_src_mask(
             # for 0..7  -> mask 8..
             # for 8..15 -> mask 16..
             # etc.
-            next_chunk_index = (t // dct_config.chunk_size) + 1
-            visible_range = next_chunk_index * dct_config.chunk_size
+            next_chunk_index = (t // dynchunktrain_config.chunk_size) + 1
+            visible_range = next_chunk_index * dynchunktrain_config.chunk_size
             src_mask[t, visible_range:] = True
 
         # mask the past at the left of each chunk (accounting for left context)
         # only relevant if using left context
-        if not dct_config.is_infinite_left_context():
+        if not dynchunktrain_config.is_infinite_left_context():
             for t in range(timesteps):
-                chunk_index = t // dct_config.chunk_size
-                chunk_first_t = chunk_index * dct_config.chunk_size
+                chunk_index = t // dynchunktrain_config.chunk_size
+                chunk_first_t = chunk_index * dynchunktrain_config.chunk_size
 
                 left_context_frames = (
-                    dct_config.left_context_size * dct_config.chunk_size
+                    dynchunktrain_config.left_context_size
+                    * dynchunktrain_config.chunk_size
                 )
 
                 frame_remaining_context = max(
@@ -117,7 +119,7 @@ def make_asr_masks(
     wav_len=None,
     pad_idx=0,
     causal: bool = False,
-    dct_config: Optional[DCTConfig] = None,
+    dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
 ):
     """This function generates masks for training the transformer model,
     opiniated for an ASR context with encoding masks and, optionally, decoding
@@ -133,7 +135,7 @@ def make_asr_masks(
         The index for <pad> token (default=0).
     causal: bool
         Whether strict causality shall be used. See `make_asr_src_mask`
-    dct_config: DCTConfig, optional
+    dynchunktrain_config: DynChunkTrainConfig, optional
         Dynamic Chunk Training configuration. See `make_asr_src_mask`
     """
     src_key_padding_mask = None
@@ -144,7 +146,9 @@ def make_asr_masks(
         src_key_padding_mask = ~length_to_mask(abs_len).bool()
 
     # mask out the source
-    src_mask = make_asr_src_mask(src, causal=causal, dct_config=dct_config)
+    src_mask = make_asr_src_mask(
+        src, causal=causal, dynchunktrain_config=dynchunktrain_config
+    )
 
     # If no decoder in the transformer...
     if tgt is not None:
@@ -417,7 +421,7 @@ class TransformerASR(TransformerInterface):
         src,
         wav_len=None,
         pad_idx=0,
-        dct_config: Optional[DCTConfig] = None,
+        dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
     ):
         """
         Encoder forward pass
@@ -440,7 +444,7 @@ class TransformerASR(TransformerInterface):
             wav_len,
             pad_idx=pad_idx,
             causal=self.causal,
-            dct_config=dct_config,
+            dynchunktrain_config=dynchunktrain_config,
         )
 
         src = self.custom_src_module(src)
@@ -457,7 +461,7 @@ class TransformerASR(TransformerInterface):
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
             pos_embs=pos_embs_source,
-            dct_config=dct_config,
+            dynchunktrain_config=dynchunktrain_config,
         )
 
         return encoder_out
@@ -520,13 +524,15 @@ class TransformerASR(TransformerInterface):
         )
         return encoder_out
 
-    def make_streaming_context(self, dct_config: DCTConfig, encoder_kwargs={}):
+    def make_streaming_context(
+        self, dynchunktrain_config: DynChunkTrainConfig, encoder_kwargs={}
+    ):
         """Creates a blank streaming context for this transformer and its
         encoder.
 
         Arguments
         ---------
-        dct_config : DCTConfig
+        dynchunktrain_config : DynChunkTrainConfig
             Runtime chunkwise attention configuration.
 
         encoder_kwargs : dict
@@ -535,7 +541,7 @@ class TransformerASR(TransformerInterface):
             encoder.
         """
         return TransformerASRStreamingContext(
-            dct_config=dct_config,
+            dynchunktrain_config=dynchunktrain_config,
             encoder_context=self.encoder.make_streaming_context(
                 **encoder_kwargs,
             ),

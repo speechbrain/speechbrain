@@ -72,15 +72,20 @@ class ASR(sb.Brain):
         # Old models may not have the streaming hparam, we don't break them in
         # any other way so just check for its presence
         if hasattr(self.hparams, "streaming") and self.hparams.streaming:
-            dct_config = self.hparams.dct_config_sampler(stage)
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
+                stage
+            )
         else:
-            dct_config = None
+            dynchunktrain_config = None
 
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         src = self.modules.CNN(feats)
         x = self.modules.enc(
-            src, wav_lens, pad_idx=self.hparams.pad_index, dct_config=dct_config
+            src,
+            wav_lens,
+            pad_idx=self.hparams.pad_index,
+            dynchunktrain_config=dynchunktrain_config,
         )
         x = self.modules.proj_enc(x)
 

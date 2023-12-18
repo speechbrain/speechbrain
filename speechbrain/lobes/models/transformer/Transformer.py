@@ -530,7 +530,7 @@ class TransformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
-        dct_config=None,
+        dynchunktrain_config=None,
     ):
         """
         Arguments
@@ -542,7 +542,9 @@ class TransformerEncoder(nn.Module):
         src_key_padding_mask : tensor
             The mask for the src keys per batch (optional).
         """
-        assert dct_config is None, "DCT unsupported for this encoder"
+        assert (
+            dynchunktrain_config is None
+        ), "Dynamic Chunk Training unsupported for this encoder"
 
         output = src
         if self.layerdrop_prob > 0.0:

@@ -75,20 +75,20 @@ win_length: 32
 # At least for the current architecture on LibriSpeech, we found out that
 # non-streaming accuracy is very similar between `streaming: True` and
 # `streaming: False`.
-streaming: True  # controls all DCT & chunk size & left context mechanisms
+streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
 
 # Configuration for Dynamic Chunk Training.
 # In this model, a chunk is roughly equivalent to 40ms of audio.
-dct_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DCTConfigRandomSampler # yamllint disable-line rule:line-length
-   dct_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
-   chunk_size_min: 8 # Minimum chunk size (if in a DCT batch)
-   chunk_size_max: 32 # Maximum chunk size (if in a DCT batch)
-   limited_left_context_prob: 0.75 # If in a DCT batch, the probability during a batch to restrict left context to a random number of chunks
+dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
+   chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
+   chunk_size_min: 8 # Minimum chunk size (if in a DynChunkTrain batch)
+   chunk_size_max: 32 # Maximum chunk size (if in a DynChunkTrain batch)
+   limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
    left_context_chunks_min: 2 # Minimum left context size (in # of chunks)
    left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
    # If you specify a valid/test config, you can optionally have evaluation be
    # done with a specific DynChunkTrain configuration.
-   # valid_config: !new:speechbrain.utils.dynamic_chunk_training.DCTConfig
+   # valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
    #    chunk_size: 24
    #    left_context_size: 16
    # test_config: ...

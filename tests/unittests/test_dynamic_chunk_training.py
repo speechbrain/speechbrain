@@ -1,17 +1,17 @@
-def test_sampler():
+def test_dynchunktrain_sampler():
     from speechbrain.core import Stage
     from speechbrain.utils.dynamic_chunk_training import (
-        DCTConfig,
-        DCTConfigRandomSampler,
+        DynChunkTrainConfig,
+        DynChunkTrainConfigRandomSampler,
     )
 
     # sanity check and cover for the random smapler
 
-    valid_cfg = DCTConfig(16, 32)
-    test_cfg = DCTConfig(16, 32)
+    valid_cfg = DynChunkTrainConfig(16, 32)
+    test_cfg = DynChunkTrainConfig(16, 32)
 
-    sampler = DCTConfigRandomSampler(
-        dct_prob=1.0,
+    sampler = DynChunkTrainConfigRandomSampler(
+        chunkwise_prob=1.0,
         chunk_size_min=8,
         chunk_size_max=8,
         limited_left_context_prob=1.0,
@@ -29,10 +29,10 @@ def test_sampler():
     assert sampler(Stage.TEST) == test_cfg
 
 
-def test_dct():
-    from speechbrain.utils.dynamic_chunk_training import DCTConfig
+def test_dynchunktrain():
+    from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 
-    assert DCTConfig(chunk_size=16).is_infinite_left_context()
-    assert not DCTConfig(
+    assert DynChunkTrainConfig(chunk_size=16).is_infinite_left_context()
+    assert not DynChunkTrainConfig(
         chunk_size=16, left_context_size=4
     ).is_infinite_left_context()

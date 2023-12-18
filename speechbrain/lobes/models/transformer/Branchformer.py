@@ -320,7 +320,7 @@ class BranchformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
-        dct_config=None,
+        dynchunktrain_config=None,
     ):
         """
         Arguments
@@ -336,7 +336,9 @@ class BranchformerEncoder(nn.Module):
             If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
             where S is the sequence length, and E is the embedding dimension.
         """
-        assert dct_config is None, "DCT unsupported for this encoder"
+        assert (
+            dynchunktrain_config is None
+        ), "Dynamic Chunk Training unsupported for this encoder"
 
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
