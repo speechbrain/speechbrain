@@ -438,7 +438,12 @@ class TransformerASR(TransformerInterface):
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
 
-        (src_key_padding_mask, _, src_mask, _,) = make_transformer_src_tgt_masks(
+        (
+            src_key_padding_mask,
+            _,
+            src_mask,
+            _,
+        ) = make_transformer_src_tgt_masks(
             src,
             None,
             wav_len,
