@@ -142,28 +142,6 @@ class ConvolutionModule(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def _do_conv(self, x, inhibit_padding: bool):
-        if not inhibit_padding:
-            out = self.conv(x)
-        else:
-            # let's keep backwards compat by pointing at the weights from the
-            # already declared Conv1d.
-
-            # we do not need to edit the bottleneck as it is pointwise (i.e.
-            # time step by time step), thus, it doesn't need padding along the
-            # time dimension
-            out = F.conv1d(
-                x,
-                weight=self.conv.weight,
-                bias=self.conv.bias,
-                stride=self.conv.stride,
-                padding=0,
-                dilation=self.conv.dilation,
-                groups=self.conv.groups,
-            )
-
-        return out
-
     def forward(
         self,
         x,
@@ -212,9 +190,10 @@ class ConvolutionModule(nn.Module):
             out = [
                 x[
                     :,
-                    i * dynchunktrain_config.chunk_size
-                    - applied_left_context[i] : (i + 1)
-                    * dynchunktrain_config.chunk_size,
+                    (
+                        i * dynchunktrain_config.chunk_size
+                        - applied_left_context[i]
+                    ) : ((i + 1) * dynchunktrain_config.chunk_size),
                     ...,
                 ]
                 for i in range(chunk_count)
@@ -263,8 +242,23 @@ class ConvolutionModule(nn.Module):
             # -> [batch_size * num_chunks, in_channels, chunk_size + lc + rpad]
             out = out.transpose(1, 2)
 
+            # let's keep backwards compat by pointing at the weights from the
+            # already declared Conv1d.
+
+            # we do not need to edit the bottleneck as it is pointwise (i.e.
+            # time step by time step), thus, it doesn't need padding along the
+            # time dimension
+
             # -> [batch_size * num_chunks, out_channels, chunk_size + rpad]
-            out = self._do_conv(out, inhibit_padding=True)
+            out = F.conv1d(
+                x,
+                weight=self.conv.weight,
+                bias=self.conv.bias,
+                stride=self.conv.stride,
+                padding=0,
+                dilation=self.conv.dilation,
+                groups=self.conv.groups,
+            )
 
             # -> [batch_size * num_chunks, chunk_size + rpad, out_channels]
             out = out.transpose(1, 2)
@@ -284,7 +278,7 @@ class ConvolutionModule(nn.Module):
             out = self.layer_norm(x)
             out = out.transpose(1, 2)
             out = self.bottleneck(out)
-            out = self._do_conv(out, inhibit_padding=False)
+            out = self.conv(out)
 
             if self.causal:
                 # chomp
