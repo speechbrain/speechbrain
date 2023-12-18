@@ -483,6 +483,45 @@ class TransformerASR(TransformerInterface):
         Returns
         -------
         Encoder output for this chunk.
+
+        Example
+        -------
+        >>> import torch
+        >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+        >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+        >>> net = TransformerASR(
+        ...     tgt_vocab=100,
+        ...     input_size=64,
+        ...     d_model=64,
+        ...     nhead=8,
+        ...     num_encoder_layers=1,
+        ...     num_decoder_layers=0,
+        ...     d_ffn=128,
+        ...     attention_type="RelPosMHAXL",
+        ...     positional_encoding=None,
+        ...     encoder_module="conformer",
+        ...     normalize_before=True,
+        ...     causal=False,
+        ... )
+        >>> ctx = net.make_streaming_context(
+        ...     DynChunkTrainConfig(16, 24),
+        ...     encoder_kwargs={"mha_left_context_size": 24},
+        ... )
+        >>> src1 = torch.rand([8, 16, 64])
+        >>> src2 = torch.rand([8, 16, 64])
+        >>> out1 = net.encode_streaming(src1, ctx)
+        >>> out1.shape
+        torch.Size([8, 16, 64])
+        >>> ctx.encoder_context.layers[0].mha_left_context.shape
+        torch.Size([8, 16, 64])
+        >>> out2 = net.encode_streaming(src2, ctx)
+        >>> out2.shape
+        torch.Size([8, 16, 64])
+        >>> ctx.encoder_context.layers[0].mha_left_context.shape
+        torch.Size([8, 24, 64])
+        >>> combined_out = torch.concat((out1, out2), dim=1)
+        >>> combined_out.shape
+        torch.Size([8, 32, 64])
         """
 
         if src.dim() == 4:
