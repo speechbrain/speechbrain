@@ -31,7 +31,10 @@ class ConformerEncoderLayerStreamingContext:
     """Streaming metadata and state for a `ConformerEncoderLayer`.
 
     The multi-head attention and Dynamic Chunk Convolution require to save some
-    left context that gets inserted as left padding."""
+    left context that gets inserted as left padding.
+    
+    See :class:`.ConvolutionModule` documentation for further details.
+    """
 
     mha_left_context_size: int
     """For this layer, specifies how many frames of inputs should be saved.
@@ -144,15 +147,30 @@ class ConvolutionModule(nn.Module):
 
     def forward(
         self,
-        x,
-        mask=None,
+        x: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
         dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
     ):
-        """ Processes the input tensor x and returns the output an output tensor"""
+        """Applies the convolution to an input tensor `x`.
 
-        # ref: Dynamic chunk convolution for unified streaming and non-streaming
-        # conformer ASR
-        # https://www.amazon.science/publications/dynamic-chunk-convolution-for-unified-streaming-and-non-streaming-conformer-asr
+        Arguments
+        ---------
+        x: torch.Tensor
+            Input tensor to the convolution module.
+        mask: torch.Tensor, optional
+            Mask to be applied over the output of the convolution using
+            `masked_fill_`, if specified.
+        dynchunktrain_config: DynChunkTrainConfig, optional
+            If specified, makes the module support Dynamic Chunk Convolution
+            (DCConv) as implemented by
+            `Dynamic Chunk Convolution for Unified Streaming and Non-Streaming Conformer ASR <https://www.amazon.science/publications/dynamic-chunk-convolution-for-unified-streaming-and-non-streaming-conformer-asr>`_.
+            This allows masking future frames while preserving better accuracy
+            than a fully causal convolution, at a small speed cost.
+            This should only be used for training (or, if you know what you're
+            doing, for masked evaluation at inference time), as the forward
+            streaming function should be used at inference time.
+            """
+
         # split the input into chunks of size `chunk_size`, but for each chunk
         # provide a left context for left chunk dependencies to be possible.
 
