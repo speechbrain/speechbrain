@@ -58,7 +58,6 @@ class ASR(sb.Brain):
                     tokens_with_bos
                 )
 
-        # Forward pass
         feats = self.hparams.compute_features(wavs)
 
         # Add feature augmentation if specified.
@@ -69,10 +68,25 @@ class ASR(sb.Brain):
             )
 
         current_epoch = self.hparams.epoch_counter.current
+
+        # Old models may not have the streaming hparam, we don't break them in
+        # any other way so just check for its presence
+        if hasattr(self.hparams, "streaming") and self.hparams.streaming:
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
+                stage
+            )
+        else:
+            dynchunktrain_config = None
+
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         src = self.modules.CNN(feats)
-        x = self.modules.enc(src, wav_lens, pad_idx=self.hparams.pad_index)
+        x = self.modules.enc(
+            src,
+            wav_lens,
+            pad_idx=self.hparams.pad_index,
+            dynchunktrain_config=dynchunktrain_config,
+        )
         x = self.modules.proj_enc(x)
 
         e_in = self.modules.emb(tokens_with_bos)
@@ -270,7 +284,7 @@ class ASR(sb.Brain):
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
+            max_key=max_key, min_key=min_key,
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
             ckpts, recoverable_name="model"
