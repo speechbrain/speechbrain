@@ -458,3 +458,30 @@ class WeightedEncoderWrapper(nn.Module):
             weighted_feats += hidden_states[i] * norm_weights[i]
         # print(norm_weights)
         return weighted_feats
+
+
+
+class ComputeFeaturesWrapper(nn.Module):
+
+    def __init__(
+            self, 
+            compute_features,
+            normalize,
+            model,
+            *args, 
+            **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.compute_features = compute_features
+        self.normalize = normalize
+        self.cnn = model[0]
+        self.wrapper = model[1]
+        self.weights = self.wrapper.weights
+
+
+    def forward(self, x, wav_lens=None, pad_idx=0):
+        """ Processes the input tensor x and returns an output tensor."""
+        x = self.compute_features(x)
+        x = self.normalize(x, wav_lens, epoch=10) # don't change normalizer anymore
+        x = self.cnn(x)
+        return self.wrapper(x, wav_lens, pad_idx)

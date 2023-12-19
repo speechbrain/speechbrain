@@ -309,7 +309,26 @@ class WeightedEncoderWrapper(nn.Module):
             weighted_feats += hidden_states[i] * norm_weights[i]
         # print(norm_weights)
         return weighted_feats
+    
 
+class ComputeFeaturesWrapper(nn.Module):
+
+    def __init__(
+            self, 
+            model,
+            *args, 
+            **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.extractor = model[0]
+        self.wrapper = model[1]
+        self.weights = self.wrapper.weights
+
+
+    def forward(self, x, wav_lens=None):
+        """ Processes the input tensor x and returns an output tensor."""
+        x = self.extractor(x)
+        return self.wrapper(x, wav_lens)
 
 def compute_mask(shape, sample_lens, mask_prob, mask_length):
     """ This creates the boolean mask for a target shape which respects
