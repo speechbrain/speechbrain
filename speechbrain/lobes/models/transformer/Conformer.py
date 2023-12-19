@@ -197,9 +197,6 @@ class ConvolutionModule(nn.Module):
 
             chunk_size = dynchunktrain_config.chunk_size
             batch_size = x.shape[0]
-            chunk_left_context = self.padding
-
-            chunk_count = int(math.ceil(x.shape[1] / chunk_size))
 
             # determine the amount of padding we need to insert at the right of
             # the last chunk so that all chunks end up with the same size.
