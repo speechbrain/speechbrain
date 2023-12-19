@@ -244,11 +244,7 @@ class ConvolutionModule(nn.Module):
             #   could not be evenly split in `chunk_size` chunks
 
             # -> [batch_size, in_channels, num_chunks, lc+chunk_size]
-            out = out.unfold(
-                2,
-                size=chunk_size + self.padding,
-                step=chunk_size
-            )
+            out = out.unfold(2, size=chunk_size + self.padding, step=chunk_size)
 
             # as we manually disable padding in the convolution below, we insert
             # right 0-padding to the chunks, e.g. reusing the above example:
