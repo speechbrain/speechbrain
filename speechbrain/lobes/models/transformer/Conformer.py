@@ -109,7 +109,9 @@ class ConvolutionModule(nn.Module):
     ):
         super().__init__()
 
+        self.kernel_size = kernel_size
         self.causal = causal
+        self.dilation = dilation
 
         if self.causal:
             self.padding = (kernel_size - 1) * 2 ** (dilation - 1)
@@ -180,6 +182,10 @@ class ConvolutionModule(nn.Module):
                 not self.causal
             ), "Chunked convolution not supported with causal padding"
 
+            assert (
+                self.dilation == 1
+            ), "Current DynChunkTrain logic does not support dilation != 1"
+
             # in a causal convolution, which is not the case here, an output
             # frame would never be able to depend on a input frame from any
             # point in the future.
@@ -209,59 +215,78 @@ class ConvolutionModule(nn.Module):
                 for i in range(chunk_count)
             ]
 
-            # stacking tensors instead of dealing with lists of chunks is much
-            # more efficient especially on GPUs.
-
             # -> [batch_size, t, in_channels]
             out = self.layer_norm(x)
 
             # -> [batch_size, in_channels, t] for the CNN
             out = out.transpose(1, 2)
 
+            # -> [batch_size, in_channels, t] (pointwise)
             out = self.bottleneck(out)
 
-            # build views of chunks with left context (but no 0-padding yet)
-            # the left context is treated as if it were left padding: we do not
-            # want to keep any convolution results centered on the left context
-            out = [
-                out[
-                    :,
-                    :,
-                    (i * chunk_size - applied_left_context[i]) : (
-                        (i + 1) * chunk_size
-                    ),
-                ]
-                for i in range(chunk_count)
-            ]
+            # -> [batch_size, in_channels, lc+t+final_right_padding]
+            out = F.pad(out, (self.padding, final_right_padding), value=0)
 
-            # pad zeroes manually along the time axis
-            for i in range(len(out)):
-                # add missing left 0-padding if we lacked left context
-                left_pad = chunk_left_context - applied_left_context[i]
-                # add missing right 0-padding as we disable default padding
-                right_pad = self.padding
+            # now, make chunks with left context.
+            # as a recap to what the above padding and this unfold do, consider
+            # each a/b/c letter represents a frame as part of chunks a, b, c.
+            # consider a chunk size of 4 and a kernel size of 5 (padding=2):
+            #
+            # input seq: 00aaaabbbbcc00
+            # chunk #1:  00aaaa
+            # chunk #2:      aabbbb
+            # chunk #3:          bbcc00
+            #
+            # a few remarks here:
+            # - the left padding gets inserted early so that the unfold logic
+            #   works trivially
+            # - the right 0-padding got inserted as the number of time steps
+            #   could not be evenly split in `chunk_size` chunks
 
-                # ensure that the last chunk is of the chunk size
-                if i == len(out) - 1:
-                    right_pad += final_right_padding
+            # -> [batch_size, in_channels, num_chunks, lc+chunk_size]
+            out = out.unfold(
+                2,
+                size=chunk_size + self.padding,
+                step=chunk_size
+            )
 
-                out[i] = F.pad(out[i], (left_pad, right_pad), value=0)
+            # as we manually disable padding in the convolution below, we insert
+            # right 0-padding to the chunks, e.g. reusing the above example:
+            #
+            # chunk #1:  00aaaa00
+            # chunk #2:      aabbbb00
+            # chunk #3:          bbcc0000
 
-            # -> [batch_size, num_chunks, chunk_size + lc + rpad, in_channels]
-            out = torch.stack(out, dim=1)
+            # -> [batch_size, in_channels, num_chunks, lc+chunk_size+rpad]
+            out = F.pad(out, (0, self.padding), value=0)
 
-            # -> [batch_size * num_chunks, chunk_size + lc + rpad, in_channels]
-            out = torch.flatten(out, end_dim=1)
+            # the transpose+flatten effectively flattens chunks into the batch
+            # dimension to be processed into the time-wise convolution. the
+            # chunks will later on be unflattened.
+
+            # -> [batch_size, num_chunks, in_channels, lc+chunk_size+rpad]
+            out = out.transpose(1, 2)
+
+            # -> [batch_size * num_chunks, in_channels, lc+chunk_size+rpad]
+            out = out.flatten(start_dim=0, end_dim=1)
 
             # TODO: experiment around reflect padding, which is difficult
             # because small chunks have too little time steps to reflect from
 
             # let's keep backwards compat by pointing at the weights from the
             # already declared Conv1d.
-            # in the prior steps, we manually applied:
-            # - left padding (known left context + zeroes if necessary)
-            # - right padding (zeroes)
-            # hence we're fully disabling conv1d's own padding.
+            #
+            # still reusing the above example, the convolution will be applied,
+            # with the padding truncated on both ends. the following example
+            # shows the letter corresponding to the input frame on which the
+            # convolution was centered.
+            #
+            # as you can see, the sum of lengths of all chunks is equal to our
+            # input sequence length + `final_right_padding`.
+            #
+            # chunk #1:  aaaa
+            # chunk #2:      bbbb
+            # chunk #3:          cc00
 
             # -> [batch_size * num_chunks, out_channels, chunk_size]
             out = F.conv1d(
@@ -282,10 +307,10 @@ class ConvolutionModule(nn.Module):
             # -> [batch_size, num_chunks, chunk_size, out_channels]
             out = torch.unflatten(out, dim=0, sizes=(batch_size, -1))
 
-            # -> [batch_size, time_steps + extra right padding, out_channels]
+            # -> [batch_size, t + final_right_padding, out_channels]
             out = torch.flatten(out, start_dim=1, end_dim=2)
 
-            # -> [batch_size, time_steps, out_channels]
+            # -> [batch_size, t, out_channels]
             if final_right_padding > 0:
                 out = out[:, :-final_right_padding, :]
         else:
