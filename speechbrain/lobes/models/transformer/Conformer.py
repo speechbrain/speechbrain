@@ -208,13 +208,6 @@ class ConvolutionModule(nn.Module):
             else:
                 final_right_padding = 0
 
-            # compute the left context that can and should be added, for each
-            # chunk. for the first few chunks, we will need to add extra padding
-            applied_left_context = [
-                min(chunk_left_context, i * chunk_size)
-                for i in range(chunk_count)
-            ]
-
             # -> [batch_size, t, in_channels]
             out = self.layer_norm(x)
 
