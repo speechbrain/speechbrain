@@ -394,6 +394,8 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         batch = batch.to(self.device)
         wavs_clean, lens_clean = batch.sig
+        torchaudio.save("oracle.wav", wavs_clean[0:1].cpu(), self.hparams.sample_rate)
+        exit(0)
 
         # taking them from forward because they are augmented there!
         wavs, lens = batch_sig
@@ -405,7 +407,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             X_stft_logpower_clean,
             X_stft_clean,
             X_stft_power_clean,
-        ) = self.preprocess(wavs)
+        ) = self.preprocess(wavs_clean)
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
 
         Tmax = xhat.shape[1]
@@ -429,31 +431,39 @@ class InterpreterESC50Brain(sb.core.Brain):
             binarized_oracle = (
                 X_stft_logpower_clean >= self.hparams.bin_th
             ).float()
+
+
+            # samples if we apply the binarization threshold on the spectrogram
             # this is just to debug the cross-correlation
             # with torch.no_grad():
-            # for idx, s in enumerate(
-            # zip(
-            # X_stft_logpower.cpu(),
-            # mask_in.cpu(),
-            # crosscor.cpu(),
-            # binarized_oracle.cpu(),
-            # )
-            # ):
-            # ax = plt.subplot(131)
-            # plt.imshow(s[0].t(), origin="lower")
-            # plt.title("Oracle")
-
-            # plt.subplot(132, sharex=ax)
-            # plt.imshow(s[3].t(), origin="lower")
-            # plt.title("Binarized Oracle")
-
-            # plt.subplot(133, sharex=ax)
-            # plt.imshow(s[1].t(), origin="lower")
-            # plt.title("Mask in")
-
-            # plt.tight_layout()
-            # plt.suptitle("Cross correlation: %.2f" % s[2].item())
-            # plt.savefig(f"batch/{idx}.png")
+                # maskin_bin = binarized_oracle * X_stft_logpower_clean
+                # for idx, s in enumerate(
+                        # zip(
+                            # X_stft_logpower.cpu(),
+                            # mask_in.cpu(),
+                            # crosscor.cpu(),
+                            # binarized_oracle.cpu(),
+                        # )
+                    # ):
+                    # ax = plt.subplot(141)
+                    # plt.imshow(s[0].t(), origin="lower")
+                    # plt.title("Oracle")
+# 
+                    # plt.subplot(142, sharex=ax)
+                    # plt.imshow(maskin_bin[idx].cpu().t(), origin="lower")
+                    # plt.title("th * oracle")
+# 
+                    # plt.subplot(143, sharex=ax)
+                    # plt.imshow(s[3].t(), origin="lower")
+                    # plt.title("Binarized Oracle")
+# 
+                    # plt.subplot(144, sharex=ax)
+                    # plt.imshow(s[1].t(), origin="lower")
+                    # plt.title("Mask in")
+# 
+                    # plt.tight_layout()
+                    # plt.suptitle("Cross correlation: %.2f - made the thr: %s" % (s[2].item(), bool(crosscor_mask[idx])))
+                    # plt.savefig(f"batch/{idx}.png")
 
             rec_loss = (
                 F.binary_cross_entropy(
