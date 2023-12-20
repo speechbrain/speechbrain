@@ -14,7 +14,8 @@ import logging
 import torchaudio
 import torch
 from tqdm import tqdm
-from speechbrain.inference.txt import GraphemeToPhoneme
+from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 logger = logging.getLogger(__name__)
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"
@@ -134,12 +135,10 @@ def prepare_split(data_folder, split_list):
 
     # For every subset of the dataset, if it doesn't exist, downloads it
     for subset_name in split_list:
-
         subset_folder = os.path.join(data_folder, subset_name)
         subset_archive = os.path.join(subset_folder, subset_name + ".tar.gz")
 
-        subset_data = os.path.join(subset_folder, "LibriTTS")
-        if not check_folders(subset_data):
+        if not check_folders(subset_folder):
             logger.info(
                 f"No data found for {subset_name}. Checking for an archive file."
             )
@@ -191,14 +190,13 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
 
     # Processes all the wav files in the list
     for wav_file in tqdm(wav_list):
-
         # Reads the signal
         signal, sig_sr = torchaudio.load(wav_file)
-
+        duration = signal.shape[1] / sig_sr
         # Manipulates path to get relative path and uttid
         path_parts = wav_file.split(os.path.sep)
         uttid, _ = os.path.splitext(path_parts[-1])
-        relative_path = os.path.join("{data_root}", *path_parts[-6:])
+        relative_path = os.path.join("{data_root}", *path_parts[-4:])
 
         # Gets the path for the text files and extracts the input text
         normalized_text_path = os.path.join(
@@ -226,17 +224,17 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         json_dict[uttid] = {
             "uttid": uttid,
             "wav": relative_path,
+            "duration": duration,
             "spk_id": spk_id,
             "label": normalized_text,
             "segment": True if "train" in json_file else False,
         }
 
-        # Tacotron2 specific data preparation
-        if model_name == "Tacotron2":
-            # Computes phoneme labels using SpeechBrain G2P for Tacotron2
-            label_phoneme_list = g2p(normalized_text)
-            label_phoneme = " ".join(label_phoneme_list)
-            json_dict[uttid].update({"label_phoneme": label_phoneme})
+        # Characters are used for Tacotron2, phonemes may be needed for other models
+        if model_name not in ["Tacotron2", "HiFi-GAN"]:
+            # Computes phoneme labels using SpeechBrain G2P and keeps the punctuations
+            phonemes = _g2p_keep_punctuations(g2p, normalized_text)
+            json_dict[uttid].update({"label_phoneme": phonemes})
 
     # Writes the dictionary to the json file
     with open(json_file, mode="w") as json_f:
