@@ -409,15 +409,15 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.last_batch = batch
         self.batch_to_plot = (reconstructions.clone(), X_stft_logpower.clone())
 
-        c_soft = F.softmax(classification_out / self.hparams.gamma, dim=1)
-        loss_fid = (fid := (-c_soft * theta_out.log()).sum(1).mean()) * self.hparams.gamma
+        c_soft = F.softmax(classification_out / self.hparams.gamma, dim=1).detach()
+        theta_out = torch.log(theta_out)
+        loss_fid = -(theta_out * c_soft).sum(1).mean()
 
-        hard_fid_loss = F.nll_loss(theta_out.log(), classification_out.argmax(1))
         self.fid_loss.append(
-            uttid, hard_fid_loss
+            uttid, loss_fid
         )
 
-        return loss_nmf + hard_fid_loss
+        return loss_nmf + loss_fid
 
     def on_stage_start(self, stage, epoch=None):
         def accuracy_value(predict, target, length):
