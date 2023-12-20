@@ -12,6 +12,7 @@ Authors:
  * Sylvain de Langen 2023
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
+ * Jarod Duret 2023
 """
 import logging
 import torch
@@ -295,12 +296,14 @@ class UnitHIFIGAN(Pretrained):
         # Temporary fix for mapping indices from the range [0, k] to [1, k+1]
         self.tokenize = True
 
-    def decode_batch(self, units):
+    def decode_batch(self, units, spk=None):
         """Computes waveforms from a batch of discrete units
         Arguments
         ---------
         units: torch.tensor
             Batch of discrete units [batch, codes]
+        spk: torch.tensor
+            Batch of speaker embeddings [batch, spk_dim]
         Returns
         -------
         waveforms: torch.tensor
@@ -321,16 +324,20 @@ class UnitHIFIGAN(Pretrained):
         # Increment units if tokenization is enabled
         if self.tokenize:
             units += 1
+        if spk:
+            spk = spk.to(self.device)
         with torch.no_grad():
-            waveform = self.infer(units.to(self.device))
+            waveform = self.infer(units.to(self.device), spk=spk)
         return waveform
 
-    def decode_unit(self, units):
+    def decode_unit(self, units, spk=None):
         """Computes waveforms from a single sequence of discrete units
         Arguments
         ---------
         units: torch.tensor
             codes: [time]
+        spk: torch.tensor
+            spk: [spk_dim]
         Returns
         -------
         waveform: torch.tensor
@@ -351,10 +358,12 @@ class UnitHIFIGAN(Pretrained):
         # Increment units if tokenization is enabled
         if self.tokenize:
             units += 1
+        if spk:
+            spk = spk.unsqueeze(0).to(self.device)
         with torch.no_grad():
-            waveform = self.infer(units.unsqueeze(0).to(self.device))
+            waveform = self.infer(units.unsqueeze(0).to(self.device), spk=spk)
         return waveform.squeeze(0)
 
-    def forward(self, units):
+    def forward(self, units, spk=None):
         "Decodes the input units"
-        return self.decode_batch(units)
+        return self.decode_batch(units, spk=spk)

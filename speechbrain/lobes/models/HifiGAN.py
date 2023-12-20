@@ -434,7 +434,7 @@ class HifiganGenerator(torch.nn.Module):
         ):
             self.ups.append(
                 ConvTranspose1d(
-                    in_channels=upsample_initial_channel // (2 ** i),
+                    in_channels=upsample_initial_channel // (2**i),
                     out_channels=upsample_initial_channel // (2 ** (i + 1)),
                     kernel_size=k,
                     stride=u,
@@ -634,6 +634,10 @@ class UnitHifiganGenerator(HifiganGenerator):
         size of the convolution filter in each layer of the duration predictor.
     var_pred_dropout : float
         dropout probability of each layer in the duration predictor.
+    multi_speaker : bool
+        enable multi speaker training
+    normalize_speaker_embeddings: bool
+        enable normalization of speaker embeddings
 
     Example
     -------
@@ -678,6 +682,8 @@ class UnitHifiganGenerator(HifiganGenerator):
         var_pred_hidden_dim=128,
         var_pred_kernel_size=3,
         var_pred_dropout=0.5,
+        multi_speaker=False,
+        normalize_speaker_embeddings=False,
     ):
         super().__init__(
             in_channels,
@@ -701,8 +707,20 @@ class UnitHifiganGenerator(HifiganGenerator):
                 var_pred_kernel_size,
                 var_pred_dropout,
             )
+        self.multi_speaker = multi_speaker
+        self.normalize_speaker_embeddings = normalize_speaker_embeddings
 
-    def forward(self, x, g=None):
+    @staticmethod
+    def _upsample(x, max_frames):
+        """
+        Upsamples the input tensor to match the specified max_frames.
+        """
+        batch, hidden_dim, cond_length = x.size()
+        x = x.unsqueeze(3).repeat(1, 1, 1, max_frames // cond_length)
+        x = x.view(batch, hidden_dim, max_frames)
+        return x
+
+    def forward(self, x, g=None, spk=None):
         """
         Arguments
         ---------
@@ -724,10 +742,17 @@ class UnitHifiganGenerator(HifiganGenerator):
             log_dur_pred = log_dur_pred[uniq_code_mask]
             log_dur = torch.log(dur + 1)
 
+        if self.multi_speaker:
+            if self.normalize_speaker_embeddings:
+                spk = torch.nn.functional.normalize(spk)
+            spk = spk.unsqueeze(-1)
+            spk = self._upsample(spk, u.shape[-1])
+            u = torch.cat([u, spk], dim=1)
+
         return super().forward(u), (log_dur_pred, log_dur)
 
     @torch.no_grad()
-    def inference(self, x):
+    def inference(self, x, spk=None):
         """The inference function performs duration prediction and runs the forward method.
 
         Arguments
@@ -747,6 +772,13 @@ class UnitHifiganGenerator(HifiganGenerator):
             )
             # B x C x T
             x = torch.repeat_interleave(x, dur_out.view(-1), dim=2)
+
+        if self.multi_speaker:
+            if self.normalize_speaker_embeddings:
+                spk = torch.nn.functional.normalize(spk)
+            spk = spk.unsqueeze(-1)
+            spk = self._upsample(spk, x.shape[-1])
+            x = torch.cat([x, spk], dim=1)
 
         return super().forward(x)
 
@@ -1026,10 +1058,15 @@ class HifiganDiscriminator(nn.Module):
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
     """computes the Fourier transform of short overlapping windows of the input"""
-    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
+    o = torch.stft(
+        x.squeeze(1),
+        n_fft,
+        hop_length,
+        win_length,
+    )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
-    S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
+    S = torch.sqrt(torch.clamp(M**2 + P**2, min=1e-8))
     return S
 
 
@@ -1255,7 +1292,9 @@ class MelganFeatureLoss(nn.Module):
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
 
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -1292,7 +1331,9 @@ class MSEDLoss(nn.Module):
     and the samples synthesized from the generator to 0.
     """
 
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.loss_func = nn.MSELoss()
 
