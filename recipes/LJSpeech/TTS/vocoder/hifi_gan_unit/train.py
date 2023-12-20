@@ -4,7 +4,7 @@ For more details about hifi-gan: https://arxiv.org/pdf/2010.05646.pdf
 For more details about speech synthesis using self-supervised representations: https://arxiv.org/pdf/2104.00355.pdf
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --kmeans_folder=/path/to/Kmeans/ckpt --data_folder=/path/to/LJspeech
+> python train.py hparams/train.yaml --data_folder=/path/to/LJspeech
 
 Authors
  * Jarod Duret 2023
@@ -211,11 +211,11 @@ class HifiGanBrain(sb.Brain):
             self.optimizer_d = opt_d_class(
                 self.modules.discriminator.parameters()
             )
-
             self.optimizers_dict = {
                 "optimizer_g": self.optimizer_g,
                 "optimizer_d": self.optimizer_d,
             }
+
             self.scheduler_g = sch_g_class(self.optimizer_g)
             self.scheduler_d = sch_d_class(self.optimizer_d)
 
@@ -402,7 +402,8 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         audio = sb.dataio.dataio.read_audio(wav)
         audio = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(audio)
 
         code = np.load(code_folder / f"{utt_id}.npy")
@@ -483,7 +484,9 @@ if __name__ == "__main__":
             "data_folder": hparams["save_folder"],
             "splits": hparams["splits"],
             "kmeans_folder": hparams["kmeans_folder"],
-            "encoder": hparams["encoder_hub"],
+            "kmeans_filename": hparams["kmeans_filename"],
+            "encoder_type": hparams["encoder_type"],
+            "encoder_source": hparams["encoder_hub"],
             "layer": hparams["layer"],
             "save_folder": hparams["save_folder"],
             "sample_rate": hparams["sample_rate"],
@@ -508,8 +511,10 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
-            save_dir=hparams["output_folder"] + "/tensorboard"
+        hifi_gan_brain.tensorboard_logger = (
+            sb.utils.train_logger.TensorboardLogger(
+                save_dir=hparams["output_folder"] + "/tensorboard"
+            )
         )
 
     # Training
