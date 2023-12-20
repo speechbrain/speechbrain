@@ -7,12 +7,12 @@ def test_streaming_conformer_layer(device):
     time) is equivalent to a real streaming scenario."""
 
     from speechbrain.lobes.models.transformer.Conformer import (
-        ConformerEncoderLayer
+        ConformerEncoderLayer,
     )
     from speechbrain.nnet.attention import RelPosEncXL
     from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
     from speechbrain.lobes.models.transformer.TransformerASR import (
-        make_transformer_src_mask
+        make_transformer_src_mask,
     )
 
     TOLERATED_MEAN_ERROR = 1.0e-6
@@ -28,10 +28,7 @@ def test_streaming_conformer_layer(device):
     torch.manual_seed(1337)
 
     module = ConformerEncoderLayer(
-        d_model=num_feats,
-        d_ffn=num_feats*2,
-        nhead=1,
-        kernel_size=5
+        d_model=num_feats, d_ffn=num_feats * 2, nhead=1, kernel_size=5
     ).to(device=device)
     module.eval()
 
@@ -40,23 +37,36 @@ def test_streaming_conformer_layer(device):
     # build inputs
     test_input = torch.randn(input_shape, device=device)
 
-    test_input_chunked = test_input.unfold(1, size=config.chunk_size, step=config.chunk_size)
+    test_input_chunked = test_input.unfold(
+        1, size=config.chunk_size, step=config.chunk_size
+    )
     test_input_chunked = test_input_chunked.transpose(1, 3)
-    assert (
-        test_input_chunked.shape
-        == (bs, config.chunk_size, num_feats, num_chunks)
+    assert test_input_chunked.shape == (
+        bs,
+        config.chunk_size,
+        num_feats,
+        num_chunks,
     ), "Test bug: incorrect shape for the chunked input?"
 
     # build the transformer mask for masked inference (dynchunktrain_config does
     # not suffice)
-    src_mask = make_transformer_src_mask(test_input, dynchunktrain_config=config)
+    src_mask = make_transformer_src_mask(
+        test_input, dynchunktrain_config=config
+    )
 
     # masked inference
     pos_embs_full = pos_encoder(test_input)
-    out_mask_path, _out_attn = module(test_input, src_mask=src_mask, pos_embs=pos_embs_full, dynchunktrain_config=config)
+    out_mask_path, _out_attn = module(
+        test_input,
+        src_mask=src_mask,
+        pos_embs=pos_embs_full,
+        dynchunktrain_config=config,
+    )
 
     # streaming inference
-    mutable_ctx = module.make_streaming_context(config.left_context_size * config.chunk_size)
+    mutable_ctx = module.make_streaming_context(
+        config.left_context_size * config.chunk_size
+    )
     output_chunks = []
 
     for i in range(num_chunks):
@@ -66,12 +76,18 @@ def test_streaming_conformer_layer(device):
         pos_embs_dummy_input = chunk_in
         if mutable_ctx.mha_left_context is not None:
             pos_embs_dummy_input = torch.empty(
-                (bs, config.chunk_size + mutable_ctx.mha_left_context.size(1), num_feats),
-                device=device
+                (
+                    bs,
+                    config.chunk_size + mutable_ctx.mha_left_context.size(1),
+                    num_feats,
+                ),
+                device=device,
             )
 
         pos_embs_chunk = pos_encoder(pos_embs_dummy_input)
-        chunk_out, _chunk_attn = module.forward_streaming(chunk_in, mutable_ctx, pos_embs=pos_embs_chunk)
+        chunk_out, _chunk_attn = module.forward_streaming(
+            chunk_in, mutable_ctx, pos_embs=pos_embs_chunk
+        )
         output_chunks.append(chunk_out)
 
     out_stream_path = torch.cat(output_chunks, dim=1)
