@@ -412,13 +412,14 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrained_encoder"].collect_files)
         hparams["pretrained_encoder"].load_collected()
 
-    ESC50_brain.fit(
-        epoch_counter=ESC50_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
-        valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
-    )
+    if not hparams["test_only"]:
+        ESC50_brain.fit(
+            epoch_counter=ESC50_brain.hparams.epoch_counter,
+            train_set=datasets["train"],
+            valid_set=datasets["valid"],
+            train_loader_kwargs=hparams["dataloader_options"],
+            valid_loader_kwargs=hparams["dataloader_options"],
+        )
 
     # Load the best checkpoint for evaluation
     test_stats = ESC50_brain.evaluate(
