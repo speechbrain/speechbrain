@@ -2590,13 +2590,13 @@ class LossWithAlignment(nn.Module):
             alignment_hard,
         ) = predictions
 
-        predicted_pitch = predicted_pitch.squeeze()
-        predicted_energy = predicted_energy.squeeze()
+        predicted_pitch = predicted_pitch.squeeze(-1)
+        predicted_energy = predicted_energy.squeeze(-1)
 
-        target_pitch = average_pitch.squeeze()
-        target_energy = average_energy.squeeze()
+        target_pitch = average_pitch.squeeze(-1)
+        target_energy = average_energy.squeeze(-1)
 
-        log_durations = log_durations.squeeze()
+        log_durations = log_durations.squeeze(-1)
         if self.log_scale_durations:
             log_target_durations = torch.log(alignment_durations.float() + 1)
         # change this to perform batch level using padding mask

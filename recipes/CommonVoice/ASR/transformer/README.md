@@ -39,9 +39,9 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 
 | Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|:-----------:| :-----------:| :-----------:|
-| French | 2023-08-15 | train_fr.yaml | No | 5.41 | 16.00 | 5.41 | 17.61 | [model](https://huggingface.co/speechbrain/asr-transformer-commonvoice-14-fr) | [model](https://www.dropbox.com/sh/zvu9h9pctksnuvp/AAD1kyS3-N0YtmcoMgjM-_Tba?dl=0) | 1xV100 32GB |
-| Italian | 2023-08-15 | train_it.yaml | No | 3.72 | 16.31 | 4.01 | 16.80 | [model](https://huggingface.co/speechbrain/asr-transformer-commonvoice-14-it) | [model](https://www.dropbox.com/sh/yy8du12jgbkm3qe/AACBHhTCM-cU-oGvAKJ9kTtaa?dl=0) | 1xV100 32GB |
-| German | 2023-08-15 | train_de.yaml | No | 3.60 | 15.33 | 4.22 | 16.76 |[model](https://huggingface.co/speechbrain/asr-transformer-commonvoice-14-de) | [model](https://www.dropbox.com/sh/umfq986o3d9o1px/AAARNF2BFYELOWx3xhIOEoZka?dl=0) | 1xV100 32GB |
+| French | 2023-08-15 | train_fr.yaml | No | 5.41 | 16.00 | 5.41 | 17.61 | - | [model](https://www.dropbox.com/sh/zvu9h9pctksnuvp/AAD1kyS3-N0YtmcoMgjM-_Tba?dl=0) | 1xV100 32GB |
+| Italian | 2023-08-15 | train_it.yaml | No | 3.72 | 16.31 | 4.01 | 16.80 | - | [model](https://www.dropbox.com/sh/yy8du12jgbkm3qe/AACBHhTCM-cU-oGvAKJ9kTtaa?dl=0) | 1xV100 32GB |
+| German | 2023-08-15 | train_de.yaml | No | 3.60 | 15.33 | 4.22 | 16.76 |- | [model](https://www.dropbox.com/sh/umfq986o3d9o1px/AAARNF2BFYELOWx3xhIOEoZka?dl=0) | 1xV100 32GB |
 
 ## Whisper Finetuning Result:
 Following table contains whisper-finetuning results for 1 epoch using whisper_medium model, freezing encoder and finetuning decoder.

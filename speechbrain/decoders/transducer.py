@@ -135,7 +135,9 @@ class TransducerBeamSearcher(torch.nn.Module):
         hyps = self.searcher(tn_output)
         return hyps
 
-    def transducer_greedy_decode(self, tn_output):
+    def transducer_greedy_decode(
+        self, tn_output, hidden_state=None, return_hidden=False
+    ):
         """Transducer greedy decoder is a greedy decoder over batch which apply Transducer rules:
             1- for each time step in the Transcription Network (TN) output:
                 -> Update the ith utterance only if
@@ -149,18 +151,43 @@ class TransducerBeamSearcher(torch.nn.Module):
             Output from transcription network with shape
             [batch, time_len, hiddens].
 
+        hidden_state : (torch.Tensor, torch.Tensor)
+            Hidden state to initially feed the decode network with. This is
+            useful in conjunction with `return_hidden` to be able to perform
+            beam search in a streaming context, so that you can reuse the last
+            hidden state as an initial state across calls.
+
+        return_hidden : bool
+            Whether the return tuple should contain an extra 5th element with
+            the hidden state at of the last step. See `hidden_state`.
+
         Returns
         -------
-        torch.tensor
+        Tuple of 4 or 5 elements (if `return_hidden`).
+
+        First element: List[List[int]]
+            List of decoded tokens
+
+        Second element: torch.Tensor
             Outputs a logits tensor [B,T,1,Output_Dim]; padding
             has not been removed.
+
+        Third element: None
+            nbest; irrelevant for greedy decode
+
+        Fourth element: None
+            nbest scores; irrelevant for greedy decode
+
+        Fifth element: Present if `return_hidden`, (torch.Tensor, torch.Tensor)
+            Tuple representing the hidden state required to call
+            `transducer_greedy_decode` where you left off in a streaming
+            context.
         """
         hyp = {
             "prediction": [[] for _ in range(tn_output.size(0))],
             "logp_scores": [0.0 for _ in range(tn_output.size(0))],
         }
         # prepare BOS = Blank for the Prediction Network (PN)
-        hidden = None
         input_PN = (
             torch.ones(
                 (tn_output.size(0), 1),
@@ -169,8 +196,13 @@ class TransducerBeamSearcher(torch.nn.Module):
             )
             * self.blank_id
         )
-        # First forward-pass on PN
-        out_PN, hidden = self._forward_PN(input_PN, self.decode_network_lst)
+
+        if hidden_state is None:
+            # First forward-pass on PN
+            out_PN, hidden = self._forward_PN(input_PN, self.decode_network_lst)
+        else:
+            out_PN, hidden = hidden_state
+
         # For each time step
         for t_step in range(tn_output.size(1)):
             # do unsqueeze over since tjoint must be have a 4 dim [B,T,U,Hidden]
@@ -210,12 +242,18 @@ class TransducerBeamSearcher(torch.nn.Module):
                     have_update_hyp, selected_hidden, hidden
                 )
 
-        return (
+        ret = (
             hyp["prediction"],
             torch.Tensor(hyp["logp_scores"]).exp().mean(),
             None,
             None,
         )
+
+        if return_hidden:
+            # append the `(out_PN, hidden)` tuple to ret
+            ret += ((out_PN, hidden,),)
+
+        return ret
 
     def transducer_beam_search_decode(self, tn_output):
         """Transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:

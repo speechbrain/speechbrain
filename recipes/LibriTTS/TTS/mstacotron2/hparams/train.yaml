@@ -14,14 +14,14 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/tacotron2/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-epochs: 500
+epochs: 700
 keep_checkpoint_interval: 50
 use_tensorboard: False
 
 # Vocoder is used to covert the intermediate mel-spectrogram into the final waveform
 log_audio_samples: True
-vocoder: speechbrain/tts-hifigan-libritts-22050Hz
-vocoder_savedir: tmpdir_vocoder
+vocoder: speechbrain/tts-hifigan-libritts-16kHz
+vocoder_savedir: tmpdir_vocoder_16k
 
 ###################################
 # Progress Samples                #
@@ -38,7 +38,7 @@ progress_sample_path: !ref <output_folder>/samples
 
 # The interval, in epochs. For instance, if it is set to 5,
 # progress samples will be output every 5 epochs
-progress_samples_interval: 1
+progress_samples_interval: 10
 
 # The sample size for raw batch samples saved in batch.pth
 # (useful mostly for model debugging)
@@ -63,7 +63,7 @@ test_speaker_embeddings_pickle: !ref <save_folder>/test_speaker_embeddings.pickl
 skip_prep: False
 splits: ["train", "valid", "test"]
 
-#train_split: ["train-clean-100", "train-clean-360"]
+# train_split: ["train-clean-100", "train-clean-360"]
 train_split: ["train-clean-100"]
 valid_split: ["dev-clean"]
 test_split: ["test-clean"]
@@ -72,10 +72,12 @@ test_split: ["test-clean"]
 # The cleaners to be used (applicable to nvidia only)
 text_cleaners: ['english_cleaners']
 
+# Avoid audios longer than x seconds
+avoid_if_longer_than: 10.0
 ################################
 # Audio Parameters             #
 ################################
-sample_rate: 22050
+sample_rate: 16000
 hop_length: 256
 win_length: 1024
 n_mel_channels: 80
@@ -106,11 +108,11 @@ spk_emb_encoder: speechbrain/spkrec-ecapa-voxceleb
 ################################
 learning_rate: 0.001
 weight_decay: 0.000006
-batch_size: 64 #minimum 2
+batch_size: 32 #minimum 2
 mask_padding: True
 guided_attention_sigma: 0.2
-guided_attention_weight: 75.0
-guided_attention_weight_half_life: 10.
+guided_attention_weight: 25.0
+guided_attention_weight_half_life: 25.
 guided_attention_hard_stop: 50
 gate_loss_weight: 1.0
 spk_emb_loss_weight: 1.0
@@ -250,15 +252,10 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <train_log>
 
-# Learning rate annealing function
-lr_annealing: !new:speechbrain.nnet.schedulers.IntervalScheduler
-  intervals:
-    - steps: 6000
-      lr: 0.0005
-    - steps: 8000
-      lr: 0.0003
-    - steps: 10000
-      lr: 0.0001
+# # Learning rate annealing function
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+  lr_initial: !ref <learning_rate>
+  n_warmup_steps: 4000
 
 # Checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
