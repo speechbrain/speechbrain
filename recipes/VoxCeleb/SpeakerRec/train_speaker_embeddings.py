@@ -26,8 +26,7 @@ from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for speaker embedding training"
-    """
+    """Class for speaker embedding training"""
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.
@@ -38,12 +37,10 @@ class SpeakerBrain(sb.core.Brain):
         wavs, lens = batch.sig
 
         if stage == sb.Stage.TRAIN:
-
             # Applying the augmentation pipeline
             wavs_aug_tot = []
             wavs_aug_tot.append(wavs)
             for count, augment in enumerate(self.hparams.augment_pipeline):
-
                 # Apply augment
                 wavs_aug = augment(wavs, lens)
 
@@ -66,7 +63,14 @@ class SpeakerBrain(sb.core.Brain):
             lens = torch.cat([lens] * self.n_augment)
 
         # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
+        if (
+            hasattr(self.hparams, "use_tacotron2_mel_spec")
+            and self.hparams.use_tacotron2_mel_spec
+        ):
+            feats = self.hparams.compute_features(audio=wavs)
+            feats = torch.transpose(feats, 1, 2)
+        else:
+            feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
@@ -76,8 +80,7 @@ class SpeakerBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         spkid, _ = batch.spk_id_encoded
@@ -193,7 +196,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 

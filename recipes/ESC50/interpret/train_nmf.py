@@ -143,14 +143,13 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    if not hparams["test_only"]:
-        nmfbrain.fit(
-            epoch_counter=nmfbrain.hparams.epoch_counter,
-            train_set=datasets["train"],
-            valid_set=datasets["valid"],
-            train_loader_kwargs=hparams["dataloader_options"],
-            valid_loader_kwargs=hparams["dataloader_options"],
-        )
+    nmfbrain.fit(
+        epoch_counter=nmfbrain.hparams.epoch_counter,
+        train_set=datasets["train"],
+        valid_set=datasets["valid"],
+        train_loader_kwargs=hparams["dataloader_options"],
+        valid_loader_kwargs=hparams["dataloader_options"],
+    )
 
     test_stats = nmfbrain.evaluate(
         test_set=datasets["test"],

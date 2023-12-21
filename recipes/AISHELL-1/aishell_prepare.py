@@ -1,102 +1,220 @@
+"""
+Data preparation.
+
+Download: https://www.openslr.org/33/
+
+Authors
+-------
+ * Adel Moumen 2023
+"""
+
 import os
 import shutil
 import logging
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.utils.data_utils import download_file
 import glob
 import csv
+from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.parallel import parallel_map
+import functools
 
 logger = logging.getLogger(__name__)
 
 
-def prepare_aishell(data_folder, save_folder, skip_prep=False):
-    """
-    This function prepares the AISHELL-1 dataset.
-    If the folder does not exist, the zip file will be extracted. If the zip file does not exist, it will be downloaded.
+def extract_and_cleanup_wav_files(
+    tgz_list, wav_dir, splits, remove_compressed_wavs
+):
+    """This function extracts the wav files in the AISHELL-1 dataset.
 
-    data_folder : path to AISHELL-1 dataset.
-    save_folder: path where to store the manifest csv files.
-    skip_prep: If True, skip data preparation.
-
+    Arguments
+    ---------
+    tgz_list: list
+        list of paths to the tar.gz files.
+    wav_dir: str
+        path to the wav directory.
+    splits: list
+        list of splits.
+    remove_compressed_wavs: bool
+        If True, remove compressed wav files after extraction.
     """
+    if len(tgz_list) > 0:
+        logger.info(f"Extracting wav files in {wav_dir}...")
+
+        decompress_processor = functools.partial(
+            shutil.unpack_archive, extract_dir=wav_dir,
+        )
+
+        for split in splits:
+            os.makedirs(os.path.join(wav_dir, split), exist_ok=True)
+
+        for _ in parallel_map(decompress_processor, tgz_list, chunk_size=64):
+            pass
+
+        if remove_compressed_wavs:
+            for tgz in tgz_list:
+                os.remove(tgz)
+
+
+def process_line(wav, filename2transcript):
+    """This function processes a line of the csv file.
+
+    This function is being used in the context of multi-processing.
+
+    Arguments
+    ---------
+    wav: str
+        path to the wav file.
+    filename2transcript: dict
+        dictionary mapping filenames to transcripts.
+
+    Returns
+    -------
+    list
+        list containing the duration, the path to the wav file and the transcript.
+    """
+    filename = wav.split("/")[-1].split(".wav")[0]
+
+    info = read_audio_info(wav)
+    duration = info.num_frames / info.sample_rate
+
+    transcript_ = filename2transcript[filename]
+
+    return [str(duration), wav, transcript_]
+
+
+def skip(splits, save_folder):
+    """ Detect when the AiSHELL-1 data preparation can be skipped.
+
+    Arguments
+    ---------
+    splits : list
+        A list of the splits expected in the preparation.
+    save_folder : str
+        The location of the save directory
+
+    Returns
+    -------
+    bool
+        if True, the preparation phase can be skipped.
+        if False, it must be done.
+    """
+    # Checking csv files
+    skip = True
+
+    for split in splits:
+        if not os.path.isfile(os.path.join(save_folder, split + ".csv")):
+            skip = False
+
+    return skip
+
+
+def prepare_aishell(
+    data_folder, save_folder, skip_prep=False, remove_compressed_wavs=True
+):
+    """This function prepares the AISHELL-1 dataset.
+
+    Arguments
+    ---------
+    data_folder: str
+        path to AISHELL-1 dataset.
+    save_folder: str
+        path where to store the manifest csv files.
+    skip_prep: bool
+        If True, skip data preparation.
+    remove_compressed_wavs: bool
+        If True, remove compressed wav files after extraction.
+    """
+
     if skip_prep:
         return
 
-    # If the data folders do not exist, we need to extract the data
-    if not os.path.isdir(os.path.join(data_folder, "data_aishell/wav")):
-        # Check for zip file and download if it doesn't exist
-        zip_location = os.path.join(data_folder, "data_aishell.tgz")
-        if not os.path.exists(zip_location):
-            url = "https://www.openslr.org/resources/33/data_aishell.tgz"
-            download_file(url, zip_location, unpack=True)
-        logger.info("Extracting data_aishell.tgz...")
-        shutil.unpack_archive(zip_location, data_folder)
-        wav_dir = os.path.join(data_folder, "data_aishell/wav")
-        tgz_list = glob.glob(wav_dir + "/*.tar.gz")
-        for tgz in tgz_list:
-            shutil.unpack_archive(tgz, wav_dir)
-            os.remove(tgz)
-
-    # Create filename-to-transcript dictionary
-    filename2transcript = {}
-    with open(
-        os.path.join(
-            data_folder, "data_aishell/transcript/aishell_transcript_v0.8.txt"
-        ),
-        "r",
-    ) as f:
-        lines = f.readlines()
-        for line in lines:
-            key = line.split()[0]
-            value = " ".join(line.split()[1:])
-            filename2transcript[key] = value
+    wav_dir = os.path.join(data_folder, "wav")
+    tgz_list = glob.glob(wav_dir + "/*.tar.gz")
 
     splits = [
         "train",
         "dev",
         "test",
     ]
-    ID_start = 0  # needed to have a unique ID for each audio
-    for split in splits:
-        new_filename = os.path.join(save_folder, split) + ".csv"
-        if os.path.exists(new_filename):
-            continue
-        logger.info("Preparing %s..." % new_filename)
 
-        csv_output = [["ID", "duration", "wav", "transcript"]]
-        entry = []
+    if skip(splits, save_folder):
+        return
+
+    extract_and_cleanup_wav_files(
+        tgz_list, wav_dir, splits, remove_compressed_wavs=remove_compressed_wavs
+    )
+
+    # Create filename-to-transcript dictionary
+    filename2transcript = {}
+    path_to_transcript = os.path.join(
+        data_folder, "transcript/aishell_transcript_v0.8.txt"
+    )
+
+    with open(path_to_transcript, "r",) as f:
+        lines = f.readlines()
+        for line in lines:
+            key = line.split()[0]
+            value = " ".join(line.split()[1:])
+            filename2transcript[key] = value
+
+    line_processor = functools.partial(
+        process_line, filename2transcript=filename2transcript,
+    )
+
+    for split in splits:
+
+        final_csv = os.path.join(save_folder, split) + ".csv"
+        tmp_csv = os.path.join(save_folder, split) + ".tmp"
+
+        logger.info("Preparing %s..." % final_csv)
 
         all_wavs = glob.glob(
-            os.path.join(data_folder, "data_aishell/wav")
-            + "/"
-            + split
-            + "/*/*.wav"
+            os.path.join(data_folder, "wav") + "/" + split + "/*/*.wav"
         )
-        for i in range(len(all_wavs)):
-            filename = all_wavs[i].split("/")[-1].split(".wav")[0]
-            if filename not in filename2transcript:
-                continue
-            signal = read_audio(all_wavs[i])
-            duration = signal.shape[0] / 16000
-            transcript_ = filename2transcript[filename]
-            csv_line = [
-                ID_start + i,
-                str(duration),
-                all_wavs[i],
-                transcript_,
-            ]
-            entry.append(csv_line)
+        # only keep the files that are in the transcript
+        transcript_wavs = [
+            wav
+            for wav in all_wavs
+            if wav.split("/")[-1].split(".wav")[0] in filename2transcript
+        ]
 
-        csv_output = csv_output + entry
-
-        with open(new_filename, mode="w") as csv_f:
+        total_line = 0
+        total_duration = 0
+        id = 0
+        with open(tmp_csv, mode="w", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
-            for line in csv_output:
-                csv_writer.writerow(line)
+            csv_writer.writerow(["ID", "duration", "wav", "transcript"])
+            for row in parallel_map(
+                line_processor, transcript_wavs, chunk_size=4092
+            ):
 
-        msg = "\t%s successfully created!" % (new_filename)
+                if row is None:
+                    continue
+
+                row = [str(id)] + row
+                csv_writer.writerow(row)
+
+                total_line += 1
+                total_duration += float(row[1])
+                id += 1
+
+        msg = f"Number of samples: {total_line} "
+        logger.info(msg)
+        msg = "Total duration: %s Hours" % (
+            str(round(total_duration / 3600, 2))
+        )
+
         logger.info(msg)
 
-        ID_start += len(all_wavs)
+        os.replace(tmp_csv, final_csv)
+
+        msg = "\t%s successfully created!" % (final_csv)
+        logger.info(msg)
+
+        msg = f"Number of samples: {total_line} "
+        logger.info(msg)
+        msg = "Total duration: %s Hours" % (
+            str(round(total_duration / 3600, 2))
+        )
+        logger.info(msg)

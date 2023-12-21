@@ -16,12 +16,17 @@ pip install -r ../extra_requirements.txt
 ## How to run
 To run it:
 
-```
+```shell
 python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
 
+```shell
+python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers --test_only
+```
 # WSJ0-2mix and WSJ0-3mix dataset creation
 * The best way to create the datasets is using the original matlab script. This script and the associated meta data can be obtained through the following [link](https://www.dropbox.com/s/gg524noqvfm1t7e/create_mixtures_wsj023mix.zip?dl=1).
 * The dataset creation script assumes that the original WSJ0 files in the sphere format are already converted to .wav .
@@ -92,8 +97,8 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 
 You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
 
-```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
+```bash
+torchrun --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath
 ```
 You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 

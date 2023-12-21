@@ -26,7 +26,6 @@ wham_folder: !PLACEHOLDER
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 
-test_only: False
 
 # if true we save the nmf dictionary at the end of training
 save_nmfdictionary: False
@@ -58,8 +57,6 @@ wham_dataset: !new:wham_prepare.WHAMDataset
     data_dir: !ref <wham_audio_folder>
     target_length: !ref <signal_length_s>
     sample_rate: !ref <sample_rate>
-
-device: "cpu"
 
 shuffle: True
 dataloader_options:

@@ -14,7 +14,7 @@ The goal is to create a **single**, **flexible**, and **user-friendly** toolkit 
 
 *SpeechBrain is currently in beta*.
 
-| **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** |
+| **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** | **[YouTube](https://www.youtube.com/@SpeechBrainProject)** |
 
 # Key features
 
@@ -207,6 +207,7 @@ We are currently implementing speech synthesis pipelines and real-time speech pr
 SpeechBrain has been presented at Interspeech 2021 and 2022 as well as ASRU 2021. When possible, we will provide some ressources here:
 - [Interspeech 2022 slides.](https://drive.google.com/drive/folders/1d6GAquxw6rZBI-7JvfUQ_-upeiKstJEo)
 - [Interspeech 2021 YouTube recordings.](https://www.youtube.com/results?search_query=Interspeech+speechbrain+)
+- [SpeechBrain 2023 Online Summit YouTube recordings.](https://www.youtube.com/playlist?list=PL9PacmG8A8SfRDaeVcnrlY7eoEMYGANLB)
 
 # Quick installation
 SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time.

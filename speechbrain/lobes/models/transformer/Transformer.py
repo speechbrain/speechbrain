@@ -1,4 +1,4 @@
-"""Transformer implementaion in the SpeechBrain style.
+"""Transformer implementation in the SpeechBrain style.
 Authors
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
@@ -126,7 +126,7 @@ class TransformerInterface(nn.Module):
         self.decoder_kdim = decoder_kdim
         self.decoder_vdim = decoder_vdim
 
-        assert attention_type in ["regularMHA", "RelPosMHAXL"]
+        assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
         assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
@@ -337,6 +337,14 @@ class TransformerEncoderLayer(nn.Module):
             self.self_att = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
             )
+        elif attention_type == "hypermixing":
+            self.self_att = sb.lobes.models.transformer.HyperMixing(
+                input_output_dim=d_model,
+                hypernet_size=d_ffn,
+                tied=False,
+                num_heads=nhead,
+                fix_tm_hidden_size=False,
+            )
 
         if ffn_type == "regularFFN":
             self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
@@ -351,14 +359,14 @@ class TransformerEncoderLayer(nn.Module):
                     in_channels=d_model,
                     out_channels=d_ffn,
                     kernel_size=ffn_cnn_kernel_size_list[0],
-                    padding="same",
+                    padding="causal" if causal else "same",
                 ),
                 nn.ReLU(),
                 Conv1d(
                     in_channels=d_ffn,
                     out_channels=d_model,
                     kernel_size=ffn_cnn_kernel_size_list[1],
-                    padding="same",
+                    padding="causal" if causal else "same",
                 ),
             )
 

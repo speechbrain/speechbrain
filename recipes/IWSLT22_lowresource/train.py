@@ -148,7 +148,7 @@ class ST(sb.core.Brain):
             current_epoch = self.hparams.epoch_counter.current
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
             current_epoch = self.hparams.epoch_counter.current
             old_lr_adam, new_lr_adam = self.hparams.lr_annealing_adam(
                 stage_stats["BLEU"]
@@ -376,7 +376,6 @@ if __name__ == "__main__":
     # creates a logger
     logger = logging.getLogger(__name__)
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

@@ -61,7 +61,6 @@ ckpt_interval_minutes: 60
 
 # Experiment params
 auto_mix_prec: False # Set this to True for mixed precision
-test_only: False # if True, we only do Testing (no training)
 
 # for the currently supported datasets (Libri2Mix, WHAMR!), this should be set 2
 num_spks: 2

@@ -37,7 +37,7 @@ provides symlinks in `source_pretrained` to an expected CKPT that is created dur
 
 How to run with DDP:
 ```shell
-CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. python3 -m torch.distributed.launch --nproc_per_node=2 finetune.py finetune.yaml --distributed_launch --distributed_backend='nccl'
+CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. torchrun --nproc_per_node=2 finetune.py finetune.yaml
 ```
 
 ## Sanity check: standard model card from one of our HuggingFace repos
@@ -58,7 +58,7 @@ cd ../../.. && PYTHONPATH=. python tests/templates/fetching_ddp_dynbatch_finetun
 
 How to run with DDP:
 ```shell
-CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. python3 -m torch.distributed.launch --nproc_per_node=2 finetune_fetch_once.py finetune_fetch_once.yaml --distributed_launch --distributed_backend='nccl'
+CUDA_VISIBLE_DEVICES=0,1 PYTHONPATH=../../.. torchrun --nproc_per_node=2 finetune_fetch_once.py finetune_fetch_once.yaml
 ```
 
 

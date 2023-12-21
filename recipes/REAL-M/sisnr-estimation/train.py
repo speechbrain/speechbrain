@@ -581,10 +581,9 @@ if __name__ == "__main__":
     if hparams["dynamic_mixing"] and not os.path.exists(
         hparams["base_folder_dm"]
     ):
-        print(
+        raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
-        sys.exit(1)
 
     # Data preparation for LibriMix
     from prepare_data_librimix import prepare_librimix as prepare_libri
@@ -758,53 +757,54 @@ if __name__ == "__main__":
 
     all_separators = []
     for separator_model in hparams["separators_to_use"]:
+        savedir = hparams["output_folder"] + "/" + separator_model
+
         fetch(
-            separator_model + "_encoder.ckpt",
+            filename=separator_model + "_encoder.ckpt",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=savedir,
             save_filename="encoder.ckpt",
         )
 
         fetch(
-            separator_model + "_decoder.ckpt",
+            filename=separator_model + "_decoder.ckpt",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=savedir,
             save_filename="decoder.ckpt",
         )
 
         fetch(
-            separator_model + "_masknet.ckpt",
+            filename=separator_model + "_masknet.ckpt",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=savedir,
             save_filename="masknet.ckpt",
         )
 
         fetch(
-            separator_model + "_hyperparams.yaml",
+            filename=separator_model + "_hyperparams.yaml",
             source=hparams["separator_repo"],
-            savedir=separator_model,
+            savedir=savedir,
             save_filename="hyperparams.yaml",
         )
 
         separator_loaded = separator.from_hparams(
-            source=separator_model,
-            run_opts={"device": "cuda"},
-            savedir=separator_model,
+            source=savedir,
+            run_opts={"device": run_opts["device"]},
+            savedir=savedir,
         )
 
         all_separators.append(separator_loaded)
 
     snrestimator.all_separators = all_separators
 
-    if not hparams["test_only"]:
-        # Training
-        snrestimator.fit(
-            snrestimator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
-        )
+    # Training
+    snrestimator.fit(
+        snrestimator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Eval
     snrestimator.evaluate(test_data, min_key="error")

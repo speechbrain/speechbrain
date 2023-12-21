@@ -60,6 +60,11 @@ import logging
 import warnings
 from packaging import version
 import speechbrain.utils._workarounds as __wa
+from speechbrain.utils.distributed import (
+    main_process_only,
+    if_main_process,
+    ddp_barrier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +102,7 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         obj.load_state_dict(torch.load(path, map_location=device))
 
 
+@main_process_only
 def torch_save(obj, path):
     """Saves the obj's parameters to path.
 
@@ -159,36 +165,24 @@ def torch_parameter_transfer(obj, path, device):
 
 
 # These dicts are indexed by class and hold the default checkpoints methods
+DEFAULT_LOAD_HOOKS = {
+    torch.nn.Module: torch_recovery,
+    torch.optim.Optimizer: torch_recovery,
+    torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
+    torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
+}
+DEFAULT_SAVE_HOOKS = {
+    torch.nn.Module: torch_save,
+    torch.optim.Optimizer: torch_save,
+    torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
+    torch.cuda.amp.grad_scaler.GradScaler: torch_save,
+}
 if version.parse(torch.__version__) < version.parse("2.0.0"):
-    DEFAULT_LOAD_HOOKS = {
-        torch.nn.Module: torch_recovery,
-        torch.optim.Optimizer: torch_recovery,
-        torch.optim.lr_scheduler._LRScheduler: torch_recovery,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
-    }
-    DEFAULT_SAVE_HOOKS = {
-        torch.nn.Module: torch_save,
-        torch.optim.Optimizer: torch_save,
-        torch.optim.lr_scheduler._LRScheduler: torch_save,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_save,
-    }
+    DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler._LRScheduler] = torch_save
 else:
-    DEFAULT_LOAD_HOOKS = {
-        torch.nn.Module: torch_recovery,
-        torch.optim.Optimizer: torch_recovery,
-        torch.optim.lr_scheduler.LRScheduler: torch_recovery,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_recovery,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_recovery,
-    }
-    DEFAULT_SAVE_HOOKS = {
-        torch.nn.Module: torch_save,
-        torch.optim.Optimizer: torch_save,
-        torch.optim.lr_scheduler.LRScheduler: torch_save,
-        torch.optim.lr_scheduler.ReduceLROnPlateau: torch_save,
-        torch.cuda.amp.grad_scaler.GradScaler: torch_save,
-    }
+    DEFAULT_LOAD_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_recovery
+    DEFAULT_SAVE_HOOKS[torch.optim.lr_scheduler.LRScheduler] = torch_save
 
 DEFAULT_TRANSFER_HOOKS = {
     torch.nn.Module: torch_parameter_transfer,
@@ -300,7 +294,7 @@ def mark_as_transfer(method):
     return method
 
 
-def register_checkpoint_hooks(cls):
+def register_checkpoint_hooks(cls, save_on_main_only=True):
     """Class decorator which registers the load, save and transfer hooks.
 
     The hooks must have been marked with mark_as_loader and mark_as_saver,
@@ -310,6 +304,10 @@ def register_checkpoint_hooks(cls):
     ---------
     cls : class
         Class to decorate
+    save_on_main_only : bool
+        By default, the saver is only run on a single process. This argument
+        provides the option to run the saver on all processes, needed
+        for some savers where data is first gathered before saving.
 
     Example
     -------
@@ -334,7 +332,12 @@ def register_checkpoint_hooks(cls):
     global DEFAULT_TRANSFER_HOOKS
     for name, method in cls.__dict__.items():
         if hasattr(method, "_speechbrain_saver"):
-            DEFAULT_SAVE_HOOKS[cls] = method
+            # If the save method is to be run on main only, wrap the method with
+            # main_process_only() which stops it from running on the other procs
+            if save_on_main_only:
+                DEFAULT_SAVE_HOOKS[cls] = main_process_only(method)
+            else:
+                DEFAULT_SAVE_HOOKS[cls] = method
             logger.debug(f"Registered checkpoint save hook for {name}")
         if hasattr(method, "_speechbrain_loader"):
             DEFAULT_LOAD_HOOKS[cls] = method
@@ -482,7 +485,7 @@ class Checkpointer:
         self.allow_partial_load = allow_partial_load
 
     def add_recoverable(
-        self, name, obj, custom_load_hook=None, custom_save_hook=None
+        self, name, obj, custom_load_hook=None, custom_save_hook=None,
     ):
         """Register a recoverable with possible custom hooks.
 
@@ -492,11 +495,11 @@ class Checkpointer:
             Unique name for recoverable. Used to map savefiles to objects.
         obj : instance
             The object to recover.
-        custom_load_hook : callable
+        custom_load_hook : callable, optional
             Called to load the object's savefile. The function/method must be
             callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def load(self, path):
-        custom_save_hook : callable
+        custom_save_hook : callable, optional
             Called to save the object's parameters. The function/method must
             be callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def saver(self, path):
@@ -542,6 +545,13 @@ class Checkpointer:
         The value of end_of_epoch is saved in the meta. This can affect how
         epoch counters and dataset iterators load their state.
 
+        For multi-process saving there are cases where we may want to run
+        saving code on multiple processes (e.g. FSDP where we need to collect
+        parameters before saving). This works by creating a save folder
+        on the main process and communicating it to all processes, and then
+        letting each saver/loader method control whether it should save
+        on one or all processes.
+
         Arguments
         ---------
         meta : mapping, optional
@@ -560,37 +570,57 @@ class Checkpointer:
         Returns
         -------
         Checkpoint
-            namedtuple [see above], the saved checkpoint.
+            namedtuple [see above], the saved checkpoint, unless this is run
+            on a non-main process, in which case it returns None.
         """
-        if name is None:
-            ckpt_dir = self._new_checkpoint_dirpath()
-        else:
-            ckpt_dir = self._custom_checkpoint_dirpath(name)
-        os.makedirs(ckpt_dir)  # May raise FileExistsError, let it.
-        saved_meta = self._save_checkpoint_metafile(
-            ckpt_dir / METAFNAME, meta, end_of_epoch
-        )
+        ckpt_dir = None
+        if if_main_process():
+            if name is None:
+                ckpt_dir = self._new_checkpoint_dirpath()
+            else:
+                ckpt_dir = self._custom_checkpoint_dirpath(name)
+            os.makedirs(ckpt_dir, exist_ok=True)
+            saved_meta = self._save_checkpoint_metafile(
+                ckpt_dir / METAFNAME, meta, end_of_epoch
+            )
+
+        # Communicate ckpt_dir to all procs
+        communication_list = [ckpt_dir]
+        if torch.distributed.is_initialized():
+            torch.distributed.broadcast_object_list(communication_list, src=0)
+        ckpt_dir = communication_list[0]
+
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
             objfname = f"{name}" + PARAMFILE_EXT
             savepath = ckpt_dir / objfname
             saved_paramfiles[name] = savepath
-            # First see if object has custom load hook:
+
+            # First see if object has custom save hook:
             if name in self.custom_save_hooks:
                 self.custom_save_hooks[name](obj, savepath)
                 continue
+
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_SAVE_HOOKS)
             if default_hook is not None:
                 default_hook(obj, savepath)
                 continue
+
             # If we got here, no custom hook or registered default hook
             MSG = f"Don't know how to save {type(obj)}. Register default hook \
                     or add custom hook for this object."
             raise RuntimeError(MSG)
-        ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
-        logger.log(verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}")
-        return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        if if_main_process():
+            ckpt_type = "end-of-epoch" if end_of_epoch else "intra-epoch"
+            logger.log(
+                verbosity, f"Saved an {ckpt_type} checkpoint in {ckpt_dir}"
+            )
+            return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
+
+        # Explicity return None if this is not the main process
+        return None
 
     def save_and_keep_only(
         self,
@@ -887,7 +917,6 @@ class Checkpointer:
         """
         return self._construct_checkpoint_objects(self._list_checkpoint_dirs())
 
-    # NOTE: * in arglist -> keyword only arguments
     def delete_checkpoints(
         self,
         *,
@@ -965,12 +994,23 @@ class Checkpointer:
                 )
             )
 
+        # Sync before deleting to avoid another process saving at the same time.
+        # This has led to errors as documented here:
+        # https://github.com/speechbrain/speechbrain/issues/2250
+        ddp_barrier()
+
         # Delete unprotected checkpoints
         for ckpt in potential_deletions:
             if ckpt not in protected_checkpoints:
                 Checkpointer._delete_checkpoint(ckpt, verbosity=verbosity)
 
+        # Sync after deleting to avoid another process saving at the same time.
+        # This has led to errors as documented here:
+        # https://github.com/speechbrain/speechbrain/issues/2250
+        ddp_barrier()
+
     @staticmethod
+    @main_process_only
     def _delete_checkpoint(checkpoint, verbosity=logging.INFO):
         if not Checkpointer._is_checkpoint_dir(checkpoint.path):
             raise RuntimeError("Checkpoint does not appear valid for deletion.")
