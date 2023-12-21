@@ -47,10 +47,10 @@ skip_manifest_creation: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 200
+number_of_epochs: 400
 batch_size: 32
-lr: 0.00002
-base_lr: 0.000002
+lr: 0.00001
+base_lr: 0.00001
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 16000
@@ -61,7 +61,7 @@ wham_dataset: !new:wham_prepare.WHAMDataset
   target_length: !ref <signal_length_s>
   sample_rate: !ref <sample_rate>
 
-device: "cpu"
+device: "cuda"
 
 # Feature parameters
 n_mels: 80
@@ -79,10 +79,15 @@ use_pretrained: False
 use_melspectra: False
 embedding_model: !new:custom_models.ASTModel
     input_tdim: 431
-    imagenet_pretrain: True
+    fstride: 30
+    tstride: 30
+    model_size: "tiny224"
+    imagenet_pretrain: False
     label_dim: 50
 
+
 classifier: !new:custom_models.ASTClassifier
+    embed_dim: 192
     num_classes: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -124,10 +129,10 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
 
-lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
-    base_lr: !ref <base_lr>
-    max_lr: !ref <max_lr>
-    step_size: !ref <step_size>
+lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
+    initial_value: !ref <base_lr>
+    decay_factor: 0.5
+    decay_drop: 5
 
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
