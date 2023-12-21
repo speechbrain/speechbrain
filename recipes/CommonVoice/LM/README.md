@@ -1,6 +1,6 @@
 
 # Traing KenLM
-This folder contains recipes for training kenLm ngram model for the CommonVoice Dataset.
+This folder contains recipes for training the kenLm n-gram model for the CommonVoice Dataset.
 Using Wav2Vec2 in combination with a language model can yield a significant improvement, especially when the model was trained on only 10 minutes of transcribed audio. This is a guide to explain how one can create an n-gram language model and combine it with an existing fine-tuned Wav2Vec2,
 
 
@@ -14,12 +14,12 @@ Before proceeding, ensure you have installed the necessary additional dependenci
 pip install -r extra_requirements.txt
 ```
 
-We will use the popular KenLM library to do  build an n-gram. Let's start by installing the Ubuntu library prerequisites:
+We will use the popular KenLM library to build an n-gram. Let's start by installing the Ubuntu library prerequisites. For a complete guide on how to install required dependencies, please refer to [this](https://kheafield.com/code/kenlm/dependencies/) link:
  ```
  sudo apt install build-essential cmake libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev libeigen3-dev zlib1g-dev libbz2-dev liblzma-dev
  ```
 
- before downloading and unpacking the KenLM repo.
+ Next, we need to start downloading and unpacking the KenLM repo.
  ```
  wget -O - https://kheafield.com/code/kenlm.tar.gz | tar xz
  ```
@@ -31,7 +31,7 @@ ls kenlm/build/bin
  ```
 # How to run:
 ```shell
-python train.py hparams/train_kenlm.yaml
+python train.py hparams/train_kenlm.yaml  --data_folder=your/data/folder
 ```
 
 # Results
