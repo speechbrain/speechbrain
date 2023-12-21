@@ -1,3 +1,4 @@
 matplotlib
 scikit-learn
+timm==0.4.5 # needed for AST
 

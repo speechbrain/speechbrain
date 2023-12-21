@@ -60,6 +60,9 @@ class ESC50Brain(sb.core.Brain):
 
         outputs = self.modules.classifier(embeddings)
 
+        if outputs.ndim == 2:
+            outputs = outputs.unsqueeze(1)
+
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
