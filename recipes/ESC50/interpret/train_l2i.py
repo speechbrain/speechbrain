@@ -393,14 +393,12 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower = X_stft_logpower[:, : reconstructions.shape[1], :]
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
-        loss_nmf = self.hparams.alpha * (log_nmf := loss_nmf)
-        loss_nmf += self.hparams.beta * (reg:= (time_activations).abs().mean())
-        self.rec_loss.append(
-            uttid, log_nmf
-        )
-        self.reg_loss.append(
-            uttid, reg
-        )
+        loss_nmf = self.hparams.alpha * loss_nmf
+        self.rec_loss.append(uttid, loss_nmf)
+
+        prev = loss_nmf.clone().detach()
+        loss_nmf += self.hparams.beta * (time_activations).abs().mean()
+        self.reg_loss.append(uttid, loss_nmf - prev)
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -409,13 +407,13 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.last_batch = batch
         self.batch_to_plot = (reconstructions.clone(), X_stft_logpower.clone())
 
-        c_soft = F.softmax(classification_out / self.hparams.gamma, dim=1).detach()
+        c_soft = F.softmax(
+            classification_out / self.hparams.gamma, dim=1
+        ).detach()
         theta_out = torch.log(theta_out)
         loss_fid = -(theta_out * c_soft).sum(1).mean()
 
-        self.fid_loss.append(
-            uttid, loss_fid
-        )
+        self.fid_loss.append(uttid, loss_fid)
 
         return loss_nmf + loss_fid
 
