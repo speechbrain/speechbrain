@@ -50,8 +50,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 number_of_epochs: 400
 batch_size: 32
 lr: 0.00001
-base_lr: 0.00001
-max_lr: !ref <lr>
+base_lr: 0.0001
 step_size: 65000
 sample_rate: 16000
 signal_length_s: 5
@@ -82,7 +81,7 @@ embedding_model: !new:custom_models.ASTModel
     fstride: 30
     tstride: 30
     model_size: "tiny224"
-    imagenet_pretrain: False
+    imagenet_pretrain: True
     label_dim: 50
 
 
@@ -131,7 +130,7 @@ opt_class: !name:torch.optim.Adam
 
 lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
     initial_value: !ref <base_lr>
-    decay_factor: 0.5
+    decay_factor: 0.85
     decay_drop: 5
 
 # Logging + checkpoints
@@ -149,6 +148,29 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         classifier: !ref <classifier>
         normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
+
+add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
+
+spec_aug: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+
+drop_chunk: !new:speechbrain.processing.speech_augmentation.DropChunk
+
+drop_freq: !new:speechbrain.processing.speech_augmentation.DropFreq
+
+repeat_augment: 1 # @orion_step1: --repeat_augment 0
+augment: !new:speechbrain.processing.augmentation.Augmenter
+    parallel_augment: True
+    concat_original: True
+    parallel_augment_fixed_bs: True
+    repeat_augment: !ref <repeat_augment>
+    shuffle_augmentations: True
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_noise: !ref <add_noise_white>
+    spec_augment: !ref <spec_aug>
+    drop_chunk: !ref <drop_chunk>
+    drop_freq: !ref <drop_freq>
 
 
 # If you do not want to use the pretrained separator you can simply delete pretrained_separator field.

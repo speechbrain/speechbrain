@@ -43,6 +43,12 @@ class ESC50Brain(sb.core.Brain):
         # augment batch with WHAM!
         wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
+            wavs, _ = self.hparams.augment(
+                wavs,
+                lengths=lens
+            )
+
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
