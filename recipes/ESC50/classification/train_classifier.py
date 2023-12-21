@@ -44,7 +44,7 @@ class ESC50Brain(sb.core.Brain):
         wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
-            wavs, _ = self.hparams.augment(
+            wavs, lens = self.hparams.augment(
                 wavs,
                 lengths=lens
             )
@@ -77,6 +77,10 @@ class ESC50Brain(sb.core.Brain):
         predictions, lens = predictions
         uttid = batch.id
         classid, _ = batch.class_string_encoded
+
+        # Target augmentation
+        N_augments = int(predictions.shape[0] / classid.shape[0])
+        classid = torch.cat(N_augments * [classid], dim=0)
 
         loss = self.hparams.compute_cost(predictions, classid, lens)
 

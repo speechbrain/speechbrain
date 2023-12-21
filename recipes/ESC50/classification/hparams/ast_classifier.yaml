@@ -165,10 +165,10 @@ augment: !new:speechbrain.processing.augmentation.Augmenter
     parallel_augment_fixed_bs: True
     repeat_augment: !ref <repeat_augment>
     shuffle_augmentations: True
-    min_augmentations: 2
-    max_augmentations: 2
+    min_augmentations: 3
+    max_augmentations: 3
     augment_noise: !ref <add_noise_white>
-    spec_augment: !ref <spec_aug>
+      # spec_augment: !ref <spec_aug>
     drop_chunk: !ref <drop_chunk>
     drop_freq: !ref <drop_freq>
 
