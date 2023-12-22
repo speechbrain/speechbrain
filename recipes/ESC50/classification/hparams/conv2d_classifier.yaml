@@ -26,6 +26,7 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+test_only: False
 
 # Tensorboard logs
 use_tensorboard: False
