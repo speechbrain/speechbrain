@@ -130,8 +130,8 @@ opt_class: !name:torch.optim.Adam
 
 lr_annealing: !new:speechbrain.nnet.schedulers.StepScheduler
     initial_value: !ref <base_lr>
-    decay_factor: 0.85
-    decay_drop: 5
+    decay_factor: 0.9
+    decay_drop: 15
 
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
