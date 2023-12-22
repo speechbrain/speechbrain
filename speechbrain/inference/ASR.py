@@ -182,7 +182,7 @@ class EncoderASR(Pretrained):
         self.set_decoding_function()
 
     def set_decoding_function(self):
-        """Set the decoding function based on the parameres defined in the hyperparameter file."""
+        """Set the decoding function based on the parameters defined in the hyperparameter file."""
         if self.decoding_type == "beam":
             if hasattr(self.hparams, "kenlm_model_path"):
                 source, fl = split_path(self.hparams.kenlm_model_path)
