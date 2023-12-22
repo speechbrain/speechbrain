@@ -26,6 +26,7 @@ from wham_prepare import WHAMDataset, combine_batches
 from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
+import torch.nn.functional as F
 
 
 class ESC50Brain(sb.core.Brain):
@@ -82,7 +83,9 @@ class ESC50Brain(sb.core.Brain):
         N_augments = int(predictions.shape[0] / classid.shape[0])
         classid = torch.cat(N_augments * [classid], dim=0)
 
-        loss = self.hparams.compute_cost(predictions, classid, lens)
+        # loss = self.hparams.compute_cost(predictions.squeeze(1), classid, lens)
+        target = F.one_hot(classid.squeeze(), num_classes=self.hparams.out_n_neurons)
+        loss = -(F.log_softmax(predictions.squeeze(), 1) * target).sum(1).mean()
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
