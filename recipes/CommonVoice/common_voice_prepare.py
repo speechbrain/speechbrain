@@ -1,6 +1,6 @@
 """
 Data preparation.
-Download: https://voice.mozilla.org/en/datasets
+Download: https://commonvoice.mozilla.org/en/datasets
 Author
 ------
 Titouan Parcollet

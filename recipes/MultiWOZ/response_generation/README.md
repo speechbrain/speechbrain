@@ -1,22 +1,39 @@
-# MultiWOZ Response Generation with GPT2 Model.
-This folder contains the scripts to finetune a gpt based system using MultiWOZ for response generation task.
+# MultiWOZ Response Generation with LLM Model.
+This folder contains the scripts to finetune a LLM using MultiWOZ for the response generation task.
 You can download MultiWOZ at https://github.com/budzianowski/multiwoz.
-The data will be automatically download in the specified data_folder.
+The data will be automatically downloaded in the specified data_folder.
+Supported LLM models are:
+ - GPT
+ - LLAMA2
 
 
 ## Installing Extra Dependencies
 
 Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+> **Note**
+> For the Llama2 recipe, transformers and peft libraries should follow the versions mentioned in the extra_requirements.
 
 ```
+cd recipes/MultiWOZ/response_generation/[LLM_model]
 pip install -r extra_requirements.txt
+```
+> **Note**
+> “Llama 2 is licensed under the LLAMA 2 Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.”
+>
+> Use of the llama2 model is governed by the Meta license. In order to download the model weights and tokenizer, please visit the [website](https://ai.meta.com/resources/models-and-libraries/llama-downloads/) and accept the License before starting training the llama2 model. Getting access to the original weights is usually very fast. Sometimes, It took longer to get access to the HF repo. Before proceeding, make sure that you have access to the HF repo.
+
+After getting access to the HF repo, you should log in to your HF generate a new token, and use this token to :
+```
+pip install huggingface_hub
+python -c "from huggingface_hub.hf_api import HfFolder; HfFolder.save_token('Your_TOKEN)"
 ```
 
 # How to run
 ```
-python train_with_gpt.py hparams/train_gpt.yaml --data_folder=/your/data/folder
+cd recipes/MultiWOZ/response_generation/[LLM_model]
+python train_with_[LLM_model].py hparams/train_[LLM_model].yaml --data_folder=/your/data/folder
 ```
-The data will be automatically download in the specified data_folder.
+The data will be automatically downloaded in the specified data_folder.
 
 
 # Results
@@ -24,6 +41,7 @@ The data will be automatically download in the specified data_folder.
 | Model | Release | Hyperparams file | Test Cross-entropy Loss | Test PPL | Test BLEU 4| HuggingFace link | Full model link | GPUs |
 |:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|:--------:|
 | GPT2 | 2023-08-15 | train_gpt.yaml |  1.39 |  4.01 | 2.54e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-GPT-Response_Generation) | [model](https://www.dropbox.com/sh/vm8f5iavohr4zz9/AACrkOxXuxsrvJy4Cjpih9bQa?dl=0) | 1xV100 16GB |
+| LLAMA2 | 2023-10-15 | train_llama2.yaml |  1.13 |  2.90 | 7.45e-04 |[model](https://huggingface.co/speechbrain/MultiWOZ-Llama2-Response_Generation) | [model](https://www.dropbox.com/sh/d093vsje1d7ijj9/AAA-nHEd_MwNEFJfBGLmXxJra?dl=0) | 1xV100 16GB |
 
 
 

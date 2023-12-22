@@ -656,7 +656,7 @@ if __name__ == "__main__":
             },
         )
 
-        hparams["reverb"] = sb.processing.speech_augmentation.AddReverb(
+        hparams["reverb"] = sb.augment.time_domain.AddReverb(
             os.path.join(hparams["save_folder"], "whamr_rirs.csv")
         )
 
