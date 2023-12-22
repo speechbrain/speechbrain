@@ -17,6 +17,8 @@ import torch
 import sentencepiece
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.utils.fetching import fetch
+from speechbrain.utils.data_utils import split_path
 
 
 class EncoderDecoderASR(Pretrained):
@@ -177,15 +179,27 @@ class EncoderASR(Pretrained):
 
         self.tokenizer = self.hparams.tokenizer
         self.decoding_type = self.hparams.decoding_type
+        self.set_decoding_function()
+
+    def set_decoding_function(self):
+        """Set the decoding function based on the parameres defined in the hyperparameter file."""
         if self.decoding_type == "beam":
+            if hasattr(self.hparams, "kenlm_model_path"):
+                source, fl = split_path(self.hparams.kenlm_model_path)
+                kenlm_model_path = str(fetch(fl, source=source, savedir="."))
+                self.hparams.test_beam_search[
+                    "kenlm_model_path"
+                ] = kenlm_model_path
+
             vocab_list = [
                 self.tokenizer.id_to_piece(i)
                 for i in range(self.tokenizer.vocab_size())
             ]
+
             from speechbrain.decoders.ctc import CTCBeamSearcher
 
             self.decoding_function = CTCBeamSearcher(
-                **self.hparams.test_beam_search, vocab_list=vocab_list,
+                **self.hparams.test_beam_search, vocab_list=vocab_list
             )
         else:
             from functools import partial
