@@ -6,8 +6,8 @@
 ################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !apply:torch.manual_seed [1986]
-output_folder: !ref results/CommonVoice/ngrams/<language>/1986
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/CommonVoice/ngrams/<language>/<seed>
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/cv-corpus-14.0-2023-06-23/en
@@ -17,7 +17,6 @@ language: en
 accented_letters: True
 train_csv: !ref <output_folder>/train.csv
 skip_prep: False
-sample_rate: 16000
 text_file: !ref <output_folder>/train.txt
 ngram: 5
 ngram_file: !ref <output_folder>/<language>_<ngram>gram.arpa

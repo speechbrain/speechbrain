@@ -9,6 +9,7 @@ Author
 """
 
 import os
+import csv
 import sys
 import logging
 import speechbrain as sb
@@ -17,6 +18,22 @@ from hyperpyyaml import load_hyperpyyaml
 
 
 logger = logging.getLogger(__name__)
+
+
+def csv2text():
+    annotation_file = open(hparams["train_csv"], "r")
+    reader = csv.reader(annotation_file)
+    headers = next(reader, None)
+    text_file = open(hparams["text_file"], "w+")
+    index_label = headers.index("wrd")
+    row_idx = 0
+    for row in reader:
+        row_idx += 1
+        sent = row[index_label]
+        text_file.write(sent + "\n")
+        text_file.close()
+        annotation_file.close()
+        logger.info("Text file created at: " + hparams["text_file"])
 
 
 if __name__ == "__main__":
@@ -49,6 +66,7 @@ if __name__ == "__main__":
                 "skip_prep": hparams["skip_prep"],
             },
         )
+    csv2text()
 
     logger.info(f"Start tarining {hparams['ngram']}-gram kenlm model.")
     tmp_ngram_file = "ngram.arpa"
