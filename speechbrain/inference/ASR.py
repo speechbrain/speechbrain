@@ -169,14 +169,31 @@ class EncoderASR(Pretrained):
     >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
     """
 
-    HPARAMS_NEEDED = ["tokenizer", "decoding_function"]
+    HPARAMS_NEEDED = ["tokenizer", "decoding_type"]
     MODULES_NEEDED = ["encoder"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.tokenizer = self.hparams.tokenizer
-        self.decoding_function = self.hparams.decoding_function
+        self.decoding_type = self.hparams.decoding_type
+        if self.decoding_type == "beam":
+            vocab_list = [
+                self.tokenizer.id_to_piece(i)
+                for i in range(self.tokenizer.vocab_size())
+            ]
+            from speechbrain.decoders.ctc import CTCBeamSearcher
+
+            self.decoding_function = CTCBeamSearcher(
+                **self.hparams.test_beam_search, vocab_list=vocab_list,
+            )
+        else:
+            from functools import partial
+
+            self.decoding_function = partial(
+                speechbrain.decoders.ctc_greedy_decode,
+                blank_id=self.hparams.blank_index,
+            )
 
     def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
@@ -269,10 +286,13 @@ class EncoderASR(Pretrained):
             elif isinstance(
                 self.tokenizer, sentencepiece.SentencePieceProcessor
             ):
-                predicted_words = [
-                    self.tokenizer.decode_ids(token_seq)
-                    for token_seq in predictions
-                ]
+                if self.decoding_type == "greedy":
+                    predicted_words = [
+                        self.tokenizer.decode_ids(token_seq)
+                        for token_seq in predictions
+                    ]
+                else:
+                    predicted_words = [hyp[0].text for hyp in predictions]
             else:
                 raise ValueError(
                     "The tokenizer must be sentencepiece or CTCTextEncoder"
