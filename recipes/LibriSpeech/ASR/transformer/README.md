@@ -22,7 +22,6 @@ python train.py hparams/transformer.yaml --test_only
 installed in your environment (see extra-requirements.txt)**
 # Results
 
-<<<<<<< HEAD
 | Release | hyperparams file | Dev Clean WER (No LM, small beam) | Test Clean WER (Transformer LM) | Test Other WER (Transformer LM) | HuggingFace link | Model link | GPUs |
 |:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 23-05-23 | branchformer_large.yaml | 2.72 (1.9 with LM) | 2.04 | 4.13 | Not Avail. | [GoogleDrive](https://www.dropbox.com/sh/gxkye4efa6hvl2c/AADO85EkkfbIGe5KjBAU6BrEa?dl=0) | 4xA100 80GB |
@@ -34,21 +33,26 @@ installed in your environment (see extra-requirements.txt)**
 | 27-03-23 | hyperconformer_22M.yaml | 3.19 | 2.23 | 5.54  (**only 21.7M parameters**)  | NA | [DropBox](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_13M.yaml | NA | 2.54 | 6.58  | NA | soon | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_25M.yaml | NA | 2.36 | 5.89 | NA | soon | 1xP40 24GB
-=======
-| Release  |   hyperparams file    | Test Clean WER | HuggingFace link | Model link |    GPUs     |
-|:--------:|:---------------------:| :-----:| :-----:| :-----:|:-----------:|
-| 24-03-22 |   transformer.yaml    | 2.26 | [HuggingFace](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | [GoogleDrive](https://drive.google.com/drive/folders/1sM3_PksmGQZMxXPibp7W7mQfPXFdHqc5?usp=sharing) | 1xA100 40GB |
-| 06-12-22 | train_hf_whisper.yaml | 3.60 | Not Avail. | Not Avail. | 1xA100 40GB |
-| Not Avail. |   bayesspeech.yaml    | Not Avail. | Not Avail. | Not Avail. | 1xV100S 32GB |
 
-# PreTrained Model + Easy-Inference
-You can find the pre-trained model with an easy-inference function on HuggingFace:
-- https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech
-- https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech
-- https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
+# **About HyperConformer**
+HyperConformer is a new architecture, which replaces the self-attention mechanism of Conformer with the linear-time token mixing architecture HyperMixer.
+It achieves competitive or better results than Conformer while requiring less memory and compute.
 
-You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/15uUZ21HYnw4KyOPW3tx8bLrS9RoBZfS7?usp=sharing
+- Paper: https://arxiv.org/abs/2305.18281
+- HyperMixer code: https://github.com/idiap/hypermixing
+
+Please cite HyperConformer if you use it for your research or business.
+
+```bibtex
+@inproceedings{mai23_interspeech,
+  author={Florian Mai and Juan Zuluaga-Gomez and Titouan Parcollet and Petr Motlicek},
+  title={{HyperConformer}: Multi-head HyperMixer for Efficient Speech Recognition},
+  year=2023,
+  booktitle={Proc. Interspeech 2023},
+  pages={2213--2217},
+  doi={10.21437/Interspeech.2023-1611}
+}
+```
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
