@@ -9,7 +9,7 @@ To use an n-gram Language Model (LM) for decoding, follow these steps:
 2. Set a path to an ARPA or bin file containing the n-gram LM.
 
 For training an n-gram LM in ARPA (or bin) format, refer to the LM recipe in recipes/CommonVoice/LM.
-Alternatively, you can download a pre-trained n-gram LM from our Dropbox repository at this link: [Pretrained n-gram LMs](https://www.dropbox.com/scl/fo/zw505t10kesqpvkt6m3tu/h?rlkey=6626h1h665tvlo1mtekop9rx5&dl=0). 
+Alternatively, you can download a pre-trained n-gram LM from our Dropbox repository at this link: [Pretrained n-gram LMs](https://www.dropbox.com/scl/fo/zw505t10kesqpvkt6m3tu/h?rlkey=6626h1h665tvlo1mtekop9rx5&dl=0).
 
 These models are trained on the Commonvoice audio transcriptions available in the training set.
 

@@ -30,7 +30,7 @@ mkdir kenlm/build && cd kenlm/build && cmake .. && make -j2
  ```
 
 Now, make sure that the executables are added to your .bashrc file. To do it,
-- Open the ~/.bashrc file in a text editor. 
+- Open the ~/.bashrc file in a text editor.
 - Scroll to the end of the file and add the following line:  ```export PATH=$PATH:/your/path/to/kenlm/build/bin ```
 - Save it and type:  `source ~/.bashrc `
 
