@@ -23,8 +23,8 @@ reg_w_l1: 0.3
 ao_w: 0.5
 
 g_w: 1 # regularization weight of oracles
-crosscor_th: 0.6
-bin_th: 0.7 # needed to binarize guidance spectrograms
+crosscor_th: 0.4
+bin_th: 0.35 # needed to binarize guidance spectrograms
 finetuning: True
 
 experiment_name: piq
