@@ -1,7 +1,7 @@
 
 # Traing KenLM
-This folder contains recipes for training the kenLm n-gram model for the CommonVoice Dataset.
-Using Wav2Vec2 in combination with a language model can yield a significant improvement, especially when the model was trained on only 10 minutes of transcribed audio. This is a guide to explain how one can create an n-gram language model and combine it with an existing fine-tuned Wav2Vec2,
+This folder contains recipes for training the kenLM-gram model for the CommonVoice Dataset.
+Using Wav2Vec2 in combination with a language model can yield a significant improvement, especially when the model is fine-tuned on small speech datasets. This is a guide to explain how one can create an n-gram language model and combine it with an existing fine-tuned Wav2Vec2.
 
 
 You can download CommonVoice at https://commonvoice.mozilla.org/en
@@ -27,7 +27,13 @@ We will use the popular KenLM library to build an n-gram. Let's start by install
 KenLM is written in C++, so we'll make use of cmake to build the binaries.
  ```
 mkdir kenlm/build && cd kenlm/build && cmake .. && make -j2
-ls kenlm/build/bin
+ ```
+
+Now, make sure that the executables are added to your .bashrc file. To do it,
+- Open the ~/.bashrc file in a text editor. 
+- Scroll to the end of the file and add the following line:  ```export PATH=$PATH:/your/path/to/kenlm/build/bin ```
+- Save it and type:  `source ~/.bashrc `
+
  ```
 # How to run:
 ```shell
@@ -35,7 +41,7 @@ python train.py hparams/train_kenlm.yaml  --data_folder=your/data/folder
 ```
 
 # Results
-
+The script trains a n-gram language model, which is stored in the popular ARPA format.
 The output folders with checkpoints and logs can be found [here](https://www.dropbox.com/scl/fo/zw505t10kesqpvkt6m3tu/h?rlkey=6626h1h665tvlo1mtekop9rx5&dl=0).
 
 

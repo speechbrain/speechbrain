@@ -1,8 +1,17 @@
 # CommonVoice ASR with CTC based Seq2Seq models.
-This folder contains scripts necessary to run an ASR experiment with the CommonVoice 14.0 dataset: CommonVoice Homepage and pytorch 2.0
+This folder contains scripts necessary to run an ASR experiment with the CommonVoice 14.0 dataset
 
 # How to run
 python train.py hparams/{hparam_file}.yaml
+
+To use an n-gram Language Model (LM) for decoding, follow these steps:
+1. Uncomment the line `kenlm_model_path: none` in the `test_beam_serch` entry in the yaml file.
+2. Set a path to an ARPA or bin file containing the n-gram LM.
+
+For training an n-gram LM in ARPA (or bin) format, refer to the LM recipe in recipes/CommonVoice/LM.
+Alternatively, you can download a pre-trained n-gram LM from our Dropbox repository at this link: [Pretrained n-gram LMs](https://www.dropbox.com/scl/fo/zw505t10kesqpvkt6m3tu/h?rlkey=6626h1h665tvlo1mtekop9rx5&dl=0). 
+
+These models are trained on the Commonvoice audio transcriptions available in the training set.
 
 # Data preparation
 It is important to note that CommonVoice initially offers mp3 audio files at 42Hz. Hence, audio files are downsampled on the fly within the dataio function of the training script.
@@ -25,6 +34,7 @@ on the transcription of the training data.(Refer to LM recipe: recipes/CommonVoi
 
 >>Note:
 > For Chinese the concept of word is not well-defined, hence, we consider the character error rate instead of the word error rate. For the same reason,  we don't also employ 5-gram.
+
 # Results
 | Language | CommonVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
