@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     logger.info(f"Start tarining {hparams['ngram']}-gram kenlm model.")
     tmp_ngram_file = "ngram.arpa"
-    cmd = f'kenlm/build/bin/lmplz -o {hparams["ngram"]} <"{hparams["text_file"]}" > "{tmp_ngram_file}"'
+    cmd = f'lmplz -o {hparams["ngram"]} <"{hparams["text_file"]}" > "{tmp_ngram_file}"'
     os.system(cmd)
     with open(tmp_ngram_file, "r") as read_file, open(
         hparams["ngram_file"], "w"
