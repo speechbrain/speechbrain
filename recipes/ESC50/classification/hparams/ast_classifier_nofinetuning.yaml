@@ -115,7 +115,7 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
-    embedding_model: !ref <embedding_model>
+    # embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
 
@@ -151,22 +151,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 add_noise_white: !new:speechbrain.processing.speech_augmentation.AddNoise
 
-use_time_roll: False
-use_freq_shift: False
-spec_augment: !new:augmentation.TFAugmentation
-    time_warp: True
-    time_warp_window: 8
-    freq_mask: True
-    freq_mask_width: !tuple (0, 10)
-    n_freq_mask: 2
-    time_mask: True
-    time_mask_width: !tuple (0, 10)
-    n_time_mask: 2
-    replace_with_zero: True
-    time_roll: !ref <use_time_roll>
-    time_roll_limit: !tuple (0, 200)
-    freq_shift: !ref <use_freq_shift>
-    freq_shift_limit: !tuple (-10, 10)
+spec_aug: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
 
 drop_chunk: !new:speechbrain.processing.speech_augmentation.DropChunk
 

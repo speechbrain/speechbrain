@@ -60,8 +60,14 @@ class ESC50Brain(sb.core.Brain):
         else:
             net_input = torch.log1p(X_stft_power)
 
+        if stage == sb.Stage.TRAIN and self.hparams.spec_augment is not None:
+            net_input = self.hparams.spec_augment(net_input, lens)
+
         # Embeddings + sound classifier
-        embeddings = self.modules.embedding_model(net_input)
+        if hasattr(self.modules, "embedding_model"):
+            embeddings = self.modules.embedding_model(net_input)
+        else:
+            embeddings = self.hparams.embedding_model(net_input)
         if embeddings.ndim == 4:
             embeddings = embeddings.mean((-1, -2))
 
@@ -69,6 +75,8 @@ class ESC50Brain(sb.core.Brain):
 
         if outputs.ndim == 2:
             outputs = outputs.unsqueeze(1)
+
+        # print(outputs.squeeze(1).softmax(1)[0:1])
 
         return outputs, lens
 
@@ -413,6 +421,12 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
+
+    if not hasattr(ESC50_brain.modules, "embedding_model"):
+        ESC50_brain.hparams.embedding_model.to(ESC50_brain.device)
+
+    if ESC50_brain.hparams.spec_augment is not None:
+        ESC50_brain.hparams.spec_augment.to(ESC50_brain.device)
 
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_encoder" in hparams and hparams["use_pretrained"]:
