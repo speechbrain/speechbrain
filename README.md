@@ -2,19 +2,28 @@
   <img src="https://raw.githubusercontent.com/speechbrain/speechbrain/develop/docs/images/speechbrain-logo.svg" alt="SpeechBrain Logo"/>
 </p>
 
-[![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/SpeechBrain1/)
-[![Discord](https://dcbadge.vercel.app/api/server/3wYvAaz3Ck?style=flat)](https://discord.gg/3wYvAaz3Ck)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=40&duration=7000&pause=1000&random=false&width=1200&height=100&lines=Simplify+Conversational+AI+Development)](https://git.io/typing-svg)
 
-
-SpeechBrain is an **open-source** and **all-in-one** conversational AI toolkit based on PyTorch.
-
-The goal is to create a **single**, **flexible**, and **user-friendly** toolkit that can be used to easily develop **state-of-the-art speech technologies**, including systems for **speech recognition**, **speaker recognition**, **speech enhancement**, **speech separation**, **language identification**, **multi-microphone signal processing**, and many others.
-
-<img src="https://github.blog/wp-content/uploads/2020/09/github-stars-logo_Color.png" alt="drawing" width="25"/> **Please, star our project on github (see top-right corner) if you appreciate our contribution to the community!**
-
-*SpeechBrain is currently in beta*.
 
 | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** | **[YouTube](https://www.youtube.com/@SpeechBrainProject)** |
+
+
+![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain) 
+<img src="https://github.blog/wp-content/uploads/2020/09/github-stars-logo_Color.png" alt="drawing" width="25"/> *Help our community project, star on GitHub!*
+
+
+🗣️ SpeechBrain is an **open-source** [PyTorch](https://pytorch.org/) toolkit that accelerates **Conversational AI** development, i.e., the technology behind *speech assistants*, *chatbots*, and *large language models*. 
+
+🎙️ It is crafted for fast and easy creation of advanced technologies for **Speech** and **Text** Processing.
+
+# 🌐 Vision
+🚀 With the rise of deep learning, once-distant domains like speech processing and NLP are now very close. A well-designed neural network and large datasets are all you need. 
+
+🧠 We think it is now time for a **holistic toolkit** that, mimicking the human brain, jointly supports diverse technologies for complex Conversational AI systems. 
+
+🗣️💬 This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond. 
+
+# Supported Technologies
 
 # Key features
 
