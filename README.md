@@ -11,17 +11,55 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain) 
 <img src="https://github.blog/wp-content/uploads/2020/09/github-stars-logo_Color.png" alt="drawing" width="25"/> *Help our community project, star on GitHub!*
 
+#
+# 🗣️💬 What SpeechBrain Offers  
 
-🗣️ SpeechBrain is an **open-source** [PyTorch](https://pytorch.org/) toolkit that accelerates **Conversational AI** development, i.e., the technology behind *speech assistants*, *chatbots*, and *large language models*. 
+- SpeechBrain is an **open-source** [PyTorch](https://pytorch.org/) toolkit that accelerates **Conversational AI** development, i.e., the technology behind *speech assistants*, *chatbots*, and *large language models*. 
 
-🎙️ It is crafted for fast and easy creation of advanced technologies for **Speech** and **Text** Processing.
+- It is crafted for fast and easy creation of advanced technologies for **Speech** and **Text** Processing.
 
-# 🌐 Vision
-🚀 With the rise of deep learning, once-distant domains like speech processing and NLP are now very close. A well-designed neural network and large datasets are all you need. 
+## 🌐  Vision 
+- With the rise of [deep learning](https://www.deeplearningbook.org/), once-distant domains like speech processing and NLP are now very close. A well-designed neural network and large datasets are all you need. 
 
-🧠 We think it is now time for a **holistic toolkit** that, mimicking the human brain, jointly supports diverse technologies for complex Conversational AI systems. 
+- We think it is now time for a **holistic toolkit** that, mimicking the human brain, jointly supports diverse technologies for complex Conversational AI systems. 
 
-🗣️💬 This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond. 
+- This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond. 
+
+
+## 📚 Training Recipes
+- We share over 200 competitive training [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes) on more than 40 datasets supporting 20 speech and text processing tasks (see below). 
+
+- We support both training from scratch and fine-tuning pretrained models such as [Whisper](https://huggingface.co/openai/whisper-large), [Wav2Vec2](https://huggingface.co/docs/transformers/model_doc/wav2vec2), [WavLM](https://huggingface.co/docs/transformers/model_doc/wavlm), [Hubert](https://huggingface.co/docs/transformers/model_doc/hubert), [GPT2](https://huggingface.co/gpt2), [Llama2](https://huggingface.co/docs/transformers/model_doc/llama2), and beyond. The models on [HuggingFace](https://huggingface.co/) can be easily plugged in and fine-tuned.
+
+- For any task, you train the model using these commands:
+```bash
+python train.py hparams/train.yaml
+```
+
+- The hyperparameters are encapsulated in a YAML file, while the training process is orchestrated through a Python script. 
+
+- We maintained a consistent code structure across different tasks. 
+
+- For better replicability, training logs and checkpoints are hosted on Dropbox.
+
+## <a href="https://huggingface.co/speechbrain" target="_blank"> <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="drawing" width="40"/> </a> Pretrained Models and Inference
+
+- Access over 100 pretrained models hosted on [HuggingFace](https://huggingface.co/speechbrain).
+- Each model comes with a user-friendly interface for seamless inference. For example, transcribing speech using a pretrained model requires just three lines of code:
+
+```python
+from speechbrain.pretrained import EncoderDecoderASR
+
+asr_model = EncoderDecoderASR.from_hparams(source="speechbrain/asr-conformer-transformerlm-librispeech", savedir="pretrained_models/asr-transformer-transformerlm-librispeech")
+asr_model.transcribe_file("speechbrain/asr-conformer-transformerlm-librispeech/example.wav")
+```
+
+##  <a href="https://speechbrain.github.io/" target="_blank"> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Google_Colaboratory_SVG_Logo.svg/1200px-Google_Colaboratory_SVG_Logo.svg.png" alt="drawing" width="50"/> </a>  Documentation
+- We are deeply dedicated to promoting inclusivity and education.
+- We have authored over 30 tutorials on Google Colab that not only describe how SpeechBrain works but also help users familiarize themselves with Conversational AI.
+
+
+
 
 # Supported Technologies
 
