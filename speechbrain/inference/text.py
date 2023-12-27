@@ -321,7 +321,7 @@ class Llama2ResponseGenerator(ResponseGenerator):
         response
             Generated hypothesis for the user input based on the dialogue history.
         """
-        prompt_bos = inputs.to(self.model.model.device)
+        prompt_bos = inputs[0].to(self.model.model.device)
         padding_mask = ~self.hparams.padding_mask(
             prompt_bos, pad_idx=self.tokenizer.pad_token_id
         )
@@ -378,4 +378,4 @@ class Llama2ResponseGenerator(ResponseGenerator):
         prompt_bos = torch.cat(
             (torch.tensor([self.tokenizer.bos_token_id]), prompt_ids)
         )
-        return prompt_bos.unsqueeze(0)
+        return prompt_bos.unsqueeze(0).unsqueeze(dim=0)
