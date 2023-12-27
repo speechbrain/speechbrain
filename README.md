@@ -18,12 +18,14 @@
 
 - It is crafted for fast and easy creation of advanced technologies for **Speech** and **Text** Processing.
 
+
 ## 🌐  Vision 
 - With the rise of [deep learning](https://www.deeplearningbook.org/), once-distant domains like speech processing and NLP are now very close. A well-designed neural network and large datasets are all you need. 
 
 - We think it is now time for a **holistic toolkit** that, mimicking the human brain, jointly supports diverse technologies for complex Conversational AI systems. 
 
 - This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond. 
+
 
 
 ## 📚 Training Recipes
@@ -56,12 +58,100 @@ asr_model.transcribe_file("speechbrain/asr-conformer-transformerlm-librispeech/e
 
 ##  <a href="https://speechbrain.github.io/" target="_blank"> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Google_Colaboratory_SVG_Logo.svg/1200px-Google_Colaboratory_SVG_Logo.svg.png" alt="drawing" width="50"/> </a>  Documentation
 - We are deeply dedicated to promoting inclusivity and education.
-- We have authored over 30 tutorials on Google Colab that not only describe how SpeechBrain works but also help users familiarize themselves with Conversational AI.
+- We have authored over 30 [tutorials](https://speechbrain.github.io/) on Google Colab that not only describe how SpeechBrain works but also help users familiarize themselves with Conversational AI.
+- Every class or function has clear explanations and examples that you can run. Check out the [documentation](https://speechbrain.readthedocs.io/en/latest/index.html) for more details 📚.
 
 
 
+## 🎯 Use Cases
+- 🚀 **Research Acceleration**: Speeding up academic and industrial research. You can develop and integrate new models effortlessly, comparing their performance against our baselines.
+  
+- ⚡️ **Rapid Prototyping**: Ideal for quick prototyping in time-sensitive industrial projects, embraced by large corporations and startups.
+  
+- 🎓 **Educational Tool**: SpeechBrain's simplicity makes it a valuable educational resource. It is used by institutions like [Mila](https://mila.quebec/en/), [Concordia University](https://www.concordia.ca/), [Avignon University](https://univ-avignon.fr/en/), and many others for student training.
+
+#
+# 🚀 Quick Start 
+
+To get started with SpeechBrain, follow these simple steps:
+
+## 🛠️ Installation 
+
+### Install via PyPI
+
+1. Install SpeechBrain using PyPI:
+
+    ```bash
+    pip install speechbrain
+    ```
+
+2. Access SpeechBrain in your Python code:
+
+    ```python
+    import speechbrain as sb
+    ```
+
+### Install from GitHub
+This installation is recommended for users who wish to conduct experiments and customize the toolkit according to their needs.
+
+1. Clone the GitHub repository and install the requirements:
+
+    ```bash
+    git clone https://github.com/speechbrain/speechbrain.git
+    cd speechbrain
+    pip install -r requirements.txt
+    pip install --editable .
+    ```
+
+2. Access SpeechBrain in your Python code:
+
+    ```python
+    import speechbrain as sb
+    ```
+
+Any modifications made to the `speechbrain` package will be automatically reflected, thanks to the `--editable` flag.
+
+## ✔️ Test Installation 
+
+Ensure your installation is correct by running the following commands:
+
+```bash
+pytest tests
+pytest --doctest-modules speechbrain
+```
+
+## 🏃‍♂️ Running an Experiment 
+
+In SpeechBrain, you can train a model for any task using the following steps:
+
+```bash
+cd recipes/<dataset>/<task>/
+python experiment.py params.yaml
+```
+
+The results will be saved in the `output_folder` specified in the YAML file. 
 
 # Supported Technologies
+SpeechBrain can be used to implementent many technologies involved in Conversational AI. It is also suitable for combining these technologies in complex pipelines.
+We currently support the following tasks, datasets, and technologies:
+
+
+| Tasks        | Datasets           | Technologies  |
+| ------------- |:-------------:| -----:|
+| Speech Recognition      | [AISHELL-1](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AISHELL-1), [CommonVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice), [DVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/DVoice), [KsponSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/KsponSpeech), [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech), [MEDIA](https://github.com/speechbrain/speechbrain/tree/develop/recipes/MEDIA), [RescueSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/RescueSpeech), [Switchboard](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Switchboard), [TIMIT](https://github.com/speechbrain/speechbrain/tree/develop/recipes/TIMIT), [Tedlium2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Tedlium2), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | CTC, Tranducers, Tranformers, Seq2Seq, Beamsearch, Rescoring, Streamable Conformer |
+| Speaker Recognition      | [VoxCeleb](https://github.com/speechbrain/speechbrain/tree/develop/recipes/VoxCeleb) | ECAPA-TDNN, ResNET, Xvectors, PLDA, Score Normalization |
+| Speech Separation      | [WSJ0Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WSJ0Mix), [LibriMix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriMix), [WHAM!](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WHAMandWHAMR), [WHAMR!](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WHAMandWHAMR), [Aishell1Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Aishell1Mix), [BinauralWSJ0Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/BinauralWSJ0Mix) | SepFormer, RESepFormer, SkiM, DualPath RNN, ConvTasNET |
+| Speech Enhancement      | [DNS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/DNS), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | SepFormer, MetricGAN, MetricGAN-U, SEGAN, spectral masking, time masking |
+| Emotion Classification      | [IEMOCAP](https://github.com/speechbrain/speechbrain/tree/develop/recipes/IEMOCAP), [ZaionEmotionDataset](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ZaionEmotionDataset) | ECAPA-TDNN, Wav2vec2, Emotion Diarization |
+| Text-to-Speech      | [LJSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech), [LibriTTS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriTTS) | Tacotron2, Multi-Speaker Tacotron2, FastSpeech2 |
+| Vocoding      | [LJSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech), [LibriTTS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriTTS) | HiFiGAN, DiffWave |
+| Spoken Language Understanding | [MEDIA](https://github.com/speechbrain/speechbrain/tree/develop/recipes/MEDIA), [SLURP](https://github.com/speechbrain/speechbrain/tree/develop/recipes/SLURP), [Fluent Speech Commands](https://github.com/speechbrain/speechbrain/tree/develop/recipes/fluent-speech-commands), [Timers-and-Such](https://github.com/speechbrain/speechbrain/tree/develop/recipes/timers-and-such)  | Direct SLU, Decoupled SLU, Multistage SLU |
+
+SpeechBrain is growing very fast and many other technologies will be supported in the future.
+
+# Performance
+
+
 
 # Key features
 
