@@ -250,6 +250,17 @@ class LLAMA2(HFTransformersInterface):
                 is_quantized=True,
             )
 
+            from transformers.utils.quantization_config import (
+                QuantizationMethod,
+            )
+
+            self.model._is_quantized_training_enabled = True
+            self.model.is_8bit_serializable = True
+            self.model.quantization_method = QuantizationMethod.BITS_AND_BYTES
+            self.model.is_quantized = True
+            self.model.is_loaded_in_4bit = True
+            self.model.is_loaded_in_8bit = False
+
             quantization_config = {}
             quantization_config["bnb_4bit_compute_dtype"] = "float16"
             quantization_config["bnb_4bit_quant_type"] = "nf4"
@@ -263,6 +274,17 @@ class LLAMA2(HFTransformersInterface):
             quantization_config["quant_method"] = "bitsandbytes"
 
             self.model.config.quantization_config = quantization_config
+
+            from accelerate import dispatch_model
+
+            device_map_kwargs = {
+                "device_map": {"": 0},
+                "offload_dir": None,
+                "offload_index": None,
+                "skip_keys": "past_key_values",
+            }
+
+            dispatch_model(self.model, **device_map_kwargs)
 
             self.model = prepare_model_for_kbit_training(self.model)
 

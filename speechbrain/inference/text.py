@@ -304,8 +304,9 @@ class Llama2ResponseGenerator(ResponseGenerator):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = self.model.to("cuda")
+        run_opts = {"device": "cuda"}
+        super().__init__(run_opts=run_opts, *args, **kwargs)
+        # self.model = self.model#.to("cuda")
 
     def generate(self, inputs):
         """
