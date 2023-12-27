@@ -168,7 +168,11 @@ The results will be saved in the `output_folder` specified in the YAML file.
 
 SpeechBrain is rapidly evolving, with ongoing efforts to support a growing array of technologies in the future.
 
-# Performance
+# 📊 Performance 
+
+- SpeechBrain integrates a variety of technologies, including those that achieves competitive or state-of-the-art performance.
+
+- For a comprehensive overview of the achieved performance across different tasks, datasets, and technologies, please visit [here](https://github.com/speechbrain/speechbrain/blob/develop/PERFORMANCE.md).
 
 
 
