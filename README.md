@@ -131,23 +131,42 @@ python experiment.py params.yaml
 
 The results will be saved in the `output_folder` specified in the YAML file. 
 
-# Supported Technologies
-SpeechBrain can be used to implementent many technologies involved in Conversational AI. It is also suitable for combining these technologies in complex pipelines.
-We currently support the following tasks, datasets, and technologies:
-
-
+# 🔧 Supported Technologies
+- SpeechBrain is a versatile framework designed for implementing a wide range of technologies within the field of Conversational AI.
+- It excels not only in individual task implementations but also in seamlessly combining various technologies into complex pipelines.
+  
+## Speech/Audio Processing
 | Tasks        | Datasets           | Technologies  |
-| ------------- |:-------------:| -----:|
-| Speech Recognition      | [AISHELL-1](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AISHELL-1), [CommonVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice), [DVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/DVoice), [KsponSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/KsponSpeech), [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech), [MEDIA](https://github.com/speechbrain/speechbrain/tree/develop/recipes/MEDIA), [RescueSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/RescueSpeech), [Switchboard](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Switchboard), [TIMIT](https://github.com/speechbrain/speechbrain/tree/develop/recipes/TIMIT), [Tedlium2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Tedlium2), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | CTC, Tranducers, Tranformers, Seq2Seq, Beamsearch, Rescoring, Streamable Conformer |
+| ------------- |-------------| -----|
+| Speech Recognition      | [AISHELL-1](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AISHELL-1), [CommonVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice), [DVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/DVoice), [KsponSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/KsponSpeech), [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech), [MEDIA](https://github.com/speechbrain/speechbrain/tree/develop/recipes/MEDIA), [RescueSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/RescueSpeech), [Switchboard](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Switchboard), [TIMIT](https://github.com/speechbrain/speechbrain/tree/develop/recipes/TIMIT), [Tedlium2](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Tedlium2), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | CTC, Tranducers, Tranformers, Seq2Seq, Beamsearch, Rescoring, Conformer,Streamable Conformer, Branchformer, Hyperconformer |
 | Speaker Recognition      | [VoxCeleb](https://github.com/speechbrain/speechbrain/tree/develop/recipes/VoxCeleb) | ECAPA-TDNN, ResNET, Xvectors, PLDA, Score Normalization |
 | Speech Separation      | [WSJ0Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WSJ0Mix), [LibriMix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriMix), [WHAM!](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WHAMandWHAMR), [WHAMR!](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WHAMandWHAMR), [Aishell1Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Aishell1Mix), [BinauralWSJ0Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/BinauralWSJ0Mix) | SepFormer, RESepFormer, SkiM, DualPath RNN, ConvTasNET |
 | Speech Enhancement      | [DNS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/DNS), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | SepFormer, MetricGAN, MetricGAN-U, SEGAN, spectral masking, time masking |
-| Emotion Classification      | [IEMOCAP](https://github.com/speechbrain/speechbrain/tree/develop/recipes/IEMOCAP), [ZaionEmotionDataset](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ZaionEmotionDataset) | ECAPA-TDNN, Wav2vec2, Emotion Diarization |
 | Text-to-Speech      | [LJSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech), [LibriTTS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriTTS) | Tacotron2, Multi-Speaker Tacotron2, FastSpeech2 |
 | Vocoding      | [LJSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech), [LibriTTS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriTTS) | HiFiGAN, DiffWave |
 | Spoken Language Understanding | [MEDIA](https://github.com/speechbrain/speechbrain/tree/develop/recipes/MEDIA), [SLURP](https://github.com/speechbrain/speechbrain/tree/develop/recipes/SLURP), [Fluent Speech Commands](https://github.com/speechbrain/speechbrain/tree/develop/recipes/fluent-speech-commands), [Timers-and-Such](https://github.com/speechbrain/speechbrain/tree/develop/recipes/timers-and-such)  | Direct SLU, Decoupled SLU, Multistage SLU |
+| Speech-to-Speech Translation  | [CVSS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CVSS) | Discrete Hubert, HifiGAN, wav2vec2 |
+| Speech Translation  | [Fisher CallHome (Spanish)](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Fisher-Callhome-Spanish), [IWSLT22(lowresource)](https://github.com/speechbrain/speechbrain/tree/develop/recipes/IWSLT22_lowresource) | wav2vec2 |
+| Emotion Classification      | [IEMOCAP](https://github.com/speechbrain/speechbrain/tree/develop/recipes/IEMOCAP), [ZaionEmotionDataset](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ZaionEmotionDataset) | ECAPA-TDNN, Wav2vec2, Emotion Diarization |
+| Language Identification | [VoxLingua107](https://github.com/speechbrain/speechbrain/tree/develop/recipes/VoxLingua107), [CommonLanguage](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonLanguage)| ECAPA-TDNN |
+| Voice Activity Detection  | [LibriParty](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriParty) | CRDNN |
+| Sound Classification  | [ESC50](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ESC50), [UrbanSound](https://github.com/speechbrain/speechbrain/tree/develop/recipes/UrbanSound8k) | CNN, CNN14, ECAPA-TDNN |
+| Self-Supervised Learning | [CommonVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice), [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech) | Wav2vec2 |
+| Interpretabiliy | [ESC50](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ESC50) | Learning-to-Interpret (L2I), Non-Negative Matrix Factorization (NMF), PIQ |
+| Speech Generation | [AudioMNIST](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AudioMNIST) | Diffusion, Latent Diffusion |
+| Metric Learning | [REAL-M](https://github.com/speechbrain/speechbrain/tree/develop/recipes/REAL-M/sisnr-estimation)| Blind SNR-Estimation |
+| Allignment | [TIMIT](https://github.com/speechbrain/speechbrain/tree/develop/recipes/TIMIT) | CTC, Viterbi, Forward Forward |
+| Diarization | [AMI](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AMI) | ECAPA-TDNN, X-vectors, Spectral Clustering |
 
-SpeechBrain is growing very fast and many other technologies will be supported in the future.
+## Text Processing
+| Tasks        | Datasets           | Technologies  |
+| ------------- |-------------| -----|
+| Language Modeling | [CommonVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice), [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/unstable-v0.6/recipes/LibriSpeech)| n-grams, RNNLM, TransformerLM |
+| Response Generation | [MultiWOZ](https://github.com/speechbrain/speechbrain/tree/unstable-v0.6/recipes/MultiWOZ/response_generation)| GPT2, Llama2 |
+| Grapheme-to-Phoneme | [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech) | RNN, Transformer, Curriculum Learning, Homograph loss |
+
+
+SpeechBrain is rapidly evolving, with ongoing efforts to support a growing array of technologies in the future.
 
 # Performance
 
