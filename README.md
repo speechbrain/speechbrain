@@ -8,28 +8,28 @@
 | **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** | **[YouTube](https://www.youtube.com/@SpeechBrainProject)** |
 
 
-![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain) 
+![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain)
 <img src="https://github.blog/wp-content/uploads/2020/09/github-stars-logo_Color.png" alt="drawing" width="25"/> *Help our community project, star on GitHub!*
 
 #
-# 🗣️💬 What SpeechBrain Offers  
+# 🗣️💬 What SpeechBrain Offers
 
-- SpeechBrain is an **open-source** [PyTorch](https://pytorch.org/) toolkit that accelerates **Conversational AI** development, i.e., the technology behind *speech assistants*, *chatbots*, and *large language models*. 
+- SpeechBrain is an **open-source** [PyTorch](https://pytorch.org/) toolkit that accelerates **Conversational AI** development, i.e., the technology behind *speech assistants*, *chatbots*, and *large language models*.
 
 - It is crafted for fast and easy creation of advanced technologies for **Speech** and **Text** Processing.
 
 
-## 🌐  Vision 
-- With the rise of [deep learning](https://www.deeplearningbook.org/), once-distant domains like speech processing and NLP are now very close. A well-designed neural network and large datasets are all you need. 
+## 🌐  Vision
+- With the rise of [deep learning](https://www.deeplearningbook.org/), once-distant domains like speech processing and NLP are now very close. A well-designed neural network and large datasets are all you need.
 
-- We think it is now time for a **holistic toolkit** that, mimicking the human brain, jointly supports diverse technologies for complex Conversational AI systems. 
+- We think it is now time for a **holistic toolkit** that, mimicking the human brain, jointly supports diverse technologies for complex Conversational AI systems.
 
-- This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond. 
+- This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond.
 
 
 
 ## 📚 Training Recipes
-- We share over 200 competitive training [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes) on more than 40 datasets supporting 20 speech and text processing tasks (see below). 
+- We share over 200 competitive training [recipes](https://github.com/speechbrain/speechbrain/tree/develop/recipes) on more than 40 datasets supporting 20 speech and text processing tasks (see below).
 
 - We support both training from scratch and fine-tuning pretrained models such as [Whisper](https://huggingface.co/openai/whisper-large), [Wav2Vec2](https://huggingface.co/docs/transformers/model_doc/wav2vec2), [WavLM](https://huggingface.co/docs/transformers/model_doc/wavlm), [Hubert](https://huggingface.co/docs/transformers/model_doc/hubert), [GPT2](https://huggingface.co/gpt2), [Llama2](https://huggingface.co/docs/transformers/model_doc/llama2), and beyond. The models on [HuggingFace](https://huggingface.co/) can be easily plugged in and fine-tuned.
 
@@ -38,9 +38,9 @@
 python train.py hparams/train.yaml
 ```
 
-- The hyperparameters are encapsulated in a YAML file, while the training process is orchestrated through a Python script. 
+- The hyperparameters are encapsulated in a YAML file, while the training process is orchestrated through a Python script.
 
-- We maintained a consistent code structure across different tasks. 
+- We maintained a consistent code structure across different tasks.
 
 - For better replicability, training logs and checkpoints are hosted on Dropbox.
 
@@ -65,17 +65,17 @@ asr_model.transcribe_file("speechbrain/asr-conformer-transformerlm-librispeech/e
 
 ## 🎯 Use Cases
 - 🚀 **Research Acceleration**: Speeding up academic and industrial research. You can develop and integrate new models effortlessly, comparing their performance against our baselines.
-  
+
 - ⚡️ **Rapid Prototyping**: Ideal for quick prototyping in time-sensitive industrial projects, embraced by large corporations and startups.
-  
+
 - 🎓 **Educational Tool**: SpeechBrain's simplicity makes it a valuable educational resource. It is used by institutions like [Mila](https://mila.quebec/en/), [Concordia University](https://www.concordia.ca/), [Avignon University](https://univ-avignon.fr/en/), and many others for student training.
 
 #
-# 🚀 Quick Start 
+# 🚀 Quick Start
 
 To get started with SpeechBrain, follow these simple steps:
 
-## 🛠️ Installation 
+## 🛠️ Installation
 
 ### Install via PyPI
 
@@ -111,7 +111,7 @@ This installation is recommended for users who wish to conduct experiments and c
 
 Any modifications made to the `speechbrain` package will be automatically reflected, thanks to the `--editable` flag.
 
-## ✔️ Test Installation 
+## ✔️ Test Installation
 
 Ensure your installation is correct by running the following commands:
 
@@ -120,7 +120,7 @@ pytest tests
 pytest --doctest-modules speechbrain
 ```
 
-## 🏃‍♂️ Running an Experiment 
+## 🏃‍♂️ Running an Experiment
 
 In SpeechBrain, you can train a model for any task using the following steps:
 
@@ -129,9 +129,9 @@ cd recipes/<dataset>/<task>/
 python experiment.py params.yaml
 ```
 
-The results will be saved in the `output_folder` specified in the YAML file. 
+The results will be saved in the `output_folder` specified in the YAML file.
 
-## 📘 Learning SpeechBrain 
+## 📘 Learning SpeechBrain
 
 - **Website:** Explore general information on the [official website](https://speechbrain.github.io).
 
@@ -143,7 +143,7 @@ The results will be saved in the `output_folder` specified in the YAML file.
 # 🔧 Supported Technologies
 - SpeechBrain is a versatile framework designed for implementing a wide range of technologies within the field of Conversational AI.
 - It excels not only in individual task implementations but also in seamlessly combining various technologies into complex pipelines.
-  
+
 ## 🎙️ Speech/Audio Processing
 | Tasks        | Datasets           | Technologies  |
 | ------------- |-------------| -----|
@@ -174,7 +174,7 @@ The results will be saved in the `output_folder` specified in the YAML file.
 | Response Generation | [MultiWOZ](https://github.com/speechbrain/speechbrain/tree/unstable-v0.6/recipes/MultiWOZ/response_generation)| GPT2, Llama2 |
 | Grapheme-to-Phoneme | [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech) | RNN, Transformer, Curriculum Learning, Homograph loss |
 
-## 🔍 Additional Features 
+## 🔍 Additional Features
 
 SpeechBrain includes a range of native functionalities that enhance the development of Conversational AI technologies. Here are some examples:
 
@@ -203,19 +203,19 @@ SpeechBrain includes a range of native functionalities that enhance the developm
 SpeechBrain is rapidly evolving, with ongoing efforts to support a growing array of technologies in the future.
 
 
-## 📊 Performance 
+## 📊 Performance
 
 - SpeechBrain integrates a variety of technologies, including those that achieves competitive or state-of-the-art performance.
 
 - For a comprehensive overview of the achieved performance across different tasks, datasets, and technologies, please visit [here](https://github.com/speechbrain/speechbrain/blob/develop/PERFORMANCE.md).
 
 #
-# 📜 License 
+# 📜 License
 
 SpeechBrain is released under the Apache License, version 2.0, a popular BSD-like license. You are free to redistribute SpeechBrain for both free and commercial purposes, with the condition of retaining license headers. Unlike the GPL, the Apache License is not viral, meaning you are not obligated to release modifications to the source code.
 
 #
-# 🔮Future Plans 
+# 🔮Future Plans
 
 We have ambitious plans for the future, with a focus on the following priorities:
 
@@ -224,17 +224,17 @@ We have ambitious plans for the future, with a focus on the following priorities
 - **Scale Down:** While scaling up delivers unprecedented performance, we recognize the challenges of deploying large models in production scenarios. We are focusing on real-time, streamable, and small-footprint Conversational AI.
 
 #
-# 🤝 Contributing 
+# 🤝 Contributing
 
-- SpeechBrain is a community-driven project, led by a core team with the support of numerous international collaborators. 
+- SpeechBrain is a community-driven project, led by a core team with the support of numerous international collaborators.
 - We welcome contributions and ideas from the community. For more information, check [here](https://speechbrain.github.io/contributing.html).
 
 #
 # 🙏 Sponsors
 
-- SpeechBrain is an academically driven project and relies on the passion and enthusiasm of its contributors. 
-- As we cannot rely on the resources of a large company, we deeply appreciate any form of support, including donations or collaboration with the core team. 
-- If you're interested in sponsoring SpeechBrain, please reach out to us at speechbrainproject@gmail.com. 
+- SpeechBrain is an academically driven project and relies on the passion and enthusiasm of its contributors.
+- As we cannot rely on the resources of a large company, we deeply appreciate any form of support, including donations or collaboration with the core team.
+- If you're interested in sponsoring SpeechBrain, please reach out to us at speechbrainproject@gmail.com.
 - A heartfelt thank you to all our sponsors, including the current ones:
 
 
@@ -255,7 +255,7 @@ We have ambitious plans for the future, with a focus on the following priorities
 [<img src="https://www.concordia.ca/content/dam/common/logos/Concordia-logo.jpeg" alt="Image 9" width="250"/>](https://www.concordia.ca/) &nbsp; &nbsp;
 [<img src="https://speechbrain.github.io/img/partners/logo_lia.png" alt="Image 8" width="250"/>](https://lia.univ-avignon.fr/) &nbsp; &nbsp;
 #
-# 📖 Citing SpeechBrain 
+# 📖 Citing SpeechBrain
 
 If you use SpeechBrain in your research or business, please cite it using the following BibTeX entry:
 
