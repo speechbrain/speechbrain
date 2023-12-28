@@ -108,9 +108,13 @@ def prepare_libritts(
         # Random split the signal list into train, valid, and test sets.
         data_split = split_sets(wav_list, split_ratio)
         # Creating json files
-        create_json(data_split["train"], save_json_train, sample_rate)
-        create_json(data_split["valid"], save_json_valid, sample_rate)
-        create_json(data_split["test"], save_json_test, sample_rate)
+        create_json(
+            data_split["train"], save_json_train, sample_rate, model_name
+        )
+        create_json(
+            data_split["valid"], save_json_valid, sample_rate, model_name
+        )
+        create_json(data_split["test"], save_json_test, sample_rate, model_name)
 
 
 def prepare_split(data_folder, split_list):
