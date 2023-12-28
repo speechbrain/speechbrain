@@ -328,6 +328,10 @@ def main():
         overrides=overrides,
     )
 
+    # Update precision to bf16 if the device is CPU and precision is fp16
+    if run_opts.get("device") == "cpu" and hparams.get("precision") == "fp16":
+        hparams["precision"] = "bf16"
+
     from librispeech_prepare import prepare_librispeech
 
     run_on_main(

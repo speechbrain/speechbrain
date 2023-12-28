@@ -1133,6 +1133,7 @@ class Brain:
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor
             )
+            self.check_loss_isfinite(scaled_loss)
             scaled_loss.backward()
 
         if should_step:
@@ -1140,6 +1141,37 @@ class Brain:
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
+
+    def check_loss_isfinite(self, loss):
+        """Check if the loss is finite.
+
+        If the loss is not finite, log a helpful message and increment the `nonfinite_count`.
+        If the `nonfinite_count` exceeds the `--nonfinite_patience` threshold, stop the training
+        and raise an error.
+
+        This check is particularly useful when the loss becomes NaN or inf, while the
+        parameters and gradients remain finite. It helps prevent getting stuck in an
+        infinite loop during training.
+
+        Arguments
+        ---------
+        loss : tensor
+            The loss tensor after ``backward()`` has been called but
+            before the optimizers ``step()``.
+        """
+        if not torch.isfinite(loss):
+            self.nonfinite_count += 1
+
+            # Check if patience is exhausted
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warning("Patience not yet exhausted.")
 
     def check_gradients(self):
         """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""

@@ -26,24 +26,30 @@ find recipes | grep extra | xargs cat | sort -u | grep -v \# | xargs -I {} pip i
 pip install fairseq
 conda install 'ffmpeg<4.4'
 ```
-7. Run the basic tests by typing:
+7. Update the PERFORMANCE.md file:
+```
+python tools/readme_builder.py --recipe_info_dir tests/recipes/ --output_file PERFORMANCE.md
+```
+Remember to push it.
+
+8. Run the basic tests by typing:
 ```
 pytest
 ```
-8. Run load yaml test:
+9. Run load yaml test:
 ```
 tests/.run-load-yaml-tests.sh
 ```
-9. Run recipe tests
+10. Run recipe tests
 ```
 tests/.run-recipe-tests.sh
 ```
-10. Make sure all HuggingFace repos are working
+11. Make sure all HuggingFace repos are working
 ```
 tests/.run-HF-checks.sh
 ```
-10. Make sure all HuggingFace API Interfaces are up to date and working (see [here](#huggingface-api-testing)])
-11. Check URLs
+12. Make sure all HuggingFace API Interfaces are up to date and working (see [here](#huggingface-api-testing)])
+13. Check URLs
 ```
 tests/.run-url-checks.sh
 ```

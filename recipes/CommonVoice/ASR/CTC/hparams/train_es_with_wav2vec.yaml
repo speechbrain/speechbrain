@@ -87,15 +87,8 @@ test_beam_search:
     topk: 1
     alpha: 1.0
     beta: 0.5
-    # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
-    # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
-    # If you don't want to use an LM, comment it out or set it to null
+    # To use n-gram LM for decoding, follow steps in README.md.
     # kenlm_model_path: none
-# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
-# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
-# If you don't want to use an LM, comment it out or set it to null
-# kenlm_model_path: none
-
 
 #
 # Functions and classes

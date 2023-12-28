@@ -164,7 +164,7 @@ class DiscreteHuBERT(HuBERT):
         return (
             torch.tensor(
                 embs.reshape(wav.shape[0], -1, embs.shape[-1]),
-                dtype=torch.long,
+                dtype=torch.float,
                 device=wav.device,
             ),
             torch.tensor(

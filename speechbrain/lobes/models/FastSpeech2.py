@@ -15,51 +15,13 @@ from speechbrain.nnet import CNN, linear
 from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerEncoder,
+    PositionalEncoding,
     get_key_padding_mask,
+    get_mask_from_lengths,
 )
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.losses import bce_loss
 import numpy as np
-
-
-class PositionalEmbedding(nn.Module):
-    """Computation of the positional embeddings.
-    Arguments
-    ---------
-    embed_dim: int
-        dimensionality of the embeddings.
-    """
-
-    def __init__(self, embed_dim):
-        super(PositionalEmbedding, self).__init__()
-        self.demb = embed_dim
-        inv_freq = 1 / (
-            10000 ** (torch.arange(0.0, embed_dim, 2.0) / embed_dim)
-        )
-        self.register_buffer("inv_freq", inv_freq)
-
-    def forward(self, seq_len, mask, dtype):
-        """Computes the forward pass
-        Arguments
-        ---------
-        seq_len: int
-            length of the sequence
-        mask: torch.tensor
-            mask applied to the positional embeddings
-        dtype: str
-            dtype of the embeddings
-        Returns
-        -------
-        pos_emb: torch.Tensor
-            the tensor with positional embeddings
-        """
-        pos_seq = torch.arange(seq_len, device=mask.device).to(dtype)
-
-        sinusoid_inp = torch.matmul(
-            torch.unsqueeze(pos_seq, -1), torch.unsqueeze(self.inv_freq, 0)
-        )
-        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=1)
-        return pos_emb[None, :, :] * mask[:, :, None]
 
 
 class EncoderPreNet(nn.Module):
@@ -323,7 +285,7 @@ class SPNPredictor(nn.Module):
             n_char, padding_idx, out_channels=enc_d_model
         )
 
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
 
@@ -366,9 +328,7 @@ class SPNPredictor(nn.Module):
 
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
 
         spn_mask = (
@@ -568,10 +528,10 @@ class FastSpeech2(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
-        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
             dec_d_model
         )
 
@@ -701,9 +661,7 @@ class FastSpeech2(nn.Module):
 
         # prenet & encoder
         token_feats = self.encPreNet(tokens)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -762,7 +720,8 @@ class FastSpeech2(nn.Module):
             durations if durations is not None else dur_pred_reverse_log,
             pace=pace,
         )
-        srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -772,10 +731,7 @@ class FastSpeech2(nn.Module):
         )
 
         # decoder
-        pos = self.sinusoidal_positional_embed_decoder(
-            spec_feats.shape[1], srcmask, spec_feats.dtype
-        )
-
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats)
         spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
 
         output_mel_feats, memory, *_ = self.decoder(
@@ -2216,10 +2172,10 @@ class FastSpeech2WithAlignment(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
-        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
             dec_d_model
         )
 
@@ -2403,9 +2359,7 @@ class FastSpeech2WithAlignment(nn.Module):
 
         # encoder
         token_feats = self.encPreNet(tokens)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -2494,7 +2448,8 @@ class FastSpeech2WithAlignment(nn.Module):
             else predict_durations_reverse_log,
             pace=pace,
         )
-        srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -2504,10 +2459,7 @@ class FastSpeech2WithAlignment(nn.Module):
         )
 
         # decoder
-        pos = self.sinusoidal_positional_embed_decoder(
-            spec_feats.shape[1], srcmask, spec_feats.dtype
-        )
-
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats)
         spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
 
         output_mel_feats, memory, *_ = self.decoder(
@@ -2638,13 +2590,13 @@ class LossWithAlignment(nn.Module):
             alignment_hard,
         ) = predictions
 
-        predicted_pitch = predicted_pitch.squeeze()
-        predicted_energy = predicted_energy.squeeze()
+        predicted_pitch = predicted_pitch.squeeze(-1)
+        predicted_energy = predicted_energy.squeeze(-1)
 
-        target_pitch = average_pitch.squeeze()
-        target_energy = average_energy.squeeze()
+        target_pitch = average_pitch.squeeze(-1)
+        target_energy = average_energy.squeeze(-1)
 
-        log_durations = log_durations.squeeze()
+        log_durations = log_durations.squeeze(-1)
         if self.log_scale_durations:
             log_target_durations = torch.log(alignment_durations.float() + 1)
         # change this to perform batch level using padding mask

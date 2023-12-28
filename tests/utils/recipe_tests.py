@@ -762,7 +762,7 @@ def load_yaml_test(
     }
 
     # Read the csv recipe file and detect which tests we have to run
-    test_script, test_hparam, test_flag, test_check = prepare_test(
+    test_script, test_hparam, test_flag, test_check, _, _ = prepare_test(
         recipe_folder,
         script_field,
         hparam_field,
