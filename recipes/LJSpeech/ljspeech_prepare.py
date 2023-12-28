@@ -499,7 +499,6 @@ def prepare_json(
                 wavs_folder, pitch_folder
             )
             if not os.path.isfile(pitch_file):
-
                 if torchaudio.__version__ < "2.1":
                     pitch = torchaudio.functional.compute_kaldi_pitch(
                         waveform=audio,
