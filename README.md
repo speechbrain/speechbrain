@@ -5,11 +5,10 @@
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=40&duration=7000&pause=1000&random=false&width=1200&height=100&lines=Simplify+Conversational+AI+Development)](https://git.io/typing-svg)
 
 
-| **[Tutorials](https://speechbrain.github.io/tutorial_basics.html)** | **[Website](https://speechbrain.github.io/)** | **[Documentation](https://speechbrain.readthedocs.io/en/latest/index.html)** | **[Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html)** | **[HuggingFace](https://huggingface.co/speechbrain)** | **[YouTube](https://www.youtube.com/@SpeechBrainProject)** |
+| 📘 [Tutorials](https://speechbrain.github.io/tutorial_basics.html) | 🌐 [Website](https://speechbrain.github.io/) | 📚 [Documentation](https://speechbrain.readthedocs.io/en/latest/index.html) | 🤝 [Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html) | 🤗 [HuggingFace](https://huggingface.co/speechbrain) | ▶️ [YouTube](https://www.youtube.com/@SpeechBrainProject) | 🐦 [Twitter](https://twitter.com/SpeechBrain1) |
 
+![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain?style=social) *Please, help our community project. Star on GitHub!*
 
-![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain)
-<img src="https://github.blog/wp-content/uploads/2020/09/github-stars-logo_Color.png" alt="drawing" width="25"/> *Help our community project, star on GitHub!*
 
 #
 # 🗣️💬 What SpeechBrain Offers
@@ -34,7 +33,7 @@
 - We support both training from scratch and fine-tuning pretrained models such as [Whisper](https://huggingface.co/openai/whisper-large), [Wav2Vec2](https://huggingface.co/docs/transformers/model_doc/wav2vec2), [WavLM](https://huggingface.co/docs/transformers/model_doc/wavlm), [Hubert](https://huggingface.co/docs/transformers/model_doc/hubert), [GPT2](https://huggingface.co/gpt2), [Llama2](https://huggingface.co/docs/transformers/model_doc/llama2), and beyond. The models on [HuggingFace](https://huggingface.co/) can be easily plugged in and fine-tuned.
 
 - For any task, you train the model using these commands:
-```bash
+```python
 python train.py hparams/train.yaml
 ```
 
@@ -66,7 +65,7 @@ asr_model.transcribe_file("speechbrain/asr-conformer-transformerlm-librispeech/e
 ## 🎯 Use Cases
 - 🚀 **Research Acceleration**: Speeding up academic and industrial research. You can develop and integrate new models effortlessly, comparing their performance against our baselines.
 
-- ⚡️ **Rapid Prototyping**: Ideal for quick prototyping in time-sensitive industrial projects, embraced by large corporations and startups.
+- ⚡️ **Rapid Prototyping**: Ideal for quick prototyping in time-sensitive projects.
 
 - 🎓 **Educational Tool**: SpeechBrain's simplicity makes it a valuable educational resource. It is used by institutions like [Mila](https://mila.quebec/en/), [Concordia University](https://www.concordia.ca/), [Avignon University](https://univ-avignon.fr/en/), and many others for student training.
 
@@ -124,7 +123,7 @@ pytest --doctest-modules speechbrain
 
 In SpeechBrain, you can train a model for any task using the following steps:
 
-```bash
+```python
 cd recipes/<dataset>/<task>/
 python experiment.py params.yaml
 ```
@@ -142,7 +141,7 @@ The results will be saved in the `output_folder` specified in the YAML file.
 #
 # 🔧 Supported Technologies
 - SpeechBrain is a versatile framework designed for implementing a wide range of technologies within the field of Conversational AI.
-- It excels not only in individual task implementations but also in seamlessly combining various technologies into complex pipelines.
+- It excels not only in individual task implementations but also in combining various technologies into complex pipelines.
 
 ## 🎙️ Speech/Audio Processing
 | Tasks        | Datasets           | Technologies  |
@@ -163,7 +162,7 @@ The results will be saved in the `output_folder` specified in the YAML file.
 | Self-Supervised Learning | [CommonVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice), [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech) | Wav2vec2 |
 | Interpretabiliy | [ESC50](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ESC50) | Learning-to-Interpret (L2I), Non-Negative Matrix Factorization (NMF), PIQ |
 | Speech Generation | [AudioMNIST](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AudioMNIST) | Diffusion, Latent Diffusion |
-| Metric Learning | [REAL-M](https://github.com/speechbrain/speechbrain/tree/develop/recipes/REAL-M/sisnr-estimation)| Blind SNR-Estimation |
+| Metric Learning | [REAL-M](https://github.com/speechbrain/speechbrain/tree/develop/recipes/REAL-M/sisnr-estimation), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | Blind SNR-Estimation, PESQ Learning |
 | Allignment | [TIMIT](https://github.com/speechbrain/speechbrain/tree/develop/recipes/TIMIT) | CTC, Viterbi, Forward Forward |
 | Diarization | [AMI](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AMI) | ECAPA-TDNN, X-vectors, Spectral Clustering |
 
@@ -212,7 +211,8 @@ SpeechBrain is rapidly evolving, with ongoing efforts to support a growing array
 #
 # 📜 License
 
-SpeechBrain is released under the Apache License, version 2.0, a popular BSD-like license. You are free to redistribute SpeechBrain for both free and commercial purposes, with the condition of retaining license headers. Unlike the GPL, the Apache License is not viral, meaning you are not obligated to release modifications to the source code.
+- SpeechBrain is released under the [Apache License, version 2.0](https://www.apache.org/licenses/LICENSE-2.0), a popular BSD-like license.
+- You are free to redistribute SpeechBrain for both free and commercial purposes, with the condition of retaining license headers. Unlike the GPL, the Apache License is not viral, meaning you are not obligated to release modifications to the source code.
 
 #
 # 🔮Future Plans
@@ -271,5 +271,4 @@ If you use SpeechBrain in your research or business, please cite it using the fo
 }
 ```
 
-Feel free to cite SpeechBrain for your contributions and support.
 
