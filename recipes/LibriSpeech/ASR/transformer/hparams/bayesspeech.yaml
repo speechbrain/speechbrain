@@ -11,7 +11,7 @@
 
 seed: 74443
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/bayesspeech/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -123,7 +123,7 @@ nhead: 4
 num_encoder_layers: 12
 num_decoder_layers: 6
 d_ffn: 2048
-transformer_dropout: 0.1
+transformer_dropout: 0.0
 activation: !name:torch.nn.GELU
 output_neurons: 5000
 

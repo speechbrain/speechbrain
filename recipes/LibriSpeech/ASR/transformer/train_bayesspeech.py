@@ -483,10 +483,10 @@ if __name__ == "__main__":
     hparams["model"] = torch.nn.ModuleList(
         [hparams["CNN"], hparams["seq_lin"], hparams["ctc_lin"]]
     )
+    hparams["ctc_scorer"].ctc_fc = hparams["ctc_lin"]
     hparams["test_search"].modules = hparams["valid_search"].modules = [
         hparams["Transformer"],
         hparams["seq_lin"],
-        hparams["ctc_lin"],
     ]
     hparams["checkpointer"].recoverables["model"] = hparams["model"]
     hparams["checkpointer"].add_recoverable(
