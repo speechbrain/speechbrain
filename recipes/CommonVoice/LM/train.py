@@ -68,7 +68,7 @@ if __name__ == "__main__":
                 "skip_prep": hparams["skip_prep"],
             },
         )
-    csv2text()
+        csv2text()
 
     logger.info(f"Start tarining {hparams['ngram']}-gram kenlm model.")
     tmp_ngram_file = "ngram.arpa"
