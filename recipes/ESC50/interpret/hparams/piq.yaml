@@ -68,6 +68,7 @@ rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
 signal_length_s: 5
+add_wham_noise: False
 
 wham_dataset: !new:wham_prepare.WHAMDataset
     data_dir: !ref <wham_audio_folder>
@@ -131,8 +132,11 @@ load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 use_pretrained: True
 
-embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
-classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
+# embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
+# classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
+
+embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/embedding_model.ckpt"
+classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/classifier.ckpt"
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:

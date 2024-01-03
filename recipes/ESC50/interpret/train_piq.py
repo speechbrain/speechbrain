@@ -323,7 +323,10 @@ class InterpreterESC50Brain(sb.core.Brain):
         wavs, lens = batch.sig
 
         # augment batch with WHAM!
-        wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+
+        if hasattr(self.hparams, 'add_wham_noise'):
+            if self.hparams.add_wham_noise:
+                wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
 
@@ -355,7 +358,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 # self.interpret_sample(wavs, batch)
-                # self.overlap_test(batch)
+                self.overlap_test(batch)
                 self.debug_files(X_stft, xhat, X_stft_logpower, batch, wavs[0:1])
 
         return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
