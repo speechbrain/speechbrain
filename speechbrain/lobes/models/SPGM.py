@@ -27,13 +27,14 @@ class SPGMBlock(nn.Module):
 
     Example
     ---------
+        >>> from speechbrain.lobes.models.dual_path import SBTransformerBlock, Dual_Computation_Block
         >>> intra_block = SBTransformerBlock(1, 64, 8)
         >>> inter_block = SPGMBlock(64, 'att', 512, 0.2)
         >>> dual_comp_block = Dual_Computation_Block(intra_block, inter_block, 64)
         >>> x = torch.randn(10, 64, 100, 10)
         >>> x = dual_comp_block(x)
         >>> print(x.shape)
-        # torch.Size([10, 64, 100, 10])
+        torch.Size([10, 64, 100, 10])
     """
 
     def __init__(
@@ -141,15 +142,15 @@ class PoolAttFF(torch.nn.Module):
         Number of filters in input
     att_h : int
         Size of linear later for FF attention pooling.
-    att_dropout : int
+    att_dropout : float
         Dropout rate for FF attention pooling.
 
     Example
     ---------
-        >>>> x = torch.randn(250,10,64)
-        >>>> pool = PoolAttFF(64,1, 256)
-        >>>> out = pool(x)
-        >>>> out.shape
+        >>> x = torch.randn(250, 10, 64)
+        >>> pool = PoolAttFF(64, 1, 0.9)
+        >>> out = pool(x)
+        >>> out.shape
         torch.Size([10, 64])
     """
 
@@ -216,10 +217,10 @@ class PoolAtt(torch.nn.Module):
 
     Example
     ---------
-        >>>> x = torch.randn(250,10,64)
-        >>>> pool = PoolAtt(64)
-        >>>> out = pool(x)
-        >>>> out.shape
+        >>> x = torch.randn(250,10,64)
+        >>> pool = PoolAtt(64)
+        >>> out = pool(x)
+        >>> out.shape
         torch.Size([10, 64])
     """
 
@@ -266,10 +267,10 @@ class PoolAvg(torch.nn.Module):
 
     Example
     ---------
-        >>>> x = torch.randn(250,10,64)
-        >>>> pool = PoolAvg()
-        >>>> out = pool(x)
-        >>>> out.shape
+        >>> x = torch.randn(250,10,64)
+        >>> pool = PoolAvg()
+        >>> out = pool(x)
+        >>> out.shape
         torch.Size([10, 64])
     """
 
@@ -305,10 +306,10 @@ class PoolMax(torch.nn.Module):
 
     Example
     ---------
-        >>>> x = torch.randn(250,10,64)
-        >>>> pool = PoolMax()
-        >>>> out = pool(x)
-        >>>> out.shape
+        >>> x = torch.randn(250,10,64)
+        >>> pool = PoolMax()
+        >>> out = pool(x)
+        >>> out.shape
         torch.Size([10, 64])
     """
 
