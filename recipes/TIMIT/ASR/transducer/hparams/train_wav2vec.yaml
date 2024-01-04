@@ -22,9 +22,9 @@ freeze_wav2vec: False
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-train_annotation: !ref <data_folder>/train.json
-valid_annotation: !ref <data_folder>/dev.json
-test_annotation: !ref <data_folder>/test.json
+train_annotation: !ref <save_folder>/train.json
+valid_annotation: !ref <save_folder>/dev.json
+test_annotation: !ref <save_folder>/test.json
 skip_prep: False # Skip data preparation
 uppercase: False # Must be True when the TIMIT dataset is in the upper-case version
 
@@ -34,7 +34,7 @@ batch_size: 8
 lr: 0.0003
 lr_wav2vec: 0.0001
 sorting: ascending # choose between ascending, descending and random
-auto_mix_prec: True
+precision: fp16 # bf16, fp16 or fp32
 
 # Feature parameters
 sample_rate: 16000
@@ -45,12 +45,12 @@ sample_rate: 16000
 activation: !name:torch.nn.LeakyReLU
 # dropout: 0.15
 dnn_blocks: 1
-dnn_neurons: 40
+dnn_neurons: 43
 dec_neurons: 128
 
 # Outputs
-output_neurons: 40
-joint_dim: 40
+output_neurons: 43
+joint_dim: 43
 blank_index: 0
 
 # Decoding parameters
@@ -74,11 +74,54 @@ test_dataloader_opts:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
@@ -178,7 +221,6 @@ modules:
     dec_lin: !ref <dec_lin>
     Tjoint: !ref <Tjoint>
     output: !ref <output>
-    augmentation: !ref <augmentation>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

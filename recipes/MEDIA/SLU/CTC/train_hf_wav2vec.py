@@ -96,35 +96,6 @@ class SLU(sb.core.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-
-        stage = sb.Stage.TRAIN
-
-        # Train.
-        predictions = self.compute_forward(batch, stage)
-        loss = self.compute_objectives(predictions, batch, stage)
-
-        # Propagate loss.
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer_wav2vec.step()
-            self.optimizer.step()
-        self.optimizer_wav2vec.zero_grad()
-        self.optimizer.zero_grad()
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-
-        # Evaluate.
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage)
-
-        return loss.detach()
-
     def init_optimizers(self):
         """Initializes the wav2vec2 optimizer and model optimizer"""
 
@@ -140,6 +111,11 @@ class SLU(sb.core.Brain):
                 "optimizer_wav2vec", self.optimizer_wav2vec
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+        self.optimizers_dict = {
+            "wav2vec_optimizer": self.optimizer_wav2vec,
+            "model_optimizer": self.optimizer,
+        }
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""

@@ -14,7 +14,7 @@ import logging
 import torchaudio
 import torch
 from tqdm import tqdm
-from speechbrain.pretrained import GraphemeToPhoneme
+from speechbrain.inference.txt import GraphemeToPhoneme
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 logger = logging.getLogger(__name__)

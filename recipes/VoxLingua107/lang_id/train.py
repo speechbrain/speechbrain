@@ -46,33 +46,9 @@ class LanguageBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -92,8 +68,8 @@ class LanguageBrain(sb.core.Brain):
         langid = batch.lang_id_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            langid = torch.cat([langid] * self.n_augment, dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            langid = self.hparams.wav_augment.replicate_labels(langid)
 
         # breakpoint()
         loss = self.hparams.compute_cost(predictions, langid.unsqueeze(1), lens)
@@ -236,6 +212,10 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    # Data preparation for augmentation
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     (
         train_data,

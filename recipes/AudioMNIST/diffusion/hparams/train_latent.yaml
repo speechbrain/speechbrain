@@ -261,7 +261,7 @@ done_detector: !new:speechbrain.nnet.utils.DoneDetector
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-vocoder: !name:speechbrain.pretrained.interfaces.HIFIGAN.from_hparams
+vocoder: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
     source: !ref <vocoder_model>
 
 

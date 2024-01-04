@@ -37,7 +37,7 @@ number_of_epochs: 30
 lr: 1.0
 lr_wav2vec: 0.0001
 sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
@@ -76,15 +76,70 @@ blank_index: 0
 bos_index: 1
 eos_index: 2
 
+# Decoding parameters
+test_beam_search:
+    blank_index: !ref <blank_index>
+    beam_size: 100
+    beam_prune_logp: -12.0
+    token_prune_min_logp: -1.2
+    prune_history: True
+    topk: 1
+    alpha: 1.0
+    beta: 0.5
+    # To use n-gram LM for decoding, follow steps in README.md.
+    # kenlm_model_path: none
 #
 # Functions and classes
 #
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
 
 enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <wav2vec_output_dim>]
@@ -108,7 +163,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
     bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation3: !new:torch.nn.LeakyReLU
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: False
     freeze: !ref <freeze_wav2vec>

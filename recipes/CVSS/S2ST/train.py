@@ -4,6 +4,7 @@
  - Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
  To run this recipe, do the following:
  # python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
+
  Authors
  * Jarod Duret 2023
 """
@@ -14,7 +15,8 @@ import logging
 import pathlib as pl
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
-from speechbrain.pretrained import UnitHIFIGAN, EncoderDecoderASR
+from speechbrain.inference.vocoders import UnitHIFIGAN
+from speechbrain.inference.ASR import EncoderDecoderASR
 import tqdm
 import torchaudio
 import numpy as np
@@ -155,18 +157,36 @@ class S2UT(sb.core.Brain):
 
         return loss
 
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
+        if (
+            not self.hparams.wav2vec2_frozen
+            and self.optimizer_step >= self.hparams.wav2vec2_freeze_steps
+        ):
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
+
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
         after parameters are fully configured (e.g. DDP, jit).
         """
+        self.optimizers_dict = {}
+
         # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )
+            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+
         self.model_optimizer = self.hparams.opt_class(
             self.hparams.model.parameters()
         )
+        self.optimizers_dict["model_optimizer"] = self.model_optimizer
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
@@ -176,54 +196,21 @@ class S2UT(sb.core.Brain):
                 "model_optimizer", self.model_optimizer
             )
 
-    def fit_batch(self, batch):
-        """Fits a single batch.
+    def on_fit_batch_start(self, batch, should_step):
+        """Called at the beginning of ``fit_batch()``.
+
         Arguments
         ---------
-        batch: tuple
-            a training batch
-        Returns
-        -------
-        loss: torch.Tensor
-            detached loss
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        should_step : boolean
+            Whether optimizer.step() was called or not.
         """
         if self.optimizer_step == self.hparams.wav2vec2_freeze_steps:
             logger.warning(
                 "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 is unfrozen."
             )
-
-        should_step = self.step % self.grad_accumulation_factor == 0
-        if self.bfloat16_mix_prec:
-            with torch.autocast(
-                device_type=torch.device(self.device).type,
-                dtype=torch.bfloat16,
-            ):
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-        with self.no_sync(not should_step):
-            (loss / self.grad_accumulation_factor).backward()
-        if should_step:
-            if self.check_gradients(loss):
-                if (
-                    not self.hparams.wav2vec2_frozen
-                    and self.optimizer_step
-                    >= self.hparams.wav2vec2_freeze_steps
-                ):  # if wav2vec2 is not frozen
-                    self.wav2vec_optimizer.step()
-                self.model_optimizer.step()
-
-            if not self.hparams.wav2vec2_frozen:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-
-            self.optimizer_step += 1
-
-        self.on_fit_batch_end(batch, outputs, loss, should_step)
-        return loss.detach().cpu()
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called after ``fit_batch()``, meant for calculating and logging metrics.

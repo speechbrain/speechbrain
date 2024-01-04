@@ -51,16 +51,25 @@ class ASR(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         tokens_with_bos, token_with_bos_lens = batch.tokens_bos
-        # wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+                tokens_with_bos = self.hparams.wav_augment.replicate_labels(
+                    tokens_with_bos
+                )
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "augmentation"):
-                feats = self.modules.augmentation(feats)
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_with_bos = self.hparams.fea_augment.replicate_labels(
+                tokens_with_bos
+            )
 
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_with_bos)
@@ -122,6 +131,30 @@ class ASR(sb.Brain):
         current_epoch = self.hparams.epoch_counter.current
         tokens, token_lens = batch.tokens
         tokens_eos, token_eos_lens = batch.tokens_eos
+
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                tokens = self.hparams.wav_augment.replicate_labels(tokens)
+                token_lens = self.hparams.wav_augment.replicate_labels(
+                    token_lens
+                )
+                tokens_eos = self.hparams.wav_augment.replicate_labels(
+                    tokens_eos
+                )
+                token_eos_lens = self.hparams.wav_augment.replicate_labels(
+                    token_eos_lens
+                )
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                token_lens = self.hparams.fea_augment.replicate_labels(
+                    token_lens
+                )
+                tokens_eos = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos
+                )
+                token_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    token_eos_lens
+                )
 
         if stage == sb.Stage.TRAIN:
             if len(predictions) == 4:
@@ -198,23 +231,6 @@ class ASR(sb.Brain):
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""

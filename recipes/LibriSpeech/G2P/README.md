@@ -109,6 +109,10 @@ Pretrained language models can be found at the following URLs:
 * **RNN**: https://www.dropbox.com/sh/pig0uk80xxii7cg/AACQ1rrRLYthvpNZ5FadPLtRa?dl=0
 * **Transformer**: https://www.dropbox.com/sh/tkf6di10edpz4i6/AAArnGAkE0bEEOvOGfc6KWuma?dl=0
 
+
+The best model is available on HuggingFace:
+https://huggingface.co/speechbrain/soundchoice-g2p
+
 Training Time
 -------------
 All reference times are given for a Quattro P5000 GPU. These are rough estimations only - exact training times will vary depending on the hyperparameters chosen and system configuration.

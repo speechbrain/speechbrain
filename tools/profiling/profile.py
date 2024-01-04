@@ -21,7 +21,7 @@ from speechbrain.utils.profiling import (
     report_time,
     report_memory,
 )
-from speechbrain.pretrained import (
+from speechbrain.inference import (
     Pretrained,
     EncoderDecoderASR,
     EncoderASR,

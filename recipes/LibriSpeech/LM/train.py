@@ -42,20 +42,9 @@ class LM(sb.core.Brain):
         )
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        (loss / self.hparams.accu_steps).backward()
-
-        if self.step % self.hparams.accu_steps == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             if isinstance(
                 self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
             ) or isinstance(
@@ -63,8 +52,6 @@ class LM(sb.core.Brain):
                 sb.nnet.schedulers.CyclicCosineScheduler,
             ):
                 self.hparams.lr_annealing(self.optimizer)
-
-        return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -189,7 +176,7 @@ if __name__ == "__main__":
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     lm_brain = LM(
         modules=hparams["modules"],

@@ -211,6 +211,11 @@ class HifiGanBrain(sb.Brain):
             self.optimizer_d = opt_d_class(
                 self.modules.discriminator.parameters()
             )
+
+            self.optimizers_dict = {
+                "optimizer_g": self.optimizer_g,
+                "optimizer_d": self.optimizer_d,
+            }
             self.scheduler_g = sch_g_class(self.optimizer_g)
             self.scheduler_d = sch_d_class(self.optimizer_d)
 
