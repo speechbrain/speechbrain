@@ -1,7 +1,7 @@
 # Speech separation with WSJ0-Mix
 This folder contains some popular recipes for the WSJ0-Mix task (2/3 sources).
 
-* This recipe supports train with several source separation models on WSJ0-2Mix, including [SPGM](https://arxiv.org/abs/2309.12608), [Sepformer](https://arxiv.org/abs/2010.13154), [RE-SepFormer](https://arxiv.org/abs/2206.09507), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
+* This recipe supports train with several source separation models on WSJ0-2Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [Sepformear extensions](https://arxiv.org/abs/2202.02884), [RE-SepFormer](https://arxiv.org/abs/2206.09507), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975), [SPGM](https://arxiv.org/abs/2309.12608).
 
 **Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Seperation: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/speechbrain-speech-seperation)
 
@@ -43,10 +43,6 @@ python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2spea
 
 * Here are the SI - SNRi results (in dB) on the test set of WSJ0-2/3 Mix with various models:
 
-| | SPGM, WSJ0-2Mix |
-|--- | --- |
-|SpeedPerturb | 22.1 |
-|DynamicMixing | 22.7 |
 
 | | SepFormer, WSJ0-2Mix |
 |--- | --- |
@@ -66,9 +62,14 @@ python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2spea
 | --- | --- |
 |DynamicMixing | 18.1 |
 
+| | SPGM, WSJ0-2Mix |
+|--- | --- |
+|SpeedPerturb | 22.1 |
+|DynamicMixing | 22.7 |
+
 
 # Training Time
-Each epoch takes about 2 hours for WSJ0-2Mix and WSJ0-3Mix (DynamicMixing ) on a NVIDIA V100 (32GB).
+Each epoch for SepFormer takes about 2 hours for WSJ0-2Mix and WSJ0-3Mix (DynamicMixing) on a NVIDIA V100 (32GB).
 
 # Pretrained Models:
 Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can be found through huggingface:
@@ -83,8 +84,6 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 * The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://www.dropbox.com/sh/o8fohu5s07h4bnw/AADPNyR1E3Q4aRobg3FtXTwVa?dl=0).
 * The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://www.dropbox.com/sh/zy0l5rc8abxdfp3/AAA2ngB74fugqpWXmjZo5v3wa?dl=0).
 * The output folder (with logs and checkpoints) for Sepformer with conformer block as intra model (hparams/sepformer-conformerintra.yaml) can be found [here](https://www.dropbox.com/sh/w27rbdfnrtntrc9/AABCMFFvnxxYkKTInYXtsow3a?dl=0).
-
-
 
 
 # Example calls for running the training scripts
@@ -107,8 +106,6 @@ You can run the following command to train the model using Distributed Data Para
 torchrun --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath
 ```
 You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
-
-
 
 
 # **Citing SpeechBrain**
