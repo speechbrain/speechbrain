@@ -4732,6 +4732,43 @@ class MSTacotron2(Pretrained):
         # Calls __encode_batch to generate the mel-spectrograms
         return self.__encode_batch(phoneme_seqs, spk_embs)
 
+    def clone_voice_char_input(self, texts, audio_path):
+        """
+        Generates mel-spectrogram using input text and reference audio
+
+        Arguments
+        ---------
+        texts : str or list
+            Input text (chars)
+        audio_path : str
+            Reference audio path
+
+        Returns
+        -------
+        tensors of output spectrograms, output lengths and alignments
+        """
+
+        # Loads audio
+        ref_signal, signal_sr = torchaudio.load(audio_path)
+
+        # Resamples the audio if required
+        if signal_sr != self.hparams.spk_emb_sample_rate:
+            ref_signal = torchaudio.functional.resample(
+                ref_signal, signal_sr, self.hparams.spk_emb_sample_rate
+            )
+        ref_signal = ref_signal.to(self.device)
+        # Computes speaker embedding
+        if self.custom_mel_spec_encoder:
+            spk_emb = self.spk_emb_encoder.encode_waveform(ref_signal)
+        else:
+            spk_emb = self.spk_emb_encoder.encode_batch(ref_signal)
+
+        spk_emb = spk_emb.squeeze(0)
+        # Repeats the speaker embedding to match the number of input texts
+        spk_embs = spk_emb.repeat(len(texts), 1)
+        # Calls __encode_batch to generate the mel-spectrograms
+        return self.__encode_batch(texts, spk_embs)
+
     def generate_random_voice(self, texts):
         """
         Generates mel-spectrogram using input text and a random speaker voice
