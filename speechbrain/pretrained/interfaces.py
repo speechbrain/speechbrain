@@ -2038,6 +2038,7 @@ class VAD(Pretrained):
         en_activation_th=0.5,
         en_deactivation_th=0.0,
         speech_th=0.50,
+        **kwargs,
     ):
         """Detects speech segments within the input file. The input signal can
         be both a short or a long recording. The function computes the
@@ -2114,7 +2115,7 @@ class VAD(Pretrained):
 
         # Fetch audio file from web if not local
         source, fl = split_path(audio_file)
-        audio_file = fetch(fl, source=source)
+        audio_file = fetch(fl, source=source, **kwargs)
 
         # Computing speech vs non speech probabilities
         prob_chunks = self.get_speech_prob_file(
