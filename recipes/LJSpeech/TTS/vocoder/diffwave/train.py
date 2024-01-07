@@ -77,18 +77,6 @@ class DiffWaveBrain(sb.Brain):
         self.last_loss_stats[stage] = {"loss": loss}
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        loss = super().fit_batch(batch)
-        return loss.detach().cpu()
-
-    def evaluate_batch(self, batch, stage):
-        """Evaluate one batch
-        """
-        out = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(out, batch, stage=stage)
-        return loss.detach().cpu()
-
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
         if ``distributed_count > 0`` and backend is ddp and initializes statistics

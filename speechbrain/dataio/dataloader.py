@@ -310,8 +310,7 @@ class SaveableDataLoader(DataLoader):
             fo.write(str(to_save))
 
     @mark_as_loader
-    def _speechbrain_load(self, path, end_of_epoch, device=None):
-        del device  # Unused here
+    def _speechbrain_load(self, path, end_of_epoch):
         if self._speechbrain_iterator is not None:
             logging.debug(
                 "SaveableDataLoader was requested to load a "
@@ -394,9 +393,8 @@ class LoopedLoader:
             print(self.total_samples, file=fo)
 
     @mark_as_loader
-    def load(self, path, end_of_epoch=True, device=None):
+    def load(self, path, end_of_epoch=True):
         """Loads the needed information."""
-        del device  # Unused here
         with open(path) as fi:
             self.step = int(fi.readline().strip())
             self.total_steps = int(fi.readline().strip())

@@ -150,6 +150,11 @@ class HifiGanBrain(sb.Brain):
                     "scheduler_d", self.scheduler_d
                 )
 
+            self.optimizers_dict = {
+                "optimizer_g": self.optimizer_g,
+                "optimizer_d": self.optimizer_d,
+            }
+
     def _remember_sample(self, batch, predictions):
         """Remembers samples of spectrograms and the batch for logging purposes
 

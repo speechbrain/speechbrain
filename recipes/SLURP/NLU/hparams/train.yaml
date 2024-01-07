@@ -128,9 +128,8 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     beam_size: !ref <slu_beam_size>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
-    using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 0.
+    using_max_attn_shift: False
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -147,10 +146,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
-# augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-#    sample_rate: !ref <sample_rate>
-#    speeds: [95, 100, 105]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

@@ -43,7 +43,7 @@ pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispe
 number_of_epochs: 5
 batch_size: 128
 lr: 2
-accu_steps: 2
+grad_accumulation_factor: 2
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options

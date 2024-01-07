@@ -7,7 +7,8 @@ Authors:
   * Samuele Cornell 2020
   * Ralf Leibold 2020
   * Artem Ploujnikov 2021
-  * Andreas Nautsch 2021
+  * Andreas Nautsch 2021, 2023
+  * Adel Moumen 2023
 """
 import torch
 import logging
@@ -485,7 +486,13 @@ class DynamicBatchSampler(Sampler):
         self._max_batch_ex = max_batch_ex
         # Calculate bucket lengths - how often does one bucket boundary fit into max_batch_length?
         self._bucket_lens = [
-            max(1, int(max_batch_length / self._bucket_boundaries[i]))
+            min(
+                self._max_batch_ex,  # tops max_duration_per_batch
+                max(
+                    1,  # and at least 1
+                    int(self._max_batch_length / self._bucket_boundaries[i]),
+                ),
+            )
             for i in range(len(self._bucket_boundaries))
         ] + [1]
         self._epoch = epoch

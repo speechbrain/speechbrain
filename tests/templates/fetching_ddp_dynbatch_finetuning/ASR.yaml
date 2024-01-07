@@ -6,7 +6,7 @@
 #
 # Goal: more clarity on when, where & how to use
 #    speechbrain.utils.parameter_transfer.Pretrainer
-#    speechbrain.pretrained.interfaces.Pretrained
+#    speechbrain.inference.interfaces.Pretrained
 #
 # Authors:  Andreas Nautsch 2023
 # # ############################################################################

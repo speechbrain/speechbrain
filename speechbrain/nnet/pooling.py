@@ -6,6 +6,7 @@ Authors
  * Nauman Dawalatabad 2020
  * Jianyuan Zhong 2020
  * Sarthak Yadav 2022
+ * Ha Nguyen 2023
 """
 
 import torch
@@ -525,3 +526,42 @@ class GaussianLowpassPooling(nn.Module):
         pad_value = get_padding_value(kernel_size)
         x = F.pad(x, pad_value, mode=self.padding_mode, value=0)
         return x
+
+
+class AttentionPooling(nn.Module):
+    """ This function implements a self-attention pooling (https://arxiv.org/abs/2008.01077).
+
+    Arguments
+    ---------
+    input_dim: int
+        The dimension of the input Tensor
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 40])
+    >>> pool = AttentionPooling(input_dim=40)
+    >>> out_tensor = pool(inp_tensor)
+    """
+
+    def __init__(
+        self, input_dim,
+    ):
+        super().__init__()
+
+        self.input_dim = input_dim
+
+        # Matmul
+        self.attn_pooling_w = torch.nn.Linear(input_dim, 1)
+
+    def forward(self, x):
+        """Returns the output the adapter.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor.
+        """
+        out = self.attn_pooling_w(x).squeeze(-1).float()
+        out = torch.nn.functional.softmax(out, dim=-1).unsqueeze(-1)
+        out = torch.sum(x * out, dim=1)
+        return out

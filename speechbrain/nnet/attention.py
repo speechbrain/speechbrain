@@ -591,17 +591,28 @@ class RelPosMHAXL(nn.Module):
             query + self.pos_bias_v.view(1, 1, self.num_heads, self.head_dim)
         ).transpose(1, 2)
 
+        # Moved the `* self.scale` mul from after the `attn_score` sum to prior
+        # to the matmul in order to lower overflow risks on fp16.
+        # This change is inspired by the following paper, but no other changes
+        # were ported from there so far.
+        # ref: E.T.: Re-Thinking Self-Attention for Transformer Models on GPUs
+        # https://asherliu.github.io/docs/sc21a.pdf
+
         # (batch, head, qlen, klen)
-        matrix_ac = torch.matmul(q_with_bias_u, key.permute(0, 2, 3, 1))
+        matrix_ac = torch.matmul(
+            q_with_bias_u * self.scale, key.permute(0, 2, 3, 1)
+        )
         # (batch, num_heads, klen, 2*klen-1)
-        matrix_bd = torch.matmul(q_with_bias_v, p_k.permute(0, 2, 3, 1))
+        matrix_bd = torch.matmul(
+            q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1)
+        )
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
         # if klen != qlen:
         #   import ipdb
         #  ipdb.set_trace(
 
-        attn_score = (matrix_ac + matrix_bd) * self.scale
+        attn_score = matrix_ac + matrix_bd  # already scaled above
 
         # compute attention probability
         if attn_mask is not None:
@@ -622,8 +633,25 @@ class RelPosMHAXL(nn.Module):
                 key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
             )
 
-        attn_score = F.softmax(attn_score, dim=-1)
+        attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
         attn_score = self.dropout_att(attn_score)
+
+        # it is possible for us to hit full NaN when using chunked training
+        # so reapply masks, except with 0.0 instead as we are after the softmax
+        # because -inf would output 0.0 regardless anyway
+        if attn_mask is not None:
+            if attn_mask.dtype == torch.bool:
+                attn_score = attn_score.masked_fill(attn_mask, 0.0)
+            else:
+                # NOTE: the above fix is not implemented for this case as
+                # summing the mask with NaN would still result in NaN
+                pass
+
+        if key_padding_mask is not None:
+            attn_score = attn_score.masked_fill(
+                key_padding_mask.view(bsz, 1, 1, klen), 0.0,
+            )
+
         x = torch.matmul(
             attn_score, value.transpose(1, 2)
         )  # (batch, head, time1, d_k)

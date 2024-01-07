@@ -42,7 +42,7 @@ ckpt_interval_minutes: 5 # save checkpoint every N min
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.
-# The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
+# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 100
@@ -56,18 +56,42 @@ ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
 ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
+precision: fp32 # bf16, fp16 or fp32
 
 # The batch size is used if and only if dynamic batching is set to False
 # Validation and testing are done with fixed batches and not dynamic batching.
 batch_size: 8
 grad_accumulation_factor: 4
 sorting: random
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 512
 n_mels: 80
 win_length: 32
+
+# Streaming & dynamic chunk training options
+# At least for the current architecture on LibriSpeech, we found out that
+# non-streaming accuracy is very similar between `streaming: True` and
+# `streaming: False`.
+streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
+
+# Configuration for Dynamic Chunk Training.
+# In this model, a chunk is roughly equivalent to 40ms of audio.
+dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
+   chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
+   chunk_size_min: 8 # Minimum chunk size (if in a DynChunkTrain batch)
+   chunk_size_max: 32 # Maximum chunk size (if in a DynChunkTrain batch)
+   limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
+   left_context_chunks_min: 2 # Minimum left context size (in # of chunks)
+   left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
+   # If you specify a valid/test config, you can optionally have evaluation be
+   # done with a specific DynChunkTrain configuration.
+   # valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+   #    chunk_size: 24
+   #    left_context_size: 16
+   # test_config: ...
 
 # Dataloader options
 train_dataloader_opts:
@@ -140,31 +164,75 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_mels: !ref <n_mels>
    win_length: !ref <win_length>
 
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-   time_warp: True
-   time_warp_window: 5
-   time_warp_mode: bicubic
-   freq_mask: True
-   n_freq_mask: 2
-   time_mask: True
-   n_time_mask: 5
-   replace_with_zero: False
-   freq_mask_width: 30
-   time_mask_width: 20
-
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
    orig_freq: !ref <sample_rate>
-   speeds: [95, 100, 105]
+   speeds: !ref <speed_changes>
 
-# Uncomment if interested in env corruption
-# data_folder_rirs: !ref <data_folder>
-# env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-#   openrir_folder: !ref <data_folder_rirs>
-#   babble_prob: 0.0
-#   reverb_prob: 0.0
-#   noise_prob: 1.0
-#   noise_snr_low: 0
-#   noise_snr_high: 15
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: False
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 1
+   max_augmentations: 1
+   augment_prob: 1.0
+   augmentations: [!ref <speed_perturb>]
+
+
+# Time Drop
+time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
+time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram
+time_drop_count_low: 5  # Min number of chunks to drop in time in the spectrogram
+time_drop_count_high: 5  # Max number of chunks to drop in time in the spectrogram
+time_drop_replace: "zeros"  # Method of dropping chunks
+
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: !ref <time_drop_length_low>
+   drop_length_high: !ref <time_drop_length_high>
+   drop_count_low: !ref <time_drop_count_low>
+   drop_count_high: !ref <time_drop_count_high>
+   replace: !ref <time_drop_replace>
+   dim: 1
+
+# Frequency Drop
+freq_drop_length_low: 25  # Min length for chunks to drop in frequency in the spectrogram
+freq_drop_length_high: 35  # Max length for chunks to drop in frequency in the spectrogram
+freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
+freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
+freq_drop_replace: "zeros"  # Method of dropping chunks
+
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: !ref <freq_drop_length_low>
+   drop_length_high: !ref <freq_drop_length_high>
+   drop_count_low: !ref <freq_drop_count_low>
+   drop_count_high: !ref <freq_drop_count_high>
+   replace: !ref <freq_drop_replace>
+   dim: 2
+
+# Time warp
+time_warp_window: 5  # Length of time warping window
+time_warp_mode: "bicubic"  # Time warping method
+
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+   warp_window: !ref <time_warp_window>
+   warp_mode: !ref <time_warp_mode>
+   dim: 1
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: False
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 3
+   max_augmentations: 3
+   augment_prob: 1.0
+   augmentations: [
+      !ref <time_drop>,
+      !ref <freq_drop>,
+      !ref <time_warp>]
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
@@ -276,7 +344,6 @@ modules:
    Tjoint: !ref <Tjoint>
    transducer_lin: !ref <transducer_lin>
    normalize: !ref <normalize>
-   augmentation: !ref <augmentation>
    lm_model: !ref <lm_model>
    proj_ctc: !ref <proj_ctc>
    proj_dec: !ref <proj_dec>

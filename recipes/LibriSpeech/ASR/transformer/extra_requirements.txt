@@ -1,0 +1,1 @@
+bayestorch>=0.0.3 # For Bayes ASR recipe
