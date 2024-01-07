@@ -54,9 +54,11 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
             optimizer.param_groups[i]["prev_lr"] = old_lr
             logger.info("Changing lr from %.2g to %.2g" % (old_lr, new_lr))
 
+
 @checkpoints.register_checkpoint_hooks
 class WarmAndExpDecayLRSchedule:
     """Warms up linearly, and then decay exponentially to ('lr' / 'decay_factor') in 'total_steps' steps.
+
 
     Arguments
     ---------
@@ -92,11 +94,7 @@ class WarmAndExpDecayLRSchedule:
     """
 
     def __init__(
-        self,
-        lr,
-        n_warmup_steps,
-        total_steps,
-        decay_factor=0.1,
+        self, lr, n_warmup_steps, total_steps, decay_factor=0.1,
     ):
         super(WarmAndExpDecayLRSchedule, self).__init__()
         self.base_lr = lr
@@ -111,12 +109,14 @@ class WarmAndExpDecayLRSchedule:
             # Warming up at the start of training.
             lr = self.base_lr * self.current_step / self.n_warmup_steps
         else:
-            decayed_lr = self.base_lr * self.decay_factor ** ((self.current_step - self.n_warmup_steps) / self.decay_steps )
+            decayed_lr = self.base_lr * self.decay_factor ** (
+                (self.current_step - self.n_warmup_steps) / self.decay_steps
+            )
             lr = min(self.base_lr, decayed_lr)
 
         for param_group in opt.param_groups:
             param_group["lr"] = lr
-        
+
         self.current_lr = lr
         self.current_step += 1
 
@@ -143,6 +143,7 @@ class WarmAndExpDecayLRSchedule:
         self.decay_steps = data["decay_steps"]
         self.decay_factor = data["decay_factor"]
         self.current_step = data["current_step"]
+
 
 @checkpoints.register_checkpoint_hooks
 class NewBobScheduler:

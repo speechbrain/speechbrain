@@ -27,17 +27,19 @@ def test_NewBobScheduler():
     assert next_lr == 0.4
     assert scheduler.current_patient == 3
 
+
 def test_WarmAndExpDecayLRSchedule():
 
     from speechbrain.nnet.schedulers import WarmAndExpDecayLRSchedule
     from speechbrain.nnet.linear import Linear
     import torch
 
-    inp_tensor = torch.rand([1,660,3])
     model = Linear(input_size=3, n_neurons=4)
     optim = torch.optim.Adam(model.parameters(), lr=1)
-    scheduler = WarmAndExpDecayLRSchedule(lr=1, n_warmup_steps=2, decay_factor=0.01, total_steps=6)
-    
+    scheduler = WarmAndExpDecayLRSchedule(
+        lr=1, n_warmup_steps=2, decay_factor=0.01, total_steps=6
+    )
+
     scheduler(optim)
     assert optim.param_groups[0]["lr"] == 0.0
 
@@ -49,4 +51,3 @@ def test_WarmAndExpDecayLRSchedule():
 
     scheduler(optim)
     assert optim.param_groups[0]["lr"] == 0.31622776601683794
-
