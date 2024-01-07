@@ -965,7 +965,7 @@ def get_si_snr_with_pitwrapper(source, estimate_source):
 
 
 def get_snr_with_pitwrapper(source, estimate_source):
-    """This function wraps si_snr calculation with the speechbrain pit-wrapper.
+    """This function wraps snr calculation with the speechbrain pit-wrapper.
     Arguments:
     ---------
     source: [B, T, E, C],
