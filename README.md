@@ -9,7 +9,7 @@
 
 ![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain?style=social) *Please, help our community project. Star on GitHub!*
 
-
+**Exciting News (January, 2024):** Discover what is new in SpeechBrain 1.0 [here](https://colab.research.google.com/drive/1IEPfKRuvJRSjoxu22GZhb3czfVHsAy0s?usp=sharing)!
 #
 # 🗣️💬 What SpeechBrain Offers
 
@@ -270,5 +270,4 @@ If you use SpeechBrain in your research or business, please cite it using the fo
   note={arXiv:2106.04624}
 }
 ```
-
 
