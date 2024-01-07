@@ -1,5 +1,4 @@
 """Decoders and output normalization for Transducer sequence.
-
 Author:
     Abdelwahab HEBA 2020
     Sung-Lin Yeh 2020
@@ -11,7 +10,6 @@ from functools import partial
 class TransducerBeamSearcher(torch.nn.Module):
     """
     This class implements the beam-search algorithm for the transducer model.
-
     Parameters
     ----------
     decode_network_lst : list
@@ -41,7 +39,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         that are added in A (process_hyp).
         Reference: https://arxiv.org/pdf/1911.01629.pdf
         Reference: https://github.com/kaldi-asr/kaldi/blob/master/src/decoder/simple-decoder.cc (See PruneToks)
-
     Example
     -------
     searcher = TransducerBeamSearcher(
@@ -126,7 +123,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         tn_output : torch.tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
-
         Returns
         -------
         Topk hypotheses
@@ -142,13 +138,11 @@ class TransducerBeamSearcher(torch.nn.Module):
                     the previous target != the new one (we save the hiddens and the target)
                 -> otherwise:
                 ---> keep the previous target prediction from the decoder
-
         Arguments
         ----------
         tn_output : torch.tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
-
         Returns
         -------
         torch.tensor
@@ -226,13 +220,11 @@ class TransducerBeamSearcher(torch.nn.Module):
                     -> Do a while loop extending the hyps until we reach blank
                         -> otherwise:
                         --> extend hyp by the new token
-
         Arguments
         ----------
         tn_output : torch.tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
-
         Returns
         -------
         torch.tensor
@@ -386,7 +378,6 @@ class TransducerBeamSearcher(torch.nn.Module):
     def _lm_forward_step(self, inp_tokens, memory):
         """This method should implement one step of
         forwarding operation for language model.
-
         Arguments
         ---------
         inp_tokens : torch.Tensor
@@ -394,7 +385,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         memory : No limit
             The memory variables input for this timestep.
             (e.g., RNN hidden states).
-
         Return
         ------
         log_probs : torch.Tensor
@@ -411,7 +401,6 @@ class TransducerBeamSearcher(torch.nn.Module):
     def _get_sentence_to_update(self, selected_sentences, output_PN, hidden):
         """Select and return the updated hiddens and output
         from the Prediction Network.
-
         Arguments
         ----------
         selected_sentences : list
@@ -421,7 +410,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         hidden : torch.tensor
             Optional: None, hidden tensor to be used for
             recurrent layers in the prediction network.
-
         Returns
         -------
         selected_output_PN: torch.tensor
@@ -442,7 +430,6 @@ class TransducerBeamSearcher(torch.nn.Module):
 
     def _update_hiddens(self, selected_sentences, updated_hidden, hidden):
         """Update hidden tensor by a subset of hidden tensor (updated ones).
-
         Arguments
         ----------
         selected_sentences : list
@@ -451,7 +438,6 @@ class TransducerBeamSearcher(torch.nn.Module):
             Hidden tensor of the selected sentences for update.
         hidden : torch.tensor
             Hidden tensor to be updated.
-
         Returns
         -------
         torch.tensor
@@ -467,7 +453,6 @@ class TransducerBeamSearcher(torch.nn.Module):
 
     def _forward_PN(self, out_PN, decode_network_lst, hidden=None):
         """Compute forward-pass through a list of prediction network (PN) layers.
-
         Arguments
         ----------
         out_PN : torch.tensor
@@ -478,7 +463,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         hinne : torch.tensor
             Optional: None, hidden tensor to be used for
                 recurrent layers in the prediction network
-
         Returns
         -------
         out_PN : torch.tensor
@@ -503,7 +487,6 @@ class TransducerBeamSearcher(torch.nn.Module):
 
     def _forward_after_joint(self, out, classifier_network):
         """Compute forward-pass through a list of classifier neural network.
-
         Arguments
         ----------
         out : torch.tensor
@@ -512,7 +495,6 @@ class TransducerBeamSearcher(torch.nn.Module):
         classifier_network : list
             List of output layers (after performing joint between TN and PN)
             exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
-
         Returns
         -------
         torch.tensor
@@ -524,7 +506,210 @@ class TransducerBeamSearcher(torch.nn.Module):
         return out
 
 
-def get_transducer_key(x):
+class TransducerBeamSearcherFast(TransducerBeamSearcher):
+    '''
+    Example
+    -------
+    searcher = TransducerBeamSearcherFast(
+        decode_network_lst=[hparams["emb"], hparams["dec"]],
+        tjoint=hparams["Tjoint"],
+        classifier_network=[hparams["transducer_lin"]],
+        blank_id=0,
+        beam_size=hparams["beam_size"],
+        nbest=hparams["nbest"],
+        lm_module=hparams["lm_model"],
+        lm_weight=hparams["lm_weight"],
+        state_beam=2.3,
+        expand_beam=2.3,
+    )
+    >>> from speechbrain.nnet.transducer.transducer_joint import Transducer_joint
+    >>> import speechbrain as sb
+    >>> emb = sb.nnet.embedding.Embedding(
+    ...     num_embeddings=35,
+    ...     embedding_dim=3,
+    ...     consider_as_one_hot=True,
+    ...     blank_id=0
+    ... )
+    >>> dec = sb.nnet.RNN.GRU(
+    ...     hidden_size=10, input_shape=(1, 40, 34), bidirectional=False
+    ... )
+    >>> lin = sb.nnet.linear.Linear(input_shape=(1, 40, 10), n_neurons=35)
+    >>> joint_network= sb.nnet.linear.Linear(input_shape=(1, 1, 40, 35), n_neurons=35)
+    >>> tjoint = Transducer_joint(joint_network, joint="sum")
+    >>> searcher = TransducerBeamSearcher(
+    ...     decode_network_lst=[emb, dec],
+    ...     tjoint=tjoint,
+    ...     classifier_network=[lin],
+    ...     blank_id=0,
+    ...     beam_size=2,
+    ...     nbest=1,
+    ...     lm_module=None,
+    ...     lm_weight=0.0,
+    ... )
+    >>> enc = torch.rand([1, 20, 10])
+    >>> hyps, scores, _, _ = searcher(enc)
+    '''
+    def transducer_beam_search_decode(self, tn_output):
+        """ Implementation algorithm 1 in this paper : https://arxiv.org/pdf/1911.01629.pdf
+        Without the prefix search.
+
+        Arguments
+        ----------
+        tn_output : torch.tensor
+            Output from transcription network with shape
+            [batch, time_len, hiddens].
+
+        Returns
+        -------
+        torch.tensor
+            Outputs a logits tensor [B,T,1,Output_Dim]; padding
+            has not been removed.
+        """
+
+        # min between beam and max_target_lent
+        nbest_batch = []
+        nbest_batch_score = []
+
+        for i_batch in range(tn_output.size(0)):
+            # if we use RNN LM keep there hiddens
+            # prepare BOS = Blank for the Prediction Network (PN)
+            # Prepare Blank prediction
+            blank = (
+                    torch.ones((1, 1), device=tn_output.device, dtype=torch.int32)
+                    * self.blank_id
+            )
+            input_PN = (
+                    torch.ones((1, 1), device=tn_output.device, dtype=torch.int32)
+                    * self.blank_id
+            )
+            # First forward-pass on PN
+            hyp = {
+                "prediction": [self.blank_id],
+                "logp_score": 0.0,
+                "hidden_dec": None,
+            }
+            if self.lm_weight > 0:
+                lm_dict = {"hidden_lm": None}
+                hyp.update(lm_dict)
+            beam_hyps = [hyp]
+
+            # For each time step
+            for t_step in range(tn_output.size(1)):
+                # get hyps for extension
+                process_hyps = beam_hyps
+                beam_hyps = []
+                while True:
+                    # y* = most probable in A
+                    a_best_hyp = max(
+                        process_hyps, key=partial(get_transducer_key, length_norm=False),
+                    )
+
+                    # break condition
+                    if len(beam_hyps) > 0:
+                        b_best_hyp = max(
+                            beam_hyps, key=partial(get_transducer_key, length_norm=False),
+                        )
+                        a_best_prob = a_best_hyp["logp_score"]
+                        b_best_prob = b_best_hyp["logp_score"]
+                        # Break if best_hyp in A is worse by more than state_beam than best_hyp in B
+                        if b_best_prob >= self.state_beam + a_best_prob:
+                            break
+                        # end if beam_hyps (B) contains more than self.beam_size (W) elements more probable
+                        # than the most probable in process_hyps (A)
+                        if len([b for b in beam_hyps if b["logp_score"] >= a_best_prob]) >= self.beam_size:
+                            break
+
+                    # remove best hyp from process_hyps (A)
+                    process_hyps.remove(a_best_hyp)
+
+                    # forward PN
+                    input_PN[0, 0] = a_best_hyp["prediction"][-1]
+                    out_PN, hidden = self._forward_PN(
+                        input_PN,
+                        self.decode_network_lst,
+                        a_best_hyp["hidden_dec"],
+                    )
+                    # do unsqueeze over since tjoint must be have a 4 dim [B,T,U,Hidden]
+                    log_probs = self._joint_forward_step(
+                        tn_output[i_batch, t_step, :]
+                        .unsqueeze(0)
+                        .unsqueeze(0)
+                        .unsqueeze(0),
+                        out_PN.unsqueeze(0),
+                    )
+
+                    if self.lm_weight > 0:
+                        log_probs_lm, hidden_lm = self._lm_forward_step(
+                            input_PN, a_best_hyp["hidden_lm"]
+                        )
+
+                    # Sort outputs at time
+                    logp_targets, positions = torch.topk(
+                        log_probs.view(-1), k=self.beam_size, dim=-1
+                    )
+                    best_logp = (
+                        logp_targets[0]
+                        if positions[0] != blank
+                        else logp_targets[1]
+                    )
+
+                    # Add y*+blank to B
+                    hyp_blank = {
+                        "prediction": a_best_hyp["prediction"][:],
+                        "logp_score": a_best_hyp["logp_score"]
+                                      + log_probs.view(-1)[self.blank_id],
+                        "hidden_dec": a_best_hyp["hidden_dec"],
+                    }
+                    beam_hyps.append(hyp_blank)
+                    if self.lm_weight > 0:
+                        hyp_blank["hidden_lm"] = a_best_hyp["hidden_lm"]
+
+                    # Extend hyp by  selection
+                    for j in range(logp_targets.size(0)):
+                        # already added blank index
+                        if positions[j] == self.blank_id:
+                            continue
+                        topk_hyp = {
+                            "prediction": a_best_hyp["prediction"][:],
+                            "logp_score": a_best_hyp["logp_score"]
+                                          + logp_targets[j],
+                            "hidden_dec": a_best_hyp["hidden_dec"],
+                        }
+
+                        if logp_targets[j] >= best_logp - self.expand_beam:
+                            topk_hyp["prediction"].append(positions[j].item())
+                            topk_hyp["hidden_dec"] = hidden
+                            if self.lm_weight > 0:
+                                topk_hyp["hidden_lm"] = hidden_lm
+                                topk_hyp["logp_score"] += (
+                                        self.lm_weight
+                                        * log_probs_lm[0, 0, positions[j]]
+                                )
+                            process_hyps.append(topk_hyp)
+                # remove all but W most probable in beam_hyps
+                beam_hyps = sorted(beam_hyps, key=partial(get_transducer_key), reverse=True, )[: self.beam_size]
+            # Add norm score
+            nbest_hyps = sorted(beam_hyps, key=partial(get_transducer_key), reverse=True, )[: self.nbest]
+            all_predictions = []
+            all_scores = []
+            for hyp in nbest_hyps:
+                all_predictions.append(hyp["prediction"][1:])
+                all_scores.append(hyp["logp_score"] / len(hyp["prediction"]))
+            nbest_batch.append(all_predictions)
+            nbest_batch_score.append(all_scores)
+        return (
+            [nbest_utt[0] for nbest_utt in nbest_batch],
+            torch.Tensor(
+                [nbest_utt_score[0] for nbest_utt_score in nbest_batch_score]
+            )
+            .exp()
+            .mean(),
+            nbest_batch,
+            nbest_batch_score,
+        )
+
+
+def get_transducer_key(x, length_norm=True):
     """Argument function to customize the sort order (in sorted & max).
     To be used as `key=partial(get_transducer_key)`.
 
@@ -532,11 +717,20 @@ def get_transducer_key(x):
     ----------
     x : dict
         one of the items under comparison
-
+    length_norm: Boolean
+        Should the item be compared while disregarding the total length. Setting it to False favorise shorter sequence.
     Returns
     -------
     float
         Normalized log-score.
     """
-    logp_key = x["logp_score"] / len(x["prediction"])
+    if length_norm:
+        logp_key = x["logp_score"] / len(x["prediction"])
+    else:
+        logp_key = x["logp_score"]
     return logp_key
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()
+
