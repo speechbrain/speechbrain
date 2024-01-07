@@ -39,15 +39,20 @@ jobs:
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install ctc-segmentation
-            - name: Consistency tests with pytest
+                  pip install pytest-cov
+            - name: Save PR number
               run: |
-                  pytest tests/consistency
-            - name: Unittests with pytest
+                  mkdir -p ./testresults
+                  echo ${{ github.event.number }} > ./testresults/issue_id.txt
+            - name: Unit+doc+integration tests with pytest + coverage
               run: |
-                  pytest tests/unittests
-            - name: Doctests with pytest
-              run: |
-                  pytest --doctest-modules speechbrain
-            - name: Integration tests with pytest
-              run: |
-                  pytest tests/integration
+                  pytest --junitxml=testresults/pytest.xml \
+                  --cov-report=term-missing:skip-covered \
+                  --cov=speechbrain --cov-context=test \
+                  --doctest-modules \
+                  ./speechbrain ./tests \
+                  | tee testresults/pytest-coverage.txt
+            - uses: actions/upload-artifact@v2
+              with:
+                  name: testresults
+                  path: testresults/
