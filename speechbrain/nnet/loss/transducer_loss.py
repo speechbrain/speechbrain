@@ -9,9 +9,23 @@ Authors
 import torch
 from torch.autograd import Function
 from torch.nn import Module
+import logging
+import math
+import warnings
+
+NUMBA_VERBOSE = 0
 
 try:
     from numba import cuda
+
+    # Numba is extra verbose and this may lead to log.txt file of multiple gigabytes... we deactivate
+    if not NUMBA_VERBOSE:
+        nb_logger = logging.getLogger("numba")
+        nb_logger.setLevel(logging.ERROR)  # only show error
+
+        from numba.core.errors import NumbaPerformanceWarning
+
+        warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
 except ImportError:
     err_msg = "The optional dependency Numba is needed to use this module\n"
     err_msg += "Cannot import numba. To use Transducer loss\n"
@@ -25,8 +39,6 @@ except ImportError:
     err_msg += "If you use conda:\n"
     err_msg += "conda install numba cudatoolkit=9.0"
     raise ImportError(err_msg)
-
-import math
 
 
 @cuda.jit()
