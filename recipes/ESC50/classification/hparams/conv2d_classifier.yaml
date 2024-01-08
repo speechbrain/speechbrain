@@ -56,6 +56,8 @@ step_size: 65000
 sample_rate: 16000
 signal_length_s: 5
 
+add_wham_noise: False
+
 wham_dataset: !new:wham_prepare.WHAMDataset
   data_dir: !ref <wham_audio_folder>
   target_length: !ref <signal_length_s>

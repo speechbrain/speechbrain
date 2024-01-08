@@ -363,33 +363,41 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
 
-    @staticmethod
-    def crosscor(spectrogram, template):
-        spectrogram = spectrogram - spectrogram.mean((-1, -2), keepdim=True)
-        template = template - template.mean((-1, -2), keepdim=True)
-        template = template.unsqueeze(1)
-        # 1 x BS x T x F
-        # BS x 1 x T x F
-        tmp = F.conv2d(
-            spectrogram[None], template, bias=None, groups=spectrogram.shape[0]
-        )
+    def crosscor(self, spectrogram, template):
+        if self.hparams.crosscortype == 'conv':
+            spectrogram = spectrogram - spectrogram.mean((-1, -2), keepdim=True)
+            template = template - template.mean((-1, -2), keepdim=True)
+            template = template.unsqueeze(1)
+            # 1 x BS x T x F
+            # BS x 1 x T x F
+            tmp = F.conv2d(
+                spectrogram[None], template, bias=None, groups=spectrogram.shape[0]
+            )
 
-        normalization1 = F.conv2d(
-            spectrogram[None] ** 2,
-            torch.ones_like(template),
-            groups=spectrogram.shape[0],
-        )
-        normalization2 = F.conv2d(
-            torch.ones_like(spectrogram[None]),
-            template**2,
-            groups=spectrogram.shape[0],
-        )
+            normalization1 = F.conv2d(
+                spectrogram[None] ** 2,
+                torch.ones_like(template),
+                groups=spectrogram.shape[0],
+            )
+            normalization2 = F.conv2d(
+                torch.ones_like(spectrogram[None]),
+                template**2,
+                groups=spectrogram.shape[0],
+            )
 
-        ncc = (
-            tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)
-        ).squeeze()
+            ncc = (
+                tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)
+            ).squeeze()
 
-        return ncc
+            return ncc
+        elif self.hparams.crosscortype == 'dotp':
+            dotp = (spectrogram * template).mean((-1, -2))
+            norms_specs = spectrogram.pow(2).mean((-1, -2)).sqrt()
+            norms_templates = template.pow(2).mean((-1, -2)).sqrt()
+            norm_dotp = dotp / (norms_specs * norms_templates)
+            return norm_dotp
+        else:
+            raise ValueError('unknown crosscor type!')
 
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
@@ -423,7 +431,6 @@ class InterpreterESC50Brain(sb.core.Brain):
             crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
             crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
 
-
             max_batch = (
                 X_stft_logpower_clean.view(X_stft_logpower_clean.shape[0], -1)
                 .max(1)
@@ -435,43 +442,54 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             # samples if we apply the binarization threshold on the spectrogram
             # this is just to debug the cross-correlation
-            with torch.no_grad():
-                maskin_bin = binarized_oracle * X_stft_logpower_clean
-                for idx, s in enumerate(
-                        zip(
-                            X_stft_logpower_clean.cpu(),
-                            mask_in.cpu(),
-                            crosscor.cpu(),
-                            binarized_oracle.cpu(),
-                        )
-                    ):
-                    ax = plt.subplot(141)
-                    plt.imshow(s[0].t(), origin="lower")
-                    plt.title("Oracle")
+            # with torch.no_grad():
+            #     maskin_bin = binarized_oracle * X_stft_logpower_clean
+            #     for idx, s in enumerate(
+            #             zip(
+            #                 X_stft_logpower_clean.cpu(),
+            #                 mask_in.cpu(),
+            #                 crosscor.cpu(),
+            #                 binarized_oracle.cpu(),
+            #             )
+            #         ):
+            #         ax = plt.subplot(141)
+            #         plt.imshow(s[0].t(), origin="lower")
+            #         plt.title("Oracle")
 
-                    plt.subplot(142, sharex=ax)
-                    plt.imshow(maskin_bin[idx].cpu().t(), origin="lower")
-                    plt.title("th * oracle")
+            #         plt.subplot(142, sharex=ax)
+            #         plt.imshow(maskin_bin[idx].cpu().t(), origin="lower")
+            #         plt.title("th * oracle")
 
-                    plt.subplot(143, sharex=ax)
-                    plt.imshow(s[3].t(), origin="lower")
-                    plt.title("Binarized Oracle")
+            #         plt.subplot(143, sharex=ax)
+            #         plt.imshow(s[3].t(), origin="lower")
+            #         plt.title("Binarized Oracle")
 
-                    plt.subplot(144, sharex=ax)
-                    plt.imshow(s[1].t(), origin="lower")
-                    plt.title("Mask in") 
-                    plt.tight_layout()
-                    plt.suptitle("Cross correlation: %.2f - made the thr: %s" % (s[2].item(), bool(crosscor_mask[idx])))
-                    plt.savefig(f"batch/{idx}.png")
-                    torchaudio.save(f"batch/{idx}.wav", wavs_clean[idx][None].cpu(), sample_rate=16000)
+            #         plt.subplot(144, sharex=ax)
+            #         plt.imshow(s[1].t(), origin="lower")
+            #         plt.title("Mask in") 
+            #         plt.tight_layout()
+            #         plt.suptitle("Cross correlation: %.2f - made the thr: %s" % (s[2].item(), bool(crosscor_mask[idx])))
+            #         plt.savefig(f"batch/{idx}.png")
+            #         torchaudio.save(f"batch/{idx}.wav", wavs_clean[idx][None].cpu(), sample_rate=16000)
+            #         torchaudio.save(f"batch/inp{idx}.wav", wavs[idx][None].cpu(), sample_rate=16000)
 
-            rec_loss = (
-                F.binary_cross_entropy(
-                    xhat, binarized_oracle, reduce=False
-                ).mean((-1, -2))
-                * self.hparams.g_w
-                * crosscor_mask
-            ).mean()
+            #     #plt.savefig('batch_situation.png')
+            #     #torchaudio.save(f"batch/{idx}.wav", wavs_clean[idx][None].cpu(), sample_rate=16000)
+
+            # import pdb; pdb.set_trace()
+            
+            if self.hparams.guidelosstype == 'binary':
+                rec_loss = (
+                    F.binary_cross_entropy(
+                        xhat, binarized_oracle, reduce=False
+                    ).mean((-1, -2))
+                    * self.hparams.g_w
+                    * crosscor_mask
+                ).mean()
+            else:
+                temp = ((xhat * X_stft_logpower[:, :X_stft_logpower_clean.shape[1], :]) - X_stft_logpower_clean).pow(2).mean((-1, -2))
+                rec_loss = (temp * crosscor_mask).mean() * self.hparams.g_w
+
         else:
             rec_loss = 0
             crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
