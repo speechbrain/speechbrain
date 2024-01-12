@@ -930,7 +930,7 @@ if __name__ == "__main__":
     classifier = hparams['classifier']
 
     EP = 1000 
-    for i, dt in enumerate(datasets['train']):
+    for i, dt in enumerate(datasets['valid']):
         ft, _, _ = Interpreter_brain.preprocess(dt['sig'].unsqueeze(0)) 
         ft = ft.to('cuda')
         mask = torch.nn.Parameter(torch.ones(ft.shape, device='cuda')*0.5, requires_grad=True)
@@ -949,9 +949,9 @@ if __name__ == "__main__":
 
             h2 = embedding_model.forward(ft*torch.relu(1-mask))
             h2 = h2.mean((-1, -2))
-            xhat2 = classifier.forward(h2).squeeze()
+            xhat2 = classifier.forward(h2).squeeze() 
 
-            loss = - xhat[argmax] + xhat2[argmax] + mask.abs().mean()
+            loss = - xhat[argmax] + xhat2[argmax] - xhat2.mean() + mask.abs().mean()
 
             loss.backward()
 
