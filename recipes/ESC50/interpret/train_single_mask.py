@@ -937,20 +937,21 @@ if __name__ == "__main__":
         opt = torch.optim.Adam([mask], lr=1e-3) 
 
         for e in range(EP):
+            opt.zero_grad()
             h = embedding_model.forward(ft)
             h = h.mean((-1, -2))
             xhat = classifier.forward(h)
             argmax = xhat.argmax(-1)
             
-            h = embedding_model.forward(ft*mask)
+            h = embedding_model.forward(ft*torch.relu(mask))
             h = h.mean((-1, -2))
             xhat = classifier.forward(h).squeeze()
 
-            h2 = embedding_model.forward(ft*(1-mask))
+            h2 = embedding_model.forward(ft*torch.relu(1-mask))
             h2 = h2.mean((-1, -2))
             xhat2 = classifier.forward(h2).squeeze()
 
-            loss = - xhat[argmax] + xhat2[argmax]
+            loss = - xhat[argmax] + xhat2[argmax] + mask.abs().mean()
 
             loss.backward()
 
@@ -959,12 +960,13 @@ if __name__ == "__main__":
             print(f'loss {loss.item()}, ep {e}')
 
         plt.subplot(311)
-        plt.imshow(mask.cpu().squeeze().data.t(), origin='lower')
+        plt.imshow(torch.relu(mask).cpu().squeeze().data.t(), origin='lower')
 
         plt.subplot(312)
         plt.imshow(ft.cpu().squeeze().t(), origin='lower')
 
         plt.subplot(313)
-        plt.imshow((ft * mask).cpu().squeeze().t().data, origin='lower')
+        plt.imshow((ft * torch.relu(mask)).cpu().squeeze().t().data, origin='lower')
 
         torchaudio.save('testaudio.wav', dt['sig'].unsqueeze(0), 16000)
+        import pdb; pdb.set_trace()
