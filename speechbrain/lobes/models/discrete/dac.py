@@ -18,6 +18,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 try:
     from torch.nn.utils.parametrizations import weight_norm
 except ImportError:
