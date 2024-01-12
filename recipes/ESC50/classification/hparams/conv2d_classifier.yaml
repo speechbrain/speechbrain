@@ -56,7 +56,8 @@ step_size: 65000
 sample_rate: 16000
 signal_length_s: 5
 
-add_wham_noise: False
+add_wham_noise: True
+spec_augment: Null
 
 wham_dataset: !new:wham_prepare.WHAMDataset
   data_dir: !ref <wham_audio_folder>
@@ -86,6 +87,10 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 256
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
+
+ #classifier: !new:torch.nn.Linear
+    #in_features: 256
+    #out_features: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
