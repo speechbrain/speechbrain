@@ -110,7 +110,7 @@ class VAD(Pretrained):
         begin_sample = 0
         while True:
             # Check if the current chunk is the last one
-            if begin_sample + long_chunk_len > audio_len:
+            if begin_sample + long_chunk_len >= audio_len:
                 last_chunk = True
 
             # Reading the big chunk
