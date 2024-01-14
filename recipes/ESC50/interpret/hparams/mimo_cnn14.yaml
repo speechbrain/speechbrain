@@ -1,0 +1,208 @@
+# #################################
+# The recipe for training PIQ on the ESC50 dataset.
+#
+# Author:
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023
+#  (based on the SpeechBrain UrbanSound8k recipe)
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+
+# Set up folders for reading from and writing to
+# Dataset must already exist at `audio_data_folder`
+data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+audio_data_folder: !ref <data_folder>/audio
+
+l_in_w: 0.5
+l_out_w: 0.5
+reg_w_tv: 0.1
+reg_w_l1: 0.3
+ao_w: 0.5
+
+g_w: 1 # regularization weight of oracles
+crosscor_th: 0.6
+bin_th: 0.35 # needed to binarize guidance spectrograms
+finetuning: False
+guidelosstype: binary
+crosscortype: 'dotp'
+
+experiment_name: mimo-cnn14
+output_folder: !ref ./results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+wham_folder: !PLACEHOLDER
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
+
+test_only: False
+save_interpretations: True
+interpret_period: 10
+
+# Tensorboard logs
+use_tensorboard: False
+tensorboard_logs_folder: !ref <output_folder>/tb_logs/
+
+# Path where data manifest files will be stored
+train_annotation: !ref <data_folder>/manifest/train.json
+valid_annotation: !ref <data_folder>/manifest/valid.json
+test_annotation: !ref <data_folder>/manifest/test.json
+
+# To standardize results, UrbanSound8k has pre-separated samples into
+# 10 folds for multi-fold validation
+train_fold_nums: [1, 2, 3]
+valid_fold_nums: [4]
+test_fold_nums: [5]
+skip_manifest_creation: True
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 200
+batch_size: 16
+lr: 0.0002
+sample_rate: 16000
+use_vq: False
+rec_loss_coef: 1
+use_mask_output: True
+mask_th: 0.35
+signal_length_s: 5
+add_wham_noise: False
+
+wham_dataset: !new:wham_prepare.WHAMDataset
+    data_dir: !ref <wham_audio_folder>
+    target_length: !ref <signal_length_s>
+    sample_rate: !ref <sample_rate>
+
+
+device: "cuda"
+
+# Feature parameters
+n_mels: 80
+
+# Number of classes
+out_n_neurons: 50
+
+shuffle: True
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 3
+    dont_halve_until_epoch: 100
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        psi_model: !ref <psi_model>
+        counter: !ref <epoch_counter>
+
+
+# embedding_model: !new:custom_models.Conv2dEncoder_v2
+# embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
+#     dim: 256
+
+
+    #classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    #input_size: 
+    #out_neurons: !ref <out_n_neurons>
+    #lin_blocks: 1
+    #
+
+return_reps: True
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
+    mel_bins: !ref <n_mels>
+    emb_dim: 2048
+    return_reps: True
+
+pool_classifier: False
+classifier: !new:torch.nn.Linear
+     in_features: 2048
+     out_features: !ref <out_n_neurons>   
+
+pretrained_PIQ: null
+load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        psi: !ref <psi_model>
+    paths:
+        psi: !ref <pretrained_PIQ>
+
+use_pretrained: True
+
+# embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
+# classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
+
+#embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/embedding_model.ckpt"
+#classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/classifier.ckpt"
+
+#embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
+#classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
+#
+embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear/1234/save/CKPT+2024-01-13+12-02-43+00/embedding_model.ckpt"
+classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear/1234/save/CKPT+2024-01-13+12-02-43+00/classifier.ckpt"
+
+pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+    paths:
+        embedding_model: !ref <embedding_model_path>
+        classifier: !ref <classifier_model_path>
+
+# Interpretation hyperparams
+K: 1024
+
+# pre-processing
+n_fft: 1024
+spec_mag_power: 0.5
+hop_length: 11.6099
+win_length: 23.2199
+use_melspectra: True
+
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: !ref <n_fft>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    sample_rate: !ref <sample_rate>
+
+compute_fbank: !new:speechbrain.processing.features.Filterbank
+    n_mels: !ref <n_mels>
+    n_fft: !ref <n_fft>
+    sample_rate: !ref <sample_rate>
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+
+psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI
+    dim: 2048
+    K: !ref <K>
+    shared_keys: 0
+    activate_class_partitioning: True
+    adapter_reduce_dim: True
+
+modules:
+    compute_stft: !ref <compute_stft>
+    compute_fbank: !ref <compute_fbank>
+    compute_istft: !ref <compute_istft>
+    psi: !ref <psi_model>

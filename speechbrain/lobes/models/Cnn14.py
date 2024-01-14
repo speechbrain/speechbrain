@@ -214,8 +214,8 @@ class Cnn14(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block2(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x, p=0.2, training=self.training)
-        x = self.conv_block3(x, pool_size=(2, 2), pool_type="avg")
-        x = F.dropout(x, p=0.2, training=self.training)
+        x4_out = self.conv_block3(x, pool_size=(2, 2), pool_type="avg")
+        x = F.dropout(x4_out, p=0.2, training=self.training)
         x3_out = self.conv_block4(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x3_out, p=0.2, training=self.training)
         x2_out = self.conv_block5(x, pool_size=(2, 2), pool_type="avg")
@@ -232,4 +232,4 @@ class Cnn14(nn.Module):
         if not self.return_reps:
             return x.unsqueeze(1)
 
-        return x.unsqueeze(1), (x1_out, x2_out, x3_out)
+        return x.unsqueeze(1), (x1_out, x2_out, x3_out, x4_out)

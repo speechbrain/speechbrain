@@ -62,14 +62,21 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
-        X_stft_logpower = torch.log1p(X_stft_power)
 
+        if not self.hparams.use_melspectra:
+            X_stft_logpower = torch.log1p(X_stft_power)
+        else:
+            X_stft_logpower = self.hparams.compute_fbank(X_stft_power)
         return X_stft_logpower, X_stft, X_stft_power
 
     def classifier_forward(self, X_stft_logpower):
         """The forward pass for the classifier"""
-        hcat = self.hparams.embedding_model(X_stft_logpower)
-        embeddings = hcat.mean((-1, -2))
+        if hasattr(self.hparams, 'return_reps'):
+            embeddings, hs = self.hparams.embedding_model(X_stft_logpower)
+            hcat = hs
+        else:
+            hcat = self.hparams.embedding_model(X_stft_logpower)
+            embeddings = hcat.mean((-1, -2))
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)
 
@@ -89,9 +96,10 @@ class InterpreterESC50Brain(sb.core.Brain):
             print(f"classifier_prob: {class_prob}")
 
         if self.hparams.use_vq:
-            xhat, hcat, _ = self.modules.psi(hcat, class_pred)
+            xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
-            xhat = self.modules.psi.decoder(hcat)
+            xhat = self.modules.psi.forward(hcat)
+            z_q_x = None
         xhat = xhat.squeeze(1)
 
         Tmax = xhat.shape[1]
@@ -113,7 +121,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             wavs
         )
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-        if not (batch is None):
+        if not (batch is None) and (not self.hparams.use_melspectra):
             x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
 
             # save reconstructed and original spectrograms
@@ -184,8 +192,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         pred_cl = pred_cl[0, ...]
         mask = mask[0, ...]
 
-        temp = torch.expm1(X_int).unsqueeze(0).unsqueeze(-1)
-        x_int_sb = self.invert_stft_with_phase(temp, X_stft_phase)
+        if not self.hparams.use_melspectra:
+            temp = torch.expm1(X_int).unsqueeze(0).unsqueeze(-1)
+            x_int_sb = self.invert_stft_with_phase(temp, X_stft_phase)
 
         # save reconstructed and original spectrograms
         current_class_ind = batch.class_string_encoded.data[0].item()
@@ -227,26 +236,27 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.hparams.sample_rate,
         )
 
-        torchaudio.save(
-            os.path.join(out_folder, "interpretation.wav"),
-            x_int_sb.data.cpu(),
-            self.hparams.sample_rate,
-        )
+        if not self.hparams.use_melspectra:
+            torchaudio.save(
+                os.path.join(out_folder, "interpretation.wav"),
+                x_int_sb.data.cpu(),
+                self.hparams.sample_rate,
+            )
 
-        plt.figure(figsize=(10, 5), dpi=100)
+        plt.figure(figsize=(12, 10), dpi=100)
 
-        plt.subplot(141)
-        X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
-        plt.imshow(X_target)
+        plt.subplot(311)
+        X_target = X_mix[0].permute(1, 0)[:, :X_int.shape[0]].cpu()
+        plt.imshow(X_target, origin='lower')
         plt.colorbar()
 
-        plt.subplot(142)
-        plt.imshow(mask.data.cpu().permute(1, 0))
+        plt.subplot(312)
+        plt.imshow(mask.data.cpu().permute(1, 0), origin='lower')
         plt.title("Estimated Mask")
         plt.colorbar()
 
-        plt.subplot(143)
-        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu())
+        plt.subplot(313)
+        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu(), origin='lower')
         plt.colorbar()
         plt.title("masked")
         plt.savefig(os.path.join(out_folder, "specs.png"))
@@ -257,15 +267,17 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_phase = spectral_phase(X_stft)
         temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
         Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
-        xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
+        if not self.hparams.use_melspectra:
+            xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
 
         Tmax = Xspec_est.shape[1]
         X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
 
         X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
-        xhat_tm_masked = self.invert_stft_with_phase(
-            X_est_masked, X_stft_phase[0:1]
-        )
+        if not self.hparams.use_melspectra:
+            xhat_tm_masked = self.invert_stft_with_phase(
+                X_est_masked, X_stft_phase[0:1]
+            )
 
         plt.figure(figsize=(10, 5), dpi=100)
 
@@ -302,11 +314,12 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
         plt.close()
 
-        torchaudio.save(
-            os.path.join(out_folder, "interpretation.wav"),
-            xhat_tm_masked.data.cpu(),
-            self.hparams.sample_rate,
-        )
+        if not self.hparams.use_melspectra:
+            torchaudio.save(
+                os.path.join(out_folder, "interpretation.wav"),
+                xhat_tm_masked.data.cpu(),
+                self.hparams.sample_rate,
+            )
 
         torchaudio.save(
             os.path.join(out_folder, "original.wav"),
@@ -338,10 +351,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         if self.hparams.use_vq:
             xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
-            xhat = self.modules.psi.decoder(hcat)
-
+            xhat = self.modules.psi.forward(hcat)
             z_q_x = None
-
         xhat = xhat.squeeze(1)
 
         if self.hparams.use_mask_output:
