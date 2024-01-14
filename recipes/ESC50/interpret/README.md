@@ -1,4 +1,4 @@
-# Postdoc interpretability - ESC50 Dataset
+# Posthoc interpretability - ESC50 Dataset
 
 The objective of postdoc interpretability is to offer an explanation regarding the decision made by a pre-trained classifier.
 
