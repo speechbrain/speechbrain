@@ -96,7 +96,7 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         deps_pretrainer = getattr(self.hparams, "deps_pretrainer", None)
         if deps_pretrainer:
             deps_pretrainer.collect_files()
-            deps_pretrainer.load_collected(device=self.device)
+            deps_pretrainer.load_collected()
 
     def __call__(self, text):
         """A convenience callable wrapper - same as G2P
