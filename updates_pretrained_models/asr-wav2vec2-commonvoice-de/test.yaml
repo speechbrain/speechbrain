@@ -1,0 +1,3 @@
+sample: example-de.wav
+cls: EncoderASR
+fnx: transcribe_batch
