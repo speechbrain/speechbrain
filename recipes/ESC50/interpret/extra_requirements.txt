@@ -1,3 +1,4 @@
 matplotlib
 scikit-learn
-
+torchvision
+transformers>=4.29.1
