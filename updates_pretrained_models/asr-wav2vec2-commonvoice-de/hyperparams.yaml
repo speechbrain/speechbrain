@@ -103,6 +103,6 @@ decoding_function: !name:speechbrain.decoders.ctc_greedy_decode
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
    loadables:
-      wav2vec2: !ref <w2v2>
+      wav2vec2: !ref <wav2vec2>
       asr: !ref <asr_model>
       tokenizer: !ref <tokenizer>

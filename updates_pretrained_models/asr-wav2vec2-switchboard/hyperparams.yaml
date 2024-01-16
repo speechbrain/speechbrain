@@ -6,7 +6,6 @@
 
 wav2vec2_hub: facebook/wav2vec2-large-lv60
 wav2vec2_folder: model_checkpoints
-
 sample_rate: 16000
 
 # BPE parameters
