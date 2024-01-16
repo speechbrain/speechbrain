@@ -22,7 +22,9 @@ try:
 
     # Numba is extra verbose and this may lead to log.txt file of multiple gigabytes... we deactivate
     if not NUMBA_VERBOSE:
-        logger.info("Numba verbose is deactivated. To enable it, set NUMBA_VERBOSE to 1.")
+        logger.info(
+            "Numba verbose is deactivated. To enable it, set NUMBA_VERBOSE to 1."
+        )
 
         nb_logger = logging.getLogger("numba")
         nb_logger.setLevel(logging.ERROR)  # only show error
@@ -31,7 +33,9 @@ try:
 
         warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
     else:
-        logger.info("Numba verbose is enabled. To desactivate it, set NUMBA_VERBOSE to 0.")
+        logger.info(
+            "Numba verbose is enabled. To desactivate it, set NUMBA_VERBOSE to 0."
+        )
 
 except ImportError:
     err_msg = "The optional dependency Numba is needed to use this module\n"
