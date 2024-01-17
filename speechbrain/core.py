@@ -1067,9 +1067,11 @@ class Brain:
         Setting gradients to None should save the memory, e.g.
         during ``evaluate()`` and thus larger batch might be used.
         """
-        if self.opt_class is not None:
+        if self.optimizers_dict is not None:
             for opt in self.freeze_optimizers(self.optimizers_dict).values():
                 opt.zero_grad(set_to_none=set_to_none)
+        elif self.opt_class is not None:
+            self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
@@ -1195,7 +1197,13 @@ class Brain:
         """Performs a step of gradient descent on the optimizers. This method is called every
         ``grad_accumulation_factor`` steps."""
         # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
-        valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        if self.optimizers_dict is not None:
+            valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        else:
+            # if valid_optimizers is not defined which could happen if a user is using an old
+            # init_optimizers() method, then we assume that the only valid optimizer is
+            # self.optimizer (which is the default behavior).
+            valid_optimizers = {"optimizer": self.optimizer}
 
         # 2. unscale the gradients of the valid optimizers
         for opt in valid_optimizers.values():
@@ -1210,7 +1218,7 @@ class Brain:
                 opt.param_groups[0]["params"], self.max_grad_norm
             )
 
-        # no need to activate this flag if you are in fp16
+        # Note: no need to activate this flag if you are in fp16
         # since GradScaler is automatically handling the nonfinite gradients
         if not self.scaler.is_enabled() and self.skip_nonfinite_grads:
             self.check_gradients()
