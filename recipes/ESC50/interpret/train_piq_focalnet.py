@@ -74,6 +74,11 @@ class InterpreterESC50Brain(sb.core.Brain):
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)
 
+        # Upsample spatial dimensions by 2x to avoid OOM (otherwise the psi model is too large)
+        hcat = torchvision.transforms.functional.resize(
+            hcat, (2 * hcat.shape[-2], 2 * hcat.shape[-1])
+        )
+
         return hcat, embeddings, predictions, class_pred
 
     def interpret_computation_steps(self, wavs, print_probability=False):
@@ -682,19 +687,19 @@ class VectorQuantizedPSIFocalNet(VectorQuantizedPSI_Audio):
     def __init__(self, dim=128, **kwargs):
         super().__init__(dim=dim, **kwargs)
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(dim, dim, 3, 4, 1),
+            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
             nn.ReLU(),
             nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, 6, (5, 4), 1),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
             nn.ReLU(),
             nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, 6, (2, 3), 1),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
             nn.ReLU(),
             nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, 6, (2, 2), 1),
+            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
             nn.ReLU(),
             nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, 1, (12, 8), 1, 1),
+            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
         )
         self.apply(weights_init)
 
