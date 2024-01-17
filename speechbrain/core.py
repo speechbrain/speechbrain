@@ -615,6 +615,7 @@ class Brain:
         checkpointer=None,
         profiler=None,
     ):
+        self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
         self.profiler = profiler
