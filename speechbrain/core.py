@@ -1200,11 +1200,16 @@ class Brain:
         # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
         if self.optimizers_dict is not None:
             valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
-        else:
+        elif self.opt_class is not None:
             # if valid_optimizers is not defined which could happen if a user is using an old
             # init_optimizers() method, then we assume that the only valid optimizer is
             # self.optimizer (which is the default behavior).
             valid_optimizers = {"optimizer": self.optimizer}
+        else:
+            # Note: in some cases you might want to only compute gradients statistics and
+            # you do not need to call the optimizers.step() method. In this case, you can
+            # simply return from this method and skip the rest of the code.
+            return
 
         # 2. unscale the gradients of the valid optimizers
         for opt in valid_optimizers.values():
