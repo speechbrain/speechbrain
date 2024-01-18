@@ -256,7 +256,7 @@ class Augmenter(torch.nn.Module):
                 next_lengths = out_lengths[idx]
             else:
                 output.append(out)
-                output_lengths.append(out_lengths[idx])
+                output_lengths.append(out_lengths)
 
         if self.parallel_augment:
             # Concatenate all the augmented data
