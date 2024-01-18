@@ -594,10 +594,8 @@ def dataprep_lm_training(
                     for line in f:
                         if line not in line_seen:
                             corpus.write(line)
-        logger.critical(
-            "RUN the following kenlm command to build a 3-gram arpa LM (https://github.com/kpu/kenlm):"
+        logger.info(
+            "Running training with kenlm...\n"
         )
-        logger.critical(
-            f"$ lmplz -o 3 --prune 0 1 2 --limit_vocab_file {vocab_file} < {lm_corpus}| sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
-        )
-        sys.exit(1)
+        cmd = f"lmplz -o 3 --prune 0 1 2 --limit_vocab_file {vocab_file} < {lm_corpus}| sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
+        os.system(cmd)
