@@ -342,7 +342,7 @@ class TransformerEncoderLayer(nn.Module):
                 d_model, nhead, dropout, mask_pos_future=causal
             )
         elif attention_type == "hypermixing":
-            self.self_att = sb.lobes.models.transformer.HyperMixing(
+            self.self_att = sb.lobes.models.transformer.hypermixing.HyperMixing(
                 input_output_dim=d_model,
                 hypernet_size=d_ffn,
                 tied=False,
