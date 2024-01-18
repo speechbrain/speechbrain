@@ -14,9 +14,8 @@ pip install -r extra_requirements.txt
 
 # How to run
 ```
+python train.py hparams/file.yaml
 python train_with_wav2vec.py hparams/file.yaml
-```
-```
 python train_with_whisper.py hparams/file.yaml
 ```
 To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster training and inferences)
@@ -33,12 +32,12 @@ python train.py hparams/128_bpe.yaml
 Then, go back to this directory. You can train a Branchformer CTC model with:
 
 ```
-python train_from_scratch.py hparams/train_branchformer.yaml
+python train.py hparams/train_branchformer.yaml
 ```
 or a Conformer CTC model with:
 
 ```
-python train_from_scratch.py hparams/train_conformer.yaml
+python train.py hparams/train_conformer.yaml
 ```
 # KenLM n-gram CTC rescoring
 To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. The n-gram can either be a binary or an arpa file, but note that the binary format is faster to load. The following command shows how to use the official LibriSpeech 4-gram LM with SpeechBrain:

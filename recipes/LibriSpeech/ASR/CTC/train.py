@@ -17,6 +17,7 @@ Authors
  * Samuele Cornell 2020, 2021, 2022
  * Titouan Parcollet 2021, 2022
  * Shucong Zhang 2023
+ * Adel Moumen 2024
 """
 
 import os
@@ -27,14 +28,8 @@ from pathlib import Path
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main, if_main_process
-from speechbrain.utils.data_utils import undo_padding
-from torch.utils.data import DataLoader
-from speechbrain.dataio.dataloader import LoopedLoader
-from tqdm import tqdm
-
 
 logger = logging.getLogger(__name__)
-
 
 # Define training procedure
 class ASR(sb.core.Brain):
@@ -43,14 +38,15 @@ class ASR(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
 
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+
+
         # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
-
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
 
         # forward modules
         src = self.modules.CNN(feats)
@@ -63,157 +59,63 @@ class ASR(sb.core.Brain):
         logits = self.modules.ctc_lin(enc_out)
         p_ctc = self.hparams.log_softmax(logits)
 
-        return p_ctc, wav_lens
+        if stage == sb.Stage.VALID:
+            p_tokens = sb.decoders.ctc_greedy_decode(
+                p_ctc, wav_lens, blank_id=self.hparams.blank_index
+            )
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
+        else:
+            p_tokens = None
+
+        return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC) given predictions and targets."""
 
-        p_ctc, wav_lens = predictions
+        p_ctc, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens = self.hparams.wav_augment.replicate_labels(tokens)
+            tokens_lens = self.hparams.wav_augment.replicate_labels(tokens_lens)
+
         loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
 
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             # Decode token terms to words
-            sequence = sb.decoders.ctc_greedy_decode(
-                p_ctc, wav_lens, blank_id=self.hparams.blank_index
-            )
             predicted_words = [
-                self.tokenizer.decode_ids(hyp).split(" ") for hyp in sequence
+                self.tokenizer.decode_ids(hyp).split(" ") for hyp in predicted_tokens
+            ]
+        elif stage == sb.Stage.TEST:
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
             ]
 
-            # Convert indices to words
-            target_words = undo_padding(tokens, tokens_lens)
-            target_words = [
-                self.tokenizer.decode_ids(words).split(" ")
-                for words in target_words
-            ]
-
+        if stage != sb.Stage.TRAIN:
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
 
-    def on_evaluate_start(
-        self,
-        max_key=None,
-        min_key=None,
-        nb_avg_ckpt=1,
-        recoverable_name="model",
-    ):
+    def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key, max_num_checkpoints=nb_avg_ckpt,
+            max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
         self.hparams.model.eval()
-
-        msg = "Loaded an average of " + str(nb_avg_ckpt) + " checkpoints..."
-        logger.info(msg)
-
-    def evaluate(
-        self,
-        test_set,
-        max_key=None,
-        min_key=None,
-        progressbar=None,
-        test_loader_kwargs={},
-        nb_avg_ckpt=1,
-        recoverable_name="model",
-    ):
-        """Iterate test_set and evaluate brain performance. By default, loads
-        the best-performing checkpoint (as recorded using the checkpointer).
-
-        Arguments
-        ---------
-        test_set : Dataset, DataLoader
-            If a DataLoader is given, it is iterated directly. Otherwise passed
-            to ``self.make_dataloader()``.
-        max_key : str
-            Key to use for finding best checkpoint, passed to
-            ``on_evaluate_start()``.
-        min_key : str
-            Key to use for finding best checkpoint, passed to
-            ``on_evaluate_start()``.
-        progressbar : bool
-            Whether to display the progress in a progressbar.
-        test_loader_kwargs : dict
-            Kwargs passed to ``make_dataloader()`` if ``test_set`` is not a
-            DataLoader. NOTE: ``loader_kwargs["ckpt_prefix"]`` gets
-            automatically overwritten to ``None`` (so that the test DataLoader
-            is not added to the checkpointer).
-        average_ckpt_over : int
-            If higher than 1, the best N checkpoints will be averaged.
-            This must be combined with a proper recoverable name to
-            do the averaging i.e. name from the checkpointer.
-        recoverable_name : str
-            Name of the .ckpt to look for and average over.
-
-        Returns
-        -------
-        average test loss
-        """
-        if progressbar is None:
-            progressbar = not self.noprogressbar
-
-        if not (
-            isinstance(test_set, DataLoader)
-            or isinstance(test_set, LoopedLoader)
-        ):
-            test_loader_kwargs["ckpt_prefix"] = None
-            test_set = self.make_dataloader(
-                test_set, sb.Stage.TEST, **test_loader_kwargs
-            )
-        self.on_evaluate_start(
-            max_key=max_key,
-            min_key=min_key,
-            nb_avg_ckpt=nb_avg_ckpt,
-            recoverable_name=recoverable_name,
-        )
-        self.on_stage_start(sb.Stage.TEST, epoch=None)
-        self.modules.eval()
-        avg_test_loss = 0.0
-        with torch.no_grad():
-            for batch in tqdm(
-                test_set,
-                dynamic_ncols=True,
-                disable=not progressbar,
-                colour=self.tqdm_barcolor["test"],
-            ):
-                self.step += 1
-                loss = self.evaluate_batch(batch, stage=sb.Stage.TEST)
-                avg_test_loss = self.update_average(loss, avg_test_loss)
-
-                # Profile only if desired (steps allow the profiler to know when all is warmed up)
-                if self.profiler is not None:
-                    if self.profiler.record_steps:
-                        self.profiler.step()
-
-                # Debug mode only runs a few batches
-                if self.debug and self.step == self.debug_batches:
-                    break
-
-            # Only run evaluation "on_stage_end" on main process
-            run_on_main(
-                self.on_stage_end, args=[sb.Stage.TEST, avg_test_loss, None]
-            )
-        self.step = 0
-        return avg_test_loss
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        with torch.no_grad():
-            predictions = self.compute_forward(batch, stage=stage)
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
+        print("Loaded the average")
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -259,7 +161,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"WER": stage_stats["WER"], "epoch": epoch},
                 min_keys=["WER"],
-                num_to_keep=10,
+                num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:
@@ -270,53 +172,19 @@ class ASR(sb.core.Brain):
             if if_main_process():
                 with open(self.hparams.wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
+    
+            # save the averaged checkpoint at the end of the evaluation stage
+            # delete the rest of the intermediate checkpoints
+            # ACC is set to 0 so checkpointer only keeps the averaged checkpoint
+            #self.checkpointer.save_and_keep_only(
+            #    meta={"WER": 0, "epoch": epoch},
+            #    max_keys=["WER"],
+            #    num_to_keep=1,
+            #)
 
-    def fit_batch(self, batch):
-
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with torch.autocast(torch.device(self.device).type):
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            # Losses are excluded from mixed precision to avoid instabilities
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            if self.bfloat16_mix_prec:
-                with torch.autocast(
-                    device_type=torch.device(self.device).type,
-                    dtype=torch.bfloat16,
-                ):
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
-            else:
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
-
-        self.on_fit_batch_end(batch, outputs, loss, should_step)
-        return loss.detach().cpu()
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
 
 def dataio_prepare(hparams, tokenizer):
@@ -400,10 +268,7 @@ def dataio_prepare(hparams, tokenizer):
         yield wrd
         char_list = list(wrd)
         yield char_list
-        # tokens_list = tokenizer.sp.encode_as_ids(wrd)
-
         tokens_list = tokenizer.encode_as_ids(wrd)
-
         yield tokens_list
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -490,7 +355,7 @@ if __name__ == "__main__":
     # Defining tokenizer and loading it
     tokenizer = hparams["tokenizer"]
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # here we create the datasets objects as well as tokenization and encoding
     (
@@ -512,6 +377,16 @@ if __name__ == "__main__":
 
     # Adding objects to trainer.
     asr_brain.tokenizer = tokenizer
+    vocab_list = [
+        tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())
+    ]
+
+    from speechbrain.decoders.ctc import CTCBeamSearcher
+
+    test_searcher = CTCBeamSearcher(
+        **hparams["test_beam_search"], vocab_list=vocab_list,
+    )
+
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
@@ -535,13 +410,11 @@ if __name__ == "__main__":
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        for nb_ckpt in [1, 5, 10]:
-            asr_brain.hparams.wer_file = os.path.join(
-                hparams["output_folder"], "wer_{}.txt".format(k)
-            )
-            asr_brain.evaluate(
-                test_datasets[k],
-                min_key="WER",
-                test_loader_kwargs=hparams["test_dataloader_opts"],
-                nb_avg_ckpt=nb_ckpt,
-            )
+        asr_brain.hparams.wer_file = os.path.join(
+            hparams["output_folder"], "wer_{}.txt".format(k)
+        )
+        asr_brain.evaluate(
+            test_datasets[k],
+            min_key="WER",
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+        )

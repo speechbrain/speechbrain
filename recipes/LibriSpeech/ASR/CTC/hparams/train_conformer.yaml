@@ -43,6 +43,7 @@ sorting: descending #random
 num_workers: 8
 loss_reduction: batchmean
 valid_search_interval: 1
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 lr_adam: 0.001
 weight_decay: 0.0005
@@ -96,9 +97,22 @@ activation: !name:torch.nn.GELU
 output_neurons: 128
 
 
-# Outputs
+# Decoding parameters
+# Be sure that the bos and eos index match with the BPEs ones
 blank_index: 0
 
+# Decoding parameters
+test_beam_search:
+    blank_index: !ref <blank_index>
+    beam_size: 100
+    beam_prune_logp: -12.0
+    token_prune_min_logp: -1.2
+    prune_history: True
+    topk: 1
+    alpha: 1.0
+    beta: 0.5
+    # To use n-gram LM for decoding, follow steps in README.md.
+    # kenlm_model_path: none
 ############################## models ################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
