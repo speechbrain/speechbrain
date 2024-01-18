@@ -59,6 +59,7 @@ class ESC50Brain(sb.core.Brain):
 
         if self.hparams.use_melspectra:
             net_input = self.modules.compute_fbank(X_stft_power)
+            net_input = torch.log1p(net_input)
         else:
             net_input = torch.log1p(X_stft_power)
 
@@ -79,7 +80,6 @@ class ESC50Brain(sb.core.Brain):
             outputs = outputs.unsqueeze(1)
 
         # print(outputs.squeeze(1).softmax(1)[0:1])
-
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):

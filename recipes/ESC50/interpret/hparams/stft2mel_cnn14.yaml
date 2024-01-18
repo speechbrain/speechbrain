@@ -29,7 +29,7 @@ finetuning: False
 guidelosstype: binary
 crosscortype: 'dotp'
 
-experiment_name: mimo-cnn14
+experiment_name: stft2mel-cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -170,8 +170,8 @@ use_pretrained: True
 #embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel/1234/save/CKPT+2024-01-15+12-09-28+00/embedding_model.ckpt'
 #classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel/1234/save/CKPT+2024-01-15+12-09-28+00/classifier.ckpt'
 
-embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-15+19-44-05+00/embedding_model.ckpt'
-classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-15+19-44-05+00/classifier.ckpt'
+embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/embedding_model.ckpt'
+classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/classifier.ckpt'
 
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
@@ -191,7 +191,8 @@ n_fft: 1024
 spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
-use_melspectra: True
+use_melspectra: False
+use_stft2mel: True
 
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
@@ -210,12 +211,13 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI
+psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI_stft
     dim: 2048
     K: !ref <K>
     shared_keys: 0
     activate_class_partitioning: True
     adapter_reduce_dim: True
+    stft2mel: True
 
 modules:
     compute_stft: !ref <compute_stft>

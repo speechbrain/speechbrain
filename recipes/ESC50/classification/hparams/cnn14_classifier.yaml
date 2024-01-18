@@ -127,6 +127,7 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
     n_mels: 80
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
+    log_mel: False
 
 modules:
     compute_stft: !ref <compute_stft>

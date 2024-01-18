@@ -63,14 +63,24 @@ class InterpreterESC50Brain(sb.core.Brain):
             X_stft, power=self.hparams.spec_mag_power
         )
 
+        #if self.hparams.use_stft2mel:
+        #    X_stft_logpower = X_stft_power
+        #else:
         if not self.hparams.use_melspectra:
             X_stft_logpower = torch.log1p(X_stft_power)
         else:
-            X_stft_logpower = self.hparams.compute_fbank(X_stft_power)
+            X_stft_power = self.hparams.compute_fbank(X_stft_power)
+            X_stft_logpower = torch.log1p(X_stft_power)
+
         return X_stft_logpower, X_stft, X_stft_power
 
     def classifier_forward(self, X_stft_logpower):
         """The forward pass for the classifier"""
+        if self.hparams.use_stft2mel:
+            X_in = torch.expm1(X_stft_logpower)
+            X_stft_logpower = self.hparams.compute_fbank(X_in)
+            X_stft_logpower = torch.log1p(X_stft_logpower)
+
         if hasattr(self.hparams, 'return_reps'):
             embeddings, hs = self.hparams.embedding_model(X_stft_logpower)
             hcat = hs
@@ -279,22 +289,22 @@ class InterpreterESC50Brain(sb.core.Brain):
                 X_est_masked, X_stft_phase[0:1]
             )
 
-        plt.figure(figsize=(10, 5), dpi=100)
+        plt.figure(figsize=(11, 10), dpi=100)
 
-        plt.subplot(141)
+        plt.subplot(311)
         X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
         plt.imshow(X_target, origin="lower")
         plt.title("input")
         plt.colorbar()
 
-        plt.subplot(142)
+        plt.subplot(312)
         mask = xhat[0]
         X_masked = mask * X_stft_logpower[0, :Tmax, :]
         plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
         plt.colorbar()
         plt.title("masked")
 
-        plt.subplot(143)
+        plt.subplot(313)
         plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
         plt.colorbar()
         plt.title("mask")
@@ -336,7 +346,6 @@ class InterpreterESC50Brain(sb.core.Brain):
         wavs, lens = batch.sig
 
         # augment batch with WHAM!
-
         if hasattr(self.hparams, 'add_wham_noise'):
             if self.hparams.add_wham_noise:
                 wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
@@ -414,6 +423,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         """Helper function to compute the objectives"""
         batch_sig, predictions, xhat, hcat, z_q_x, garbage = pred
 
+        
         batch = batch.to(self.device)
         wavs_clean, lens_clean = batch.sig
 
@@ -504,6 +514,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         else:
             rec_loss = 0
             crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
+
+        # if self.hparams.use_stft2mel:
+        #    import pdb; pdb.set_trace()
+        #    mask_in = self.hparams.compute_fbank(mask_in)
+        #    mask_in = torch.log1p(mask_in)
+
+        #    mask_out = self.hparams.compute_fbank(mask_out)
+        #    mask_out = torch.log1p(mask_out)
 
         mask_in_preds = self.classifier_forward(mask_in)[2]
 
