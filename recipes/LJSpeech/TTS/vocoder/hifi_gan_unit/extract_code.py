@@ -19,7 +19,7 @@ from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
 )
-from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
+from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
 
 OPT_FILE = "opt_ljspeech_extract.pkl"
 TRAIN_JSON = "train.json"
@@ -165,7 +165,7 @@ def extract_ljspeech(
     code_folder.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Loading encoder: {encoder} ...")
-    encoder = HuggingFaceWav2Vec2(
+    encoder = Wav2Vec2(
         encoder,
         encoder_save_path.as_posix(),
         output_all_hiddens=True,

@@ -18,7 +18,6 @@ Authors
 
 import os
 import sys
-import torch
 import logging
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
@@ -33,14 +32,10 @@ class ASR_Brain(sb.Brain):
         "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        # Adding optional augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
@@ -55,9 +50,9 @@ class ASR_Brain(sb.Brain):
         pout, pout_lens = predictions
         phns, phn_lens = batch.phn_encoded
 
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corrupt"):
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
 
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
         self.ctc_metrics.append(batch.id, pout, phns, pout_lens, phn_lens)
@@ -238,6 +233,7 @@ if __name__ == "__main__":
             "uppercase": hparams["uppercase"],
         },
     )
+    run_on_main(hparams["prepare_noise_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)

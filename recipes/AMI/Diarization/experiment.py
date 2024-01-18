@@ -552,7 +552,7 @@ if __name__ == "__main__":  # noqa: C901
     # We download the pretrained Model from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(params["pretrainer"].collect_files)
-    params["pretrainer"].load_collected(device=run_opts["device"])
+    params["pretrainer"].load_collected()
     params["embedding_model"].eval()
     params["embedding_model"].to(run_opts["device"])
 

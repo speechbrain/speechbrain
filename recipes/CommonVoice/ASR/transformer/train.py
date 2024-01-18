@@ -23,6 +23,7 @@ other possible variations.
 Authors
  * Titouan Parcollet 2021
  * Jianyuan Zhong 2020
+ * Pooneh Mousavi 2023
 """
 import sys
 import torch
@@ -47,15 +48,20 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         tokens_bos, _ = batch.tokens_bos
 
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
+
         # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
-        # Augmentation
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
 
         # forward modules
         src = self.modules.CNN(feats)
@@ -73,15 +79,20 @@ class ASR(sb.core.Brain):
 
         # Compute outputs
         hyps = None
-        if stage == sb.Stage.TRAIN:
-            hyps = None
-        elif stage == sb.Stage.VALID:
-            hyps = None
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch % self.hparams.valid_search_interval == 0:
-                hyps, _ = self.hparams.beam_searcher(enc_out.detach(), wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.beam_searcher(enc_out.detach(), wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        is_valid_search = (
+            stage == sb.Stage.VALID
+            and current_epoch % self.hparams.valid_search_interval == 0
+        )
+        is_test_search = stage == sb.Stage.TEST
+
+        if is_valid_search:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+
+        elif is_test_search:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -93,6 +104,31 @@ class ASR(sb.core.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
+
+        # Augment Labels
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                tokens = self.hparams.wav_augment.replicate_labels(tokens)
+                tokens_lens = self.hparams.wav_augment.replicate_labels(
+                    tokens_lens
+                )
+                tokens_eos = self.hparams.wav_augment.replicate_labels(
+                    tokens_eos
+                )
+                tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                    tokens_eos_lens
+                )
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                tokens_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_lens
+                )
+                tokens_eos = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos
+                )
+                tokens_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos_lens
+                )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
@@ -126,37 +162,16 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-
+    def on_fit_batch_start(self, batch, should_step):
+        """Gets called at the beginning of each fit_batch."""
         # check if we need to switch optimizer
         # if so change the optimizer from Adam to SGD
         self.check_and_reset_optimizer()
 
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-            # anneal lr every update
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        with torch.no_grad():
-            predictions = self.compute_forward(batch, stage=stage)
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -254,18 +269,17 @@ class ASR(sb.core.Brain):
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
 
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible()
+
         # Initialize optimizers after parameters are configured
         self.init_optimizers()
 
-        # Load latest checkpoint to check to current epoch number
-        if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
-
-        # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
         if current_epoch > self.hparams.stage_one_epochs:
+            logger.info(
+                f"The checkpoint's epoch(= {current_epoch}) is greater than stage_one_epochs(= {self.hparams.stage_one_epochs}). Using the fine-tuning optimizer instead of the training one."
+            )
             self.optimizer = self.hparams.SGD(self.modules.parameters())
 
             if self.checkpointer is not None:
@@ -273,9 +287,7 @@ class ASR(sb.core.Brain):
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
 
 # Define custom data procedure

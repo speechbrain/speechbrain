@@ -148,6 +148,9 @@ class SEBrain(sb.Brain):
         self.optimizer = self.hparams.g_opt_class(
             self.modules.generator.parameters()
         )
+        self.optimizers_dict = {
+            "optimizer": self.optimizer,
+        }
 
 
 def dataio_prep(hparams):

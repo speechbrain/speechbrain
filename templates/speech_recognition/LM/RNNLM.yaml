@@ -7,7 +7,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2602
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-data_folder: ./data/
+data_folder: data/
 output_folder: !ref results/RNNLM/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -35,7 +35,7 @@ tokenizer_file: ../Tokenizer/save/1000_unigram.model
 number_of_epochs: 20
 batch_size: 80
 lr: 0.001
-accu_steps: 1 # Gradient accumulation to simulate large batch training
+grad_accumulation_factor: 1 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options

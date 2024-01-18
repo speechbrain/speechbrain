@@ -18,7 +18,7 @@ import logging
 import torchaudio
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.dataio.dataio import load_data_csv
-from speechbrain.pretrained import fetch
+from speechbrain.utils.fetching import fetch
 
 logger = logging.getLogger(__name__)
 

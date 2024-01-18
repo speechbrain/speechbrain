@@ -12,7 +12,7 @@ import torchaudio
 from wham_room import WhamRoom
 from scipy.signal import resample_poly
 import torch
-from speechbrain.pretrained.fetching import fetch
+from speechbrain.utils.fetching import fetch
 from tqdm import tqdm
 
 

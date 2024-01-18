@@ -17,7 +17,7 @@ import logging
 import torchaudio
 import numpy as np
 import speechbrain as sb
-from speechbrain.pretrained import HIFIGAN
+from speechbrain.inference.vocoders import HIFIGAN
 from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
@@ -51,20 +51,10 @@ class FastSpeech2Brain(sb.Brain):
         inputs, _ = self.batch_to_device(batch)
         return self.hparams.model(*inputs)
 
-    def fit_batch(self, batch):
-        """Fits a single batch
-        Arguments
-        ---------
-        batch: tuple
-            a training batch
-        Returns
-        -------
-        loss: torch.Tensor
-            detached loss
-        """
-        result = super().fit_batch(batch)
-        self.hparams.noam_annealing(self.optimizer)
-        return result
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing and logging."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.

@@ -10,14 +10,21 @@ output_folder: !ref results/epaca/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 data_folder: !PLACEHOLDER
-rir_folder: !ref <data_folder>
-# skip_prep: False
 
 shards_url: /data/voxlingua107_shards
 train_meta: !ref <shards_url>/train/meta.json
 val_meta: !ref <shards_url>/dev/meta.json
 train_shards: !ref <shards_url>/train/shard-{000000..000507}.tar
 val_shards: !ref <shards_url>/dev/shard-000000.tar
+
+# Data for augmentation
+NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
+RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?rlkey=pg9cu8vrpn2u173vhiqyu743u&dl=1
+data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
+noise_annotation: !ref <save_folder>/noise.csv
+rir_annotation: !ref <save_folder>/rir.csv
+
 
 # Set to directory on a large disk if you are training on Webdataset shards hosted on the web
 shard_cache_dir:
@@ -40,15 +47,70 @@ deltas: False
 # Number of languages
 out_n_neurons: 107
 
+num_workers: 4
+batch_size: 128
+batch_size_val: 32
 train_dataloader_options:
-    num_workers: 4
-    batch_size: 128
+    num_workers: !ref <num_workers>
+    batch_size: !ref <batch_size>
 
 val_dataloader_options:
     num_workers: 1
-    batch_size: 32
+    batch_size: !ref <batch_size_val>
 
-# Functions
+# Download and prepare the dataset of noisy sequences for augmentation
+prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <NOISE_DATASET_URL>
+    dest_folder: !ref <data_folder_noise>
+    ext: wav
+    csv_file: !ref <noise_annotation>
+
+# Download and prepare the dataset of room impulse responses for augmentation
+prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <RIR_DATASET_URL>
+    dest_folder: !ref <data_folder_rir>
+    ext: wav
+    csv_file: !ref <rir_annotation>
+
+
+# Add reverberation to input signal
+add_reverb: !new:speechbrain.augment.time_domain.AddReverb
+    csv_file: !ref <rir_annotation>
+    reverb_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Add noise to input signal
+snr_low: 0  # Min SNR for noise augmentation
+snr_high: 15  # Max SNR for noise augmentation
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
+    csv_file: !ref <noise_annotation>
+    snr_low: !ref <snr_low>
+    snr_high: !ref <snr_high>
+    noise_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Speed perturbation
+speed_changes: [90, 100, 110]  # List of speed changes for time-stretching
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: True
+    repeat_augment: 1
+    shuffle_augmentations: True
+    min_augmentations: 1
+    max_augmentations: 3
+    augmentations: [
+        !ref <add_reverb>,
+        !ref <add_noise>,
+        !ref <speed_perturb>]
+
+    # Functions
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
     left_frames: !ref <left_frames>
@@ -74,39 +136,12 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 
-augment_speed: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [90, 100, 110]
-
-
-add_rev_noise: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <rir_folder>
-    openrir_max_noise_len: 3.0  # seconds
-    reverb_prob: 0.5
-    noise_prob: 0.8
-    noise_snr_low: 0
-    noise_snr_high: 15
-    rir_scale_factor: 1.0
-
-# Definition of the augmentation pipeline.
-# If concat_augment = False, the augmentation techniques are applied
-# in sequence. If concat_augment = True, all the augmented signals
-# # are concatenated in a single big batch.
-augment_pipeline: [
-    !ref <augment_speed>,
-    !ref <add_rev_noise>
-]
-
-concat_augment: False
-
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
 modules:
     compute_features: !ref <compute_features>
-    augment_speed: !ref <augment_speed>
-    add_rev_noise: !ref <add_rev_noise>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>

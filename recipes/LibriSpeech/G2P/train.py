@@ -18,7 +18,6 @@ import datasets
 import logging
 import os
 import random
-import torch
 import speechbrain as sb
 import sys
 from enum import Enum
@@ -26,7 +25,7 @@ from collections import namedtuple
 from hyperpyyaml import load_hyperpyyaml
 from functools import partial
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.pretrained.training import save_for_pretrained
+from speechbrain.utils.pretrained import save_for_pretrained
 from speechbrain.lobes.models.g2p.dataio import (
     enable_eos_bos,
     grapheme_pipeline,
@@ -154,7 +153,6 @@ class G2PBrain(sb.Brain):
             step = self.train_step["name"]
             logger.info(f"Attempting to restore checkpoint for step {step}")
             result = self.checkpointer.recover_if_possible(
-                device=torch.device(self.device),
                 min_key=min_key,
                 max_key=max_key,
                 ckpt_predicate=(lambda ckpt: ckpt.meta.get("step") == step),
@@ -166,9 +164,7 @@ class G2PBrain(sb.Brain):
                     step,
                 )
                 result = self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device),
-                    min_key=min_key,
-                    max_key=max_key,
+                    min_key=min_key, max_key=max_key,
                 )
                 if result:
                     logger.info(
@@ -221,7 +217,8 @@ class G2PBrain(sb.Brain):
                 if stage == sb.Stage.VALID
                 else self.beam_searcher
             )
-            hyps, scores = beam_searcher(encoder_out, char_lens)
+
+            hyps, _, _, _ = beam_searcher(encoder_out, char_lens)
 
         return G2PPredictions(p_seq, char_lens, hyps, ctc_logprobs, attn)
 
@@ -385,24 +382,6 @@ class G2PBrain(sb.Brain):
             return False
         current_epoch = self.epoch_counter.current
         return current_epoch <= self.train_step["ctc_epochs"]
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -1139,7 +1118,7 @@ def load_dependencies(hparams, run_opts):
     deps_pretrainer = hparams.get("deps_pretrainer")
     if deps_pretrainer:
         run_on_main(deps_pretrainer.collect_files)
-        deps_pretrainer.load_collected(device=run_opts["device"])
+        deps_pretrainer.load_collected()
 
 
 def check_tensorboard(hparams):

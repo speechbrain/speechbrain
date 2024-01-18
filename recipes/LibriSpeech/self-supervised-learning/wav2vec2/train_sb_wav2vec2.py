@@ -29,6 +29,7 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.lobes.models.wav2vec import w2v_mask_collate_fn
 from speechbrain.lobes.models.wav2vec import sample_negatives
+from speechbrain.core import AMPConfig
 
 logger = logging.getLogger(__name__)
 
@@ -120,47 +121,33 @@ class W2V2Brain(sb.core.Brain):
         return objectives
 
     def fit_batch(self, batch):
-        should_step = self.step % self.grad_accumulation_factor == 0
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
+
         # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with self.no_sync(not should_step):
-                with torch.cuda.amp.autocast():
+        with self.no_sync(not should_step):
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                ):
                     outputs = self.compute_forward(batch, Stage.TRAIN)
                     objectives = self.compute_objectives(
                         outputs, batch, Stage.TRAIN
                     )
-
-                self.scaler.scale(
-                    objectives["backprop_loss"] / self.grad_accumulation_factor
-                ).backward()
-
-                objectives["total_loss"] = objectives["backprop_loss"].detach()
-                if should_step:
-                    self.scaler.unscale_(self.optimizer)
-                    if self.check_gradients(objectives["backprop_loss"]):
-                        self.scaler.step(self.optimizer)
-                    self.optimizer.zero_grad()
-                    self.optimizer_step += 1
-                    self.scaler.update()
-        else:
-            with self.no_sync(not should_step):
+            else:
                 outputs = self.compute_forward(batch, Stage.TRAIN)
                 objectives = self.compute_objectives(
                     outputs, batch, Stage.TRAIN
                 )
 
-                (
-                    objectives["backprop_loss"] / self.grad_accumulation_factor
-                ).backward()
-                objectives["total_loss"] = objectives["backprop_loss"].detach()
+            self.scaler.scale(
+                objectives["backprop_loss"] / self.grad_accumulation_factor
+            ).backward()
 
-                if should_step:
-                    if self.check_gradients(objectives["backprop_loss"]):
-                        self.optimizer.step()
-                    self.optimizer.zero_grad()
-                    self.optimizer_step += 1
+            objectives["total_loss"] = objectives["backprop_loss"].detach()
 
         if should_step:
+            self.optimizers_step()
             self.on_fit_batch_end(objectives)
 
         return objectives["backprop_loss"].detach()
@@ -292,13 +279,10 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
     # We create the DynamicBatch Sampler
+    dynamic_hparams = hparams["dynamic_batch_sampler_train"]
+
     train_sampler = DynamicBatchSampler(
-        train_data,
-        hparams["seconds_per_batch"],
-        num_buckets=hparams["train_num_buckets"],
-        length_func=lambda x: x["duration"],
-        batch_ordering="random",
-        shuffle=True,
+        train_data, **dynamic_hparams, length_func=lambda x: x["duration"],
     )
 
     # We define the custom collation function that is necessary for w2v2 to
@@ -343,6 +327,10 @@ def main():
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    # Update precision to bf16 if the device is CPU and precision is fp16
+    if run_opts.get("device") == "cpu" and hparams.get("precision") == "fp16":
+        hparams["precision"] = "bf16"
 
     from librispeech_prepare import prepare_librispeech
 

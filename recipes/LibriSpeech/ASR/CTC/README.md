@@ -41,15 +41,39 @@ or a Conformer CTC model with:
 python train_from_scratch.py hparams/train_conformer.yaml
 ```
 # KenLM n-gram CTC rescoring
-To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. Results are reported without rescoring.
+To enable n-gram rescoring during the decoding, you can download the LibriSpeech official LM from [here](https://www.openslr.org/11/). Please make sure to install the extra dependencies first. Any KenLM language model may be used with this rescoring technique. The n-gram can either be a binary or an arpa file, but note that the binary format is faster to load. The following command shows how to use the official LibriSpeech 4-gram LM with SpeechBrain:
+```bash
+wget https://openslr.elda.org/resources/11/4-gram.arpa.gz
+gzip -d 4-gram.arpa.gz
+python train_with_wav2vec.py hparams/file.yaml --kenlm_model_path='4-gram.arpa'
+```
+
+# Rescoring with a Neural Language Model
+Two yamls do support LM rescoring: `train_hf_wav2vec_rnn_rescoring.yaml` and `train_hf_wav2vec_transformer_rescoring.yaml`. The first one uses a RNN LM, while the second one uses a Transformer LM. Both LMs are already pretrained on LibriSpeech (see [RNNLM](https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech) and [TransformerLM](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech)). The acoustic model (wav2vec2) generates a list of hypotheses (called n-best), which are then rescored (aka re-ranked) by the LM. The LM rescores by computing the score of each hypothesis by summing the log-probabilities of each tokens with respect to the previous tokens. The LM score is then added to the acoustic model score to obtain the final score. Using this technique, will results in better WERs. For instance, we went from 1.95 to 1.57 of WER. However, note that the inference time will be slower.
+
+Two parameters need to be tuned: `topk` (and `beam_size` to have enough topk) and `lm_weight`. Increasing `topk` will increase the number of hypotheses to be rescored, and ultimately the inference time. Increasing `lm_weight` will increase the importance of the LM score in the final score. The following command shows how to use the RNN LM with SpeechBrain:
+```bash
+python train_with_wav2vec.py hparams/train_hf_wav2vec_rnn_rescoring.yaml --data_folder=/path/to/LibriSpeech/ --topk=50 --beam_size=50 --lm_weight=0.5
+```
+Note: by default, `topk` is set to 20 as it gives a good trade-off between WER and inference time.
 
 # Results
 
-| Release | Hyperparams file | Finetuning Split | Test Clean WER | HuggingFace link | Full model link | GPUs |
-|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :-----:| :--------:|
-| 09-09-21 | train_hf_wav2vec.yaml | 960h | 1.90 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX8000 48GB |
-| 22-09-22 | train_sb_wav2vec.yaml | 960h | 4.2 | Not Avail. | Not Avail. | 2xTesla V100 32GB |
-| 06-12-23 | train_hf_whisper.yaml (small) | 960h | 4.89 | Not Avail. | Not Avail. | 4xRTX 2080 Ti |
+| Release | Hyperparams file | Decoding method | Finetuning Split | Test-clean WER | GPU- Test-clean Inference Time | Test-other WER | GPU- Test-other Inference Time |  HuggingFace link | Full model link | Inference GPUs | Training GPUs |
+|:-------------:|:---------------------------:|  :----------:|  :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :-----:| :--------:| :--------:|
+| 05-08-23 | train_hf_wav2vec.yaml | GreedySearch | 960h  | 2.12 | 1min30s | 4.31| 1min24s | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | [Link](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | GreedySearch  + test batch size = 1| 960h  | 1.95 | 2min09s | 3.97| 2min21s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch  + test batch size = 1| 960h  | 1.92 | 2min22s | 3.97 | 2min16s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch  + test batch size = 1| 960h | 1.92 | 2min45s | 3.97 | 2min21s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCBeamSearch + 4-gram  + test batch size = 1| 960h  | 1.75  | 2min37s | 3.67 | 2min20s | Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 05-08-23 | train_hf_wav2vec.yaml | CTCPrefixBeamSearch + 4-gram  + test batch size = 1| 960h  | 1.80 | 2min38s | 3.78 | 2min25s |Not Avail. | [Link](https://www.dropbox.com/sh/8zqufkmegbgpsa8/AACB6MMJ_efbGDvTi5ZhB4pQa?dl=0) | 1xRTX3090 24GB | 1xA100 40GB |
+| 22-09-22 | train_sb_wav2vec.yaml | GreedySearch | 960h | 4.2 | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail. | Not Avail.| 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCBeamSearch  + test batch size = 1 | 960h | 4.72 | 3.08 | 12.66 |3.30 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCPrefixBeamSearch  + test batch size = 1 | 960h | 4.73 | 3.19 | 12.65 |3.39 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.37 | 3.16 | 11.76 | 3.43 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 08-12-23 | train_hf_whisper.yaml (small) | CTCPrefixBeamSearch + 4-gram  + test batch size = 1 | 960h | 4.44 | 3.30 | 11.89 | 3.47 | Not Avail. | [Link](https://www.dropbox.com/sh/zmtp13huxn02fot/AADyKL5q0MwRhEG1-WbSXDWda?dl=0) |  1xRTX3090 24GB | 2xTesla V100 32GB |
+| 08-12-23 | train_hf_wav2vec.yaml | CTCBeamSearch + RNNLM Rescorer  + test batch size = 1 + topk = 100  | 960h | 1.69 | 26mins15 | 3.55 | 32min44s | Not Avail. | [Link](https://www.dropbox.com/sh/k4ixa211yp5b1tm/AAD85sgYw2CH7NKk_qKMO9Tja?dl=0) |  1x A100 40GB | 2xTesla V100 40GB |
+| 08-12-23 | train_hf_wav2vec.yaml | CTCBeamSearch + TransformerLM Rescorer + test batch size = 1 + topk = 100 | 960h | 1.57 | 26mins56s | 3.37 | 32min46 | Not Avail. | [Link](https://www.dropbox.com/sh/ijqalvre7mm08ng/AAD_hsN-8dBneUMMkELsOOxga?dl=0) |  1x A100 40GB | 2xTesla V100 32GB |
 | 06-12-23 | train_branchformer.yaml (25.9M) | 960h | 3.6 (no LM) | Not Avail. | Not Avail. | 8xA40 46G |
 | 06-12-23 | train_conformer.yaml (28.8M) | 960h | 3.7 (no LM) | Not Avail. | Not Avail. | 8xA40 46G |
 

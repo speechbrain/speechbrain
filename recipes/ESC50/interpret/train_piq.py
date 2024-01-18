@@ -750,7 +750,6 @@ if __name__ == "__main__":
 
     Interpreter_brain.checkpointer.recover_if_possible(
         max_key="valid_top-3_fid",
-        device=torch.device(Interpreter_brain.device),
     )
 
     test_stats = Interpreter_brain.evaluate(
