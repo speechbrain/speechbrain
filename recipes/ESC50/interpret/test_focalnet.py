@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-"""This recipe trains PIQ to interpret a ViT audio classifier.
+"""Recipe to interpret a FocalNet audio classifier by-design based on its modulation maps.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -10,22 +10,16 @@ Authors
 
 import os
 import sys
-
 import matplotlib.pyplot as plt
 import speechbrain as sb
 import torch
 import torchaudio
 import torchvision
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.lobes.models.PIQ import VectorQuantizedPSI_Audio, weights_init
 from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.metric_stats import MetricStats
-from torch import nn
 from torch.nn import functional as F
-
-
-eps = 1e-10
 
 
 class InterpreterESC50Brain(sb.core.Brain):
@@ -59,7 +53,6 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         return X_stft_logpower, X_stft, X_stft_power
 
-    @torch.no_grad()
     def classifier_forward(self, X_stft_logpower):
         """The forward pass for the classifier"""
         image_size = self.hparams.embedding_model.config.image_size
@@ -69,39 +62,46 @@ class InterpreterESC50Brain(sb.core.Brain):
         net_input = net_input[:, None, ...].expand(
             -1, 3, -1, -1
         )  # Expand to have 3 channels
-        hcat = self.hparams.embedding_model(
-            net_input
-        ).last_hidden_state.movedim(-1, -2)
-        embeddings = hcat.mean(dim=-1)
+        hcat = self.hparams.embedding_model(net_input).feature_maps[-1]
+        embeddings = hcat.mean(dim=(-1, -2))
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)
 
-        # Reshape to have 2 spatial dimensions (remove CLS token)
-        num_patches = (
-            self.hparams.embedding_model.config.image_size
-            // self.hparams.embedding_model.config.patch_size
-        )
-        hcat = hcat[..., 1:].reshape(len(hcat), -1, num_patches, num_patches)
+        modulators = [
+            encoder_stage.layers[-1].modulation.modulator
+            for encoder_stage in self.hparams.embedding_model.focalnet.encoder.stages
+        ]
 
-        return hcat, embeddings, predictions, class_pred
+        modulators = [x.norm(dim=-3, p=2, keepdim=True) for x in modulators]
+
+        modulators = [
+            torchvision.transforms.functional.resize(
+                x, X_stft_logpower.shape[-2:]
+            )
+            for x in modulators
+        ]
+
+        xhat = modulators[-1]
+        # xhat = (xhat - xhat.mean(dim=(-1, -2), keepdim=True))
+        threshold = xhat.reshape(len(xhat), -1).quantile(
+            self.hparams.quantile, dim=-1
+        )[:, None, None, None]
+        xhat[xhat < threshold] = -float("inf")
+        xhat[xhat >= threshold] = float("inf")
+
+        return xhat, predictions, class_pred
 
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram"""
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
         X_stft_phase = spectral_phase(X_stft)
 
-        hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_stft_logpower
-        )
+        xhat, predictions, class_pred = self.classifier_forward(X_stft_logpower)
         if print_probability:
             predictions = F.softmax(predictions, dim=1)
             class_prob = predictions[0, class_pred].item()
             print(f"classifier_prob: {class_prob}")
 
-        if self.hparams.use_vq:
-            xhat, hcat, _ = self.modules.psi(hcat, class_pred)
-        else:
-            xhat = self.modules.psi.decoder(hcat)
         xhat = xhat.squeeze(1)
 
         Tmax = xhat.shape[1]
@@ -371,7 +371,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + sound classifier.
+        """Computation pipeline based on an encoder + sound classifier.
         Data augmentation and environmental corruption are applied to the
         input sound.
         """
@@ -381,16 +381,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
 
         # Embeddings + sound classifier
-        hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_stft_logpower
-        )
-
-        if self.hparams.use_vq:
-            xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
-        else:
-            xhat = self.modules.psi.decoder(hcat)
-
-            z_q_x = None
+        xhat, predictions, class_pred = self.classifier_forward(X_stft_logpower)
 
         xhat = xhat.squeeze(1)
 
@@ -399,24 +390,18 @@ class InterpreterESC50Brain(sb.core.Brain):
         else:
             xhat = F.softplus(xhat)
 
-        garbage = 0
+        # save some samples
+        if self.hparams.save_interpretations:
+            wavs = wavs[0].unsqueeze(0)
+            self.interpret_sample(wavs, batch)
+            self.overlap_test(batch)
+            self.debug_files(X_stft, xhat, X_stft_logpower, batch, wavs)
 
-        if stage == sb.Stage.VALID:
-            # save some samples
-            if (
-                self.hparams.epoch_counter.current
-                % self.hparams.interpret_period
-            ) == 0 and self.hparams.save_interpretations:
-                wavs = wavs[0].unsqueeze(0)
-                self.interpret_sample(wavs, batch)
-                self.overlap_test(batch)
-                self.debug_files(X_stft, xhat, X_stft_logpower, batch, wavs)
-
-        return predictions, xhat, hcat, z_q_x, garbage
+        return predictions, xhat
 
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
-        predictions, xhat, hcat, z_q_x, garbage = pred
+        predictions, xhat = pred
 
         batch = batch.to(self.device)
         wavs, lens = batch.sig
@@ -428,65 +413,21 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         Tmax = xhat.shape[1]
 
-        hcat_theta, embeddings, theta_out, _ = self.classifier_forward(
+        _, theta_out, _ = self.classifier_forward(
             xhat * X_stft_logpower[:, :Tmax, :]
         )
 
-        # if there is a separator, we need to add sigmoid to the sum
-        loss_fid = 0
-
-        if self.hparams.use_mask_output:
-            eps = 1e-10
-            target_spec = X_stft_logpower[:, : xhat.shape[1], :]
-            # target_mask = target_spec > (target_spec.max() * self.hparams.mask_th)
-
-            target_mask = target_spec > (
-                target_spec.max(keepdim=True, dim=-1)[0].max(
-                    keepdim=True, dim=-2
-                )[0]
-                * self.hparams.mask_th
-            )
-            target_mask = target_mask.float()
-            rec_loss = (
-                -target_mask * torch.log(xhat + eps)
-                - (1 - target_mask) * torch.log(1 - xhat + eps)
-            ).mean()
-        else:
-            rec_loss = (
-                (X_stft_logpower[:, : xhat.shape[1], :] - xhat).pow(2).mean()
-            )
-        if self.hparams.use_vq:
-            loss_vq = F.mse_loss(z_q_x, hcat.detach())
-            loss_commit = F.mse_loss(hcat, z_q_x.detach())
-        else:
-            loss_vq = 0
-            loss_commit = 0
         self.acc_metric.append(
             uttid, predict=predictions, target=classid, length=lens
         )
 
-        self.recons_err.append(
-            uttid, xhat, X_stft_logpower[:, : xhat.shape[1], :]
+        self.top_3_fidelity.append(
+            [batch.id] * theta_out.shape[0], theta_out, predictions
         )
-        if self.hparams.use_mask_output:
-            self.mask_ll.append(uttid, xhat, target_mask)
 
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            self.top_3_fidelity.append(
-                [batch.id] * theta_out.shape[0], theta_out, predictions
-            )
-            self.faithfulness.append(batch.id, wavs, predictions)
+        self.faithfulness.append(batch.id, wavs, predictions)
 
-        if stage != sb.Stage.TEST:
-            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-                self.hparams.lr_annealing.on_batch_end(self.optimizer)
-
-        return (
-            self.hparams.rec_loss_coef * rec_loss
-            + loss_vq
-            + loss_commit
-            + loss_fid
-        )
+        return torch.as_tensor([0.0], device=self.device)
 
     def on_stage_start(self, stage, epoch=None):
         """Steps taken before stage start"""
@@ -519,7 +460,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             """computes the faithfulness metric"""
             X2 = self.interpret_computation_steps(wavs)[0]
 
-            _, _, predictions_masked, _ = self.classifier_forward(X2)
+            _, predictions_masked, _ = self.classifier_forward(X2)
 
             predictions = F.softmax(predictions, dim=1)
             predictions_masked = F.softmax(predictions_masked, dim=1)
@@ -541,104 +482,31 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             return faithfulness
 
-        @torch.no_grad()
-        def compute_rec_error(preds, specs, length=None):
-            """Calculates the reconstruction error"""
-            if self.hparams.use_mask_output:
-                preds = specs * preds
-
-            return (specs - preds).pow(2).mean((-2, -1))
-
-        @torch.no_grad()
-        def compute_bern_ll(xhat, target_mask, length=None):
-            """Computes bernoulli likelihood"""
-            eps = 1e-10
-            rec_loss = (
-                -target_mask * torch.log(xhat + eps)
-                - (1 - target_mask) * torch.log(1 - xhat + eps)
-            ).mean((-2, -1))
-            return rec_loss
-
         self.top_3_fidelity = MetricStats(metric=compute_fidelity)
         self.faithfulness = MetricStats(metric=compute_faithfulness)
         self.acc_metric = sb.utils.metric_stats.MetricStats(
             metric=accuracy_value, n_jobs=1
         )
-        self.recons_err = sb.utils.metric_stats.MetricStats(
-            metric=compute_rec_error
-        )
-        if self.hparams.use_mask_output:
-            self.mask_ll = sb.utils.metric_stats.MetricStats(
-                metric=compute_bern_ll
-            )
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
         Plots in subplots the values of `self.batch_to_plot` and saves the
         plot to the experiment folder. `self.hparams.output_folder`"""
+        current_fid = self.top_3_fidelity.summarize("average")
+        test_stats = {
+            "acc": self.acc_metric.summarize("average"),
+            "input_fidelity": current_fid,
+            "faithfulness_median": torch.Tensor(
+                self.faithfulness.scores
+            ).median(),
+            "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
+        }
 
-        if stage == sb.Stage.TRAIN:
-            self.train_loss = stage_loss
-            self.train_stats = {
-                "loss": self.train_loss,
-                "acc": self.acc_metric.summarize("average"),
-                "rec_error": self.recons_err.summarize("average"),
-            }
-            if self.hparams.use_mask_output:
-                self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
-
-        if stage == sb.Stage.VALID:
-            current_fid = self.top_3_fidelity.summarize("average")
-            old_lr, new_lr = self.hparams.lr_annealing(
-                [self.optimizer], epoch, -current_fid
-            )
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-            valid_stats = {
-                "loss": stage_loss,
-                "acc": self.acc_metric.summarize("average"),
-                "input_fidelity": current_fid,
-                "rec_error": self.recons_err.summarize("average"),
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
-            }
-            if self.hparams.use_mask_output:
-                valid_stats["mask_ll"] = self.mask_ll.summarize("average")
-
-            # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=valid_stats,
-            )
-
-            # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=valid_stats, max_keys=["top-3_fid"]
-            )
-
-        if stage == sb.Stage.TEST:
-            current_fid = self.top_3_fidelity.summarize("average")
-            test_stats = {
-                "loss": stage_loss,
-                "acc": self.acc_metric.summarize("average"),
-                "input_fidelity": current_fid,
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
-            }
-
-            # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch}, test_stats=test_stats
-            )
+        # The train_logger writes a summary to stdout and to the logfile.
+        self.hparams.train_logger.log_stats(
+            stats_meta={"epoch": epoch}, test_stats=test_stats
+        )
 
 
 def dataio_prep(hparams):
@@ -719,27 +587,6 @@ def dataio_prep(hparams):
     return datasets, label_encoder
 
 
-class VectorQuantizedPSIFocalNet(VectorQuantizedPSI_Audio):
-    def __init__(self, dim=128, **kwargs):
-        super().__init__(dim=dim, **kwargs)
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
-        )
-        self.apply(weights_init)
-
-
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -809,20 +656,6 @@ if __name__ == "__main__":
 
     hparams["embedding_model"].to(run_opts["device"])
     hparams["classifier"].to(run_opts["device"])
-    hparams["embedding_model"].eval()
-
-    Interpreter_brain.fit(
-        epoch_counter=Interpreter_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
-        valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
-    )
-
-    # Load the best checkpoint for evaluation
-    Interpreter_brain.checkpointer.recover_if_possible(
-        max_key="valid_top-3_fid",
-    )
 
     test_stats = Interpreter_brain.evaluate(
         test_set=datasets["test"],

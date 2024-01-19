@@ -173,7 +173,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         s2 = s2 / s2.max()
 
         # create the mixture with s2 being the noise (lower gain)
-        mix = (s1 * 0.8 + (s2 * 0.2)).unsqueeze(0)
+        if self.hparams.concat_sources:
+            length = min(len(s1), len(s2))
+            mid = length // 2
+            s1[:mid] = 0.0
+            s2[mid:] = 0.0
+            mix = (s1 + s2).unsqueeze(0)
+        else:
+            mix = (s1 * 0.8 + (s2 * 0.2)).unsqueeze(0)
         mix = mix / mix.max()
 
         # get the interpretation spectrogram, phase, and the predicted class
@@ -237,22 +244,47 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.hparams.sample_rate,
         )
 
-        plt.figure(figsize=(10, 5), dpi=100)
+        plt.figure(figsize=(15, 5), dpi=100)
 
-        plt.subplot(141)
-        X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
-        plt.imshow(X_target)
+        plt.subplot(161)
+        (_, _, _, X_s1, _,) = self.interpret_computation_steps(s1.unsqueeze(0))
+        X_target = X_s1[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
+        plt.imshow(X_target, origin="lower")
+        current_class_ind = batch.class_string_encoded.data[0].item()
+        current_class_name = self.hparams.label_encoder.ind2lab[
+            current_class_ind
+        ]
+        plt.title(current_class_name)
         plt.colorbar()
 
-        plt.subplot(142)
-        plt.imshow(mask.data.cpu().permute(1, 0))
+        plt.subplot(162)
+        (_, _, _, X_s2, _,) = self.interpret_computation_steps(s2.unsqueeze(0))
+        X_target = X_s2[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
+        plt.imshow(X_target, origin="lower")
+        current_class_ind = batch.class_string_encoded.data[1].item()
+        current_class_name = self.hparams.label_encoder.ind2lab[
+            current_class_ind
+        ]
+        plt.title(current_class_name)
+        plt.colorbar()
+
+        plt.subplot(163)
+        X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
+        plt.imshow(X_target, origin="lower")
+        predicted_class_name = self.hparams.label_encoder.ind2lab[
+            pred_cl.item()
+        ]
+        plt.title(predicted_class_name)
+        plt.colorbar()
+
+        plt.subplot(164)
+        plt.imshow(mask.data.cpu().permute(1, 0), origin="lower")
         plt.title("Estimated Mask")
         plt.colorbar()
 
-        plt.subplot(143)
-        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu())
+        plt.subplot(165)
+        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu(), origin="lower")
         plt.colorbar()
-        plt.title("masked")
         plt.savefig(os.path.join(out_folder, "specs.png"))
         plt.close()
 
@@ -277,7 +309,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         plt.subplot(141)
         X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
-        plt.imshow(X_target)
+        plt.imshow(X_target, origin="lower")
         plt.colorbar()
 
         plt.subplot(142)
@@ -285,7 +317,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             X_target.max(keepdim=True, dim=-1)[0].max(keepdim=True, dim=-2)[0]
             * self.hparams.mask_th
         )
-        plt.imshow(input_masked)
+        plt.imshow(input_masked, origin="lower")
         plt.title("input masked")
         plt.colorbar()
 
@@ -295,12 +327,12 @@ class InterpreterESC50Brain(sb.core.Brain):
         else:
             mask = xhat[0] > th  # (xhat[0] / xhat[0] + 1e-10)
         X_masked = mask * X_stft_logpower[0, :Tmax, :]
-        plt.imshow(X_masked.permute(1, 0).data.cpu())
+        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
         plt.colorbar()
         plt.title("masked")
 
         plt.subplot(144)
-        plt.imshow(mask.permute(1, 0).data.cpu())
+        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
         plt.colorbar()
         plt.title("mask")
 

@@ -1,5 +1,5 @@
 # #################################
-# This recipe trains PIQ to interpret a FocalNet audio classifier.
+# Recipe to interpret a FocalNet audio classifier by-design based on its modulation maps.
 #
 # Author:
 #  * Cem Subakan 2022, 2023
@@ -17,7 +17,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: piq_focalnet-base
+experiment_name: focalnet-base
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -49,8 +49,6 @@ number_of_epochs: 100
 batch_size: 6
 lr: 0.0002
 sample_rate: 16000
-use_vq: True
-rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
 
@@ -82,7 +80,6 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
 
 use_pretrained: True
@@ -110,7 +107,7 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
         classifier: !ref <classifier_model_path>
 
 # Interpretation hyperparams
-K: 1024
+quantile: 0.90
 
 # Pre-processing
 n_fft: 1024
@@ -129,15 +126,6 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:train_piq_focalnet.VectorQuantizedPSIFocalNet
-    dim: 1024
-    K: !ref <K>
-    shared_keys: 0
-    activate_class_partitioning: True
-    use_adapter: True
-    adapter_reduce_dim: True
-
 modules:
     compute_stft: !ref <compute_stft>
     compute_istft: !ref <compute_istft>
-    psi: !ref <psi_model>
