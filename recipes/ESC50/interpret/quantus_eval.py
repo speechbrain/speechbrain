@@ -325,7 +325,7 @@ class Evaluator:
         else:
             inter = explain_fn(X, model)
 
-        if method == "ao":
+        if method == "ao" or method == "l2i":
             X = X[:, :, :inter.shape[2], :inter.shape[3]]
 
         maskin = X * inter
@@ -397,12 +397,13 @@ class Evaluator:
                 **quantus_inp
                 )
     
-        quantus_inp["x_batch"] = X_mosaic   # quantus expects the batch dim_mosaic
-        quantus_inp["a_batch"] = None
-        metrics["focus"] = self.focus(
-                custom_batch=y_mosaic, # look here https://github.com/understandable-machine-intelligence-lab/Quantus/blob/c32da2b6e39f41b50572d1e4a4ddfc061e0bb8b2/quantus/metrics/localisation/focus.py#L307
-                **quantus_inp
-                )
+        if method != "l2i":
+            quantus_inp["x_batch"] = X_mosaic   # quantus expects the batch dim_mosaic
+            quantus_inp["a_batch"] = None
+            metrics["focus"] = self.focus(
+                    custom_batch=y_mosaic, # look here https://github.com/understandable-machine-intelligence-lab/Quantus/blob/c32da2b6e39f41b50572d1e4a4ddfc061e0bb8b2/quantus/metrics/localisation/focus.py#L307
+                    **quantus_inp
+                    )
 
         if self.first:
             self.first = not self.first

@@ -16,6 +16,9 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: /mnt/data/ESC50
 audio_data_folder: !ref <data_folder>/audio
 
+exp_method: "l2i"
+add_wham_noise: false
+
 experiment_name: L2I
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
@@ -101,6 +104,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256
 
+classifier_temp: 0.01
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 256
     out_neurons: !ref <out_n_neurons>
@@ -157,6 +161,7 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
+pretrained_PIQ: ""
 embedding_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
 classifier_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
 nmf_decoder_path: "speechbrain/PIQ-ESC50/nmf_decoder.ckpt"

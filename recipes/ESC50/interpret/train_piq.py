@@ -109,7 +109,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         if self.hparams.use_vq:
             xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
-            xhat = self.modules.psi.forward(hcat, class_pred)
+            xhat = self.modules.psi.forward(hcat, class_pred)[0]
             z_q_x = None
         xhat = xhat.squeeze(1)
 

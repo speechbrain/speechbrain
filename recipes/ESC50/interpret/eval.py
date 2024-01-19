@@ -20,6 +20,7 @@ import gradient_based
 import quantus_eval
 from tqdm import tqdm
 from maskin_maskout import opt_single_mask, interpret_pretrained
+from l2i_eval import l2i_pretrained
 
 eps = 1e-10
 
@@ -120,12 +121,21 @@ if __name__ == "__main__":
             )
     psi.eval()
 
+    hparams["embedding_model"] = f_emb
+    hparams["classifier"] = f_cls
+
+    if hparams["exp_method"] == "l2i":
+        # load theta as well...
+        hparams["nmf_decoder"].to(run_opts["device"])
+        hparams["psi"] = psi
+    else:
+        hparams["psi_model"] = psi
 
     d_mosaic = quantus_eval.MosaicDataset(datasets["test"], hparams)
     evaluator = quantus_eval.Evaluator()
 
     model_wrap = quantus_eval.Model(
-        f_emb, f_cls, repr_="ao" == hparams["exp_method"]
+        f_emb, f_cls, repr_="ao" == hparams["exp_method"] or "l2i" in hparams["exp_method"]
     )
     model_wrap.eval()
 
@@ -135,6 +145,7 @@ if __name__ == "__main__":
             "smoothgrad": gradient_based.smoothgrad,
             "single_maskinout": opt_single_mask,
             "ao": interpret_pretrained(psi),
+            "l2i": l2i_pretrained(hparams, run_opts)
             }
 
     computed_metrics = [
