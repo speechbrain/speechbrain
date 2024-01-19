@@ -69,8 +69,8 @@ def wrap_gradient_based(explain_fn, forw=True):
 
 class MosaicDataset():
     """ Generate mosaics to compute Focus! """
-    def __init__(self, dataset_test, brain):
-        self.brain = brain
+    def __init__(self, dataset_test, hparams):
+        self.hparams = hparams
         self.dataset = dataset_test # used to sample
 
     def generate_mosaic(self, elements):
@@ -125,11 +125,20 @@ class MosaicDataset():
         return m21_idx, negative_idx[0], negative_idx[1]
     
     def preprocess(self, sample):
-        wavs = sample["sig"]
-        if wavs.ndim == 1:
-            wavs = wavs[None]
+        """Pre-process wavs."""
+        wavs = sample["sig"][None]
+        X_stft = self.hparams["compute_stft"](wavs)
+        X_stft_power = sb.processing.features.spectral_magnitude(
+            X_stft, power=self.hparams["spec_mag_power"]
+        )
 
-        return self.brain.preprocess(wavs)[0][:, :417, :]
+        if not self.hparams["use_melspectra"]:
+            X_stft_logpower = torch.log1p(X_stft_power)
+        else:
+            X_stft_power = self.hparams["compute_fbank"](X_stft_power)
+            X_stft_logpower = torch.log1p(X_stft_power)
+
+        return X_stft_logpower[:, :417, :]
 
     def __call__(self, batch, c_m):
         mosaics = []

@@ -24,6 +24,8 @@ reg_w_tv: 0.1
 reg_w_l1: 0.3
 ao_w: 0.5
 
+use_stft2mel: False
+
 g_w: 1 # regularization weight of oracles
 crosscor_th: 0.6
 bin_th: 0.35 # needed to binarize guidance spectrograms
@@ -127,7 +129,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-pretrained_PIQ: null
+# pretrained_PIQ: null
+pretrained_PIQ: "/home/franz/dev/interpretability/audio/recipes/ESC50/interpret/results/wham_classifier_int_gw4_ft/1234/save/CKPT+2024-01-10+19-38-03+00/psi_model.ckpt"
 load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
@@ -137,14 +140,10 @@ load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 use_pretrained: True
 
-# embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
-# classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
-
-#embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/embedding_model.ckpt"
-#classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/classifier.ckpt"
-
-embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
-classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
+#embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
+#classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
+embedding_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
+classifier_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

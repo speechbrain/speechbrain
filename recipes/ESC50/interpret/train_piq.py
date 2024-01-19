@@ -105,10 +105,11 @@ class InterpreterESC50Brain(sb.core.Brain):
             class_prob = predictions[0, class_pred].item()
             print(f"classifier_prob: {class_prob}")
 
+        # we should remove this...
         if self.hparams.use_vq:
             xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
-            xhat = self.modules.psi.forward(hcat)
+            xhat = self.modules.psi.forward(hcat, class_pred)
             z_q_x = None
         xhat = xhat.squeeze(1)
 
@@ -360,7 +361,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         if self.hparams.use_vq:
             xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
-            xhat = self.modules.psi.forward(hcat)
+            xhat = self.modules.psi.forward(hcat, class_pred)[0]
             z_q_x = None
         xhat = xhat.squeeze(1)
 
