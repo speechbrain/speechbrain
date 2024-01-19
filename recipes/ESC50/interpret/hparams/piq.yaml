@@ -11,6 +11,8 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
+exp_method: saliency
+
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
@@ -71,6 +73,7 @@ use_mask_output: True
 mask_th: 0.35
 signal_length_s: 5
 add_wham_noise: False
+use_melspectra: False
 
 wham_dataset: !new:wham_prepare.WHAMDataset
     data_dir: !ref <wham_audio_folder>
