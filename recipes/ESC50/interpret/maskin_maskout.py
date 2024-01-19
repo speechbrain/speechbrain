@@ -56,17 +56,17 @@ def interpret_pretrained(interpreter):
         temp = torch.sigmoid(temp)
         temp = temp[:, :, :x.shape[2], :x.shape[3]]
 
-        plt.subplot(311)
-        plt.imshow(x.squeeze().t().cpu())
-
-        plt.subplot(312)
-        plt.imshow(fI[0].sum(0).squeeze().t().cpu())
-
-        plt.subplot(313)
-        plt.imshow(temp.squeeze().t().cpu())
-
-        plt.savefig("viz.png")
-        breakpoint()
+        # plt.subplot(311)
+        # plt.imshow(x.squeeze().t().cpu())
+# 
+        # plt.subplot(312)
+        # plt.imshow(fI[0].sum(0).squeeze().t().cpu())
+# 
+        # plt.subplot(313)
+        # plt.imshow(temp.squeeze().t().cpu())
+# 
+        # plt.savefig("viz.png")
+        # breakpoint()
 
         return temp
 

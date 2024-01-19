@@ -340,8 +340,8 @@ class Evaluator:
             maskout_preds = maskout_preds[0]
         maskout_preds = maskout_preds.softmax(1)
 
-        # if self.first:
-        gradient_based.save_ints([X.squeeze()], [inter.squeeze()], [method], fname=f"{method}.png")
+        if self.first:
+            gradient_based.save_ints([X.squeeze()], [inter.squeeze()], [method], fname=f"{method}.png")
 
         metrics["AI"] = compute_AI(maskin_preds, predictions).item()
         metrics["AD"] = compute_AD(maskin_preds, predictions).item()
