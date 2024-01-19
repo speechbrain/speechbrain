@@ -48,20 +48,27 @@ def interpret_pretrained(interpreter):
     interpreter = interpreter.eval()
 
     @torch.no_grad()
-    def interpret_ao(ft, model):
-        predictions, fI = model(ft)
+    def interpret_ao(x, model):
+        predictions, fI = model(x)
         pred_cl = predictions.argmax(1)
 
-        temp = interpreter(fI, pred_cl)[0]
-        temp = temp[:, :, :ft.shape[2], :ft.shape[3]]
+        temp = interpreter.decoder(fI)
+        temp = torch.sigmoid(temp)
+        temp = temp[:, :, :x.shape[2], :x.shape[3]]
 
-        plt.imshow(ft.squeeze().t().cpu())
-        plt.savefig("inp.png")
+        plt.subplot(311)
+        plt.imshow(x.squeeze().t().cpu())
+
+        plt.subplot(312)
+        plt.imshow(fI[0].sum(0).squeeze().t().cpu())
+
+        plt.subplot(313)
         plt.imshow(temp.squeeze().t().cpu())
-        plt.savefig("int.png")
+
+        plt.savefig("viz.png")
         breakpoint()
 
-        return torch.sigmoid(temp)
+        return temp
 
     return interpret_ao
 

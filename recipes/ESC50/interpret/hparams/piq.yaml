@@ -15,7 +15,7 @@ exp_method: saliency
 
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
 l_in_w: 0.5
@@ -38,7 +38,7 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-wham_folder: !PLACEHOLDER
+wham_folder: /mnt/data/large_audio/WHAM/wham_noise
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 
