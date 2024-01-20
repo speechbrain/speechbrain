@@ -138,7 +138,7 @@ if __name__ == "__main__":
     evaluator = quantus_eval.Evaluator()
 
     model_wrap = quantus_eval.Model(
-        f_emb, f_cls, repr_="ao" == hparams["exp_method"] or "l2i" in hparams["exp_method"]
+        hparams, f_emb, f_cls, repr_="ao" == hparams["exp_method"] or "l2i" in hparams["exp_method"]
     )
     model_wrap.eval()
 

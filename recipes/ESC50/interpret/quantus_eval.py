@@ -29,14 +29,20 @@ from tqdm import tqdm
 eps = 1e-9
 
 class Model(nn.Module):
-    def __init__(self, embedding_model, classifier, repr_=False):
+    def __init__(self, hparams, embedding_model, classifier, repr_=False):
         super().__init__()
         self.returnrepr = repr_
         self.embedding_model = embedding_model
         self.classifier = classifier
+        self.hparams = hparams
 
     def forward(self, x):
         x = x.float()
+        if self.hparams["use_stft2mel"]:
+            x = torch.expm1(x)
+            x = self.hparams["compute_fbank"](x.squeeze(1))[None]
+            x = torch.log1p(x)
+
         if x.ndim == 4:
             x = x.squeeze(1)
 
@@ -396,7 +402,7 @@ class Evaluator:
                 **quantus_inp
                 )
     
-        if method != "l2i":
+        if method != "l2i" and False:
             quantus_inp["x_batch"] = X_mosaic   # quantus expects the batch dim_mosaic
             quantus_inp["a_batch"] = None
             metrics["focus"] = self.focus(
