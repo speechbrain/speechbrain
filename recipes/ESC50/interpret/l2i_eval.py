@@ -77,7 +77,7 @@ def l2i_pretrained(hparams, run_opts):
    @torch.no_grad()
    def explain_fn(ft, model):
        predictions, temp = model(ft)
-       return l2i_brain.interpret_computation_steps(predictions, temp)[None, None]
+       return l2i_brain.interpret_computation_steps(predictions, temp)[None, None] + eps
 
    return explain_fn
 
