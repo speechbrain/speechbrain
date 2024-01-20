@@ -159,6 +159,8 @@ if __name__ == "__main__":
     aggregated_metrics = {k: 0. for k in computed_metrics}
     samples_interval = hparams["interpret_period"]
     overlap_multiplier = 2
+
+    discarded = 0
     for idx, base_sample in tqdm(enumerate(datasets["valid"]), desc="Running eval..."):
         overlap_batch = generate_overlap(base_sample, datasets["test"], overlap_multiplier)
         y_batch = torch.Tensor(
@@ -187,15 +189,19 @@ if __name__ == "__main__":
         for X_, X_mosaic_, y_mosaic_, y_batch_ in zip(
                 X, X_mosaic, y_mosaic, y_batch
                 ):
-            metrics = evaluator(
-                model_wrap,
-                exp_methods[hparams["exp_method"]],
-                X_[None, None],
-                X_mosaic_[None],  # needed for localization
-                y_mosaic_,
-                y_batch_,
-                hparams["exp_method"]
-            )
+            try:
+                metrics = evaluator(
+                    model_wrap,
+                    exp_methods[hparams["exp_method"]],
+                    X_[None, None],
+                    X_mosaic_[None],  # needed for localization
+                    y_mosaic_,
+                    y_batch_,
+                    hparams["exp_method"]
+                )
+            except AssertionError:
+                discarded += 1
+                print("Total discarded from quantus are: ", discarded)
 
             for k, v in metrics.items():
                 aggregated_metrics[k] += v[0] if isinstance(v, list) else v
