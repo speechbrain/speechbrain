@@ -73,7 +73,12 @@ def saliency(X, y, forward_fn, do_norm=True):
     """ Computes standard saliency - gradient of the max logit wrt to the input. """
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
-    return captum.attr.Saliency(forward_fn).attribute(X, target=y)
+    attr = captum.attr.Saliency(forward_fn).attribute(X, target=y)
+
+    if do_norm:
+        return attr / attr.max()
+
+    return attr
 
 def smoothgrad(X, y, forward_fn, steps=50, noise_level=0.15, guidance=False):
     """ Runs smoothgrad - gauss noise on input before saliency map. """
