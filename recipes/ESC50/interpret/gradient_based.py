@@ -9,6 +9,7 @@ import os
 import torch
 import torchaudio
 import matplotlib.pyplot as plt
+import captum
 
 @torch.no_grad()
 def save_ints(inp, ints, labels, out_folder=".", fname="viz.png", cbar=True):
@@ -68,25 +69,11 @@ def save_waves(inp, ints, labels, to_wav, out_folder="."):
                 sample_rate=16000
                 )
 
-def saliency(X, forward_fn, do_norm=True):
+def saliency(X, y, forward_fn, do_norm=True):
     """ Computes standard saliency - gradient of the max logit wrt to the input. """
-    X.requires_grad = True
-
-    predictions = forward_fn(X)
-
-    score, indices = torch.max(predictions, 1)
-
-    # backward pass to get gradients of score predicted class w.r.t. input image
-    score.backward()
-
-    # get max along channel axis
-    slc, _ = torch.max(torch.abs(X.grad), dim=0)
-
-    if do_norm:
-        # normalize to [0..1] -- minmax norm
-        slc = (slc - slc.min())/(slc.max()-slc.min())
-
-    return slc
+    X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
+    y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
+    return captum.attr.Saliency(forward_fn).attribute(X, target=y)
 
 def smoothgrad(X, forward_fn, steps=50, noise_level=0.15, guidance=False):
     """ Runs smoothgrad - gauss noise on input before saliency map. """
