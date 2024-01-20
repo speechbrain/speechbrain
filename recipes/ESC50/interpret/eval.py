@@ -114,12 +114,14 @@ if __name__ == "__main__":
     f_emb.requires_grad_(False)
     f_cls.requires_grad_(False)
 
-    psi = hparams["psi_model"].to(run_opts["device"])
-    print("Loading PSI state dict from ", hparams["pretrained_PIQ"])
-    psi.load_state_dict(
-            torch.load(hparams["pretrained_PIQ"])
-            )
-    psi.eval()
+    if hparams["exp_method"] == "ao" or hparams["exp_method"] == "l2i":
+        psi = hparams["psi_model"].to(run_opts["device"])
+        print("Loading PSI state dict from ", hparams["pretrained_PIQ"])
+        psi.load_state_dict(
+                torch.load(hparams["pretrained_PIQ"])
+                )
+        psi.eval()
+        hparams["psi_model"] = psi
 
     hparams["embedding_model"] = f_emb
     hparams["classifier"] = f_cls
@@ -131,14 +133,12 @@ if __name__ == "__main__":
                 )
         hparams["nmf_decoder"].to(run_opts["device"])
         hparams["psi"] = psi
-    else:
-        hparams["psi_model"] = psi
 
     d_mosaic = quantus_eval.MosaicDataset(datasets["test"], hparams)
     evaluator = quantus_eval.Evaluator()
 
     model_wrap = quantus_eval.Model(
-        f_emb, f_cls, repr_="ao" == hparams["exp_method"] or "l2i" in hparams["exp_method"]
+        hparams, f_emb, f_cls, repr_="ao" == hparams["exp_method"] or "l2i" in hparams["exp_method"]
     )
     model_wrap.eval()
 
@@ -147,9 +147,11 @@ if __name__ == "__main__":
             "IG": gradient_based.ig,
             "smoothgrad": gradient_based.smoothgrad,
             "single_maskinout": opt_single_mask,
-            "ao": interpret_pretrained(psi),
             "l2i": l2i_pretrained(hparams, run_opts)
             }
+
+    if hparams["exp_method"] == "ao":
+        exp_methods["ao"] = interpret_pretrained(psi)
 
     computed_metrics = [
             "pixel_flip", "region_perturbation", "max_sensitivity",
@@ -199,12 +201,14 @@ if __name__ == "__main__":
                     y_batch_,
                     hparams["exp_method"]
                 )
-            except AssertionError:
+
+                for k, v in metrics.items():
+                    aggregated_metrics[k] += v[0] if isinstance(v, list) else v
+            except AssertionError as e:
                 discarded += 1
                 print("Total discarded from quantus are: ", discarded)
 
-            for k, v in metrics.items():
-                aggregated_metrics[k] += v[0] if isinstance(v, list) else v
+                print("Exception was ", str(e))
 
     for k in aggregated_metrics:
         aggregated_metrics[k] /= len(datasets["valid"]) * overlap_multiplier
