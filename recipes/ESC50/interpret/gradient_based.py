@@ -75,15 +75,18 @@ def saliency(X, y, forward_fn, do_norm=True):
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
     return captum.attr.Saliency(forward_fn).attribute(X, target=y)
 
-def smoothgrad(X, forward_fn, steps=50, noise_level=0.15, guidance=False):
+def smoothgrad(X, y, forward_fn, steps=50, noise_level=0.15, guidance=False):
     """ Runs smoothgrad - gauss noise on input before saliency map. """
     # derive sigma from noise level -- see Fig 3. https://arxiv.org/pdf/1706.03825.pdf
+    X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
+    y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
+
     sigma = noise_level * (X.max() - X.min())
 
     maps = []
     for _ in range(steps):
         X_perturb = torch.randn_like(X) * sigma + X
-        slc = saliency(X_perturb.detach(), forward_fn)
+        slc = saliency(X_perturb, y, forward_fn)
 
         maps.append(slc)
     
