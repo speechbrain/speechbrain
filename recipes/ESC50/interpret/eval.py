@@ -126,6 +126,9 @@ if __name__ == "__main__":
 
     if hparams["exp_method"] == "l2i":
         # load theta as well...
+        hparams["nmf_decoder"].load_state_dict(
+                torch.load(hparams["nmf_decoder_path"])
+                )
         hparams["nmf_decoder"].to(run_opts["device"])
         hparams["psi"] = psi
     else:
