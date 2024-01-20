@@ -56,6 +56,96 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
 
 
 @checkpoints.register_checkpoint_hooks
+class WarmAndExpDecayLRSchedule:
+    """Warms up linearly, and then decay exponentially to ('lr' / 'decay_factor') in 'total_steps' steps.
+
+
+    Arguments
+    ---------
+        lr : float
+            The max learning rate to reach after warmup.
+        warmup : int
+            Number of warmup steps (following a linear increase).
+        total_steps : int
+            Total number of steps (used to decay).
+        decay_factor : float
+            Decay factor applied every decay_every steps. (default: 0.01)
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler = WarmAndExpDecayLRSchedule(lr=1, n_warmup_steps=2, decay_factor=0.01, total_steps=6)
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.0
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.5
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.31622776601683794
+    """
+
+    def __init__(
+        self, lr, n_warmup_steps, total_steps, decay_factor=0.1,
+    ):
+        super(WarmAndExpDecayLRSchedule, self).__init__()
+        self.base_lr = lr
+        self.current_lr = 0
+        self.n_warmup_steps = n_warmup_steps
+        self.decay_factor = decay_factor
+        self.decay_steps = total_steps - self.n_warmup_steps
+        self.current_step = 0
+
+    def __call__(self, opt):
+        if self.current_step < self.n_warmup_steps:
+            # Warming up at the start of training.
+            lr = self.base_lr * self.current_step / self.n_warmup_steps
+        else:
+            decayed_lr = self.base_lr * self.decay_factor ** (
+                (self.current_step - self.n_warmup_steps) / self.decay_steps
+            )
+            lr = min(self.base_lr, decayed_lr)
+
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = lr
+        self.current_step += 1
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {
+            "base_lr": self.base_lr,
+            "n_warmup_steps": self.n_warmup_steps,
+            "decay_factor": self.decay_factor,
+            "decay_steps": self.decay_steps,
+            "current_step": self.current_step,
+        }
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch
+        del device
+        data = torch.load(path)
+        self.base_lr = data["base_lr"]
+        self.n_warmup_steps = data["n_warmup_steps"]
+        self.decay_steps = data["decay_steps"]
+        self.decay_factor = data["decay_factor"]
+        self.current_step = data["current_step"]
+
+
+@checkpoints.register_checkpoint_hooks
 class NewBobScheduler:
     """Scheduler with new-bob technique, used for LR annealing.
 

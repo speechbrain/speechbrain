@@ -3,14 +3,40 @@ Transducer loss implementation (depends on numba)
 
 Authors
  * Abdelwahab Heba 2020
+ * Titouan Parcollet 2023
 """
 
 import torch
 from torch.autograd import Function
 from torch.nn import Module
+import logging
+import math
+import warnings
+
+NUMBA_VERBOSE = 0
+
+logger = logging.getLogger(__name__)
 
 try:
     from numba import cuda
+
+    # Numba is extra verbose and this may lead to log.txt file of multiple gigabytes... we deactivate
+    if not NUMBA_VERBOSE:
+        logger.info(
+            "Numba verbose is deactivated. To enable it, set NUMBA_VERBOSE to 1."
+        )
+
+        nb_logger = logging.getLogger("numba")
+        nb_logger.setLevel(logging.ERROR)  # only show error
+
+        from numba.core.errors import NumbaPerformanceWarning
+
+        warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
+    else:
+        logger.info(
+            "Numba verbose is enabled. To desactivate it, set NUMBA_VERBOSE to 0."
+        )
+
 except ImportError:
     err_msg = "The optional dependency Numba is needed to use this module\n"
     err_msg += "Cannot import numba. To use Transducer loss\n"
@@ -22,15 +48,11 @@ except ImportError:
     err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
     err_msg += "================================ \n"
     err_msg += "If you use conda:\n"
-    err_msg += "conda install numba cudatoolkit=9.0"
+    err_msg += "conda install numba cudatoolkit"
     raise ImportError(err_msg)
 
-import math
 
-
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:], float32[:,:,:], float32[:], int32[:], int32[:], int32, int32[:,:])"
-)
+@cuda.jit()
 def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     """
     Compute forward pass for the forward-backward algorithm using Numba cuda kernel.
@@ -106,9 +128,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
             ) / T[b]
 
 
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:], float32[:,:,:], float32[:], int32[:], int32[:], int32, int32[:,:])"
-)
+@cuda.jit()
 def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     """
     Compute backward pass for the forward-backward algorithm using Numba cuda kernel.
@@ -180,9 +200,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
         log_p[b] = beta[b, 0, 0] / T[b]
 
 
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:],float32[:,:,:], float32[:,:,:], float32[:,:,:,:], int32[:], int32[:], int32)"
-)
+@cuda.jit()
 def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     """
     Compute gradient for the forward-backward algorithm using Numba cuda kernel.
@@ -255,15 +273,23 @@ class Transducer(Function):
         log_probs = log_probs.detach()
         B, maxT, maxU, A = log_probs.shape
         grads = torch.zeros(
-            (B, maxT, maxU, A), dtype=torch.float32, device=log_probs.device
+            (B, maxT, maxU, A), dtype=log_probs.dtype, device=log_probs.device
         )
-        alpha = torch.zeros((B, maxT, maxU), device=log_probs.device)
-        beta = torch.zeros((B, maxT, maxU), device=log_probs.device)
+        alpha = torch.zeros(
+            (B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype
+        )
+        beta = torch.zeros(
+            (B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype
+        )
         lock = torch.zeros(
             (B, maxU), dtype=torch.int32, device=log_probs.device
         )
-        log_p_alpha = torch.zeros((B,), device=log_probs.device)
-        log_p_beta = torch.zeros((B,), device=log_probs.device)
+        log_p_alpha = torch.zeros(
+            (B,), device=log_probs.device, dtype=log_probs.dtype
+        )
+        log_p_beta = torch.zeros(
+            (B,), device=log_probs.device, dtype=log_probs.dtype
+        )
         cu_kernel_forward[B, maxU](
             log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
         )

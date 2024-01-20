@@ -242,7 +242,7 @@ class ST(sb.core.Brain):
                 stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
             current_epoch = self.hparams.epoch_counter.current
 
             # report different epoch stages according current stage

@@ -60,7 +60,11 @@ import logging
 import warnings
 from packaging import version
 import speechbrain.utils._workarounds as __wa
-from speechbrain.utils.distributed import main_process_only, if_main_process
+from speechbrain.utils.distributed import (
+    main_process_only,
+    if_main_process,
+    ddp_barrier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -990,10 +994,20 @@ class Checkpointer:
                 )
             )
 
+        # Sync before deleting to avoid another process saving at the same time.
+        # This has led to errors as documented here:
+        # https://github.com/speechbrain/speechbrain/issues/2250
+        ddp_barrier()
+
         # Delete unprotected checkpoints
         for ckpt in potential_deletions:
             if ckpt not in protected_checkpoints:
                 Checkpointer._delete_checkpoint(ckpt, verbosity=verbosity)
+
+        # Sync after deleting to avoid another process saving at the same time.
+        # This has led to errors as documented here:
+        # https://github.com/speechbrain/speechbrain/issues/2250
+        ddp_barrier()
 
     @staticmethod
     @main_process_only

@@ -70,6 +70,8 @@ run_opt_defaults = {
     "compile_using_fullgraph": False,
     "compile_using_dynamic_shape_tracing": False,
     "precision": "fp32",
+    "auto_mix_prec": False,
+    "bfloat16_mix_prec": False,
     "max_grad_norm": 5.0,
     "skip_nonfinite_grads": False,
     "nonfinite_patience": 3,
@@ -359,6 +361,18 @@ def parse_arguments(arg_list=None):
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
+        "--auto_mix_prec",
+        default=None,
+        action="store_true",
+        help="This flag enables training with automatic mixed-precision.",
+    )
+    parser.add_argument(
+        "--bfloat16_mix_prec",
+        default=None,
+        action="store_true",
+        help="This flag enables training with bfloat16 mixed-precision.",
+    )
+    parser.add_argument(
         "--max_grad_norm",
         type=float,
         help="Gradient norm will be clipped to this value, "
@@ -541,6 +555,14 @@ class Brain:
             The location for performing computations.
         precision (str)
             One of ``fp32``, ``fp16``, ``bf16``.
+        auto_mix_prec (bool)
+            If ``True``, automatic mixed-precision (fp16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
+        bfloat16_mix_prec (bool)
+            If ``True``, automatic mixed-precision (bf16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
         max_grad_norm (float)
             Default implementation of ``fit_batch()`` uses
             ``clip_grad_norm_`` with this value. Default: ``5``.
@@ -593,6 +615,7 @@ class Brain:
         checkpointer=None,
         profiler=None,
     ):
+        self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
         self.profiler = profiler
@@ -697,6 +720,20 @@ class Brain:
         # this.train_sampler = your_sampler
         # to have your_sampler.set_epoch() called on each epoch.
         self.train_sampler = None
+
+        if self.auto_mix_prec:
+            logger.warning(
+                "The option `--auto_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=fp16` instead."
+            )
+            self.precision = "fp16"
+
+        if self.bfloat16_mix_prec:
+            logger.warning(
+                "The option `--bfloat16_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=bf16` instead."
+            )
+            self.precision = "bf16"
 
         if self.device == "cpu" and self.precision == "fp16":
             raise ValueError(
@@ -1031,8 +1068,11 @@ class Brain:
         Setting gradients to None should save the memory, e.g.
         during ``evaluate()`` and thus larger batch might be used.
         """
-        for opt in self.freeze_optimizers(self.optimizers_dict).values():
-            opt.zero_grad(set_to_none=set_to_none)
+        if self.optimizers_dict is not None:
+            for opt in self.freeze_optimizers(self.optimizers_dict).values():
+                opt.zero_grad(set_to_none=set_to_none)
+        elif self.opt_class is not None:
+            self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
@@ -1087,16 +1127,17 @@ class Brain:
                     dtype=amp.dtype, device_type=torch.device(self.device).type,
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
             else:
                 outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            # The objectives are removed from Autocast to avoid
-            # potential numerical instabilities with CTC loss, etc.
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
             scaled_loss = self.scaler.scale(
                 loss / self.grad_accumulation_factor
             )
+            self.check_loss_isfinite(scaled_loss)
             scaled_loss.backward()
 
         if should_step:
@@ -1104,6 +1145,37 @@ class Brain:
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
+
+    def check_loss_isfinite(self, loss):
+        """Check if the loss is finite.
+
+        If the loss is not finite, log a helpful message and increment the `nonfinite_count`.
+        If the `nonfinite_count` exceeds the `--nonfinite_patience` threshold, stop the training
+        and raise an error.
+
+        This check is particularly useful when the loss becomes NaN or inf, while the
+        parameters and gradients remain finite. It helps prevent getting stuck in an
+        infinite loop during training.
+
+        Arguments
+        ---------
+        loss : tensor
+            The loss tensor after ``backward()`` has been called but
+            before the optimizers ``step()``.
+        """
+        if not torch.isfinite(loss):
+            self.nonfinite_count += 1
+
+            # Check if patience is exhausted
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warning("Patience not yet exhausted.")
 
     def check_gradients(self):
         """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
@@ -1126,7 +1198,18 @@ class Brain:
         """Performs a step of gradient descent on the optimizers. This method is called every
         ``grad_accumulation_factor`` steps."""
         # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
-        valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        if self.optimizers_dict is not None:
+            valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        elif self.opt_class is not None:
+            # if valid_optimizers is not defined which could happen if a user is using an old
+            # init_optimizers() method, then we assume that the only valid optimizer is
+            # self.optimizer (which is the default behavior).
+            valid_optimizers = {"optimizer": self.optimizer}
+        else:
+            # Note: in some cases you might want to only compute gradients statistics and
+            # you do not need to call the optimizers.step() method. In this case, you can
+            # simply return from this method and skip the rest of the code.
+            return
 
         # 2. unscale the gradients of the valid optimizers
         for opt in valid_optimizers.values():
@@ -1141,7 +1224,7 @@ class Brain:
                 opt.param_groups[0]["params"], self.max_grad_norm
             )
 
-        # no need to activate this flag if you are in fp16
+        # Note: no need to activate this flag if you are in fp16
         # since GradScaler is automatically handling the nonfinite gradients
         if not self.scaler.is_enabled() and self.skip_nonfinite_grads:
             self.check_gradients()

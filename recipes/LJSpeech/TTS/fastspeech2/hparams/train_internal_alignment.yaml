@@ -13,7 +13,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/fastspeech2_internal_alignment/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-epochs: 1000
+epochs: 500
 progress_samples: True
 progress_sample_path: !ref <output_folder>/samples
 progress_samples_min_run: 10

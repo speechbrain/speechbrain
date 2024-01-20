@@ -56,7 +56,7 @@ class LM(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
 
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
             if not (
                 isinstance(
                     self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler

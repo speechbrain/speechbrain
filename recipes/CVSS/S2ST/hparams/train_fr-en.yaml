@@ -65,7 +65,7 @@ lr_wav2vec: 0.00001
 loss_reduction: batchmean
 
 # Outputs
-blank_index: 102
+# blank_index: 102
 bos_index: 100
 eos_index: 101
 pad_index: 102
@@ -211,11 +211,10 @@ valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
     max_decode_ratio: !ref <max_decode_ratio>
     temperature: 1.0
 
-test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearch
-    modules: [!ref <transformer>, !ref <seq_lin>, null]
+test_search: !new:speechbrain.decoders.seq2seq.S2STransformerBeamSearcher
+    modules: [!ref <transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_bs>

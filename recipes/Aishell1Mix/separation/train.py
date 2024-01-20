@@ -568,12 +568,18 @@ if __name__ == "__main__":
     # Logger info
     logger = logging.getLogger(__name__)
 
+    # If device is cpu use precision='bf16'
+
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    # Update precision to bf16 if the device is CPU and precision is fp16
+    if run_opts.get("device") == "cpu" and hparams.get("precision") == "fp16":
+        hparams["precision"] = "bf16"
 
     # Data preparation
     from prepare_data import prepare_aishell1mix

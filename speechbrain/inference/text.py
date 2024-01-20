@@ -125,35 +125,16 @@ class ResponseGenerator(Pretrained):
 
     The class can be used to generate and continue dialogue given the user input.
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
-    It needs to be used with custom.py to load the expanded GPT model with added tokens like bos,eos, and speaker's tokens.
-
-    Example
-    -------
-    >>> from speechbrain.inference.text import ResponseGenerator
-
-    >>> tmpdir = getfixture("tmpdir")
-    >>> res_gen_model = ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
-    ... savedir="tmpdir",
-    ... pymodule_file="custom.py")  # doctest: +SKIP
-    >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
+    It needs to be used with custom.py to load the expanded  model with added tokens like bos,eos, and speaker's tokens.
     """
 
-    HPARAMS_NEEDED = ["tokenizer"]
-    MODULES_NEEDED = ["gpt-model"]
+    MODULES_NEEDED = ["model"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         #  Load model
         self.model = self.hparams.model
-        # convert special tokens to their ids
-        (
-            self.bos,
-            self.eos,
-            self.system,
-            self.user,
-        ) = self.model.tokenizer.convert_tokens_to_ids(
-            self.hparams.special_tokens
-        )
+        self.tokenizer = self.model.tokenizer
         self.history_window = 2 * self.hparams.max_history + 1
         self.history = []
 
@@ -172,9 +153,72 @@ class ResponseGenerator(Pretrained):
         """
 
         self.history.append(turn)
-        history_bos, history_token_type = self.prepare_input()
-        history_bos = history_bos.unsqueeze(0)
-        history_token_type = history_token_type.unsqueeze(0)
+        inputs = self.prepare_input()
+        hyps = self.generate(inputs)
+        predicted_words = self.model.tokenizer.batch_decode(
+            hyps[:, inputs[0].shape[1] :],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+        )
+        response = predicted_words[0]
+        self.history.append(response)
+        return response
+
+    def prepare_input(self):
+        """Users should modify this function according to their own tasks."""
+        raise NotImplementedError
+
+    def generate(self):
+        """Users should modify this function according to their own tasks."""
+        raise NotImplementedError
+
+
+class GPTResponseGenerator(ResponseGenerator):
+    """A ready-to-use Response Generator  model
+
+    The class can be used to generate and continue dialogue given the user input.
+    The given YAML must contain the fields specified in the *_NEEDED[] lists.
+    It needs to be used with custom.py to load the expanded GPT model with added tokens like bos,eos, and speaker's tokens.
+
+    Example
+    -------
+    >>> from speechbrain.inference.text import GPTResponseGenerator
+
+    >>> tmpdir = getfixture("tmpdir")
+    >>> res_gen_model = GPTResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
+    ... savedir="tmpdir",
+    ... pymodule_file="custom.py")  # doctest: +SKIP
+    >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # convert special tokens to their ids
+        (
+            self.bos,
+            self.eos,
+            self.system,
+            self.user,
+        ) = self.model.tokenizer.convert_tokens_to_ids(
+            self.hparams.special_tokens
+        )
+
+    def generate(self, inputs):
+        """
+        Complete a dialogue given the user's input.
+        Arguments
+        ---------
+        inputs: tuple
+            history_bos which is the tokenized history+input values with appropriate speaker token appended before each turn and history_token_type which determines
+            the type of each token basd on who is uttered that token (either User or Sytem).
+
+        Returns
+        -------
+        response
+            Generated hypothesis for the user input based on the dialogue history.
+        """
+
+        history_bos, history_token_type = inputs
         padding_mask = ~self.hparams.padding_mask(
             history_bos, pad_idx=self.model.tokenizer.unk_token_id
         )
@@ -184,14 +228,7 @@ class ResponseGenerator(Pretrained):
             padding_mask.detach(),
             "beam",
         )
-        predicted_words = self.model.tokenizer.batch_decode(
-            hyps[:, history_bos.shape[1] :],
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=True,
-        )
-        response = predicted_words[0]
-        self.history.append(response)
-        return response
+        return hyps
 
     def prepare_input(self):
         """Convert user input and previous histories to the format acceptable for  GPT model.
@@ -245,4 +282,100 @@ class ResponseGenerator(Pretrained):
                 )
             )
         )
-        return history_bos, history_token_type
+        return history_bos.unsqueeze(0), history_token_type.unsqueeze(0)
+
+
+class Llama2ResponseGenerator(ResponseGenerator):
+    """A ready-to-use Response Generator  model
+
+    The class can be used to generate and continue dialogue given the user input.
+    The given YAML must contain the fields specified in the *_NEEDED[] lists.
+    It needs to be used with custom.py to load the expanded Llama2 model with added tokens like bos,eos, and speaker's tokens.
+
+    Example
+    -------
+    >>> from speechbrain.inference.text import Llama2ResponseGenerator
+
+    >>> tmpdir = getfixture("tmpdir")
+    >>> res_gen_model = Llama2ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-Llama2-Response_Generation",
+    ... savedir="tmpdir",
+    ... pymodule_file="custom.py")  # doctest: +SKIP
+    >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
+    """
+
+    def __init__(self, *args, **kwargs):
+        run_opts = {"device": "cuda"}
+        super().__init__(run_opts=run_opts, *args, **kwargs)
+        # self.model = self.model#.to("cuda")
+
+    def generate(self, inputs):
+        """
+        Complete a dialogue given the user's input.
+        Arguments
+        ---------
+        inputs: prompt_bos
+            prompted imputs to be passed to llama2 model for generation.
+
+        Returns
+        -------
+        response
+            Generated hypothesis for the user input based on the dialogue history.
+        """
+        prompt_bos = inputs[0].to(self.model.model.device)
+        padding_mask = ~self.hparams.padding_mask(
+            prompt_bos, pad_idx=self.tokenizer.pad_token_id
+        )
+        hyps = self.model.generate(
+            prompt_bos.detach(), padding_mask.detach(), "beam",
+        )
+        return hyps
+
+    def prepare_input(self):
+        """Convert user input and previous histories to the format acceptable for  Llama2 model.
+            It appends all previous history and input and truncates it based on max_history value.
+            It then tokenizes the input and add propmts.
+
+        Arguments
+        ---------
+
+        Returns
+        -------
+        prompt_bos:
+            Tokenized history+input values with appropriate prompt.
+        """
+
+        def generate_prompt(idx_and_item):
+            """add [INST] and [/INST] prompt to the start and end ogf item.
+
+            Arguments
+            ---------
+            idx_and_item:
+                id and its corresponding text. If the id is even, it is user turn and [ INST] is added.
+            Returns
+            -------
+            prompt_bos:
+                prompted text  for one item.
+            """
+            index, item = idx_and_item
+            if index % 2 == 0:
+                return "[INST] " + item + " [/INST]"
+            else:
+                return item
+
+        prompts = list(map(generate_prompt, enumerate(self.history)))
+
+        # encode each turn of the history
+        propmt_tokens_lists = [self.tokenizer.encode(turn) for turn in prompts]
+
+        prompt_ids = propmt_tokens_lists[-self.history_window :]
+        # concatenate every token into a single list
+        # list(chain(*[[1, 2], [3, 4], [5]]))
+        # >>> [1, 2, 3, 4, 5]
+        prompt_ids = torch.LongTensor(list(chain(*prompt_ids)))
+        # without bos for lm_labels
+
+        # # create bos version for the input
+        prompt_bos = torch.cat(
+            (torch.tensor([self.tokenizer.bos_token_id]), prompt_ids)
+        )
+        return prompt_bos.unsqueeze(0).unsqueeze(dim=0)

@@ -1,0 +1,6 @@
+accelerate
+bitsandbytes
+peft<=0.5.0
+protobuf
+sacrebleu
+transformers<=4.34.0

@@ -85,20 +85,21 @@ lm_model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM 
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
-# topk is the number of hypotheses that will be rescored in the rescorer
-# lowering this value might decrease the wer, but will increase speed.
-topk: 20
-beam_size: 20
+# Decoding parameters
 lm_weight: 0.5
 blank_index: 0
-space_token: ' ' # make sure this is the same as the one used in the tokenizer
-beam_prune_logp: -12.0
-token_prune_min_logp: -12.0
-prune_history: False
-alpha: 0.8
-beta: 1.2
-test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
-
+# topk is the number of hypotheses that will be rescored in the rescorer
+# lowering this value might decrease the wer, but will increase speed.
+test_beam_search:
+   beam_size: 20
+   topk: 20
+   blank_index: !ref <blank_index>
+   space_token: ' ' # make sure this is the same as the one used in the tokenizer
+   beam_prune_logp: -12.0
+   token_prune_min_logp: -12.0
+   prune_history: False
+   alpha: 0.8
+   beta: 1.2
 
 transformerlm: !new:speechbrain.decoders.scorer.TransformerLMRescorer
    language_model: !ref <lm_model>

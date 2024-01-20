@@ -23,6 +23,7 @@ other possible variations.
 Authors
  * Titouan Parcollet 2021
  * Jianyuan Zhong 2020
+ * Pooneh Mousavi 2023
 """
 import sys
 import torch
@@ -197,7 +198,7 @@ class ASR(sb.core.Brain):
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
 
             # report different epoch stages according current stage
             current_epoch = self.hparams.epoch_counter.current
@@ -268,16 +269,17 @@ class ASR(sb.core.Brain):
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
 
-        # Initialize optimizers after parameters are configured
-        self.init_optimizers()
-
-        # Load latest checkpoint to check to current epoch number
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible()
 
-        # if the model is resumed from stage two, reinitialize the optimizer
+        # Initialize optimizers after parameters are configured
+        self.init_optimizers()
+
         current_epoch = self.hparams.epoch_counter.current
         if current_epoch > self.hparams.stage_one_epochs:
+            logger.info(
+                f"The checkpoint's epoch(= {current_epoch}) is greater than stage_one_epochs(= {self.hparams.stage_one_epochs}). Using the fine-tuning optimizer instead of the training one."
+            )
             self.optimizer = self.hparams.SGD(self.modules.parameters())
 
             if self.checkpointer is not None:

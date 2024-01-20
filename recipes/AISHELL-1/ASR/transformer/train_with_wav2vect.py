@@ -151,7 +151,7 @@ class ASR(sb.core.Brain):
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
 
             # report different epoch stages according current stage
             current_epoch = self.hparams.epoch_counter.current

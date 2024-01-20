@@ -1,29 +1,28 @@
 # ################################
-# Model: wav2vec2 + DNN + CTC/Attention
+# Model: wav2vec2 + DNN + CTC
 # Augmentation: SpecAugment
-# Authors: Titouan Parcollet 2021
-#          Mirco Ravanelli 2021
+# Authors: Pooneh Mousavi 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/wav2vec2_ctcatt_it/<seed>
+output_folder: !ref results/wav2vec2_ctc_ar/<seed>
 test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# URL for the biggest Fairseq english wav2vec2 model.
-wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
+# URL for the biggest Fairseq multilingual
+wav2vec2_hub: facebook/wav2vec2-large-xlsr-53
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
-data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-6.1-2020-12-11/it
+data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
 accented_letters: True
-language: it # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+language: ar # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
@@ -31,23 +30,20 @@ skip_prep: False # Skip data preparation
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
-avoid_if_longer_than: 8.0
+avoid_if_longer_than: 10.0
 
 # Training parameters
-number_of_epochs: 45
-number_of_ctc_epochs: 15
+number_of_epochs: 30
 lr: 1.0
 lr_wav2vec: 0.0001
-ctc_weight: 0.3
 sorting: ascending
 precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
-
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-# Must be 6 per GPU to fit 16GB of VRAM
+# Must be 8 per GPU to fit 32GB of VRAM
 batch_size: 12
 test_batch_size: 4
 
@@ -63,31 +59,38 @@ token_type: unigram  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
 wav2vec_output_dim: 1024
-dnn_layers: 2
 dnn_neurons: 1024
-emb_size: 128
-dec_neurons: 1024
-dec_hidden_size: !ref <dec_neurons>
-dec_attn_dim: !ref <dec_neurons>
 freeze_wav2vec: False
+freeze_feature_extractor: False
+dropout: 0.15
+warmup_steps: 500
 
 # Outputs
-output_neurons: 500  # BPE size, index(blank/eos/bos) = 0
+
+output_neurons: 1000  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 # Be sure that the bos and eos index match with the BPEs ones
 blank_index: 0
 bos_index: 1
 eos_index: 2
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 80
-eos_threshold: 1.5
-using_max_attn_shift: True
-max_attn_shift: 140
-temperature: 1.50
+
+# Decoding parameters
+# Be sure that the bos and eos index match with the BPEs ones
+# Decoding parameters
+test_beam_search:
+    blank_index: !ref <blank_index>
+    beam_size: 100
+    beam_prune_logp: -12.0
+    token_prune_min_logp: -1.2
+    prune_history: True
+    topk: 1
+    alpha: 1.0
+    beta: 0.5
+    # To use n-gram LM for decoding, follow steps in README.md.
+    # kenlm_model_path: none
+
 
 #
 # Functions and classes
@@ -142,16 +145,34 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_freq>,
         !ref <drop_chunk>]
 
-enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
+
+enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <wav2vec_output_dim>]
-    activation: !ref <activation>
-    dnn_blocks: !ref <dnn_layers>
-    dnn_neurons: !ref <dnn_neurons>
+    linear1: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <dnn_neurons>
+        bias: True
+    bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation: !new:torch.nn.LeakyReLU
+    drop: !new:torch.nn.Dropout
+        p: !ref <dropout>
+    linear2: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <dnn_neurons>
+        bias: True
+    bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation2: !new:torch.nn.LeakyReLU
+    drop2: !new:torch.nn.Dropout
+        p: !ref <dropout>
+    linear3: !name:speechbrain.nnet.linear.Linear
+        n_neurons: !ref <dnn_neurons>
+        bias: True
+    bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+    activation3: !new:torch.nn.LeakyReLU
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
+    freeze_feature_extractor: !ref <freeze_feature_extractor>
     save_path: !ref <wav2vec2_folder>
 
 #####
@@ -167,30 +188,8 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Ve
 #    save_path: !ref <save_folder>/wav2vec2_checkpoint/model.pt
 #####
 
-emb: !new:speechbrain.nnet.embedding.Embedding
-    num_embeddings: !ref <output_neurons>
-    embedding_dim: !ref <emb_size>
-
-dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
-    enc_dim: !ref <dec_neurons>
-    input_size: !ref <emb_size>
-    rnn_type: gru
-    attn_type: location
-    hidden_size: !ref <dec_hidden_size>
-    attn_dim: !ref <dec_attn_dim>
-    num_layers: 1
-    scaling: 1.0
-    channels: 10
-    kernel_size: 100
-    re_init: True
-    dropout: 0.15
-
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
-    n_neurons: !ref <output_neurons>
-
-seq_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <dec_neurons>
     n_neurons: !ref <output_neurons>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
@@ -199,19 +198,13 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     blank_index: !ref <blank_index>
 
-seq_cost: !name:speechbrain.nnet.losses.nll_loss
-    label_smoothing: 0.1
-
 modules:
     wav2vec2: !ref <wav2vec2>
     enc: !ref <enc>
-    emb: !ref <emb>
-    dec: !ref <dec>
     ctc_lin: !ref <ctc_lin>
-    seq_lin: !ref <seq_lin>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+    - [!ref <enc>, !ref <ctc_lin>]
 
 model_opt_class: !name:torch.optim.Adadelta
     lr: !ref <lr>
@@ -233,19 +226,6 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.9
     patient: 0
 
-beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
-    embedding: !ref <emb>
-    decoder: !ref <dec>
-    linear: !ref <seq_lin>
-    bos_index: !ref <bos_index>
-    eos_index: !ref <eos_index>
-    min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <beam_size>
-    eos_threshold: !ref <eos_threshold>
-    using_max_attn_shift: !ref <using_max_attn_shift>
-    max_attn_shift: !ref <max_attn_shift>
-    temperature: !ref <temperature>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

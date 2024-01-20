@@ -33,6 +33,7 @@ installed in your environment (see extra-requirements.txt)**
 | 27-03-23 | hyperconformer_22M.yaml | 3.19 | 2.23 | 5.54  (**only 21.7M parameters**)  | NA | [DropBox](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_13M.yaml | NA | 2.54 | 6.58  | NA | soon | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_25M.yaml | NA | 2.36 | 5.89 | NA | soon | 1xP40 24GB
+| 05-01-24 | bayesspeech.yaml | 4.28 | 2.84 | 6.27 | NA | [DropBox](https://www.dropbox.com/scl/fo/cdken4jqfj96ev1v84jxm/h?rlkey=25eu1ytgm5ac51zqj8p65zwxd&dl=0) | 1xV100 32GB |
 
 # **About HyperConformer**
 HyperConformer is a new architecture, which replaces the self-attention mechanism of Conformer with the linear-time token mixing architecture HyperMixer.

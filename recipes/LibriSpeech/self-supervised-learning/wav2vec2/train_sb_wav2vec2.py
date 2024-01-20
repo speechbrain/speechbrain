@@ -85,7 +85,7 @@ class W2V2Brain(sb.core.Brain):
         loss, accuracy = self.hparams.loss(embeddings, targets, negs)
 
         # This is only used for logging purpose
-        if stage != sb.Stage.TRAIN and sb.utils.distributed.if_main_process():
+        if stage != sb.Stage.TRAIN:
             self.acc_metric.append(accuracy)
 
         objectives = {
@@ -327,6 +327,10 @@ def main():
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    # Update precision to bf16 if the device is CPU and precision is fp16
+    if run_opts.get("device") == "cpu" and hparams.get("precision") == "fp16":
+        hparams["precision"] = "bf16"
 
     from librispeech_prepare import prepare_librispeech
 

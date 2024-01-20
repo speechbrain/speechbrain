@@ -65,7 +65,7 @@ A good practice is to have different python environments for your different tool
 and toolkits, so they do not interfere with each other. This can be done either with
 [Anaconda](https://www.anaconda.com/products/distribution) or [venv](https://docs.python.org/3.8/library/venv.html).
 
-Anaconda can be installed by simply following [this tutorial](https://docs.anaconda.com/anaconda/install/linux/). In practice, it is a matter of downloading the installation script and executing it.
+Anaconda can be installed by simply following [this tutorial](https://docs.anaconda.com/free/anaconda/install/linux/). In practice, it is a matter of downloading the installation script and executing it.
 
 ## Anaconda setup
 

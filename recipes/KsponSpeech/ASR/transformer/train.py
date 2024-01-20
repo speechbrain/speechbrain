@@ -179,7 +179,7 @@ class ASR(sb.core.Brain):
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
 
             lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step

@@ -9,7 +9,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
+output_folder: !ref results/transformer_fr/<seed>
 test_wer_file: !ref <output_folder>/wer_test.txt
 valid_wer_file: !ref <output_folder>/wer_valid.txt
 save_folder: !ref <output_folder>/save
@@ -139,7 +139,7 @@ model: !new:torch.nn.ModuleList
 
 # We define two optimizers as we have two stages (training + finetuning)
 Adam: !name:torch.optim.Adam
-    lr: 0
+    lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
 

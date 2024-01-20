@@ -17,6 +17,8 @@ import torch
 import sentencepiece
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.utils.fetching import fetch
+from speechbrain.utils.data_utils import split_path
 
 
 class EncoderDecoderASR(Pretrained):
@@ -45,6 +47,12 @@ class EncoderDecoderASR(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.tokenizer
+        self.transducer_beam_search = False
+        self.transformer_beam_search = False
+        if hasattr(self.hparams, "transducer_beam_search"):
+            self.transducer_beam_search = self.hparams.transducer_beam_search
+        if hasattr(self.hparams, "transformer_beam_search"):
+            self.transformer_beam_search = self.hparams.transformer_beam_search
 
     def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
@@ -95,6 +103,8 @@ class EncoderDecoderASR(Pretrained):
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         encoder_out = self.mods.encoder(wavs, wav_lens)
+        if self.transformer_beam_search:
+            encoder_out = self.mods.transformer.encode(encoder_out, wav_lens)
         return encoder_out
 
     def transcribe_batch(self, wavs, wav_lens):
@@ -126,7 +136,11 @@ class EncoderDecoderASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
+            if self.transducer_beam_search:
+                inputs = [encoder_out]
+            else:
+                inputs = [encoder_out, wav_lens]
+            predicted_tokens, _, _, _ = self.mods.decoder(*inputs)
             predicted_words = [
                 self.tokenizer.decode_ids(token_seq)
                 for token_seq in predicted_tokens
@@ -157,14 +171,43 @@ class EncoderASR(Pretrained):
     >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
     """
 
-    HPARAMS_NEEDED = ["tokenizer", "decoding_function"]
+    HPARAMS_NEEDED = ["tokenizer", "decoding_type"]
     MODULES_NEEDED = ["encoder"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.tokenizer = self.hparams.tokenizer
-        self.decoding_function = self.hparams.decoding_function
+        self.decoding_type = self.hparams.decoding_type
+        self.set_decoding_function()
+
+    def set_decoding_function(self):
+        """Set the decoding function based on the parameters defined in the hyperparameter file."""
+        if self.decoding_type == "beam":
+            if hasattr(self.hparams, "kenlm_model_path"):
+                source, fl = split_path(self.hparams.kenlm_model_path)
+                kenlm_model_path = str(fetch(fl, source=source, savedir="."))
+                self.hparams.test_beam_search[
+                    "kenlm_model_path"
+                ] = kenlm_model_path
+
+            vocab_list = [
+                self.tokenizer.id_to_piece(i)
+                for i in range(self.tokenizer.vocab_size())
+            ]
+
+            from speechbrain.decoders.ctc import CTCBeamSearcher
+
+            self.decoding_function = CTCBeamSearcher(
+                **self.hparams.test_beam_search, vocab_list=vocab_list
+            )
+        else:
+            from functools import partial
+
+            self.decoding_function = partial(
+                speechbrain.decoders.ctc_greedy_decode,
+                blank_id=self.hparams.blank_index,
+            )
 
     def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
@@ -257,10 +300,13 @@ class EncoderASR(Pretrained):
             elif isinstance(
                 self.tokenizer, sentencepiece.SentencePieceProcessor
             ):
-                predicted_words = [
-                    self.tokenizer.decode_ids(token_seq)
-                    for token_seq in predictions
-                ]
+                if self.decoding_type == "greedy":
+                    predicted_words = [
+                        self.tokenizer.decode_ids(token_seq)
+                        for token_seq in predictions
+                    ]
+                else:
+                    predicted_words = [hyp[0].text for hyp in predictions]
             else:
                 raise ValueError(
                     "The tokenizer must be sentencepiece or CTCTextEncoder"
@@ -321,7 +367,7 @@ class WhisperASR(Pretrained):
         predicted_words, predicted_tokens = self.transcribe_batch(
             batch, rel_length
         )
-        return predicted_words
+        return " ".join(predicted_words[0])
 
     def encode_batch(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states

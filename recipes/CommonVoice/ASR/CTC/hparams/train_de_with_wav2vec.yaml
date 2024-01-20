@@ -79,20 +79,17 @@ bos_index: 1
 eos_index: 2
 
 # Decoding parameters
-# Be sure that the bos and eos index match with the BPEs ones
-# Decoding parameters
-test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
-beam_size: 100
-beam_prune_logp: -12.0
-token_prune_min_logp: -1.2
-prune_history: True
-topk: 1
-alpha: 1.0
-beta: 0.5
-# can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
-# It can either be a .bin or .arpa ; note: .arpa is much slower at loading
-# If you don't want to use an LM, comment it out or set it to null
-# kenlm_model_path: none
+test_beam_search:
+    blank_index: !ref <blank_index>
+    beam_size: 100
+    beam_prune_logp: -12.0
+    token_prune_min_logp: -1.2
+    prune_history: True
+    topk: 1
+    alpha: 1.0
+    beta: 0.5
+    # To use n-gram LM for decoding, follow steps in README.md.
+    # kenlm_model_path: none
 
 # Functions and classes
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter

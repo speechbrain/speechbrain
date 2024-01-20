@@ -432,7 +432,7 @@ def download_vctk(destination, tmp_dir=None, device="cpu"):
         "clean_trainset_28spk_wav",
     ]
 
-    downsampler = Resample(orig_freq=48000, new_freq=16000)
+    downsampler = Resample(orig_freq=48000, new_freq=16000).to(device)
 
     for directory in dirs:
         logger.info("Resampling " + directory)
