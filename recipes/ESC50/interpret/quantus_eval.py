@@ -36,6 +36,7 @@ class Model(nn.Module):
         self.classifier = classifier
 
     def forward(self, x):
+        x = x.float()
         if x.ndim == 4:
             x = x.squeeze(1)
 
