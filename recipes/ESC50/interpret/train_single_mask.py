@@ -929,7 +929,7 @@ if __name__ == "__main__":
     embedding_model = hparams['embedding_model']
     classifier = hparams['classifier']
 
-    EP = 1000 
+    EP = 1000
     for i, dt in enumerate(datasets['valid']):
         ft, _, _ = Interpreter_brain.preprocess(dt['sig'].unsqueeze(0)) 
         ft = ft.to('cuda')

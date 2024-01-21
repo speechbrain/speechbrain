@@ -37,6 +37,8 @@ train_log: !ref <output_folder>/train_log.txt
 wham_folder: !PLACEHOLDER
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
+use_wham: False
+exp_method: Null
 
 test_only: False
 save_interpretations: True
@@ -71,6 +73,7 @@ use_mask_output: True
 mask_th: 0.35
 signal_length_s: 5
 add_wham_noise: False
+use_melspectra: False
 
 wham_dataset: !new:wham_prepare.WHAMDataset
     data_dir: !ref <wham_audio_folder>
