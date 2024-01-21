@@ -78,9 +78,10 @@ lm_dir: lm
 #    - 4-gram.arpa
 #    To downloads http://www.openslr.org/resources/11/ pretrained models (trained on librispeech-lm-norm.txt, 200k words)
 # - Use another name for a model you trained yourself.
-#    If the arpa does not exist in the lm_dir, the recipe will create the
-#    necessary files for n-gram training and provide you an example on how
-#    kenlm (https://github.com/kpu/kenlm) can be run.
+#    If the arpa does not exist in the lm_dir, you'll need to train it yourself.
+#    Please see LibriSpeech/LM/README.md for instructions.
+# Using one of the above name will automatically download the corresponding model.
+# Make sure to use enough RAM and CPUs as the conversion to FST can be quite demanding.
 G_arpa: 3-gram_sb.arpa
 G_rescoring_arpa: 4-gram_sb.arpa
 # caching: False

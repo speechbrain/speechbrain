@@ -58,6 +58,7 @@ Example
 
 Authors
  * Aku Rouhe 2020
+ * Pierre Champion 2023
 """
 import collections
 import logging

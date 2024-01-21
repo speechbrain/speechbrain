@@ -8,7 +8,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 arpa_order: 3
-output_folder: !ref results/LibriSpeech/ngram/<arpa_order>-gram/
+output_folder: !ref results/LibriSpeech/lm/
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
