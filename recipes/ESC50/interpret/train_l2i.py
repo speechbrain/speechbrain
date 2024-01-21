@@ -500,7 +500,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.batch_to_plot = (reconstructions.clone(), X_stft_logpower.clone())
 
         theta_out = -torch.log(theta_out)
-        loss_fdi = (F.softmax(classification_out, dim=1) * theta_out).mean()
+        loss_fdi = (F.softmax(classification_out / self.hparams.classifier_temp, dim=1) * theta_out).mean()
 
         return loss_nmf + loss_fdi
 
