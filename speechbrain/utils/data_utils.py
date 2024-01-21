@@ -4,6 +4,8 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Samuele Cornell 2020
+ * Adel Moumen 2024
+ * Pierre Champion 2023
 """
 
 import math
@@ -18,7 +20,7 @@ import tqdm
 import pathlib
 import speechbrain as sb
 from numbers import Number
-
+import gzip
 
 def undo_padding(batch, lengths):
     """Produces Python lists given a batch of sentences with
@@ -351,7 +353,14 @@ def download_file(
                 if dest_unpack is None:
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
-                shutil.unpack_archive(dest, dest_unpack)
+                # shutil unpack_archive does not work with tar.gz files
+                if source.endswith(".tar.gz") or source.endswith(".tgz") or source.endswith(".gz"):
+                    out = dest.replace(".gz", "")
+                    with gzip.open(dest, "rb") as f_in:
+                        with open(out, "wb") as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+                else:
+                    shutil.unpack_archive(dest, dest_unpack)
                 if write_permissions:
                     set_writing_permissions(dest_unpack)
 
