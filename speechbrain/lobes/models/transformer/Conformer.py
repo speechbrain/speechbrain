@@ -22,7 +22,7 @@ from speechbrain.nnet.attention import (
     PositionalwiseFeedForward,
 )
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
-from speechbrain.lobes.models.transformer.hypermixing import HyperMixing
+from speechbrain.nnet.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.activations import Swish
 
