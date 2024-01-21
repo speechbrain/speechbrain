@@ -5,7 +5,11 @@ Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch, 2020
+ * Mirco Ravanelli, 2020 
+ * Ju-Chieh Chou, 2020 
+ * Loren Lugosch, 2020
+ * Pierre Champion, 2023
+ * Adel Moumen, 2024
 """
 
 import os
@@ -31,6 +35,12 @@ logger = logging.getLogger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
 SAMPLERATE = 16000
 OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"
+OPEN_SLR_11_NGRAM_MODELs = [
+    "3-gram.arpa.gz",
+    "3-gram.pruned.1e-7.arpa.gz",
+    "3-gram.pruned.3e-7.arpa.gz",
+    "4-gram.arpa.gz",
+]
 
 def prepare_librispeech(
     data_folder,
@@ -148,13 +158,13 @@ def prepare_librispeech(
 
     # Create lexicon.csv and oov.csv
     if create_lexicon:
-        create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
+        create_lexicon_and_oov_csv(all_texts, save_folder)
 
     # saving options
     save_pkl(conf, save_opt)
 
 
-def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
+def create_lexicon_and_oov_csv(all_texts, save_folder):
     """
     Creates lexicon csv files useful for training and testing a
     grapheme-to-phoneme (G2P) model.
@@ -163,8 +173,6 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     ---------
     all_text : dict
         Dictionary containing text from the librispeech transcriptions
-    data_folder : str
-        Path to the folder where the original LibriSpeech dataset is stored.
     save_folder : str
         The directory where to store the csv files.
     Returns
@@ -457,3 +465,52 @@ def check_librispeech_folders(data_folder, splits):
                 "Librispeech dataset)" % split_folder
             )
             raise OSError(err_msg)
+
+def download_librispeech_vocab_text(destination):
+    """Download librispeech vocab file and unpack it.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put vocab file.
+    """
+    f = "librispeech-vocab.txt"
+    download_file(OPEN_SLR_11_LINK + f, destination)
+
+def download_openslr_librispeech_lm(destination, rescoring_lm=True):
+    """Download openslr librispeech lm and unpack it.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put lm.
+    rescoring_lms : bool
+        Also download bigger 4grams model
+    """
+    os.makedirs(destination, exist_ok=True)
+    for f in OPEN_SLR_11_NGRAM_MODELs:
+        if f.startswith("4") and not rescoring_lm:
+            continue
+        d = os.path.join(destination, f)
+        download_file(OPEN_SLR_11_LINK + f, d, unpack=True)
+
+def download_sb_librispeech_lm(destination, rescoring_lm=True):
+    """Download sb librispeech lm and unpack it.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put lm.
+    rescoring_lms : bool
+        Also download bigger 4grams model
+    """
+    os.makedirs(destination, exist_ok=True)
+    download_file(
+        "https://www.dropbox.com/scl/fi/3fkkdlliavhveb5n3nsow/3gram_lm.arpa?rlkey=jgdrluppfut1pjminf3l3y106&dl=1",
+        os.path.join(destination, "3-gram_sb.arpa"),
+    )
+    if rescoring_lm:
+        download_file(
+            "https://www.dropbox.com/scl/fi/roz46ee0ah2lvy5csno4z/4gram_lm.arpa?rlkey=2wt8ozb1mqgde9h9n9rp2yppz&dl=1",
+            os.path.join(destination, "4-gram_sb.arpa"),
+        )
