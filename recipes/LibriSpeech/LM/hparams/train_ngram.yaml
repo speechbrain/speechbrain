@@ -7,9 +7,8 @@
 ################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/LibriSpeech/ngrams/<seed>
-
+arpa_order: 3
+output_folder: !ref results/LibriSpeech/ngram/<arpa_order>-gram/
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
@@ -22,5 +21,4 @@ sil_prob: 0.
 add_word_boundary: True
 caching: False
 skip_prep: False
-ngram: 3
-output_arpa: !ref <output_folder>/<ngram>-gram.arpa
+output_arpa: !ref <output_folder>/<arpa_order>-gram.arpa
