@@ -420,25 +420,9 @@ if __name__ == "__main__":
                 hparams["decoding_method"] == "whole-lattice-rescoring"
             ),
         )
-
-    # Train your ngram models
-    elif (
-        hparams["compose_HL_with_G"]
-        or hparams["decoding_method"] == "whole-lattice-rescoring"
-    ):
-        output_arpa = os.path.join(hparams["lm_dir"], hparams["G_arpa"])
-        librispeech_prepare.dataprep_lm_training(
-            lm_dir=hparams["lm_dir"],
-            output_arpa=output_arpa,
-            csv_files=[hparams["output_folder"] + "/train.csv"],
-            external_lm_corpus=[
-                os.path.join(hparams["lm_dir"], "librispeech-lm-norm.txt")
-            ],
-            vocab_file=os.path.join(hparams["lang_dir"], "words.txt"),
-        )
     else:
         logging.info(
-            "No LM will be used as compose_HL_with_G is False and decoding_method is not whole-lattice-rescoring."
+            "No LM will be used as `compose_HL_with_G` is `False` and `decoding_method` is not `whole-lattice-rescoring`."
         )
 
     # Trainer initialization
