@@ -48,59 +48,6 @@ def download_librispeech_lm_training_text(destination):
         OPEN_SLR_11_LINK + f, os.path.join(destination, f)
     )
 
-
-def download_librispeech_vocab_text(destination):
-    """Download librispeech vocab file and unpack it.
-
-    Arguments
-    ---------
-    destination : str
-        Place to put vocab file.
-    """
-    f = "librispeech-vocab.txt"
-    download_file(OPEN_SLR_11_LINK + f, destination)
-
-
-def download_openslr_librispeech_lm(destination, rescoring_lm=True):
-    """Download openslr librispeech lm and unpack it.
-
-    Arguments
-    ---------
-    destination : str
-        Place to put lm.
-    rescoring_lms : bool
-        Also download bigger 4grams model
-    """
-    os.makedirs(destination, exist_ok=True)
-    for f in OPEN_SLR_11_NGRAM_MODELs:
-        if f.startswith("4") and not rescoring_lm:
-            continue
-        d = os.path.join(destination, f)
-        download_file_and_extract(OPEN_SLR_11_LINK + f, d)
-
-
-def download_sb_librispeech_lm(destination, rescoring_lm=True):
-    """Download sb librispeech lm and unpack it.
-
-    Arguments
-    ---------
-    destination : str
-        Place to put lm.
-    rescoring_lms : bool
-        Also download bigger 4grams model
-    """
-    os.makedirs(destination, exist_ok=True)
-    download_file(
-        "https://www.dropbox.com/scl/fi/3fkkdlliavhveb5n3nsow/3gram_lm.arpa?rlkey=jgdrluppfut1pjminf3l3y106&dl=1",
-        os.path.join(destination, "3-gram_sb.arpa"),
-    )
-    if rescoring_lm:
-        download_file(
-            "https://www.dropbox.com/scl/fi/roz46ee0ah2lvy5csno4z/4gram_lm.arpa?rlkey=2wt8ozb1mqgde9h9n9rp2yppz&dl=1",
-            os.path.join(destination, "4-gram_sb.arpa"),
-        )
-
-
 def download_file_and_extract(link, destination):
     """Download link and unpack it.
 
@@ -122,7 +69,7 @@ def download_file_and_extract(link, destination):
 
 
 def dataprep_lm_training(
-    lm_dir, output_arpa, csv_files, external_lm_corpus, vocab_file
+    lm_dir, output_arpa, csv_files, external_lm_corpus, vocab_file, arpa_order=3
 ):
     """Prepare lm txt corpus file for lm training with kenlm (https://github.com/kpu/kenlm)
     Does nothing if output_arpa exists.
@@ -158,7 +105,7 @@ def dataprep_lm_training(
                 for line in f:
                     if line not in line_seen:
                         corpus.write(line)
-    cmd = f"lmplz -o 3 --prune 0 1 2 --limit_vocab_file {vocab_file} < {lm_corpus}| sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
+    cmd = f"lmplz -o {arpa_order} --prune 0 1 2 --limit_vocab_file {vocab_file} < {lm_corpus}| sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
     logger.info(
         f"Running training with kenlm with: \t{cmd}\n"
     )
@@ -197,7 +144,7 @@ if __name__ == "__main__":
     )
 
     # Download the vocabulary file for librispeech
-    download_librispeech_vocab_text(
+    librispeech_prepare.download_librispeech_vocab_text(
         destination=hparams["vocab_file"]
     )
 
@@ -238,4 +185,5 @@ if __name__ == "__main__":
             os.path.join(hparams["output_folder"], "librispeech-lm-norm.txt")
         ],
         vocab_file=os.path.join(hparams["lang_dir"], "words.txt"),
+        arpa_order=hparams["arpa_order"],
     )
