@@ -65,7 +65,7 @@ rescoring_lm_scale: 0.4
 # They can be in either ARPA or FST format. If the former, then
 # the FST equivalent will be created in the same directory by
 # using kaldilm.
-lm_dir: lm
+lm_dir: !ref <output_folder>/lm
 # The ARPA LM files are located under the lm_dir.
 # - Use (recommended):
 #     - 3-gram_sb.arpa
