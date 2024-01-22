@@ -36,6 +36,10 @@ class Model(nn.Module):
         self.classifier = classifier
         self.hparams = hparams
 
+        self.cnn14 = False
+        if str(self.embedding_model.__class__.__name__) == "Cnn14":
+            self.cnn14 = True
+
     def forward(self, x):
         x = x.float()
         if self.hparams["use_stft2mel"]:
@@ -58,7 +62,7 @@ class Model(nn.Module):
         predictions = self.classifier(embeddings).squeeze(1)
 
         if self.returnrepr:
-            return predictions, temp
+            return predictions, f_I
 
         return predictions
 
@@ -142,7 +146,7 @@ class MosaicDataset():
             X_stft_power = self.hparams["compute_fbank"](X_stft_power)
             X_stft_logpower = torch.log1p(X_stft_power)
 
-        return X_stft_logpower[:, :417, :]
+        return X_stft_logpower[:, :425, :]
 
     def __call__(self, batch, c_m):
         mosaics = []
@@ -312,18 +316,14 @@ class Evaluator:
                 abs=True
                 )
 
-    def __call__(self, model, explain_fn, X, X_mosaic, y_mosaic, y, method, device="cuda"):
-        """ computes quantus metrics sample-wise """
-        if model.training:
-            model.eval()
-    
+    def compute_ours(self, X, model, method, explain_fn):
         metrics = {}
 
         predictions = model(X)
-        y = y.to(predictions.device).long()
         if isinstance(predictions, tuple):
             predictions = predictions[0]
         predictions = predictions.softmax(1)
+        y = predictions.argmax(1)
     
         if not "mask" in method and "ao" != method:
             inter = explain_fn(X, y, model)
@@ -353,12 +353,24 @@ class Evaluator:
         metrics["AG"] = compute_AG(maskin_preds, predictions).item()
         metrics["faithfulness_l2i"] = compute_faithfulness(predictions, maskout_preds).item()
         metrics["inp_fid"] = compute_fidelity(maskin_preds, predictions).item()
+
+        return metrics, inter
+
+    def __call__(self, model, explain_fn, X, X_mosaic, y_mosaic, y, method, device="cuda"):
+        """ computes quantus metrics sample-wise """
+        if model.training:
+            model.eval()
+    
+        metrics, inter = self.compute_ours(X, model, method, explain_fn)
     
         X = X.clone().detach().cpu().numpy()
         y = y.clone().detach().cpu().numpy()
         attr = inter.clone().detach().cpu().numpy()
         y_mosaic = np.array(y_mosaic)[None]
         wrap_explain_fn = wrap_gradient_based(explain_fn, forw="maskin" in method)
+
+        # matches interpretations shapes
+        X = X[:, :, :attr.shape[2], :attr.shape[3]]
     
         quantus_inp = {
                 "model": model,

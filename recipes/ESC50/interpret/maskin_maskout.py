@@ -48,11 +48,15 @@ def interpret_pretrained(interpreter):
     interpreter = interpreter.eval()
 
     @torch.no_grad()
-    def interpret_ao(x, model):
+    def interpret_ao(x, _, model):
         predictions, fI = model(x)
         pred_cl = predictions.argmax(1)
 
-        temp = interpreter.decoder(fI)
+        # print([f.shape for f in fI])
+        if not model.cnn14:
+            temp = interpreter.decoder(fI[1])
+        else:
+            temp = interpreter(fI)
         temp = torch.sigmoid(temp)
         temp = temp[:, :, :x.shape[2], :x.shape[3]]
 

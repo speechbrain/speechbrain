@@ -186,7 +186,8 @@ if __name__ == "__main__":
         else:
             X = X_oracle.squeeze(1)
 
-        X_mosaic, y_mosaic = d_mosaic(X, base_sample["class_string_encoded"])
+        # X_mosaic, y_mosaic = d_mosaic(X, base_sample["class_string_encoded"])
+        X_mosaic, y_mosaic = torch.zeros_like(X), [0 for _ in range(X.shape[0])]
 
         for X_, X_mosaic_, y_mosaic_, y_batch_ in zip(
                 X, X_mosaic, y_mosaic, y_batch
