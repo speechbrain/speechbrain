@@ -344,6 +344,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
         if self.hparams.use_melspectra:
             net_input = self.modules.compute_fbank(X_stft_power)
+            net_input = torch.log1p(net_input)
         else:
             net_input = torch.log1p(X_stft_power)
 

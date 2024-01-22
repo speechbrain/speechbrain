@@ -11,8 +11,6 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
-exp_method: saliency
-
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
@@ -42,7 +40,7 @@ wham_folder: /mnt/data/large_audio/WHAM/wham_noise
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 use_wham: False
-exp_method: Null
+exp_method: saliency
 
 test_only: False
 save_interpretations: True
