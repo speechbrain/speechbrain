@@ -139,6 +139,8 @@ class GraphCompiler(abc.ABC):
 
         Arguments
         ---------
+        G: k2.Fsa
+            The language model FSA.
         cache_dir: str
             The path to store the composition in a .pt format.
         cache: bool

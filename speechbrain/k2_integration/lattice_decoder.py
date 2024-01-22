@@ -237,6 +237,8 @@ def get_lattice(
     input_lens:
         It is an int tensor of shape (batch,). It contains lengths of
         each sequence in `log_probs_nnet_output`.
+    decoder:
+        It is an instance of :class:`k2.Fsa` that represents the decoding graph.
     search_beam:
         Decoding beam, e.g. 20.  Ger is faster, larger is more exact
         (less pruning). This is the default value; it may be modified by

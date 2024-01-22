@@ -2,7 +2,7 @@
 support CTC loss.
 
 Authors:
-  * Pierre Champion 2023
+ * Pierre Champion 2023
  * Zeyu Zhao 2023
  * Georgios Karakasidis 2023
 """
@@ -28,8 +28,8 @@ def ctc_k2(
 
     Arguments
     ---------
-    predictions : torch.Tensor
-        Predicted tensor, of shape [batch, time, chars].
+    log_probs: torch.Tensor
+        Log-probs of shape (batch, time, num_classes).
     input_lens : torch.Tensor
         Length of each utterance.
     graph_compiler : k2.Fsa

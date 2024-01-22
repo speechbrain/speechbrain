@@ -58,6 +58,9 @@ def get_tokens(
     sil_token: str
         The optional silence token between words. It should not appear in the lexicon,
         otherwise it will cause an error.
+    manually_add_sil_to_tokens: bool
+        If true, add `sil_token` to the tokens. This is useful when the lexicon
+        does not contain `sil_token` but it is needed in the tokens.
 
     Returns
     -------

@@ -75,6 +75,8 @@ def lattice_paths_to_text(best_paths: k2.Fsa, word_table) -> List[str]:
     best_paths: k2.Fsa
         It is the path in the lattice with the highest score for a
         given utterance.
+    word_table: List[str] or Dict[int,str]
+        It is a list or dict that maps word IDs to words.
 
     Returns
     -------
@@ -140,14 +142,16 @@ def prepare_rescoring_G(G: k2.Fsa) -> k2.Fsa:
 
     Arguments
     ---------
-    path: str
-        The path to an FST LM (ending with .fst.txt) or a k2-converted
-        LM (in pytorch .pt format).
+    G: k2.Fsa
+        An FSA representing the LM.
 
     Returns
     -------
     G: k2.Fsa
-        An FSA representing the LM.
+        An FSA representing the LM, with the following modifications:
+        - G.aux_labels is removed
+        - G.lm_scores is set to G.scores
+        - G is arc-sorted
     """
     if "_properties" in G.__dict__:
         G.__dict__["_properties"] = None

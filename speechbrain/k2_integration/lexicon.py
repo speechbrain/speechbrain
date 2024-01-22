@@ -152,6 +152,11 @@ class Lexicon(object):
     def remove_G_rescoring_disambig_symbols(self, G: k2.Fsa):
         """
         Remove the disambiguation symbols of a G graph
+
+        Arguments
+        ---------
+        G: k2.Fsa
+            The G graph to be modified
         """
         G.labels[G.labels >= self.word_table["#0"]] = 0
 
@@ -159,6 +164,11 @@ class Lexicon(object):
         """
         Remove the disambiguation symbols of an LG graph
         Needed for HLG construction.
+
+        Arguments
+        ---------
+        LG: k2.Fsa
+            The LG graph to be modified
         """
 
         first_token_disambig_id = self.token_table["#0"]
@@ -430,6 +440,8 @@ def prepare_char_lexicon(
         librispeech-vocab.txt file.
     extra_csv_files: List[str]
         A list of csv file paths
+    column_text_key: str
+        The column name of the transcription in the csv file. By default, it is "wrd".
     add_word_boundary: bool
         whether to add word boundary symbols <eow> at the end of each line to the
         lexicon for every word.
