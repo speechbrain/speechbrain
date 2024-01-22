@@ -207,7 +207,6 @@ if __name__ == "__main__":
                 local +=  " ".join([
                             f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in metrics.items()
                             ])
-                print(local)
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
 
@@ -216,7 +215,7 @@ if __name__ == "__main__":
                             f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in aggregated_metrics.items()
                             ])
 
-                if (idx % 50) == 0:
+                if (idx % 5) == 0:
                     print("\n\n", aggregate, "\n\n")
 
             except AssertionError as e:
