@@ -219,7 +219,7 @@ if __name__ == "__main__":
 
         aggregate = f"Aggregated "
         aggregate +=  " ".join([
-                    f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in aggregated_metrics.items()
+                    f"{k}: {(v[0] if isinstance(v, list) else v)/(idx+1):.3f}" for k, v in aggregated_metrics.items()
                     ])
 
         if (idx % 5) == 0:
