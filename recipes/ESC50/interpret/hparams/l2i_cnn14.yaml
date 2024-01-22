@@ -16,12 +16,15 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
+use_wham: false
+
 experiment_name: L2I_cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
+classifier_temp: 1
 
 # Tensorboard logs
 use_tensorboard: False
@@ -102,11 +105,11 @@ embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
     return_reps: True
+    l2i: True
 
-classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 2048
-    out_neurons: !ref <out_n_neurons>
-    lin_blocks: 1
+classifier: !new:torch.nn.Linear
+     in_features: 2048
+     out_features: !ref <out_n_neurons>   
 
 # Interpretation hyperparams
 K: 100
@@ -127,6 +130,7 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
     n_mels: 80
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
+    log_mel: false
 
 compute_istft: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <sample_rate>
@@ -154,8 +158,8 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
-embedding_model_path: speechbrain/cnn14-esc50/embedding_model_esc50ft.ckpt
-classifier_model_path: speechbrain/cnn14-esc50/classifier_esc50.ckpt
+embedding_model_path: '../classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/embedding_model.ckpt'
+classifier_model_path: '../classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/classifier.ckpt'
 nmf_decoder_path: speechbrain/PIQ-ESC50/nmf_decoder.ckpt
 use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer

@@ -148,9 +148,10 @@ class Cnn14(nn.Module):
     torch.Size([3, 1, 256])
     """
 
-    def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False):
+    def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False, l2i=False):
         super(Cnn14, self).__init__()
         self.return_reps = return_reps
+        self.l2i = l2i
 
         self.norm_type = norm_type
         if norm_type == "bn":
@@ -232,4 +233,8 @@ class Cnn14(nn.Module):
         if not self.return_reps:
             return x.unsqueeze(1)
 
-        return x.unsqueeze(1), (x1_out, x2_out, x3_out, x4_out)
+        if self.l2i:
+            return x.unsqueeze(1), (x1_out, x2_out, x3_out)
+        else:
+            return x.unsqueeze(1), (x1_out, x2_out, x3_out, x4_out)
+

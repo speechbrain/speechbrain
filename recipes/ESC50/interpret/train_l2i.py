@@ -194,7 +194,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # get back to the standard stft
         X_int = torch.exp(X_int) - 1
-        return X_int, X_stft_phase, pred_cl
+        return X_int, X_stft_phase, pred_cl, Xhat
 
     def interpret_sample(self, wavs, batch=None):
         """get the interpratation for a given wav file."""
@@ -265,7 +265,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         mix = (s1 + (s2 * 0.2)).unsqueeze(0)
 
         # get the interpretation spectrogram, phase, and the predicted class
-        X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(mix)
+        X_int, X_stft_phase, pred_cl, _ = self.interpret_computation_steps(mix)
 
         X_stft_phase_sb = torch.cat(
             (
@@ -409,14 +409,24 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            interpretations = torch.empty(wavs.shape[0], 417, 513).to(
+            interpretations = torch.empty(wavs.shape[0], 431, 513).to(
                 X_stft_logpower.device
             )
             for i in range(interpretations.shape[0]):
-                tmp, _, _ = self.interpret_computation_steps(wavs[0:1])
+                tmp, _, _, _ = self.interpret_computation_steps(wavs[0:1])  # returns expm1
                 # tmp = tmp[:, :X_stft_power.shape[1]].t()
-                interpretations[i] = torch.log1p(tmp.t())
+                interpretations[i] = tmp.t()
 
+
+            if self.hparams.use_melspectra:
+                interpretations = self.hparams.compute_fbank(interpretations)
+                interpretations = torch.log1p(interpretations)
+
+            # with torch.no_grad():
+                # plt.imshow(interpretations[0].cpu(), origin="lower")
+                # plt.colorbar()
+                # plt.savefig("a.png")
+                
             # Embeddings + sound classifier
             temp = self.hparams.embedding_model(interpretations)
             if isinstance(temp, tuple):
@@ -432,9 +442,15 @@ class InterpreterESC50Brain(sb.core.Brain):
             )
 
             X_stft_logpower = X_stft_logpower[:, : interpretations.shape[-2], :]
-            temp = self.hparams.embedding_model(
-                X_stft_logpower - interpretations
-            )
+            if self.hparams.use_melspectra:
+                xx_temp = torch.log1p(self.hparams.compute_fbank(X_stft_power))
+                temp = self.hparams.embedding_model(
+                    xx_temp - interpretations
+                )
+            else:
+                temp = self.hparams.embedding_model(
+                    X_stft_logpower - interpretations
+                )
             if isinstance(temp, tuple):
                 embeddings, f_I = temp
             else:
@@ -508,7 +524,6 @@ class InterpreterESC50Brain(sb.core.Brain):
     def accuracy_value(self, predict, target):
         """Computes Accuracy"""
         predict = predict.argmax(1)
-
         return (predict.unsqueeze(1) == target).float().squeeze()
 
     @torch.no_grad()
