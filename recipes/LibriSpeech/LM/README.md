@@ -14,10 +14,31 @@ Before proceeding, ensure you have installed the necessary additional dependenci
 pip install -r extra_requirements.txt
 ```
 
+If you want to train an n-gram, in this recipe we are using  the popular KenLM library. Let's start by installing the Ubuntu library prerequisites. For a complete guide on how to install required dependencies, please refer to [this](https://kheafield.com/code/kenlm/dependencies/) link:
+ ```
+ sudo apt install build-essential cmake libboost-system-dev libboost-thread-dev libboost-program-options-dev libboost-test-dev libeigen3-dev zlib1g-dev libbz2-dev liblzma-dev
+ ```
+
+ Next, we need to start downloading and unpacking the KenLM repo.
+ ```
+ wget -O - https://kheafield.com/code/kenlm.tar.gz | tar xz
+ ```
+
+KenLM is written in C++, so we'll make use of cmake to build the binaries.
+ ```
+mkdir kenlm/build && cd kenlm/build && cmake .. && make -j2
+ ```
+
+Now, make sure that the executables are added to your .bashrc file. To do it,
+- Open the ~/.bashrc file in a text editor.
+- Scroll to the end of the file and add the following line:  ```export PATH=$PATH:/your/path/to/kenlm/build/bin ```
+- Save it and type:  `source ~/.bashrc `
+
 # How to run:
 ```shell
 python train.py hparams/RNNLM.yaml
 python train.py hparams/transformer.yaml
+python train_ngram.py hparams/train_ngram.yaml  --data_folder=your/data/folder
 ```
 
 | Release | hyperparams file | Test PP | Model link | GPUs |
@@ -25,7 +46,8 @@ python train.py hparams/transformer.yaml
 | 20-05-22 | RNNLM.yaml (1k BPE) | --.-- | [link](https://www.dropbox.com/sh/8xpybezuv70ibcg/AAByv2NuNv_ZFXuDdG89-MVPa?dl=0) | 1xV100 32GB |
 | 20-05-22 | RNNLM.yaml (5k BPE) | --.-- | [link](https://www.dropbox.com/sh/8462ef441wvava2/AABNfHr07J_0SsdaM1yO5qkxa?dl=0) | 1xV100 32GB |
 | 20-05-22 | transformer.yaml | --.-- | [link](https://www.dropbox.com/sh/6uwqlw2tvv3kiy6/AACgvTR5jihyMrugBrpZPFNha?dl=0) | 1xV100 32GB |
-
+| 22-01-24 | 4-gram - train_ngram.yaml | --.-- | [link](https://www.dropbox.com/scl/fi/kkd5jrwthpahn4t7e7sgk/4gram_lm.arpa?rlkey=mc820i9bugpi3oxtwwd6ulz0b&dl=0) | --.-- |
+| 22-01-24 | 3-gram - train_ngram.yaml | --.-- | [link](https://www.dropbox.com/scl/fi/juryiq2e50bsbdy1qx540/3gram_lm.arpa?rlkey=3ntfnkn6zxda9memm5zh1mmt9&dl=0) | --.-- |
 
 # Training time
 Training a LM takes a lot of time. In our case, it take 3/4 weeks on 4 TESLA V100. Use the pre-trained model to avoid training it from scratch
