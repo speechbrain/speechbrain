@@ -88,7 +88,7 @@ def dataprep_lm_training(
                 for line in f:
                     if line not in line_seen:
                         corpus.write(line)
-    prune_level = ' '.join(map(str, prune_level))
+    prune_level = " ".join(map(str, prune_level))
     cmd = f"lmplz -o {arpa_order} --prune {prune_level} --limit_vocab_file {vocab_file} < {lm_corpus}| sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
     logger.info(f"Running training with: \t{cmd}\n")
     os.system(cmd)
