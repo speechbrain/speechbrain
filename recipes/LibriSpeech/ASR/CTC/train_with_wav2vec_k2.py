@@ -422,10 +422,6 @@ if __name__ == "__main__":
                 hparams["decoding_method"] == "whole-lattice-rescoring"
             ),
         )
-    else:
-        logging.info(
-            "No LM will be used as `compose_HL_with_G` is `False` and `decoding_method` is not `whole-lattice-rescoring`."
-        )
 
     # Trainer initialization
     asr_brain = ASR(
