@@ -163,7 +163,7 @@ if __name__ == "__main__":
     overlap_multiplier = 2
 
     discarded = 0
-    for idx, base_sample in tqdm(enumerate(datasets["valid"]), desc="Running eval..."):
+    for idx, base_sample in enumerate(datasets["valid"]):
         overlap_batch = generate_overlap(base_sample, datasets["test"], overlap_multiplier)
         y_batch = torch.Tensor(
                 [base_sample["class_string_encoded"] for _ in range(overlap_multiplier)]
@@ -203,8 +203,22 @@ if __name__ == "__main__":
                     hparams["exp_method"]
                 )
 
+                local = f"Sample={idx+1} "
+                local +=  " ".join([
+                            f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in metrics.items()
+                            ])
+                print(local)
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
+
+                aggregate = f"Aggregated "
+                aggregate +=  " ".join([
+                            f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in aggregated_metrics.items()
+                            ])
+
+                if (idx % 50) == 0:
+                    print("\n\n", aggregate, "\n\n")
+
             except AssertionError as e:
                 discarded += 1
                 print("Total discarded from quantus are: ", discarded)
