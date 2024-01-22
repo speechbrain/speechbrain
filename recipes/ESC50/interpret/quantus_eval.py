@@ -42,7 +42,7 @@ class Model(nn.Module):
 
     def forward(self, x):
         x = x.float()
-        if self.hparams["use_stft2mel"]:
+        if self.hparams["use_stft2mel"] and not self.hparams["use_melspectra"]:
             x = torch.expm1(x)
             x = self.hparams["compute_fbank"](x.squeeze(1))[None]
             x = torch.log1p(x)
