@@ -210,19 +210,20 @@ if __name__ == "__main__":
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
 
-                aggregate = f"Aggregated "
-                aggregate +=  " ".join([
-                            f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in aggregated_metrics.items()
-                            ])
-
-                if (idx % 5) == 0:
-                    print("\n\n", aggregate, "\n\n")
 
             except AssertionError as e:
                 discarded += 1
                 print("Total discarded from quantus are: ", discarded)
 
                 print("Exception was ", str(e))
+
+        aggregate = f"Aggregated "
+        aggregate +=  " ".join([
+                    f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in aggregated_metrics.items()
+                    ])
+
+        if (idx % 5) == 0:
+            print(aggregate)
 
     for k in aggregated_metrics:
         aggregated_metrics[k] /= len(datasets["valid"]) * overlap_multiplier
