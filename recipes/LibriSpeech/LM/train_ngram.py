@@ -10,7 +10,6 @@ Authors
 """
 
 import os
-import csv
 import sys
 import logging
 import speechbrain as sb
@@ -21,18 +20,9 @@ from speechbrain.utils.data_utils import (
     download_file,
     get_list_from_csv,
 )
-import gzip
-import shutil
 
 logger = logging.getLogger(__name__)
-
 OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"
-OPEN_SLR_11_NGRAM_MODELs = [
-    "3-gram.arpa.gz",
-    "3-gram.pruned.1e-7.arpa.gz",
-    "3-gram.pruned.3e-7.arpa.gz",
-    "4-gram.arpa.gz",
-]
 
 
 def download_librispeech_lm_training_text(destination):
@@ -44,32 +34,19 @@ def download_librispeech_lm_training_text(destination):
         Place to put dataset.
     """
     f = "librispeech-lm-norm.txt.gz"
-    download_file_and_extract(
-        OPEN_SLR_11_LINK + f, os.path.join(destination, f)
+    download_file(
+        OPEN_SLR_11_LINK + f, os.path.join(destination, f), unpack=True
     )
-
-def download_file_and_extract(link, destination):
-    """Download link and unpack it.
-
-    Arguments
-    ---------
-    link : str
-        File to download
-    destination : str
-        Place to put result.
-    """
-    download_file(link, destination)
-    out = destination.replace(".gz", "")
-    if os.path.exists(out):
-        logger.debug("Skipping, already downloaded")
-        return
-    with gzip.open(destination, "rb") as f_in:
-        with open(out, "wb") as f_out:
-            shutil.copyfileobj(f_in, f_out)
 
 
 def dataprep_lm_training(
-    lm_dir, output_arpa, csv_files, external_lm_corpus, vocab_file, arpa_order=3
+    lm_dir,
+    output_arpa,
+    csv_files,
+    external_lm_corpus,
+    vocab_file,
+    arpa_order=3,
+    prune_level=[0, 1, 2],
 ):
     """Prepare lm txt corpus file for lm training with kenlm (https://github.com/kpu/kenlm)
     Does nothing if output_arpa exists.
@@ -90,6 +67,12 @@ def dataprep_lm_training(
         (Big) text dataset corpus
     vocab_file : str
        N-grams that contain vocabulary items not in this file be pruned.
+    arpa_order : int
+        Order of the arpa lm
+    prune_level : List[int]
+        The numbers must be non-decreasing and the last number will be extended to any higher order.
+        For example, --prune 0 disables pruning (the default) while --prune 0 0 1 prunes singletons for orders three and higher.
+        Please refer to https://kheafield.com/code/kenlm/estimation/ for more details.
     """
     download_librispeech_lm_training_text(lm_dir)
     column_text_key = "wrd"  # defined in librispeech_prepare.py
@@ -105,11 +88,11 @@ def dataprep_lm_training(
                 for line in f:
                     if line not in line_seen:
                         corpus.write(line)
-    cmd = f"lmplz -o {arpa_order} --prune 0 1 2 --limit_vocab_file {vocab_file} < {lm_corpus}| sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
-    logger.info(
-        f"Running training with kenlm with: \t{cmd}\n"
-    )
+    prune_level = " ".join(prune_level)
+    cmd = f"lmplz -o {arpa_order} --prune {prune_level} --limit_vocab_file {vocab_file} < {lm_corpus}| sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
+    logger.info(f"Running training with: \t{cmd}\n")
     os.system(cmd)
+
 
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
@@ -186,4 +169,5 @@ if __name__ == "__main__":
         ],
         vocab_file=os.path.join(hparams["lang_dir"], "words.txt"),
         arpa_order=hparams["arpa_order"],
+        prune_level=hparams["prune_level"],
     )

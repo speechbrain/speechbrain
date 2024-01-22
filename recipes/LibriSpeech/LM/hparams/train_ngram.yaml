@@ -1,13 +1,11 @@
 #########
 # Recipe for Training kenLM on LibriSpeech Data.
-# It is used to boost any CTC or CTC/joint attention models. 
+# It is used to boost any CTC or CTC/joint attention models.
 #
-# Author: 
+# Author:
 #  - Adel Moumen 2024
 ################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1986
-arpa_order: 3
 output_folder: !ref results/LibriSpeech/lm/
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
@@ -21,4 +19,6 @@ sil_prob: 0.
 add_word_boundary: True
 caching: False
 skip_prep: False
+arpa_order: 3
+prune_level: [0, 1, 2]
 output_arpa: !ref <output_folder>/<arpa_order>-gram.arpa

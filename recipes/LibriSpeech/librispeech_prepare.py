@@ -5,8 +5,8 @@ Download: http://www.openslr.org/12
 
 Author
 ------
- * Mirco Ravanelli, 2020 
- * Ju-Chieh Chou, 2020 
+ * Mirco Ravanelli, 2020
+ * Ju-Chieh Chou, 2020
  * Loren Lugosch, 2020
  * Pierre Champion, 2023
  * Adel Moumen, 2024
@@ -41,6 +41,7 @@ OPEN_SLR_11_NGRAM_MODELs = [
     "3-gram.pruned.3e-7.arpa.gz",
     "4-gram.arpa.gz",
 ]
+
 
 def prepare_librispeech(
     data_folder,
@@ -466,6 +467,7 @@ def check_librispeech_folders(data_folder, splits):
             )
             raise OSError(err_msg)
 
+
 def download_librispeech_vocab_text(destination):
     """Download librispeech vocab file and unpack it.
 
@@ -476,6 +478,7 @@ def download_librispeech_vocab_text(destination):
     """
     f = "librispeech-vocab.txt"
     download_file(OPEN_SLR_11_LINK + f, destination)
+
 
 def download_openslr_librispeech_lm(destination, rescoring_lm=True):
     """Download openslr librispeech lm and unpack it.
@@ -493,6 +496,7 @@ def download_openslr_librispeech_lm(destination, rescoring_lm=True):
             continue
         d = os.path.join(destination, f)
         download_file(OPEN_SLR_11_LINK + f, d, unpack=True)
+
 
 def download_sb_librispeech_lm(destination, rescoring_lm=True):
     """Download sb librispeech lm and unpack it.

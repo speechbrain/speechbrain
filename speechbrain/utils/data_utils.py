@@ -22,6 +22,7 @@ import speechbrain as sb
 from numbers import Number
 import gzip
 
+
 def undo_padding(batch, lengths):
     """Produces Python lists given a batch of sentences with
     their corresponding relative lengths.
@@ -354,7 +355,11 @@ def download_file(
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
                 # shutil unpack_archive does not work with tar.gz files
-                if source.endswith(".tar.gz") or source.endswith(".tgz") or source.endswith(".gz"):
+                if (
+                    source.endswith(".tar.gz")
+                    or source.endswith(".tgz")
+                    or source.endswith(".gz")
+                ):
                     out = dest.replace(".gz", "")
                     with gzip.open(dest, "rb") as f_in:
                         with open(out, "wb") as f_out:
