@@ -101,7 +101,6 @@ class ASR(sb.Brain):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
         p_ctc, wav_lens, paths = predictions
-        ids = batch.id
 
         # Sort batch to be descending by length of wav files, which is required
         # by `k2.intersect_dense` called in `k2.ctc_loss`
@@ -109,7 +108,6 @@ class ASR(sb.Brain):
         p_ctc = p_ctc[indices]
         wav_lens = wav_lens[indices]
         texts = [batch.wrd[i] for i in indices]
-        ids = [ids[i] for i in indices]
 
         is_training = stage == sb.Stage.TRAIN
         loss = self.hparams.ctc_cost(
@@ -128,8 +126,8 @@ class ASR(sb.Brain):
 
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
-                self.wer_metrics[k].append(ids, predicted_words, target_words)
-                self.cer_metrics[k].append(ids, predicted_words, target_words)
+                self.wer_metrics[k].append(batch.id, predicted_words, target_words)
+                self.cer_metrics[k].append(batch.id, predicted_words, target_words)
             # For TEST and VALID stages, the loss value is not exact.
             # The <UNK> words have a target length (e.g., number of phones or characters) of 1.
             # As such, sentences with <UNK> have a higher loss during CTC loss 'mean' reduction mode.
