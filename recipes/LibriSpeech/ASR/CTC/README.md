@@ -35,7 +35,9 @@ To use this script, you will first need to install `k2`. The integration has bee
 
 Using a lexicon FST (L) while training can help guide the model to better predictions. When decoding, you can either use a simple HL decoding graph (where H is the ctc topology), or use an HLG graph (where G is usually a 3-gram language model) to further improve the results. In addition, whole lattice rescoring is also supported. This typically happens with a 4-gram language model. See `hparams/train_with_wav2vec_k2.yaml`` for more details.
 
-If you choose to use either a 3-gram or a 4-gram language model, you must provide pre-existing ARPA LMs for both cases. Those can be found in OpenSLR, Speechbrain dropbox, or you can train your own; check out `train_hf_wav2vec_k2.yaml` for more information.
+If you choose to use a 3-gram or a 4-gram language model, you can either supply pre-existing ARPA LMs for both cases, including the option to train your own, or you can specify the name in the YAML docstring for automatic downloading. Comprehensive instructions are provided in `train_hf_wav2vec_k2.yaml`.
+
+For those interested in training their own language model, please consult our recipe at LibriSpeech/LM/train_ngram.py.
 
 Example usage:
 ```
