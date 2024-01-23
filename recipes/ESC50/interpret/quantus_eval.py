@@ -194,6 +194,7 @@ def compute_faithfulness(predictions, predictions_masked):
     # get the prediction indices
     pred_cl = predictions.argmax(dim=1, keepdim=True)
 
+    import pdb; pdb.set_trace()
     # get the corresponding output probabilities
     predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
     predictions_masked_selected = torch.gather(
@@ -342,7 +343,8 @@ class Evaluator:
         maskin_preds = maskin_preds.softmax(1)
 
         maskout = X * (1 - inter)
-        maskout_preds = model(maskin)
+        # changing to model(maskout)
+        maskout_preds = model(maskout)
         if isinstance(maskout_preds, tuple):
             maskout_preds = maskout_preds[0]
         maskout_preds = maskout_preds.softmax(1)
