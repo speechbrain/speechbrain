@@ -11,9 +11,12 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
+exp_method: "l2i"
+use_stft2mel: false
+
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: /mnt/data/ESC50/
 audio_data_folder: !ref <data_folder>/audio
 
 add_wham_noise: false
@@ -166,6 +169,7 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
+pretrained_PIQ: null
 embedding_model_path: '../classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/embedding_model.ckpt'
 classifier_model_path: '../classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/classifier.ckpt'
 nmf_decoder_path: speechbrain/PIQ-ESC50/nmf_decoder.ckpt
