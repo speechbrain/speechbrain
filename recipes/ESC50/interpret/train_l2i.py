@@ -200,7 +200,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         """get the interpratation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
-        X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
+        X_int, X_stft_phase, pred_cl, _ = self.interpret_computation_steps(wavs)
         if not (batch is None):
             X_stft_phase_sb = torch.cat(
                 (
@@ -334,7 +334,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if self.hparams.use_wham:
+        if self.hparams.add_wham_noise:
             # augment batch with WHAM!
             wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
@@ -615,7 +615,7 @@ class InterpreterESC50Brain(sb.core.Brain):
     @torch.no_grad()
     def debug_files(self, X_stft, X_stft_logpower, batch, wavs):
         """The helper function to create debugging images"""
-        X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
+        X_int, X_stft_phase, pred_cl, _ = self.interpret_computation_steps(wavs)
         # X_stft_phase = X_stft_phase[..., None]
 
         X_int = X_int[None, ..., None]

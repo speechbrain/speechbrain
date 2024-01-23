@@ -16,7 +16,15 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
-use_wham: false
+add_wham_noise: false
+signal_length_s: 5
+wham_folder: /mnt/data/large_audio/WHAM/wham_noise
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
+wham_dataset: !new:wham_prepare.WHAMDataset
+    data_dir: !ref <wham_audio_folder>
+    target_length: !ref <signal_length_s>
+    sample_rate: !ref <sample_rate>
 
 experiment_name: L2I_cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
