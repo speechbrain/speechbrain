@@ -195,13 +195,13 @@ if __name__ == "__main__":
         X_oracle, X_stft, X_stft_power = preprocess(wavs.squeeze(1), hparams)
         X_stft_phase = spectral_phase(X_stft)
 
-        # assert not hparams["use_wham"], "You should run eval on overlap test."
+        assert not hparams["use_wham"], "You should run eval without WHAM! noise."
         if hparams["add_wham_noise"]:
             wavs = combine_batches(
                 wavs.squeeze(1), iter(hparams["wham_dataset"])
             )
 
-            X, _, _ = preprocess(wavs, hparams)
+            X, X_stft, _ = preprocess(wavs, hparams)
 
         else:
             X = X_oracle.squeeze(1)
@@ -220,6 +220,7 @@ if __name__ == "__main__":
                     X_mosaic_[None],  # needed for localization
                     y_mosaic_,
                     y_batch_,
+                    X_stft,
                     hparams["exp_method"],
                 )
 
