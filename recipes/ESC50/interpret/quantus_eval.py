@@ -194,7 +194,6 @@ def compute_faithfulness(predictions, predictions_masked):
     # get the prediction indices
     pred_cl = predictions.argmax(dim=1, keepdim=True)
 
-    import pdb; pdb.set_trace()
     # get the corresponding output probabilities
     predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
     predictions_masked_selected = torch.gather(
