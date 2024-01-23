@@ -57,7 +57,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 number_of_epochs: 200
 batch_size: 2
 lr: 0.0001
-sample_rate: 44100
+sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
 
