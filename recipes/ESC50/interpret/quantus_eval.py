@@ -442,6 +442,7 @@ class Evaluator:
                 sample_rate=16000
                 )
 
+        X_logpower = X_logpower[:, :, :interpretation.shape[2], :interpretation.shape[3]]
         int_ = torch.expm1(X_logpower[0, ..., None] * interpretation[0, ..., None])
         x_int = self.invert_stft_with_phase(int_, X_stft_phase)
 
