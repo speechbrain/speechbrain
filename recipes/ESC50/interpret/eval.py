@@ -163,7 +163,7 @@ if __name__ == "__main__":
     overlap_multiplier = 2
 
     discarded = 0
-    for idx, base_sample in enumerate(datasets["valid"]):
+    for idx, base_sample in tqdm(enumerate(datasets["valid"])):
         overlap_batch = generate_overlap(base_sample, datasets["test"], overlap_multiplier)
         y_batch = torch.Tensor(
                 [base_sample["class_string_encoded"] for _ in range(overlap_multiplier)]
@@ -207,6 +207,7 @@ if __name__ == "__main__":
                 local +=  " ".join([
                             f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in metrics.items()
                             ])
+                print(local)
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
 
@@ -219,11 +220,11 @@ if __name__ == "__main__":
 
         aggregate = f"Aggregated "
         aggregate +=  " ".join([
-                    f"{k}: {(v[0] if isinstance(v, list) else v)/(idx+1):.3f}" for k, v in aggregated_metrics.items()
+                    f"{k}: {(v[0] if isinstance(v, list) else v)/((idx+1) * overlap_multiplier):.3f}" for k, v in aggregated_metrics.items()
                     ])
 
-        if (idx % 5) == 0:
-            print(aggregate)
+        # if (idx % 1) == 0:
+            # print(aggregate)
 
     for k in aggregated_metrics:
         aggregated_metrics[k] /= len(datasets["valid"]) * overlap_multiplier
