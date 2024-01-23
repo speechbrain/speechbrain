@@ -28,6 +28,7 @@ from tqdm import tqdm
 
 eps = 1e-9
 
+
 class Model(nn.Module):
     def __init__(self, hparams, embedding_model, classifier, repr_=False):
         super().__init__()
@@ -72,14 +73,16 @@ def wrap_gradient_based(explain_fn, forw=True):
         inputs = torch.Tensor(inputs).to(next(model.parameters()).device)
         ex = explain_fn(inputs, targets, model).cpu().numpy()
         return ex
+
     return fn
 
 
-class MosaicDataset():
-    """ Generate mosaics to compute Focus! """
+class MosaicDataset:
+    """Generate mosaics to compute Focus!"""
+
     def __init__(self, dataset_test, hparams):
         self.hparams = hparams
-        self.dataset = dataset_test # used to sample
+        self.dataset = dataset_test  # used to sample
 
     def generate_mosaic(self, elements):
         labels = [1, 1, 0, 0]
@@ -90,10 +93,7 @@ class MosaicDataset():
         elements, labels = zip(*temp)
         elements, labels = list(elements), list(labels)
 
-        mosaic = torch.zeros(
-                elements[0].shape[1] * 2,
-                elements[0].shape[2] * 2
-                )
+        mosaic = torch.zeros(elements[0].shape[1] * 2, elements[0].shape[2] * 2)
 
         mosaic[0:417, 0:513] = elements[0]
         mosaic[0:417, 513:] = elements[1]
@@ -113,12 +113,12 @@ class MosaicDataset():
                 remove_from_pool.remove(el)
 
             if wanted:
-                s_label = label + 1 # not equal
+                s_label = label + 1  # not equal
                 while s_label != label:
                     s = np.random.choice(pool)
                     s_label = self.dataset[s]["class_string_encoded"]
 
-                m21_idx = s # second positive sample
+                m21_idx = s  # second positive sample
                 remove_from_pool.append(s)
 
             else:
@@ -127,11 +127,11 @@ class MosaicDataset():
                     s = np.random.choice(pool)
                     s_label = self.dataset[s]["class_string_encoded"]
 
-                negative_idx.append(s) # append negative examples
+                negative_idx.append(s)  # append negative examples
                 remove_from_pool.append(s)
 
         return m21_idx, negative_idx[0], negative_idx[1]
-    
+
     def preprocess(self, sample):
         """Pre-process wavs."""
         wavs = sample["sig"][None]
@@ -154,12 +154,14 @@ class MosaicDataset():
         for sample in batch:
             # returns sample with same label, and two different labels
             idx_cm, idx_n1, idx_n2 = self.sample_wlabel(c_m)
-    
+
             m12 = self.preprocess(self.dataset[idx_cm])
             m21 = self.preprocess(self.dataset[idx_n1])
             m22 = self.preprocess(self.dataset[idx_n2])
-    
-            temp = self.generate_mosaic([sample[None][:, :417, :], m12, m21, m22])
+
+            temp = self.generate_mosaic(
+                [sample[None][:, :417, :], m12, m21, m22]
+            )
 
             mosaics.append(temp[0])
             mosaic_labels.append(torch.Tensor(temp[1]))
@@ -170,7 +172,8 @@ class MosaicDataset():
         mosaics = mosaics[:, :, :833, :1025]
 
         return mosaics, mosaic_labels
-    
+
+
 @torch.no_grad()
 def compute_fidelity(theta_out, predictions):
     """Computes top-`k` fidelity of interpreter."""
@@ -184,6 +187,7 @@ def compute_fidelity(theta_out, predictions):
     temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
 
     return temp
+
 
 @torch.no_grad()
 def compute_faithfulness(predictions, predictions_masked):
@@ -201,6 +205,7 @@ def compute_faithfulness(predictions, predictions_masked):
     ).squeeze()
 
     return faithfulness
+
 
 @torch.no_grad()
 def compute_AD(theta_out, predictions):
@@ -220,6 +225,7 @@ def compute_AD(theta_out, predictions):
 
     return temp
 
+
 @torch.no_grad()
 def compute_AI(theta_out, predictions):
     """Computes top-`k` fidelity of interpreter."""
@@ -237,6 +243,7 @@ def compute_AI(theta_out, predictions):
     temp = (pc < oc).float() * 100
 
     return temp
+
 
 @torch.no_grad()
 def compute_AG(theta_out, predictions):
@@ -266,55 +273,49 @@ class Evaluator:
             perturb_baseline="black",
             perturb_func=quantus.perturb_func.baseline_replacement_by_indices,
             return_auc_per_sample=True,
-            abs=True
+            abs=True,
         )
 
         self.region_perturb = quantus.RegionPerturbation(
             patch_size=14,
             regions_evaluation=10,
-            perturb_baseline="uniform", 
+            perturb_baseline="uniform",
             return_aggregate=True,
             normalise=True,
-            abs=True
+            abs=True,
         )
 
         self.max_sensitivity = quantus.MaxSensitivity(
-                nr_samples=10,
-                lower_bound=0.2,
-                norm_numerator=quantus.norm_func.fro_norm,
-                norm_denominator=quantus.norm_func.fro_norm,
-                perturb_func=quantus.perturb_func.uniform_noise,
-                similarity_func=quantus.similarity_func.difference,
-                return_aggregate=True,
-                abs=True
-            )
-        
+            nr_samples=10,
+            lower_bound=0.2,
+            norm_numerator=quantus.norm_func.fro_norm,
+            norm_denominator=quantus.norm_func.fro_norm,
+            perturb_func=quantus.perturb_func.uniform_noise,
+            similarity_func=quantus.similarity_func.difference,
+            return_aggregate=True,
+            abs=True,
+        )
+
         self.avg_sensitivity = quantus.AvgSensitivity(
-                nr_samples=10,
-                lower_bound=0.2,
-                norm_numerator=quantus.norm_func.fro_norm,
-                norm_denominator=quantus.norm_func.fro_norm,
-                perturb_func=quantus.perturb_func.uniform_noise,
-                similarity_func=quantus.similarity_func.difference,
-                return_aggregate=True,
-                abs=True
-            )
+            nr_samples=10,
+            lower_bound=0.2,
+            norm_numerator=quantus.norm_func.fro_norm,
+            norm_denominator=quantus.norm_func.fro_norm,
+            perturb_func=quantus.perturb_func.uniform_noise,
+            similarity_func=quantus.similarity_func.difference,
+            return_aggregate=True,
+            abs=True,
+        )
 
-        self.sparseness = quantus.Sparseness(
-                return_aggregate=True,
-                abs=True
-                )
+        self.sparseness = quantus.Sparseness(return_aggregate=True, abs=True)
 
-        self.complexity = quantus.Complexity(
-                return_aggregate=True,
-                abs=True
-                )
+        self.complexity = quantus.Complexity(return_aggregate=True, abs=True)
 
         self.focus = quantus.Focus(
-                mosaic_shape=[1, X_shape[1] * 2, X_shape[2] * 2],
-                return_aggregate=True,
-                abs=True
-                )
+            mosaic_shape=[1, X_shape[1] * 2, X_shape[2] * 2],
+            return_aggregate=True,
+            abs=True,
+        )
 
     def compute_ours(self, X, model, method, explain_fn):
         metrics = {}
@@ -324,21 +325,21 @@ class Evaluator:
             predictions = predictions[0]
         predictions = predictions.softmax(1)
         y = predictions.argmax(1)
-    
+
         if not "mask" in method and "ao" != method:
             inter = explain_fn(X, y, model)
         else:
             inter = explain_fn(X, y, model)
 
         if method == "ao" or method == "l2i":
-            X = X[:, :, :inter.shape[2], :inter.shape[3]]
+            X = X[:, :, : inter.shape[2], : inter.shape[3]]
 
         maskin = X * inter
         maskin_preds = model(maskin)
         if isinstance(maskin_preds, tuple):
             maskin_preds = maskin_preds[0]
         maskin_preds = maskin_preds.softmax(1)
-    
+
         maskout = X * (1 - inter)
         maskout_preds = model(maskin)
         if isinstance(maskout_preds, tuple):
@@ -346,84 +347,152 @@ class Evaluator:
         maskout_preds = maskout_preds.softmax(1)
 
         if self.first:
-            gradient_based.save_ints([X.squeeze()], [inter.squeeze()], [method], fname=f"{method}.png")
+            gradient_based.save_ints(
+                [X.squeeze()],
+                [inter.squeeze()],
+                [method],
+                fname=f"{method}.png",
+            )
 
         metrics["AI"] = compute_AI(maskin_preds, predictions).item()
         metrics["AD"] = compute_AD(maskin_preds, predictions).item()
         metrics["AG"] = compute_AG(maskin_preds, predictions).item()
-        metrics["faithfulness_l2i"] = compute_faithfulness(predictions, maskout_preds).item()
+        metrics["faithfulness_l2i"] = compute_faithfulness(
+            predictions, maskout_preds
+        ).item()
         metrics["inp_fid"] = compute_fidelity(maskin_preds, predictions).item()
 
         return metrics, inter
 
-    def __call__(self, model, explain_fn, X, X_mosaic, y_mosaic, y, method, device="cuda"):
-        """ computes quantus metrics sample-wise """
+    def __call__(
+        self, model, explain_fn, X, X_mosaic, y_mosaic, y, method, device="cuda"
+    ):
+        """computes quantus metrics sample-wise"""
         if model.training:
             model.eval()
-    
+
         metrics, inter = self.compute_ours(X, model, method, explain_fn)
-    
+
         X = X.clone().detach().cpu().numpy()
         y = y.clone().detach().cpu().numpy()
         attr = inter.clone().detach().cpu().numpy()
         y_mosaic = np.array(y_mosaic)[None]
-        wrap_explain_fn = wrap_gradient_based(explain_fn, forw="maskin" in method)
+        wrap_explain_fn = wrap_gradient_based(
+            explain_fn, forw="maskin" in method
+        )
 
         # matches interpretations shapes
-        X = X[:, :, :attr.shape[2], :attr.shape[3]]
-    
+        X = X[:, :, : attr.shape[2], : attr.shape[3]]
+
         quantus_inp = {
-                "model": model,
-                "x_batch": X, # quantus expects the batch dim
-                "y_batch": np.array([y], dtype=int),
-                "a_batch": attr,
-                "softmax": False,
-                "device": device,
-                "explain_func": wrap_explain_fn
-                }
-    
+            "model": model,
+            "x_batch": X,  # quantus expects the batch dim
+            "y_batch": np.array([y], dtype=int),
+            "a_batch": attr,
+            "softmax": False,
+            "device": device,
+            "explain_func": wrap_explain_fn,
+        }
+
         # Call the metric instance to produce scores.
         # import time
         # now = time.time()
         # metrics["pixel_flip"] = self.pixel_flipping(
-                # **quantus_inp
-                # )
+        # **quantus_inp
+        # )
         # print("pixel flip: ", time.time() - now)
-    # 
+        #
         # import time
         # now = time.time()
         # metrics["region_perturbation"] = self.region_perturb(
-                # **quantus_inp
-                # )
+        # **quantus_inp
+        # )
         # print("region perturbation: ", time.time() - now)
-  
-        metrics["max_sensitivity"] = self.max_sensitivity(
-                **quantus_inp
-                )
-    
-    
-        metrics["avg_sensitivity"] = self.avg_sensitivity(
-                **quantus_inp
-                )
-  
-        metrics["sparseness"] = self.sparseness(
-                **quantus_inp
-                )
-    
-        metrics["complexity"] = self.complexity(
-                **quantus_inp
-                )
-    
+
+        metrics["max_sensitivity"] = self.max_sensitivity(**quantus_inp)
+
+        metrics["avg_sensitivity"] = self.avg_sensitivity(**quantus_inp)
+
+        metrics["sparseness"] = self.sparseness(**quantus_inp)
+
+        metrics["complexity"] = self.complexity(**quantus_inp)
+
         if method != "l2i" and False:
-            quantus_inp["x_batch"] = X_mosaic   # quantus expects the batch dim_mosaic
+            quantus_inp[
+                "x_batch"
+            ] = X_mosaic  # quantus expects the batch dim_mosaic
             quantus_inp["a_batch"] = None
             metrics["focus"] = self.focus(
-                    custom_batch=y_mosaic, # look here https://github.com/understandable-machine-intelligence-lab/Quantus/blob/c32da2b6e39f41b50572d1e4a4ddfc061e0bb8b2/quantus/metrics/localisation/focus.py#L307
-                    **quantus_inp
-                    )
+                custom_batch=y_mosaic,  # look here https://github.com/understandable-machine-intelligence-lab/Quantus/blob/c32da2b6e39f41b50572d1e4a4ddfc061e0bb8b2/quantus/metrics/localisation/focus.py#L307
+                **quantus_inp,
+            )
 
         if self.first:
             self.first = not self.first
-    
+
         return metrics
 
+    def debug_files(self, X_stft, xhat, X_stft_logpower, batch, wavs):
+        """The helper function to create debugging images"""
+        X_stft_phase = spectral_phase(X_stft)
+        temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
+        Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
+        if not self.hparams.use_melspectra:
+            xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
+
+        Tmax = Xspec_est.shape[1]
+        X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
+
+        X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
+        if not self.hparams.use_melspectra:
+            xhat_tm_masked = self.invert_stft_with_phase(
+                X_est_masked, X_stft_phase[0:1]
+            )
+
+        plt.figure(figsize=(11, 10), dpi=100)
+
+        plt.subplot(311)
+        X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
+        plt.imshow(X_target, origin="lower")
+        plt.title("input")
+        plt.colorbar()
+
+        plt.subplot(312)
+        mask = xhat[0]
+        X_masked = mask * X_stft_logpower[0, :Tmax, :]
+        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
+        plt.colorbar()
+        plt.title("masked")
+
+        plt.subplot(313)
+        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
+        plt.colorbar()
+        plt.title("mask")
+
+        out_folder = os.path.join(
+            self.hparams.output_folder,
+            "reconstructions/" f"{batch.id[0]}",
+        )
+        makedirs(
+            out_folder,
+            exist_ok=True,
+        )
+
+        plt.savefig(
+            os.path.join(out_folder, "reconstructions.png"),
+            format="png",
+        )
+        plt.close()
+
+        if not self.hparams.use_melspectra:
+            torchaudio.save(
+                os.path.join(out_folder, "interpretation.wav"),
+                xhat_tm_masked.data.cpu(),
+                self.hparams.sample_rate,
+            )
+
+        torchaudio.save(
+            os.path.join(out_folder, "original.wav"),
+            wavs[0:1].data.cpu(),
+            self.hparams.sample_rate,
+        )

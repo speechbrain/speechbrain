@@ -30,7 +30,7 @@ def generate_mixture(s1, s2):
     s2 = s2 / torch.norm(s2)
 
     # create the mixture with s2 being the noise (lower gain)
-    mix = (s1 * 0.8 + (s2 * 0.2))
+    mix = s1 * 0.8 + (s2 * 0.2)
     mix = mix / mix.max()
 
     return mix
@@ -40,7 +40,9 @@ def generate_overlap(sample, dataset, overlap_multiplier=1):
     pool = [i for i in range(len(dataset))]
     indices = random.sample(pool, overlap_multiplier)
 
-    samples = [{k: v for k, v in sample.items()} for _ in range(overlap_multiplier)]
+    samples = [
+        {k: v for k, v in sample.items()} for _ in range(overlap_multiplier)
+    ]
     for i, idx in enumerate(indices):
         samples[i]["sig"] = generate_mixture(sample["sig"], dataset[idx]["sig"])
 
@@ -99,14 +101,15 @@ if __name__ == "__main__":
     # take trained model, make it eval
     f_emb = hparams["embedding_model"].to(run_opts["device"])
     f_cls = hparams["classifier"].to(run_opts["device"])
-    print("Loading embedding_model state dict from ", hparams["embedding_model_path"])
-    f_emb.load_state_dict(
-            torch.load(hparams["embedding_model_path"])
-            )
-    print("Loading classifier state dict from ", hparams["classifier_model_path"])
-    f_cls.load_state_dict(
-            torch.load(hparams["classifier_model_path"])
-            )
+    print(
+        "Loading embedding_model state dict from ",
+        hparams["embedding_model_path"],
+    )
+    f_emb.load_state_dict(torch.load(hparams["embedding_model_path"]))
+    print(
+        "Loading classifier state dict from ", hparams["classifier_model_path"]
+    )
+    f_cls.load_state_dict(torch.load(hparams["classifier_model_path"]))
     f_emb.eval()
     f_cls.eval()
 
@@ -117,9 +120,7 @@ if __name__ == "__main__":
     if hparams["exp_method"] == "ao" or hparams["exp_method"] == "l2i":
         psi = hparams["psi_model"].to(run_opts["device"])
         print("Loading PSI state dict from ", hparams["pretrained_PIQ"])
-        psi.load_state_dict(
-                torch.load(hparams["pretrained_PIQ"])
-                )
+        psi.load_state_dict(torch.load(hparams["pretrained_PIQ"]))
         psi.eval()
         hparams["psi_model"] = psi
 
@@ -129,8 +130,8 @@ if __name__ == "__main__":
     if hparams["exp_method"] == "l2i":
         # load theta as well...
         hparams["nmf_decoder"].load_state_dict(
-                torch.load(hparams["nmf_decoder_path"])
-                )
+            torch.load(hparams["nmf_decoder_path"])
+        )
         hparams["nmf_decoder"].to(run_opts["device"])
         hparams["psi"] = psi
 
@@ -138,36 +139,53 @@ if __name__ == "__main__":
     evaluator = quantus_eval.Evaluator()
 
     model_wrap = quantus_eval.Model(
-        hparams, f_emb, f_cls, repr_="ao" == hparams["exp_method"] or "l2i" in hparams["exp_method"]
+        hparams,
+        f_emb,
+        f_cls,
+        repr_="ao" == hparams["exp_method"] or "l2i" in hparams["exp_method"],
     )
     model_wrap.eval()
 
     exp_methods = {
-            "saliency": gradient_based.saliency,
-            "IG": gradient_based.ig,
-            "smoothgrad": gradient_based.smoothgrad,
-            "single_maskinout": opt_single_mask,
-            "l2i": l2i_pretrained(hparams, run_opts)
-            }
+        "saliency": gradient_based.saliency,
+        "IG": gradient_based.ig,
+        "smoothgrad": gradient_based.smoothgrad,
+        "single_maskinout": opt_single_mask,
+        "l2i": l2i_pretrained(hparams, run_opts),
+    }
 
     if hparams["exp_method"] == "ao":
         exp_methods["ao"] = interpret_pretrained(psi)
 
     computed_metrics = [
-            "pixel_flip", "region_perturbation", "max_sensitivity",
-            "avg_sensitivity", "sparseness", "complexity", "focus",
-            "AI", "AD", "AG", "faithfulness_l2i", "inp_fid"
-            ]
-    aggregated_metrics = {k: 0. for k in computed_metrics}
+        "pixel_flip",
+        "region_perturbation",
+        "max_sensitivity",
+        "avg_sensitivity",
+        "sparseness",
+        "complexity",
+        "focus",
+        "AI",
+        "AD",
+        "AG",
+        "faithfulness_l2i",
+        "inp_fid",
+    ]
+    aggregated_metrics = {k: 0.0 for k in computed_metrics}
     samples_interval = hparams["interpret_period"]
     overlap_multiplier = 2
 
     discarded = 0
     for idx, base_sample in tqdm(enumerate(datasets["valid"])):
-        overlap_batch = generate_overlap(base_sample, datasets["test"], overlap_multiplier)
+        overlap_batch = generate_overlap(
+            base_sample, datasets["test"], overlap_multiplier
+        )
         y_batch = torch.Tensor(
-                [base_sample["class_string_encoded"] for _ in range(overlap_multiplier)]
-                )
+            [
+                base_sample["class_string_encoded"]
+                for _ in range(overlap_multiplier)
+            ]
+        )
 
         # extract sample
         wavs = [sample["sig"][None] for sample in overlap_batch]
@@ -179,7 +197,9 @@ if __name__ == "__main__":
 
         # assert not hparams["use_wham"], "You should run eval on overlap test."
         if hparams["add_wham_noise"]:
-            wavs = combine_batches(wavs.squeeze(1), iter(hparams["wham_dataset"]))
+            wavs = combine_batches(
+                wavs.squeeze(1), iter(hparams["wham_dataset"])
+            )
 
             X, _, _ = preprocess(wavs, hparams)
 
@@ -190,8 +210,8 @@ if __name__ == "__main__":
         X_mosaic, y_mosaic = torch.zeros_like(X), [0 for _ in range(X.shape[0])]
 
         for X_, X_mosaic_, y_mosaic_, y_batch_ in zip(
-                X, X_mosaic, y_mosaic, y_batch
-                ):
+            X, X_mosaic, y_mosaic, y_batch
+        ):
             try:
                 metrics = evaluator(
                     model_wrap,
@@ -200,17 +220,19 @@ if __name__ == "__main__":
                     X_mosaic_[None],  # needed for localization
                     y_mosaic_,
                     y_batch_,
-                    hparams["exp_method"]
+                    hparams["exp_method"],
                 )
 
                 local = f"Sample={idx+1} "
-                local +=  " ".join([
-                            f"{k}: {v[0] if isinstance(v, list) else v:.3f}" for k, v in metrics.items()
-                            ])
+                local += " ".join(
+                    [
+                        f"{k}: {v[0] if isinstance(v, list) else v:.3f}"
+                        for k, v in metrics.items()
+                    ]
+                )
                 print(local)
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
-
 
             except AssertionError as e:
                 discarded += 1
@@ -219,12 +241,15 @@ if __name__ == "__main__":
                 print("Exception was ", str(e))
 
         aggregate = f"Aggregated "
-        aggregate +=  " ".join([
-                    f"{k}: {(v[0] if isinstance(v, list) else v)/((idx+1) * overlap_multiplier):.3f}" for k, v in aggregated_metrics.items()
-                    ])
+        aggregate += " ".join(
+            [
+                f"{k}: {(v[0] if isinstance(v, list) else v)/((idx+1) * overlap_multiplier):.3f}"
+                for k, v in aggregated_metrics.items()
+            ]
+        )
 
         # if (idx % 1) == 0:
-            # print(aggregate)
+        # print(aggregate)
 
     for k in aggregated_metrics:
         aggregated_metrics[k] /= len(datasets["valid"]) * overlap_multiplier
@@ -233,4 +258,3 @@ if __name__ == "__main__":
     os.makedirs("quant_eval", exist_ok=True)
     df = pd.DataFrame(metrics)
     df.to_csv("quant_eval/" + hparams["exp_method"] + ".csv")
-

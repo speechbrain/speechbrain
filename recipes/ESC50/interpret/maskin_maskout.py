@@ -22,9 +22,12 @@ import matplotlib.pyplot as plt
 
 eps = 1e-10
 
+
 def opt_single_mask(ft, model, EP=1000):
-    mask = torch.nn.Parameter(torch.ones(ft.shape, device='cuda')*0.5, requires_grad=True)
-    opt = torch.optim.Adam([mask], lr=1e-3) 
+    mask = torch.nn.Parameter(
+        torch.ones(ft.shape, device="cuda") * 0.5, requires_grad=True
+    )
+    opt = torch.optim.Adam([mask], lr=1e-3)
 
     for e in range(EP):
         opt.zero_grad()
@@ -35,7 +38,7 @@ def opt_single_mask(ft, model, EP=1000):
         xhat = model(ft * torch.sigmoid(mask)).squeeze()
         xhat2 = model(ft * (1 - torch.sigmoid(mask))).squeeze()
 
-        loss = - xhat[argmax] + xhat2[argmax] - xhat2.mean() + mask.abs().mean()
+        loss = -xhat[argmax] + xhat2[argmax] - xhat2.mean() + mask.abs().mean()
 
         loss.backward()
 
@@ -59,9 +62,8 @@ def interpret_pretrained(interpreter):
         else:
             temp = interpreter(fI)
         temp = torch.sigmoid(temp)
-        temp = temp[:, :, :x.shape[2], :x.shape[3]]
+        temp = temp[:, :, : x.shape[2], : x.shape[3]]
 
         return temp
 
     return interpret_ao
-

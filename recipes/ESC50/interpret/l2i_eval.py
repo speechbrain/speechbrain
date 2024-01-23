@@ -23,6 +23,7 @@ from train_l2i import InterpreterESC50Brain
 
 eps = 1e-10
 
+
 class EvalL2I(InterpreterESC50Brain):
     def interpret_computation_steps(self, predictions, f_I):
         """computation steps to get the interpretation spectrogram"""
@@ -60,26 +61,27 @@ class EvalL2I(InterpreterESC50Brain):
 
         # need the eps for the denominator
         eps = 1e-10
-        X_hat = (X_withselected / (Xhat + eps))
+        X_hat = X_withselected / (Xhat + eps)
 
         return X_hat.transpose(-1, -2)
 
 
 def l2i_pretrained(hparams, run_opts):
-   l2i_brain = EvalL2I(
+    l2i_brain = EvalL2I(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
-        ) 
+    )
 
-   @torch.no_grad()
-   def explain_fn(ft, _, model):
-       predictions, temp = model(ft)
-       mask = l2i_brain.interpret_computation_steps(predictions, temp)[None, None]
+    @torch.no_grad()
+    def explain_fn(ft, _, model):
+        predictions, temp = model(ft)
+        mask = l2i_brain.interpret_computation_steps(predictions, temp)[
+            None, None
+        ]
 
-       return mask
+        return mask
 
-   return explain_fn
-
+    return explain_fn
