@@ -363,7 +363,7 @@ class Evaluator:
         ).item()
         metrics["inp_fid"] = compute_fidelity(maskin_preds, predictions).item()
 
-        return metrics, inter
+        return metrics, inter, y
 
     def __call__(
         self, model, explain_fn, X, X_mosaic, y_mosaic, y, X_stft, method, id_, device="cuda"
@@ -378,9 +378,9 @@ class Evaluator:
         os.makedirs(f"qualitative_{method}", exist_ok=True)
         os.makedirs(out_folder, exist_ok=True)
 
-        metrics, inter = self.compute_ours(X, model, method, explain_fn)
+        metrics, inter, y_pred = self.compute_ours(X, model, method, explain_fn)
 
-        self.debug_files(X_stft, X, inter, id_, out_folder)
+        self.debug_files(y, y_pred, X_stft, X, inter, id_, out_folder)
 
         X = X.clone().detach().cpu().numpy()
         y = y.clone().detach().cpu().numpy()
@@ -426,12 +426,15 @@ class Evaluator:
 
         return metrics
 
-    def debug_files(self, X_stft, X_logpower, interpretation, fname="test", out_folder="."):
+    def debug_files(self, y, y_hat, X_stft, X_logpower, interpretation, fname="test", out_folder="."):
         """The helper function to create debugging images"""
         X_stft_phase = spectral_phase(X_stft[None])
 
         X = torch.expm1(X_logpower)[0, ..., None]
         x_inp = self.invert_stft_with_phase(X, X_stft_phase)
+
+        with open(os.path.join(out_folder, "predictions.txt"), "w") as f:
+            f.write(f"GT={int(y)} prediction={y_hat.item()}")
 
         torchaudio.save(
                 f"{os.path.join(out_folder, fname)}_original.wav",
