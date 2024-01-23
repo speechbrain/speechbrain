@@ -24,6 +24,7 @@ from l2i_eval import l2i_pretrained
 
 eps = 1e-10
 
+random.seed(10)
 
 def generate_mixture(s1, s2):
     s1 = s1 / torch.norm(s1)
@@ -39,6 +40,7 @@ def generate_mixture(s1, s2):
 def generate_overlap(sample, dataset, overlap_multiplier=1):
     pool = [i for i in range(len(dataset))]
     indices = random.sample(pool, overlap_multiplier)
+    # print("\n\n Generate overlap called!", indices, " \n\n")
 
     samples = [
         {k: v for k, v in sample.items()} for _ in range(overlap_multiplier)
@@ -242,6 +244,11 @@ if __name__ == "__main__":
             ]
         )
 
+        if idx > 20:
+            print("-----------------------------------")
+            print("Breaking loop to transfer data....!!! \n\n")
+            break
+            
         # if (idx % 1) == 0:
         # print(aggregate)
 
