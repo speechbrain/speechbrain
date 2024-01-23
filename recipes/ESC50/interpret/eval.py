@@ -136,7 +136,7 @@ if __name__ == "__main__":
         hparams["psi"] = psi
 
     d_mosaic = quantus_eval.MosaicDataset(datasets["test"], hparams)
-    evaluator = quantus_eval.Evaluator()
+    evaluator = quantus_eval.Evaluator(hparams)
 
     model_wrap = quantus_eval.Model(
         hparams,
@@ -195,22 +195,14 @@ if __name__ == "__main__":
         X_oracle, X_stft, X_stft_power = preprocess(wavs.squeeze(1), hparams)
         X_stft_phase = spectral_phase(X_stft)
 
-        assert not hparams["use_wham"], "You should run eval without WHAM! noise."
-        if hparams["add_wham_noise"]:
-            wavs = combine_batches(
-                wavs.squeeze(1), iter(hparams["wham_dataset"])
-            )
-
-            X, X_stft, _ = preprocess(wavs, hparams)
-
-        else:
-            X = X_oracle.squeeze(1)
+        assert not hparams["add_wham_noise"], "You should run eval without WHAM! noise."
+        X = X_oracle.squeeze(1)
 
         # X_mosaic, y_mosaic = d_mosaic(X, base_sample["class_string_encoded"])
         X_mosaic, y_mosaic = torch.zeros_like(X), [0 for _ in range(X.shape[0])]
 
-        for X_, X_mosaic_, y_mosaic_, y_batch_ in zip(
-            X, X_mosaic, y_mosaic, y_batch
+        for X_, X_stft_, X_mosaic_, y_mosaic_, y_batch_ in zip(
+            X, X_stft, X_mosaic, y_mosaic, y_batch
         ):
             try:
                 metrics = evaluator(
@@ -220,8 +212,9 @@ if __name__ == "__main__":
                     X_mosaic_[None],  # needed for localization
                     y_mosaic_,
                     y_batch_,
-                    X_stft,
+                    X_stft_,
                     hparams["exp_method"],
+                    base_sample["id"] + "+" + str(idx)
                 )
 
                 local = f"Sample={idx+1} "

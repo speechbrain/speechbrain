@@ -265,7 +265,8 @@ def compute_AG(theta_out, predictions):
 
 
 class Evaluator:
-    def __init__(self, X_shape=(1, 431, 513)):
+    def __init__(self, hparams, X_shape=(1, 431, 513)):
+        self.hparams = hparams
         self.first = True
 
         self.pixel_flipping = quantus.PixelFlipping(
@@ -365,18 +366,22 @@ class Evaluator:
         return metrics, inter
 
     def __call__(
-        self, model, explain_fn, X, X_mosaic, y_mosaic, y, X_stft, method, device="cuda"
+        self, model, explain_fn, X, X_mosaic, y_mosaic, y, X_stft, method, id_, device="cuda"
     ):
         """computes quantus metrics sample-wise"""
         if model.training:
             model.eval()
 
         if self.first:
+            out_folder = os.path.join(
+                    f"qualitative_{method}", id_
+                    )
             os.makedirs(f"qualitative_{method}", exist_ok=True)
+            os.makedirs(out_folder, exist_ok=True)
 
         metrics, inter = self.compute_ours(X, model, method, explain_fn)
 
-        # self.debug_files(X_stft, X, inter)
+        self.debug_files(X_stft, X, inter, id_, out_folder, )
 
         X = X.clone().detach().cpu().numpy()
         y = y.clone().detach().cpu().numpy()
@@ -422,66 +427,69 @@ class Evaluator:
 
         return metrics
 
-    def debug_files(self, X_stft, X_logpower, interpretation):
+    def debug_files(self, X_stft, X_logpower, interpretation, fname="test", out_folder="."):
         """The helper function to create debugging images"""
-        X_stft_phase = spectral_phase(X_stft)
-        temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
+        X_stft_phase = spectral_phase(X_stft[None])
 
-        Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
-        xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
+        X = torch.expm1(X_logpower)[0, ..., None]
+        x_inp = self.invert_stft_with_phase(X, X_stft_phase)
 
-        # Tmax = Xspec_est.shape[1]
-        # X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
-# 
-        # X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
-            # xhat_tm_masked = self.invert_stft_with_phase(
-                # X_est_masked, X_stft_phase[0:1]
-            # )
-# 
-        # plt.figure(figsize=(11, 10), dpi=100)
-# 
-        # plt.subplot(311)
-        # X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
-        # plt.imshow(X_target, origin="lower")
-        # plt.title("input")
-        # plt.colorbar()
-# 
-        # plt.subplot(312)
-        # mask = xhat[0]
-        # X_masked = mask * X_stft_logpower[0, :Tmax, :]
-        # plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
-        # plt.colorbar()
-        # plt.title("masked")
-# 
-        # plt.subplot(313)
-        # plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
-        # plt.colorbar()
-        # plt.title("mask")
-# 
-        # out_folder = os.path.join(
-            # self.hparams.output_folder,
-            # "reconstructions/" f"{batch.id[0]}",
-        # )
-        # makedirs(
-            # out_folder,
-            # exist_ok=True,
-        # )
-# 
-        # plt.savefig(
-            # os.path.join(out_folder, "reconstructions.png"),
-            # format="png",
-        # )
-        # plt.close()
-# 
-        # if not self.hparams.use_melspectra:
-            # torchaudio.save(
-                # os.path.join(out_folder, "interpretation.wav"),
-                # xhat_tm_masked.data.cpu(),
-                # self.hparams.sample_rate,
-            # )
-# 
-        # torchaudio.save(
-            # os.path.join(out_folder, "original.wav"),
-            # wavs[0:1].data.cpu(),
-            # self.hparams.sample_rate,
-        # )
+        torchaudio.save(
+                f"{os.path.join(out_folder, fname)}_original.wav",
+                x_inp.cpu(),
+                sample_rate=16000
+                )
+
+        int_ = torch.expm1(X_logpower[0, ..., None] * interpretation[0, ..., None])
+        x_int = self.invert_stft_with_phase(int_, X_stft_phase)
+
+        torchaudio.save(
+                f"{os.path.join(out_folder, fname)}_int.wav",
+                x_int.cpu(),
+                sample_rate=16000
+                )
+        plt.figure(figsize=(11, 10), dpi=100)
+
+        plt.subplot(311)
+        torch.save(X_logpower, os.path.join(out_folder, "x_logpower.pt"))
+        plt.imshow(X_logpower.squeeze().t().cpu(), origin="lower")
+        plt.title("input")
+        plt.colorbar()
+
+        plt.subplot(312)
+        torch.save(interpretation, os.path.join(out_folder, "interpretation.pt"))
+        X_masked = interpretation.squeeze().t().cpu()
+        plt.imshow(X_masked.data.cpu(), origin="lower")
+        plt.colorbar()
+        plt.title("mask")
+
+        plt.subplot(313)
+        plt.imshow((X_logpower.squeeze().t().cpu() * X_masked).cpu(), origin="lower")
+        plt.colorbar()
+        plt.title("masked")
+
+        out_fname_plot = os.path.join(
+            out_folder,
+            f"{fname}.png"
+        )
+
+        plt.savefig(out_fname_plot)
+        plt.close()
+
+    def invert_stft_with_phase(self, X_int, X_stft_phase):
+        """Inverts STFT spectra given phase."""
+        X_stft_phase_sb = torch.cat(
+            (
+                torch.cos(X_stft_phase).unsqueeze(-1),
+                torch.sin(X_stft_phase).unsqueeze(-1),
+            ),
+            dim=-1,
+        )
+
+        X_stft_phase_sb = X_stft_phase_sb[:, : X_int.shape[1], :, :]
+        if X_int.ndim == 3:
+            X_int = X_int.unsqueeze(-1)
+        X_wpsb = X_int * X_stft_phase_sb
+        x_int_sb = self.hparams["compute_istft"](X_wpsb)
+
+        return x_int_sb
