@@ -109,7 +109,11 @@ class InterpreterESC50Brain(sb.core.Brain):
         if self.hparams.use_vq:
             xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
-            xhat = self.modules.psi.decoder(hcat)
+            if self.modules.embedding_model.__class__.__name__ == "Cnn14":
+                xhat = self.modules.psi(hcat)
+            else:
+                xhat = self.modules.psi.decoder(hcat)
+
             z_q_x = None
         xhat = xhat.squeeze(1)
 
@@ -361,8 +365,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         if self.hparams.use_vq:
             xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
-            xhat = self.modules.psi.forward(hcat, class_pred)[0]
+            xhat = self.modules.psi(hcat, class_pred)
             z_q_x = None
+
         xhat = xhat.squeeze(1)
 
         if self.hparams.use_mask_output:
