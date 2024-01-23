@@ -8,7 +8,7 @@ https://huggingface.co/transformers/installation.html
 
 Authors
  * Salah Zaiem 2023
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 
 import torch
@@ -34,19 +34,25 @@ class WeightedSSLModel(HFTransformersInterface):
     ---------
     hub : str
         HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
+    save_path : str
+        Path (dir) of the downloaded model.
     layernorm: bool, (default: False)
         Whether layer representations should be layernormed before sum
+    freeze : bool (default: True)
+        If True, the model is frozen. If False, the model will be trained
+        alongside with the rest of the pipeline.
 
     Example
     -------
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "facebook/wav2vec2-base-960h"
-    >>> model = WeightedSSLModel(model_hub)
+    >>> save_path = "savedir"
+    >>> model = WeightedSSLModel(model_hub, save_path)
     >>> outputs = model(inputs)
     """
 
-    def __init__(self, hub, layernorm=False):
-        super().__init__(source=hub)
+    def __init__(self, hub, save_path, layernorm=False, freeze=False):
+        super().__init__(source=hub, save_path=save_path, freeze=freeze)
         self.model.eval()
         self.num_layers = self.config.num_hidden_layers + 1
         # Initializing the learnable weights
