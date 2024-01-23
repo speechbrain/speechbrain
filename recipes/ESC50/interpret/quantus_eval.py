@@ -372,16 +372,15 @@ class Evaluator:
         if model.training:
             model.eval()
 
-        if self.first:
-            out_folder = os.path.join(
-                    f"qualitative_{method}", id_
-                    )
-            os.makedirs(f"qualitative_{method}", exist_ok=True)
-            os.makedirs(out_folder, exist_ok=True)
+        out_folder = os.path.join(
+                f"qualitative_{method}", id_
+                )
+        os.makedirs(f"qualitative_{method}", exist_ok=True)
+        os.makedirs(out_folder, exist_ok=True)
 
         metrics, inter = self.compute_ours(X, model, method, explain_fn)
 
-        self.debug_files(X_stft, X, inter, id_, out_folder, )
+        self.debug_files(X_stft, X, inter, id_, out_folder)
 
         X = X.clone().detach().cpu().numpy()
         y = y.clone().detach().cpu().numpy()
