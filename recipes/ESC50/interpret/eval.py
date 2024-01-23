@@ -178,7 +178,7 @@ if __name__ == "__main__":
     overlap_multiplier = 2
 
     discarded = 0
-    for idx, base_sample in tqdm(enumerate(datasets["valid"])):
+    for idx, base_sample in enumerate(datasets["valid"]):
         overlap_batch = generate_overlap(
             base_sample, datasets["test"], overlap_multiplier
         )
@@ -244,10 +244,10 @@ if __name__ == "__main__":
             ]
         )
 
-        if idx > 20:
-            print("-----------------------------------")
-            print("Breaking loop to transfer data....!!! \n\n")
-            break
+        # if idx > 20:
+            # print("-----------------------------------")
+            # print("Breaking loop to transfer data....!!! \n\n")
+            # break
             
         # if (idx % 1) == 0:
         # print(aggregate)
