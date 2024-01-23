@@ -762,12 +762,10 @@ class Brain:
         elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
             self.use_amp = True
 
-        if (
-            self.use_amp
-            and self.checkpointer is not None
-            and self.precision != "bf16"
-        ):
-            self.checkpointer.add_recoverable("scaler", self.scaler)
+        if self.use_amp and self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "scaler", self.scaler, is_optional=True
+            )
 
         # List parameter count for the user
         total_params = sum(

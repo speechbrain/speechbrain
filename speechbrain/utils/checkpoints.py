@@ -474,6 +474,7 @@ class Checkpointer:
         self.checkpoints_dir = pathlib.Path(checkpoints_dir)
         os.makedirs(self.checkpoints_dir, exist_ok=True)
         self.recoverables = {}
+        self.optional_recoverables = {}
         if recoverables is not None:
             self.add_recoverables(recoverables)
         self.custom_load_hooks = {}
@@ -485,7 +486,12 @@ class Checkpointer:
         self.allow_partial_load = allow_partial_load
 
     def add_recoverable(
-        self, name, obj, custom_load_hook=None, custom_save_hook=None,
+        self,
+        name,
+        obj,
+        custom_load_hook=None,
+        custom_save_hook=None,
+        is_optional=False,
     ):
         """Register a recoverable with possible custom hooks.
 
@@ -503,8 +509,20 @@ class Checkpointer:
             Called to save the object's parameters. The function/method must
             be callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def saver(self, path):
+        is_optional : bool, optional
+            If True, allows for the optional loading of an object from a checkpoint.
+            If the checkpoint lacks the specified object, no error is raised.
+            This is particularly useful during transitions between different training
+            configurations, such as changing precision from floating point 32 to 16.
+            For example, suppose you have a training checkpoint that does not includes
+            a `scaler` object. If you intend to continue pre-training in floating point 16,
+            where the `scaler` object is needed, marking it as optional prevents loading errors.
+            Without marking it as optional, attempting to load the `scaler` object from a checkpoint
+            trained in floating point 32 would fail, as the `scaler` object is not present
+            in that checkpoint.
         """
         self.recoverables[name] = obj
+        self.optional_recoverables[name] = is_optional
         if custom_load_hook is not None:
             self.custom_load_hooks[name] = custom_load_hook
         if custom_save_hook is not None:
@@ -1037,6 +1055,12 @@ class Checkpointer:
                     warnings.warn(MSG, UserWarning)
                     continue
                 else:
+                    if self.optional_recoverables[name]:
+                        MSG = f"Trying to load checkpoint from {checkpoint.path}, \
+                                but missing a load path for {name}. Skipping as this \
+                                recoverable is marked as optional."
+                        warnings.warn(MSG, UserWarning)
+                        continue
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
                             but missing a load path for {name}"
                     raise RuntimeError(MSG)
