@@ -717,8 +717,8 @@ class CategoricalEncoder:
                     f".expect_len({self.expected_len}) was called, "
                     f"but {real_len} categories found"
                 )
-        else:
-            warnings.warn(
+        else: 
+            logger.debug(
                 f"{self.__class__.__name__}.expect_len was never called: "
                 f"assuming category count of {len(self)} to be correct! "
                 "Sanity check your encoder using `.expect_len`. "
