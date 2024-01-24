@@ -26,6 +26,15 @@ import numpy as np
 import random
 from tqdm import tqdm
 
+import copy
+from quantus.helpers.utils import (
+    get_baseline_value,
+    blur_at_indices,
+    expand_indices,
+    get_leftover_shape,
+    offset_coordinates,
+)
+
 eps = 1e-9
 
 
@@ -265,34 +274,58 @@ def compute_AG(theta_out, predictions):
     return temp
 
 
+def truncated_gaussian_noise(
+    arr,
+    indices,
+    indexed_axes,
+    perturb_mean = 0,
+    perturb_std = 0.15,
+    **kwargs,
+    ): 
+    """
+    Add gaussian noise to the input at indices.
+
+    Parameters
+    ----------
+    arr: np.ndarray
+         Array to be perturbed.
+    indices: int, sequence, tuple
+        Array-like, with a subset shape of arr.
+    indexed_axes: sequence
+        The dimensions of arr that are indexed.
+        These need to be consecutive, and either include the first or last dimension of array.
+    perturb_mean (float):
+        The mean for gaussian noise.
+    perturb_std (float):
+        The standard deviation for gaussian noise.
+    kwargs: optional
+        Keyword arguments.
+
+    Returns
+    -------
+    arr_perturbed: np.ndarray
+         The array which some of its indices have been perturbed.
+    """
+
+    indices = expand_indices(arr, indices, indexed_axes)
+    noise = np.abs(np.random.normal(loc=0, scale=(np.max(arr) - np.min(arr)) * perturb_std, size=arr.shape))
+
+    arr_perturbed = copy.copy(arr)
+    arr_perturbed[indices] = (arr_perturbed + noise)[indices]
+
+    return arr_perturbed
+
 class Evaluator:
     def __init__(self, hparams, X_shape=(1, 431, 513)):
         self.hparams = hparams
         self.first = True
-
-        self.pixel_flipping = quantus.PixelFlipping(
-            features_in_step=X_shape[2],
-            perturb_baseline="black",
-            perturb_func=quantus.perturb_func.baseline_replacement_by_indices,
-            return_auc_per_sample=True,
-            abs=True,
-        )
-
-        self.region_perturb = quantus.RegionPerturbation(
-            patch_size=14,
-            regions_evaluation=10,
-            perturb_baseline="uniform",
-            return_aggregate=True,
-            normalise=True,
-            abs=True,
-        )
 
         self.max_sensitivity = quantus.MaxSensitivity(
             nr_samples=10,
             lower_bound=0.2,
             norm_numerator=quantus.norm_func.fro_norm,
             norm_denominator=quantus.norm_func.fro_norm,
-            perturb_func=quantus.perturb_func.uniform_noise,
+            perturb_func=truncated_gaussian_noise,
             similarity_func=quantus.similarity_func.difference,
             return_aggregate=True,
             abs=True,
@@ -303,7 +336,7 @@ class Evaluator:
             lower_bound=0.2,
             norm_numerator=quantus.norm_func.fro_norm,
             norm_denominator=quantus.norm_func.fro_norm,
-            perturb_func=quantus.perturb_func.uniform_noise,
+            perturb_func=truncated_gaussian_noise,
             similarity_func=quantus.similarity_func.difference,
             return_aggregate=True,
             abs=True,

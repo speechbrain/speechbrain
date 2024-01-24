@@ -227,6 +227,7 @@ if __name__ == "__main__":
                     ]
                 )
                 print(local)
+
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
 
