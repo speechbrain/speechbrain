@@ -87,8 +87,8 @@ def smoothgrad(X, y, forward_fn, steps=50, noise_level=0.15, guidance=False):
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
 
     # noise_level * std of input NB: we cannot have noise that makes the log arg negative!
-    sigma = noise_level * (X.std())
-    noise = torch.randn_like(X) * sigma + X.mean()
+    sigma = noise_level * (X.max() - X.min())
+    noise = (torch.randn_like(X) * sigma).abs()
 
     # I tried with captum's NoiseTunnel. it gives problems during preprocessing (see above)
     maps = []
