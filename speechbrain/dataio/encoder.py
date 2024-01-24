@@ -9,7 +9,6 @@ import torch
 import collections
 import itertools
 import logging
-import warnings
 import speechbrain as sb
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
