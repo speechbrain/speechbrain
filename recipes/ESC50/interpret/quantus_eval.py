@@ -45,7 +45,7 @@ class Model(nn.Module):
         x = x.float()
         if self.hparams["use_stft2mel"] and not self.hparams["use_melspectra"]:
             x = torch.expm1(x)
-            x = self.hparams["compute_fbank"](x.squeeze(1))[None]
+            x = self.hparams["compute_fbank"](x.squeeze(1)).unsqueeze(1)
             x = torch.log1p(x)
 
         if x.ndim == 4:
@@ -61,6 +61,7 @@ class Model(nn.Module):
             embeddings = embeddings.mean((-1, -2))
 
         predictions = self.classifier(embeddings).squeeze(1)
+        # print((predictions.isnan()).sum())
 
         if self.returnrepr:
             return predictions, f_I
