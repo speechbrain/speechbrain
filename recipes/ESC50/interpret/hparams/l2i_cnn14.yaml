@@ -116,7 +116,7 @@ embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
     return_reps: True
-    l2i: True
+    l2i: false
 
 classifier: !new:torch.nn.Linear
      in_features: 2048
@@ -148,7 +148,14 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.L2I.Psi
+psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft
+  dim: 2048
+  K: !ref <K>
+  shared_keys: 0
+  activate_class_partitioning: True
+  adapter_reduce_dim: True
+  stft2mel: True
+# psi_model: !new:speechbrain.lobes.models.L2I.Psi
 theta: !new:speechbrain.lobes.models.L2I.Theta
     num_classes: !ref <out_n_neurons>
 
