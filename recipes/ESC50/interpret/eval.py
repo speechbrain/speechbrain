@@ -258,5 +258,5 @@ if __name__ == "__main__":
 
     print(aggregated_metrics)
     os.makedirs("quant_eval", exist_ok=True)
-    df = pd.DataFrame(metrics)
-    df.to_csv("quant_eval/" + hparams["exp_method"] + ".csv")
+    df = pd.DataFrame(aggregated_metrics)
+    df.to_csv("quant_eval/" + hparams["exp_method"] + "_" + hparms["experiment_name"] + ".csv")
