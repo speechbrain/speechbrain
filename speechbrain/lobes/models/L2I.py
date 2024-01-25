@@ -513,11 +513,18 @@ class CNN14PSI_stft(nn.Module):
         #h = self.bn7(h)
 
         h = self.convt8(h)
+        h = self.nonl(h)
+
         xhat = self.convt9(h)
+        xhat = self.nonl(xhat)
         #if self.stft2mel:
         #    xhat = self.lin(xhat)
 
         xhat = self.final_conv(xhat)[..., :100].squeeze(1)
         xhat = xhat.transpose(1, 2)
 
+        # apply ReLU
+        xhat = F.softplus(xhat)
+
         return xhat
+
