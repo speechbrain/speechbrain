@@ -51,7 +51,7 @@ class WeightedSSLModel(HFTransformersInterface):
     >>> outputs = model(inputs)
     """
 
-    def __init__(self, hub, save_path, layernorm=False, freeze=False):
+    def __init__(self, hub, save_path="", layernorm=False, freeze=False):
         super().__init__(source=hub, save_path=save_path, freeze=freeze)
         self.model.eval()
         self.num_layers = self.config.num_hidden_layers + 1
