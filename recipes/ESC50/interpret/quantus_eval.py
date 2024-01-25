@@ -81,7 +81,7 @@ class Model(nn.Module):
 def wrap_gradient_based(explain_fn, forw=True):
     def fn(model, inputs, targets, **kwargs):
         inputs = torch.Tensor(inputs).to(next(model.parameters()).device)
-        ex = explain_fn(inputs, targets, model).cpu().numpy()
+        ex = explain_fn(inputs, targets, model).detach().cpu().numpy()
         return ex
 
     return fn
@@ -461,6 +461,7 @@ class Evaluator:
 
         return metrics
 
+    @torch.no_grad()
     def debug_files(self, y, y_hat, X_stft, X_logpower, interpretation, fname="test", out_folder="."):
         """The helper function to create debugging images"""
         X_stft_phase = spectral_phase(X_stft[None])

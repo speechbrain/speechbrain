@@ -152,7 +152,9 @@ if __name__ == "__main__":
         "saliency": gradient_based.saliency,
         "IG": gradient_based.ig,
         "smoothgrad": gradient_based.smoothgrad,
-        "guided_backprop": gradient_based.smoothgrad,
+        "guided_backprop": gradient_based.guided_backprop,
+        "guided_gradcam": gradient_based.guided_gradcam,
+        "gradcam": gradient_based.gradcam,
         "single_maskinout": opt_single_mask,
         "l2i": l2i_pretrained(hparams, run_opts),
     }

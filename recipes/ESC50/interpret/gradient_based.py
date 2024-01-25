@@ -125,3 +125,26 @@ def guided_backprop(X, y, forward_fn, do_norm=True):
         return attr / attr.max()
 
     return attr
+
+def guided_gradcam(X, y, forward_fn, do_norm=True):
+    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
+    y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
+    attr = captum.attr.GuidedGradCam(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, target=y)
+
+    if do_norm:
+        return attr / attr.max()
+
+    return attr
+
+def gradcam(X, y, forward_fn, do_norm=True):
+    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
+    y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
+    attr = captum.attr.LayerGradCam(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, target=y)
+    attr = captum.attr.LayerAttribution.interpolate(attr, (X.shape[-2], X.shape[-1]))
+
+    if do_norm:
+        return attr / attr.max()
+
+    return attr
