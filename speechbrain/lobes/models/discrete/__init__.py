@@ -1,1 +1,2 @@
-
+""" Package defining discrete models.
+"""
