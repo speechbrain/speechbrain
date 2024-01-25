@@ -491,7 +491,7 @@ class Checkpointer:
         obj,
         custom_load_hook=None,
         custom_save_hook=None,
-        is_optional=False,
+        optional_load=False,
     ):
         """Register a recoverable with possible custom hooks.
 
@@ -509,7 +509,7 @@ class Checkpointer:
             Called to save the object's parameters. The function/method must
             be callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def saver(self, path):
-        is_optional : bool, optional
+        optional_load : bool, optional
             If True, allows for the optional loading of an object from a checkpoint.
             If the checkpoint lacks the specified object, no error is raised.
             This is particularly useful during transitions between different training
@@ -522,7 +522,7 @@ class Checkpointer:
             in that checkpoint.
         """
         self.recoverables[name] = obj
-        self.optional_recoverables[name] = is_optional
+        self.optional_recoverables[name] = optional_load
         if custom_load_hook is not None:
             self.custom_load_hooks[name] = custom_load_hook
         if custom_save_hook is not None:
