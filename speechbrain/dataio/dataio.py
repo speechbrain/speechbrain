@@ -10,7 +10,10 @@ Authors
  * Gaelle Laperriere 2021
  * Sahar Ghannay 2021
  * Sylvain de Langen 2022
+ * Peter Plantinga 2024
 """
+import av
+import io
 import os
 import torch
 import logging
@@ -26,6 +29,50 @@ from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
 logger = logging.getLogger(__name__)
+
+
+def load_audio_pyav(uri, num_frames=-1, frame_offset=0, normalize=True):
+    """Mimics torchaudio.load using PyAV which bundles ffmpeg.
+
+    Arguments
+    ---------
+    uri: str
+        Path to file
+    num_frames: int
+        Number of frames to load. Default (-1) loads all frames
+    frame_offset: int
+        Frame from which to start loading. Default (0) loads all frames
+    normalize: bool
+        Whether to normalize output to float32 if int32
+    """
+
+    raw_buffer = io.BytesIO()
+    dtype = None
+    sample_rate = None
+    channels = None
+
+    with av.open(uri, mode="r", metadata_errors="ignore") as container:
+        for frame in container.decode(audio=0):
+            sample_rate = frame.rate
+            layout = frame.layout
+            channels = len(layout.channels)
+            array = frame.to_ndarray()
+            dtype = array.dtype
+
+            raw_buffer.write(array)
+
+    audio = np.frombuffer(raw_buffer.getbuffer(), dtype=dtype)
+    audio = np.reshape(audio, [channels, -1], order="F")
+
+    if dtype.kind == "i" and normalize:
+        audio = audio.astype(np.float32) / np.iinfo(dtype).max
+
+    if num_frames >= 0:
+        audio = audio[:, frame_offset : frame_offset + num_frames]
+    elif frame_offset > 0:
+        audio = audio[:, frame_offset:]
+
+    return torch.tensor(audio), sample_rate
 
 
 def load_data_json(json_path, replacements={}):
@@ -210,7 +257,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     # double-checking anyway. If I am wrong and you are reading this comment
     # because of it: sorry
     if info.num_frames == 0:
-        channels_data, sample_rate = torchaudio.load(path, normalize=False)
+        channels_data, sample_rate = load_audio_pyav(path, normalize=False)
 
         info.num_frames = channels_data.size(1)
         info.sample_rate = sample_rate  # because we might as well
@@ -236,9 +283,6 @@ def read_audio(waveforms_obj):
         "stop": 16000
     })
     ```
-
-    Which codecs are supported depends on your torchaudio backend.
-    Refer to `torchaudio.load` documentation for further details.
 
     Arguments
     ----------
@@ -272,7 +316,7 @@ def read_audio(waveforms_obj):
     True
     """
     if isinstance(waveforms_obj, str):
-        audio, _ = torchaudio.load(waveforms_obj)
+        audio, _ = load_audio_pyav(waveforms_obj)
     else:
         path = waveforms_obj["file"]
         start = waveforms_obj.get("start", 0)
@@ -297,12 +341,12 @@ def read_audio(waveforms_obj):
         # Requested to load until a specific frame?
         if start != stop:
             num_frames = stop - start
-            audio, fs = torchaudio.load(
+            audio, fs = load_audio_pyav(
                 path, num_frames=num_frames, frame_offset=start
             )
         else:
             # Load to the end.
-            audio, fs = torchaudio.load(path, frame_offset=start)
+            audio, fs = load_audio_pyav(path, frame_offset=start)
 
     audio = audio.transpose(0, 1)
     return audio.squeeze(1)
@@ -362,7 +406,7 @@ def read_audio_multichannel(waveforms_obj):
     True
     """
     if isinstance(waveforms_obj, str):
-        audio, _ = torchaudio.load(waveforms_obj)
+        audio, _ = load_audio_pyav(waveforms_obj)
         return audio.transpose(0, 1)
 
     files = waveforms_obj["files"]
@@ -376,7 +420,7 @@ def read_audio_multichannel(waveforms_obj):
     stop = waveforms_obj.get("stop", start - 1)
     num_frames = stop - start
     for f in files:
-        audio, fs = torchaudio.load(
+        audio, fs = load_audio_pyav(
             f, num_frames=num_frames, frame_offset=start
         )
         waveforms.append(audio)
