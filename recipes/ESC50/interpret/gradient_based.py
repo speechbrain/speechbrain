@@ -115,3 +115,13 @@ def ig(X, y, forward_fn, steps=200):
 
     return attr / attr.max()
 
+def guided_backprop(X, y, forward_fn, do_norm=True):
+    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
+    y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
+    attr = captum.attr.GuidedBackprop(forward_fn).attribute(X, target=y)
+
+    if do_norm:
+        return attr / attr.max()
+
+    return attr
