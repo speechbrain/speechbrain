@@ -38,7 +38,6 @@ def generate_mixture(s1, s2):
 
 def fetch_model(url):
     from huggingface_hub import hf_hub_download
-    import joblib
     
     REPO_ID = "fpaissan/r"
     
