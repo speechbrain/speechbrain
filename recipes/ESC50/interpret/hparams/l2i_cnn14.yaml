@@ -177,8 +177,9 @@ modules:
     theta: !ref <theta>
 
 pretrained_PIQ: null
-embedding_model_path: '../classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/embedding_model.ckpt'
-classifier_model_path: '../classification/results/cnn14-linear-log1pmel-wham/1234/save/CKPT+2024-01-16+21-39-51+00/classifier.ckpt'
+embedding_model_path: 'fpaissan/r/embedding_model.ckpt'
+classifier_model_path: 'fpaissan/r/classifier.ckpt'
+
 nmf_decoder_path: speechbrain/PIQ-ESC50/nmf_decoder.ckpt
 use_pretrained: True
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer

@@ -36,6 +36,13 @@ def generate_mixture(s1, s2):
 
     return mix
 
+def fetch_model(url):
+    from huggingface_hub import hf_hub_download
+    import joblib
+    
+    REPO_ID = "fpaissan/r"
+    
+    return hf_hub_download(repo_id=REPO_ID, filename=url)
 
 def generate_overlap(sample, dataset, overlap_multiplier=1):
     pool = [i for i in range(len(dataset))]
@@ -107,11 +114,11 @@ if __name__ == "__main__":
         "Loading embedding_model state dict from ",
         hparams["embedding_model_path"],
     )
-    f_emb.load_state_dict(torch.load(hparams["embedding_model_path"]))
+    f_emb.load_state_dict(torch.load(fetch_model("embedding_model.ckpt")))
     print(
         "Loading classifier state dict from ", hparams["classifier_model_path"]
     )
-    f_cls.load_state_dict(torch.load(hparams["classifier_model_path"]))
+    f_cls.load_state_dict(torch.load(fetch_model("classifier.ckpt")))
     f_emb.eval()
     f_cls.eval()
 
