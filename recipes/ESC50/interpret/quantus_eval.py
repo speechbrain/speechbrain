@@ -415,7 +415,7 @@ class Evaluator:
 
         metrics, inter, y_pred = self.compute_ours(X, model, method, explain_fn)
 
-        self.debug_files(y, y_pred, X_stft, X, inter, id_, out_folder)
+        self.debug_files(y, y_pred, X_stft, X, inter, id_, out_folder, wavs=not self.hparams["use_melspectra"])
 
         X = X.clone().detach().cpu().numpy()
         y = y.clone().detach().cpu().numpy()
@@ -462,31 +462,33 @@ class Evaluator:
         return metrics
 
     @torch.no_grad()
-    def debug_files(self, y, y_hat, X_stft, X_logpower, interpretation, fname="test", out_folder="."):
+    def debug_files(self, y, y_hat, X_stft, X_logpower, interpretation, fname="test", out_folder=".", wavs=True):
         """The helper function to create debugging images"""
         X_stft_phase = spectral_phase(X_stft[None])
 
-        X = torch.expm1(X_logpower)[0, ..., None]
-        x_inp = self.invert_stft_with_phase(X, X_stft_phase)
+        if wavs:
+            X = torch.expm1(X_logpower)[0, ..., None]
+            x_inp = self.invert_stft_with_phase(X, X_stft_phase)
+    
+            with open(os.path.join(out_folder, "predictions.txt"), "w") as f:
+                f.write(f"GT={int(y)} prediction={y_hat.item()}")
+    
+            torchaudio.save(
+                    f"{os.path.join(out_folder, fname)}_original.wav",
+                    x_inp.cpu(),
+                    sample_rate=16000
+                    )
+    
+            X_logpower = X_logpower[:, :, :interpretation.shape[2], :interpretation.shape[3]]
+            int_ = torch.expm1(X_logpower[0, ..., None] * interpretation[0, ..., None])
+            x_int = self.invert_stft_with_phase(int_, X_stft_phase)
+    
+            torchaudio.save(
+                    f"{os.path.join(out_folder, fname)}_int.wav",
+                    x_int.cpu(),
+                    sample_rate=16000
+                    )
 
-        with open(os.path.join(out_folder, "predictions.txt"), "w") as f:
-            f.write(f"GT={int(y)} prediction={y_hat.item()}")
-
-        torchaudio.save(
-                f"{os.path.join(out_folder, fname)}_original.wav",
-                x_inp.cpu(),
-                sample_rate=16000
-                )
-
-        X_logpower = X_logpower[:, :, :interpretation.shape[2], :interpretation.shape[3]]
-        int_ = torch.expm1(X_logpower[0, ..., None] * interpretation[0, ..., None])
-        x_int = self.invert_stft_with_phase(int_, X_stft_phase)
-
-        torchaudio.save(
-                f"{os.path.join(out_folder, fname)}_int.wav",
-                x_int.cpu(),
-                sample_rate=16000
-                )
         plt.figure(figsize=(11, 10), dpi=100)
 
         plt.subplot(311)
@@ -497,11 +499,12 @@ class Evaluator:
 
         plt.subplot(312)
         torch.save(interpretation, os.path.join(out_folder, "interpretation.pt"))
-        X_masked = interpretation.squeeze().t().cpu()
+        X_masked = interpretation.squeeze().transpose(-1, -2).cpu()
         plt.imshow(X_masked.data.cpu(), origin="lower")
         plt.colorbar()
         plt.title("mask")
 
+        X_logpower = X_logpower[:, :, :X_masked.shape[-1], :]
         plt.subplot(313)
         plt.imshow((X_logpower.squeeze().t().cpu() * X_masked).cpu(), origin="lower")
         plt.colorbar()

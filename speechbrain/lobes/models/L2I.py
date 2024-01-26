@@ -492,7 +492,7 @@ class CNN14PSI_stft(nn.Module):
         # xhat = xhat.transpose(1, 2)
 
         # apply ReLU
-        xhat = F.softplus(xhat)
+        xhat = F.relu(xhat)
 
         return xhat
 
