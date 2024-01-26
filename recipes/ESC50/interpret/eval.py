@@ -260,6 +260,9 @@ if __name__ == "__main__":
         aggregated_metrics[k] /= len(datasets["valid"]) * overlap_multiplier
 
     print(aggregated_metrics)
+
+    import json
+
     os.makedirs("quant_eval", exist_ok=True)
-    df = pd.DataFrame(aggregated_metrics)
-    df.to_csv("quant_eval/" + hparams["exp_method"] + "_" + hparms["experiment_name"] + ".csv")
+    with open("quant_eval/" + hparams["exp_method"] + "_" + hparms["experiment_name"] + ".csv", "w") as f:
+        f.write(json.dumps(aggregated_files))
