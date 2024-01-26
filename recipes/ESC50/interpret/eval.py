@@ -274,4 +274,4 @@ if __name__ == "__main__":
             f"qualitative_{hparams['experiment_name']}",
             )
     with open(out_folder + "/quant.csv", "w") as f:
-        f.write(json.dumps(aggregated_files))
+        f.write(json.dumps(aggregated_metrics))
