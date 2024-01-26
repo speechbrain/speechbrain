@@ -404,7 +404,7 @@ class CNN14PSI_stft(nn.Module):
     def __init__(
         self,
         dim=128,
-        K=512,
+        K=100,
         numclasses=50,
         activate_class_partitioning=True,
         shared_keys=0,
@@ -416,53 +416,20 @@ class CNN14PSI_stft(nn.Module):
         
         self.adapter_reduce_dim = adapter_reduce_dim
 
-        self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 4), 1)
-        self.convt2 = nn.ConvTranspose2d(dim//2, dim, 3, (2, 4), 1)
-        self.convt3 = nn.ConvTranspose2d(dim, dim, (7, 4), (2, 4), 1)
-        self.convt4 = nn.ConvTranspose2d(dim//4, dim, (5, 4), (2, 4), 1)
-        self.convt5 = nn.ConvTranspose2d(dim, dim//2, (3, 5), (2, 2), 1)
-        self.convt6 = nn.ConvTranspose2d(dim//8, dim//2, (3, 3), (2, 4), 1)
-        self.convt7 = nn.ConvTranspose2d(dim//2, dim//4, (4, 3), (2, 2), (0, 5))
-        self.convt8 = nn.ConvTranspose2d(dim//4, dim//8, (3, 4), (2, 2), (0, 2))
-        self.convt9 = nn.ConvTranspose2d(dim//8, dim//8, (7, 5), (1, 4), 0)
+        self.convt1 = nn.ConvTranspose1d(dim, dim, 3, 2, 1)
+        self.convt2 = nn.ConvTranspose1d(dim//2, dim, 3, 2, 1)
+        self.convt3 = nn.ConvTranspose1d(dim, dim, 7, 2, 1)
+        self.convt4 = nn.ConvTranspose1d(dim//4, dim, 5, 2, 1)
+        self.convt5 = nn.ConvTranspose1d(dim, dim//2, 3, 2, 1)
+        self.convt6 = nn.ConvTranspose1d(dim//8, dim//2, 3, 2, 1)
+        self.convt7 = nn.ConvTranspose1d(dim//2, dim//4, 4, 2, 0)
+        self.convt8 = nn.ConvTranspose1d(dim//4, dim//8, 3, 2, 0)
+        self.convt9 = nn.ConvTranspose1d(dim//8, K, 7, 1, 0)
 
 
         self.nonl = nn.ReLU(True)
 
-        self.final_conv = nn.Sequential(
-                nn.Conv2d(dim//8, dim//8, (3, 3), stride=(1, 2), padding=(1, 0)),
-                nn.ReLU(),
-                nn.Conv2d(dim//8, 1, (3, 3), stride=(1, 2), padding=(1, 0)),
-                )
-
-
         self.stft2mel = stft2mel
-        #if stft2mel:
-        #    self.lin = nn.Linear(80, 513)
-
-        # self.bn1 = nn.BatchNorm2d(dim)
-        # self.bn2 = nn.BatchNorm2d(dim)
-        # self.bn3 = nn.BatchNorm2d(dim)
-        # self.bn4 = nn.BatchNorm2d(dim)
-        # self.bn5 = nn.BatchNorm2d(dim)
-        # self.bn6 = nn.BatchNorm2d(dim)
-        # self.bn7 = nn.BatchNorm2d(dim)
-
-        # decoder = nn.Sequential(
-        #     nn.ConvTranspose2d(dim, dim, 3, (2, 2), 1),
-        #     nn.ReLU(True),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
-        #     nn.ReLU(),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
-        #     nn.ReLU(),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
-        #     nn.ReLU(),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, 1, 12, 1, 1),
-        # )
 
     def forward(self, hs, labels=None):
         """
@@ -480,6 +447,7 @@ class CNN14PSI_stft(nn.Module):
         Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
         """
         
+        hs = [h.mean(-1) for h in hs]
         h1 = self.convt1(hs[0])
         h1 = self.nonl(h1)
         #h1 = self.bn1(h1)
@@ -520,8 +488,8 @@ class CNN14PSI_stft(nn.Module):
         #if self.stft2mel:
         #    xhat = self.lin(xhat)
 
-        xhat = self.final_conv(xhat)[..., :100].squeeze(1)
-        xhat = xhat.transpose(1, 2)
+        # xhat = self.final_conv(xhat)[..., :100].squeeze(1)
+        # xhat = xhat.transpose(1, 2)
 
         # apply ReLU
         xhat = F.softplus(xhat)
