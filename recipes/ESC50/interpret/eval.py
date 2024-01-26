@@ -254,13 +254,11 @@ if __name__ == "__main__":
             ]
         )
 
-        # if idx > 20:
-            # print("-----------------------------------")
-            # print("Breaking loop to transfer data....!!! \n\n")
-            # break
+        if idx > 20:
+            print("-----------------------------------")
+            print("Breaking loop to transfer data....!!! \n\n")
+            break
             
-        # if (idx % 1) == 0:
-        # print(aggregate)
 
     for k in aggregated_metrics:
         aggregated_metrics[k] /= len(datasets["valid"]) * overlap_multiplier
@@ -271,7 +269,7 @@ if __name__ == "__main__":
 
     os.makedirs("quant_eval", exist_ok=True)
     out_folder = os.path.join(
-            f"qualitative_{hparams['experiment_name']}",
+            hparams["eval_outdir"], f"qualitative_{hparams['experiment_name']}",
             )
     with open(out_folder + "/quant.csv", "w") as f:
         f.write(json.dumps(aggregated_metrics))
