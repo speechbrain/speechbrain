@@ -25,6 +25,7 @@ import time
 import torchaudio
 import json
 import re
+from dataclasses import dataclass
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
@@ -48,21 +49,17 @@ def load_audio_pyav(uri, num_frames=-1, frame_offset=0, normalize=True):
 
     raw_buffer = io.BytesIO()
     dtype = None
-    sample_rate = None
-    channels = None
+    info = audio_info_pyav(uri)
 
     with av.open(uri, mode="r", metadata_errors="ignore") as container:
         for frame in container.decode(audio=0):
-            sample_rate = frame.rate
-            layout = frame.layout
-            channels = len(layout.channels)
             array = frame.to_ndarray()
             dtype = array.dtype
 
             raw_buffer.write(array)
 
     audio = np.frombuffer(raw_buffer.getbuffer(), dtype=dtype)
-    audio = np.reshape(audio, [channels, -1], order="F")
+    audio = np.reshape(audio, [info.num_channels, -1], order="F")
 
     if dtype.kind == "i" and normalize:
         audio = audio.astype(np.float32) / np.iinfo(dtype).max
@@ -72,7 +69,44 @@ def load_audio_pyav(uri, num_frames=-1, frame_offset=0, normalize=True):
     elif frame_offset > 0:
         audio = audio[:, frame_offset:]
 
-    return torch.tensor(audio), sample_rate
+    return torch.from_numpy(audio), info.sample_rate
+
+
+@dataclass
+class AudioInfo:
+    """Mimics torchaudio.AudioMetaData except ``bits_per_sample``
+
+    Arguments
+    ---------
+    sample_rate: int
+        Sample rate of audio
+    num_frames: int
+        Total number of samples of audio
+    num_channels: int
+        Number of audio channels available
+    encoding: str
+        String representing the audio encoding
+    """
+
+    sample_rate: int
+    num_frames: int
+    num_channels: int
+    encoding: str
+
+
+def audio_info_pyav(uri):
+    """Mimics torchaudio.info using PyAV which bundles ffmpeg.
+
+    Arguments
+    ---------
+    uri: str
+        Path to file
+    """
+    with av.open(uri, mode="r", metadata_errors="ignore") as container:
+        a = container.streams.audio[0]
+        args = (a.rate, a.duration, len(a.layout.channels), a.name)
+
+    return AudioInfo(*args)
 
 
 def load_data_json(json_path, replacements={}):
@@ -207,12 +241,10 @@ def load_data_csv(csv_path, replacements={}):
     return result
 
 
-def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
+def read_audio_info(path):
     """Retrieves audio metadata from a file path. Behaves identically to
-    torchaudio.info, but attempts to fix metadata (such as frame count) that is
-    otherwise broken with certain torchaudio version and codec combinations.
-
-    Note that this may cause full file traversal in certain cases!
+    audio_info_pyav, but attempts to fix frame_count for mp3 files.
+    Note that this causes full file traversal for mp3 files.
 
     Arguments
     ----------
@@ -221,9 +253,9 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
 
     Returns
     -------
-    torchaudio.backend.common.AudioMetaData
-        Same value as returned by `torchaudio.info`, but may eventually have
-        `num_frames` corrected if it otherwise would have been `== 0`.
+    AudioInfo
+        Same value as returned by audio_info_pyav but with
+        `num_frames` corrected if the file is mp3.
 
     NOTE
     ----
@@ -233,30 +265,11 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     the processing time.
     """
 
-    _path_no_ext, path_ext = os.path.splitext(path)
-
-    if path_ext == ".mp3":
-        # Additionally, certain affected versions of torchaudio fail to
-        # autodetect mp3.
-        # HACK: here, we check for the file extension to force mp3 detection,
-        # which prevents an error from occuring in torchaudio.
-        info = torchaudio.info(path, format="mp3")
-    else:
-        info = torchaudio.info(path)
+    info = audio_info_pyav(path)
 
     # Certain file formats, such as MP3, do not provide a reliable way to
     # query file duration from metadata (when there is any).
-    # For MP3, certain versions of torchaudio began returning num_frames == 0.
-    #
-    # https://github.com/speechbrain/speechbrain/issues/1925
-    # https://github.com/pytorch/audio/issues/2524
-    #
-    # Accomodate for these cases here: if `num_frames == 0` then maybe something
-    # has gone wrong.
-    # If some file really had `num_frames == 0` then we are not doing harm
-    # double-checking anyway. If I am wrong and you are reading this comment
-    # because of it: sorry
-    if info.num_frames == 0:
+    if path.endswith(".mp3"):
         channels_data, sample_rate = load_audio_pyav(path, normalize=False)
 
         info.num_frames = channels_data.size(1)
