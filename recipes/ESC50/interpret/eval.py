@@ -271,7 +271,7 @@ if __name__ == "__main__":
 
     os.makedirs("quant_eval", exist_ok=True)
     out_folder = os.path.join(
-            f"qualitative_{self.hparams['experiment_name']}", id_
+            f"qualitative_{hparams['experiment_name']}", id_
             )
     with open(out_folder + "/quant.csv", "w") as f:
         f.write(json.dumps(aggregated_files))
