@@ -10,6 +10,8 @@ import torch
 import torchaudio
 import matplotlib.pyplot as plt
 import captum
+import saliency.core as saliency
+import numpy as np
 
 @torch.no_grad()
 def save_ints(inp, ints, labels, out_folder=".", fname="viz.png", cbar=True):
@@ -160,3 +162,28 @@ def shap(X, y, forward_fn, do_norm=True):
         return attr / attr.max()
 
     return attr
+
+def guided_IG(X, y, forward_fn, do_norm=True):
+    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    def fw(images, call_model_args=None, expected_keys=None):
+        X = torch.Tensor(images).to(next(forward_fn.parameters()).device)
+        y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
+
+    baseline = np.zeros(im.shape)
+    guided_ig = saliency.GuidedIG()
+
+    guided_ig_mask_3d = guided_ig.GetMask(
+            X,
+            fw,
+            call_model_args,
+            x_steps=25,
+            x_baseline=baseline,
+            max_dist=1.0,
+            fraction=0.5
+            )
+
+    if do_norm:
+        return attr / attr.max()
+
+    return attr
+
