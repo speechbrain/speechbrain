@@ -254,10 +254,10 @@ if __name__ == "__main__":
             ]
         )
 
-        if idx > 20:
-            print("-----------------------------------")
-            print("Breaking loop to transfer data....!!! \n\n")
-            break
+        # if idx > 20:
+            # print("-----------------------------------")
+            # print("Breaking loop to transfer data....!!! \n\n")
+            # break
             
 
     for k in aggregated_metrics:
