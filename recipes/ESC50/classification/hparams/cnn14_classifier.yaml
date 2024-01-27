@@ -17,7 +17,8 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: cnn14-esc50
+dataset: "us8k"
+experiment_name: !ref cnn14-<dataset>
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt

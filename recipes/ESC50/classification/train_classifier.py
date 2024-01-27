@@ -23,6 +23,7 @@ from speechbrain.utils.distributed import run_on_main
 from speechbrain.processing.speech_augmentation import AddNoise
 from esc50_prepare import prepare_esc50
 from wham_prepare import WHAMDataset, combine_batches
+from urbansound8k_prepare import prepare_urban_sound_8k
 from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
@@ -287,7 +288,7 @@ class ESC50Brain(sb.core.Brain):
             )
 
 
-def dataio_prep(hparams):
+def dataio_prep_esc50(hparams):
     "Creates the datasets and their data processing pipelines."
 
     data_audio_folder = hparams["audio_data_folder"]
@@ -364,6 +365,88 @@ def dataio_prep(hparams):
     return datasets, label_encoder
 
 
+def dataio_prep_us8k(hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    data_audio_folder = hparams["audio_data_folder"]
+    config_sample_rate = hparams["sample_rate"]
+    label_encoder = sb.dataio.encoder.CategoricalEncoder()
+    # TODO  use SB implementation but need to make sure it give the same results as PyTorch
+    # resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
+    hparams["resampler"] = torchaudio.transforms.Resample(
+        new_freq=config_sample_rate
+    )
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav", "fold")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav, fold):
+        """Load the signal, and pass it and its length to the corruption class.
+        This is done on the CPU in the `collate_fn`."""
+
+        wave_file = data_audio_folder + "/fold{:}/{:}".format(fold, wav)
+
+        sig, read_sr = torchaudio.load(wave_file)
+
+        # If multi-channels, downmix it to a mono channel
+        sig = torch.squeeze(sig)
+        if len(sig.shape) > 1:
+            sig = torch.mean(sig, dim=0)
+
+        # Convert sample rate to required config_sample_rate
+        if read_sr != config_sample_rate:
+            # Re-initialize sampler if source file sample rate changed compared to last file
+            if read_sr != hparams["resampler"].orig_freq:
+                hparams["resampler"] = torchaudio.transforms.Resample(
+                    orig_freq=read_sr, new_freq=config_sample_rate
+                )
+            # Resample audio
+            sig = hparams["resampler"].forward(sig)
+
+            # pad to 4 seconds
+            length = hparams["signal_length_s"] * hparams["sample_rate"]
+            p = length - sig.shape[-1]
+            sig = F.pad(sig, (0, p))
+
+        return sig
+
+    # 3. Define label pipeline:
+    @sb.utils.data_pipeline.takes("class_string")
+    @sb.utils.data_pipeline.provides("class_string", "class_string_encoded")
+    def label_pipeline(class_string):
+        yield class_string
+        class_string_encoded = label_encoder.encode_label_torch(class_string)
+        yield class_string_encoded
+
+    # Define datasets. We also connect the dataset with the data processing
+    # functions defined above.
+    datasets = {}
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=data_info[dataset],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline, label_pipeline],
+            output_keys=["id", "sig", "class_string_encoded"],
+        )
+
+    # Load or compute the label encoder (with multi-GPU DDP support)
+    # Please, take a look into the lab_enc_file to see the label to index
+    # mappinng.
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        path=lab_enc_file,
+        from_didatasets=[datasets["train"]],
+        output_key="class_string",
+    )
+
+    return datasets, label_encoder
+
+
 if __name__ == "__main__":
 
     # This flag enables the inbuilt cudnn auto-tuner
@@ -394,24 +477,51 @@ if __name__ == "__main__":
             hparams["tensorboard_logs_folder"]
         )
 
-    run_on_main(
-        prepare_esc50,
-        kwargs={
-            "data_folder": hparams["data_folder"],
-            "audio_data_folder": hparams["audio_data_folder"],
-            "save_json_train": hparams["train_annotation"],
-            "save_json_valid": hparams["valid_annotation"],
-            "save_json_test": hparams["test_annotation"],
-            "train_fold_nums": hparams["train_fold_nums"],
-            "valid_fold_nums": hparams["valid_fold_nums"],
-            "test_fold_nums": hparams["test_fold_nums"],
-            "skip_manifest_creation": hparams["skip_manifest_creation"],
-        },
-    )
+    if hparams["dataset"] == "esc50":
+        run_on_main(
+            prepare_esc50,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "audio_data_folder": hparams["audio_data_folder"],
+                "save_json_train": hparams["train_annotation"],
+                "save_json_valid": hparams["valid_annotation"],
+                "save_json_test": hparams["test_annotation"],
+                "train_fold_nums": hparams["train_fold_nums"],
+                "valid_fold_nums": hparams["valid_fold_nums"],
+                "test_fold_nums": hparams["test_fold_nums"],
+                "skip_manifest_creation": hparams["skip_manifest_creation"],
+            },
+        )
 
-    # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    datasets, label_encoder = dataio_prep(hparams)
-    hparams["label_encoder"] = label_encoder
+        # Dataset IO prep: creating Dataset objects and proper encodings for phones
+        datasets, label_encoder = dataio_prep_esc50(hparams)
+        hparams["label_encoder"] = label_encoder
+    elif hparams["dataset"] == "us8k":
+        run_on_main(
+            prepare_urban_sound_8k,
+            kwargs={
+                "data_folder": hparams["data_folder"],
+                "audio_data_folder": hparams["audio_data_folder"],
+                "save_json_train": hparams["train_annotation"],
+                "save_json_valid": hparams["valid_annotation"],
+                "save_json_test": hparams["test_annotation"],
+                "train_fold_nums": hparams["train_fold_nums"],
+                "valid_fold_nums": hparams["valid_fold_nums"],
+                "test_fold_nums": hparams["test_fold_nums"],
+                "skip_manifest_creation": hparams["skip_manifest_creation"],
+            },
+        ) 
+
+        # Dataset IO prep: creating Dataset objects and proper encodings for phones
+        datasets, label_encoder = dataio_prep_us8k(hparams)
+        hparams["label_encoder"] = label_encoder
+
+    if hparams["dataset"] == "esc50": 
+        assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
+        assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
+    if hparams["dataset"] == "us8k":
+        assert hparams["signal_length_s"] == 4, "Fix wham sig length!"
+        assert hparams["out_n_neurons"] == 10, "Fix number of outputs classes!"
 
     class_labels = list(label_encoder.ind2lab.values())
     print("Class Labels:", class_labels)
