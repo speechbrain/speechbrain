@@ -149,7 +149,7 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft
+psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft_2d
   dim: 2048
   K: !ref <K>
   shared_keys: 0
