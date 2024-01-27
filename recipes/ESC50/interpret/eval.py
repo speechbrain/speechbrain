@@ -13,7 +13,7 @@ from os import makedirs
 import torch.nn.functional as F
 from speechbrain.processing.NMF import spectral_phase
 import matplotlib.pyplot as plt
-from train_piq import InterpreterESC50Brain, tv_loss, dataio_prep
+from train_piq import InterpreterESC50Brain, tv_loss, dataio_prep_esc50
 import pandas as pd
 import random
 import gradient_based
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     )
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
-    datasets, label_encoder = dataio_prep(hparams)
+    datasets, label_encoder = dataio_prep_esc50(hparams)
     hparams["label_encoder"] = label_encoder
 
     # take trained model, make it eval
@@ -161,6 +161,7 @@ if __name__ == "__main__":
         "guided_backprop": gradient_based.guided_backprop,
         "guided_gradcam": gradient_based.guided_gradcam,
         "gradcam": gradient_based.gradcam,
+        "shap": gradient_based.shap,
         "single_maskinout": opt_single_mask,
         "l2i": l2i_pretrained(hparams, run_opts),
     }
