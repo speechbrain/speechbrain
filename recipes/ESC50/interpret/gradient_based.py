@@ -119,7 +119,7 @@ def guided_backprop(X, y, forward_fn, do_norm=True):
     """ Computes standard saliency - gradient of the max logit wrt to the input. """
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
-    attr = captum.attr.GuidedBackprop(forward_fn).attribute(X, target=y)
+    attr = captum.attr.GuidedBackprop(forward_fn).attribute(X, target=y).abs()
 
     if do_norm:
         return attr / attr.max()
@@ -130,7 +130,7 @@ def guided_gradcam(X, y, forward_fn, do_norm=True):
     """ Computes standard saliency - gradient of the max logit wrt to the input. """
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
-    attr = captum.attr.GuidedGradCam(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, target=y)
+    attr = captum.attr.GuidedGradCam(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, target=y).abs()
 
     if do_norm:
         return attr / attr.max()
@@ -146,5 +146,17 @@ def gradcam(X, y, forward_fn, do_norm=True):
 
     if do_norm:
         return attr / attr.max()
+
+    return attr
+
+def shap(X, y, forward_fn, do_norm=True):
+    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
+    y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
+    baselines = torch.cat([torch.randn_like(X) for _ in range(3)])
+    attr = captum.attr.GradientShap(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, baselines, target=y).abs()
+
+    # if do_norm:
+        # return attr / attr.max()
 
     return attr
