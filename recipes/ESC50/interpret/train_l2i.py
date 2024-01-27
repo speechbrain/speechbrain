@@ -13,6 +13,7 @@ import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
+from urbansound8k_prepare import prepare_urban_sound_8k
 from wham_prepare import WHAMDataset, combine_batches
 from speechbrain.utils.metric_stats import MetricStats
 from os import makedirs

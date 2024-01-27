@@ -16,6 +16,7 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
+dataset: "esc50"
 exp_method: "saliency"
 eval_outdir: ""
 
