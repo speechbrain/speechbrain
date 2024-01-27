@@ -31,6 +31,8 @@ crosscortype: 'dotp'
 
 use_stft2mel: false
 
+eval_outdir: ""
+
 experiment_name: mimo-cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save

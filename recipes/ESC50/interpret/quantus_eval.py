@@ -408,9 +408,13 @@ class Evaluator:
             model.eval()
 
         out_folder = os.path.join(
-                f"qualitative_{self.hparams['experiment_name']}", id_
+                self.hparams["eval_outdir"], f"qualitative_{self.hparams['experiment_name']}", id_
                 )
-        os.makedirs(f"qualitative_{self.hparams['experiment_name']}", exist_ok=True)
+        os.makedirs(
+                os.path.join(self.hparams["eval_outdir"], 
+                             f"qualitative_{self.hparams['experiment_name']}"),
+                exist_ok=True
+                )
         os.makedirs(out_folder, exist_ok=True)
 
         metrics, inter, y_pred = self.compute_ours(X, model, method, explain_fn)

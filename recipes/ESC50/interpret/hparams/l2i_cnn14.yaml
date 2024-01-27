@@ -12,6 +12,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 exp_method: "l2i"
+eval_outdir: ""
 use_stft2mel: false
 
 # Set up folders for reading from and writing to

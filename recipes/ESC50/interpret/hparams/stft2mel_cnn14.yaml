@@ -17,6 +17,7 @@ data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
 exp_method: "saliency"
+eval_outdir: ""
 
 l_in_w: 0.5
 l_out_w: 0.5
