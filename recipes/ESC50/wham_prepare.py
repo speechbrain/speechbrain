@@ -52,7 +52,12 @@ def combine_batches(clean, noise_loader):
     noise = []
     for _ in range(batch_size):
         noise.append(next(noise_loader))
-    noise = torch.stack(noise).to(clean.device).squeeze()
+    noise = torch.stack(noise).to(clean.device)
+
+    if noise.ndim == 3:
+        noise = noise.squeeze(1)
+    elif noise.ndim == 1:
+        noise = noise[None]
 
     max_amplitude = torch.max(torch.abs(torch.cat([clean, noise], dim=0)))
     clean_l2 = (clean ** 2).sum(-1) ** 0.5

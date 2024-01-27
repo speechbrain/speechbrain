@@ -162,6 +162,7 @@ if __name__ == "__main__":
         "guided_gradcam": gradient_based.guided_gradcam,
         "gradcam": gradient_based.gradcam,
         "shap": gradient_based.shap,
+        "guided_IG": gradient_based.guided_IG,
         "single_maskinout": opt_single_mask,
         "l2i": l2i_pretrained(hparams, run_opts),
     }
@@ -189,26 +190,41 @@ if __name__ == "__main__":
 
     discarded = 0
     for idx, base_sample in enumerate(datasets["valid"]):
-        overlap_batch = generate_overlap(
-            base_sample, datasets["test"], overlap_multiplier
-        )
-        y_batch = torch.Tensor(
-            [
-                base_sample["class_string_encoded"]
-                for _ in range(overlap_multiplier)
-            ]
-        )
+        if not hparams["add_wham_noise"]:
+            overlap_batch = generate_overlap(
+                base_sample, datasets["test"], overlap_multiplier
+            )
+            y_batch = torch.Tensor(
+                [
+                    base_sample["class_string_encoded"]
+                    for _ in range(overlap_multiplier)
+                ]
+            )
+            # extract sample
+            wavs = [sample["sig"][None] for sample in overlap_batch]
+            wavs = torch.stack(wavs).to(run_opts["device"])
 
-        # extract sample
-        wavs = [sample["sig"][None] for sample in overlap_batch]
-        wavs = torch.stack(wavs).to(run_opts["device"])
+        else:
+            overlap_batch = base_sample
+            y_batch = base_sample["class_string_encoded"]
+            
+            # extract sample
+            wavs = base_sample["sig"].to(run_opts["device"])
 
         # preprocess
-        X_oracle, X_stft, X_stft_power = preprocess(wavs.squeeze(1), hparams)
+        X_oracle, X_stft, X_stft_power = preprocess(wavs.unsqueeze(0), hparams)
         X_stft_phase = spectral_phase(X_stft)
 
-        assert not hparams["add_wham_noise"], "You should run eval without WHAM! noise."
-        X = X_oracle.squeeze(1)
+        # assert not hparams["add_wham_noise"], "You should run eval without WHAM! noise."
+        if hparams["add_wham_noise"]:
+            wavs = combine_batches(
+                wavs[None], iter(hparams["wham_dataset"])
+            )
+
+            X, X_stft, _ = preprocess(wavs, hparams)
+
+        else:
+            X = X_oracle.squeeze(1)
 
         # X_mosaic, y_mosaic = d_mosaic(X, base_sample["class_string_encoded"])
         X_mosaic, y_mosaic = torch.zeros_like(X), [0 for _ in range(X.shape[0])]
