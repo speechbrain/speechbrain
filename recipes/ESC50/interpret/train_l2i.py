@@ -506,8 +506,13 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_logpower = X_stft_logpower[:, : reconstructions.shape[1], :]
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
+        self.rec_loss.append(uttid, loss_nmf)
+
         loss_nmf = self.hparams.alpha * loss_nmf
+        prev = loss_nmf.clone().detach()
+
         loss_nmf += self.hparams.beta * (time_activations).abs().mean()
+        self.reg_loss.append(uttid, loss_nmf - prev)
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -518,6 +523,8 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         theta_out = -torch.log(theta_out)
         loss_fdi = (F.softmax(classification_out / self.hparams.classifier_temp, dim=1) * theta_out).mean()
+
+        self.fid_loss.append(uttid, loss_fdi)
 
         return loss_nmf + loss_fdi
 
@@ -665,6 +672,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
     def on_stage_start(self, stage, epoch=None):
+        def save(x):
+            return x[None]
         self.inp_fid = MetricStats(metric=self.compute_fidelity)
         self.l2i_fid = MetricStats(metric=self.accuracy_value)
         self.AD = MetricStats(metric=self.compute_AD)
@@ -674,6 +683,9 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.acc_metric = sb.utils.metric_stats.MetricStats(
             metric=self.accuracy_value, n_jobs=1
         )
+        self.rec_loss = MetricStats(metric=save)
+        self.reg_loss = MetricStats(metric=save)
+        self.fid_loss = MetricStats(metric=save)
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -687,6 +699,9 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "loss": self.train_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "l2i_fid": self.l2i_fid.summarize("average"),
+                "rec_loss": self.rec_loss.summarize("average"),
+                "reg_loss": self.reg_loss.summarize("average"),
+                "fid_loss": self.fid_loss.summarize("average"),
             }
 
         if stage == sb.Stage.VALID:
@@ -709,6 +724,9 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "AD": self.AD.summarize("average"),
                 "AI": self.AI.summarize("average"),
                 "AG": self.AG.summarize("average"),
+                "rec_loss": self.rec_loss.summarize("average"),
+                "reg_loss": self.reg_loss.summarize("average"),
+                "fid_loss": self.fid_loss.summarize("average"),
             }
 
             # The train_logger writes a summary to stdout and to the logfile.
