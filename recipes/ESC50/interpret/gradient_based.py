@@ -153,10 +153,10 @@ def shap(X, y, forward_fn, do_norm=True):
     """ Computes standard saliency - gradient of the max logit wrt to the input. """
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
-    baselines = torch.cat([torch.randn_like(X).abs() for _ in range(3)])
+    baselines = torch.cat([torch.randn_like(X).abs() for _ in range(3)])    # trucated gaussian
     attr = captum.attr.GradientShap(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, baselines, target=y).abs()
 
-    # if do_norm:
-        # return attr / attr.max()
+    if do_norm:
+        return attr / attr.max()
 
     return attr
