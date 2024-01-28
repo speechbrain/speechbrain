@@ -209,16 +209,17 @@ if __name__ == "__main__":
             y_batch = base_sample["class_string_encoded"]
             
             # extract sample
-            wavs = base_sample["sig"].to(run_opts["device"])
+            wavs = base_sample["sig"].to(run_opts["device"]).unsqueeze(0)
 
         # preprocess
-        X_oracle, X_stft, X_stft_power = preprocess(wavs.unsqueeze(0), hparams)
+        if wavs.ndim == 3: wavs = wavs.squeeze(1)
+        X_oracle, X_stft, X_stft_power = preprocess(wavs, hparams)
         X_stft_phase = spectral_phase(X_stft)
 
         # assert not hparams["add_wham_noise"], "You should run eval without WHAM! noise."
         if hparams["add_wham_noise"]:
             wavs = combine_batches(
-                wavs[None], iter(hparams["wham_dataset"])
+                wavs, iter(hparams["wham_dataset"])
             )
 
             X, X_stft, _ = preprocess(wavs, hparams)
