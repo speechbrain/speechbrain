@@ -302,7 +302,7 @@ class HifiGanBrain(sb.Brain):
                     {"Epoch loaded": self.hparams.epoch_counter.current},
                     test_stats=self.last_loss_stats[sb.Stage.TEST],
                 )
-            self.run_inference_sample("Test")
+            self.run_inference_sample("Test", epoch)
 
     def run_inference_sample(self, name, epoch):
         """Produces a sample in inference mode.
@@ -369,7 +369,7 @@ class HifiGanBrain(sb.Brain):
         target_path = pl.Path(self.hparams.progress_sample_path) / str(epoch)
         target_path.mkdir(parents=True, exist_ok=True)
         file_name = target_path / f"{name}.wav"
-        torchaudio.save(file_name, data.cpu(), 16000)
+        torchaudio.save(file_name.as_posix(), data.cpu(), 16000)
 
 
 def sample_interval(seqs, segment_size):

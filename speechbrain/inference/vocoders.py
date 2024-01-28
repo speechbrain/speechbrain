@@ -325,7 +325,7 @@ class UnitHIFIGAN(Pretrained):
         # Increment units if tokenization is enabled
         if self.tokenize:
             units += 1
-        if spk:
+        if spk is not None:
             spk = spk.to(self.device)
         with torch.no_grad():
             waveform = self.infer(units.to(self.device), spk=spk)
@@ -359,7 +359,7 @@ class UnitHIFIGAN(Pretrained):
         # Increment units if tokenization is enabled
         if self.tokenize:
             units += 1
-        if spk:
+        if spk is not None:
             spk = spk.unsqueeze(0).to(self.device)
         with torch.no_grad():
             waveform = self.infer(units.unsqueeze(0).to(self.device), spk=spk)
