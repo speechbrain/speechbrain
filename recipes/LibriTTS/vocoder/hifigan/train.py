@@ -200,14 +200,16 @@ class HifiGanBrain(sb.Brain):
                 end_of_epoch=True,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
 
             self.run_inference_sample("Valid")
@@ -376,6 +378,7 @@ if __name__ == "__main__":
                 "sample_rate": hparams["sample_rate"],
                 "split_ratio": hparams["split_ratio"],
                 "libritts_subsets": hparams["libritts_subsets"],
+                "model_name": "HiFi-GAN",
             },
         )
 

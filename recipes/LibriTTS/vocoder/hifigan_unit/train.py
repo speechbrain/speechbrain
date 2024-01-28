@@ -277,14 +277,16 @@ class HifiGanBrain(sb.Brain):
                     end_of_epoch=True,
                     min_keys=["loss"],
                     ckpt_predicate=(
-                        lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
-                            != 0
+                        (
+                            lambda ckpt: (
+                                ckpt.meta["epoch"]
+                                % self.hparams.keep_checkpoint_interval
+                                != 0
+                            )
                         )
-                    )
-                    if self.hparams.keep_checkpoint_interval is not None
-                    else None,
+                        if self.hparams.keep_checkpoint_interval is not None
+                        else None
+                    ),
                 )
 
             self.run_inference_sample("Valid", epoch)
@@ -332,9 +334,7 @@ class HifiGanBrain(sb.Brain):
             )
         if self.hparams.use_tensorboard:
             self.tensorboard_logger.log_audio(
-                "{name}/audio_target",
-                y.squeeze(0),
-                self.hparams.sample_rate,
+                "{name}/audio_target", y.squeeze(0), self.hparams.sample_rate,
             )
             self.tensorboard_logger.log_audio(
                 "{name}/audio_pred",
@@ -407,8 +407,7 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         audio = sb.dataio.dataio.read_audio(wav)
         audio = torchaudio.transforms.Resample(
-            info.sample_rate,
-            hparams["sample_rate"],
+            info.sample_rate, hparams["sample_rate"],
         )(audio)
 
         code = np.load(code_folder / f"{utt_id}.npy")
@@ -542,10 +541,8 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = (
-            sb.utils.train_logger.TensorboardLogger(
-                save_dir=hparams["output_folder"] + "/tensorboard"
-            )
+        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
+            save_dir=hparams["output_folder"] + "/tensorboard"
         )
 
     # Training

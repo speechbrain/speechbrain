@@ -32,7 +32,8 @@ class Tacotron2Brain(sb.Brain):
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics
+        """
         self.hparams.progress_sample_logger.reset()
         self.last_epoch = 0
         self.last_batch = None
@@ -381,14 +382,16 @@ class Tacotron2Brain(sb.Brain):
                 meta=epoch_metadata,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
             output_progress_sample = (
                 self.hparams.progress_samples
