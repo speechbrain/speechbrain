@@ -13,10 +13,10 @@ Authors
 
 import sys
 import torch
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.utils.data_utils import scalarize
-import torchaudio
 import os
 
 
