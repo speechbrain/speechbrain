@@ -15,11 +15,10 @@ EVAL_LIST = [
         "ao",
         "l2i"
         ]
-
 EVAL_LIST = [Path(BASE_FOLDER).joinpath(f"qualitative_{e}") for e in EVAL_LIST]  # pre-prend base folder
 
 KEPT_PATH = Path("user_study") # path for all the samples we keep
-os.makedirs(KEPT_PATH, exist_ok=True)
+
 
 def copytree(src, dst, symlinks=False, ignore=None):
     for item in os.listdir(src):
@@ -31,20 +30,33 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copy2(s, d)
 
 def selection(id_: str) -> str:
+    choice_folder = Path("choice")
+    os.makedirs(choice_folder, exist_ok=True)
+
     paths = [e.joinpath(id_) for e in EVAL_LIST]
     images = []
     labels = []
     for p in paths:
         assert os.path.exists(p), f"{p} does not exist. It is likely that something was wrong during eval."
+        l = "_".join(str(p.parent).split("/")[-1].split("_")[1:])
 
         int_ = torch.load(p.joinpath("interpretation.pt")).cpu().squeeze().t()
         sample = torch.load(p.joinpath("x_logpower.pt"))[:, :, :int_.shape[-1], :].cpu().squeeze().t()
 
         images.append(sample * int_)
-        labels.append("_".join(str(p.parent).split("/")[-1].split("_")[1:]))
+
+        labels.append(l)
+        shutil.copyfile(
+                src=p.joinpath(f"{id_}_int.wav"),
+                dst=choice_folder.joinpath(f"{l}.wav")
+                )
 
     images.append(sample)
     labels.append("sample")
+    shutil.copyfile(
+            p.joinpath(f"{id_}_original.wav"),
+            choice_folder.joinpath(f"original.wav")
+            )
 
     fig = plt.figure()
     grid = ImageGrid(
@@ -59,14 +71,14 @@ def selection(id_: str) -> str:
         ax.set_title(l)
 
     plt.tight_layout()
-    plt.savefig("choice.png")
+    plt.savefig(choice_folder.joinpath("choice.png"))
+    breakpoint()
 
     y = None
     while not (y in ["y", "n", "q"]):
         y = input("Keep this sample? [y/n/q] ")
 
     return y
-
 
 def keep_sample(id_: str) -> None:
     paths = [e.joinpath(id_) for e in EVAL_LIST]
@@ -78,6 +90,8 @@ def keep_sample(id_: str) -> None:
 
 
 if __name__ == "__main__":
+    os.makedirs(KEPT_PATH, exist_ok=True)
+
     for e in EVAL_LIST:
         assert os.path.exists(e), f"{e} does not exist. Check your EVAL list."
 
