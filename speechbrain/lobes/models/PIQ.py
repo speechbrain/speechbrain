@@ -809,7 +809,8 @@ class CNN14PSI_stft(nn.Module):
         shared_keys=0,
         use_adapter=True,
         adapter_reduce_dim=True,
-        stft2mel=False
+        stft2mel=False,
+        outdim=1
     ):
         super().__init__()
         
@@ -823,7 +824,7 @@ class CNN14PSI_stft(nn.Module):
         self.convt6 = nn.ConvTranspose2d(dim//8, dim//2, (3, 3), (2, 4), 1)
         self.convt7 = nn.ConvTranspose2d(dim//2, dim//4, (4, 3), (2, 2), (0, 5))
         self.convt8 = nn.ConvTranspose2d(dim//4, dim//8, (3, 4), (2, 2), (0, 2))
-        self.convt9 = nn.ConvTranspose2d(dim//8, 1, (1, 5), (1, 4), 0)
+        self.convt9 = nn.ConvTranspose2d(dim//8, outdim, (1, 5), (1, 4), 0)
 
 
         self.nonl = nn.ReLU(True)
