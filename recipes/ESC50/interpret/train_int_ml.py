@@ -353,7 +353,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 X_est_masked, X_stft_phase[0:1]
             )
 
-        plt.figure(figsize=(11, 10), dpi=100)
+        plt.figure(figsize=(11, 6), dpi=100)
 
         plt.subplot(311)
         X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
@@ -564,16 +564,19 @@ class InterpreterESC50Brain(sb.core.Brain):
             mask_in_i = self.classifier_forward(mask_in[:, i, :, :])
             cls_to_keep = top_preds[1][:, i]
             #mask_in_preds = torch.gather(mask_in[2], 1, cls_to_keep)
-            
             # mask to pick out classes to keep
             mask = torch.eye(predictions.shape[1], device=self.device)
             mask = mask[cls_to_keep, :]
             mask_in_preds = mask_in_i[2][mask.bool()]
             mask_in_preds_all.append(mask_in_preds)
             preds_all.append(top_preds[0][:, i])
-            l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
-            l_in = ((torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) * (1-mask)).mean(1) * targets_sorted[:, i]).mean() + l_in
             
+            #l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
+            #l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
+            #l_in = ((torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) * (1-mask)).sum(1) * targets_sorted[:, i]).mean() + l_in
+            # try the sigmoid idea here
+            l_in = -(mask * torch.log(1e-10 + torch.sigmoid(mask_in_i[2])) + (1-mask) * torch.log(1e-10 + 1-torch.sigmoid(mask_in_i[2]))).mean() + l_in
+
             # mask to pick out classes to suppress
             mask_out_i = self.classifier_forward(mask_out[:, i, :, :])
             mask_out_preds = mask_out_i[2][(mask).bool()]
