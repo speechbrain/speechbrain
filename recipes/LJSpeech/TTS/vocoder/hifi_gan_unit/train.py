@@ -402,8 +402,7 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         audio = sb.dataio.dataio.read_audio(wav)
         audio = torchaudio.transforms.Resample(
-            info.sample_rate,
-            hparams["sample_rate"],
+            info.sample_rate, hparams["sample_rate"],
         )(audio)
 
         code = np.load(code_folder / f"{utt_id}.npy")
@@ -511,10 +510,8 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = (
-            sb.utils.train_logger.TensorboardLogger(
-                save_dir=hparams["output_folder"] + "/tensorboard"
-            )
+        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
+            save_dir=hparams["output_folder"] + "/tensorboard"
         )
 
     # Training

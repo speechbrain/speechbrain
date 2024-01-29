@@ -434,7 +434,7 @@ class HifiganGenerator(torch.nn.Module):
         ):
             self.ups.append(
                 ConvTranspose1d(
-                    in_channels=upsample_initial_channel // (2**i),
+                    in_channels=upsample_initial_channel // (2 ** i),
                     out_channels=upsample_initial_channel // (2 ** (i + 1)),
                     kernel_size=k,
                     stride=u,
@@ -1058,15 +1058,10 @@ class HifiganDiscriminator(nn.Module):
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
     """computes the Fourier transform of short overlapping windows of the input"""
-    o = torch.stft(
-        x.squeeze(1),
-        n_fft,
-        hop_length,
-        win_length,
-    )
+    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
-    S = torch.sqrt(torch.clamp(M**2 + P**2, min=1e-8))
+    S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
     return S
 
 
@@ -1292,9 +1287,7 @@ class MelganFeatureLoss(nn.Module):
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
 
-    def __init__(
-        self,
-    ):
+    def __init__(self,):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -1331,9 +1324,7 @@ class MSEDLoss(nn.Module):
     and the samples synthesized from the generator to 0.
     """
 
-    def __init__(
-        self,
-    ):
+    def __init__(self,):
         super().__init__()
         self.loss_func = nn.MSELoss()
 
