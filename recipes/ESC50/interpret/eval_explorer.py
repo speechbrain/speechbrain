@@ -8,7 +8,7 @@ import sys
 import os
 
 selection_seed = 1234
-random.seed()
+random.seed(selection_seed)
 
 BASE_FOLDER = "."
 EVAL_LIST = [
@@ -72,7 +72,6 @@ def selection(id_: str) -> str:
 
     plt.tight_layout()
     plt.savefig(choice_folder.joinpath("choice.png"))
-    breakpoint()
 
     y = None
     while not (y in ["y", "n", "q"]):
