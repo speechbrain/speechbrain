@@ -82,13 +82,15 @@ class ESC50Brain(sb.core.Brain):
         
                 int_ = self.hparams.psi_model(f_I)
                 int_ = torch.sigmoid(int_)
-                thr = torch.quantile(int_.view(int_.shape[0], -1), torch.Tensor([self.hparams.roar_th]).to(int_.device), dim=-1).squeeze().view(-1, 1, 1, 1)
-                torchvision.utils.save_image(mel[0:1].unsqueeze(1), "inp.png")
-                torchvision.utils.save_image(int_, "mask.png")
-                int_ = (int_ >= thr).float()
-                torchvision.utils.save_image(int_, "mask_th.png")
+                thr = torch.quantile(
+                        int_.view(int_.shape[0], -1), 
+                        torch.Tensor([1 - self.hparams.roar_th]).to(int_.device),
+                        dim=-1
+                        ).squeeze().view(-1, 1, 1, 1)
+                int_ = (int_ >= thr).float().squeeze(1)
 
-                breakpoint()
+                # basically mask out
+                net_input = (1- int_) * net_input[:, :int_.shape[1], :]
 
                 # # avg
                 # # C = images.mean((-1, -2, -3)).view(-1, 1, 1, 1)
