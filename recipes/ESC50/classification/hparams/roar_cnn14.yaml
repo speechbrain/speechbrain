@@ -14,22 +14,25 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/ESC-50-master
+data_folder: /mnt/data/ESC50 # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-dataset: "us8k"
-experiment_name: !ref cnn14-<dataset>
+roar: false
+roar_th: 0.2
+pretrained_PIQ: fpaissan/r2/psi_model.ckpt
+classifier_model_path: fpaissan/r/embedding_model.ckpt
+
+dataset: "esc50"
+experiment_name: !ref cnn14-<dataset>-roar-<roar_th>
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-
-pretrained_PIQ: null
 
 add_wham_noise: True
 spec_augment: null
 test_only: False
 
-wham_folder: !PLACEHOLDER
+wham_folder: /mnt/data/large_audio/WHAM/wham_noise
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 
@@ -99,9 +102,23 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     win_length: 20
     hop_length: 10
 
+psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI_stft
+    dim: 2048
+    K: 1024
+    shared_keys: 0
+    activate_class_partitioning: True
+    adapter_reduce_dim: True
+    stft2mel: True
+
 embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
+    return_reps: false
+
+pretrained_c: !new:speechbrain.lobes.models.Cnn14.Cnn14
+    mel_bins: !ref <n_mels>
+    emb_dim: 2048
+    return_reps: True
 
 # classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
 #     input_size: 2048
@@ -127,7 +144,7 @@ compute_stft: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>
 
 compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: 80
+    n_mels: !ref <n_mels>
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
     log_mel: False
@@ -177,3 +194,13 @@ pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
         embedding_model: !ref <embedding_model>
     paths:
         embedding_model: !ref <embedding_model_path>
+
+load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        pretrained_c: !ref <pretrained_c>
+        psi_model: !ref <psi_model>
+    paths:
+        pretrained_c: !ref <classifier_model_path>
+        psi_model: !ref <pretrained_PIQ>
+
