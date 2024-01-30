@@ -82,6 +82,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             X_stft_logpower = self.hparams.compute_fbank(X_in)
             X_stft_logpower = torch.log1p(X_stft_logpower)
 
+        print(X_stft_logpower.shape)
         if hasattr(self.hparams, 'return_reps'):
             embeddings, hs = self.hparams.embedding_model(X_stft_logpower)
             hcat = hs
