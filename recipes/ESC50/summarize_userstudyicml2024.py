@@ -20,8 +20,6 @@ news_average = average_scores.iloc[24:]
 companion_all_average = companion_average.groupby('gender').mean()
 news_all_average = news_average.groupby('gender').mean()
 
-import pdb; pdb.set_trace()
-
 w = 4
 color = ['red', 'blue', 'yellow', 'cyan', 'magenta', 'green']
 labels = ['L-MAC', 'L-MAC-FT1', 'L-MAC-FT2', 'L2I-R1', 'L2I-R2', 'Ref']
@@ -36,7 +34,7 @@ for j in range(4):
 
 
 plt.legend()
-plt.show()
+plt.savefig('companion_ustudy.png')
 
 plt.figure()
 
@@ -52,6 +50,4 @@ for j in range(5):
             plt.bar(j*w + 0.4*n, news_average.values[j*6 + n], width=0.4, color=color[n]) #color=color[n])
 
 plt.legend()
-plt.show()
-
-
+plt.savefig('news_ustudy.png')
