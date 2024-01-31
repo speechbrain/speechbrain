@@ -965,6 +965,14 @@ class CTCBaseSearcher(torch.nn.Module):
                 "During decoding, going to truncate the log_probs vocab dim to match vocab_list."
             )
 
+        # check if we have log_probs
+        if not torch.allclose(torch.exp(log_probs).sum(dim=-1), torch.ones(log_probs.shape[0])):
+            warnings.warn(
+                "The input `log_probs` are not log probabilities. "
+                "Going to convert them to log probabilities."
+            )
+            log_probs = torch.log_softmax(log_probs, dim=-1)
+
         # compute wav_lens and cast to numpy as it is faster
         if wav_lens is not None:
             wav_lens = log_probs.size(1) * wav_lens
