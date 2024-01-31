@@ -28,6 +28,7 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 from confusion_matrix_fig import create_cm_fig
 import torch.nn.functional as F
+import torchvision
 
 
 class ESC50Brain(sb.core.Brain):
@@ -48,6 +49,7 @@ class ESC50Brain(sb.core.Brain):
                 wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augment"):
+            assert not hparams["roar"], "You should not augment when running ROAR!"
             wavs, lens = self.hparams.augment(
                 wavs,
                 lengths=lens
@@ -58,20 +60,58 @@ class ESC50Brain(sb.core.Brain):
             X_stft, power=self.hparams.spec_mag_power
         )
 
-        if self.hparams.use_melspectra:
-            net_input = self.modules.compute_fbank(X_stft_power)
-            net_input = torch.log1p(net_input)
-        else:
-            net_input = torch.log1p(X_stft_power)
+        net_input = torch.log1p(X_stft_power)
+        mel = self.hparams.compute_fbank(X_stft_power)
+        mel = torch.log1p(mel)
 
         if stage == sb.Stage.TRAIN and self.hparams.spec_augment is not None:
+            assert self.hparams.roar, "You sure you want to run ROAR with spec augment?"
             net_input = self.hparams.spec_augment(net_input, lens)
 
+        if hasattr(self.hparams, "roar"):
+            if self.hparams.roar:
+                # Embeddings + sound classifier
+                temp = self.hparams.pretrained_c(mel)
+                if isinstance(temp, tuple):
+                    embeddings, f_I = temp
+                else:
+                    embeddings, f_I = temp, temp
+        
+                if embeddings.ndim == 4:
+                    embeddings = embeddings.mean((-1, -2))
+        
+                int_ = self.hparams.psi_model(f_I)
+                int_ = torch.sigmoid(int_)
+                thr = torch.quantile(
+                        int_.view(int_.shape[0], -1), 
+                        torch.Tensor([1 - self.hparams.roar_th]).to(int_.device),
+                        dim=-1
+                        ).squeeze().view(-1, 1, 1, 1)
+                int_ = (int_ >= thr).float().squeeze(1)
+
+                # basically mask out
+                net_input = (1- int_) * net_input[:, :int_.shape[1], :]
+
+                # # avg
+                # # C = images.mean((-1, -2, -3)).view(-1, 1, 1, 1)
+                # C = torch.Tensor([0.485, 0.456, 0.406]) # channel-wise ImageNet mean
+                # C = C.view(-1, 3, 1, 1).to(int_.device)
+                # # remove useful stuff
+                # net_input = int_ * C
+                # # replace lower ranked portions of the image
+                # net_input += (1 - int_) * net_input
+
+
+        net_input = torch.expm1(net_input)
+        net_input = self.hparams.compute_fbank(X_stft_power)
+        net_input = torch.log1p(mel)
         # Embeddings + sound classifier
-        if hasattr(self.modules, "embedding_model"):
-            embeddings = self.modules.embedding_model(net_input)
+        temp = self.modules.embedding_model(net_input)
+        if isinstance(temp, tuple):
+            embeddings, f_I = temp
         else:
-            embeddings = self.hparams.embedding_model(net_input)
+            embeddings, f_I = temp, temp
+
         if embeddings.ndim == 4:
             embeddings = embeddings.mean((-1, -2))
 
@@ -496,6 +536,7 @@ if __name__ == "__main__":
         # Dataset IO prep: creating Dataset objects and proper encodings for phones
         datasets, label_encoder = dataio_prep_esc50(hparams)
         hparams["label_encoder"] = label_encoder
+
     elif hparams["dataset"] == "us8k":
         run_on_main(
             prepare_urban_sound_8k,
@@ -544,6 +585,15 @@ if __name__ == "__main__":
     if "pretrained_encoder" in hparams and hparams["use_pretrained"]:
         run_on_main(hparams["pretrained_encoder"].collect_files)
         hparams["pretrained_encoder"].load_collected()
+
+    print(hparams["pretrained_PIQ"])
+    if hparams["pretrained_PIQ"] is not None:
+        print("Load AO ! \n ")
+        run_on_main(hparams["load_pretrained"].collect_files)
+        hparams["load_pretrained"].load_collected()
+
+    hparams["pretrained_c"].to(run_opts["device"])
+    hparams["psi_model"].to(run_opts["device"])
 
     if not hparams["test_only"]:
         ESC50_brain.fit(
