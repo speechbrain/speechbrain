@@ -567,6 +567,34 @@ class StreamingTransducerASR(Pretrained):
 
         self.streamer = TransducerASRStreamingWrapper(self.mods, self.hparams)
 
+    def transcribe_file_streaming(self, path, dynchunktrain_config: Optional[DynChunkTrainConfig] = None, **kwargs):
+        """Transcribes the given audio file into a sequence of words, in a
+        streaming fashion, meaning that text is being yield from this
+        generator, in the form of strings to concatenate.
+
+        At the moment, the file is fully loaded in memory, but processing itself
+        is done in chunks."""
+
+        waveform = self.load_audio(path, **kwargs)
+        batch = waveform.unsqueeze(0)
+        rel_length = torch.tensor([1.0])
+
+        chunk_size = self.streamer.get_chunk_size_frames(dynchunktrain_config)
+        chunks = split_fixed_chunks(batch, chunk_size)
+
+        context = self.streamer.make_streaming_context(dynchunktrain_config)
+
+        pred = ""
+
+        for i, chunk in enumerate(chunks):
+            predicted_words = self.transcribe_batch(chunk, rel_length, context)
+            pred = predicted_words[0]
+            if i == 0:
+                # truncate leading space
+                yield pred[1:]
+            else:
+                yield pred
+
     def transcribe_file(self, path, dynchunktrain_config: Optional[DynChunkTrainConfig] = None, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
         At the moment, the file is fully loaded in memory, but processing itself
@@ -582,24 +610,11 @@ class StreamingTransducerASR(Pretrained):
         str
             The audiofile transcription produced by this ASR system.
         """
-        waveform = self.load_audio(path, **kwargs)
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-
-        chunk_size = self.streamer.get_chunk_size_frames(dynchunktrain_config)
-        chunks = split_fixed_chunks(batch, chunk_size)
-
-        context = self.streamer.make_streaming_context(dynchunktrain_config)
 
         pred = ""
 
-        for chunk in chunks:
-            predicted_words = self.transcribe_batch(chunk, rel_length, context)
-            pred += predicted_words[0]
-
-        # truncate leading space
-        if len(pred) > 0:
-            pred = pred[1:]
+        for text_chunk in self.transcribe_file_stream(path, dynchunktrain_config):
+            pred += text_chunk
 
         return pred
 
