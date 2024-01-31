@@ -484,7 +484,7 @@ class WhisperASR(Pretrained):
 
 
 @dataclass
-class TransducerASRStreamingWrapperContext:
+class TransducerASRStreamingContext:
     config: DynChunkTrainConfig
     fea_extractor_context: Any
     encoder_context: Any
@@ -499,7 +499,7 @@ class TransducerASRStreamingWrapper:
         self.filter_props = self.fea_extractor.properties
 
     def make_streaming_context(self, dynchunktrain_config: DynChunkTrainConfig):
-        return TransducerASRStreamingWrapperContext(
+        return TransducerASRStreamingContext(
             config=dynchunktrain_config,
             fea_extractor_context=self.hparams.fea_streaming_extractor.make_streaming_context(),
             encoder_context=self.hparams.Transformer.make_streaming_context(
@@ -534,7 +534,7 @@ class TransducerASRStreamingWrapper:
         return texts
 
     @torch.no_grad
-    def encode_chunk(self, context: TransducerASRStreamingWrapperContext, chunk: torch.Tensor, lens: Optional[torch.Tensor] = None):
+    def encode_chunk(self, context: TransducerASRStreamingContext, chunk: torch.Tensor, lens: Optional[torch.Tensor] = None):
         assert chunk.shape[-1] <= self.get_chunk_size_frames(context.config)
 
         x = self.fea_extractor(chunk, context=context.fea_extractor_context, lens=lens)
@@ -543,7 +543,7 @@ class TransducerASRStreamingWrapper:
         return x
 
     @torch.no_grad
-    def decode_chunk(self, context: TransducerASRStreamingWrapperContext, x: torch.Tensor):
+    def decode_chunk(self, context: TransducerASRStreamingContext, x: torch.Tensor):
         best_hyps, _scores, _, _, h = self.hparams.Greedysearcher.transducer_greedy_decode(x, context.decoder_hidden, return_hidden=True)
         context.decoder_hidden = h
 
@@ -586,19 +586,15 @@ class StreamingTransducerASR(Pretrained):
         batch = waveform.unsqueeze(0)
         rel_length = torch.tensor([1.0])
 
-        print(batch.shape)
-
         chunk_size = self.streamer.get_chunk_size_frames(dynchunktrain_config)
         chunks = split_fixed_chunks(batch, chunk_size)
+
+        context = self.streamer.make_streaming_context(dynchunktrain_config)
 
         pred = ""
 
         for chunk in chunks:
-            predicted_words = self.transcribe_batch(
-                chunk,
-                rel_length,
-                dynchunktrain_config=dynchunktrain_config
-            )
+            predicted_words = self.transcribe_batch(chunk, rel_length, context)
             pred += predicted_words[0]
 
         # truncate leading space
@@ -607,7 +603,7 @@ class StreamingTransducerASR(Pretrained):
 
         return pred
 
-    def encode_batch(self, wavs, wav_lens, dynchunktrain_config: DynChunkTrainConfig = None):
+    def encode_batch(self, wavs, wav_lens, context: TransducerASRStreamingContext):
         """Non-streaming (offline) encoding of a batch of audio into a sequence
         of hidden states.
         For full speech-to-text offline transcription, use `transcribe_batch` or
@@ -620,10 +616,9 @@ class StreamingTransducerASR(Pretrained):
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        context = self.streamer.make_streaming_context(dynchunktrain_config)
         return self.streamer.encode_chunk(context, wavs, wav_lens)
 
-    def transcribe_batch(self, wavs, wav_lens, dynchunktrain_config: DynChunkTrainConfig = None):
+    def transcribe_batch(self, wavs, wav_lens, context: TransducerASRStreamingContext):
         """Non-streaming (offline) transcription of a batch of audio into
         tokens and transcribed tokens (returned separately).
 
@@ -634,7 +629,6 @@ class StreamingTransducerASR(Pretrained):
         wavs = wavs.float()
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        context = self.streamer.make_streaming_context(dynchunktrain_config)
         x = self.streamer.encode_chunk(context, wavs, wav_lens)
         predicted_words, predicted_tokens = self.streamer.decode_chunk(context, x)
 
