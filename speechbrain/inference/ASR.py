@@ -181,9 +181,21 @@ class EncoderASR(Pretrained):
         self.set_decoding_function()
 
     def set_decoding_function(self):
-        """Set the decoding function based on the parameters defined in the hyperparameter file."""
+        """Set the decoding function based on the parameters defined in the hyperparameter file.
 
-        
+        The decoding function is determined by the `decoding_function` specified in the hyperparameter file.
+        It can be either a functools.partial object representing a decoding function or an instance of 
+        `speechbrain.decoders.ctc.CTCBaseSearcher` for beam search decoding.
+
+        Raises:
+            ValueError: If the decoding function is neither a functools.partial nor an instance of
+                        speechbrain.decoders.ctc.CTCBaseSearcher.
+
+        Note:
+            - For greedy decoding (functools.partial), the provided `decoding_function` is assigned directly.
+            - For CTCBeamSearcher decoding, an instance of the specified `decoding_function` is created, and
+            additional parameters are added based on the tokenizer type.
+        """
         # Greedy Decoding case
         if isinstance(self.hparams.decoding_function, functools.partial):
             self.decoding_function  = self.hparams.decoding_function
@@ -211,7 +223,6 @@ class EncoderASR(Pretrained):
                     opt_beam_search_params = self.hparams.test_beam_search
                 else:
                     opt_beam_search_params = {}
-                print(vocab_list)
                 self.decoding_function = self.hparams.decoding_function(
                     **opt_beam_search_params, vocab_list=vocab_list
                 )
@@ -304,24 +315,17 @@ class EncoderASR(Pretrained):
             is_ctc_text_encoder_tokenizer = isinstance(
                 self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
             )
-            is_sp_tokenizer = isinstance(
-                self.tokenizer, sentencepiece.SentencePieceProcessor
-            )
             if isinstance(self.hparams.decoding_function, functools.partial):
                 if is_ctc_text_encoder_tokenizer:
                     predicted_words = [
                         "".join(self.tokenizer.decode_ndim(token_seq))
                         for token_seq in predictions
                     ]
-                elif is_sp_tokenizer:
+                else:
                     predicted_words = [
                         self.tokenizer.decode_ids(token_seq)
                         for token_seq in predictions
                     ]
-                else:
-                    raise ValueError(
-                        "The tokenizer must be sentencepiece or CTCTextEncoder"
-                    )
             else:
                 predicted_words = [hyp[0].text for hyp in predictions]
 
