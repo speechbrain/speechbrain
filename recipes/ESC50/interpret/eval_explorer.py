@@ -10,19 +10,11 @@ import os
 selection_seed = 1234
 random.seed(selection_seed)
 
-BASE_FOLDER = "/mnt/data/icml2024_exps/"
+BASE_FOLDER = "."
 EVAL_LIST = [
         "ao",
-        "finetune_16_cth_0.7",
-        "finetune_gw_4",
-        "finetune_gw_16",
-        "finetune_gw_32",
-        "finetune_gw_128",
-        "l2i_0.2_OOD",
-        "l2i_0.4_OOD",
-        "l2i_0.6_OOD",
-        "l2i_0.8_OOD",
         ]
+EVAL_LIST += [f"mrt_layer{i}" for i in range(1, 7)]
 EVAL_LIST = [Path(BASE_FOLDER).joinpath(f"qualitative_{e}") for e in EVAL_LIST]  # pre-prend base folder
 
 KEPT_PATH = Path("user_study") # path for all the samples we keep
@@ -52,7 +44,8 @@ def selection(id_: str) -> str:
         int_ = torch.load(p.joinpath("interpretation.pt")).cpu().squeeze().t()
         sample = torch.load(p.joinpath("x_logpower.pt"))[:, :, :int_.shape[-1], :].cpu().squeeze().t()
 
-        images.append(sample * int_)
+        # images.append(sample * int_)
+        images.append(int_)
 
         labels.append(l)
         shutil.copyfile(
