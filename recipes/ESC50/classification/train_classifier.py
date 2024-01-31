@@ -108,7 +108,7 @@ class ESC50Brain(sb.core.Brain):
 
 
         net_input = torch.expm1(net_input)
-        net_input = self.hparams.compute_fbank(X_stft_power)
+        net_input = self.hparams.compute_fbank(net_input)
         net_input = torch.log1p(net_input)
         # Embeddings + sound classifier
         temp = self.modules.embedding_model(net_input)
