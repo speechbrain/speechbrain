@@ -4,7 +4,7 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Sung-Lin Yeh 2020
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
@@ -966,7 +966,9 @@ class CTCBaseSearcher(torch.nn.Module):
             )
 
         # check if we have log_probs
-        if not torch.allclose(torch.exp(log_probs).sum(dim=-1), torch.ones(log_probs.shape[0])):
+        if not torch.allclose(
+            torch.exp(log_probs).sum(dim=-1), torch.ones(log_probs.shape[0])
+        ):
             warnings.warn(
                 "The input `log_probs` are not log probabilities. "
                 "Going to convert them to log probabilities."

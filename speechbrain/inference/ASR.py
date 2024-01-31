@@ -10,16 +10,15 @@ Authors:
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
  * Sylvain de Langen 2023
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
  * Pradnya Kandarkar 2023
 """
 import torch
 import sentencepiece
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
-from speechbrain.utils.fetching import fetch
-from speechbrain.utils.data_utils import split_path
 import functools
+
 
 class EncoderDecoderASR(Pretrained):
     """A ready-to-use Encoder-Decoder ASR model
@@ -184,7 +183,7 @@ class EncoderASR(Pretrained):
         """Set the decoding function based on the parameters defined in the hyperparameter file.
 
         The decoding function is determined by the `decoding_function` specified in the hyperparameter file.
-        It can be either a functools.partial object representing a decoding function or an instance of 
+        It can be either a functools.partial object representing a decoding function or an instance of
         `speechbrain.decoders.ctc.CTCBaseSearcher` for beam search decoding.
 
         Raises:
@@ -198,17 +197,24 @@ class EncoderASR(Pretrained):
         """
         # Greedy Decoding case
         if isinstance(self.hparams.decoding_function, functools.partial):
-            self.decoding_function  = self.hparams.decoding_function
+            self.decoding_function = self.hparams.decoding_function
         # CTCBeamSearcher case
         else:
             # 1. check if the decoding function is an instance of speechbrain.decoders.CTCBaseSearcher
-            if issubclass(self.hparams.decoding_function, speechbrain.decoders.ctc.CTCBaseSearcher):
-                # If so, we need to retrieve the vocab list from the tokenizer. 
+            if issubclass(
+                self.hparams.decoding_function,
+                speechbrain.decoders.ctc.CTCBaseSearcher,
+            ):
+                # If so, we need to retrieve the vocab list from the tokenizer.
                 # We also need to check if the tokenizer is a sentencepiece or a CTCTextEncoder.
-                if isinstance(self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder):
+                if isinstance(
+                    self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
+                ):
                     ind2lab = self.tokenizer.ind2lab
                     vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-                elif isinstance(self.tokenizer, sentencepiece.SentencePieceProcessor):
+                elif isinstance(
+                    self.tokenizer, sentencepiece.SentencePieceProcessor
+                ):
                     vocab_list = [
                         self.tokenizer.id_to_piece(i)
                         for i in range(self.tokenizer.vocab_size())
@@ -217,7 +223,7 @@ class EncoderASR(Pretrained):
                     raise ValueError(
                         "The tokenizer must be sentencepiece or CTCTextEncoder"
                     )
-                
+
                 # We can now instantiate the decoding class and add all the parameters
                 if hasattr(self.hparams, "test_beam_search"):
                     opt_beam_search_params = self.hparams.test_beam_search
