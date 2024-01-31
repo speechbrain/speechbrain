@@ -23,7 +23,7 @@ import functools
 from speechbrain.utils.fetching import fetch
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
-from speechbrain.utils.streaming import split_fixed_chunks, split_wav_lens
+from speechbrain.utils.streaming import split_fixed_chunks
 
 
 class EncoderDecoderASR(Pretrained):
@@ -611,7 +611,7 @@ class StreamingTransducerASR(Pretrained):
         pred = ""
 
         for i, chunk in enumerate(chunks):
-            predicted_words = self.transcribe_batch(chunk, rel_length, context)
+            predicted_words = self.transcribe_chunk(chunk, rel_length, context)
             pred = predicted_words[0]
             if i == 0:
                 # truncate leading space
@@ -625,7 +625,7 @@ class StreamingTransducerASR(Pretrained):
         dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
         **kwargs,
     ):
-        """Transcribes the given audiofile into a sequence of words.
+        """Transcribes the given audio file into a sequence of words.
         At the moment, the file is fully loaded in memory, but processing itself
         is done in chunks.
 
@@ -649,37 +649,37 @@ class StreamingTransducerASR(Pretrained):
 
         return pred
 
-    def encode_batch(
-        self, wavs, wav_lens, context: TransducerASRStreamingContext
+    def encode_chunk(
+        self, chunk, chunk_len, context: TransducerASRStreamingContext
     ):
-        """Non-streaming (offline) encoding of a batch of audio into a sequence
-        of hidden states.
+        """Encoding of a batch of audio chunks into a batch of sequence of
+        hidden states.
         For full speech-to-text offline transcription, use `transcribe_batch` or
         `transcribe_file`.
 
-        If a `dynchunktrain_config` is passed, encoding will be done on a
-        chunkwise basis as if streaming were used. This can be used to limit the
-        computational and memory cost of inference on long utterances."""
+        The time dimension of chunk must exactly match the expected
+        configuration (`asr.streamer.get_chunk_size_frames(config)`)."""
 
-        wavs = wavs.float()
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        wavs = chunk.float()
+        wavs, wav_lens = wavs.to(self.device), chunk_len.to(self.device)
 
         return self.streamer.encode_chunk(context, wavs, wav_lens)
 
-    def transcribe_batch(
-        self, wavs, wav_lens, context: TransducerASRStreamingContext
+    def transcribe_chunk(
+        self, chunk, chunk_len, context: TransducerASRStreamingContext
     ):
-        """Non-streaming (offline) transcription of a batch of audio into
-        tokens and transcribed tokens (returned separately).
+        """Transcription of a batch of audio chunks into tokens and transcribed
+        tokens (text) returned separately.
+        This requires an initialized streaming context, which may be fresh,
+        i.e. initialized with `asr.streamer.make_streaming_context(config)`.
 
-        If a `dynchunktrain_config` is passed, encoding will be done on a
-        chunkwise basis as if streaming were used. This can be used to limit the
-        computational and memory cost of inference on long utterances."""
+        The time dimension of chunk must exactly match the expected
+        configuration (`asr.streamer.get_chunk_size_frames(config)`)."""
 
-        wavs = wavs.float()
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        chunk = chunk.float()
+        chunk, chunk_len = chunk.to(self.device), chunk_len.to(self.device)
 
-        x = self.streamer.encode_chunk(context, wavs, wav_lens)
+        x = self.streamer.encode_chunk(context, chunk, chunk_len)
         predicted_words, predicted_tokens = self.streamer.decode_chunk(
             context, x
         )
