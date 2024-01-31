@@ -43,6 +43,7 @@ from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
 )
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.filter_analysis import FilterProperties
 
 
 logger = logging.getLogger(__name__)
@@ -176,6 +177,18 @@ class STFT(torch.nn.Module):
             stft = stft.transpose(2, 1)
 
         return stft
+
+    def get_filter_properties(self) -> FilterProperties:
+        if not self.center:
+            raise ValueError(
+                "ValueProperties cannot model a non-centered STFT, as it "
+                "assumes either centering or causality"
+            )
+
+        return FilterProperties(
+            window_size=self.win_length,
+            stride=self.hop_length
+        )
 
 
 class ISTFT(torch.nn.Module):
@@ -1083,7 +1096,7 @@ class InputNormalization(torch.nn.Module):
                         self.glob_mean = current_mean
                         self.glob_std = current_std
 
-                    elif epoch < self.update_until_epoch:
+                    elif epoch is None or epoch < self.update_until_epoch:
                         if self.avg_factor is None:
                             self.weight = 1 / (self.count + 1)
                         else:

@@ -8,6 +8,7 @@ import torch
 from speechbrain.nnet.CNN import Conv2d, Conv1d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import LayerNorm
+from speechbrain.utils.filter_analysis import FilterProperties, stack_filter_properties
 
 
 class ConvolutionalSpatialGatingUnit(torch.nn.Module):
@@ -174,6 +175,11 @@ class ConvolutionFrontEnd(Sequential):
                 conv_init=conv_init,
             )
 
+    def get_filter_properties(self) -> FilterProperties:
+        return stack_filter_properties(
+            block.get_filter_properties() for block in self.children()
+        )
+
 
 class ConvBlock(torch.nn.Module):
     """An implementation of convolution block with 1d or 2d convolutions (depthwise).
@@ -223,18 +229,27 @@ class ConvBlock(torch.nn.Module):
     ):
         super().__init__()
         self.convs = Sequential(input_shape=input_shape)
+        self.filter_properties = []
 
         for i in range(num_layers):
+            layer_stride = stride if i == num_layers - 1 else 1
             self.convs.append(
                 conv_module,
                 out_channels=out_channels,
                 kernel_size=kernel_size,
-                stride=stride if i == num_layers - 1 else 1,
+                stride=layer_stride,
                 dilation=dilation,
                 layer_name=f"conv_{i}",
                 bias=conv_bias,
                 padding=padding,
                 conv_init=conv_init,
+            )
+            self.filter_properties.append(
+                FilterProperties(
+                    window_size=kernel_size,
+                    stride=layer_stride,
+                    dilation=dilation
+                )
             )
             if norm is not None:
                 self.convs.append(norm, layer_name=f"norm_{i}")
@@ -264,3 +279,30 @@ class ConvBlock(torch.nn.Module):
             out = out + self.reduce_conv(x)
             out = self.drop(out)
         return out
+
+    def get_filter_properties(self) -> FilterProperties:
+        return stack_filter_properties(self.filter_properties)
+
+
+class ConformerFeatureExtractorWrapper(torch.nn.Module):
+    """Simple wrapper to call the conformer feature extractor in one go."""
+    
+    def __init__(self, fea_extractor, fea_normalizer, conv_frontend):
+        super().__init__()
+        
+        self.fea_extractor = fea_extractor
+        self.fea_normalizer = fea_normalizer
+        self.conv_frontend = conv_frontend
+
+    def forward(self, x, lens=None, epoch=None):
+        # TODO: docstring
+
+        x = self.fea_extractor(x)
+
+        if lens is None:
+            lens = torch.ones((x.size(0),), device=x.device)
+
+        x = self.fea_normalizer(x, lens, epoch=epoch)
+        x = self.conv_frontend(x)
+
+        return x

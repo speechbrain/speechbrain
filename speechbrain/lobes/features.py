@@ -5,7 +5,9 @@ Authors
  * Peter Plantinga 2020
  * Sarthak Yadav 2020
 """
+from dataclasses import dataclass
 import torch
+from typing import Optional
 from speechbrain.processing.features import (
     STFT,
     spectral_magnitude,
@@ -15,6 +17,7 @@ from speechbrain.processing.features import (
     ContextWindow,
 )
 from speechbrain.utils.autocast import fwd_default_precision
+from speechbrain.utils.filter_analysis import FilterProperties
 from speechbrain.nnet.CNN import GaborConv1d
 from speechbrain.nnet.normalization import PCEN
 from speechbrain.nnet.pooling import GaussianLowpassPooling
@@ -147,6 +150,10 @@ class Fbank(torch.nn.Module):
         if self.context:
             fbanks = self.context_window(fbanks)
         return fbanks
+
+    def get_filter_properties(self) -> FilterProperties:
+        # only the STFT affects the FilterProperties of the Fbank
+        return self.compute_STFT.get_filter_properties()
 
 
 class MFCC(torch.nn.Module):
@@ -441,3 +448,93 @@ class Leaf(torch.nn.Module):
                 "Leaf expects 2d or 3d inputs. Got " + str(len(shape))
             )
         return in_channels
+
+def upalign_value(x, to: int) -> int:
+    """If `x` cannot evenly divide `to`, round it up to the next value that
+    can."""
+
+    assert x >= 0
+
+    if (x % to) == 0:
+        return x
+
+    return x + to - (x % to)
+
+@dataclass
+class StreamingFeatureWrapperContext:
+    left_context: Optional[torch.Tensor]
+
+class StreamingFeatureWrapper(torch.nn.Module):
+    # TODO: docstring
+    def __init__(self, module: torch.nn.Module, properties: FilterProperties):
+        super().__init__()
+
+        self.module = module
+        self.properties = properties
+
+        if self.properties.causal:
+            raise ValueError(
+                "Causal streaming feature wrapper is not yet supported"
+            )
+
+        if self.properties.dilation != 1:
+            raise ValueError(
+                "Dilation not yet supported in streaming feature wrapper"
+            )
+
+    def get_required_padding(self):
+        return upalign_value(
+            (self.properties.window_size - 1) // 2,
+            self.properties.stride
+        )
+
+    def get_output_count_per_pad_frame(self):
+        return self.get_required_padding() // self.properties.stride
+
+    def forward(self, chunk: torch.Tensor, context: StreamingFeatureWrapperContext, *extra_args, **extra_kwargs):
+        feat_pad_size = self.get_required_padding()
+        num_outputs_per_pad = self.get_output_count_per_pad_frame()
+
+        # consider two audio chunks of 6 samples (for the example), where
+        # each sample is denoted by 1, 2, ..., 6
+        # so chunk 1 is 123456 and chunk 2 is 123456
+        if context.left_context is None:
+            # for the first chunk we left pad the input by two padding's worth of zeros,
+            # and truncate the right, so that we can pretend to have right padding and
+            # still consume the same amount of samples every time
+            #
+            # our first processed chunk will look like:
+            # 0000123456
+            #         ^^ right padding (truncated)
+            #   ^^^^^^ frames that some outputs are centered on
+            # ^^ left padding (truncated)
+            chunk = torch.nn.functional.pad(chunk, (feat_pad_size * 2, 0))
+        else:
+            # prepend left context
+            #
+            # for the second chunk ownwards, given the above example:
+            # 34 of the previous chunk becomes left padding
+            # 56 of the previous chunk becomes the first frames of this chunk
+            # thus on the second iteration (and onwards) it will look like:
+            # 3456123456
+            #         ^^ right padding (truncated)
+            #   ^^^^^^ frames that some outputs are centered on
+            # ^^ left padding (truncated)
+            chunk = torch.cat((context.left_context, chunk), 1)
+
+        # our chunk's right context will become the start of the "next processed chunk"
+        # plus we need left padding for that one, so make it double
+        context.left_context = chunk[:, -feat_pad_size * 2:]
+
+        feats = self.module(chunk, *extra_args, **extra_kwargs)
+
+        # truncate left and right context
+        feats = feats[:, num_outputs_per_pad:-num_outputs_per_pad, ...]
+
+        return feats
+
+    def get_filter_properties(self) -> FilterProperties:
+        return self.properties
+
+    def make_streaming_context(self) -> StreamingFeatureWrapperContext:
+        return StreamingFeatureWrapperContext(None)

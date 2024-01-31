@@ -109,7 +109,7 @@ test_dataloader_opts:
 # Adjust grad_accumulation_factor depending on the DDP node count (here 3)
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_len: 150
+max_batch_len: 50
 max_batch_len_val: 50 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 
@@ -399,3 +399,14 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
+
+# inference stuff
+
+fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
+   module: !new:speechbrain.lobes.models.convolution.ConformerFeatureExtractorWrapper
+      - !ref <compute_features>
+      - !ref <normalize>
+      - !ref <CNN>
+   # don't consider normalization as part of the input filter chain
+   properties: !!python/object/apply:speechbrain.utils.filter_analysis.stack_filter_properties
+      - [!ref <compute_features>, !ref <CNN>]

@@ -625,8 +625,15 @@ class EncoderWrapper(nn.Module):
     def __init__(self, transformer, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.transformer = transformer
+        self.make_streaming_context = self.transformer.make_streaming_context
 
     def forward(self, x, wav_lens=None, pad_idx=0, **kwargs):
         """ Processes the input tensor x and returns an output tensor."""
         x = self.transformer.encode(x, wav_lens, pad_idx, **kwargs,)
+        return x
+
+    def forward_streaming(self, x, context):
+        """Processes the input audio chunk tensor `x`, using and updating the
+        mutable encoder `context`"""
+        x = self.transformer.encode_streaming(x, context)
         return x
