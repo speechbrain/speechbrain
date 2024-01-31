@@ -449,6 +449,7 @@ class Leaf(torch.nn.Module):
             )
         return in_channels
 
+
 def upalign_value(x, to: int) -> int:
     """If `x` cannot evenly divide `to`, round it up to the next value that
     can."""
@@ -460,9 +461,11 @@ def upalign_value(x, to: int) -> int:
 
     return x + to - (x % to)
 
+
 @dataclass
 class StreamingFeatureWrapperContext:
     left_context: Optional[torch.Tensor]
+
 
 class StreamingFeatureWrapper(torch.nn.Module):
     # TODO: docstring
@@ -484,14 +487,19 @@ class StreamingFeatureWrapper(torch.nn.Module):
 
     def get_required_padding(self):
         return upalign_value(
-            (self.properties.window_size - 1) // 2,
-            self.properties.stride
+            (self.properties.window_size - 1) // 2, self.properties.stride
         )
 
     def get_output_count_per_pad_frame(self):
         return self.get_required_padding() // self.properties.stride
 
-    def forward(self, chunk: torch.Tensor, context: StreamingFeatureWrapperContext, *extra_args, **extra_kwargs):
+    def forward(
+        self,
+        chunk: torch.Tensor,
+        context: StreamingFeatureWrapperContext,
+        *extra_args,
+        **extra_kwargs,
+    ):
         feat_pad_size = self.get_required_padding()
         num_outputs_per_pad = self.get_output_count_per_pad_frame()
 
@@ -524,7 +532,7 @@ class StreamingFeatureWrapper(torch.nn.Module):
 
         # our chunk's right context will become the start of the "next processed chunk"
         # plus we need left padding for that one, so make it double
-        context.left_context = chunk[:, -feat_pad_size * 2:]
+        context.left_context = chunk[:, -feat_pad_size * 2 :]
 
         feats = self.module(chunk, *extra_args, **extra_kwargs)
 

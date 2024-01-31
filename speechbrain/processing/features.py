@@ -186,8 +186,7 @@ class STFT(torch.nn.Module):
             )
 
         return FilterProperties(
-            window_size=self.win_length,
-            stride=self.hop_length
+            window_size=self.win_length, stride=self.hop_length
         )
 
 

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+
 @dataclass
 class FilterProperties:
     """Models the properties of something that behaves like a filter (e.g.
@@ -23,12 +24,12 @@ class FilterProperties:
     stride: int = 1
     """Stride of the filter, i.e. how many input frames get skipped over from an
     output frame to the next (regardless of window size or dilation).
-    
+
     Example:
     ```
     size = 3, stride = 2
 
-         <-a-> 
+         <-a->
              <-b->   <-d->
     out          <-c->
     in   1 2 3 4 5 6 7 8 9
@@ -42,7 +43,7 @@ class FilterProperties:
 
     Dilation is mostly relevant to "a trous" convolutions.
     A dilation rate of 1, the default, effectively performs no dilation.
-    
+
     Example:
     ```
     size = 3, stride = 1, dilation = 3
@@ -126,10 +127,12 @@ class FilterProperties:
             window_size=(self.window_size - 1) * 2 + 1,
             stride=self.stride,
             dilation=self.dilation,
-            causal=False
+            causal=False,
         )
 
-    def with_on_top(self, other: "FilterProperties", allow_approximate: bool = True) -> "FilterProperties":
+    def with_on_top(
+        self, other: "FilterProperties", allow_approximate: bool = True
+    ) -> "FilterProperties":
         """Considering the chain of filters `other_filter(self(x))`, returns
         recalculated properties of the resulting filter.
 
@@ -163,7 +166,9 @@ class FilterProperties:
 
         if (self.causal or other.causal) and not (self.causal and other.causal):
             if allow_approximate:
-                return self.get_noncausal_equivalent().with_on_top(other.get_noncausal_equivalent())
+                return self.get_noncausal_equivalent().with_on_top(
+                    other.get_noncausal_equivalent()
+                )
             else:
                 raise ValueError(
                     "Cannot express exact properties of causal and non-causal "
@@ -179,11 +184,14 @@ class FilterProperties:
 
         return FilterProperties(out_size, stride, dilation, causal)
 
-def stack_filter_properties(filters: Iterable[Any], allow_approximate: bool = True) -> FilterProperties:
+
+def stack_filter_properties(
+    filters: Iterable[Any], allow_approximate: bool = True
+) -> FilterProperties:
     """Returns the filter properties of a sequence of stacked filters.
     If the sequence is empty, then a no-op filter is returned (with a size and
     stride of 1).
-    
+
     Arguments
     ---------
     filters: FilterProperties | any

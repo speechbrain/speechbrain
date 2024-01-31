@@ -490,6 +490,7 @@ class TransducerASRStreamingContext:
     encoder_context: Any
     decoder_hidden: Optional[torch.Tensor]
 
+
 class TransducerASRStreamingWrapper:
     def __init__(self, modules, hparams):
         self.modules = modules
@@ -505,18 +506,19 @@ class TransducerASRStreamingWrapper:
             encoder_context=self.hparams.Transformer.make_streaming_context(
                 dynchunktrain_config=dynchunktrain_config,
                 encoder_kwargs={
-                    "mha_left_context_size": dynchunktrain_config.left_context_size * dynchunktrain_config.chunk_size
-                }
+                    "mha_left_context_size": dynchunktrain_config.left_context_size
+                    * dynchunktrain_config.chunk_size
+                },
             ),
             decoder_hidden=None,
         )
 
-    def get_chunk_size_frames(self, dynchunktrain_config: DynChunkTrainConfig) -> int:
+    def get_chunk_size_frames(
+        self, dynchunktrain_config: DynChunkTrainConfig
+    ) -> int:
         """Chunk size in actual audio samples that the user should forward to
         `encode_chunk`."""
-        return (
-            (self.filter_props.stride - 1) * dynchunktrain_config.chunk_size
-        )
+        return (self.filter_props.stride - 1) * dynchunktrain_config.chunk_size
 
     def decode_preserve_leading_space(self, hyps):
         """Assuming the tokenizer is sentencepiece, decodes the input hypothesis
@@ -534,17 +536,34 @@ class TransducerASRStreamingWrapper:
         return texts
 
     @torch.no_grad
-    def encode_chunk(self, context: TransducerASRStreamingContext, chunk: torch.Tensor, lens: Optional[torch.Tensor] = None):
+    def encode_chunk(
+        self,
+        context: TransducerASRStreamingContext,
+        chunk: torch.Tensor,
+        lens: Optional[torch.Tensor] = None,
+    ):
         assert chunk.shape[-1] <= self.get_chunk_size_frames(context.config)
 
-        x = self.fea_extractor(chunk, context=context.fea_extractor_context, lens=lens)
+        x = self.fea_extractor(
+            chunk, context=context.fea_extractor_context, lens=lens
+        )
         x = self.modules.enc.forward_streaming(x, context.encoder_context)
         x = self.modules.proj_enc(x)
         return x
 
     @torch.no_grad
-    def decode_chunk(self, context: TransducerASRStreamingContext, x: torch.Tensor):
-        best_hyps, _scores, _, _, h = self.hparams.Greedysearcher.transducer_greedy_decode(x, context.decoder_hidden, return_hidden=True)
+    def decode_chunk(
+        self, context: TransducerASRStreamingContext, x: torch.Tensor
+    ):
+        (
+            best_hyps,
+            _scores,
+            _,
+            _,
+            h,
+        ) = self.hparams.Greedysearcher.transducer_greedy_decode(
+            x, context.decoder_hidden, return_hidden=True
+        )
         context.decoder_hidden = h
 
         best_words = self.decode_preserve_leading_space(best_hyps)
@@ -567,7 +586,12 @@ class StreamingTransducerASR(Pretrained):
 
         self.streamer = TransducerASRStreamingWrapper(self.mods, self.hparams)
 
-    def transcribe_file_streaming(self, path, dynchunktrain_config: Optional[DynChunkTrainConfig] = None, **kwargs):
+    def transcribe_file_streaming(
+        self,
+        path,
+        dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
+        **kwargs,
+    ):
         """Transcribes the given audio file into a sequence of words, in a
         streaming fashion, meaning that text is being yield from this
         generator, in the form of strings to concatenate.
@@ -595,7 +619,12 @@ class StreamingTransducerASR(Pretrained):
             else:
                 yield pred
 
-    def transcribe_file(self, path, dynchunktrain_config: Optional[DynChunkTrainConfig] = None, **kwargs):
+    def transcribe_file(
+        self,
+        path,
+        dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
+        **kwargs,
+    ):
         """Transcribes the given audiofile into a sequence of words.
         At the moment, the file is fully loaded in memory, but processing itself
         is done in chunks.
@@ -613,12 +642,16 @@ class StreamingTransducerASR(Pretrained):
 
         pred = ""
 
-        for text_chunk in self.transcribe_file_stream(path, dynchunktrain_config):
+        for text_chunk in self.transcribe_file_stream(
+            path, dynchunktrain_config
+        ):
             pred += text_chunk
 
         return pred
 
-    def encode_batch(self, wavs, wav_lens, context: TransducerASRStreamingContext):
+    def encode_batch(
+        self, wavs, wav_lens, context: TransducerASRStreamingContext
+    ):
         """Non-streaming (offline) encoding of a batch of audio into a sequence
         of hidden states.
         For full speech-to-text offline transcription, use `transcribe_batch` or
@@ -633,7 +666,9 @@ class StreamingTransducerASR(Pretrained):
 
         return self.streamer.encode_chunk(context, wavs, wav_lens)
 
-    def transcribe_batch(self, wavs, wav_lens, context: TransducerASRStreamingContext):
+    def transcribe_batch(
+        self, wavs, wav_lens, context: TransducerASRStreamingContext
+    ):
         """Non-streaming (offline) transcription of a batch of audio into
         tokens and transcribed tokens (returned separately).
 
@@ -645,6 +680,8 @@ class StreamingTransducerASR(Pretrained):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
         x = self.streamer.encode_chunk(context, wavs, wav_lens)
-        predicted_words, predicted_tokens = self.streamer.decode_chunk(context, x)
+        predicted_words, predicted_tokens = self.streamer.decode_chunk(
+            context, x
+        )
 
         return predicted_words

@@ -8,7 +8,10 @@ import torch
 from speechbrain.nnet.CNN import Conv2d, Conv1d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.utils.filter_analysis import FilterProperties, stack_filter_properties
+from speechbrain.utils.filter_analysis import (
+    FilterProperties,
+    stack_filter_properties,
+)
 
 
 class ConvolutionalSpatialGatingUnit(torch.nn.Module):
@@ -248,7 +251,7 @@ class ConvBlock(torch.nn.Module):
                 FilterProperties(
                     window_size=kernel_size,
                     stride=layer_stride,
-                    dilation=dilation
+                    dilation=dilation,
                 )
             )
             if norm is not None:
@@ -286,10 +289,10 @@ class ConvBlock(torch.nn.Module):
 
 class ConformerFeatureExtractorWrapper(torch.nn.Module):
     """Simple wrapper to call the conformer feature extractor in one go."""
-    
+
     def __init__(self, fea_extractor, fea_normalizer, conv_frontend):
         super().__init__()
-        
+
         self.fea_extractor = fea_extractor
         self.fea_normalizer = fea_normalizer
         self.conv_frontend = conv_frontend
