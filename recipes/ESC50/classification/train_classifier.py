@@ -92,10 +92,10 @@ class ESC50Brain(sb.core.Brain):
                 # basically mask out
                 net_input = (1 - int_) * net_input[:, :int_.shape[1], :]
 
-                import matplotlib.pyplot as plt
-                plt.imshow(net_input[0].cpu().squeeze().t(), origin="lower")
-                plt.savefig("net_inp.png")
-                exit()
+                # import matplotlib.pyplot as plt
+                # plt.imshow(net_input[0].cpu().squeeze().t(), origin="lower")
+                # plt.savefig("net_inp.png")
+                # exit()
 
                 # # avg
                 # # C = images.mean((-1, -2, -3)).view(-1, 1, 1, 1)
