@@ -10,10 +10,18 @@ import os
 selection_seed = 1234
 random.seed(selection_seed)
 
-BASE_FOLDER = "."
+BASE_FOLDER = "/mnt/data/icml2024_exps/"
 EVAL_LIST = [
         "ao",
-        "l2i"
+        "finetune_16_cth_0.7",
+        "finetune_gw_4",
+        "finetune_gw_16",
+        "finetune_gw_32",
+        "finetune_gw_128",
+        "l2i_0.2_OOD",
+        "l2i_0.4_OOD",
+        "l2i_0.6_OOD",
+        "l2i_0.8_OOD",
         ]
 EVAL_LIST = [Path(BASE_FOLDER).joinpath(f"qualitative_{e}") for e in EVAL_LIST]  # pre-prend base folder
 
@@ -29,6 +37,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
         else:
             shutil.copy2(s, d)
 
+@torch.no_grad()
 def selection(id_: str) -> str:
     choice_folder = Path("choice")
     os.makedirs(choice_folder, exist_ok=True)
