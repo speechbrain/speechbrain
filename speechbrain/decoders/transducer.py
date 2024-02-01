@@ -119,7 +119,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         else:
             self.searcher = self.transducer_beam_search_decode
 
-    def forward(self, tn_output):
+    def forward(self, tn_output, *args, **kwargs):
         """
         Arguments
         ----------
@@ -132,7 +132,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         Topk hypotheses
         """
 
-        hyps = self.searcher(tn_output)
+        hyps = self.searcher(tn_output, *args, **kwargs)
         return hyps
 
     def transducer_greedy_decode(

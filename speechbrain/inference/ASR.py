@@ -561,7 +561,7 @@ class TransducerASRStreamingWrapper:
             _,
             _,
             h,
-        ) = self.hparams.Greedysearcher.transducer_greedy_decode(
+        ) = self.hparams.Greedysearcher(
             x, context.decoder_hidden, return_hidden=True
         )
         context.decoder_hidden = h
