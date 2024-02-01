@@ -21,6 +21,7 @@ import quantus_eval
 from tqdm import tqdm
 from maskin_maskout import opt_single_mask, interpret_pretrained
 from l2i_eval import l2i_pretrained
+import math
 
 eps = 1e-10
 
@@ -283,14 +284,27 @@ if __name__ == "__main__":
                 )
                 print(local)
 
+                hasNan = False
+                for k, v in metrics.items():
+                    v = v if not isinstance(v, list) else v[0]
+                    if math.isnan(v):
+                        hasNan = True
+
+                if hasNan:
+                    raise ValueError("Has nan")
+
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
 
             except AssertionError as e:
                 discarded += 1
                 print("Total discarded from quantus are: ", discarded)
-
                 print("Exception was ", str(e))
+
+            except ValueError as e:
+                print("Something was NaN here!")
+                discarded += 1
+                print("Total discarded from quantus are: ", discarded)
 
         aggregate = f"Aggregated "
         aggregate += " ".join(
