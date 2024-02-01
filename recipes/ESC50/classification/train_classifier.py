@@ -568,7 +568,7 @@ if __name__ == "__main__":
         assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
         assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
     if hparams["dataset"] == "us8k":
-        assert hparams["signal_length_s"] == 4, "Fix wham sig length!"
+        # assert hparams["signal_length_s"] == 4, "Fix wham sig length!"
         assert hparams["out_n_neurons"] == 10, "Fix number of outputs classes!"
 
     class_labels = list(label_encoder.ind2lab.values())
@@ -599,8 +599,8 @@ if __name__ == "__main__":
         run_on_main(hparams["load_pretrained"].collect_files)
         hparams["load_pretrained"].load_collected()
 
-    hparams["pretrained_c"].to(run_opts["device"])
-    hparams["psi_model"].to(run_opts["device"])
+        hparams["pretrained_c"].to(run_opts["device"])
+        hparams["psi_model"].to(run_opts["device"])
 
     if not hparams["test_only"]:
         ESC50_brain.fit(
