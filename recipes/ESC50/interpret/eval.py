@@ -56,7 +56,6 @@ def generate_overlap(sample, dataset, overlap_multiplier=1):
 
     return samples
 
-
 def preprocess(wavs, hparams):
     """Pre-process wavs."""
     X_stft = hparams["compute_stft"](wavs)

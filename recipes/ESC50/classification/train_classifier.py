@@ -89,7 +89,7 @@ class ESC50Brain(sb.core.Brain):
                         ).squeeze().view(-1, 1, 1, 1)
                 int_ = (int_ >= thr).float().squeeze(1)
 
-                int_ = torch.rand_like(int_)
+                # int_ = torch.rand_like(int_)
 
                 # basically mask out
                 net_input = (1 - int_) * net_input[:, :int_.shape[1], :]
