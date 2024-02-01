@@ -6,8 +6,8 @@ import torch
 import os
 
 BASE_FOLDER = "."
-PATHS = ["ao"]
-PATHS += [f"mrt_layer{i}" for i in range(1, 7)]
+PATHS = ["gradcam"]
+PATHS += [f"gradcam_mrt_layer{i}" for i in range(1, 7)]
 
 PATHS = [Path(BASE_FOLDER).joinpath(f"qualitative_{p}") for p in PATHS]
 
@@ -29,8 +29,8 @@ if __name__ == "__main__":
             if "csv" in str(el.name):
                 continue
 
-            original = torch.load(PATHS[0].joinpath(el.name, "interpretation.pt")).cpu().squeeze().numpy()
-            mrt = torch.load(p.joinpath(el.name, "interpretation.pt")).cpu().squeeze().numpy()
+            original = torch.load(PATHS[0].joinpath(el.name, "interpretation.pt")).detach().cpu().squeeze().numpy()
+            mrt = torch.load(p.joinpath(el.name, "interpretation.pt")).detach().cpu().squeeze().numpy()
 
             temp["rank"].append(scipy.stats.spearmanr(original.flatten(), mrt.flatten()).statistic)
             temp["rankabs"].append(scipy.stats.spearmanr(original.flatten(), mrt.flatten(), alternative="greater").statistic)
