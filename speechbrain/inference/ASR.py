@@ -555,13 +555,7 @@ class TransducerASRStreamingWrapper:
     def decode_chunk(
         self, context: TransducerASRStreamingContext, x: torch.Tensor
     ):
-        (
-            best_hyps,
-            _scores,
-            _,
-            _,
-            h,
-        ) = self.hparams.Greedysearcher(
+        (best_hyps, _scores, _, _, h,) = self.hparams.Greedysearcher(
             x, context.decoder_hidden, return_hidden=True
         )
         context.decoder_hidden = h
@@ -592,10 +586,7 @@ class StreamingTransducerASR(Pretrained):
         self.streamer = TransducerASRStreamingWrapper(self.mods, self.hparams)
 
     def transcribe_file_streaming(
-        self,
-        path,
-        dynchunktrain_config: DynChunkTrainConfig,
-        **kwargs,
+        self, path, dynchunktrain_config: DynChunkTrainConfig, **kwargs,
     ):
         """Transcribes the given audio file into a sequence of words, in a
         streaming fashion, meaning that text is being yield from this
@@ -603,7 +594,7 @@ class StreamingTransducerASR(Pretrained):
 
         At the moment, the file is fully loaded in memory, but processing itself
         is done in chunks.
-        
+
         Arguments
         ---------
         path : str
@@ -636,9 +627,7 @@ class StreamingTransducerASR(Pretrained):
                 yield pred
 
     def transcribe_file(
-        self,
-        path,
-        dynchunktrain_config: DynChunkTrainConfig,
+        self, path, dynchunktrain_config: DynChunkTrainConfig,
     ):
         """Transcribes the given audio file into a sequence of words.
         At the moment, the file is fully loaded in memory, but processing itself
@@ -699,7 +688,7 @@ class StreamingTransducerASR(Pretrained):
             be used when the audio in one of the chunks of the batch is ending
             within this chunk.
             If unspecified, equivalent to `torch.ones((batch_size,))`.
-            
+
         Returns
         -------
         torch.Tensor
@@ -720,7 +709,7 @@ class StreamingTransducerASR(Pretrained):
         chunk_len: Optional[torch.Tensor] = None,
     ):
         """Transcription of a batch of audio chunks into transcribed text.
-        
+
         Arguments
         ---------
         context : TransducerASRStreamingContext
