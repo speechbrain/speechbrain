@@ -623,7 +623,7 @@ class StreamingTransducerASR(Pretrained):
         pred = ""
 
         for i, chunk in enumerate(chunks):
-            predicted_words = self.transcribe_chunk(chunk, rel_length, context)
+            predicted_words = self.transcribe_chunk(context, chunk, rel_length)
             pred = predicted_words[0]
             if i == 0:
                 # truncate leading space
