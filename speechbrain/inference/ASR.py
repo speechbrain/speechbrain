@@ -485,10 +485,27 @@ class WhisperASR(Pretrained):
 
 @dataclass
 class TransducerASRStreamingContext:
+    """Streaming metadata for a streaming transducer model. Initialized by
+    `TransducerASRStreamingWrapper.make_streaming_context`.
+
+    This object is intended to be mutated, so the same object should be passed
+    across calls as streaming progresses.
+
+    Holds some references to opaque streaming contexts, so the context is
+    model-agnostic to an extent."""
+
     config: DynChunkTrainConfig
+    """Dynamic chunk training configuration used to initialize the streaming
+    context. Cannot be modified on the fly."""
+
     fea_extractor_context: Any
+    """Opaque feature extractor streaming context."""
+
     encoder_context: Any
+    """Opaque encoder streaming context."""
+
     decoder_hidden: Optional[torch.Tensor]
+    """Hidden state for the decoder, if initialized."""
 
 
 class TransducerASRStreamingWrapper:
@@ -500,6 +517,9 @@ class TransducerASRStreamingWrapper:
         self.filter_props = self.fea_extractor.properties
 
     def make_streaming_context(self, dynchunktrain_config: DynChunkTrainConfig):
+        """Create a blank streaming context to be passed around for chunk
+        encoding/transcription."""
+
         return TransducerASRStreamingContext(
             config=dynchunktrain_config,
             fea_extractor_context=self.hparams.fea_streaming_extractor.make_streaming_context(),
