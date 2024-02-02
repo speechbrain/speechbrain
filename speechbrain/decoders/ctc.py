@@ -336,7 +336,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     ---------
     probabilities : torch.tensor
         Output probabilities (or log-probabilities) from the network with shape
-        [batch, probabilities, time]
+        [batch, lengths, probabilities]
     seq_lens : torch.tensor
         Relative true sequence lengths (to deal with padded inputs),
         the longest sequence has length 1.0, others a value between zero and one
