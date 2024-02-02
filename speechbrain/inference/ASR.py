@@ -484,7 +484,7 @@ class WhisperASR(Pretrained):
 
 
 @dataclass
-class TransducerASRStreamingContext:
+class ASRStreamingContext:
     """Streaming metadata for a streaming transducer model. Initialized by
     `TransducerASRStreamingWrapper.make_streaming_context`.
 
@@ -504,19 +504,19 @@ class TransducerASRStreamingContext:
     encoder_context: Any
     """Opaque encoder streaming context."""
 
-    decoder_hidden: Optional[torch.Tensor]
-    """Hidden state for the decoder, if initialized."""
+    decoder_hidden: Optional[Any]
+    """Opaque hidden state of the decoder. Initially `None`."""
 
 
-class StreamingTransducerASR(Pretrained):
-    """A ready-to-use, streaming-capable transducer model.
+class StreamingASR(Pretrained):
+    """A ready-to-use, streaming-capable ASR model.
 
     Example
     -------
-    >>> from speechbrain.inference.ASR import StreamingTransducerASR
+    >>> from speechbrain.inference.ASR import StreamingASR
     >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = StreamingTransducerASR.from_hparams(source="speechbrain/asr-conformer-streaming-librispeech", savedir=tmpdir,) # doctest: +SKIP
+    >>> asr_model = StreamingASR.from_hparams(source="speechbrain/asr-conformer-streaming-librispeech", savedir=tmpdir,) # doctest: +SKIP
     >>> asr_model.transcribe_file("speechbrain/asr-conformer-streaming-librispeech/test-en.wav", DynChunkTrainConfig(24, 8)) # doctest: +SKIP
     """
 
@@ -605,7 +605,7 @@ class StreamingTransducerASR(Pretrained):
         """Create a blank streaming context to be passed around for chunk
         encoding/transcription."""
 
-        return TransducerASRStreamingContext(
+        return ASRStreamingContext(
             config=dynchunktrain_config,
             fea_extractor_context=self.hparams.fea_streaming_extractor.make_streaming_context(),
             encoder_context=self.hparams.Transformer.make_streaming_context(
@@ -646,7 +646,7 @@ class StreamingTransducerASR(Pretrained):
     @torch.no_grad
     def encode_chunk(
         self,
-        context: TransducerASRStreamingContext,
+        context: ASRStreamingContext,
         chunk: torch.Tensor,
         chunk_len: Optional[torch.Tensor] = None,
     ):
@@ -659,7 +659,7 @@ class StreamingTransducerASR(Pretrained):
 
         Arguments
         ---------
-        context : TransducerASRStreamingContext
+        context : ASRStreamingContext
             Mutable streaming context object, which must be specified and reused
             across calls when streaming.
             You can obtain an initial context by calling
@@ -700,7 +700,7 @@ class StreamingTransducerASR(Pretrained):
 
     @torch.no_grad
     def decode_chunk(
-        self, context: TransducerASRStreamingContext, x: torch.Tensor
+        self, context: ASRStreamingContext, x: torch.Tensor
     ) -> tuple[list, list]:
         """Decodes the output of the encoder into tokens and the associated
         transcription.
@@ -709,7 +709,7 @@ class StreamingTransducerASR(Pretrained):
         
         Arguments
         ---------
-        context : TransducerASRStreamingContext
+        context : ASRStreamingContext
             Mutable streaming context object, which should be the same object
             that was passed to `encode_chunk`.
 
@@ -736,7 +736,7 @@ class StreamingTransducerASR(Pretrained):
 
     def transcribe_chunk(
         self,
-        context: TransducerASRStreamingContext,
+        context: ASRStreamingContext,
         chunk: torch.Tensor,
         chunk_len: Optional[torch.Tensor] = None,
     ):
@@ -746,7 +746,7 @@ class StreamingTransducerASR(Pretrained):
 
         Arguments
         ---------
-        context : TransducerASRStreamingContext
+        context : ASRStreamingContext
             Mutable streaming context object, which must be specified and reused
             across calls when streaming.
             You can obtain an initial context by calling
