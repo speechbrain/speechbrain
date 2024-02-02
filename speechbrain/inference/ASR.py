@@ -540,12 +540,42 @@ class TransducerASRStreamingWrapper:
         self,
         context: TransducerASRStreamingContext,
         chunk: torch.Tensor,
-        lens: Optional[torch.Tensor] = None,
+        chunk_len: Optional[torch.Tensor] = None,
     ):
+        """Encoding of a batch of audio chunks into a batch of encoded
+        sequences.
+        Must be called over a given context in the correct order of chunks over
+        time.
+
+        Arguments
+        ---------
+        context : TransducerASRStreamingContext
+            Mutable streaming context object, which must be specified and reused
+            across calls when streaming.
+            You can obtain an initial context by calling
+            `asr.streamer.make_streaming_context(config)`.
+
+        chunk : torch.Tensor
+            The tensor for an audio chunk of shape `[batch size, time]`.
+            The time dimension must strictly match
+            `get_chunk_size_frames(config)`.
+            The waveform is expected to be in the model's expected format (i.e.
+            the sampling rate must be correct).
+
+        chunk_len : Optional[torch.Tensor]
+            The relative chunk length tensor of shape `[batch size]`. This is to
+            be used when the audio in one of the chunks of the batch is ending
+            within this chunk.
+            If unspecified, equivalent to `torch.ones((batch_size,))`.
+
+        Returns
+        -------
+        torch.Tensor
+            Encoded output, of a model-dependent shape."""
         assert chunk.shape[-1] <= self.get_chunk_size_frames(context.config)
 
         x = self.fea_extractor(
-            chunk, context=context.fea_extractor_context, lens=lens
+            chunk, context=context.fea_extractor_context, lens=chunk_len
         )
         x = self.modules.enc.forward_streaming(x, context.encoder_context)
         x = self.modules.proj_enc(x)
@@ -554,7 +584,30 @@ class TransducerASRStreamingWrapper:
     @torch.no_grad
     def decode_chunk(
         self, context: TransducerASRStreamingContext, x: torch.Tensor
-    ):
+    ) -> tuple[list, list]:
+        """Decodes the output of the encoder into tokens and the associated
+        transcription.
+        Must be called over a given context in the correct order of chunks over
+        time.
+        
+        Arguments
+        ---------
+        context : TransducerASRStreamingContext
+            Mutable streaming context object, which should be the same object
+            that was passed to `encode_chunk`.
+
+        x : torch.Tensor
+            The output of `encode_chunk` for a given chunk.
+
+        Returns
+        -------
+        list of str
+            Decoded tokens of length `batch_size`. The decoded strings can be
+            of 0-length.
+        list of list of output token hypotheses
+            List of length `batch_size`, each holding a list of tokens of any
+            length `>=0`.
+        """
         (best_hyps, _scores, _, _, h,) = self.hparams.Greedysearcher(
             x, context.decoder_hidden, return_hidden=True
         )
@@ -663,10 +716,12 @@ class StreamingTransducerASR(Pretrained):
         chunk: torch.Tensor,
         chunk_len: Optional[torch.Tensor] = None,
     ):
-        """Encoding of a batch of audio chunks into a batch of sequence of
-        hidden states.
+        """Encoding of a batch of audio chunks into a batch of encoded
+        sequences.
         For full speech-to-text offline transcription, use `transcribe_batch` or
         `transcribe_file`.
+        Must be called over a given context in the correct order of chunks over
+        time.
 
         Arguments
         ---------
@@ -709,6 +764,8 @@ class StreamingTransducerASR(Pretrained):
         chunk_len: Optional[torch.Tensor] = None,
     ):
         """Transcription of a batch of audio chunks into transcribed text.
+        Must be called over a given context in the correct order of chunks over
+        time.
 
         Arguments
         ---------
