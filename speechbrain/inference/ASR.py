@@ -706,7 +706,7 @@ class StreamingASR(Pretrained):
         transcription.
         Must be called over a given context in the correct order of chunks over
         time.
-        
+
         Arguments
         ---------
         context : ASRStreamingContext
