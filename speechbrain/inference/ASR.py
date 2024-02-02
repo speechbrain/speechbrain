@@ -576,7 +576,11 @@ class StreamingTransducerASR(Pretrained):
 
     Example
     -------
-    >>> todo
+    >>> from speechbrain.inference.ASR import StreamingTransducerASR
+    >>> from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+    >>> tmpdir = getfixture("tmpdir")
+    >>> asr_model = StreamingTransducerASR.from_hparams(source="speechbrain/asr-conformer-streaming-librispeech", savedir=tmpdir,) # doctest: +SKIP
+    >>> asr_model.transcribe_file("speechbrain/asr-conformer-streaming-librispeech/test-en.wav", DynChunkTrainConfig(24, 8)) # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["fea_streaming_extractor", "Greedysearcher"]
