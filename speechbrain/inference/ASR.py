@@ -526,8 +526,7 @@ class StreamingASR(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.fea_extractor = self.hparams.fea_streaming_extractor
-        self.filter_props = self.fea_extractor.properties
+        self.filter_props = self.hparams.fea_streaming_extractor.properties
 
     def transcribe_file_streaming(
         self, path, dynchunktrain_config: DynChunkTrainConfig, **kwargs,
