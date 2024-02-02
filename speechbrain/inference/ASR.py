@@ -567,6 +567,7 @@ class TransducerASRStreamingWrapper:
         context.decoder_hidden = h
 
         best_words = self.decode_preserve_leading_space(best_hyps)
+
         return best_words, best_hyps
 
 
@@ -589,7 +590,7 @@ class StreamingTransducerASR(Pretrained):
     def transcribe_file_streaming(
         self,
         path,
-        dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
+        dynchunktrain_config: DynChunkTrainConfig,
         **kwargs,
     ):
         """Transcribes the given audio file into a sequence of words, in a
@@ -597,7 +598,18 @@ class StreamingTransducerASR(Pretrained):
         generator, in the form of strings to concatenate.
 
         At the moment, the file is fully loaded in memory, but processing itself
-        is done in chunks."""
+        is done in chunks.
+        
+        Arguments
+        ---------
+        path : str
+            Path to the audio file to trancsribe.
+
+        Returns
+        -------
+        An iterator yielding transcribed chunks (strings). There is a yield for
+        every chunk, even if the transcribed string for that chunk is empty.
+        """
 
         waveform = self.load_audio(path, **kwargs)
         batch = waveform.unsqueeze(0)
@@ -622,8 +634,7 @@ class StreamingTransducerASR(Pretrained):
     def transcribe_file(
         self,
         path,
-        dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
-        **kwargs,
+        dynchunktrain_config: DynChunkTrainConfig,
     ):
         """Transcribes the given audio file into a sequence of words.
         At the moment, the file is fully loaded in memory, but processing itself
@@ -632,12 +643,16 @@ class StreamingTransducerASR(Pretrained):
         Arguments
         ---------
         path : str
-            Path to audio file which to transcribe.
+            Path to audio file to transcribe.
+
+        dynchunktrain_config : DynChunkTrainConfig
+            Streaming configuration. Sane values and how much time chunks
+            actually represent is model-dependent.
 
         Returns
         -------
         str
-            The audiofile transcription produced by this ASR system.
+            The audio file transcription produced by this ASR system.
         """
 
         pred = ""
@@ -650,15 +665,44 @@ class StreamingTransducerASR(Pretrained):
         return pred
 
     def encode_chunk(
-        self, chunk, chunk_len, context: TransducerASRStreamingContext
+        self,
+        context: TransducerASRStreamingContext,
+        chunk: torch.Tensor,
+        chunk_len: Optional[torch.Tensor] = None,
     ):
         """Encoding of a batch of audio chunks into a batch of sequence of
         hidden states.
         For full speech-to-text offline transcription, use `transcribe_batch` or
         `transcribe_file`.
 
-        The time dimension of chunk must exactly match the expected
-        configuration (`asr.streamer.get_chunk_size_frames(config)`)."""
+        Arguments
+        ---------
+        context : TransducerASRStreamingContext
+            Mutable streaming context object, which must be specified and reused
+            across calls when streaming.
+            You can obtain an initial context by calling
+            `asr.streamer.make_streaming_context(config)`.
+
+        chunk : torch.Tensor
+            The tensor for an audio chunk of shape `[batch size, time]`.
+            The time dimension must strictly match
+            `asr.streamer.get_chunk_size_frames(config)`.
+            The waveform is expected to be in the model's expected format (i.e.
+            the sampling rate must be correct).
+
+        chunk_len : Optional[torch.Tensor]
+            The relative chunk length tensor of shape `[batch size]`. This is to
+            be used when the audio in one of the chunks of the batch is ending
+            within this chunk.
+            If unspecified, equivalent to `torch.ones((batch_size,))`.
+            
+        Returns
+        -------
+        torch.Tensor
+            Encoded output, of a model-dependent shape."""
+
+        if chunk_len is None:
+            chunk_len = torch.ones((chunk.size(0),))
 
         wavs = chunk.float()
         wavs, wav_lens = wavs.to(self.device), chunk_len.to(self.device)
@@ -666,15 +710,42 @@ class StreamingTransducerASR(Pretrained):
         return self.streamer.encode_chunk(context, wavs, wav_lens)
 
     def transcribe_chunk(
-        self, chunk, chunk_len, context: TransducerASRStreamingContext
+        self,
+        context: TransducerASRStreamingContext,
+        chunk: torch.Tensor,
+        chunk_len: Optional[torch.Tensor] = None,
     ):
-        """Transcription of a batch of audio chunks into tokens and transcribed
-        tokens (text) returned separately.
-        This requires an initialized streaming context, which may be fresh,
-        i.e. initialized with `asr.streamer.make_streaming_context(config)`.
+        """Transcription of a batch of audio chunks into transcribed text.
+        
+        Arguments
+        ---------
+        context : TransducerASRStreamingContext
+            Mutable streaming context object, which must be specified and reused
+            across calls when streaming.
+            You can obtain an initial context by calling
+            `asr.streamer.make_streaming_context(config)`.
 
-        The time dimension of chunk must exactly match the expected
-        configuration (`asr.streamer.get_chunk_size_frames(config)`)."""
+        chunk : torch.Tensor
+            The tensor for an audio chunk of shape `[batch size, time]`.
+            The time dimension must strictly match
+            `asr.streamer.get_chunk_size_frames(config)`.
+            The waveform is expected to be in the model's expected format (i.e.
+            the sampling rate must be correct).
+
+        chunk_len : Optional[torch.Tensor]
+            The relative chunk length tensor of shape `[batch size]`. This is to
+            be used when the audio in one of the chunks of the batch is ending
+            within this chunk.
+            If unspecified, equivalent to `torch.ones((batch_size,))`.
+
+        Returns
+        -------
+        str
+            Transcribed string for this chunk, might be of length zero.
+        """
+
+        if chunk_len is None:
+            chunk_len = torch.ones((chunk.size(0),))
 
         chunk = chunk.float()
         chunk, chunk_len = chunk.to(self.device), chunk_len.to(self.device)
