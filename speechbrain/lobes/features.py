@@ -464,11 +464,32 @@ def upalign_value(x, to: int) -> int:
 
 @dataclass
 class StreamingFeatureWrapperContext:
+    """Streaming metadata for the feature extractor. Holds some past context
+    frames."""
+
     left_context: Optional[torch.Tensor]
+    """Cached left frames to be inserted as left padding for the next chunk.
+    Initially `None` then gets updated from the last frames of the current
+    chunk.
+    See the relevant `forward` function for details."""
 
 
 class StreamingFeatureWrapper(torch.nn.Module):
-    # TODO: docstring
+    """Wraps an arbitrary filter so that it can be used in a streaming fashion
+    (i.e. on a per-chunk basis), by remembering context and making "clever" use
+    of padding.
+    
+    Arguments
+    ---------
+    module : torch.nn.Module
+        The filter to wrap; e.g. a module list that constitutes a sequential
+        feature extraction pipeline.
+
+    properties : FilterProperties
+        The effective filter properties of the provided module. This is used to
+        determine padding and caching.
+    """
+
     def __init__(self, module: torch.nn.Module, properties: FilterProperties):
         super().__init__()
 
