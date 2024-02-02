@@ -400,13 +400,13 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
 
-# inference stuff
+# for the inference hparams, you will need to include and uncomment something like this:
 
-fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
-   module: !new:speechbrain.lobes.models.convolution.ConformerFeatureExtractorWrapper
-      - !ref <compute_features>
-      - !ref <normalize>
-      - !ref <CNN>
-   # don't consider normalization as part of the input filter chain
-   properties: !!python/object/apply:speechbrain.utils.filter_analysis.stack_filter_properties
-      - [!ref <compute_features>, !ref <CNN>]
+# fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
+#    module: !new:speechbrain.lobes.models.convolution.ConformerFeatureExtractorWrapper
+#       - !ref <compute_features>
+#       - !ref <normalize>
+#       - !ref <CNN>
+#    # don't consider normalization as part of the input filter chain
+#    properties: !!python/object/apply:speechbrain.utils.filter_analysis.stack_filter_properties
+#       - [!ref <compute_features>, !ref <CNN>]
