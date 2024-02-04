@@ -109,6 +109,10 @@ class VAD(Pretrained):
         last_chunk = False
         begin_sample = 0
         while True:
+            # Check if the current chunk is the last one
+            if begin_sample + long_chunk_len >= audio_len:
+                last_chunk = True
+
             # Reading the big chunk
             large_chunk, fs = torchaudio.load(
                 str(audio_file),
@@ -170,10 +174,6 @@ class VAD(Pretrained):
 
             # Update counter to process the next big chunk
             begin_sample = begin_sample + long_chunk_len
-
-            # Check if the current chunk is the last one
-            if begin_sample + long_chunk_len > audio_len:
-                last_chunk = True
 
         # Converting the list to a tensor
         prob_vad = torch.cat(prob_chunks, dim=1)
