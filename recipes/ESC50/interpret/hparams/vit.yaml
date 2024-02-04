@@ -24,7 +24,6 @@ train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: True
 concat_sources: False
-interpret_period: 10
 
 # Tensorboard logs
 use_tensorboard: False
@@ -67,11 +66,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
-
-lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
-    factor: 0.5
-    patience: 3
-    dont_halve_until_epoch: 100
 
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
