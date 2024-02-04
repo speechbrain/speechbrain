@@ -232,8 +232,9 @@ class CTCPrefixScore:
                 self.last_frame_index[i // beam_size], i
             ]
 
-        # Exclude blank probs for joint scoring
-        psi[:, self.blank_index] = self.minus_inf
+        if self.eos_index != self.blank_index:
+            # Exclude blank probs for joint scoring
+            psi[:, self.blank_index] = self.minus_inf
 
         return psi - psi_prev, (r, psi, scoring_table)
 
