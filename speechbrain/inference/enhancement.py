@@ -105,7 +105,11 @@ class SpectralMaskEnhancement(Pretrained):
             enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
-            torchaudio.save(output_filename, enhanced, channels_first=False)
+            torchaudio.save(
+                uri=output_filename,
+                src=enhanced,
+                sample_rate=self.hparams.compute_stft.sample_rate,
+            )
 
         return enhanced.squeeze(0)
 
@@ -169,7 +173,11 @@ class WaveformEnhancement(Pretrained):
         enhanced = self.enhance_batch(batch)
 
         if output_filename is not None:
-            torchaudio.save(output_filename, enhanced, channels_first=False)
+            torchaudio.save(
+                uri=output_filename,
+                src=enhanced,
+                sample_rate=self.audio_normalizer.sample_rate,
+            )
 
         return enhanced.squeeze(0)
 
