@@ -506,12 +506,19 @@ class StreamingFeatureWrapper(torch.nn.Module):
                 "Dilation not yet supported in streaming feature wrapper"
             )
 
-    def get_required_padding(self):
+    def get_required_padding(self) -> int:
+        """Computes the number of padding/context frames that need to be
+        injected at the past and future of the input signal in the forward pass.
+        """
+
         return upalign_value(
             (self.properties.window_size - 1) // 2, self.properties.stride
         )
 
-    def get_output_count_per_pad_frame(self):
+    def get_output_count_per_pad_frame(self) -> int:
+        """Computes the exact number of produced frames (along the time
+        dimension) per input pad frame."""
+
         return self.get_required_padding() // self.properties.stride
 
     def forward(
@@ -521,6 +528,23 @@ class StreamingFeatureWrapper(torch.nn.Module):
         *extra_args,
         **extra_kwargs,
     ):
+        """Forward pass for the streaming feature wrapper.
+
+        For the first chunk, 0-padding is inserted at the past of the input.
+        For any chunk (including the first), some future frames get truncated
+        and cached to be inserted as left context for the next chunk in time.
+
+        For further explanations, see the comments in the code.
+
+        Arguments
+        ---------
+        chunk : torch.Tensor
+            Chunk of input of shape [batch size, time]; typically a raw waveform
+        context : StreamingFeatureWrapperContext
+            Mutable streaming context object; should be reused for subsequent
+            calls in the same streaming session.
+        """
+
         feat_pad_size = self.get_required_padding()
         num_outputs_per_pad = self.get_output_count_per_pad_frame()
 
