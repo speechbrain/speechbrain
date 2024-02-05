@@ -671,7 +671,7 @@ class StreamingASR(Pretrained):
             The waveform is expected to be in the model's expected format (i.e.
             the sampling rate must be correct).
 
-        chunk_len : Optional[torch.Tensor]
+        chunk_len : torch.Tensor, optional
             The relative chunk length tensor of shape `[batch size]`. This is to
             be used when the audio in one of the chunks of the batch is ending
             within this chunk.
@@ -758,7 +758,7 @@ class StreamingASR(Pretrained):
             The waveform is expected to be in the model's expected format (i.e.
             the sampling rate must be correct).
 
-        chunk_len : Optional[torch.Tensor]
+        chunk_len : torch.Tensor, optional
             The relative chunk length tensor of shape `[batch size]`. This is to
             be used when the audio in one of the chunks of the batch is ending
             within this chunk.
