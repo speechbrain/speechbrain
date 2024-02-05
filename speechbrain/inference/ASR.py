@@ -14,7 +14,7 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, List
 import torch
 import sentencepiece
 import speechbrain
@@ -542,6 +542,9 @@ class StreamingASR(Pretrained):
         ---------
         path : str
             Path to the audio file to trancsribe.
+        dynchunktrain_config : DynChunkTrainConfig
+            Streaming configuration. Sane values and how much time chunks
+            actually represent is model-dependent.
 
         Returns
         -------
@@ -580,7 +583,6 @@ class StreamingASR(Pretrained):
         ---------
         path : str
             Path to audio file to transcribe.
-
         dynchunktrain_config : DynChunkTrainConfig
             Streaming configuration. Sane values and how much time chunks
             actually represent is model-dependent.
@@ -602,7 +604,13 @@ class StreamingASR(Pretrained):
 
     def make_streaming_context(self, dynchunktrain_config: DynChunkTrainConfig):
         """Create a blank streaming context to be passed around for chunk
-        encoding/transcription."""
+        encoding/transcription.
+
+        Arguments
+        ---------
+        dynchunktrain_config : DynChunkTrainConfig
+            Streaming configuration. Sane values and how much time chunks
+            actually represent is model-dependent."""
 
         return ASRStreamingContext(
             config=dynchunktrain_config,
@@ -617,10 +625,16 @@ class StreamingASR(Pretrained):
             decoder_hidden=None,
         )
 
-    def _decode_preserve_leading_space(self, hyps):
+    def _decode_preserve_leading_space(self, hyps: List[List[int]]):
         """Assuming the tokenizer is sentencepiece, decodes the input hypothesis
         but preserves initial spaces as we likely want to keep them in a
-        streaming setting."""
+        streaming setting.
+
+        Arguments
+        ---------
+        hyps: list of list of output token hypotheses
+            List of length `batch_size`, each holding a list of tokens of any
+            length `>=0`."""
 
         # TODO: move this out somewhere?
 
@@ -638,7 +652,13 @@ class StreamingASR(Pretrained):
         self, dynchunktrain_config: DynChunkTrainConfig
     ) -> int:
         """Chunk size in actual audio samples that the user should forward to
-        functions consuming individual chunks."""
+        functions consuming individual chunks.
+
+        Arguments
+        ---------
+        dynchunktrain_config : DynChunkTrainConfig
+            The streaming configuration to determine the chunk frame count for.
+        """
 
         return (self.filter_props.stride - 1) * dynchunktrain_config.chunk_size
 
