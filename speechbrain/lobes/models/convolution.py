@@ -311,7 +311,7 @@ class ConformerFeatureExtractorWrapper(torch.nn.Module):
         self,
         x: torch.Tensor,
         lens: Optional[torch.Tensor] = None,
-        epoch: Optional[int] = None
+        epoch: Optional[int] = None,
     ):
         """Forward pass for the conformer feature extractor.
         Extracts the filterbanks from the raw waveform, normalizes them, and
@@ -332,7 +332,7 @@ class ConformerFeatureExtractorWrapper(torch.nn.Module):
             taking into account more silence for the shorter audios.
         epoch : int, optional
             Current epoch, if training. This is used to determine the behavior
-            of the feature normalizer. During inference, this should be left 
+            of the feature normalizer. During inference, this should be left
             unspecified.
 
         Returns

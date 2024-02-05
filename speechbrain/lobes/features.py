@@ -478,7 +478,7 @@ class StreamingFeatureWrapper(torch.nn.Module):
     """Wraps an arbitrary filter so that it can be used in a streaming fashion
     (i.e. on a per-chunk basis), by remembering context and making "clever" use
     of padding.
-    
+
     Arguments
     ---------
     module : torch.nn.Module
