@@ -4,6 +4,7 @@ Authors
  * Jianyuan Zhong 2020
  * Titouan Parcollet 2023
 """
+from typing import Optional
 import torch
 from speechbrain.nnet.CNN import Conv2d, Conv1d
 from speechbrain.nnet.containers import Sequential
@@ -288,7 +289,16 @@ class ConvBlock(torch.nn.Module):
 
 
 class ConformerFeatureExtractorWrapper(torch.nn.Module):
-    """Simple wrapper to call the conformer feature extractor in one go."""
+    """Simple wrapper module for the Conformer feature extractor.
+
+    Arguments
+    ---------
+    fea_extractor : torch.nn.Module
+        Feature extractor (typically `Fbank`)
+    fea_normalizer : torch.nn.Module
+        Feature normalizer (typically `InputNormalization`)
+    conv_frontend : torch.nn.Module
+        Convolution frontend (typically a downsampling `ConvolutionFrontEnd`)"""
 
     def __init__(self, fea_extractor, fea_normalizer, conv_frontend):
         super().__init__()
@@ -297,8 +307,40 @@ class ConformerFeatureExtractorWrapper(torch.nn.Module):
         self.fea_normalizer = fea_normalizer
         self.conv_frontend = conv_frontend
 
-    def forward(self, x, lens=None, epoch=None):
-        # TODO: docstring
+    def forward(
+        self,
+        x: torch.Tensor,
+        lens: Optional[torch.Tensor] = None,
+        epoch: Optional[int] = None
+    ):
+        """Forward pass for the conformer feature extractor.
+        Extracts the filterbanks from the raw waveform, normalizes them, and
+        then pass them onto the downsampling CNN.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input waveform of shape `[batch size, time]`.
+            The sample rate of the signal is expected to be supported by the
+            model.
+        lens : torch.Tensor, optional
+            Relative lengths for each of the audios in the batch.
+            If unspecified, assumes that all the audios in the batch are of the
+            same length.
+            In the feature extractor, this is used to ensure that normalization
+            is performed according to the correct audio length instead of
+            taking into account more silence for the shorter audios.
+        epoch : int, optional
+            Current epoch, if training. This is used to determine the behavior
+            of the feature normalizer. During inference, this should be left 
+            unspecified.
+
+        Returns
+        -------
+        torch.Tensor
+            The processed tensor after feature extraction, typically of shape
+            `[batch size, time, ch1, ch2]`
+        """
 
         x = self.fea_extractor(x)
 
