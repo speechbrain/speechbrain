@@ -1,3 +1,11 @@
+"""Implements utils to model and combine filter properties, i.e. compute how
+window size, stride, etc. behave, which may be useful for certain usecases such
+as streaming.
+
+Authors:
+ * Sylvain de Langen 2024
+"""
+
 from dataclasses import dataclass
 from typing import Any, Iterable
 
