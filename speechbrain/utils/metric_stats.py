@@ -9,6 +9,8 @@ Authors:
 """
 
 import torch
+import numpy as np
+import csv
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
@@ -1106,3 +1108,143 @@ def _dictify(f):
         return result._asdict() if has_asdict else result
 
     return wrapper
+
+
+KEY_ID = "id"
+KEY_DIFF = "diff"
+KEY_DIFF_SQ = "diff_sq"
+
+
+class LinearRegressionStats(MetricStats):
+    """Computes a simple linear correlation between two metrics - useful
+    for regresison tasks, such as quality assessment
+
+    Arguments
+    ---------
+    scores_label : str, optional
+        The user-facing label for scores, to be shown on plots
+    targets_label : str, optional
+        The user-facing label for targets, to be shown on plots
+    scores_key : str, optional
+        The field name for scores, to be used for raw data output
+    targets_key : str, optional
+        The field name for targets, to be used for raw data output
+    plot_pad_left : float
+        The amount of padding on the left
+    plot_pad_bottom : float
+        The amount of padding on the bottom
+    """
+
+    def __init__(
+        self,
+        scores_label="y",
+        targets_label="x",
+        scores_key="y",
+        targets_key="x",
+        plot_pad_left=0.2,
+        plot_pad_bottom=0.1,
+    ):
+        self.clear()
+        self.targets = []
+        self.scores_label = scores_label
+        self.targets_label = targets_label
+        self.scores_key = scores_key
+        self.targets_key = targets_key
+        self.plot_pad_left = plot_pad_left
+        self.plot_pad_bottom = plot_pad_bottom
+
+    def append(
+        self, ids, predict, target,
+    ):
+        self.ids.extend(ids)
+        self.scores.extend(_flatten(predict))
+        self.targets.extend(_flatten(target))
+
+    def summarize(self, field=None):
+        scores = np.array(self.scores)
+        targets = np.array(self.targets)
+        x = np.stack([scores, np.ones_like(scores)], axis=1)
+        solution, _, _, _ = np.linalg.lstsq(x, targets, rcond=None)
+        slope, intercept = solution.squeeze()
+        corr_mat = np.corrcoef(scores, targets)
+        pearson_r = corr_mat[0][1]
+        self.summary = {
+            "scores_mean": scores.mean(),
+            "scores_std": scores.std(),
+            "targets_mean": targets.mean(),
+            "targets_std": targets.std(),
+            "slope": slope,
+            "intercept": intercept,
+            "pearson_r": pearson_r,
+        }
+        if field:
+            return self.summary[field]
+        else:
+            return self.summary
+
+    def plot(self, output=None):
+        """Outputs a regression plot, optionally saving it to a file or a
+        stream, returning a Matplotlib figure. Requires Seaborn.
+
+        Arguments
+        ---------
+        output : str | path-like | BytesIO
+            The path to which the diagram will be saved
+
+        Returns
+        -------
+        fig : figure
+            A Matplotlib figure"""
+        try:
+            import seaborn as sns
+            import matplotlib
+        except ImportError:
+            raise ImportError("Regression plots require Seaborn")
+        matplotlib.use("Agg")
+        if self.summary is None:
+            self.summarize()
+        h = sns.jointplot(x=self.targets, y=self.scores, kind="reg")
+
+        r = self.summary["pearson_r"]
+        h.figure.suptitle(f"r = {r:.3f}", x=self.plot_pad_left)
+
+        h.ax_joint.set_xlabel(self.targets_label)
+        h.ax_joint.set_ylabel(self.scores_label)
+        h.figure.subplots_adjust(
+            left=self.plot_pad_left, bottom=self.plot_pad_bottom
+        )
+        if output is not None:
+            h.figure.savefig(output)
+        return h.figure
+
+    def write_csv(self, file_name):
+        """Outputs raw data, as CSV
+
+        Arguments
+        ---------
+        file_name : str, path-like
+            The path to which raw statistics will be written"""
+        scores = np.array(self.scores)
+        targets = np.array(self.targets)
+        diff = scores - targets
+        diff_sq = diff ** 2
+        with open(file_name, "w") as csv_file:
+            writer = csv.writer(csv_file)
+            header = [
+                KEY_ID,
+                self.scores_key,
+                self.targets_key,
+                KEY_DIFF,
+                KEY_DIFF_SQ,
+            ]
+            writer.writerow(header)
+            rows = zip(self.ids, scores, targets, diff, diff_sq)
+            writer.writerows(rows)
+
+
+def _flatten(x):
+    """Removes size-1 dimensions from the end but does not remove the
+    batch dimension"""
+    while x.dim() > 1 and x.size(-1) == 1:
+        x = x.squeeze(-1)
+    return x.tolist()

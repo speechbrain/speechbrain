@@ -1,0 +1,82 @@
+# ############################################################################
+# Model: SSL with Wav2Vec (training from scratch)
+# Authors:  Artem Ploujnikov
+# # ############################################################################
+
+
+# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+seed: 42
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+data_folder: !PLACEHOLDER
+output_folder: !ref results/ssl_wav2vec2/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+train_regression_metric: False
+batch_size: 4
+num_workers: 4
+use_transcripts: False
+src_sample_rate: 24000
+tgt_sample_rate: 16000
+contrastive: False
+contrastive_loss_weight: 0.8
+contrastive_min_delta: 0.5
+
+
+lr: 0.0001
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+number_of_epochs: 50
+ckpt_interval_minutes: 15
+
+wav2vec2_source: facebook/wav2vec2-large-lv60
+wav2vec2_freeze_feature_extractor: True
+wav2vec2_freeze: False
+wav2vec2_dropout: null
+
+splits: ["train", "valid", "test"]
+subset: "full"
+skip_prep: False
+
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/valid.csv
+test_annotation: !ref <data_folder>/test.csv
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+compute_cost: !name:speechbrain.nnet.losses.l1_loss
+compute_cost_contrastive: !name:speechbrain.nnet.losses.mse_loss
+
+base_model: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+    source: !ref <wav2vec2_source>
+    save_path: !ref <save_folder>
+    freeze: !ref <wav2vec2_freeze>
+    freeze_feature_extractor: !ref <wav2vec2_freeze_feature_extractor>
+    dropout: !ref <wav2vec2_dropout>
+
+
+model: !new:speechbrain.lobes.models.eval.ssl.BaselineSSLFinetune
+    base_model: !ref <base_model>
+
+modules:
+    model: !ref <model>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.01
+    annealing_factor: 0.9
+    patient: 2
