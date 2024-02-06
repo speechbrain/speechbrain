@@ -1156,11 +1156,33 @@ class LinearRegressionStats(MetricStats):
     def append(
         self, ids, predict, target,
     ):
+        """Appends a measurement
+
+        Arguments
+        ---------
+        ids : list
+            a list of item IDs
+        predict : torch.Tensor
+            the prediction tensor
+        target : torch.Tensor
+            the target tensor
+        """
         self.ids.extend(ids)
         self.scores.extend(_flatten(predict))
         self.targets.extend(_flatten(target))
 
     def summarize(self, field=None):
+        """Summarizes linear regression statistics
+        
+        Full set of fields:
+        - scores_mean - the mean of scores
+        - scores_std - the standard deviation of scores
+        - targets_mean - the mean of targets
+        - targets_std - the standard deviation of targets
+        - slope - the slope of the regression line
+        - intercept - the intercept of the regression line
+        - pearson_r - the Pearson correlation coefficient
+        """
         scores = np.array(self.scores)
         targets = np.array(self.targets)
         x = np.stack([scores, np.ones_like(scores)], axis=1)
