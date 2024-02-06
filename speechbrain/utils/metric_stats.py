@@ -1173,7 +1173,7 @@ class LinearRegressionStats(MetricStats):
 
     def summarize(self, field=None):
         """Summarizes linear regression statistics
-        
+
         Full set of fields:
         - scores_mean - the mean of scores
         - scores_std - the standard deviation of scores
@@ -1192,9 +1192,9 @@ class LinearRegressionStats(MetricStats):
         pearson_r = corr_mat[0][1]
         self.summary = {
             "scores_mean": scores.mean(),
-            "scores_std": scores.std(),
+            "scores_std": scores.std(ddof=1),
             "targets_mean": targets.mean(),
-            "targets_std": targets.std(),
+            "targets_std": targets.std(ddof=1),
             "slope": slope,
             "intercept": intercept,
             "pearson_r": pearson_r,

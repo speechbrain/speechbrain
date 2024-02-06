@@ -198,3 +198,27 @@ Target: C
   -> B: 1 / 1 (100.00%)
 """
     assert report == ref_report
+
+
+def test_linear_regression_stats():
+    from speechbrain.utils.metric_stats import LinearRegressionStats
+
+    reg_stats = LinearRegressionStats()
+    reg_stats.append(
+        ids=["ID1", "ID2"],
+        predict=torch.tensor([1.25, 2.75]),
+        target=torch.tensor([1.00, 3.00]),
+    )
+    reg_stats.append(
+        ids=["ID3", "ID4"],
+        predict=torch.tensor([5.5, 3.5]),
+        target=torch.tensor([5.0, 3.0]),
+    )
+    summary = reg_stats.summarize()
+    assert math.isclose(3.25, summary["scores_mean"], rel_tol=0.01)
+    assert math.isclose(1.7678, summary["scores_std"], rel_tol=0.01)
+    assert math.isclose(3.0, summary["targets_mean"], rel_tol=0.01)
+    assert math.isclose(1.633, summary["targets_std"], rel_tol=0.01)
+    assert math.isclose(0.9067, summary["slope"], rel_tol=0.01)
+    assert math.isclose(0.0533, summary["intercept"], rel_tol=0.01)
+    assert math.isclose(0.9814, summary["pearson_r"], rel_tol=0.01)
