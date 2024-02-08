@@ -6,11 +6,12 @@ Authors
 import platform
 import logging
 import torchaudio
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-def try_parse_torchaudio_major_version() -> int | None:
+def try_parse_torchaudio_major_version() -> Optional[int]:
     """Tries parsing the torchaudio major version.
 
     Returns
