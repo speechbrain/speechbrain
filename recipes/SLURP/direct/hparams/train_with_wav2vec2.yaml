@@ -32,7 +32,7 @@ skip_prep: False
 # URL for the wav2vec2 model, you can change to benchmark diffrenet models
 wav2vec2_hub: "facebook/hubert-base-ls960"
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 35
 batch_size: 6
 lr: 0.0003
@@ -47,7 +47,7 @@ freeze_wav2vec2: False
 #set to true to freeze the CONV part of the wav2vec2 model
 freeze_wav2vec2_conv: True
 
-# Model parameters
+####################### Model Parameters #######################################
 sample_rate: 16000
 emb_size: 128
 dec_neurons: 512

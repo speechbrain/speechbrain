@@ -37,7 +37,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 test_on_all_real: False
 
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 50
 batch_size: 8
 lr: 0.0004
@@ -49,7 +49,7 @@ freeze_wav2vec: False
 # token_type: unigram # ["unigram", "bpe", "char"]
 sorting: ascending
 
-# Model parameters
+####################### Model Parameters #######################################
 sample_rate: 16000
 emb_size: 128
 dec_neurons: 512

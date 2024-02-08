@@ -40,7 +40,7 @@ percentage_silence: 10 # Set this to 0 for the V2 35 task
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 100
 batch_size: 32
 lr: 0.001

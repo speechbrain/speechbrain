@@ -55,7 +55,7 @@ right_frames: 0
 deltas: False
 
 # Number of speakers
-#　1211 for vox1, 5994 for vox2, 7205 for vox1+vox2
+# 1211 for vox1, 5994 for vox2, 7205 for vox1+vox2
 out_n_neurons: 7205
 
 num_workers: 4

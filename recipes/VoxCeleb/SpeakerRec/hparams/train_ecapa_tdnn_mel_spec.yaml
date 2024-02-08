@@ -36,7 +36,7 @@ split_ratio: [90, 10]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 10
 batch_size: 32
 lr: 0.001

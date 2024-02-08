@@ -36,7 +36,7 @@ wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 # wav2vec 2.0 specific parameters
 wav2vec2_frozen: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 500
 lr: 0.001
 lr_wav2vec: 0.0001

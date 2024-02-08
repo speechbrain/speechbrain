@@ -38,7 +38,7 @@ error_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.classification_error
         reduction: batch
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 # Feature parameters btw: 40 - 80
 n_mels: 80

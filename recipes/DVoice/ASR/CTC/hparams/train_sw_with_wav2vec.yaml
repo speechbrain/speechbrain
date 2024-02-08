@@ -32,7 +32,7 @@ skip_prep: False # Skip data preparation
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 15.0
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 30
 lr: 1.0
 lr_wav2vec: 0.0001
@@ -58,7 +58,7 @@ test_dataloader_options:
 token_type: char  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
-# Model parameters
+####################### Model Parameters #######################################
 wav2vec_output_dim: 1024
 dnn_neurons: 1024
 freeze_wav2vec: False

@@ -51,7 +51,7 @@ test_csv:
 
 ckpt_interval_minutes: 30  # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 # To make Transformers converge, the global batch size should be large enough.
 # The global batch size is computed as:
 # batch_size * n_gpus * grad_accumulation_factor.
@@ -96,7 +96,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
   batch_size: 1
 
-####################### Model parameters  ###########################
+####################### Model Parameters  ###########################
 # Transformer
 d_model: 512
 nhead: 4

@@ -24,7 +24,7 @@ test_csv:
 # Tokenizer model
 tokenizer_file: ddwkim/asr-conformer-transformerlm-ksponspeech/tokenizer.ckpt
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 30
 batch_size: 256
 lr: 0.1

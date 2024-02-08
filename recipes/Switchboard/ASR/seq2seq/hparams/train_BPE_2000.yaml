@@ -57,7 +57,7 @@ test_csv:
    - !ref <save_folder>/test_callhome.csv
    - !ref <save_folder>/test.csv
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 number_of_ctc_epochs: 5
 batch_size: 10
@@ -103,7 +103,7 @@ test_dataloader_opts:
    num_workers: !ref <num_workers>
    batch_size: !ref <batch_size>
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2

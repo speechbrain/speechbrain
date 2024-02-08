@@ -23,7 +23,7 @@ test_annotation: !ref <save_folder>/test.json
 skip_prep: False # Skip data preparation
 uppercase: False # Must be True when the TIMIT dataset is in the upper-case version
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 8
 lr: 0.0003
@@ -33,7 +33,7 @@ sorting: ascending
 precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dnn_layers: 2
 dnn_neurons: 1024

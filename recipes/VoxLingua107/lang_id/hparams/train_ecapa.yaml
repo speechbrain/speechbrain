@@ -31,7 +31,7 @@ shard_cache_dir:
 
 ckpt_interval_minutes: 5
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 40
 lr: 0.001
 lr_final: 0.0001

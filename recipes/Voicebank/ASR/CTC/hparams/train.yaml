@@ -20,7 +20,7 @@ valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
 skip_prep: False # Skip data preparation
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 50
 batch_size: 8
 sorting: ascending
@@ -37,7 +37,7 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2

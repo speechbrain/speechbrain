@@ -24,7 +24,7 @@ test_annotation: !ref <data_folder>/test.json
 noise_annotation: !ref <save_folder>/noise.csv #The data manifest files are created by the data preparation script
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 30
 ctc_epochs: 0
 batch_size: 8

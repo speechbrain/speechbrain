@@ -39,7 +39,7 @@ NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.z
 noise_annotation: !ref <save_folder>/noise.csv #The data manifest files are created by the data preparation script
 
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 1
 batch_size: 16
 lr: 0.0003

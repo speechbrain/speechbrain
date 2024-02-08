@@ -32,14 +32,14 @@ rir_annotation: !ref <save_folder>/rir.csv
 
 tokenizer_file: https://www.dropbox.com/s/hvf2huofnq0sjbn/51_unigram.model?dl=1
 skip_prep: False
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 6
 batch_size: 16
 lr: 0.0003
 # token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
-# Model parameters
+####################### Model Parameters #######################################
 sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
