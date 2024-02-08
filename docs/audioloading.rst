@@ -52,8 +52,9 @@ your issue:
   torchaudio (see `ffmpeg`_).
 
 - On Windows/Linux/macOS, `SoundFile <https://pypi.org/project/soundfile/>`_
-  can ship with a prebuilt ``libsndfile``, which does not require admin rights.
-  See the linked page for more details.
+  has started shipping with a prebuilt ``libsndfile``, which does not require
+  admin rights. Try installing or updating it. See the linked page for more
+  details.
 
 Note for developers & breaking torchaudio `2.x` changes
 =======================================================
@@ -90,8 +91,8 @@ SoundFile
 torchaudio can use `soundfile <https://pypi.org/project/soundfile/>`_ as an
 audio backend, which depends on ``libsndfile``.
 
-At the time of writing, on certain platforms, this package bundles a prebuilt
-``libsndfile``. Refer to the project page for more details.
+Starting with SoundFile 0.12.0, this package bundles a prebuilt ``libsndfile``
+for a number of platforms. Refer to the project page for more details.
 
 SoX
 ---
