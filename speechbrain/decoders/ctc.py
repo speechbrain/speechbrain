@@ -935,12 +935,13 @@ class CTCBaseSearcher(torch.nn.Module):
         wav_lens: Optional[torch.Tensor] = None,
         lm_start_state: Any = None,
     ) -> List[List[CTCHypothesis]]:
-        """Decodes the log probabilities of the CTC output.
+        """Decodes the input log probabilities of the CTC output.
 
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
-        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
+        Make sure that the input are in the log domain. The decoder will fail to decode
+        logits or probabilities. The input should be the log probabilities of the CTC output.
 
         Arguments
         ---------
@@ -964,16 +965,6 @@ class CTCBaseSearcher(torch.nn.Module):
                 f"while vocab_list is {len(self.vocab_list)}. "
                 "During decoding, going to truncate the log_probs vocab dim to match vocab_list."
             )
-
-        # check if we have log_probs
-        if not torch.allclose(
-            torch.exp(log_probs).sum(dim=-1), torch.ones(log_probs.shape[0])
-        ):
-            warnings.warn(
-                "The input `log_probs` are not log probabilities. "
-                "Going to convert them to log probabilities."
-            )
-            log_probs = torch.log_softmax(log_probs, dim=-1)
 
         # compute wav_lens and cast to numpy as it is faster
         if wav_lens is not None:
@@ -2105,6 +2096,9 @@ class TorchAudioCTCPrefixBeamSearcher:
         If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
         When using CUDA CTC decoder, the timestep information is not available. Therefore, the timesteps
         in the returned hypotheses are set to None.
+
+        Make sure that the input are in the log domain. The decoder will fail to decode
+        logits or probabilities. The input should be the log probabilities of the CTC output.
 
         Arguments
         ---------
