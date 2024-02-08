@@ -13,11 +13,19 @@ for loading audio files in most cases. Please first try to **update torchaudio**
 if you are encountering issues. Please also ensure that you are using the
 correct PyTorch version for your installed torchaudio version.
 
-torchaudio documents how their backends are found in their
+As of torchaudio `2.2.0`, three backends are supported: ``ffmpeg``, ``sox`` and
+``soundfile``. torchaudio documents how their backends are found in their
 `optional dependency docs <https://pytorch.org/audio/stable/installation.html#optional-dependencies>`_.
 
+You can determine which backends are available in your environment by running
+:func:`torchaudio.list_audio_backends`.
+
 .. warning::
-    Not every backend can support any codec. For instance, at the time of
+    **A backend can *silently* fail to load** if initialization failed and will be
+    omitted from this list.
+
+.. warning::
+    **Not every backend can support any codec.** For instance, at the time of
     writing, the torchaudio SoX backend cannot handle MP3 and the SoundFile
     backend cannot handle AAC (usually ``.m4a``), both of which are found in
     certain popular speech datasets.  
@@ -49,23 +57,11 @@ your issue:
 Note for developers & breaking torchaudio `2.x` changes
 =======================================================
 
-As of torchaudio `2.2.0`, three backends are supported: ``ffmpeg``, ``sox`` and
-``soundfile``.
-
-You can determine which backends are available in your environment by running
-:func:`torchaudio.list_audio_backends`.
-
-.. warning::
-    A backend can silently fail to load if initialization failed and will be
-    omitted from this list.
-
-.. note::
-    With torchaudio `<2.x`, backends were selected through
-    ``torchaudio.set_audio_backend``. This function was deprecated and then
-    removed in the `2.x` branch of torchaudio and is no longer used in
-    SpeechBrain.
-    Since then, the backend is (optionally) selected through the ``backend``
-    argument of :func:`torchaudio.load` and :func:`torchaudio.info`.
+With torchaudio `<2.x`, backends were selected through
+``torchaudio.set_audio_backend``. This function was deprecated and then
+removed in the `2.x` branch of torchaudio and is no longer used in SpeechBrain.
+Since then, the backend is (optionally) selected through the ``backend``
+argument of :func:`torchaudio.load` and :func:`torchaudio.info`.
 
 Installing/troubleshooting backends
 ===================================
