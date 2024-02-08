@@ -326,10 +326,10 @@ drop_freq: !new:speechbrain.augment.time_domain.DropFreq
 
 # Time drop: randomly drops a number of temporal chunks.
 drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
-   drop_length_low: 1
-   drop_length_high: 5
-   drop_count_low: 1000
-   drop_count_high: 2000
+   drop_length_low: 1000
+   drop_length_high: 2000
+   drop_count_low: 1
+   drop_count_high: 5
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
