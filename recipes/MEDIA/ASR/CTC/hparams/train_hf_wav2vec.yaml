@@ -67,7 +67,7 @@ patient: 0
 patient_wav2vec: 0
 sorting: ascending
 
-####################### Model Parameters #######################################:
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dnn_blocks: 3
 dnn_neurons: 512
