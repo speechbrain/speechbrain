@@ -50,7 +50,7 @@ def check_torchaudio_backend():
             )
     else:
         logger.warning(
-            "This version of torchaudio is old. SpeechBrain no longer supports the torchaudio global backend mechanism, which may cause issues with certain datasets."
+            "This version of torchaudio is old. SpeechBrain no longer tries using the torchaudio global backend mechanism in recipes, so if you encounter issues, update torchaudio."
         )
         current_system = platform.system()
         if current_system == "Windows":
