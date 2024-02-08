@@ -35,7 +35,7 @@ test_csv:
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
-############################## Training parameters ################################
+############################## Training parameters #############################
 
 number_of_epochs: 1
 lr_whisper: 0.00003
@@ -78,7 +78,7 @@ test_loader_kwargs:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-############################## Augmentations ################################
+############################## Augmentations ###################################
 
 # Speed perturbation
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
@@ -111,7 +111,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_freq>,
         !ref <drop_chunk>]
 
-############################## Models ################################
+############################## Models ##########################################
 
 whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     source: !ref <whisper_hub>
@@ -127,7 +127,7 @@ nll_loss: !name:speechbrain.nnet.losses.nll_loss
 modules:
     whisper: !ref <whisper>
 
-############################## Decoding & optimiser ################################
+############################## Decoding & optimiser ############################
 
 whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
@@ -154,7 +154,7 @@ lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
     annealing_factor: 0.9
     patient: 0
 
-############################## Logging and Pretrainer ################################
+############################## Logging and Pretrainer ##########################
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

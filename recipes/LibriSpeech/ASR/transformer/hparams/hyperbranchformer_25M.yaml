@@ -40,7 +40,7 @@ test_csv:
     - !ref <output_folder>/test-clean.csv
     - !ref <output_folder>/test-other.csv
 
-############################## Training parameters ################################
+############################## Training parameters #############################
 
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
@@ -101,7 +101,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
     batch_size: 1
 
-####################### Model parameters ###########################
+####################### Model parameters #######################################
 # Transformer
 d_model: 256
 nhead: 8
@@ -135,7 +135,7 @@ test_beam_size: 66
 lm_weight: 0.60
 ctc_weight_decode: 0.40
 
-############################## Models ################################
+############################## Models ##########################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
@@ -208,7 +208,7 @@ Adam: !name:torch.optim.Adam
     betas: (0.9, 0.98)
     eps: 0.000000001
 
-############################## Decoding & optimiser ################################
+############################## Decoding & optimiser ############################
 
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
@@ -279,7 +279,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-############################## Augmentations ################################
+############################## Augmentations ###################################
 
 # Speed perturbation
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
@@ -320,7 +320,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-############################## Logging and Pretrainer ################################
+############################## Logging and Pretrainer ##########################
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
