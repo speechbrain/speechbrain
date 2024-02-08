@@ -10,7 +10,13 @@ import torchaudio
 logger = logging.getLogger(__name__)
 
 
-def try_parsing_torchaudio_major_version():
+def try_parse_torchaudio_major_version() -> int | None:
+    """Tries parsing the torchaudio major version.
+
+    Returns
+    -------
+    The parsed major version, otherwise ``None``."""
+
     if not hasattr(torchaudio, "__version__"):
         return None
 
@@ -35,7 +41,7 @@ def check_torchaudio_backend():
     windows is detected.
     """
 
-    torchaudio_major = try_parsing_torchaudio_major_version()
+    torchaudio_major = try_parse_torchaudio_major_version()
 
     if torchaudio_major is None:
         logger.warning(
