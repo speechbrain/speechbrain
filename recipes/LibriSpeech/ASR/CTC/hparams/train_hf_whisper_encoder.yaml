@@ -31,7 +31,7 @@ test_csv:
    - !ref <output_folder>/test-clean.csv
    - !ref <output_folder>/test-other.csv
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 number_of_epochs: 15
 warmup_steps: 1000 # We freeze whisper for 1000 steps to let the CTC adapt
@@ -62,7 +62,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
-# Model parameters
+####################### Model Parameters #######################################
 dnn_neurons: 1024
 freeze_whisper: False
 whisper_output_dim: 512

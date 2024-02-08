@@ -40,7 +40,7 @@ test_csv:
     - !ref <output_folder>/test-clean.csv
     - !ref <output_folder>/test-other.csv
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
@@ -101,7 +101,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
     batch_size: 1
 
-####################### Model parameters #######################################
+####################### Model Parameters #######################################
 
 # Transformer
 d_model: 144

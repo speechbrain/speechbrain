@@ -40,7 +40,7 @@ test_csv:
 skip_prep: False
 ckpt_interval_minutes: 5 # save checkpoint every N min
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
@@ -121,7 +121,7 @@ dynamic_batch_sampler:
    batch_ordering: random
    max_batch_ex: 256
 
-####################### Model parameters #######################################
+####################### Model Parameters #######################################
 
 # Transformer
 d_model: 512

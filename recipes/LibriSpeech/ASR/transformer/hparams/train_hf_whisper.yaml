@@ -35,7 +35,7 @@ test_csv:
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
-############################## Training parameters #############################
+############################## Training Parameters #############################
 
 number_of_epochs: 1
 lr_whisper: 0.00003
@@ -62,7 +62,7 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 test_beam_size: 8
 
-# Model parameters
+####################### Model Parameters #######################################
 freeze_whisper: False
 
 
