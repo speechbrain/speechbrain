@@ -29,7 +29,7 @@ test_data: !ref <output_folder>/test.csv
 noise_annotation: !ref <save_folder>/noise.csv #The data manifest files are created by the data preparation script
 tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 number_of_epochs: 40
 number_of_ctc_epochs: 10
@@ -72,7 +72,7 @@ test_dataloader_opts:
    batch_size: !ref <batch_size>
    num_workers: !ref <num_workers>
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2

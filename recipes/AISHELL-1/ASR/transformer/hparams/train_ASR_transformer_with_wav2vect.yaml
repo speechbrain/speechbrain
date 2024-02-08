@@ -30,7 +30,7 @@ wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 freeze_wav2vec: False
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 number_of_epochs: 80
 batch_size: 2
@@ -73,7 +73,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
-####################### Model parameters #######################################
+####################### Model Parameters #######################################
 # Transformer
 d_model: 256
 nhead: 4

@@ -30,7 +30,7 @@ test_data: !ref <save_folder>/test.csv
 noise_annotation: !ref <save_folder>/noise.csv #The data manifest files are created by the data preparation script
 tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 number_of_epochs: 50
 batch_size: 8
@@ -78,7 +78,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
-####################### Model parameters #######################################
+####################### Model Parameters #######################################
 # Transformer
 d_model: 256
 nhead: 4

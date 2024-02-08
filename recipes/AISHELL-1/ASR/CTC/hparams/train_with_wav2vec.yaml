@@ -28,7 +28,7 @@ test_data: !ref <output_folder>/test.csv
 wav2vec2_hub: TencentGameMate/chinese-wav2vec2-large
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
-####################### Training parameters ####################################
+####################### Training Parameters ####################################
 
 number_of_epochs: 80
 lr: 1.0
