@@ -90,7 +90,7 @@ class ASR(sb.core.Brain):
                     tokens_lens,
                     tokens_eos,
                     tokens_eos_lens,
-                ) = self.hparams.fea_augment.replicate_multiple_labels(
+                ) = self.hparams.wav_augment.replicate_multiple_labels(
                     tokens, tokens_lens, tokens_eos, tokens_eos_lens
                 )
 
