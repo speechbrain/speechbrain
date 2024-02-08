@@ -114,6 +114,8 @@ class ASR(sb.core.Brain):
         tokens, tokens_lens = batch.tokens
 
         if stage == sb.Stage.TRAIN:
+            # Labels must be extended if parallel augmentation or concatenated
+            # augmentation was performed on the input (increasing the time dimension)
             if hasattr(self.hparams, "fea_augment"):
                 tokens = self.hparams.fea_augment.replicate_labels(tokens)
                 tokens_lens = self.hparams.fea_augment.replicate_labels(

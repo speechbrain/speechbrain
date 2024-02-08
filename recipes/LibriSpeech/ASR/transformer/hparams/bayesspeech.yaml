@@ -42,7 +42,8 @@ test_csv:
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
-# Training parameters
+####################### Training parameters ###########################
+
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
@@ -148,7 +149,7 @@ test_beam_size: 66
 lm_weight: 0.60
 ctc_weight_decode: 0.40
 
-############################## models ################################
+############################## Models ################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
@@ -216,7 +217,8 @@ Adam: !name:torch.optim.Adam
     eps: 0.000000001
 
 
-# Scorer
+############################## Decoding & optimiser ################################
+
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -290,57 +292,34 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 4
 
-# Speed perturbation
-speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+############################## Augmentations ################################
 
+# Speed perturbation
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: !ref <speed_changes>
+    speeds: [95, 100, 105]
 
 # Time Drop
-time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
-time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram
-time_drop_count_low: 4  # Min number of chunks to drop in time in the spectrogram
-time_drop_count_high: 4  # Max number of chunks to drop in time in the spectrogram
-time_drop_replace: "mean"  # Method of dropping chunks
-
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-    drop_length_low: !ref <time_drop_length_low>
-    drop_length_high: !ref <time_drop_length_high>
-    drop_count_low: !ref <time_drop_count_low>
-    drop_count_high: !ref <time_drop_count_high>
-    replace: !ref <time_drop_replace>
-    dim: 1
+    drop_length_low: 15
+    drop_length_high: 25
+    drop_count_low: 4
+    drop_count_high: 4
+    replace: "mean"
 
 # Frequency Drop
-freq_drop_length_low: 10  # Min length for chunks to drop in frequency in the spectrogram
-freq_drop_length_high: 20  # Max length for chunks to drop in frequency in the spectrogram
-freq_drop_count_low: 4  # Min number of chunks to drop in frequency in the spectrogram
-freq_drop_count_high: 4  # Max number of chunks to drop in frequency in the spectrogram
-freq_drop_replace: "mean"  # Method of dropping chunks
-
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-    drop_length_low: !ref <freq_drop_length_low>
-    drop_length_high: !ref <freq_drop_length_high>
-    drop_count_low: !ref <freq_drop_count_low>
-    drop_count_high: !ref <freq_drop_count_high>
-    replace: !ref <freq_drop_replace>
+    drop_length_low: 10
+    drop_length_high: 20
+    drop_count_low: 4
+    drop_count_high: 4
+    replace: "mean"
     dim: 2
 
 # Time warp
-time_warp_window: 5  # Length of time warping window
-time_warp_mode: "bicubic"  # Time warping method
-
 time_warp: !new:speechbrain.augment.freq_domain.Warping
-    warp_window: !ref <time_warp_window>
-    warp_mode: !ref <time_warp_mode>
-    dim: 1
 
 fea_augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: False
-    concat_original: False
-    repeat_augment: 1
-    shuffle_augmentations: False
     min_augmentations: 3
     max_augmentations: 3
     augment_prob: 1.0
@@ -353,6 +332,8 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+
+############################## Logging and Pretrainer ################################
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
