@@ -74,16 +74,16 @@ class ASR(sb.core.Brain):
         tokens, tokens_lens = batch.tokens
 
         if stage == sb.Stage.TRAIN:
+            # Labels must be extended if parallel augmentation or concatenated
+            # augmentation was performed on the input (increasing the time dimension)
             if hasattr(self.hparams, "wav_augment"):
-                tokens = self.hparams.wav_augment.replicate_labels(tokens)
-                tokens_lens = self.hparams.wav_augment.replicate_labels(
-                    tokens_lens
-                )
-                tokens_eos = self.hparams.wav_augment.replicate_labels(
-                    tokens_eos
-                )
-                tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                    tokens_eos_lens
+                (
+                    tokens,
+                    tokens_lens,
+                    tokens_eos,
+                    tokens_eos_lens,
+                ) = self.hparams.fea_augment.replicate_multiple_labels(
+                    tokens, tokens_lens, tokens_eos, tokens_eos_lens
                 )
 
         loss_seq = self.hparams.seq_cost(
