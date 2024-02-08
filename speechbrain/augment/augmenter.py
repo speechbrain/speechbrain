@@ -438,20 +438,73 @@ class Augmenter(torch.nn.Module):
 
         return output, output_lengths
 
-    def replicate_labels(self, labels):
+    def replicate_multiple_labels(self, *args):
         """
         Replicates the labels along the batch axis a number of times that
-        corresponds to the number of augmentations.
+        corresponds to the number of augmentations. Indeed parallel and
+        concatenation augmentations alter the time dimension.
 
         Arguments
         ---------
-        labels : torch.Tensor
-            Input label tensor to be replicated.
+        args : torch.Tensor
+            Input label tensors to be replicated. Can be a uniq or a list of
+            Tensors.
 
         Returns
         -------
         augmented_labels: torch.Tensor
-            Labels corresponding to the augmented input.
+            Labels corresponding to the augmented input. Returns as many Tensor
+            as given in input.
+        """
+
+        # Determine whether to apply data augmentation
+        if not self.do_augment:
+            return args
+
+        list_of_augmented_labels = []
+
+        for labels in args:
+            augmented_labels = []
+            if self.concat_original and not (self.skip_concat):
+                augmented_labels = [
+                    labels[
+                        self.concat_start_index : self.concat_end_index_batch
+                    ]
+                ]
+            selected_labels = labels[
+                self.augment_start_index : self.augment_end_index_batch
+            ]
+
+            if self.parallel_augment:
+                selected_labels = torch.cat(
+                    [selected_labels] * self.N_augment, dim=0
+                )
+
+            augmented_labels = (
+                augmented_labels + [selected_labels] * self.repeat_augment
+            )
+
+            augmented_labels = torch.cat(augmented_labels, dim=0)
+            list_of_augmented_labels.append(augmented_labels)
+
+        return list_of_augmented_labels
+
+    def replicate_labels(self, labels):
+        """
+        Replicates the labels along the batch axis a number of times that
+        corresponds to the number of augmentations. Indeed parallel and
+        concatenation augmentations alter the time dimension.
+
+        Arguments
+        ---------
+        labels : torch.Tensor
+            Input label tensors to be replicated.
+
+        Returns
+        -------
+        augmented_labels: torch.Tensor
+            Labels corresponding to the augmented input. Returns as many Tensor
+            as given in input.
         """
 
         # Determine whether to apply data augmentation
@@ -477,6 +530,7 @@ class Augmenter(torch.nn.Module):
         )
 
         augmented_labels = torch.cat(augmented_labels, dim=0)
+
         return augmented_labels
 
     def check_min_max_augmentations(self):
