@@ -8,7 +8,7 @@ Introduction
 ============
 
 SpeechBrain relies on
-`torchaudio <https://pytorch.org/audio/stable/index.html>`_.
+`torchaudio <https://pytorch.org/audio/stable/index.html>`_
 for loading audio files in most cases. Please first try to **update torchaudio**
 if you are encountering issues. Please also ensure that you are using the
 correct PyTorch version for your installed torchaudio version.
