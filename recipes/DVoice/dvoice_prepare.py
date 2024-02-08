@@ -372,12 +372,6 @@ def create_csv(
         spk_id = line.split("\t")[0].replace(".wav", "")
         snt_id = os.path.basename(file_name)
 
-        # Setting torchaudio backend to sox-io (needed to read mp3 files)
-        if torchaudio.get_audio_backend() != "sox_io":
-            logger.warning("This recipe needs the sox-io backend of torchaudio")
-            logger.warning("The torchaudio backend is changed to sox_io")
-            torchaudio.set_audio_backend("sox_io")
-
         duration = float(line.split("\t")[2])
         total_duration += duration
 

@@ -175,12 +175,6 @@ def process_line(line, data_folder, language, accented_letters):
     spk_id = line.split("\t")[0]
     snt_id = file_name
 
-    # Setting torchaudio backend to sox-io (needed to read mp3 files)
-    if torchaudio.get_audio_backend() != "sox_io":
-        logger.warning("This recipe needs the sox-io backend of torchaudio")
-        logger.warning("The torchaudio backend is changed to sox_io")
-        torchaudio.set_audio_backend("sox_io")
-
     # Reading the signal (to retrieve duration in seconds)
     if os.path.isfile(mp3_path):
         info = read_audio_info(mp3_path)
