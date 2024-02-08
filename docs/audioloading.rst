@@ -29,7 +29,7 @@ You can determine which backends are available in your environment by running
     **Not every backend can support any codec.** For instance, at the time of
     writing, the torchaudio SoX backend cannot handle MP3 and the SoundFile
     backend cannot handle AAC (usually ``.m4a``), both of which are found in
-    certain popular speech datasets.  
+    certain popular speech datasets.
     However, most common formats are typically well supported by all backends
     (``.wav``/``.ogg`` vorbis/opus/``.flac``).
 
@@ -73,11 +73,11 @@ ffmpeg
 torchaudio compiles their ffmpeg backend for a **specific range** of ffmpeg
 versions.
 
-ffmpeg is commonly already installed on common Linux distributions.  
+ffmpeg is commonly already installed on common Linux distributions.
 On Ubuntu, it can be installed through ``sudo apt install ffmpeg``.
 
 Depending on your OS version, it is possible that your installed ffmpeg version
-is not supported by torchaudio (if too recent or too old).  
+is not supported by torchaudio (if too recent or too old).
 If you believe this to be the case, you can try installing a specific version
 of the ``ffmpeg`` package as supplied by
 `conda-forge <https://anaconda.org/conda-forge/ffmpeg>`_.
