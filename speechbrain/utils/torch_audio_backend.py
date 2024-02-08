@@ -55,6 +55,6 @@ def check_torchaudio_backend():
         current_system = platform.system()
         if current_system == "Windows":
             logger.warning(
-                "Switched audio backend to \"soundfile\" because you are running Windows and you are running an old torchaudio version."
+                'Switched audio backend to "soundfile" because you are running Windows and you are running an old torchaudio version.'
             )
             torchaudio.set_audio_backend("soundfile")
