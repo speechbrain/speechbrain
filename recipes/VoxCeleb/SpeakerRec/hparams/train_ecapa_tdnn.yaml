@@ -35,7 +35,7 @@ split_ratio: [90, 10]
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-####################### Training Parameters ####################################
+# Training parameters
 number_of_epochs: 10
 batch_size: 32
 lr: 0.001
@@ -94,6 +94,7 @@ prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_U
     ext: wav
     csv_file: !ref <noise_annotation>
 
+
 # Add noise to input signal
 add_noise: !new:speechbrain.augment.time_domain.AddNoise
     csv_file: !ref <noise_annotation>
@@ -103,10 +104,19 @@ add_noise: !new:speechbrain.augment.time_domain.AddNoise
     clean_sample_rate: !ref <sample_rate>
     num_workers: !ref <num_workers>
 
-# Speed perturbation
-speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# Download and prepare the dataset of room impulse responses for augmentation
+prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <RIR_DATASET_URL>
+    dest_folder: !ref <data_folder_rir>
+    ext: wav
+    csv_file: !ref <rir_annotation>
+
+# Add reverberation to input signal
+add_reverb: !new:speechbrain.augment.time_domain.AddReverb
+    csv_file: !ref <rir_annotation>
+    reverb_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
 
 # Frequency drop: randomly drops a number of frequency bands to zero.
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq

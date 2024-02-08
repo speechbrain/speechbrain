@@ -112,12 +112,6 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 ############################## Augmentations ###################################
 
 # Time Drop
-time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
-time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram
-time_drop_count_low: 5  # Min number of chunks to drop in time in the spectrogram
-time_drop_count_high: 5  # Max number of chunks to drop in time in the spectrogram
-time_drop_replace: "zeros"  # Method of dropping chunks
-
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
    drop_length_low: 15
    drop_length_high: 25
@@ -125,12 +119,6 @@ time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
    drop_count_high: 5
 
 # Frequency Drop
-freq_drop_length_low: 25  # Min length for chunks to drop in frequency in the spectrogram
-freq_drop_length_high: 35  # Max length for chunks to drop in frequency in the spectrogram
-freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
-freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
-freq_drop_replace: "zeros"  # Method of dropping chunks
-
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
    drop_length_low: 25
    drop_length_high: 35
