@@ -33,7 +33,8 @@ test_csv:
    - !ref <output_folder>/test-clean.csv
    - !ref <output_folder>/test-other.csv
 
-# Training parameters
+####################### Training parameters ####################################
+
 number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
@@ -61,7 +62,8 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
-# Model parameters
+####################### Model parameters #######################################
+
 activation: !name:torch.nn.LeakyReLU
 dnn_layers: 2
 dnn_neurons: 1024
@@ -72,74 +74,11 @@ ctc_neurons: 58 # Twice bigger than the  number of characters for upsampling
 output_neurons: 29  # Characters size, index(blank/eos/bos) = 0
 blank_index: 0
 
-# Decoding parameters
-test_beam_search:
-   beam_size: 200
-   topk: 1
-   blank_index: !ref <blank_index>
-   space_token: ' ' # make sure this is the same as the one used in the tokenizer
-   beam_prune_logp: -10.0
-   token_prune_min_logp: -5
-   prune_history: True
-   alpha: 0.5
-   beta: 1.5
-   # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
-   # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
-   # If you don't want to use an LM, comment it out or set it to null
-   kenlm_model_path: null
-
 #
 # Functions and classes
 #
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
-
-# Speed perturbation
-speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
-
-speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
-   orig_freq: !ref <sample_rate>
-   speeds: !ref <speed_changes>
-
-# Frequency drop: randomly drops a number of frequency bands to zero.
-drop_freq_low: 0  # Min frequency band dropout probability
-drop_freq_high: 1  # Max frequency band dropout probability
-drop_freq_count_low: 1  # Min number of frequency bands to drop
-drop_freq_count_high: 3  # Max number of frequency bands to drop
-drop_freq_width: 0.05  # Width of frequency bands to drop
-
-drop_freq: !new:speechbrain.augment.time_domain.DropFreq
-   drop_freq_low: !ref <drop_freq_low>
-   drop_freq_high: !ref <drop_freq_high>
-   drop_freq_count_low: !ref <drop_freq_count_low>
-   drop_freq_count_high: !ref <drop_freq_count_high>
-   drop_freq_width: !ref <drop_freq_width>
-
-# Time drop: randomly drops a number of temporal chunks.
-drop_chunk_count_low: 1  # Min number of audio chunks to drop
-drop_chunk_count_high: 5  # Max number of audio chunks to drop
-drop_chunk_length_low: 1000  # Min length of audio chunks to drop
-drop_chunk_length_high: 2000  # Max length of audio chunks to drop
-
-drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
-   drop_length_low: !ref <drop_chunk_length_low>
-   drop_length_high: !ref <drop_chunk_length_high>
-   drop_count_low: !ref <drop_chunk_count_low>
-   drop_count_high: !ref <drop_chunk_count_high>
-
-# Augmenter: Combines previously defined augmentations to perform data augmentation
-wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-   parallel_augment: False
-   concat_original: True
-   repeat_augment: 1
-   shuffle_augmentations: False
-   min_augmentations: 4
-   max_augmentations: 4
-   augment_prob: 1.0
-   augmentations: [
-      !ref <speed_perturb>,
-      !ref <drop_freq>,
-      !ref <drop_chunk>]
 
 
 enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
@@ -210,7 +149,57 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
    annealing_factor: 0.9
    patient: 0
 
+############################## Decoding ########################################
+
+test_beam_search:
+   beam_size: 200
+   topk: 1
+   blank_index: !ref <blank_index>
+   space_token: ' ' # make sure this is the same as the one used in the tokenizer
+   beam_prune_logp: -10.0
+   token_prune_min_logp: -5
+   prune_history: True
+   alpha: 0.5
+   beta: 1.5
+   # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+   # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+   # If you don't want to use an LM, comment it out or set it to null
+   kenlm_model_path: null
+
 label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
+
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+   drop_freq_low: 0
+   drop_freq_high: 1
+   drop_freq_count_low: 1
+   drop_freq_count_high: 3
+   drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+   drop_length_low: 1
+   drop_length_high: 5
+   drop_count_low: 1000
+   drop_count_high: 2000
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   concat_original: True
+   min_augmentations: 4
+   max_augmentations: 4
+   augment_prob: 1.0
+   augmentations: [
+      !ref <speed_perturb>,
+      !ref <drop_freq>,
+      !ref <drop_chunk>]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
