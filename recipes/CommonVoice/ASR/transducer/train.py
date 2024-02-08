@@ -134,26 +134,22 @@ class ASR(sb.Brain):
 
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "wav_augment"):
-                tokens = self.hparams.wav_augment.replicate_labels(tokens)
-                token_lens = self.hparams.wav_augment.replicate_labels(
-                    token_lens
-                )
-                tokens_eos = self.hparams.wav_augment.replicate_labels(
-                    tokens_eos
-                )
-                token_eos_lens = self.hparams.wav_augment.replicate_labels(
-                    token_eos_lens
+                (
+                    tokens,
+                    token_lens,
+                    tokens_eos,
+                    token_eos_lens,
+                ) = self.hparams.wav_augment.replicate_multiple_labels(
+                    tokens, token_lens, tokens_eos, token_eos_lens
                 )
             if hasattr(self.hparams, "fea_augment"):
-                tokens = self.hparams.fea_augment.replicate_labels(tokens)
-                token_lens = self.hparams.fea_augment.replicate_labels(
-                    token_lens
-                )
-                tokens_eos = self.hparams.fea_augment.replicate_labels(
-                    tokens_eos
-                )
-                token_eos_lens = self.hparams.fea_augment.replicate_labels(
-                    token_eos_lens
+                (
+                    tokens,
+                    token_lens,
+                    tokens_eos,
+                    token_eos_lens,
+                ) = self.hparams.fea_augment.replicate_multiple_labels(
+                    tokens, token_lens, tokens_eos, token_eos_lens
                 )
 
         if stage == sb.Stage.TRAIN:
