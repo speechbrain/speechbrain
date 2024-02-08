@@ -24,7 +24,7 @@ def try_parsing_torchaudio_major_version():
 
     try:
         version = int(version_split[0])
-    except Exception as _e:
+    except Exception:
         return None
 
     return version
