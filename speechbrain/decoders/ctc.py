@@ -4,7 +4,7 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Sung-Lin Yeh 2020
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
@@ -936,12 +936,13 @@ class CTCBaseSearcher(torch.nn.Module):
         wav_lens: Optional[torch.Tensor] = None,
         lm_start_state: Any = None,
     ) -> List[List[CTCHypothesis]]:
-        """Decodes the log probabilities of the CTC output.
+        """Decodes the input log probabilities of the CTC output.
 
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
-        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
+        Make sure that the input are in the log domain. The decoder will fail to decode
+        logits or probabilities. The input should be the log probabilities of the CTC output.
 
         Arguments
         ---------
@@ -2096,6 +2097,9 @@ class TorchAudioCTCPrefixBeamSearcher:
         If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
         When using CUDA CTC decoder, the timestep information is not available. Therefore, the timesteps
         in the returned hypotheses are set to None.
+
+        Make sure that the input are in the log domain. The decoder will fail to decode
+        logits or probabilities. The input should be the log probabilities of the CTC output.
 
         Arguments
         ---------
