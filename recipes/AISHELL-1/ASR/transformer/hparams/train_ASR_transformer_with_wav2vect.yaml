@@ -30,7 +30,8 @@ wav2vec2_hub: facebook/wav2vec2-large-100k-voxpopuli
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 freeze_wav2vec: False
 
-# Training parameters
+####################### Training parameters ####################################
+
 number_of_epochs: 80
 batch_size: 2
 grad_accumulation_factor: 16
@@ -72,7 +73,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
-####################### Model parameters ###########################
+####################### Model parameters #######################################
 # Transformer
 d_model: 256
 nhead: 4
@@ -98,7 +99,7 @@ valid_beam_size: 10
 test_beam_size: 10
 ctc_weight_decode: 0.40
 
-############################## models ################################
+############################## Models ##########################################
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
@@ -140,44 +141,27 @@ model: !new:torch.nn.ModuleList
     - [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 # Speed perturbation
-speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
-
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: !ref <speed_changes>
+    speeds: [95, 100, 105]
 
 # Frequency drop: randomly drops a number of frequency bands to zero.
-drop_freq_low: 0  # Min frequency band dropout probability
-drop_freq_high: 1  # Max frequency band dropout probability
-drop_freq_count_low: 1  # Min number of frequency bands to drop
-drop_freq_count_high: 3  # Max number of frequency bands to drop
-drop_freq_width: 0.05  # Width of frequency bands to drop
-
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq
-    drop_freq_low: !ref <drop_freq_low>
-    drop_freq_high: !ref <drop_freq_high>
-    drop_freq_count_low: !ref <drop_freq_count_low>
-    drop_freq_count_high: !ref <drop_freq_count_high>
-    drop_freq_width: !ref <drop_freq_width>
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
 
 # Time drop: randomly drops a number of temporal chunks.
-drop_chunk_count_low: 1  # Min number of audio chunks to drop
-drop_chunk_count_high: 5  # Max number of audio chunks to drop
-drop_chunk_length_low: 1000  # Min length of audio chunks to drop
-drop_chunk_length_high: 2000  # Max length of audio chunks to drop
-
 drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
-    drop_length_low: !ref <drop_chunk_length_low>
-    drop_length_high: !ref <drop_chunk_length_high>
-    drop_count_low: !ref <drop_chunk_count_low>
-    drop_count_high: !ref <drop_chunk_count_high>
+    drop_length_low: 1
+    drop_length_high: 5
+    drop_count_low: 1000
+    drop_count_high: 2000
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: False
-    concat_original: False
-    repeat_augment: 1
-    shuffle_augmentations: False
     min_augmentations: 3
     max_augmentations: 3
     augment_prob: 1.0
@@ -186,6 +170,7 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_freq>,
         !ref <drop_chunk>]
 
+############################## Decoding & optimiser ############################
 
 # define two optimizers here for two-stage training
 Adam: !name:torch.optim.Adam
@@ -257,6 +242,7 @@ noam_annealing_wav2vect: !new:speechbrain.nnet.schedulers.NoamScheduler
     n_warmup_steps: 25000
     model_size: !ref <d_model>
 
+############################## Logging and Pretrainer ##########################
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -278,7 +264,6 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 # which Chinese writing normally does not do.
 # If remove_spaces, spaces are removed
 # from the transcript before computing CER.
-# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 
