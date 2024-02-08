@@ -117,15 +117,13 @@ class ASR(sb.core.Brain):
             # Labels must be extended if parallel augmentation or concatenated
             # augmentation was performed on the input (increasing the time dimension)
             if hasattr(self.hparams, "fea_augment"):
-                tokens = self.hparams.fea_augment.replicate_labels(tokens)
-                tokens_lens = self.hparams.fea_augment.replicate_labels(
-                    tokens_lens
-                )
-                tokens_eos = self.hparams.fea_augment.replicate_labels(
-                    tokens_eos
-                )
-                tokens_eos_lens = self.hparams.fea_augment.replicate_labels(
-                    tokens_eos_lens
+                (
+                    tokens,
+                    tokens_lens,
+                    tokens_eos,
+                    tokens_eos_lens,
+                ) = self.hparams.fea_augment.replicate_labels(
+                    tokens, tokens_lens, tokens_eos, tokens_eos_lens
                 )
 
         loss_seq = self.hparams.seq_cost(
