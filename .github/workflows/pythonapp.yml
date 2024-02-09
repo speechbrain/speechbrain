@@ -37,7 +37,7 @@ jobs:
               run: |
                   sudo apt-get update
                   # up to k2 compatible torch version
-                  pip install torch==2.1.2
+                  pip install torch==2.1.2 torchaudio==2.1.2
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install ctc-segmentation
