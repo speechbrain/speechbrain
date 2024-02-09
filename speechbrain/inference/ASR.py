@@ -18,6 +18,8 @@ import sentencepiece
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
 import functools
+from speechbrain.utils.fetching import fetch
+from speechbrain.utils.data_utils import split_path
 
 
 class EncoderDecoderASR(Pretrained):
@@ -227,6 +229,18 @@ class EncoderASR(Pretrained):
                 # We can now instantiate the decoding class and add all the parameters
                 if hasattr(self.hparams, "test_beam_search"):
                     opt_beam_search_params = self.hparams.test_beam_search
+                    # check if the kenlm_model_path is provided and fetch it if necessary
+                    if "kenlm_model_path" in opt_beam_search_params:
+                        source, fl = split_path(
+                            opt_beam_search_params["kenlm_model_path"]
+                        )
+                        kenlm_model_path = str(
+                            fetch(fl, source=source, savedir=".")
+                        )
+                        # we need to update the kenlm_model_path in the opt_beam_search_params
+                        opt_beam_search_params[
+                            "kenlm_model_path"
+                        ] = kenlm_model_path
                 else:
                     opt_beam_search_params = {}
                 self.decoding_function = self.hparams.decoding_function(
