@@ -475,11 +475,14 @@ if __name__ == "__main__":
     )
 
     # Testing
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)    
+
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        wer_dir = os.path.join(hparams["output_folder"], f"metric_{k}")
-        os.makedirs(wer_dir, exist_ok=True)
+        wer_dir = os.path.join(hparams["output_wer_folder"], f"metric_{k}")
         exp = "HLG" if hparams["compose_HL_with_G"] else "HL"
         asr_brain.hparams.wer_file = os.path.join(wer_dir, f"wer_{exp}")
         asr_brain.evaluate(
-            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
+            test_datasets[k], 
+            test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="WER",
         )
