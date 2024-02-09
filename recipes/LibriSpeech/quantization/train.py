@@ -119,7 +119,8 @@ if __name__ == "__main__":
 
     # Load pretrained KMeans model if it exists. Otherwise,  create new one.
     checkpoint_path = os.path.join(
-        hparams["save_folder"], f"kmeans-cluster-{hparams['num_clusters']}-layer-{hparams['ssl_layer_num']}.pt"
+        hparams["save_folder"],
+        f"kmeans-cluster-{hparams['num_clusters']}-layer-{hparams['ssl_layer_num']}.pt",
     )
     kmeans_model = fetch_kmeans_model(
         n_clusters=hparams["num_clusters"],

@@ -68,7 +68,7 @@ class DiscreteHuBERT(HuBERT):
         If False, the forward function outputs the hidden states only from the last transformer layer.
     num_clusters:  (int) (default: 128)
         determine the number of clusters of the targeted kmeans models to be downloaded.
- 
+
 
 
     Example
@@ -103,7 +103,7 @@ class DiscreteHuBERT(HuBERT):
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=True,
-        num_clusters = 128,
+        num_clusters=128,
     ):
         super().__init__(
             source=source,
@@ -115,7 +115,7 @@ class DiscreteHuBERT(HuBERT):
             output_all_hiddens=output_all_hiddens,
         )
 
-        self.kmeans_models , self.ssl_layer_ids = self.load_kmeans(
+        self.kmeans_models, self.ssl_layer_ids = self.load_kmeans(
             kmeans_repo_id, kmeans_dataset, num_clusters, kmeans_cache_dir
         )
 
@@ -125,7 +125,7 @@ class DiscreteHuBERT(HuBERT):
 
         self.num_clusters = num_clusters
 
-    def load_kmeans(self, repo_id, kmeans_dataset,num_clusters , cache_dir):
+    def load_kmeans(self, repo_id, kmeans_dataset, num_clusters, cache_dir):
         """Load a Pretrained kmeans model from HF.
 
         Arguments
@@ -146,16 +146,22 @@ class DiscreteHuBERT(HuBERT):
             supported layer nums for kmeans (extracted from the name of kmeans model.)
         """
 
-        kmeans_models =[]
-        layer_ids=[]
+        kmeans_models = []
+        layer_ids = []
         file_pattern = f"{kmeans_dataset}/hubert/*_k{num_clusters}*.pt"
-        kmeans_dir = snapshot_download(repo_id=repo_id, allow_patterns=file_pattern,cache_dir=cache_dir)
-        files= Path( os.path.join(kmeans_dir,kmeans_dataset,'hubert')).glob('*.pt')
+        kmeans_dir = snapshot_download(
+            repo_id=repo_id, allow_patterns=file_pattern, cache_dir=cache_dir
+        )
+        files = Path(os.path.join(kmeans_dir, kmeans_dataset, "hubert")).glob(
+            "*.pt"
+        )
         for file in files:
-            layer_ids.append(int(file.name.split('/')[-1].split('_')[-1].split(".")[0][1:]))
+            layer_ids.append(
+                int(file.name.split("/")[-1].split("_")[-1].split(".")[0][1:])
+            )
             kmeans_models.append(joblib.load(file))
         layer_ids, kmeans_models = zip(*sorted(zip(layer_ids, kmeans_models)))
-        return kmeans_models,layer_ids
+        return kmeans_models, layer_ids
 
     def forward(self, wav, wav_lens=None, ssl_layer_num=[7], deduplicte=False):
         """Takes an input waveform and return its corresponding wav2vec encoding.
@@ -166,7 +172,7 @@ class DiscreteHuBERT(HuBERT):
             A batch of audio signals to transform to features.
         wav_len : tensor
             The relative length of the wav given in SpeechBrain format.
-        ssl_layer_num: List[int] (default: [7]): 
+        ssl_layer_num: List[int] (default: [7]):
             determine which layers of SSL should be used to extract information.
         deduplicte: False (default: False)
             whether to remove duplicate tokens or not.
@@ -179,45 +185,98 @@ class DiscreteHuBERT(HuBERT):
         """
 
         # If we freeze, we simply remove all grads from the graph.
-        embeddings=[]
-        token_ids=[]
-        bs= wav.shape[0]
-         
+        embeddings = []
+        token_ids = []
+        bs = wav.shape[0]
+
         # check the availability of the input SSL layers.
-        layers=[]
+        layers = []
         for layer in ssl_layer_num:
             if layer not in self.ssl_layer_ids:
-                logger.warn(f"Layer {layer} is not among trained layers for kmenas: {self.ssl_layer_ids}. We will igoner this layer when computing the tokens.")
+                logger.warn(
+                    f"Layer {layer} is not among trained layers for kmenas: {self.ssl_layer_ids}. We will igoner this layer when computing the tokens."
+                )
             else:
                 layers.append(layer)
         if len(layers) == 0:
-            raise ValueError(f"None of the passed layer numbers are among the suppoorted ones: {self.ssl_layer_ids} ")
-   
+            raise ValueError(
+                f"None of the passed layer numbers are among the suppoorted ones: {self.ssl_layer_ids} "
+            )
 
-        
         with torch.no_grad():
             feats = self.extract_features(wav, wav_lens)
-            for layer_num, model, vocabulary in zip(self.ssl_layer_ids,self.kmeans_models,self.vocabularies):
+            for layer_num, model, vocabulary in zip(
+                self.ssl_layer_ids, self.kmeans_models, self.vocabularies
+            ):
                 if layer_num not in ssl_layer_num:
                     continue
-                tokens = model.predict(feats[layer_num].flatten(end_dim=-2).cpu())
-                tokens = tokens.reshape(bs,-1)
+                tokens = model.predict(
+                    feats[layer_num].flatten(end_dim=-2).cpu()
+                )
+                tokens = tokens.reshape(bs, -1)
 
-                if deduplicte:    
+                if deduplicte:
                     # assign unique token-ids for each quantizer (first later start from 0-num-cluster, second layer start from 1*num-cluster, .. 2*num-cluster,.... )
-                    tokens = tokens.reshape(bs,-1)
-                    unique_token_ids = [row[np.diff(row, prepend=np.nan).astype(bool)] for row in tokens]
-                    layer_token_ids = [torch.tensor(row+ self.num_clusters*layer_num, dtype=torch.long,device=wav.device) for row in unique_token_ids]
+                    tokens = tokens.reshape(bs, -1)
+                    unique_token_ids = [
+                        row[np.diff(row, prepend=np.nan).astype(bool)]
+                        for row in tokens
+                    ]
+                    layer_token_ids = [
+                        torch.tensor(
+                            row + self.num_clusters * layer_num,
+                            dtype=torch.long,
+                            device=wav.device,
+                        )
+                        for row in unique_token_ids
+                    ]
                     token_ids.extend(layer_token_ids)
-                    embs = [torch.tensor(vocabulary[row], dtype=torch.float,device=wav.device) for row in unique_token_ids]
-                    embeddings.extend(embs) 
+                    embs = [
+                        torch.tensor(
+                            vocabulary[row],
+                            dtype=torch.float,
+                            device=wav.device,
+                        )
+                        for row in unique_token_ids
+                    ]
+                    embeddings.extend(embs)
                 else:
-                    layer_token_ids = [torch.tensor(row+ self.num_clusters*layer_num, dtype=torch.long,device=wav.device) for row in tokens]
+                    layer_token_ids = [
+                        torch.tensor(
+                            row + self.num_clusters * layer_num,
+                            dtype=torch.long,
+                            device=wav.device,
+                        )
+                        for row in tokens
+                    ]
                     token_ids.extend(layer_token_ids)
-                    embs = [torch.tensor(vocabulary[row], dtype=torch.float,device=wav.device) for row in tokens]
-                    embeddings.extend(embs) 
+                    embs = [
+                        torch.tensor(
+                            vocabulary[row],
+                            dtype=torch.float,
+                            device=wav.device,
+                        )
+                        for row in tokens
+                    ]
+                    embeddings.extend(embs)
 
         return (
-            torch.stack(torch.split( torch.nn.utils.rnn.pad_sequence(token_ids, batch_first=True), bs),dim=2),
-            torch.stack(torch.split( torch.nn.utils.rnn.pad_sequence(embeddings, batch_first=True), bs),dim=2)
+            torch.stack(
+                torch.split(
+                    torch.nn.utils.rnn.pad_sequence(
+                        token_ids, batch_first=True
+                    ),
+                    bs,
+                ),
+                dim=2,
+            ),
+            torch.stack(
+                torch.split(
+                    torch.nn.utils.rnn.pad_sequence(
+                        embeddings, batch_first=True
+                    ),
+                    bs,
+                ),
+                dim=2,
+            ),
         )
