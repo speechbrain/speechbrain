@@ -475,8 +475,6 @@ if __name__ == "__main__":
     )
 
     # Testing
-    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
-
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         wer_dir = os.path.join(hparams["output_wer_folder"], f"metric_{k}")
         os.makedirs(wer_dir, exist_ok=True)
