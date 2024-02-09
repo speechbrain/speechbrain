@@ -17,10 +17,12 @@ jobs:
                   python-version: '3.8'
             - name: Full dependencies
               run: |
+                  # up to k2 compatible torch version
+                  pip install torch==2.1.2 torchaudio==2.1.2
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install -r docs/docs-requirements.txt
-                  pip install k2==1.24.4.dev20231021+cpu.torch2.1.0 -f https://k2-fsa.github.io/k2/cpu.html
+                  pip install k2==1.24.4.dev20231220+cpu.torch2.1.2 -f https://k2-fsa.github.io/k2/cpu.html
             - name: Generate docs
               run: |
                   cd docs
