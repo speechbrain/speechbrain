@@ -212,7 +212,7 @@ class TransducerBeamSearcher(torch.nn.Module):
             )
             # Sort outputs at time
             logp_targets, positions = torch.max(
-                self.softmax(log_probs).squeeze(1).squeeze(1), dim=1
+                log_probs.squeeze(1).squeeze(1), dim=1
             )
             # Batch hidden update
             have_update_hyp = []
