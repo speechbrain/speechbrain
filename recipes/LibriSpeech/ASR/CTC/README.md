@@ -41,7 +41,7 @@ For those interested in training their own language model, please consult our re
 
 Example usage:
 ```
-python train_with_wav2vec_k2.py hparams/train_hf_wav2vec_k2.yaml --data_folder=/path/to/LibriSpeech --lm_dir=/path/to/LibriSpeech/LM
+python train_with_wav2vec_k2.py hparams/train_hf_wav2vec_k2.yaml --data_folder=/path/to/LibriSpeech
 ```
 
 To use the HLG graph (instead of the default HL), pass `--compose_HL_with_G=True`. To use the 4-gram LM for rescoring, pass the `--decoding_method=whole-lattice-rescoring` argument. Note that this will require more memory, as the whole lattice will be kept in memory during the decoding. In this recipe, the `lm_scale` used by default is 0.4. This is the value that gave the best results in our HL-graph experiments after trying scales of `[0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4]`. When rescoring is used alongside the HLG graph, the 4-gram seems to not bring any improvement. The best lm scale in that case was 0.2 (the lowest value we tried).
