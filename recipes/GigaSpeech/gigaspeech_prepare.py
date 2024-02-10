@@ -12,10 +12,12 @@ Author
 import logging
 import os
 import json
+import csv
 from dataclasses import dataclass
 import functools
 from speechbrain.utils.parallel import parallel_map
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
 GRABAGE_UTTERANCE_TAGS = ["<SIL>", "<MUSIC>", "<NOISE>", "<OTHER>"]
@@ -32,8 +34,8 @@ TRAIN_SUBSET = ["XS", "S", "M", "L", "XL"]
 @dataclass
 class GigaSpeechRow:
     utt_id: str # segment[sid]
-    wav_id: str # audio[aid]
-    wav_path: str
+    audio_id: str # audio[aid]
+    audio_path: str # by default this is opus files
     speaker: str # audio["speaker"]
     begin_time: float
     end_time: float
@@ -53,6 +55,10 @@ def prepare_gigaspeech(
     for split in splits:
         assert split in SPLITS + TRAIN_SUBSET, f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
     
+    # check that we are not using multiple train subsets
+    if len(set(splits).intersection(TRAIN_SUBSET)) > 1:
+        raise ValueError("You cannot use multiple train subsets. Please select only one train subset.")
+
     if skip_prep:
         logger.info("Skipping data preparation as `skip_prep` is set to `True`")
         return
@@ -70,23 +76,26 @@ def prepare_gigaspeech(
     json_metadata = os.path.join(data_folder, json_file)
     logger.info("Creating train, dev, and test subsets.")
 
-    print("Starting reading JSON file.")
+    logger.info(f"Starting reading {json_file}.")
     with open(json_metadata, "r") as f:
         info = json.load(f)
+    logger.info(f"Reading {json_file} done.")
     
-    print("Reading JSON file done.")
     for split in splits:
-        print(f"Creating CSV for {split} split.")
-        output_csv_file = os.path.join(save_folder, f"{split}.csv")
-        create_csv(output_csv_file, info, split, data_folder)
-        exit()
+        if split in TRAIN_SUBSET:
+            logger.info(f"Starting creating train.csv using {split} subset.")
+            output_csv_file = os.path.join(save_folder, f"train.csv")
+            create_csv(output_csv_file, info, split)
+        else:
+            logger.info(f"Starting creating {split.lower()}.csv using {split} subset.")
+            output_csv_file = os.path.join(save_folder, f"{split.lower()}.csv")
+            create_csv(output_csv_file, info, split)
 
 def process_line(audio, split):
     if ("{" + split + "}") in audio["subsets"]:
-        print("VALID AUDIO FILE")
 
-        wav_path = os.path.join(data_folder, audio["path"])
-        assert os.path.isfile(wav_path), f"File not found: {wav_path}"
+        audio_path = os.path.join(data_folder, audio["path"])
+        assert os.path.isfile(audio_path), f"File not found: {audio_path}"
 
         # 2. iterate over the utterances
         utterances = []
@@ -98,8 +107,8 @@ def process_line(audio, split):
                 duration = end_time - begin_time
                 utterance = GigaSpeechRow(
                     utt_id=segment["sid"],
-                    wav_id=audio["aid"],
-                    wav_path=str(wav_path),
+                    audio_id=audio["aid"],
+                    audio_path=str(audio_path),
                     speaker=audio["speaker"],
                     begin_time=begin_time,
                     end_time=end_time,
@@ -109,54 +118,58 @@ def process_line(audio, split):
                 utterances.append(utterance)
         return utterances
 
-def create_csv(csv_file, info, split, data_folder):
+def create_csv(csv_file, info, split):
     """TODO. 
-    """
-    ret = []
-    print("inside create_csv")
-    logger.info(f"Creating CSV for {split} split.")
-    csv_file_tmp = csv_file + ".tmp"
+    """    
     total_duration = 0.0
+    nb_samples = 0
     
     line_processor = functools.partial(
         process_line,
         split=split,
     )
-
-    print("audios = ", len(info["audios"]))
-    for audio in info["audios"]:
-        
-        # 1. Check if the audio is part of the "subsets". One audio can be part of multiple subsets
-        # such as "{XL}" and "{L}".
-        if ("{" + split + "}") in audio["subsets"]:
-            print("VALID AUDIO FILE")
-
-            wav_path = os.path.join(data_folder, audio["path"])
-            assert os.path.isfile(wav_path), f"File not found: {wav_path}"
-
-            # 2. iterate over the utterances
-            utterances = []
-            print("segments = ", len(audio["segments"]))
-            for segment in audio["segments"]:
-                text = preprocess_text(segment["text_tn"])
-                if text:
-                    begin_time = float(segment["begin_time"])
-                    end_time = float(segment["end_time"])
-                    duration = end_time - begin_time
-                    utterance = GigaSpeechRow(
-                        utt_id=segment["sid"],
-                        wav_id=audio["aid"],
-                        wav_path=str(wav_path),
-                        speaker=audio["speaker"],
-                        begin_time=begin_time,
-                        end_time=end_time,
-                        duration=duration,
-                        text=text,
-                    )
-            total_duration += duration
-            ret.append(utterances)
-            exit()
     
+    csv_file_tmp = csv_file + ".tmp"
+    with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
+        csv_writer = csv.writer(
+            csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
+        header = [
+            "utt_id",
+            "audio_id",
+            "audio_path",
+            "speaker",
+            "begin_time",
+            "end_time",
+            "duration",
+            "text",
+        ]
+        csv_writer.writerow(header)
+        for row in parallel_map(line_processor, info["audios"]):
+            if row is None:
+                continue
+                
+            for item in row:
+                csv_writer.writerow([
+                    item.utt_id, 
+                    item.audio_id, 
+                    item.audio_path, 
+                    item.speaker, 
+                    str(item.begin_time), 
+                    str(item.end_time), 
+                    str(item.duration), 
+                    item.text
+                ])
+                
+                total_duration += item.duration
+                nb_samples += 1
+        
+    os.replace(csv_file_tmp, csv_file)
+
+    logger.info(f"{csv_file} succesfully created!")
+    logger.info(f"Number of samples in {split} split: {nb_samples}")
+    logger.info(f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours")
+            
 def preprocess_text(text: str) -> str:
     """
     Preprocesses the input text by removing garbage tags and replacing punctuation tags.
