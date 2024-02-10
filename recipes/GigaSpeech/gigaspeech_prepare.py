@@ -73,6 +73,7 @@ def prepare_gigaspeech(
     output_test_csv_filename=None,
     json_file: str = "GigaSpeech.json",
     skip_prep: bool = False,
+    convert_opus_to_wav: bool = True,
 ) -> None:
     """ Prepare the csv files for GigaSpeech dataset.
 
@@ -103,6 +104,8 @@ def prepare_gigaspeech(
         The name of the JSON file containing the metadata of the GigaSpeech dataset.
     skip_prep : bool, optional
         If True, the data preparation will be skipped, and the function will return immediately.
+    convert_opus_to_wav : bool, optional
+        If True, the opus files will be converted to wav files.
 
     Returns
     -------
@@ -145,21 +148,23 @@ def prepare_gigaspeech(
         logger.info("Starting data preparation...")
 
     check_gigaspeech_folders(data_folder, json_file)
-
-    json_metadata = os.path.join(data_folder, json_file)
     logger.info(f"Starting reading {json_file}.")
-    with open(json_metadata, "r") as f:
+    with open(json_file, "r") as f:
         info = json.load(f)
     logger.info(f"Reading {json_file} done.")
 
     logger.info("Creating train, dev, and test subsets.")
     for split, output_csv_file in save_csv_files.items():
         logger.info(f"Starting creating {output_csv_file} using {split} split.")
-        create_csv(output_csv_file, info, data_folder, split)
+        create_csv(
+            output_csv_file, info, data_folder, split, convert_opus_to_wav
+        )
     logger.info("Data preparation completed!")
 
 
-def process_line(audio: json, data_folder: str, split: str) -> list:
+def process_line(
+    audio: json, data_folder: str, split: str, convert_opus_to_wav: bool
+) -> list:
     """
     Process the audio line and return the utterances for the given split.
 
@@ -171,6 +176,8 @@ def process_line(audio: json, data_folder: str, split: str) -> list:
         The path to the GigaSpeech dataset.
     split : str
         The split to be used for filtering the data.
+    convert_opus_to_wav : bool
+        If True, the opus files will be converted to wav files.
 
     Returns
     -------
@@ -181,6 +188,9 @@ def process_line(audio: json, data_folder: str, split: str) -> list:
 
         audio_path = os.path.join(data_folder, audio["path"])
         assert os.path.isfile(audio_path), f"File not found: {audio_path}"
+
+        if convert_opus_to_wav and audio_path.endswith(".opus"):
+            audio_path = convert_opus2wav(audio_path)
 
         # 2. iterate over the utterances
         utterances = []
@@ -204,7 +214,13 @@ def process_line(audio: json, data_folder: str, split: str) -> list:
         return utterances
 
 
-def create_csv(csv_file: str, info: json, data_folder: str, split: str) -> None:
+def create_csv(
+    csv_file: str,
+    info: json,
+    data_folder: str,
+    split: str,
+    convert_opus_to_wav: bool,
+) -> None:
     """
     Create a CSV file based on the info in the GigaSpeech JSON file and filter the data based on the split.
 
@@ -218,6 +234,8 @@ def create_csv(csv_file: str, info: json, data_folder: str, split: str) -> None:
         The path to the GigaSpeech dataset.
     split : str
         The split to be used for filtering the data.
+    convert_opus_to_wav : bool
+        If True, the opus files will be converted to wav files.
 
     Returns
     -------
@@ -227,7 +245,10 @@ def create_csv(csv_file: str, info: json, data_folder: str, split: str) -> None:
     nb_samples = 0
 
     line_processor = functools.partial(
-        process_line, data_folder=data_folder, split=split,
+        process_line,
+        data_folder=data_folder,
+        split=split,
+        convert_opus_to_wav=convert_opus_to_wav,
     )
 
     csv_file_tmp = csv_file + ".tmp"
@@ -236,7 +257,7 @@ def create_csv(csv_file: str, info: json, data_folder: str, split: str) -> None:
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
         header = [
-            "utt_id",
+            "ID",
             "audio_id",
             "audio_path",
             "speaker",
@@ -274,6 +295,31 @@ def create_csv(csv_file: str, info: json, data_folder: str, split: str) -> None:
     logger.info(
         f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours"
     )
+
+
+def convert_opus2wav(audio_opus_path):
+    """Convert an opus file to a wav file.
+
+    Parameters
+    ----------
+    audio_opus_path : str
+        The path to the opus file to be converted.
+
+    Returns
+    -------
+    str
+        The path to the converted wav file.
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        If the conversion process fails.
+    """
+    audio_wav_path = audio_opus_path.replace(".opus", ".wav")
+    os.system(
+        f"ffmpeg -y -i {audio_opus_path} -ac 1 -ar 16000 {audio_wav_path} > /dev/null 2>&1"
+    )
+    return audio_wav_path
 
 
 def preprocess_text(text: str) -> str:
@@ -366,12 +412,10 @@ def check_gigaspeech_folders(
         If GigaSpeech is not found at the specified path.
     """
     # Checking if "GigaSpeech.json" exist
-    json_gigaspeech = os.path.join(data_folder, json_file)
-
-    if not os.path.exists(json_gigaspeech):
+    if not os.path.exists(json_file):
         err_msg = (
             "the opus file %s does not exist (it is expected in the "
-            "Gigaspeech dataset)" % json_gigaspeech
+            "Gigaspeech dataset)" % json_file
         )
         raise OSError(err_msg)
 
