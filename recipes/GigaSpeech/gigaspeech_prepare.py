@@ -1,7 +1,7 @@
 """
 Data preparation script for the GigaSpeech dataset.
 
-Download instruction: https://github.com/SpeechColab/GigaSpeech
+Download instructions: https://github.com/SpeechColab/GigaSpeech
 Reference: https://arxiv.org/abs/2106.06909
 
 Author
@@ -12,6 +12,8 @@ Author
 import logging
 import os
 import json
+from dataclasses import dataclass
+from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
@@ -22,13 +24,27 @@ PUNCTUATION_TAGS = {
     "<PERIOD>": ".", 
     "<QUESTIONMARK>": "?"
 }
-SPLITS = ["train", "dev", "test"]
+SPLITS = ["DEV", "TEST"]
 TRAIN_SUBSET = ["XS", "S", "M", "L", "XL"]
+
+
+@dataclass
+class GigaSpeechRow:
+    utt_id: str # segment[sid]
+    wav_id: str # audio[aid]
+    speaker: str # audio["speaker"]
+    begin_time: float
+    end_time: float
+    duration: float
+    text: str
+
+
 
 def prepare_gigaspeech(
     data_folder, 
     save_folder,
     splits: list = SPLITS,
+    train_subset: list = TRAIN_SUBSET,
     json_file="GigaSpeech.json",
     skip_prep: bool = False,
 ):
@@ -54,14 +70,41 @@ def prepare_gigaspeech(
     with open(json_metadata, "r") as f:
         info = json.load(f)
 
-    ret = []
-    for split in splits:
+    ret = {}
+    import time 
+    time1 = time.time()
+    for split in splits + train_subset:
+        ret[split] = []
         for audio in info["audios"]:
-            # 1. Check if the audio is part of the "subsets". One audio can be part of multiple subsets.
+            # 1. Check if the audio is part of the "subsets". One audio can be part of multiple subsets
             # such as "{XL}" and "{L}".
             if ("{" + split + "}") in audio["subsets"]:
                 wav_path = os.path.join(data_folder, audio["path"])
                 assert wav_path.is_file(), f"File not found: {wav_path}"
+
+            # 2. iterate over the utterances
+            utterances = []
+            for segment in audio["segments"]:
+                text = preprocess_text(segment["text_tn"])
+                if text:
+                    print(segment["begin_time"], segment["end_time"])
+                    begin_time = float(segment["begin_time"])
+                    end_time = float(segment["end_time"])
+                    duration = end_time - begin_time
+                    utterance = GigaSpeechRow(
+                        utt_id=segment["sid"],
+                        wav_id=audio["aid"],
+                        speaker=audio["speaker"],
+                        begin_time=begin_time,
+                        end_time=end_time,
+                        duration=duration,
+                        text=text,
+                    )
+                    print(utterance)
+                    exit()
+
+            ret[split].append(utterances)
+            exit()
             
 def preprocess_text(text: str) -> str:
     """
@@ -90,17 +133,19 @@ def preprocess_text(text: str) -> str:
 
     Examples
     --------
-    >>> preprocess_text("Hello world <EXCLAMATIONPOINT>")
-    'hello world !'
+    >>> text = " DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR <COMMA> YOU SEE THE RED CARPETING <COMMA> YOU SEE SOMEONE IN A SUIT <PERIOD> THEY MAY BE GREETING YOU <PERIOD>"
+    >>> preprocess_text(text)
+    "douglas mcgray is going to be our guide you walk through the door, you see the red carpeting, you see someone in a suit. they may be greeting you."
     """
     # Remove garbage tags
     for tag in GRABAGE_UTTERANCE_TAGS:
-        text = text.replace(tag, "")
+        if tag in text:
+            return ""
     
     # Remove punctuation tags
     for tag, punctuation in PUNCTUATION_TAGS.items():
-        text = text.replace(' ' + tag + ' ', punctuation)
-
+        text = text.replace(' ' + tag, punctuation)
+    
     assert "<" not in text and ">" not in text, f"Found tags in the text: {text}"
     return text.lower()
 
@@ -146,3 +191,11 @@ def check_file(path):
             "Gigaspeech dataset)" % path
         )
         raise OSError(err_msg)
+    
+
+if __name__ == "__main__":
+    data_folder = "/local_disk/idyie/amoumen/GigaSpeech_data/"
+    save_folder = "."
+    train_subset = ["XS"]
+    prepare_gigaspeech(data_folder, save_folder, train_subset=train_subset)
+    print("Done")
