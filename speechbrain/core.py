@@ -1273,7 +1273,7 @@ class Brain:
         """
         pass
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
 
@@ -1295,9 +1295,16 @@ class Brain:
         -------
         detached loss
         """
-
-        out = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(out, batch, stage=stage)
+        amp = AMPConfig.from_name(self.precision)
+        if self.use_amp:
+            with torch.autocast(
+                dtype=amp.dtype, device_type=torch.device(self.device).type,
+            ):
+                out = self.compute_forward(batch, stage=stage)
+                loss = self.compute_objectives(out, batch, stage=stage)
+        else:
+            out = self.compute_forward(batch, stage=stage)
+            loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def _fit_train(self, train_set, epoch, enable):
