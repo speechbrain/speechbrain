@@ -45,7 +45,6 @@ class ASR(sb.Brain):
         x = self.modules.enc(feats)
 
         # Compute outputs
-        p_tokens = None
         logits = self.modules.ctc_lin(x)
 
         # Upsample the inputs if they have been highly downsampled
@@ -72,6 +71,8 @@ class ASR(sb.Brain):
 
             if hasattr(self.hparams, "rescorer"):
                 p_tokens, _ = self.hparams.rescorer.rescore(candidates, scores)
+        else:
+            p_tokens = None
 
         return p_ctc, wav_lens, p_tokens
 
@@ -98,17 +99,12 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
         elif stage == sb.Stage.TEST:
-            if hasattr(self.hparams, "rescorer"):
-                predicted_words = [
-                    hyp[0].split(" ") for hyp in predicted_tokens
-                ]
-            else:
-                predicted_words = [
-                    hyp[0].text.split(" ") for hyp in predicted_tokens
-                ]
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
+            ]
 
         if stage != sb.Stage.TRAIN:
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            target_words = [wrd.split(" ") for wrd in batch.text]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -250,7 +246,7 @@ def dataio_prepare(hparams):
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
     # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.takes("audio_path")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         sig = sb.dataio.dataio.read_audio(wav)
@@ -260,13 +256,13 @@ def dataio_prepare(hparams):
     label_encoder = sb.dataio.encoder.CTCTextEncoder()
 
     # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("wrd")
+    @sb.utils.data_pipeline.takes("text")
     @sb.utils.data_pipeline.provides(
-        "wrd", "char_list", "tokens_list", "tokens"
+        "text", "char_list", "tokens_list", "tokens"
     )
-    def text_pipeline(wrd):
-        yield wrd
-        char_list = list(wrd)
+    def text_pipeline(text):
+        yield text
+        char_list = list(text)
         yield char_list
         tokens_list = label_encoder.encode_sequence(char_list)
         yield tokens_list
@@ -289,7 +285,7 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "char_list", "tokens"],
+        datasets, ["id", "sig", "text", "char_list", "tokens"],
     )
 
     return train_data, valid_data, test_datasets, label_encoder
@@ -314,19 +310,19 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    from gigaspeech import prepare_gigaspeech  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_librispeech,
+        prepare_gigaspeech,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "save_folder": hparams["save_folder"],
+            "splits": hparams["splits"],
+            "output_train_csv_filename": hparams["train_csv"],
+            "output_dev_csv_filename": hparams["valid_csv"],
+            "output_test_csv_filename": hparams["test_csv"],
+            "json_file": hparams["json_file"],
             "skip_prep": hparams["skip_prep"],
         },
     )

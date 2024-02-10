@@ -28,6 +28,7 @@ ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <save_folder>/train.csv
 valid_csv: !ref <save_folder>/dev.csv
 test_csv: !ref <save_folder>/test.csv
+json_file: "GigaSpeech.json"
 
 # Training parameters
 number_of_epochs: 1
