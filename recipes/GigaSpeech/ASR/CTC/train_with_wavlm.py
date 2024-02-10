@@ -10,7 +10,6 @@ import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -61,16 +60,6 @@ class ASR(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             p_tokens = test_searcher(p_ctc, wav_lens)
-
-            candidates = []
-            scores = []
-
-            for batch in p_tokens:
-                candidates.append([hyp.text for hyp in batch])
-                scores.append([hyp.score for hyp in batch])
-
-            if hasattr(self.hparams, "rescorer"):
-                p_tokens, _ = self.hparams.rescorer.rescore(candidates, scores)
         else:
             p_tokens = None
 
@@ -232,24 +221,24 @@ def dataio_prepare(hparams):
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
-    # test is separate
-    test_datasets = {}
-    for csv_file in hparams["test_csv"]:
-        name = Path(csv_file).stem
-        test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, replacements={"data_root": data_folder}
-        )
-        test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
-        )
+    test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
+        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+    )
 
-    datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
+    # We also sort the validation data so it is faster to validate
+    test_data = test_data.filtered_sorted(sort_key="duration")
+
+    datasets = [train_data, valid_data, test_data]
 
     # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("audio_path")
+    @sb.utils.data_pipeline.takes("audio_path", "begin_time", "end_time")
     @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
+    def audio_pipeline(audio_path, begin_time, end_time):
+        start_sample = int(float(begin_time) * hparams["sample_rate"])
+        stop_sample = int(float(end_time) * hparams["sample_rate"])
+        sig = sb.dataio.dataio.read_audio(
+            {"file": audio_path, "start": start_sample, "stop": stop_sample}
+        )
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
@@ -288,7 +277,7 @@ def dataio_prepare(hparams):
         datasets, ["id", "sig", "text", "char_list", "tokens"],
     )
 
-    return train_data, valid_data, test_datasets, label_encoder
+    return train_data, valid_data, test_data, label_encoder
 
 
 if __name__ == "__main__":
@@ -310,7 +299,7 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Librispeech)
-    from gigaspeech import prepare_gigaspeech  # noqa
+    from gigaspeech_prepare import prepare_gigaspeech  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
@@ -324,13 +313,12 @@ if __name__ == "__main__":
             "output_test_csv_filename": hparams["test_csv"],
             "json_file": hparams["json_file"],
             "skip_prep": hparams["skip_prep"],
+            "convert_opus_to_wav": hparams["convert_opus_to_wav"],
         },
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_datasets, label_encoder = dataio_prepare(
-        hparams
-    )
+    train_data, valid_data, test_data, label_encoder = dataio_prepare(hparams)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -368,15 +356,24 @@ if __name__ == "__main__":
     )
 
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
-    for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.test_wer_file = os.path.join(
-            hparams["output_wer_folder"], f"wer_{k}.txt"
-        )
-        asr_brain.evaluate(
-            test_datasets[k],
-            test_loader_kwargs=hparams["test_dataloader_opts"],
-            min_key="WER",
-        )
+    # report WER on valid data
+    asr_brain.hparams.test_wer_file = os.path.join(
+        hparams["output_wer_folder"], f"valid_wer.txt"
+    )
+    asr_brain.evaluate(
+        valid_data,
+        min_key="WER",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+    )
+
+    # report WER on test data
+    asr_brain.hparams.test_wer_file = os.path.join(
+        hparams["output_wer_folder"], f"test_wer.txt"
+    )
+    asr_brain.evaluate(
+        test_data,
+        min_key="WER",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+    )

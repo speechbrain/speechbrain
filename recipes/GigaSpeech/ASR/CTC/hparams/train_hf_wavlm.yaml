@@ -24,17 +24,19 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # and  ["DEV", "TEST"] for the eval splits.
 splits: ["XS", "DEV", "TEST"]
 skip_prep: False
+convert_opus_to_wav: True
 ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: !ref <save_folder>/train.csv
-valid_csv: !ref <save_folder>/dev.csv
-test_csv: !ref <save_folder>/test.csv
-json_file: "GigaSpeech.json"
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv: !ref <output_folder>/test.csv
+json_file: !ref <data_folder>/GigaSpeech.json
 
 # Training parameters
 number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending
+num_workers: 4
 precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 
@@ -42,14 +44,15 @@ sample_rate: 16000
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
-test_batch_size: 8
+test_batch_size: 1
 
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
-   batch_size: !ref <batch_size>
+   batch_size: !ref <test_batch_size>
 
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
@@ -61,7 +64,7 @@ dnn_neurons: 1024
 freeze_wav2vec: True
 
 # Outputs
-output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
+output_neurons: 34
 blank_index: 0
 
 # Decoding parameters
