@@ -17,15 +17,14 @@ from dataclasses import dataclass
 import functools
 from speechbrain.utils.parallel import parallel_map
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-SAMPLERATE = 16000
+
 GRABAGE_UTTERANCE_TAGS = ["<SIL>", "<MUSIC>", "<NOISE>", "<OTHER>"]
 PUNCTUATION_TAGS = {
-    "<COMMA>": ",", 
-    "<EXCLAMATIONPOINT>": "!", 
-    "<PERIOD>": ".", 
-    "<QUESTIONMARK>": "?"
+    "<COMMA>": ",",
+    "<EXCLAMATIONPOINT>": "!",
+    "<PERIOD>": ".",
+    "<QUESTIONMARK>": "?",
 }
 SPLITS = ["DEV", "TEST"]
 TRAIN_SUBSET = ["XS", "S", "M", "L", "XL"]
@@ -33,39 +32,103 @@ TRAIN_SUBSET = ["XS", "S", "M", "L", "XL"]
 
 @dataclass
 class GigaSpeechRow:
-    utt_id: str # segment[sid]
-    audio_id: str # audio[aid]
-    audio_path: str # by default this is opus files
-    speaker: str # audio["speaker"]
+    """ Dataclass for handling GigaSpeech rows.
+
+    Attributes
+    ----------
+    utt_id : str
+        The segment ID.
+    audio_id : str
+        The audio ID.
+    audio_path : str
+        The path to the audio file.
+    speaker : str
+        The speaker ID.
+    begin_time : float
+        The start time of the segment.
+    end_time : float
+        The end time of the segment.
+    duration : float
+        The duration of the segment.
+    text : str
+        The text of the segment.
+    """
+
+    utt_id: str  # segment[sid]
+    audio_id: str  # audio[aid]
+    audio_path: str  # by default this is opus files
+    speaker: str  # audio["speaker"]
     begin_time: float
     end_time: float
     duration: float
     text: str
 
-def prepare_gigaspeech(
-    data_folder, 
-    save_folder,
-    splits: list,
-    json_file="GigaSpeech.json",
-    skip_prep: bool = False,
-):
-    """TODO. 
-    """
-    # check that `splits` input is valid
-    for split in splits:
-        assert split in SPLITS + TRAIN_SUBSET, f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
-    
-    # check that we are not using multiple train subsets
-    if len(set(splits).intersection(TRAIN_SUBSET)) > 1:
-        raise ValueError("You cannot use multiple train subsets. Please select only one train subset.")
 
+def prepare_gigaspeech(
+    data_folder: str,
+    save_folder: str,
+    splits: list,
+    json_file: str = "GigaSpeech.json",
+    skip_prep: bool = False,
+) -> None:
+    """ Prepare the csv files for GigaSpeech dataset.
+
+    Download instructions: https://github.com/SpeechColab/GigaSpeech
+    Reference: https://arxiv.org/abs/2106.06909
+
+    The `train.csv` file is created by following the train subset specified in the `splits` list.
+    It must be part of the `TRAIN_SUBSET` list. You cannot use multiple train subsets.
+
+    The `dev.csv` and `test.csv` files are created based on the `DEV` and `TEST` splits
+    specified in the `splits` list.
+
+    Parameters
+    ----------
+    data_folder : str
+        The path to the GigaSpeech dataset.
+    save_folder : str
+        The path to the folder where the CSV files will be saved.
+    splits : list
+        The list of splits to be used for creating the CSV files.
+    json_file : str, optional
+        The name of the JSON file containing the metadata of the GigaSpeech dataset.
+    skip_prep : bool, optional
+        If True, the data preparation will be skipped, and the function will return immediately.
+
+    Returns
+    -------
+    None
+    """
     if skip_prep:
         logger.info("Skipping data preparation as `skip_prep` is set to `True`")
         return
-    
+
+    # check that `splits` input is valid
+    for split in splits:
+        assert (
+            split in SPLITS + TRAIN_SUBSET
+        ), f"Split {split} not recognized. Valid splits are {SPLITS + TRAIN_SUBSET}."
+
+    # check that we are not using multiple train subsets
+    if len(set(splits).intersection(TRAIN_SUBSET)) > 1:
+        raise ValueError(
+            "You cannot use multiple train subsets. Please select only one train subset."
+        )
+
     os.makedirs(save_folder, exist_ok=True)
 
-    if skip(): # TODO: Implement skip function
+    # Setting output files
+    save_csv_files = {}
+    for split in splits:
+        if split in TRAIN_SUBSET:
+            save_csv_files[split] = os.path.join(save_folder, "train.csv")
+        else:
+            save_csv_files[split] = os.path.join(
+                save_folder, f"{split.lower()}.csv"
+            )
+
+    # check if the data is already prepared
+    if skip(save_csv_files):
         logger.info("Skipping preparation, completed in previous run.")
         return
     else:
@@ -74,24 +137,36 @@ def prepare_gigaspeech(
     check_gigaspeech_folders(data_folder, json_file)
 
     json_metadata = os.path.join(data_folder, json_file)
-    logger.info("Creating train, dev, and test subsets.")
-
     logger.info(f"Starting reading {json_file}.")
     with open(json_metadata, "r") as f:
         info = json.load(f)
     logger.info(f"Reading {json_file} done.")
-    
-    for split in splits:
-        if split in TRAIN_SUBSET:
-            logger.info(f"Starting creating train.csv using {split} subset.")
-            output_csv_file = os.path.join(save_folder, f"train.csv")
-            create_csv(output_csv_file, info, split)
-        else:
-            logger.info(f"Starting creating {split.lower()}.csv using {split} subset.")
-            output_csv_file = os.path.join(save_folder, f"{split.lower()}.csv")
-            create_csv(output_csv_file, info, split)
 
-def process_line(audio, split):
+    logger.info("Creating train, dev, and test subsets.")
+    for split, output_csv_file in save_csv_files.items():
+        logger.info(f"Starting creating {output_csv_file} using {split} split.")
+        create_csv(output_csv_file, info, data_folder, split)
+    logger.info("Data preparation completed!")
+
+
+def process_line(audio: json, data_folder: str, split: str) -> list:
+    """
+    Process the audio line and return the utterances for the given split.
+
+    Parameters
+    ----------
+    audio : dict
+        The audio line to be processed.
+    data_folder : str
+        The path to the GigaSpeech dataset.
+    split : str
+        The split to be used for filtering the data.
+
+    Returns
+    -------
+    list
+        The list of utterances for the given split.
+    """
     if ("{" + split + "}") in audio["subsets"]:
 
         audio_path = os.path.join(data_folder, audio["path"])
@@ -118,17 +193,33 @@ def process_line(audio, split):
                 utterances.append(utterance)
         return utterances
 
-def create_csv(csv_file, info, split):
-    """TODO. 
-    """    
+
+def create_csv(csv_file: str, info: json, data_folder: str, split: str) -> None:
+    """
+    Create a CSV file based on the info in the GigaSpeech JSON file and filter the data based on the split.
+
+    Parameters
+    ----------
+    csv_file : str
+        The path to the CSV file to be created.
+    info : dict
+        The GigaSpeech JSON file content.
+    data_folder : str
+        The path to the GigaSpeech dataset.
+    split : str
+        The split to be used for filtering the data.
+
+    Returns
+    -------
+    None
+    """
     total_duration = 0.0
     nb_samples = 0
-    
+
     line_processor = functools.partial(
-        process_line,
-        split=split,
+        process_line, data_folder=data_folder, split=split,
     )
-    
+
     csv_file_tmp = csv_file + ".tmp"
     with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
@@ -148,28 +239,33 @@ def create_csv(csv_file, info, split):
         for row in parallel_map(line_processor, info["audios"]):
             if row is None:
                 continue
-                
+
             for item in row:
-                csv_writer.writerow([
-                    item.utt_id, 
-                    item.audio_id, 
-                    item.audio_path, 
-                    item.speaker, 
-                    str(item.begin_time), 
-                    str(item.end_time), 
-                    str(item.duration), 
-                    item.text
-                ])
-                
+                csv_writer.writerow(
+                    [
+                        item.utt_id,
+                        item.audio_id,
+                        item.audio_path,
+                        item.speaker,
+                        str(item.begin_time),
+                        str(item.end_time),
+                        str(item.duration),
+                        item.text,
+                    ]
+                )
+
                 total_duration += item.duration
                 nb_samples += 1
-        
+
     os.replace(csv_file_tmp, csv_file)
 
     logger.info(f"{csv_file} succesfully created!")
     logger.info(f"Number of samples in {split} split: {nb_samples}")
-    logger.info(f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours")
-            
+    logger.info(
+        f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours"
+    )
+
+
 def preprocess_text(text: str) -> str:
     """
     Preprocesses the input text by removing garbage tags and replacing punctuation tags.
@@ -205,24 +301,50 @@ def preprocess_text(text: str) -> str:
     for tag in GRABAGE_UTTERANCE_TAGS:
         if tag in text:
             return ""
-    
+
     # Remove punctuation tags
     for tag, punctuation in PUNCTUATION_TAGS.items():
-        text = text.replace(' ' + tag, punctuation)
-    
-    assert "<" not in text and ">" not in text, f"Found tags in the text: {text}"
+        text = text.replace(" " + tag, punctuation)
+
+    assert (
+        "<" not in text and ">" not in text
+    ), f"Found tags in the text: {text}"
     return text.lower()
 
 
-def skip():
-    """TODO. 
-    """
-    return False
+def skip(save_csv_files: dict) -> bool:
+    """ Check if the CSV files already exist.
 
-def check_gigaspeech_folders(data_folder, json_file="GigaSpeech.json", audio_folder="audio"):
+    Parameters
+    ----------
+    save_csv_files : dict
+        The dictionary containing the paths to the CSV files.
+
+    Returns
+    -------
+    bool
+        True if all the CSV files already exist, False otherwise.
+    """
+    return all(os.path.isfile(path) for path in save_csv_files.values())
+
+
+def check_gigaspeech_folders(
+    data_folder: str,
+    json_file: str = "GigaSpeech.json",
+    audio_folder: str = "audio",
+) -> None:
     """Check if the data folder actually contains the GigaSpeech dataset.
 
     If it does not, an error is raised.
+
+    Parameters
+    ----------
+    data_folder : str
+        The path to the GigaSpeech dataset.
+    json_file : str, optional
+        The name of the JSON file containing the metadata of the GigaSpeech dataset.
+    audio_folder : str, optional
+        The name of the folder containing the audio files of the GigaSpeech dataset.
 
     Returns
     -------
@@ -235,8 +357,14 @@ def check_gigaspeech_folders(data_folder, json_file="GigaSpeech.json", audio_fol
     """
     # Checking if "GigaSpeech.json" exist
     json_gigaspeech = os.path.join(data_folder, json_file)
-    check_file(json_gigaspeech)
-    
+
+    if not os.path.exists(json_gigaspeech):
+        err_msg = (
+            "the opus file %s does not exist (it is expected in the "
+            "Gigaspeech dataset)" % json_gigaspeech
+        )
+        raise OSError(err_msg)
+
     # Check if audio folders exist
     for folder_subset in ["audiobook", "podcast", "youtube"]:
         audio_subset = os.path.join(data_folder, audio_folder, folder_subset)
@@ -246,21 +374,3 @@ def check_gigaspeech_folders(data_folder, json_file="GigaSpeech.json", audio_fol
                 "Gigaspeech dataset)" % audio_subset
             )
             raise OSError(err_msg)
-
-def check_file(path):
-    # Check if file exist
-    if not os.path.exists(path):
-        err_msg = (
-            "the opus file %s does not exist (it is expected in the "
-            "Gigaspeech dataset)" % path
-        )
-        raise OSError(err_msg)
-    
-
-if __name__ == "__main__":
-    data_folder = "/local_disk/idyie/amoumen/GigaSpeech_data/"
-    save_folder = "."
-    splits = ["XS", "DEV", "TEST"]
-    print("HERE")
-    prepare_gigaspeech(data_folder, save_folder, splits=splits)
-    print("Done")
