@@ -68,6 +68,9 @@ def prepare_gigaspeech(
     data_folder: str,
     save_folder: str,
     splits: list,
+    output_train_csv_filename=None,
+    output_dev_csv_filename=None,
+    output_test_csv_filename=None,
     json_file: str = "GigaSpeech.json",
     skip_prep: bool = False,
 ) -> None:
@@ -90,6 +93,12 @@ def prepare_gigaspeech(
         The path to the folder where the CSV files will be saved.
     splits : list
         The list of splits to be used for creating the CSV files.
+    output_train_csv_filename : str, optional
+        The name of the CSV file which will be containing the train subset.
+    output_dev_csv_filename : str, optional
+        The name of the CSV file which will be containing the dev subset.
+    output_test_csv_filename : str, optional
+        The name of the CSV file which will be containing the test subset.
     json_file : str, optional
         The name of the JSON file containing the metadata of the GigaSpeech dataset.
     skip_prep : bool, optional
@@ -121,11 +130,12 @@ def prepare_gigaspeech(
     save_csv_files = {}
     for split in splits:
         if split in TRAIN_SUBSET:
-            save_csv_files[split] = os.path.join(save_folder, "train.csv")
+            save_csv_files[split] = output_train_csv_filename
         else:
-            save_csv_files[split] = os.path.join(
-                save_folder, f"{split.lower()}.csv"
-            )
+            if split == "DEV":
+                save_csv_files[split] = output_dev_csv_filename
+            elif split == "TEST":
+                save_csv_files[split] = output_test_csv_filename
 
     # check if the data is already prepared
     if skip(save_csv_files):
