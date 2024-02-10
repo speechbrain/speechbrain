@@ -19,7 +19,7 @@ from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 
-GRABAGE_UTTERANCE_TAGS = ["<SIL>", "<MUSIC>", "<NOISE>", "<OTHER>"]
+GARBAGE_UTTERANCE_TAGS = ["<SIL>", "<MUSIC>", "<NOISE>", "<OTHER>"]
 PUNCTUATION_TAGS = {
     "<COMMA>": ",",
     "<EXCLAMATIONPOINT>": "!",
@@ -343,7 +343,7 @@ def preprocess_text(text: str) -> str:
 
     Notes
     -----
-    The function iterates over predefined garbage utterance tags (GRABAGE_UTTERANCE_TAGS)
+    The function iterates over predefined garbage utterance tags (GARBAGE_UTTERANCE_TAGS)
     and removes them from the input text. It then iterates over predefined punctuation tags
     (PUNCTUATION_TAGS) and replaces them with the corresponding punctuation.
 
@@ -354,7 +354,7 @@ def preprocess_text(text: str) -> str:
     "douglas mcgray is going to be our guide you walk through the door, you see the red carpeting, you see someone in a suit. they may be greeting you."
     """
     # Remove garbage tags
-    for tag in GRABAGE_UTTERANCE_TAGS:
+    for tag in GARBAGE_UTTERANCE_TAGS:
         if tag in text:
             return ""
 
