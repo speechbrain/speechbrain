@@ -23,7 +23,7 @@ def download_gigaspeech(
     target_dir: str = ".",
     dataset_parts: Optional[Union[str, Sequence[str]]] = "auto",
     host: Optional[str] = "tsinghua",
-) -> str:
+) -> None:
     """Download GigaSpeech dataset.
 
     Parameters
@@ -39,12 +39,7 @@ def download_gigaspeech(
         If a list, it should be a list of parts to be downloaded.
     host : str, optional
         The host to be used for downloading the dataset.
-        The available hosts are "tsinghua" and "jhu".
-
-    Returns
-    -------
-    str
-        The path to the directory where the dataset is downloaded.
+        The available hosts are described in https://github.com/SpeechColab/GigaSpeech.
     """
     try:
         from speechcolab.datasets.gigaspeech import GigaSpeech
@@ -54,16 +49,14 @@ def download_gigaspeech(
         )
     gigaspeech = GigaSpeech(target_dir)
 
-    if dataset_parts == "auto":
-        dataset_parts = ("XL", "DEV", "TEST")
-    elif isinstance(dataset_parts, str):
-        dataset_parts = [dataset_parts]
+    if dataset_parts == ["auto"]:
+        dataset_parts = ["XL", "DEV", "TEST"]
 
     for part in dataset_parts:
         logging.info(f"Downloading GigaSpeech part: {part}")
         gigaspeech.download(password, "{" + part + "}", host=host)
 
-    return target_dir
+    logger.info(f"GigaSpeech dataset finished downloading to {target_dir}.")
 
 
 if __name__ == "__main__":
