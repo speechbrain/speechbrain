@@ -26,7 +26,8 @@ batch_size: 8
 sorting: ascending
 dataloader_options:
     batch_size: !ref <batch_size>
-lr: 1.0
+lr: 0.5
+max_grad_norm: 5.0
 
 # Set this to the path of a pretrained model to load before training
 # pretrained: model_clean_ep3.ckpt

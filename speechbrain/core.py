@@ -763,7 +763,9 @@ class Brain:
             self.use_amp = True
 
         if self.use_amp and self.checkpointer is not None:
-            self.checkpointer.add_recoverable("scaler", self.scaler)
+            self.checkpointer.add_recoverable(
+                "scaler", self.scaler, optional_load=True
+            )
 
         # List parameter count for the user
         total_params = sum(

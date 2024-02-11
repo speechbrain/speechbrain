@@ -4,7 +4,7 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Sung-Lin Yeh 2020
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
@@ -232,8 +232,9 @@ class CTCPrefixScore:
                 self.last_frame_index[i // beam_size], i
             ]
 
-        # Exclude blank probs for joint scoring
-        psi[:, self.blank_index] = self.minus_inf
+        if self.eos_index != self.blank_index:
+            # Exclude blank probs for joint scoring
+            psi[:, self.blank_index] = self.minus_inf
 
         return psi - psi_prev, (r, psi, scoring_table)
 
@@ -336,7 +337,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
     ---------
     probabilities : torch.tensor
         Output probabilities (or log-probabilities) from the network with shape
-        [batch, probabilities, time]
+        [batch, lengths, probabilities]
     seq_lens : torch.tensor
         Relative true sequence lengths (to deal with padded inputs),
         the longest sequence has length 1.0, others a value between zero and one
@@ -935,12 +936,13 @@ class CTCBaseSearcher(torch.nn.Module):
         wav_lens: Optional[torch.Tensor] = None,
         lm_start_state: Any = None,
     ) -> List[List[CTCHypothesis]]:
-        """Decodes the log probabilities of the CTC output.
+        """Decodes the input log probabilities of the CTC output.
 
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
-        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
+        Make sure that the input are in the log domain. The decoder will fail to decode
+        logits or probabilities. The input should be the log probabilities of the CTC output.
 
         Arguments
         ---------
@@ -2095,6 +2097,9 @@ class TorchAudioCTCPrefixBeamSearcher:
         If `using_cpu_decoder=True` then log_probs and wav_len are moved to CPU before decoding.
         When using CUDA CTC decoder, the timestep information is not available. Therefore, the timesteps
         in the returned hypotheses are set to None.
+
+        Make sure that the input are in the log domain. The decoder will fail to decode
+        logits or probabilities. The input should be the log probabilities of the CTC output.
 
         Arguments
         ---------

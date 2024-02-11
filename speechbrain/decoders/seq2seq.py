@@ -382,8 +382,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
     minus_inf : float
         The value of minus infinity to block some path
         of the search. Default: -1e20.
-    tokenizer : speechbrain.tokenizers.Tokenizer
-        Tokenizer instance. Default: None.
     """
 
     def __init__(
