@@ -60,17 +60,18 @@ win_length: 25
 # Empirically, we used 850 * 8 A40 45G GPUs * 2 or 1700 * 4 A100 80G * 2.
 # Please, set your parameters accordingly.
 dynamic_batching: True
-max_batch_len: 850
-max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
+max_batch_length_train: 850
 num_bucket: 200
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+max_batch_ex: 128
+batch_ordering: random
 
-dynamic_batch_sampler:
-    max_batch_len: !ref <max_batch_len>
-    max_batch_len_val: !ref <max_batch_len_val>
+dynamic_batch_sampler_train:
+    max_batch_length: !ref <max_batch_length_train>
     num_buckets: !ref <num_bucket>
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
-    max_batch_ex: 128
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
 
 # Dataloader options
 train_dataloader_opts:
