@@ -48,7 +48,7 @@ test_dataloader_options:
    batch_size: 8 # DynamicBatching not used at testing time
    num_workers: 4
 
-# Training parameters
+####################### Training Parameters ####################################
 lr: 0.0005
 warmup: 30000
 # This is equivalent to optimizer_step_limit - warmup
@@ -63,7 +63,7 @@ mask_prob: 0.65
 mask_length: 10
 num_negatives: 100
 
-# Model parameters
+####################### Model Parameters #######################################
 embedding_dim: 768
 extractor_dim: 512
 final_dim: 256

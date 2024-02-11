@@ -30,7 +30,7 @@ wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
 # wav2vec 2.0 specific parameters
 wav2vec2_frozen: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 100
 lr: 0.001
 lr_wav2vec: 0.00001

@@ -42,7 +42,7 @@ noprogressbar: False
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
 
-# Training parameters
+####################### Training Parameters ####################################
 N_epochs: 200
 batch_size: 1
 lr: 0.00015

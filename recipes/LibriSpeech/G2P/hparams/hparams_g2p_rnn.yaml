@@ -95,7 +95,7 @@ homograph_loss_weight: 2.0
 lr: 0.002
 save_for_pretrained: True
 
-# Model parameters
+####################### Model Parameters #######################################
 output_neurons: !apply:speechbrain.utils.hparams.choice
     value: !ref <phn_tokenize>
     choices:
