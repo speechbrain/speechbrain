@@ -367,8 +367,8 @@ class WhisperASR(Pretrained):
     -------
     >>> from speechbrain.inference.ASR import WhisperASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-large-v2-commonvoice-fr", savedir=tmpdir,) # doctest: +SKIP
-    >>> asr_model.transcribe_file("speechbrain/asr-whisper-large-v2-commonvoice-fr/example-fr.mp3") # doctest: +SKIP
+    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-medium-commonvoice-it", savedir=tmpdir,) # doctest: +SKIP
+    >>> asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["language"]
@@ -462,7 +462,7 @@ class WhisperASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
+            predicted_tokens, _, _, _ = self.mods.decoder(encoder_out, wav_lens)
             predicted_words = self.tokenizer.batch_decode(
                 predicted_tokens, skip_special_tokens=True
             )
