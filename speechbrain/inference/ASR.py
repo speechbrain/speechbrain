@@ -367,8 +367,8 @@ class WhisperASR(Pretrained):
     -------
     >>> from speechbrain.inference.ASR import WhisperASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-medium-commonvoice-it", savedir=tmpdir,) # doctest: +SKIP
-    >>> asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav") # doctest: +SKIP
+    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-medium-commonvoice-it", savedir=tmpdir,)
+    >>> asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")
     """
 
     HPARAMS_NEEDED = ["language"]
