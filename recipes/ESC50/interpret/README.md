@@ -33,6 +33,7 @@ Check out an example training run [here](https://www.dropbox.com/sh/v1x5ks9t67ft
 
 L2I employs Non-Negative Matrix Factorization to reconstruct the classifier's hidden representation and generate an interpretation audio signal for the classifier decision. Read more about L2I in the [L2I paper](https://arxiv.org/abs/2202.11479v2). To train an NMF model on the ESC50 dataset, use the `train_l2i.py` script. Run the command below:
 
+
 ```python
 python train_nmf.py hparams/nmf.yaml --data_folder=/yourpath/ESC50
 ```
@@ -54,6 +55,23 @@ python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50
 ```
 
 You can find an example training run in the [provided link](https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0).
+
+
+### Focal Modulation Networks for Interpretable Sound Classification
+
+[Focal Modulation Networks](https://arxiv.org/pdf/2203.11926.pdf) offer a neural network architecture that is interpretable by design. In this recipe it is possible to create interpretations similar to the ones we obtain with other methods above, using a pretrained focal net. You have to first train the focalnet using the classification recipe.
+
+Namely, to create the interpretations for a focalnet that had been trained earlier use the following command:
+
+```shell
+python test_focalnet.py hparams/focalnet.yaml --data_folder /yourpath/ESC50
+```
+The path for the trained focalnet should be specified with the fields `embedding_model_path`, and `classifier_model_path` inside `hparams/focalnet.yaml`. An example path would be,
+
+```
+embedding_model_path: ../classification/results/focalnet-base-esc50/1234/save/CKPT+2024-02-08+18-59-37+00/embedding_model.ckpt
+classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/CKPT+2024-02-08+18-59-37+00/classifier.ckpt
+```
 
 ### Notes
 
