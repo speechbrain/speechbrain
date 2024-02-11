@@ -5,7 +5,7 @@
 # Tokens: BPE
 # Training: Librispeech 960h
 # Authors: Titouan Parcollet
-#          Shucong Zhang
+#        Shucong Zhang
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
@@ -60,29 +60,30 @@ win_length: 25
 # Empirically, we used 850 * 8 A40 45G GPUs * 2 or 1700 * 4 A100 80G * 2.
 # Please, set your parameters accordingly.
 dynamic_batching: True
-max_batch_len: 850
-max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
+max_batch_length_train: 850
 num_bucket: 200
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+max_batch_ex: 128
+batch_ordering: random
 
-dynamic_batch_sampler:
-    max_batch_len: !ref <max_batch_len>
-    max_batch_len_val: !ref <max_batch_len_val>
-    num_buckets: !ref <num_bucket>
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
-    max_batch_ex: 128
+dynamic_batch_sampler_train:
+   max_batch_length: !ref <max_batch_length_train>
+   num_buckets: !ref <num_bucket>
+   shuffle: !ref <shuffle>
+   batch_ordering: !ref <batch_ordering>
+   max_batch_ex: !ref <max_batch_ex>
 
 # Dataloader options
 train_dataloader_opts:
-    batch_size: !ref <batch_size>
-    shuffle: True
-    num_workers: !ref <num_workers>
+   batch_size: !ref <batch_size>
+   shuffle: True
+   num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
-    batch_size: 1
+   batch_size: 1
 
 test_dataloader_opts:
-    batch_size: 1
+   batch_size: 1
 
 ####################### Model parameters ###########################
 # Transformer
@@ -104,125 +105,109 @@ blank_index: 0
 
 # Decoding parameters
 test_beam_search:
-    blank_index: !ref <blank_index>
-    beam_size: 100
-    beam_prune_logp: -12.0
-    token_prune_min_logp: -1.2
-    prune_history: True
-    topk: 1
-    alpha: 1.0
-    beta: 0.5
-    # To use n-gram LM for decoding, follow steps in README.md.
-    # kenlm_model_path: none
+   blank_index: !ref <blank_index>
+   beam_size: 100
+   beam_prune_logp: -12.0
+   token_prune_min_logp: -1.2
+   prune_history: True
+   topk: 1
+   alpha: 1.0
+   beta: 0.5
+   # To use n-gram LM for decoding, follow steps in README.md.
+   # kenlm_model_path: none
 
 ############################## models ################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
-    input_shape: (8, 10, 80)
-    num_blocks: 2
-    num_layers_per_block: 1
-    out_channels: (64, 32)
-    kernel_sizes: (3, 3)
-    strides: (2, 2)
-    residuals: (False, False)
+   input_shape: (8, 10, 80)
+   num_blocks: 2
+   num_layers_per_block: 1
+   out_channels: (64, 32)
+   kernel_sizes: (3, 3)
+   strides: (2, 2)
+   residuals: (False, False)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-    input_size: 640
-    tgt_vocab: !ref <output_neurons>
-    d_model: !ref <d_model>
-    nhead: !ref <nhead>
-    num_encoder_layers: !ref <num_encoder_layers>
-    num_decoder_layers: !ref <num_decoder_layers>
-    dropout: !ref <transformer_dropout>
-    activation: !ref <activation>
-    encoder_module: branchformer
-    attention_type: !ref <attention_type>
-    normalize_before: True
-    causal: False
-    csgu_linear_units: !ref <csgu_linear_units>
-    kernel_size: !ref <csgu_kernel_size>
+   input_size: 640
+   tgt_vocab: !ref <output_neurons>
+   d_model: !ref <d_model>
+   nhead: !ref <nhead>
+   num_encoder_layers: !ref <num_encoder_layers>
+   num_decoder_layers: !ref <num_decoder_layers>
+   dropout: !ref <transformer_dropout>
+   activation: !ref <activation>
+   encoder_module: branchformer
+   attention_type: !ref <attention_type>
+   normalize_before: True
+   causal: False
+   csgu_linear_units: !ref <csgu_linear_units>
+   kernel_size: !ref <csgu_kernel_size>
 
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
-    input_size: !ref <d_model>
-    n_neurons: !ref <output_neurons>
+   input_size: !ref <d_model>
+   n_neurons: !ref <output_neurons>
 
 
 normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    update_until_epoch: 4
+   norm_type: global
+   update_until_epoch: 4
 
 modules:
-    CNN: !ref <CNN>
-    Transformer: !ref <Transformer>
-    ctc_lin: !ref <ctc_lin>
-    normalize: !ref <normalize>
+   CNN: !ref <CNN>
+   Transformer: !ref <Transformer>
+   ctc_lin: !ref <ctc_lin>
+   normalize: !ref <normalize>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <CNN>, !ref <Transformer>, !ref <ctc_lin>]
+   - [!ref <CNN>, !ref <Transformer>, !ref <ctc_lin>]
 
 Adam: !name:torch.optim.AdamW
-    lr: !ref <lr_adam>
-    betas: (0.9, 0.98)
-    eps: 0.000000001
-    weight_decay: !ref <weight_decay>
+   lr: !ref <lr_adam>
+   betas: (0.9, 0.98)
+   eps: 0.000000001
+   weight_decay: !ref <weight_decay>
 
 log_softmax: !new:torch.nn.LogSoftmax
-    dim: -1
+   dim: -1
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
-    blank_index: !ref <blank_index>
-    reduction: !ref <loss_reduction>
+   blank_index: !ref <blank_index>
+   reduction: !ref <loss_reduction>
 
 noam_annealing: !new:speechbrain.nnet.schedulers.LinearNoamScheduler
-    lr_initial: !ref <lr_adam>
-    n_warmup_steps: 7500
-    n_keep_steps: 36000
+   lr_initial: !ref <lr_adam>
+   n_warmup_steps: 7500
+   n_keep_steps: 36000
 
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        model: !ref <model>
-        noam_scheduler: !ref <noam_annealing>
-        normalizer: !ref <normalize>
-        counter: !ref <epoch_counter>
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      model: !ref <model>
+      noam_scheduler: !ref <noam_annealing>
+      normalizer: !ref <normalize>
+      counter: !ref <epoch_counter>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
-
-# Speed perturbation
-speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+   limit: !ref <number_of_epochs>
 
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
    orig_freq: !ref <sample_rate>
-   speeds: !ref <speed_changes>
-
-# Frequency drop: randomly drops a number of frequency bands to zero.
-drop_freq_low: 0  # Min frequency band dropout probability
-drop_freq_high: 1  # Max frequency band dropout probability
-drop_freq_count_low: 1  # Min number of frequency bands to drop
-drop_freq_count_high: 3  # Max number of frequency bands to drop
-drop_freq_width: 0.05  # Width of frequency bands to drop
+   speeds: [95, 100, 105]
 
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq
-   drop_freq_low: !ref <drop_freq_low>
-   drop_freq_high: !ref <drop_freq_high>
-   drop_freq_count_low: !ref <drop_freq_count_low>
-   drop_freq_count_high: !ref <drop_freq_count_high>
-   drop_freq_width: !ref <drop_freq_width>
-
-# Time drop: randomly drops a number of temporal chunks.
-drop_chunk_count_low: 1  # Min number of audio chunks to drop
-drop_chunk_count_high: 5  # Max number of audio chunks to drop
-drop_chunk_length_low: 1000  # Min length of audio chunks to drop
-drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+   drop_freq_low: 0
+   drop_freq_high: 1
+   drop_freq_count_low: 1
+   drop_freq_count_high: 3
+   drop_freq_width: 0.05
 
 drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
-   drop_length_low: !ref <drop_chunk_length_low>
-   drop_length_high: !ref <drop_chunk_length_high>
-   drop_count_low: !ref <drop_chunk_count_low>
-   drop_count_high: !ref <drop_chunk_count_high>
+   drop_length_low: 1000
+   drop_length_high: 2000
+   drop_count_low: 1
+   drop_count_high: 5
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
@@ -236,24 +221,26 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
    augmentations: [
       !ref <speed_perturb>,
       !ref <drop_freq>,
-      !ref <drop_chunk>]
+      !ref <drop_chunk>
+   ]
+
 
 compute_features: !new:speechbrain.lobes.features.Fbank
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    n_mels: !ref <n_mels>
+   sample_rate: !ref <sample_rate>
+   n_fft: !ref <n_fft>
+   win_length: !ref <win_length>
+   n_mels: !ref <n_mels>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
+   save_file: !ref <train_log>
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-    split_tokens: True
+   split_tokens: True
 wer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        tokenizer: !ref <tokenizer>
-    paths:
-        tokenizer: !ref <pretrained_tokenizer_path>/128_bpe.model
+   collect_in: !ref <save_folder>
+   loadables:
+      tokenizer: !ref <tokenizer>
+   paths:
+      tokenizer: !ref <pretrained_tokenizer_path>/128_bpe.model

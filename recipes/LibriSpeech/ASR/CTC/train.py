@@ -31,6 +31,7 @@ from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
+
 # Define training procedure
 class ASR(sb.core.Brain):
     def compute_forward(self, batch, stage):
@@ -41,7 +42,6 @@ class ASR(sb.core.Brain):
         # Add waveform augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
-
 
         # compute features
         feats = self.hparams.compute_features(wavs)
@@ -88,7 +88,8 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.VALID:
             # Decode token terms to words
             predicted_words = [
-                self.tokenizer.decode_ids(hyp).split(" ") for hyp in predicted_tokens
+                self.tokenizer.decode_ids(hyp).split(" ")
+                for hyp in predicted_tokens
             ]
         elif stage == sb.Stage.TEST:
             predicted_words = [
@@ -172,15 +173,15 @@ class ASR(sb.core.Brain):
             if if_main_process():
                 with open(self.hparams.wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
-    
+
             # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
             # ACC is set to 0 so checkpointer only keeps the averaged checkpoint
-            #self.checkpointer.save_and_keep_only(
+            # self.checkpointer.save_and_keep_only(
             #    meta={"WER": 0, "epoch": epoch},
             #    max_keys=["WER"],
             #    num_to_keep=1,
-            #)
+            # )
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         if should_step:
@@ -286,26 +287,12 @@ def dataio_prepare(hparams, tokenizer):
     if hparams["dynamic_batching"]:
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
-        dynamic_hparams = hparams["dynamic_batch_sampler"]
-        num_buckets = dynamic_hparams["num_buckets"]
+        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
-            max_batch_ex=dynamic_hparams["max_batch_ex"],
-        )
-
-        valid_batch_sampler = DynamicBatchSampler(
-            valid_data,
-            dynamic_hparams["max_batch_len_val"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            **dynamic_hparams_train,
         )
 
     return (

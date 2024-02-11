@@ -18,7 +18,7 @@ wav2vec2_hub: facebook/wav2vec2-large-960h-lv60-self
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+data_folder: ../../Tokenizer/results/128_bpe
 # noise/ris dataset will automatically be downloaded
 # data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
@@ -26,11 +26,11 @@ dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: !ref <output_folder>/train.csv
-valid_csv: !ref <output_folder>/dev-clean.csv
+train_csv: ../../Tokenizer/results/128_bpe/train.csv
+valid_csv: ../../Tokenizer/results/128_bpe/dev-clean.csv
 test_csv:
-   - !ref <output_folder>/test-clean.csv
-   - !ref <output_folder>/test-other.csv
+   - ../../Tokenizer/results/128_bpe/test-clean.csv
+   - ../../Tokenizer/results/128_bpe/test-other.csv
 
 # Training parameters
 number_of_epochs: 1
