@@ -121,8 +121,20 @@ def ddp_barrier():
 
 
 def ddp_broadcast(communication_object, src=0):
-    """In DDP mode, this function will broadcast a tensor to all
+    """In DDP mode, this function will broadcast an object to all
     processes.
+
+    Arguments
+    ---------
+    communication_object: Any
+        The object to be communicated to all processes. Must be picklable.
+        See docs for ``torch.distributed.broadcast_object_list()``
+    src: int
+        The rank which holds the object to be communicated.
+
+    Returns
+    -------
+    The communication_object passed on rank src.
     """
     if MAIN_PROC_ONLY >= 1 or not torch.distributed.is_initialized():
         return communication_object
