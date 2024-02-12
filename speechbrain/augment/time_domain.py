@@ -509,7 +509,8 @@ class SpeedPerturb(torch.nn.Module):
 
 
 class Resample(torch.nn.Module):
-    """This class resamples audio using the torchaudio resampler based on
+    """This class resamples audio using the
+    :class:`torchaudio resampler <torchaudio.transforms.Resample>` based on
     sinc interpolation.
 
     Arguments
@@ -518,10 +519,12 @@ class Resample(torch.nn.Module):
         the sampling frequency of the input signal.
     new_freq : int
         the new sampling frequency after this operation is performed.
-    lowpass_filter_width : int
-        Controls the sharpness of the filter, larger numbers result in a
-        sharper filter, but they are less efficient. Values from 4 to 10 are
-        allowed.
+    *args
+        additional arguments forwarded to the
+        :class:`torchaudio.transforms.Resample` constructor
+    **kwargs
+        additional keyword arguments forwarded to the
+        :class:`torchaudio.transforms.Resample` constructor
 
     Example
     -------
@@ -536,13 +539,17 @@ class Resample(torch.nn.Module):
     torch.Size([1, 26087])
     """
 
-    def __init__(self, orig_freq=16000, new_freq=16000, lowpass_filter_width=6):
+    def __init__(self, orig_freq=16000, new_freq=16000, *args, **kwargs):
         super().__init__()
+
+        self.orig_freq = orig_freq
+        self.new_freq = new_freq
 
         self.resampler = torchaudio.transforms.Resample(
             orig_freq=orig_freq,
             new_freq=new_freq,
-            lowpass_filter_width=lowpass_filter_width
+            *args,
+            **kwargs,
         )
 
     def forward(self, waveforms):
@@ -551,16 +558,11 @@ class Resample(torch.nn.Module):
         ---------
         waveforms : tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
-            Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
-
-        if not hasattr(self, "first_indices"):
-            self._indices_and_weights(waveforms)
 
         # Don't do anything if the frequencies are the same
         if self.orig_freq == self.new_freq:
