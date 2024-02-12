@@ -546,10 +546,7 @@ class Resample(torch.nn.Module):
         self.new_freq = new_freq
 
         self.resampler = torchaudio.transforms.Resample(
-            orig_freq=orig_freq,
-            new_freq=new_freq,
-            *args,
-            **kwargs,
+            orig_freq=orig_freq, new_freq=new_freq, *args, **kwargs,
         )
 
     def forward(self, waveforms):
