@@ -573,6 +573,13 @@ class Resample(torch.nn.Module):
         else:
             raise ValueError("Input must be 2 or 3 dimensions")
 
+        # If necessary, migrate the resampler to the current device, for
+        # backwards compat with scripts that do not call `resampler.to()`
+        # themselves.
+        # Please do not reuse the sample resampler for tensors that live on
+        # different devices, though.
+        self.resampler.to(waveforms.device)  # in-place
+
         # Do resampling
         resampled_waveform = self.resampler(waveforms)
 
