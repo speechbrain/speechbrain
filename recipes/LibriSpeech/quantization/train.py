@@ -117,6 +117,16 @@ if __name__ == "__main__":
             train_set, **hparams["train_dataloader_opts"]
         )
 
+    # If you use dataloader checkpoints, make sure to keep all the settings as in the previous run and keep the dataset ordering the same.
+    dataloader_path = os.path.join(
+        hparams["save_folder"], "dataloader-TRAIN.ckpt"
+    )
+    if os.path.exists(dataloader_path):
+        logger.info(
+            f"The dataloader checkpoint is loaded from {dataloader_path}."
+        )
+        train_set._speechbrain_load(dataloader_path, False)
+
     # Load pretrained KMeans model if it exists. Otherwise,  create new one.
     checkpoint_path = os.path.join(
         hparams["save_folder"],
@@ -140,10 +150,13 @@ if __name__ == "__main__":
         kmeans_model,
         train_set,
         hparams["ssl_model"],
+        hparams["save_folder"],
         hparams["ssl_layer_num"],
         kmeans_batch_size=hparams["kmeans_batch_size"],
         device=run_opts["device"],
+        checkpoint_interval=hparams["checkpoint_interval"],
     )
 
     logger.info(f"Saving kmeans model at {checkpoint_path}.")
     save_model(kmeans_model, checkpoint_path)
+    train_set._speechbrain_save(dataloader_path)

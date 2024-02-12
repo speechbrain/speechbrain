@@ -28,6 +28,7 @@ freeze_ssl: True
 ssl_folder: !ref <save_folder>/hubert_checkpoint
 ssl_layer_num: 7
 batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
+checkpoint_interval: 100
 
 sorting: ascending
 
