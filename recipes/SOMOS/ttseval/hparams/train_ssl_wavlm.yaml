@@ -1,0 +1,105 @@
+# ############################################################################
+# Model: SSL with Wav2Vec (training from scratch)
+# Authors:  Artem Ploujnikov, Yingzhi Wang
+# # ############################################################################
+
+
+# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+seed: 42
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+data_folder: !PLACEHOLDER
+output_folder: !ref results/ssl_wavlm/<seed>
+save_folder: <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+train_regression_metric: True
+# pretrained_model_path: pretrained_models/noresqa
+batch_size: 4
+num_workers: 4
+use_transcripts: False
+src_sample_rate: 24000
+tgt_sample_rate: 16000
+
+lr: 0.00001
+
+dataloader_options:
+  batch_size: !ref <batch_size>
+  num_workers: !ref <num_workers>
+  shuffle: True
+
+number_of_epochs: 10
+ckpt_interval_minutes: 15
+
+wav2vec2_source: microsoft/wavlm-large
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+# pretrained_wavlm_path: !PLACEHOLDER # binary classification model path
+
+#freeze all wav2vec2
+wav2vec2_freeze: False
+#set to true to freeze the CONV part of the wav2vec2 model
+wav2vec2_freeze_feature_extractor: True
+# Model parameters
+encoder_dim: 1024
+
+activation: !name:torch.nn.LeakyReLU
+
+d_model: 512
+d_ffn: 2048
+num_layers: 3
+nhead: 4
+dropout: 0.5
+
+out_n_neurons: 1
+
+splits: ["train", "valid", "test"]
+subset: "full"
+skip_prep: False
+
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/valid.csv
+test_annotation: !ref <data_folder>/test.csv
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+
+l1_epochs: 1
+l1_loss: !name:speechbrain.nnet.losses.l1_loss
+l2_loss: !name:speechbrain.nnet.losses.mse_loss
+
+wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+  source: !ref <wav2vec2_source>
+  output_norm: True
+  freeze: !ref <wav2vec2_freeze>
+  freeze_feature_extractor: !ref <wav2vec2_freeze_feature_extractor>
+  save_path: !ref <save_folder>
+
+model: !new:speechbrain.lobes.models.eval.ssl.TransformerRegression
+  base_model: !ref <wavlm>
+  d_model: !ref <d_model>
+  d_ffn: !ref <d_ffn>
+  num_layers: !ref <num_layers>
+  nhead: !ref <nhead>
+  dropout: !ref <dropout>
+
+modules:
+  model: !ref <model>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    lr_annealing_output: !ref <lr_annealing>
+    lr_annealing_wav2vec2: !ref <lr_annealing_wav2vec2>
+    counter: !ref <epoch_counter>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+  initial_value: !ref <lr>
+  improvement_threshold: 0.0025
+  annealing_factor: 0.9
+  patient: 0
