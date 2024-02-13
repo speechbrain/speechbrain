@@ -16,6 +16,7 @@ Authors:
 from dataclasses import dataclass
 from typing import Any, Optional, List
 import torch
+import torchaudio
 import sentencepiece
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
@@ -529,22 +530,35 @@ class StreamingASR(Pretrained):
         self.filter_props = self.hparams.fea_streaming_extractor.properties
 
     def transcribe_file_streaming(
-        self, path, dynchunktrain_config: DynChunkTrainConfig, **kwargs,
+        self,
+        path,
+        dynchunktrain_config: DynChunkTrainConfig,
+        use_torchaudio_streaming: bool = True,
+        **kwargs,
     ):
         """Transcribes the given audio file into a sequence of words, in a
         streaming fashion, meaning that text is being yield from this
         generator, in the form of strings to concatenate.
 
-        At the moment, the file is fully loaded in memory, but processing itself
-        is done in chunks.
-
         Arguments
         ---------
+        path : str
+            URI/path to the audio to transcribe. When
+            ``use_torchaudio_streaming`` is ``False``, uses SB fetching to allow
+            fetching from HF or a local file. When ``True``, resolves the URI
+            through ffmpeg, as documented in
+            :class:`torchaudio.io.StreamReader`.
         path : str
             Path to the audio file to trancsribe.
         dynchunktrain_config : DynChunkTrainConfig
             Streaming configuration. Sane values and how much time chunks
             actually represent is model-dependent.
+        use_torchaudio_streaming : bool
+            Whether the audio file can be loaded in a streaming fashion. If not,
+            transcription is still performed through chunks of audio, but the
+            entire audio file is fetched and loaded at once.
+            This skips the usual fetching method and instead resolves the URI
+            using torchaudio (via ffmpeg).
 
         Returns
         -------
@@ -552,16 +566,49 @@ class StreamingASR(Pretrained):
         every chunk, even if the transcribed string for that chunk is empty.
         """
 
-        waveform = self.load_audio(path, **kwargs)
-        batch = waveform.unsqueeze(0)
-        rel_length = torch.tensor([1.0])
-
         chunk_size = self.get_chunk_size_frames(dynchunktrain_config)
-        chunks = split_fixed_chunks(batch, chunk_size)
 
+        if use_torchaudio_streaming:
+            streamer = torchaudio.io.StreamReader(path)
+
+            stream_infos = [
+                streamer.get_src_stream_info(i)
+                for i in range(streamer.num_src_streams)
+            ]
+
+            audio_stream_infos = [
+                (i, stream_info)
+                for i, stream_info in enumerate(stream_infos)
+                if stream_info.media_type == "audio"
+            ]
+
+            if len(audio_stream_infos) != 1:
+                raise ValueError(f"Expected stream with URI '{path}' to have only 1 stream (with any number of channels), got {len(audio_stream_infos)} (with streams: {stream_infos})")
+
+            audio_stream_index = audio_stream_infos[0][0]
+
+            # output stream #0
+            streamer.add_basic_audio_stream(
+                frames_per_chunk=chunk_size,
+                stream_index=audio_stream_index,
+                sample_rate=self.audio_normalizer.sample_rate,
+                format="fltp",  # torch.float32
+                num_channels=1
+            )
+
+            chunks = (
+                resampled_stream.transpose(0, 1)
+                for (resampled_stream, )
+                in streamer.stream()
+            )
+        else:
+            waveform = self.load_audio(path, **kwargs)
+            batch = waveform.unsqueeze(0)
+
+            chunks = split_fixed_chunks(batch, chunk_size)
+
+        rel_length = torch.tensor([1.0])
         context = self.make_streaming_context(dynchunktrain_config)
-
-        pred = ""
 
         for i, chunk in enumerate(chunks):
             predicted_words = self.transcribe_chunk(context, chunk, rel_length)
@@ -573,19 +620,30 @@ class StreamingASR(Pretrained):
                 yield pred
 
     def transcribe_file(
-        self, path, dynchunktrain_config: DynChunkTrainConfig,
+        self,
+        path,
+        dynchunktrain_config: DynChunkTrainConfig,
+        use_torchaudio_streaming: bool = True,
     ):
         """Transcribes the given audio file into a sequence of words.
-        At the moment, the file is fully loaded in memory, but processing itself
-        is done in chunks.
 
         Arguments
         ---------
         path : str
-            Path to audio file to transcribe.
+            URI/path to the audio to transcribe. When
+            ``use_torchaudio_streaming`` is ``False``, uses SB fetching to allow
+            fetching from HF or a local file. When ``True``, resolves the URI
+            through ffmpeg, as documented in
+            :class:`torchaudio.io.StreamReader`.
         dynchunktrain_config : DynChunkTrainConfig
             Streaming configuration. Sane values and how much time chunks
             actually represent is model-dependent.
+        use_torchaudio_streaming : bool
+            Whether the audio file can be loaded in a streaming fashion. If not,
+            transcription is still performed through chunks of audio, but the
+            entire audio file is fetched and loaded at once.
+            This skips the usual fetching method and instead resolves the URI
+            using torchaudio (via ffmpeg).
 
         Returns
         -------
@@ -596,7 +654,7 @@ class StreamingASR(Pretrained):
         pred = ""
 
         for text_chunk in self.transcribe_file_stream(
-            path, dynchunktrain_config
+            path, dynchunktrain_config, use_torchaudio_streaming
         ):
             pred += text_chunk
 
