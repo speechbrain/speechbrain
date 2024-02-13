@@ -126,7 +126,6 @@ def prepare_gigaspeech(
     None
     """
     logger.info(f"Preparing GigaSpeech dataset in {save_folder}...")
-    print(f"Input args: {locals()}")
 
     if skip_prep:
         logger.info("Skipping data preparation as `skip_prep` is set to `True`")
