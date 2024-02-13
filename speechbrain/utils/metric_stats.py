@@ -1117,10 +1117,16 @@ KEY_DIFF_SQ = "diff_sq"
 
 class LinearRegressionStats(MetricStats):
     """Computes a simple linear correlation between two metrics - useful
-    for regresison tasks, such as quality assessment
+    for regresison tasks, such as quality assessment. It provides an optional
+    grouping option, in which case the correlation is computed between means
+    of groups rather than individual samples. The original use case for grouping
+    is producing system-level correlation for the MOS estimation task
+    (as opposed to utterance-level).
 
     Arguments
     ---------
+    grouped: bool, Optional
+        If set to true, statistics will be grouped
     scores_label : str, optional
         The user-facing label for scores, to be shown on plots
     targets_label : str, optional
@@ -1133,10 +1139,53 @@ class LinearRegressionStats(MetricStats):
         The amount of padding on the left
     plot_pad_bottom : float
         The amount of padding on the bottom
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.utils.metric_stats import LinearRegressionStats
+    >>> reg_stats = LinearRegressionStats()
+    >>> reg_stats.append(
+    ...     ids=["ID1", "ID2"],
+    ...     predict=torch.tensor([1.25, 2.75]),
+    ...     target=torch.tensor([1.00, 3.00]),
+    ... )
+    >>> reg_stats.append(
+    ...     ids=["ID3", "ID4"],
+    ...     predict=torch.tensor([5.5, 3.5]),
+    ...     target=torch.tensor([5.0, 3.0]),
+    ... )
+    >>> reg_stats.summarize() #doctest: +NORMALIZE_WHITESPACE
+    {'scores_mean': 3.25, 'scores_std': 1.7677669529663689,
+     'targets_mean': 3.0, 'targets_std': 1.632993161855452,
+     'slope': 0.9066666666666672, 'intercept': 0.0533333333333296,
+     'pearson_r': 0.9814954576223637}
+    >>> reg_stats = LinearRegressionStats(grouped=True)
+    ...    reg_stats.append(
+    ...    ids=["ID1", "ID2", "ID3", "ID4"],
+    ...    predict=torch.tensor([1.25, 2.75]),
+    ...    target=torch.tensor([1.00, 3.00]),
+    ...    groups=["G1", "G2", "G3", "G2"],
+    ... )
+    >>> reg_stats.append(
+    ...    ids=["ID5", "ID6", "ID7", "ID8"],
+    ...    predict=torch.tensor([5.5, 3.5, 2.2, 1.0]),
+    ...    target=torch.tensor([5.0, 3.0, 2.0, 1.2]),
+    ...    groups=["G1", "G2", "G3", "G1"],
+    ... )
+    >>> reg_stats.summarize() #doctest: +NORMALIZE_WHITESPACE
+    {'scores_mean': 3.2138888968361745,
+     'scores_std': 2.009808117260408,
+     'targets_mean': 2.966666671964857,
+     'targets_std': 1.8175074482175884,
+     'slope': 0.9016212147555519,
+     'intercept': 0.0689562607100465,
+     'pearson_r': 0.9970168968974473}
     """
 
     def __init__(
         self,
+        grouped=False,
         scores_label="y",
         targets_label="x",
         scores_key="y",
@@ -1146,6 +1195,8 @@ class LinearRegressionStats(MetricStats):
     ):
         self.clear()
         self.targets = []
+        self.groups = []
+        self.grouped = grouped
         self.scores_label = scores_label
         self.targets_label = targets_label
         self.scores_key = scores_key
@@ -1154,7 +1205,7 @@ class LinearRegressionStats(MetricStats):
         self.plot_pad_bottom = plot_pad_bottom
 
     def append(
-        self, ids, predict, target,
+        self, ids, predict, target, groups=None,
     ):
         """Appends a measurement
 
@@ -1166,10 +1217,24 @@ class LinearRegressionStats(MetricStats):
             the prediction tensor
         target : torch.Tensor
             the target tensor
+        groups : list, optional
+            the group indicator for each item, ignored
+            if grouped is set to false
         """
         self.ids.extend(ids)
         self.scores.extend(_flatten(predict))
         self.targets.extend(_flatten(target))
+        if self.grouped:
+            self.groups.extend(groups)
+
+    def group_data(self):
+        """Returns the group means of scores and targets"""
+        grouped_scores = _group(self.scores, self.groups)
+        grouped_targets = _group(self.targets, self.groups)
+        groups = sorted(grouped_scores.keys())
+        scores = np.array([grouped_scores[group].mean() for group in groups])
+        targets = np.array([grouped_targets[group].mean() for group in groups])
+        return scores, targets
 
     def summarize(self, field=None):
         """Summarizes linear regression statistics
@@ -1183,21 +1248,26 @@ class LinearRegressionStats(MetricStats):
         - intercept - the intercept of the regression line
         - pearson_r - the Pearson correlation coefficient
         """
-        scores = np.array(self.scores)
-        targets = np.array(self.targets)
-        x = np.stack([scores, np.ones_like(scores)], axis=1)
-        solution, _, _, _ = np.linalg.lstsq(x, targets, rcond=None)
-        slope, intercept = solution.squeeze()
-        corr_mat = np.corrcoef(scores, targets)
-        pearson_r = corr_mat[0][1]
+        if self.grouped:
+            scores, targets = self.group_data()
+        else:
+            scores = np.array(self.scores)
+            targets = np.array(self.targets)
+        has_data = len(scores) > 0
+        if has_data:
+            x = np.stack([scores, np.ones_like(scores)], axis=1)
+            solution, _, _, _ = np.linalg.lstsq(x, targets, rcond=None)
+            slope, intercept = solution.squeeze()
+            corr_mat = np.corrcoef(scores, targets)
+            pearson_r = corr_mat[0][1]
         self.summary = {
-            "scores_mean": scores.mean(),
-            "scores_std": scores.std(ddof=1),
-            "targets_mean": targets.mean(),
-            "targets_std": targets.std(ddof=1),
-            "slope": slope,
-            "intercept": intercept,
-            "pearson_r": pearson_r,
+            "scores_mean": scores.mean() if has_data else 0.0,
+            "scores_std": scores.std(ddof=1) if has_data else 0.0,
+            "targets_mean": targets.mean() if has_data else 0.0,
+            "targets_std": targets.std(ddof=1) if has_data else 0.0,
+            "slope": slope if has_data else 0.0,
+            "intercept": intercept if has_data else 0.0,
+            "pearson_r": pearson_r if has_data else 0.0,
         }
         if field:
             return self.summary[field]
@@ -1270,3 +1340,31 @@ def _flatten(x):
     while x.dim() > 1 and x.size(-1) == 1:
         x = x.squeeze(-1)
     return x.tolist()
+
+
+def _group(data, groups):
+    """Collects raw data into groups (naive implementation using a simple in-memory
+    dictionary)
+
+    Arguments
+    ---------
+    data : list
+        a list of numeric data
+    groups : list
+        a list of group indicators
+
+    Returns
+    -------
+    results : dict
+        a dictionary with group labels as keys and the corresponding
+        data as values"""
+    grouped_data = {}
+    for item, group in zip(data, groups):
+        if group not in grouped_data:
+            grouped_data[group] = []
+        grouped_data[group].append(item)
+
+    return {
+        group: np.array(group_data)
+        for group, group_data in grouped_data.items()
+    }

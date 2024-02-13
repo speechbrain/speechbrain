@@ -25,6 +25,7 @@ COLUMN_ID = "ID"
 COLUMN_WAV = "wav"
 COLUMN_CHAR = "char"
 COLUMN_SCORE = "score"
+COLUMN_SYSTEM = "system"
 TOOLS_PATH = Path(__file__).parent.parent.parent.parent / "tools"
 TOOLS_PATH_VOICEMOS = TOOLS_PATH / "voicemos"
 VOICEMOS_NORM_SCRIPT = TOOLS_PATH_VOICEMOS / "sub_normRMSE.sh"
@@ -141,7 +142,7 @@ def get_metadata_columns(use_transcripts=False):
     columns : list
         A list of column names
     """
-    columns = [COLUMN_ID, COLUMN_WAV]
+    columns = [COLUMN_ID, COLUMN_WAV, COLUMN_SYSTEM]
     if use_transcripts:
         columns.append(COLUMN_CHAR)
     columns.append(COLUMN_SCORE)
@@ -263,10 +264,12 @@ def process_item(item, transcripts):
         the processed item"""
     src_utterance_id = item["utteranceId"]
     tgt_utterance_id = RE_EXT_WAV.sub("", src_utterance_id)
+    system_id = tgt_utterance_id.split("_")[:-1]
     wav_path = Path("$data_root") / PATH_AUDIOS / src_utterance_id
     result = {
         "ID": tgt_utterance_id,
         "wav": wav_path,
+        "system": system_id,
         "score": item["mean"],
     }
     if transcripts is not None:

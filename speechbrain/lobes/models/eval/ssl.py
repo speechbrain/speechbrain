@@ -33,6 +33,30 @@ class BaselineSSLFinetune(nn.Module):
     feats_dim : int, optional
         The feature dimension. If omitted, it will be computed automatically
 
+    Example
+    -------
+    >>> from speechbrain.lobes.models.eval.ssl import BaselineSSLFinetune
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from torch import nn
+    >>> import torch
+    >>> class FakeBaseModel(nn.Module):
+    ...     def __init__(self, output_size):
+    ...         super().__init__()
+    ...         self.lin = Linear(
+    ...             input_size=1,
+    ...             n_neurons=output_size
+    ...         )
+    ...     def forward(self, x, length):
+    ...         return self.lin(x.unsqueeze(-1))
+    >>> fake_base_model = FakeBaseModel(128)
+    >>> model = BaselineSSLFinetune(
+    ...     base_model=fake_base_model
+    ... )
+    >>> x = torch.randn(4, 100)
+    >>> length = torch.ones(4)
+    >>> scores = model(x, length)
+    >>> scores.shape
+    torch.Size([4, 1, 1])
     """
 
     def __init__(self, base_model, feats_dim=None):
@@ -93,8 +117,32 @@ class TransformerRegression(nn.Module):
         The dropout probability
     max_len : int
         The maximum sequence length
-    """
 
+    Example
+    -------
+    >>> from speechbrain.lobes.models.eval.ssl import TransformerRegression
+    >>> from speechbrain.nnet.linear import Linear
+    >>> from torch import nn
+    >>> import torch
+    >>> class FakeBaseModel(nn.Module):
+    ...     def __init__(self, output_size):
+    ...         super().__init__()
+    ...         self.lin = Linear(
+    ...             input_size=1,
+    ...             n_neurons=output_size
+    ...         )
+    ...     def forward(self, x, length):
+    ...         return self.lin(x.unsqueeze(-1))
+    >>> fake_base_model = FakeBaseModel(128)
+    >>> model = TransformerRegression(
+    ...     base_model=fake_base_model
+    ... )
+    >>> x = torch.randn(4, 100)
+    >>> length = torch.ones(4)
+    >>> scores = model(x, length)
+    >>> scores.shape
+    torch.Size([4, 1, 1])
+    """
     def __init__(
         self,
         base_model,

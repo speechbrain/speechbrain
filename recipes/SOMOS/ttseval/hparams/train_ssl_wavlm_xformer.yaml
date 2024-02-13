@@ -95,7 +95,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   recoverables:
     model: !ref <model>
     lr_annealing_output: !ref <lr_annealing>
-    lr_annealing_wav2vec2: !ref <lr_annealing_wav2vec2>
     counter: !ref <epoch_counter>
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler

@@ -111,6 +111,9 @@ class TTSEvalBrain(sb.Brain):
         )
         if self.reg_metric is not None:
             self.reg_metric.append(batch.id, predictions, scores)
+            self.reg_metric.append(
+                batch.id, predictions, scores, groups=batch.system
+            )
 
         return loss
 
@@ -204,8 +207,16 @@ class TTSEvalBrain(sb.Brain):
                 scores_key=KEY_MODEL_SCORE,
                 targets_key=KEY_HUMAN_SCORE,
             )
+            self.reg_system_metric = sb.utils.metric_stats.LinearRegressionStats(
+                scores_label=LABEL_MODEL_SCORE,
+                targets_label=LABEL_HUMAN_SCORE,
+                scores_key=KEY_MODEL_SCORE,
+                targets_key=KEY_HUMAN_SCORE,
+                grouped=True,
+            )
         else:
             self.reg_metric = None
+            self.reg_system_metric = None
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
@@ -232,7 +243,12 @@ class TTSEvalBrain(sb.Brain):
                     "contrastive_loss"
                 ] = self.loss_metric_contrastive.summarize("average")
             if self.reg_metric is not None:
-                self.train_stats.update(self.reg_metric.summarize())
+                self.train_stats.update(
+                    self.get_prefixed_metric_stats(self.reg_metric, "utt")
+                )
+                self.train_stats.update(
+                    self.get_prefixed_metric_stats(self.reg_system_metric, "sys")
+                )
 
         # Summarize the statistics from the stage for record-keeping.
         else:
@@ -244,7 +260,12 @@ class TTSEvalBrain(sb.Brain):
                 stats[
                     "contrastive_loss"
                 ] = self.loss_metric_contrastive.summarize("average")
-            stats.update(self.reg_metric.summarize())
+            stats.update(
+                self.get_prefixed_metric_stats(self.reg_metric, "utt")
+            )
+            stats.update(
+                self.get_prefixed_metric_stats(self.reg_system_metric, "sys")
+            )
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
@@ -272,6 +293,28 @@ class TTSEvalBrain(sb.Brain):
         self.output_details(stage, epoch)
         if self.hparams.contrastive:
             self.shuffle(stage)
+
+    def get_prefixed_metric_stats(self, metric, prefix):
+        """Gets statistics from a MetricStats instance and applies
+        a prfix to them
+        
+        Arguments
+        ---------
+        metric : speechbrain.utils.metric_stats.MetricStats
+            A metric instance
+        prefix : str
+            The prefix to use
+        
+        Returns
+        -------
+        stats : dict
+            prefixed statistics
+        """
+        stats = metric.summarize()
+        return {
+            f"{prefix}_{key}": value
+            for key, value in stats.items()
+        }
 
     def shuffle(self, stage):
         """Shuffles contrastive pairings
@@ -304,6 +347,8 @@ class TTSEvalBrain(sb.Brain):
         try:
             plot_file_name = f"regression_{stage_label}.png"
             self.reg_metric.plot(target_path / plot_file_name)
+            plot_file_name = f"regression_{stage_label}_system.png"
+            self.reg_system_metric.plot(target_path / plot_file_name)
         except ImportError:
             logger.warn("Unable to output plots, seaborn is not installed")
 
@@ -346,7 +391,7 @@ def dataio_prepare(hparams):
                 ),
             },
         )
-        output_keys = ["id", "sig", "score_num"]
+        output_keys = ["id", "sig", "score_num", "system"]
         if hparams.get("use_transcripts", False):
             output_keys.append("char")
         dataset.set_output_keys(output_keys)
