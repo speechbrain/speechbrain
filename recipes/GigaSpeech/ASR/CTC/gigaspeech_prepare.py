@@ -16,6 +16,7 @@ import csv
 from dataclasses import dataclass
 import functools
 from speechbrain.utils.parallel import parallel_map
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ PUNCTUATION_TAGS = {
 }
 SPLITS = ["DEV", "TEST"]
 TRAIN_SUBSET = ["XS", "S", "M", "L", "XL"]
+SAMPLING_RATE = 16000
 
 
 @dataclass
@@ -68,12 +70,16 @@ def prepare_gigaspeech(
     data_folder: str,
     save_folder: str,
     splits: list,
-    output_train_csv_filename=None,
-    output_dev_csv_filename=None,
-    output_test_csv_filename=None,
+    output_train: str,
+    output_dev: str,
+    output_test: str,
     json_file: str = "GigaSpeech.json",
     skip_prep: bool = False,
     convert_opus_to_wav: bool = True,
+    use_webdataset: bool = True,
+    verbose: int = 0,
+    samples_per_shard=500,
+    max_size_shard=1e9,
 ) -> None:
     """ Prepare the csv files for GigaSpeech dataset.
 
@@ -94,23 +100,34 @@ def prepare_gigaspeech(
         The path to the folder where the CSV files will be saved.
     splits : list
         The list of splits to be used for creating the CSV files.
-    output_train_csv_filename : str, optional
-        The name of the CSV file which will be containing the train subset.
-    output_dev_csv_filename : str, optional
-        The name of the CSV file which will be containing the dev subset.
-    output_test_csv_filename : str, optional
-        The name of the CSV file which will be containing the test subset.
+    output_train : str
+        The path in which the train CSV or shards will be saved.
+    output_dev : str
+        The path in which the dev CSV or shards will be saved.
+    output_test : str
+        The path in which the test CSV or shards will be saved.
     json_file : str, optional
         The name of the JSON file containing the metadata of the GigaSpeech dataset.
     skip_prep : bool, optional
         If True, the data preparation will be skipped, and the function will return immediately.
     convert_opus_to_wav : bool, optional
         If True, the opus files will be converted to wav files.
+    use_webdataset : bool, optional
+        If True, the data will be saved in the webdataset format.
+    verbose : int, optional
+        The verbosity level for the webdataset.
+    samples_per_shard: int
+        The number of samples per shard.
+    max_size_shard : int
+        The maximum size of the shard.
 
     Returns
     -------
     None
     """
+    logger.info(f"Preparing GigaSpeech dataset in {save_folder}...")
+    print(f"Input args: {locals()}")
+
     if skip_prep:
         logger.info("Skipping data preparation as `skip_prep` is set to `True`")
         return
@@ -129,36 +146,54 @@ def prepare_gigaspeech(
 
     os.makedirs(save_folder, exist_ok=True)
 
-    # Setting output files
-    save_csv_files = {}
+    # Setting output paths
+    save_output = {}
     for split in splits:
         if split in TRAIN_SUBSET:
-            save_csv_files[split] = output_train_csv_filename
+            save_output[split] = output_train
+            if use_webdataset:
+                os.makedirs(save_output[split], exist_ok=True)
         else:
             if split == "DEV":
-                save_csv_files[split] = output_dev_csv_filename
+                save_output[split] = output_dev
             elif split == "TEST":
-                save_csv_files[split] = output_test_csv_filename
+                save_output[split] = output_test
+            if use_webdataset:
+                os.makedirs(save_output[split], exist_ok=True)
 
     # check if the data is already prepared
-    if skip(save_csv_files):
+    if use_webdataset and skip_webdataset(save_output):
+        logger.info("Skipping preparation, completed in previous run.")
+        return
+    elif skip_csv(save_output):
         logger.info("Skipping preparation, completed in previous run.")
         return
     else:
         logger.info("Starting data preparation...")
 
+    # check that the data folder contains the GigaSpeech dataset
     check_gigaspeech_folders(data_folder, json_file)
+
     logger.info(f"Starting reading {json_file}.")
     with open(json_file, "r") as f:
         info = json.load(f)
     logger.info(f"Reading {json_file} done.")
 
-    logger.info("Creating train, dev, and test subsets.")
-    for split, output_csv_file in save_csv_files.items():
-        logger.info(f"Starting creating {output_csv_file} using {split} split.")
-        create_csv(
-            output_csv_file, info, data_folder, split, convert_opus_to_wav
-        )
+    for split, output in save_output.items():
+        logger.info(f"Starting creating {output} using {split} split.")
+        if use_webdataset:
+            create_shards(
+                output,
+                info,
+                data_folder,
+                split,
+                convert_opus_to_wav,
+                verbose=verbose,
+                samples_per_shard=samples_per_shard,
+                max_size_shard=max_size_shard,
+            )
+        else:
+            create_csv(output, info, data_folder, split, convert_opus_to_wav)
     logger.info("Data preparation completed!")
 
 
@@ -212,6 +247,142 @@ def process_line(
                 )
                 utterances.append(utterance)
         return utterances
+
+
+def _write_in_sink(
+    items, max_size_shard, samples_per_shard, save_folder, verbose=0
+):
+    """
+    Write the GigaSpeechRow in the webdataset sinks.
+
+    Parameters
+    ----------
+    items : list
+        The list of items to be written in the sink.
+    max_size_shard : int
+        The maximum size of the shard.
+    samples_per_shard: int
+        The number of samples per shard.
+    save_folder : str
+        The path to the folder where the shards will be saved.
+    verbose : int, optional
+        The verbosity level for the webdataset.
+
+    Returns
+    -------
+    list
+        The list of items written in the sink.
+    """
+    import webdataset as wds
+
+    id_proc, row = items
+    pattern = os.path.join(save_folder, f"GigaSpeech-{id_proc}-%06d.tar")
+    with wds.ShardWriter(
+        pattern,
+        maxsize=max_size_shard,
+        maxcount=samples_per_shard,
+        verbose=verbose,
+    ) as sink:
+        for item in row:
+            start_sample = int(item.begin_time * SAMPLING_RATE)
+            stop_sample = int(item.end_time * SAMPLING_RATE)
+            audio = sb.dataio.dataio.read_audio(
+                {
+                    "file": item.audio_path,
+                    "start": start_sample,
+                    "stop": stop_sample,
+                }
+            )
+
+            sample = {
+                "__key__": item.utt_id,
+                "audio.pth": audio,
+                "text": item.text,
+            }
+
+            # write back to sink
+            sink.write(sample)
+    return row
+
+
+def create_shards(
+    shards_folder_path: str,
+    info: json,
+    data_folder: str,
+    split: str,
+    convert_opus_to_wav: bool,
+    verbose: int = 0,
+    samples_per_shard=500,
+    max_size_shard=1e9,
+) -> None:
+    """
+    Create shards for the GigaSpeech dataset.
+
+    Parameters
+    ----------
+    shards_folder_path : str
+        The path to the shards folder.
+    info : dict
+        The GigaSpeech JSON file content.
+    data_folder : str
+        The path to the GigaSpeech dataset.
+    split : str
+        The split to be used for filtering the data.
+    convert_opus_to_wav : bool
+        If True, the opus files will be converted to wav files.
+    samples_per_shard: int
+        The number of samples per shard.
+    max_size_shard : int
+        The maximum size of the shard.
+
+    Returns
+    -------
+    None
+    """
+    total_duration = 0.0
+    nb_samples = 0
+
+    line_processor = functools.partial(
+        process_line,
+        data_folder=data_folder,
+        split=split,
+        convert_opus_to_wav=convert_opus_to_wav,
+    )
+
+    os.makedirs(shards_folder_path, exist_ok=True)
+
+    audios_info = [(0, [])]
+    id_proc = 1
+    for row in parallel_map(line_processor, info["audios"]):
+        if row is None:
+            continue
+
+        # creates buckets of samples_per_shard size for each shard
+        for item in row:
+            audios_info[-1][1].append(item)
+            if len(audios_info[-1][1]) == samples_per_shard:
+                audios_info.append((id_proc, []))
+                id_proc += 1
+
+    sink_processor = functools.partial(
+        _write_in_sink,
+        save_folder=shards_folder_path,
+        max_size_shard=max_size_shard,
+        samples_per_shard=samples_per_shard,
+        verbose=verbose,
+    )
+
+    logger.info(f"Starting writing shards in {shards_folder_path}...")
+    for row in parallel_map(sink_processor, audios_info, chunk_size=1):
+        for item in row:
+            total_duration += item.duration
+            nb_samples += 1
+
+    logger.info(f"{split} shards succesfully created at {shards_folder_path}!")
+    logger.info(f"Number of samples in {split} split: {nb_samples}")
+    logger.info(
+        f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours"
+    )
 
 
 def create_csv(
@@ -317,7 +488,7 @@ def convert_opus2wav(audio_opus_path):
     """
     audio_wav_path = audio_opus_path.replace(".opus", ".wav")
     os.system(
-        f"ffmpeg -y -i {audio_opus_path} -ac 1 -ar 16000 {audio_wav_path} > /dev/null 2>&1"
+        f"ffmpeg -y -i {audio_opus_path} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path} > /dev/null 2>&1"
     )
     return audio_wav_path
 
@@ -368,7 +539,23 @@ def preprocess_text(text: str) -> str:
     return text.lower()
 
 
-def skip(save_csv_files: dict) -> bool:
+def skip_webdataset(save_folders: str) -> bool:
+    """ Check if the webdataset shards already exist.
+
+    Parameters
+    ----------
+    save_folders : str
+        The path to the folder where the shards will be saved.
+
+    Returns
+    -------
+    bool
+        True if the webdataset shards already exist, False otherwise.
+    """
+    return all(os.listdir(folder) for folder in save_folders.values())
+
+
+def skip_csv(save_csv_files: dict) -> bool:
     """ Check if the CSV files already exist.
 
     Parameters
