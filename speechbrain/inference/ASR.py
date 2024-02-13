@@ -529,7 +529,9 @@ class StreamingASR(Pretrained):
 
         self.filter_props = self.hparams.fea_streaming_extractor.properties
 
-    def _get_audio_stream(self, streamer: torchaudio.io.StreamReader, frames_per_chunk: int):
+    def _get_audio_stream(
+        self, streamer: torchaudio.io.StreamReader, frames_per_chunk: int
+    ):
         """From a :class:`torchaudio.io.StreamReader`, identifies the audio
         stream and returns an iterable stream of chunks (after resampling and
         downmixing to mono).
@@ -556,7 +558,9 @@ class StreamingASR(Pretrained):
         ]
 
         if len(audio_stream_infos) != 1:
-            raise ValueError(f"Expected stream to have only 1 stream (with any number of channels), got {len(audio_stream_infos)} (with streams: {stream_infos})")
+            raise ValueError(
+                f"Expected stream to have only 1 stream (with any number of channels), got {len(audio_stream_infos)} (with streams: {stream_infos})"
+            )
 
         # find the index of the first (and only) audio stream
         audio_stream_index = audio_stream_infos[0][0]
@@ -567,10 +571,10 @@ class StreamingASR(Pretrained):
             stream_index=audio_stream_index,
             sample_rate=self.audio_normalizer.sample_rate,
             format="fltp",  # torch.float32
-            num_channels=1
+            num_channels=1,
         )
 
-        for (chunk, ) in streamer.stream():
+        for (chunk,) in streamer.stream():
             chunk = chunk.squeeze(-1)  # we deal with mono, remove that dim
             chunk = chunk.unsqueeze(0)  # create a fake batch dim
             yield chunk
