@@ -25,12 +25,12 @@ ssl_hub: facebook/hubert-base-ls960
 ssl_folder: !ref <save_folder>/hubert_checkpoint
 kmeans_repo_id: speechbrain/SSL_Quantization
 kmeans_cache_dir: !ref <save_folder>/kmeans_checkpoint
-kmeans_dataset : LibriSpeech-100-360-500
-num_clusters : 128
+kmeans_dataset: LibriSpeech-100-360-500
+num_clusters: 128
 freeze_ssl: True
 freeze_feature_extractor: True
 # Layer number should be among the supported layers for discrete SSL models(kmenas  model should be available for that layer)
-ssl_layer_num: [3,7]
+ssl_layer_num: [3, 7]
 deduplicate: False
 
 discrete_ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_hubert.DiscreteHuBERT
@@ -44,7 +44,3 @@ discrete_ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.discr
    kmeans_repo_id: !ref <kmeans_repo_id>
    num_clusters: !ref <num_clusters>
    kmeans_cache_dir: !ref <kmeans_cache_dir>
-
-
-
-
