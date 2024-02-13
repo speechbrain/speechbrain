@@ -529,7 +529,21 @@ class StreamingASR(Pretrained):
 
         self.filter_props = self.hparams.fea_streaming_extractor.properties
 
-    def _get_audio_stream(self, streamer: torchaudio.io.StreamReader, chunk_size: int):
+    def _get_audio_stream(self, streamer: torchaudio.io.StreamReader, frames_per_chunk: int):
+        """From a :class:`torchaudio.io.StreamReader`, identifies the audio
+        stream and returns an iterable stream of chunks (after resampling and
+        downmixing to mono).
+
+        Arguments
+        ---------
+        streamer : torchaudio.io.StreamReader
+            The stream object. Must hold exactly one source stream of an
+            audio type.
+        frames_per_chunk : int
+            The number of frames per chunk. For a streaming model, this should
+            be determined from the DynChunkTrain configuration.
+        """
+
         stream_infos = [
             streamer.get_src_stream_info(i)
             for i in range(streamer.num_src_streams)
@@ -549,7 +563,7 @@ class StreamingASR(Pretrained):
 
         # output stream #0
         streamer.add_basic_audio_stream(
-            frames_per_chunk=chunk_size,
+            frames_per_chunk=frames_per_chunk,
             stream_index=audio_stream_index,
             sample_rate=self.audio_normalizer.sample_rate,
             format="fltp",  # torch.float32
