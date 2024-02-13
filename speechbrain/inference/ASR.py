@@ -529,6 +529,38 @@ class StreamingASR(Pretrained):
 
         self.filter_props = self.hparams.fea_streaming_extractor.properties
 
+    def _get_audio_stream(self, streamer: torchaudio.io.StreamReader, chunk_size: int):
+        stream_infos = [
+            streamer.get_src_stream_info(i)
+            for i in range(streamer.num_src_streams)
+        ]
+
+        audio_stream_infos = [
+            (i, stream_info)
+            for i, stream_info in enumerate(stream_infos)
+            if stream_info.media_type == "audio"
+        ]
+
+        if len(audio_stream_infos) != 1:
+            raise ValueError(f"Expected stream to have only 1 stream (with any number of channels), got {len(audio_stream_infos)} (with streams: {stream_infos})")
+
+        # find the index of the first (and only) audio stream
+        audio_stream_index = audio_stream_infos[0][0]
+
+        # output stream #0
+        streamer.add_basic_audio_stream(
+            frames_per_chunk=chunk_size,
+            stream_index=audio_stream_index,
+            sample_rate=self.audio_normalizer.sample_rate,
+            format="fltp",  # torch.float32
+            num_channels=1
+        )
+
+        for (chunk, ) in streamer.stream():
+            chunk = chunk.squeeze(-1)  # we deal with mono, remove that dim
+            chunk = chunk.unsqueeze(0)  # create a fake batch dim
+            yield chunk
+
     def transcribe_file_streaming(
         self,
         path,
@@ -570,41 +602,10 @@ class StreamingASR(Pretrained):
 
         if use_torchaudio_streaming:
             streamer = torchaudio.io.StreamReader(path)
-
-            stream_infos = [
-                streamer.get_src_stream_info(i)
-                for i in range(streamer.num_src_streams)
-            ]
-
-            audio_stream_infos = [
-                (i, stream_info)
-                for i, stream_info in enumerate(stream_infos)
-                if stream_info.media_type == "audio"
-            ]
-
-            if len(audio_stream_infos) != 1:
-                raise ValueError(f"Expected stream with URI '{path}' to have only 1 stream (with any number of channels), got {len(audio_stream_infos)} (with streams: {stream_infos})")
-
-            audio_stream_index = audio_stream_infos[0][0]
-
-            # output stream #0
-            streamer.add_basic_audio_stream(
-                frames_per_chunk=chunk_size,
-                stream_index=audio_stream_index,
-                sample_rate=self.audio_normalizer.sample_rate,
-                format="fltp",  # torch.float32
-                num_channels=1
-            )
-
-            chunks = (
-                resampled_stream.transpose(0, 1)
-                for (resampled_stream, )
-                in streamer.stream()
-            )
+            chunks = self._get_audio_stream(streamer, chunk_size)
         else:
             waveform = self.load_audio(path, **kwargs)
-            batch = waveform.unsqueeze(0)
-
+            batch = waveform.unsqueeze(0)  # create batch dim
             chunks = split_fixed_chunks(batch, chunk_size)
 
         rel_length = torch.tensor([1.0])
