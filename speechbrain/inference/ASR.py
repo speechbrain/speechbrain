@@ -10,13 +10,14 @@ Authors:
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
  * Sylvain de Langen 2023
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
  * Pradnya Kandarkar 2023
 """
 import torch
 import sentencepiece
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
+import functools
 from speechbrain.utils.fetching import fetch
 from speechbrain.utils.data_utils import split_path
 
@@ -171,43 +172,84 @@ class EncoderASR(Pretrained):
     >>> asr_model.transcribe_file("samples/audio_samples/example_fr.wav") # doctest: +SKIP
     """
 
-    HPARAMS_NEEDED = ["tokenizer", "decoding_type"]
+    HPARAMS_NEEDED = ["tokenizer", "decoding_function"]
     MODULES_NEEDED = ["encoder"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.tokenizer = self.hparams.tokenizer
-        self.decoding_type = self.hparams.decoding_type
         self.set_decoding_function()
 
     def set_decoding_function(self):
-        """Set the decoding function based on the parameters defined in the hyperparameter file."""
-        if self.decoding_type == "beam":
-            if hasattr(self.hparams, "kenlm_model_path"):
-                source, fl = split_path(self.hparams.kenlm_model_path)
-                kenlm_model_path = str(fetch(fl, source=source, savedir="."))
-                self.hparams.test_beam_search[
-                    "kenlm_model_path"
-                ] = kenlm_model_path
+        """Set the decoding function based on the parameters defined in the hyperparameter file.
 
-            vocab_list = [
-                self.tokenizer.id_to_piece(i)
-                for i in range(self.tokenizer.vocab_size())
-            ]
+        The decoding function is determined by the `decoding_function` specified in the hyperparameter file.
+        It can be either a functools.partial object representing a decoding function or an instance of
+        `speechbrain.decoders.ctc.CTCBaseSearcher` for beam search decoding.
 
-            from speechbrain.decoders.ctc import CTCBeamSearcher
+        Raises:
+            ValueError: If the decoding function is neither a functools.partial nor an instance of
+                        speechbrain.decoders.ctc.CTCBaseSearcher.
 
-            self.decoding_function = CTCBeamSearcher(
-                **self.hparams.test_beam_search, vocab_list=vocab_list
-            )
+        Note:
+            - For greedy decoding (functools.partial), the provided `decoding_function` is assigned directly.
+            - For CTCBeamSearcher decoding, an instance of the specified `decoding_function` is created, and
+            additional parameters are added based on the tokenizer type.
+        """
+        # Greedy Decoding case
+        if isinstance(self.hparams.decoding_function, functools.partial):
+            self.decoding_function = self.hparams.decoding_function
+        # CTCBeamSearcher case
         else:
-            from functools import partial
+            # 1. check if the decoding function is an instance of speechbrain.decoders.CTCBaseSearcher
+            if issubclass(
+                self.hparams.decoding_function,
+                speechbrain.decoders.ctc.CTCBaseSearcher,
+            ):
+                # If so, we need to retrieve the vocab list from the tokenizer.
+                # We also need to check if the tokenizer is a sentencepiece or a CTCTextEncoder.
+                if isinstance(
+                    self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
+                ):
+                    ind2lab = self.tokenizer.ind2lab
+                    vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
+                elif isinstance(
+                    self.tokenizer, sentencepiece.SentencePieceProcessor
+                ):
+                    vocab_list = [
+                        self.tokenizer.id_to_piece(i)
+                        for i in range(self.tokenizer.vocab_size())
+                    ]
+                else:
+                    raise ValueError(
+                        "The tokenizer must be sentencepiece or CTCTextEncoder"
+                    )
 
-            self.decoding_function = partial(
-                speechbrain.decoders.ctc_greedy_decode,
-                blank_id=self.hparams.blank_index,
-            )
+                # We can now instantiate the decoding class and add all the parameters
+                if hasattr(self.hparams, "test_beam_search"):
+                    opt_beam_search_params = self.hparams.test_beam_search
+                    # check if the kenlm_model_path is provided and fetch it if necessary
+                    if "kenlm_model_path" in opt_beam_search_params:
+                        source, fl = split_path(
+                            opt_beam_search_params["kenlm_model_path"]
+                        )
+                        kenlm_model_path = str(
+                            fetch(fl, source=source, savedir=".")
+                        )
+                        # we need to update the kenlm_model_path in the opt_beam_search_params
+                        opt_beam_search_params[
+                            "kenlm_model_path"
+                        ] = kenlm_model_path
+                else:
+                    opt_beam_search_params = {}
+                self.decoding_function = self.hparams.decoding_function(
+                    **opt_beam_search_params, vocab_list=vocab_list
+                )
+            else:
+                raise ValueError(
+                    "The decoding function must be an instance of speechbrain.decoders.CTCBaseSearcher"
+                )
 
     def transcribe_file(self, path, **kwargs):
         """Transcribes the given audiofile into a sequence of words.
@@ -290,27 +332,22 @@ class EncoderASR(Pretrained):
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
             predictions = self.decoding_function(encoder_out, wav_lens)
-            if isinstance(
+            is_ctc_text_encoder_tokenizer = isinstance(
                 self.tokenizer, speechbrain.dataio.encoder.CTCTextEncoder
-            ):
-                predicted_words = [
-                    "".join(self.tokenizer.decode_ndim(token_seq))
-                    for token_seq in predictions
-                ]
-            elif isinstance(
-                self.tokenizer, sentencepiece.SentencePieceProcessor
-            ):
-                if self.decoding_type == "greedy":
+            )
+            if isinstance(self.hparams.decoding_function, functools.partial):
+                if is_ctc_text_encoder_tokenizer:
+                    predicted_words = [
+                        "".join(self.tokenizer.decode_ndim(token_seq))
+                        for token_seq in predictions
+                    ]
+                else:
                     predicted_words = [
                         self.tokenizer.decode_ids(token_seq)
                         for token_seq in predictions
                     ]
-                else:
-                    predicted_words = [hyp[0].text for hyp in predictions]
             else:
-                raise ValueError(
-                    "The tokenizer must be sentencepiece or CTCTextEncoder"
-                )
+                predicted_words = [hyp[0].text for hyp in predictions]
 
         return predicted_words, predictions
 
@@ -330,8 +367,8 @@ class WhisperASR(Pretrained):
     -------
     >>> from speechbrain.inference.ASR import WhisperASR
     >>> tmpdir = getfixture("tmpdir")
-    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-large-v2-commonvoice-fr", savedir=tmpdir,) # doctest: +SKIP
-    >>> asr_model.transcribe_file("speechbrain/asr-whisper-large-v2-commonvoice-fr/example-fr.mp3") # doctest: +SKIP
+    >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-medium-commonvoice-it", savedir=tmpdir,) # doctest: +SKIP
+    >>> asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
     """
 
     HPARAMS_NEEDED = ["language"]
@@ -425,7 +462,7 @@ class WhisperASR(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.mods.decoder(encoder_out, wav_lens)
+            predicted_tokens, _, _, _ = self.mods.decoder(encoder_out, wav_lens)
             predicted_words = self.tokenizer.batch_decode(
                 predicted_tokens, skip_special_tokens=True
             )

@@ -72,10 +72,15 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
-        # Label Augmentation
+        # Labels must be extended if parallel augmentation or concatenated
+        # augmentation was performed on the input (increasing the time dimension)
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            tokens = self.hparams.wav_augment.replicate_labels(tokens)
-            tokens_lens = self.hparams.wav_augment.replicate_labels(tokens_lens)
+            (
+                tokens,
+                tokens_lens,
+            ) = self.hparams.wav_augment.replicate_multiple_labels(
+                tokens, tokens_lens
+            )
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc

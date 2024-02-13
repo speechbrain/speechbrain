@@ -27,11 +27,11 @@ skip_prep: False
 
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
-# longer sentences certainly correspond to "open microphones".
+# longer sentences certainly correspond to open microphones.
 avoid_if_longer_than: 10.0
 avoid_if_shorter_than: 1.0
 
-# Training parameters
+####################### Training Parameters ####################################
 # Parameters are corresponding the the ones reported in the official wav2vec2
 # paper (for the masking).
 mask_length: 10
@@ -52,8 +52,8 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # IMPORTANT: To train w2v2 model, we recommand to have the effective batch_size
 # higher than 100 (batch_size * nb_gpu * grad_accumulation_factor)
 # Examples are:
-# 32 Tesla V100 32GB — 12 * 32 * 1
-# 4 Tesla V100 32GB — 12 * 4 * {6-8}
+# 32 Tesla V100 32GB = 12 * 32 * 1
+# 4 Tesla V100 32GB = 12 * 4 * (6-8)
 batch_size: 12
 test_batch_size: 8
 grad_accumulation_factor: 8
@@ -104,7 +104,7 @@ modules:
     wav2vec2: !ref <wav2vec2>
 
 opt_class: !name:torch.optim.AdamW
-    lr: 0 # Will be changed by the scheduler, but we start at 0!
+    lr: 0 # Will be changed by the scheduler, but we start at 0
     betas: (0.9, 0.98)
     eps: 0.000000001
     weight_decay: !ref <weight_decay>

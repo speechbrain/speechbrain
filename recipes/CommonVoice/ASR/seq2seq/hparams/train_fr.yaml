@@ -29,7 +29,8 @@ skip_prep: False # Skip data preparation
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 10.0
 
-# Training parameters
+####################### Training Parameters ####################################
+
 number_of_epochs: 25
 number_of_ctc_epochs: 20
 lr: 1.0
@@ -60,7 +61,7 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 80
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 3
@@ -102,50 +103,27 @@ temperature: 1.50
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-# Time Drop
-time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
-time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram
-time_drop_count_low: 5  # Min number of chunks to drop in time in the spectrogram
-time_drop_count_high: 5  # Max number of chunks to drop in time in the spectrogram
-time_drop_replace: "zeros"  # Method of dropping chunks
+############################## Augmentations ###################################
 
+ # Time Drop
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-    drop_length_low: !ref <time_drop_length_low>
-    drop_length_high: !ref <time_drop_length_high>
-    drop_count_low: !ref <time_drop_count_low>
-    drop_count_high: !ref <time_drop_count_high>
-    replace: !ref <time_drop_replace>
-    dim: 1
+    drop_length_low: 15
+    drop_length_high: 25
+    drop_count_low: 5
+    drop_count_high: 5
 
 # Frequency Drop
-freq_drop_length_low: 25  # Min length for chunks to drop in frequency in the spectrogram
-freq_drop_length_high: 35  # Max length for chunks to drop in frequency in the spectrogram
-freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
-freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
-freq_drop_replace: "zeros"  # Method of dropping chunks
-
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-    drop_length_low: !ref <freq_drop_length_low>
-    drop_length_high: !ref <freq_drop_length_high>
-    drop_count_low: !ref <freq_drop_count_low>
-    drop_count_high: !ref <freq_drop_count_high>
-    replace: !ref <freq_drop_replace>
+    drop_length_low: 25
+    drop_length_high: 35
+    drop_count_low: 2
+    drop_count_high: 2
     dim: 2
 
 # Time warp
-time_warp_window: 5  # Length of time warping window
-time_warp_mode: "bicubic"  # Time warping method
-
 time_warp: !new:speechbrain.augment.freq_domain.Warping
-    warp_window: !ref <time_warp_window>
-    warp_mode: !ref <time_warp_mode>
-    dim: 1
 
 fea_augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: False
-    concat_original: False
-    repeat_augment: 1
-    shuffle_augmentations: False
     min_augmentations: 3
     max_augmentations: 3
     augment_prob: 1.0
@@ -161,6 +139,8 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+
+############################## Models ##########################################
 
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
