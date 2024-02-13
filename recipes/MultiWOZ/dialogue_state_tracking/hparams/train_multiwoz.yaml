@@ -1,0 +1,244 @@
+# ##########################################################################
+# Model : E2E Dialogue Understanding
+# Audio Encoder: Wav2vec 2.0
+# Semantic Encoder: T5 encoder
+# Fusion method : Linear layer
+# Decoder: T5 Decoder
+# Training corpora : Speech Aware DSTC11
+# Author : Lucas Druart 2024
+# ########################################################################## 
+
+# General experiment parameters 
+seed: 1989
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref ./results/<version>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/log/
+file_train_log: !ref <output_folder>/log.txt
+pred_folder: !ref <output_folder>/preds/
+
+# Checkpoints
+wav2vec_hub: microsoft/wavlm-base-plus
+t5_hub: t5-base
+model_size: 768
+
+# Data parameters
+data_folder: !PLACEHOLDER
+version: "e2e"
+train_splits: ["train_tts"]
+dev_splits: ["dev_tts"]
+test_splits: ["dev_human", "test_tts", "test_human"]
+skip_prep: False
+select_n_sentences: None
+train_csv: !ref <output_folder>/save/train.csv
+valid_csv: 
+    - !ref <output_folder>/save/dev_tts.csv
+test_csv: 
+    - !ref <output_folder>/save/dev_tts.csv
+    - !ref <output_folder>/save/dev_human.csv
+    - !ref <output_folder>/save/test_tts.csv
+    - !ref <output_folder>/save/test_human.csv
+
+# Logging
+debug_print: 3000
+profiling_activated: False
+text_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <file_train_log>
+train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
+    save_dir: !ref <train_log>
+
+# Training parameters
+lr: 0.0001
+number_of_epochs: 10
+n_epochs_valid: 2
+lr_semantic_encoder: !ref <lr>
+lr_audio: !ref <lr> * 0.1
+lr_fusion_layers: !ref <lr> * 10
+lr_decoder: !ref <lr>
+weight_decay: 0.0001
+batch_size: 4
+valid_batch_size: 1
+gradient_accumulation: 16
+# warmup = #epochs * #examples_train // (10*virtual_batch)
+warmup_steps: !ref <number_of_epochs> * 56750 // (5 * <batch_size> * <gradient_accumulation>)
+anneal_steps: 
+    - !ref <warmup_steps> * 3
+    - !ref <warmup_steps> * 9
+anneal_rates: 
+    - 0.5
+    - 0.1
+
+sample_rate: 16000
+
+# Data Loaders parameters
+num_workers: 2
+sorting: random
+
+train_loader_kwargs:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+valid_loader_kwargs:
+    batch_size: !ref <valid_batch_size>
+    num_workers: !ref <num_workers>
+
+augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+    sample_rate: !ref <sample_rate>
+    speeds: [95, 100, 105]
+
+inference: False
+# Choosing whether to perform the inference with the golden previous state
+# or with the previous predicted state
+gold_previous_state: True
+
+# Training output mode: 
+# - transcription and state (transcription)
+# - state only (state)
+output_mode: state
+
+# Fusion parameters 
+downsampling: True
+conv_kernel_size: 9
+conv_stride: 3
+fusion_dnn_layers: 1
+activation: !name:torch.nn.GELU
+
+audio_frozen: False
+freeze_feature_extractor: True
+semantic_encoder_frozen: False
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Models
+
+## Audio Encoder
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+    source: !ref <wav2vec_hub>
+    output_norm: True
+    freeze: !ref <audio_frozen>
+    freeze_feature_extractor: !ref <freeze_feature_extractor>
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+## Semantic Encoder
+t5_enc: !new:speechbrain.lobes.models.huggingface_transformers.t5_encoder.T5EncoderModelForDialogueUnderstanding
+    source: !ref <t5_hub>
+    freeze: !ref <semantic_encoder_frozen>
+    save_path: !ref <save_folder>/t5_checkpoint/encoder
+
+## Convolution down-sampling
+conv1: !new:speechbrain.nnet.CNN.Conv1d
+    input_shape: [null, null, !ref <model_size>]
+    stride: !ref <conv_stride>
+    kernel_size: !ref <conv_kernel_size>
+    weight_norm: True
+    out_channels: !ref <model_size>
+
+conv_activation: !new:torch.nn.LeakyReLU
+dropout: !new:torch.nn.Dropout
+    p: 0.1
+
+conv2: !new:speechbrain.nnet.CNN.Conv1d
+    input_shape: [null, null, !ref <model_size>]
+    stride: !ref <conv_stride>
+    kernel_size: !ref <conv_kernel_size>
+    weight_norm: True
+    out_channels: !ref <model_size>
+
+## Fusion layer
+fusion: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoderLayer
+    d_ffn: !ref <model_size>
+    nhead: 8
+    d_model: !ref <model_size>
+
+## Decoder
+t5_dec: !new:speechbrain.lobes.models.huggingface_transformers.t5_decoder.T5DecoderModelForDialogueUnderstanding
+    source: !ref <t5_hub>
+    freeze: False
+    save_path: !ref <save_folder>/t5_checkpoint/decoder
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    audio_encoder: !ref <wav2vec2>
+    semantic_encoder: !ref <t5_enc>
+    conv1: !ref <conv1>
+    conv2: !ref <conv2>
+    fusion: !ref <fusion>
+    decoder: !ref <t5_dec>
+
+# Loss and optimization
+nll_loss: !name:speechbrain.nnet.losses.nll_loss
+
+audio_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_audio>
+    weight_decay: !ref <weight_decay>
+
+semantic_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_semantic_encoder>
+    weight_decay: !ref <weight_decay>
+
+fusion_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_fusion_layers>
+    weight_decay: !ref <weight_decay>
+
+decoder_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_decoder>
+    weight_decay: !ref <weight_decay>
+
+lr_annealing_audio: !new:speechbrain.nnet.schedulers.NoamIntervalScheduler
+    lr_initial: !ref <lr_audio>
+    n_warmup_steps: !ref <warmup_steps>
+    anneal_steps: !ref <anneal_steps>
+    anneal_rates: !ref <anneal_rates>
+
+lr_annealing_semantics: !new:speechbrain.nnet.schedulers.NoamIntervalScheduler
+    lr_initial: !ref <lr_semantic_encoder>
+    n_warmup_steps: !ref <warmup_steps>
+    anneal_steps: !ref <anneal_steps>
+    anneal_rates: !ref <anneal_rates>
+
+lr_annealing_fusion: !new:speechbrain.nnet.schedulers.NoamIntervalScheduler
+    lr_initial: !ref <lr_fusion_layers>
+    n_warmup_steps: !ref <warmup_steps>
+    anneal_steps: !ref <anneal_steps>
+    anneal_rates: !ref <anneal_rates>
+
+lr_annealing_decoder: !new:speechbrain.nnet.schedulers.NoamIntervalScheduler
+    lr_initial: !ref <lr_decoder>
+    n_warmup_steps: !ref <warmup_steps>
+    anneal_steps: !ref <anneal_steps>
+    anneal_rates: !ref <anneal_rates>
+
+
+# Checkpointing
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        wav2vec2: !ref <wav2vec2>
+        conv1: !ref <conv1>
+        conv2: !ref <conv2>
+        fusion: !ref <fusion>
+        t5_enc: !ref <t5_enc>
+        t5_dec: !ref <t5_dec>
+        lr_annealing_audio: !ref <lr_annealing_audio>
+        lr_annealing_semantics: !ref <lr_annealing_semantics>
+        lr_annealing_fusion: !ref <lr_annealing_fusion>
+        lr_annealing_decoder: !ref <lr_annealing_decoder>
+        counter: !ref <epoch_counter>
+
+seq_lin: !new:torch.nn.Identity
+
+# The second module of the searcher is Identity 
+# because the head is already applied in the decode function of the model
+valid_greedy_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
+    modules: [!ref <t5_dec>, !ref <seq_lin>]
+    bos_index: 0
+    eos_index: 1
+    min_decode_ratio: 0.0
+    max_decode_ratio: 1.0
+
+# Metrics
+acc_computer: !name:speechbrain.utils.evaluate_dialogue_state_tracking.JGATracker
+
