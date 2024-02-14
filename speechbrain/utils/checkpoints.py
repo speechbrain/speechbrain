@@ -64,6 +64,7 @@ from speechbrain.utils.distributed import (
     main_process_only,
     if_main_process,
     ddp_barrier,
+    ddp_broadcast,
 )
 
 logger = logging.getLogger(__name__)
@@ -603,10 +604,7 @@ class Checkpointer:
             )
 
         # Communicate ckpt_dir to all procs
-        communication_list = [ckpt_dir]
-        if torch.distributed.is_initialized():
-            torch.distributed.broadcast_object_list(communication_list, src=0)
-        ckpt_dir = communication_list[0]
+        ckpt_dir = ddp_broadcast(ckpt_dir, src=0)
 
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():

@@ -58,6 +58,8 @@ val_dataloader_options:
     num_workers: 1
     batch_size: !ref <batch_size_val>
 
+############################## Augmentations ###################################
+
 # Download and prepare the dataset of noisy sequences for augmentation
 prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     URL: !ref <NOISE_DATASET_URL>
@@ -72,7 +74,6 @@ prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
     ext: wav
     csv_file: !ref <rir_annotation>
 
-
 # Add reverberation to input signal
 add_reverb: !new:speechbrain.augment.time_domain.AddReverb
     csv_file: !ref <rir_annotation>
@@ -81,27 +82,21 @@ add_reverb: !new:speechbrain.augment.time_domain.AddReverb
     num_workers: !ref <num_workers>
 
 # Add noise to input signal
-snr_low: 0  # Min SNR for noise augmentation
-snr_high: 15  # Max SNR for noise augmentation
 add_noise: !new:speechbrain.augment.time_domain.AddNoise
     csv_file: !ref <noise_annotation>
-    snr_low: !ref <snr_low>
-    snr_high: !ref <snr_high>
+    snr_low: 0
+    snr_high: 15
     noise_sample_rate: !ref <sample_rate>
     clean_sample_rate: !ref <sample_rate>
     num_workers: !ref <num_workers>
 
 # Speed perturbation
-speed_changes: [90, 100, 110]  # List of speed changes for time-stretching
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: !ref <speed_changes>
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: False
     concat_original: True
-    repeat_augment: 1
     shuffle_augmentations: True
     min_augmentations: 1
     max_augmentations: 3

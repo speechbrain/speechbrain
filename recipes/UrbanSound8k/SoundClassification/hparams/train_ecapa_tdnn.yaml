@@ -48,7 +48,7 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 25
 batch_size: 32
 lr: 0.001

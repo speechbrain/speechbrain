@@ -91,7 +91,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
-####################### Model parameters ###########################
+####################### Model Parameters ###########################
 # Transformer
 d_model: 256
 nhead: 4

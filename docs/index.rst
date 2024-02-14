@@ -46,6 +46,19 @@ Referencing SpeechBrain
    experiment.md
    multigpu.md
    tutorials.md
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Tips & tricks:
+
+   audioloading.rst
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contributing
+
    contributing.md
    guidance.md
    coverage.md
