@@ -525,7 +525,12 @@ class StreamingASR(Pretrained):
     >>> asr_model.transcribe_file("speechbrain/asr-conformer-streaming-librispeech/test-en.wav", DynChunkTrainConfig(24, 8)) # doctest: +SKIP
     """
 
-    HPARAMS_NEEDED = ["fea_streaming_extractor", "Greedysearcher"]
+    HPARAMS_NEEDED = [
+        "fea_streaming_extractor",
+        "Greedysearcher",
+        "make_tokenizer_streaming_context",
+        "tokenizer_decode_streaming",
+    ]
     MODULES_NEEDED = ["enc", "proj_enc"]
 
     def __init__(self, *args, **kwargs):
