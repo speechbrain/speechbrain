@@ -30,6 +30,7 @@ PUNCTUATION_TAGS = {
 SPLITS = ["DEV", "TEST"]
 TRAIN_SUBSET = ["XS", "S", "M", "L", "XL"]
 SAMPLING_RATE = 16000
+VERBOSITY_WEBDATASET = 0
 
 
 @dataclass
@@ -77,7 +78,6 @@ def prepare_gigaspeech(
     skip_prep: bool = False,
     convert_opus_to_wav: bool = True,
     use_webdataset: bool = True,
-    verbose: int = 0,
     samples_per_shard=500,
     max_size_shard=1e9,
 ) -> None:
@@ -114,8 +114,6 @@ def prepare_gigaspeech(
         If True, the opus files will be converted to wav files.
     use_webdataset : bool, optional
         If True, the data will be saved in the webdataset format.
-    verbose : int, optional
-        The verbosity level for the webdataset.
     samples_per_shard: int
         The number of samples per shard.
     max_size_shard : int
@@ -150,15 +148,14 @@ def prepare_gigaspeech(
     for split in splits:
         if split in TRAIN_SUBSET:
             save_output[split] = output_train
-            if use_webdataset:
-                os.makedirs(save_output[split], exist_ok=True)
         else:
             if split == "DEV":
                 save_output[split] = output_dev
             elif split == "TEST":
                 save_output[split] = output_test
-            if use_webdataset:
-                os.makedirs(save_output[split], exist_ok=True)
+
+        if use_webdataset:
+            os.makedirs(save_output[split], exist_ok=True)
 
     # check if the data is already prepared
     if use_webdataset and skip_webdataset(save_output):
@@ -187,7 +184,6 @@ def prepare_gigaspeech(
                 data_folder,
                 split,
                 convert_opus_to_wav,
-                verbose=verbose,
                 samples_per_shard=samples_per_shard,
                 max_size_shard=max_size_shard,
             )
@@ -249,7 +245,7 @@ def process_line(
 
 
 def _write_in_sink(
-    items, max_size_shard, samples_per_shard, save_folder, verbose=0
+    items, max_size_shard, samples_per_shard, save_folder,
 ):
     """
     Write the GigaSpeechRow in the webdataset sinks.
@@ -264,8 +260,6 @@ def _write_in_sink(
         The number of samples per shard.
     save_folder : str
         The path to the folder where the shards will be saved.
-    verbose : int, optional
-        The verbosity level for the webdataset.
 
     Returns
     -------
@@ -280,7 +274,7 @@ def _write_in_sink(
         pattern,
         maxsize=max_size_shard,
         maxcount=samples_per_shard,
-        verbose=verbose,
+        verbose=VERBOSITY_WEBDATASET,
     ) as sink:
         for item in row:
             start_sample = int(item.begin_time * SAMPLING_RATE)
@@ -310,7 +304,6 @@ def create_shards(
     data_folder: str,
     split: str,
     convert_opus_to_wav: bool,
-    verbose: int = 0,
     samples_per_shard=500,
     max_size_shard=1e9,
 ) -> None:
@@ -368,7 +361,6 @@ def create_shards(
         save_folder=shards_folder_path,
         max_size_shard=max_size_shard,
         samples_per_shard=samples_per_shard,
-        verbose=verbose,
     )
 
     logger.info(f"Starting writing shards in {shards_folder_path}...")
@@ -376,6 +368,15 @@ def create_shards(
         for item in row:
             total_duration += item.duration
             nb_samples += 1
+
+    metadata_dict = {
+        "split": split,
+        "nb_samples": nb_samples,
+    }
+    metadata_file_path = os.path.join(shards_folder_path, "metadata.json")
+    # we need to save the size of the split so that TQDM can work properly
+    with open(metadata_file_path, "w") as f:
+        json.dump(metadata_dict, f)
 
     logger.info(f"{split} shards succesfully created at {shards_folder_path}!")
     logger.info(f"Number of samples in {split} split: {nb_samples}")
