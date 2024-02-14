@@ -402,6 +402,9 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 # for the inference hparams, you will need to include and uncomment something like this:
 
+# make_tokenizer_streaming_context: !name:speechbrain.tokenizers.SentencePiece.SentencePieceDecoderStreamingContext
+# tokenizer_decode_streaming: !name:speechbrain.tokenizers.SentencePiece.spm_decode_preserve_leading_space
+
 # fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
 #    module: !new:speechbrain.lobes.models.convolution.ConformerFeatureExtractorWrapper
 #       - !ref <compute_features>
