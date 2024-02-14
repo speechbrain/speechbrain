@@ -54,9 +54,9 @@ class DialogueUnderstanding(sb.core.Brain):
         ).to(outputs_tokens.device)
 
         # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wavs_lens)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augmentation"):
+            wavs = self.hparams.augmentation(wavs, wavs_lens)
+            outputs_tokens = self.hparams.augmentation.replicate_labels(outputs_tokens)
 
         semantics_enc_out = self.modules.semantic_encoder(
             semantics_tokens, semantics_lens
@@ -143,10 +143,7 @@ class DialogueUnderstanding(sb.core.Brain):
                     if not self.hparams.gold_previous_state:
                         # Id in the form /path/to/dialogue/Turn-N
                         dialog_id = element_id.split("/")[-2]
-                        json_state = dialogueState_str2dict(
-                            self.tokenizer.decode(hyp)
-                        )
-                        state = dialogueState_dict2str(json_state)
+                        state = self.tokenizer.decode(hyp)
                         with open(
                             os.path.join(
                                 self.hparams.output_folder,
@@ -191,7 +188,7 @@ class DialogueUnderstanding(sb.core.Brain):
         (loss / self.hparams.gradient_accumulation).requires_grad_().backward()
 
         if should_step:
-            if self.check_gradients(loss):
+            if self.check_gradients():
                 if not self.hparams.audio_frozen:
                     self.audio_optimizer.step()
                 if not self.hparams.semantic_encoder_frozen:

@@ -41,7 +41,6 @@ test_csv:
 
 # Logging
 debug_print: 3000
-profiling_activated: False
 text_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <file_train_log>
 train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
@@ -59,7 +58,7 @@ weight_decay: 0.0001
 batch_size: 4
 valid_batch_size: 1
 gradient_accumulation: 16
-# warmup = #epochs * #examples_train // (10*virtual_batch)
+# warmup = #epochs * #examples_train // (5*virtual_batch)
 warmup_steps: !ref <number_of_epochs> * 56750 // (5 * <batch_size> * <gradient_accumulation>)
 anneal_steps: 
     - !ref <warmup_steps> * 3
@@ -82,9 +81,37 @@ valid_loader_kwargs:
     batch_size: !ref <valid_batch_size>
     num_workers: !ref <num_workers>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
+# Augmentation parameters
+
+### Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
+
+### Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+### Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+### Augmenter: Combines previously defined augmentations to perform data augmentation
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
 
 inference: False
 # Choosing whether to perform the inference with the golden previous state
@@ -228,10 +255,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         lr_annealing_decoder: !ref <lr_annealing_decoder>
         counter: !ref <epoch_counter>
 
-seq_lin: !new:torch.nn.Identity
-
 # The second module of the searcher is Identity 
 # because the head is already applied in the decode function of the model
+seq_lin: !new:torch.nn.Identity
 valid_greedy_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
     modules: [!ref <t5_dec>, !ref <seq_lin>]
     bos_index: 0
