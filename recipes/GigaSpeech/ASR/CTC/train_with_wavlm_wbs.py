@@ -10,6 +10,7 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main, if_main_process
 from hyperpyyaml import load_hyperpyyaml
 import webdataset as wds
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,6 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-
-        print(wavs.shape)
-        exit()
 
         # Downsample the inputs if specified
         if hasattr(self.modules, "downsampler"):
@@ -60,8 +58,8 @@ class ASR(sb.Brain):
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
-        # elif stage == sb.Stage.TEST:
-        #     p_tokens = test_searcher(p_ctc, wav_lens)
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
         else:
             p_tokens = None
 
@@ -192,40 +190,71 @@ def dataio_prepare(hparams):
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     special_labels = {
         "blank_label": hparams["blank_index"],
+        "unk_label": hparams["unk_label"],
     }
 
     # 1. Create datasets
     if hparams["use_webdataset"]:
+        import json
+
+        # load the meta info json file
+        file_path = os.path.join(
+            hparams["train_shards_folder_path"], "metadata.json"
+        )
+        with wds.gopen(file_path, "rb") as f:
+            train_meta = json.load(f)
+
+        file_path = os.path.join(
+            hparams["valid_shards_folder_path"], "metadata.json"
+        )
+        with wds.gopen(file_path, "rb") as f:
+            val_meta = json.load(f)
+
+        file_path = os.path.join(
+            hparams["test_shards_folder_path"], "metadata.json"
+        )
+        with wds.gopen(file_path, "rb") as f:
+            test_meta = json.load(f)
+
+        def _audio_pipeline(sample_dict):
+            return sample_dict["text"]
+
+        import glob
+
+        train_files = glob.glob(hparams["train_shards_folder_path"] + "/*.tar")
+
+        def _text_generator(shard_files):
+            for shard_file in shard_files:
+                for sample_dict in (
+                    wds.WebDataset(shard_file).decode().map(_audio_pipeline)
+                ):
+                    yield sample_dict
+
+        label_encoder.load_or_create(
+            path=lab_enc_file,
+            from_iterables=[_text_generator(train_files)],
+            sequence_input=True,
+            special_labels=special_labels,
+        )
 
         def audio_pipeline(sample_dict):
             key = sample_dict["__key__"]
             audio_tensor = sample_dict["audio.pth"]
             text = sample_dict["text"]
+            char_list = list(text)
+            tokens_list = label_encoder.encode_sequence(char_list)
+            tokens = torch.LongTensor(tokens_list)
             return {
                 "id": key,
                 "sig": audio_tensor,
                 "text": text,
+                "char_list": char_list,
+                "tokens_list": tokens_list,
+                "tokens": tokens,
             }
 
-        import glob
-
         train_data = (
-            wds.WebDataset(
-                glob.glob(hparams["train_shards_folder_path"] + "/*.tar")
-            )
-            .repeat()
-            .decode()
-            .map(audio_pipeline)
-        )
-
-        # sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline)
-
-        label_encoder.load_or_create(
-            path=lab_enc_file,
-            # from_didatasets=[train_data],
-            # output_key="char_list",
-            special_labels=special_labels,
-            # sequence_input=True,
+            wds.WebDataset(train_files).repeat().decode().map(audio_pipeline)
         )
 
         valid_data = (
@@ -249,7 +278,15 @@ def dataio_prepare(hparams):
     else:
         print("Not implemented yet")
 
-    return train_data, valid_data, test_data, label_encoder
+    return (
+        train_data,
+        valid_data,
+        test_data,
+        label_encoder,
+        train_meta,
+        val_meta,
+        test_meta,
+    )
 
 
 if __name__ == "__main__":
@@ -284,7 +321,6 @@ if __name__ == "__main__":
             "output_dev": hparams["valid_shards_folder_path"],
             "output_test": hparams["test_shards_folder_path"],
             "json_file": hparams["json_file"],
-            "verbose": hparams["verbose"],
             "skip_prep": hparams["skip_prep"],
             "convert_opus_to_wav": hparams["convert_opus_to_wav"],
             "use_webdataset": hparams["use_webdataset"],
@@ -294,7 +330,15 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data, label_encoder = dataio_prepare(hparams)
+    (
+        train_data,
+        valid_data,
+        test_data,
+        label_encoder,
+        train_meta,
+        val_meta,
+        test_meta,
+    ) = dataio_prepare(hparams)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -304,27 +348,42 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # # We load the pretrained wav2vec2 model
-    # if "pretrainer" in hparams.keys():
-    #     run_on_main(hparams["pretrainer"].collect_files)
-    #     hparams["pretrainer"].load_collected()
+    # We load the pretrained wav2vec2 model
+    if "pretrainer" in hparams.keys():
+        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].load_collected()
 
-    # # We dynamicaly add the tokenizer to our brain class.
-    # # NB: This tokenizer corresponds to the one used for the LM!!
-    # asr_brain.tokenizer = label_encoder
+    # We dynamicaly add the tokenizer to our brain class.
+    # NB: This tokenizer corresponds to the one used for the LM!!
+    asr_brain.tokenizer = label_encoder
 
-    # ind2lab = label_encoder.ind2lab
-    # vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
-    # print(vocab_list)
+    ind2lab = label_encoder.ind2lab
+    vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
+    print(vocab_list)
+    print(len(vocab_list))
 
-    # from speechbrain.decoders.ctc import CTCBeamSearcher
+    from speechbrain.decoders.ctc import CTCBeamSearcher
 
-    # test_searcher = CTCBeamSearcher(
-    #     **hparams["test_beam_search"], vocab_list=vocab_list,
-    # )
+    test_searcher = CTCBeamSearcher(
+        **hparams["test_beam_search"], vocab_list=vocab_list,
+    )
 
     hparams["train_dataloader_opts"]["collate_fn"] = sb.dataio.batch.PaddedBatch
     hparams["valid_dataloader_opts"]["collate_fn"] = sb.dataio.batch.PaddedBatch
+    hparams["test_dataloader_opts"]["collate_fn"] = sb.dataio.batch.PaddedBatch
+
+    hparams["train_dataloader_opts"]["looped_nominal_epoch"] = (
+        train_meta["nb_samples"]
+        // hparams["train_dataloader_opts"]["batch_size"]
+    )
+
+    hparams["valid_dataloader_opts"]["looped_nominal_epoch"] = (
+        val_meta["nb_samples"] // hparams["valid_dataloader_opts"]["batch_size"]
+    )
+
+    hparams["test_dataloader_opts"]["looped_nominal_epoch"] = (
+        test_meta["nb_samples"] // hparams["test_dataloader_opts"]["batch_size"]
+    )
 
     # Training
     asr_brain.fit(

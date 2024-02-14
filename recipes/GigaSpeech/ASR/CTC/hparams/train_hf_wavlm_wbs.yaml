@@ -28,7 +28,6 @@ convert_opus_to_wav: True
 ckpt_interval_minutes: 25 # save checkpoint every N min
 # if use_webdataset is True, we expect the output_folder to contain the shards folder
 use_webdataset: True
-verbose: 0
 samples_per_shard: 500
 train_shards_folder_path: !ref <output_folder>/shards/train
 valid_shards_folder_path: !ref <output_folder>/shards/dev
@@ -66,8 +65,9 @@ dnn_neurons: 1024
 freeze_wav2vec: True
 
 # Outputs
-output_neurons: 34
+output_neurons: 35
 blank_index: 0
+unk_label: "<unk>"
 
 # Decoding parameters
 test_beam_search:
