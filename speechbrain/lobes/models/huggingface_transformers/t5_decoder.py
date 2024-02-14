@@ -18,7 +18,7 @@ import os
 import torch
 from torch import nn
 
-from speechbrain.pretrained.fetching import fetch
+from speechbrain.utils.fetching import fetch
 
 
 # We check if transformers is installed.
@@ -205,8 +205,8 @@ class T5DecoderModelForDialogueUnderstanding(nn.Module):
         # return decoder_outputs
 
     @torch.no_grad()
-    def decode(self, memory, enc_states):
-        """This method implements a decoding step for the transformer model.
+    def decode(self, memory, enc_states, enc_lens):
+        """This method implements a decoding step for this transformer model.
 
         Arguments
         ---------
