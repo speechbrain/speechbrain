@@ -636,4 +636,6 @@ class EncoderWrapper(nn.Module):
         return x
 
     def make_streaming_context(self, *args, **kwargs):
+        """Initializes a streaming context. Forwards all arguments to the
+        underlying transformer. See :meth:`speechbrain.lobes.models.transformer.TransformerASR.make_streaming_context`."""
         return self.transformer.make_streaming_context(*args, **kwargs)
