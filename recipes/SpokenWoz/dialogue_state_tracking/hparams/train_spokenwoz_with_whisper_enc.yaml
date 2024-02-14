@@ -40,7 +40,6 @@ test_csv:
 avoid_if_longer_than: 20.0
 # Logging
 debug_print: 3000
-profiling_activated: False
 text_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <file_train_log>
 train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
@@ -58,7 +57,7 @@ weight_decay: 0.0001
 batch_size: 4
 valid_batch_size: 1
 gradient_accumulation: 16
-# warmup = #epochs * #examples_train // (10*virtual_batch)
+# warmup = #epochs * #examples_train // (5*virtual_batch)
 warmup_steps: !ref <number_of_epochs> * 74524 // (5 * <batch_size> * <gradient_accumulation>)
 anneal_steps: 
     - !ref <warmup_steps> * 3
@@ -81,9 +80,37 @@ valid_loader_kwargs:
     batch_size: !ref <valid_batch_size>
     num_workers: !ref <num_workers>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
+# Augmentation parameters
+
+### Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
+
+### Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+### Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+### Augmenter: Combines previously defined augmentations to perform data augmentation
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
 
 inference: False
 # Choosing whether to perform the inference with the golden previous state
@@ -228,7 +255,7 @@ valid_greedy_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearc
     bos_index: 0
     eos_index: 1
     min_decode_ratio: 0.0
-    max_decode_ratio: 0.75
+    max_decode_ratio: 1.0
 
 # Metrics
 acc_computer: !name:speechbrain.utils.evaluate_dialogue_state_tracking.JGATracker
