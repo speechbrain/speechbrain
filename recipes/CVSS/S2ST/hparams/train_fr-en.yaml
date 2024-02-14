@@ -59,7 +59,7 @@ wav2vec2_download_path: !ref <save_folder>/pretrained_models
 wav2vec2_frozen: False
 wav2vec2_freeze_steps: 10000
 
-# Training parameters
+####################### Training Parameters ####################################
 lr: 0.0005
 lr_wav2vec: 0.00001
 loss_reduction: batchmean

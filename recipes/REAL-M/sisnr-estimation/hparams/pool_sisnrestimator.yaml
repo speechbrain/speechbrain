@@ -67,7 +67,7 @@ num_spks: 2
 noprogressbar: False
 sample_rate: 8000
 
-# Training parameters
+####################### Training Parameters ####################################
 N_epochs: 200
 batch_size: 1
 lr: 0.0001

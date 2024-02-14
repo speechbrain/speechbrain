@@ -28,14 +28,14 @@ asr_tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model
 slu_tokenizer_file: https://www.dropbox.com/s/tmwq12r5vgcsif9/58_unigram.model?dl=1
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
 # token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
-# Model parameters
+####################### Model Parameters #######################################
 # sample_rate: 1600
 emb_size: 128
 dec_neurons: 512

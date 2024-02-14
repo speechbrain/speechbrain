@@ -29,7 +29,7 @@ test_transcripts_pattern: "test*/**/*.trans.txt"
 # Tokenizer model
 tokenizer_file: speechbrain/asr-transformer-transformerlm-librispeech/tokenizer.ckpt
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 16
 lr: 10
