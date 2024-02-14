@@ -37,7 +37,7 @@ class FilterProperties:
     Example:
     --------
     .. code-block:: text
-    
+
         size = 3, stride = 2
 
              <-a->
