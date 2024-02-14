@@ -615,8 +615,10 @@ class StreamingASR(Pretrained):
 
         Returns
         -------
-        An iterator yielding transcribed chunks (strings). There is a yield for
-        every chunk, even if the transcribed string for that chunk is empty.
+        generator of str
+            An iterator yielding transcribed chunks (strings). There is a yield
+            for every chunk, even if the transcribed string for that chunk is an
+            empty string.
         """
 
         chunk_size = self.get_chunk_size_frames(dynchunktrain_config)
