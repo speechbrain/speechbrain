@@ -25,9 +25,6 @@ from speechbrain.utils.fetching import fetch
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 from speechbrain.utils.streaming import split_fixed_chunks
-from speechbrain.tokenizers.SentencePiece import (
-    spm_decode_preserve_leading_space,
-)
 
 
 class EncoderDecoderASR(Pretrained):
