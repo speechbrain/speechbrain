@@ -508,10 +508,7 @@ class TransformerASR(TransformerInterface):
         ...     normalize_before=True,
         ...     causal=False,
         ... )
-        >>> ctx = net.make_streaming_context(
-        ...     DynChunkTrainConfig(16, 24),
-        ...     encoder_kwargs={"mha_left_context_size": 24},
-        ... )
+        >>> ctx = net.make_streaming_context(DynChunkTrainConfig(16, 24))
         >>> src1 = torch.rand([8, 16, 64])
         >>> src2 = torch.rand([8, 16, 64])
         >>> out1 = net.encode_streaming(src1, ctx)
@@ -587,7 +584,7 @@ class TransformerASR(TransformerInterface):
         return TransformerASRStreamingContext(
             dynchunktrain_config=dynchunktrain_config,
             encoder_context=self.encoder.make_streaming_context(
-                **encoder_kwargs,
+                dynchunktrain_config, **encoder_kwargs,
             ),
         )
 
@@ -637,3 +634,6 @@ class EncoderWrapper(nn.Module):
         mutable encoder `context`"""
         x = self.transformer.encode_streaming(x, context)
         return x
+
+    def make_streaming_context(self, *args, **kwargs):
+        return self.transformer.make_streaming_context(*args, **kwargs)

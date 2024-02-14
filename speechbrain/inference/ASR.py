@@ -693,11 +693,8 @@ class StreamingASR(Pretrained):
         return ASRStreamingContext(
             config=dynchunktrain_config,
             fea_extractor_context=self.hparams.fea_streaming_extractor.make_streaming_context(),
-            encoder_context=self.hparams.Transformer.make_streaming_context(
-                dynchunktrain_config=dynchunktrain_config,
-                encoder_kwargs={
-                    "mha_left_context_size": dynchunktrain_config.left_context_size_frames()
-                },
+            encoder_context=self.mods.enc.make_streaming_context(
+                dynchunktrain_config
             ),
             decoder_hidden=None,
             tokenizer_context=None,
