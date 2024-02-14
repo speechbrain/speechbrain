@@ -21,12 +21,13 @@ class FilterProperties:
     over a contiguous chunk of frames.
 
     Example:
-    ```
-    size = 3, stride = 3
+    --------
+    .. code-block:: text
 
-    out  <-a-> <-b-> <-c->
-    in   1 2 3 4 5 6 7 8 9
-    ```
+        size = 3, stride = 3
+
+        out  <-a-> <-b-> <-c->
+        in   1 2 3 4 5 6 7 8 9
     """
 
     stride: int = 1
@@ -34,14 +35,15 @@ class FilterProperties:
     output frame to the next (regardless of window size or dilation).
 
     Example:
-    ```
-    size = 3, stride = 2
+    --------
+    .. code-block:: text
+    
+        size = 3, stride = 2
 
-         <-a->
-             <-b->   <-d->
-    out          <-c->
-    in   1 2 3 4 5 6 7 8 9
-    ```
+             <-a->
+                 <-b->   <-d->
+        out          <-c->
+        in   1 2 3 4 5 6 7 8 9
     """
 
     dilation: int = 1
@@ -53,18 +55,19 @@ class FilterProperties:
     A dilation rate of 1, the default, effectively performs no dilation.
 
     Example:
-    ```
-    size = 3, stride = 1, dilation = 3
+    --------
+    .. code-block:: text
 
-        <-------> dilation - 1 == 2 skips
-        a        a        a
-        |  b     |  b     |  b
-        |  |  c  |  |  c  |  |  c
-        |  |  |  d  |  |  d  |  |  d
-        |  |  |  |  e  |  |  e  |  |  ..
-    in  1  2  3  4  5  6  7  8  9  10 ..
-          <-> stride == 1
-    ```
+        size = 3, stride = 1, dilation = 3
+
+            <-------> dilation - 1 == 2 skips
+            a        a        a
+            |  b     |  b     |  b
+            |  |  c  |  |  c  |  |  c
+            |  |  |  d  |  |  d  |  |  d
+            |  |  |  |  e  |  |  e  |  |  ..
+        in  1  2  3  4  5  6  7  8  9  10 ..
+            <-> stride == 1
     """
 
     causal: bool = False
@@ -76,15 +79,16 @@ class FilterProperties:
     the input tensor.
 
     Example:
-    ```
-    size = 3, stride = 1, causal = true
-             <-e->
-           <-d->
-         <-c->
-         b->
-         a
-    in   1 2 3 4 5
-    ```
+    --------
+    .. code-block:: text
+
+        size = 3, stride = 1, causal = true
+                <-e->
+            <-d->
+            <-c->
+            b->
+            a
+        in   1 2 3 4 5
     """
 
     def __post_init__(self):
