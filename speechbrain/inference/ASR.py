@@ -700,7 +700,7 @@ class StreamingASR(Pretrained):
                 },
             ),
             decoder_hidden=None,
-            tokenizer_context=None
+            tokenizer_context=None,
         )
 
     def get_chunk_size_frames(

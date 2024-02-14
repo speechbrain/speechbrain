@@ -496,6 +496,7 @@ class SentencePieceDecoderStreamingContext:
     emitted_symbol_count: int = 0
     """The number of symbols that have been emitted for this transcription."""
 
+
 def spm_decode_preserve_leading_space(
     tokenizer: spm.SentencePieceProcessor,
     hyps: List[int],
@@ -525,7 +526,9 @@ def spm_decode_preserve_leading_space(
     text = proto.text
 
     if len(proto.pieces) >= 1:
-        if context.emitted_symbol_count > 0 and proto.pieces[0].piece.startswith(
+        if context.emitted_symbol_count > 0 and proto.pieces[
+            0
+        ].piece.startswith(
             "\u2581"
         ):  # magic spm space
             text = " " + text
