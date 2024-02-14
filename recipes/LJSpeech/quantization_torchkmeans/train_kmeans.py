@@ -23,17 +23,15 @@ class Quantization(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward pass."""
         batch = batch.to(self.device)
-        in_sig, in_lens = batch.in_sig
+        sig, lens = batch.sig
 
         # Augment if specified
         if stage == sb.Stage.TRAIN and self.hparams.augment:
-            in_sig, in_lens = self.hparams.augmentation(in_sig, in_lens)
+            sig, lens = self.hparams.augmentation(sig, lens)
 
         # Extract audio tokens
         with torch.no_grad():
-            feats = self.modules.discrete_model.forward_continuous(
-                in_sig, in_lens
-            )
+            feats = self.modules.discrete_model.forward_continuous(sig, lens)
 
         return feats
 
@@ -146,16 +144,16 @@ def dataio_prepare(
 
     # Define audio pipeline
     takes = ["wav"]
-    provides = ["in_sig"]
+    provides = ["sig"]
 
     def audio_pipeline(wav):
         original_sample_rate = sb.dataio.dataio.read_audio_info(wav).sample_rate
         sig = sb.dataio.dataio.read_audio(wav)
 
-        in_sig = torchaudio.functional.resample(
+        sig = torchaudio.functional.resample(
             sig, original_sample_rate, sample_rate,
         )
-        yield in_sig
+        yield sig
 
     sb.dataio.dataset.add_dynamic_item(
         [train_data, valid_data, test_data], audio_pipeline, takes, provides
