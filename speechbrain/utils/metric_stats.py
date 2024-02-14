@@ -11,6 +11,7 @@ Authors:
 import torch
 import numpy as np
 import csv
+import logging
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
@@ -20,6 +21,8 @@ from speechbrain.dataio.dataio import (
     extract_concepts_values,
 )
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
+
+logger = logging.getLogger(__name__)
 
 
 class MetricStats:
@@ -1161,7 +1164,7 @@ class LinearRegressionStats(MetricStats):
      'slope': 0.9066666666666672, 'intercept': 0.0533333333333296,
      'pearson_r': 0.9814954576223637}
     >>> reg_stats = LinearRegressionStats(grouped=True)
-    ...    reg_stats.append(
+    >>> reg_stats.append(
     ...    ids=["ID1", "ID2", "ID3", "ID4"],
     ...    predict=torch.tensor([1.25, 2.75]),
     ...    target=torch.tensor([1.00, 3.00]),
@@ -1236,6 +1239,24 @@ class LinearRegressionStats(MetricStats):
         targets = np.array([grouped_targets[group].mean() for group in groups])
         return scores, targets
 
+    def get_regression_data(self):
+        """Prepares data for regression. If grouping is disabled, collected
+        scores and targets are converted to arrays. If it is enabled, grouped
+        data will be aggregated first
+
+        Returns
+        -------
+        scores : numpy.array
+            Estimated scores / metric values
+        targets : numpy.array
+            Ground truths"""
+        if self.grouped:
+            scores, targets = self.group_data()
+        else:
+            scores = np.array(self.scores)
+            targets = np.array(self.targets)
+        return scores, targets
+
     def summarize(self, field=None):
         """Summarizes linear regression statistics
 
@@ -1248,11 +1269,7 @@ class LinearRegressionStats(MetricStats):
         - intercept - the intercept of the regression line
         - pearson_r - the Pearson correlation coefficient
         """
-        if self.grouped:
-            scores, targets = self.group_data()
-        else:
-            scores = np.array(self.scores)
-            targets = np.array(self.targets)
+        scores, targets = self.get_regression_data()
         has_data = len(scores) > 0
         if has_data:
             x = np.stack([scores, np.ones_like(scores)], axis=1)
@@ -1295,7 +1312,11 @@ class LinearRegressionStats(MetricStats):
         matplotlib.use("Agg")
         if self.summary is None:
             self.summarize()
-        h = sns.jointplot(x=self.targets, y=self.scores, kind="reg")
+        scores, targets = self.get_regression_data()
+        if len(scores) == 0:
+            logger.warning("Cannot produce a plot - no data found")
+            return None
+        h = sns.jointplot(x=targets, y=scores, kind="reg")
 
         r = self.summary["pearson_r"]
         h.figure.suptitle(f"r = {r:.3f}", x=self.plot_pad_left)

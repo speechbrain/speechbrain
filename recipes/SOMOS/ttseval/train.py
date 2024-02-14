@@ -111,7 +111,7 @@ class TTSEvalBrain(sb.Brain):
         )
         if self.reg_metric is not None:
             self.reg_metric.append(batch.id, predictions, scores)
-            self.reg_metric.append(
+            self.reg_system_metric.append(
                 batch.id, predictions, scores, groups=batch.system
             )
 
