@@ -19,6 +19,9 @@ num_workers: 4
 use_transcripts: False
 src_sample_rate: 24000
 tgt_sample_rate: 16000
+contrastive: False
+contrastive_loss_weight: 0.8
+contrastive_min_delta: 0.5
 
 lr: 0.00001
 
@@ -62,9 +65,9 @@ test_annotation: !ref <data_folder>/test.csv
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <train_log>
 
-l1_epochs: 1
-l1_loss: !name:speechbrain.nnet.losses.l1_loss
-l2_loss: !name:speechbrain.nnet.losses.mse_loss
+compute_cost: !name:speechbrain.nnet.losses.l1_loss  
+compute_cost_contrastive: !name:speechbrain.nnet.losses.mse_loss
+
 
 wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
   source: !ref <wav2vec2_source>
