@@ -509,7 +509,8 @@ class ASRStreamingContext:
     """Opaque hidden state of the decoder. Initially `None`."""
 
     tokenizer_context: Optional[List[Any]]
-    """Opaque streaming context for the tokenizer."""
+    """Opaque streaming context for the tokenizer. Initially `None`. Initialized
+    to a list of tokenizer contexts once batch size can be determined."""
 
 
 class StreamingASR(Pretrained):
