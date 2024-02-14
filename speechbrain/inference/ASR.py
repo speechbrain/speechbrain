@@ -25,6 +25,9 @@ from speechbrain.utils.fetching import fetch
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 from speechbrain.utils.streaming import split_fixed_chunks
+from speechbrain.tokenizers.SentencePiece import (
+    spm_decode_preserve_leading_space,
+)
 
 
 class EncoderDecoderASR(Pretrained):
@@ -508,6 +511,9 @@ class ASRStreamingContext:
     decoder_hidden: Optional[Any]
     """Opaque hidden state of the decoder. Initially `None`."""
 
+    tokenizer_context: Optional[List[Any]]
+    """Opaque streaming context for the tokenizer."""
+
 
 class StreamingASR(Pretrained):
     """A ready-to-use, streaming-capable ASR model.
@@ -629,14 +635,9 @@ class StreamingASR(Pretrained):
         rel_length = torch.tensor([1.0])
         context = self.make_streaming_context(dynchunktrain_config)
 
-        for i, chunk in enumerate(chunks):
+        for chunk in chunks:
             predicted_words = self.transcribe_chunk(context, chunk, rel_length)
-            pred = predicted_words[0]
-            if i == 0:
-                # truncate leading space
-                yield pred[1:]
-            else:
-                yield pred
+            yield predicted_words[0]
 
     def transcribe_file(
         self,
@@ -695,35 +696,12 @@ class StreamingASR(Pretrained):
             encoder_context=self.hparams.Transformer.make_streaming_context(
                 dynchunktrain_config=dynchunktrain_config,
                 encoder_kwargs={
-                    "mha_left_context_size": dynchunktrain_config.left_context_size
-                    * dynchunktrain_config.chunk_size
+                    "mha_left_context_size": dynchunktrain_config.left_context_size_frames()
                 },
             ),
             decoder_hidden=None,
+            tokenizer_context=None
         )
-
-    def _decode_preserve_leading_space(self, hyps: List[List[int]]):
-        """Assuming the tokenizer is sentencepiece, decodes the input hypothesis
-        but preserves initial spaces as we likely want to keep them in a
-        streaming setting.
-
-        Arguments
-        ---------
-        hyps: list of list of output token hypotheses
-            List of length `batch_size`, each holding a list of tokens of any
-            length `>=0`."""
-
-        # TODO: move this out somewhere?
-
-        protos = self.hparams.tokenizer.decode(hyps, out_type="immutable_proto")
-        texts = [proto.text for proto in protos]
-
-        for i, batch in enumerate(protos):
-            if len(batch.pieces) >= 1:
-                if batch.pieces[0].piece[0] == "\u2581":
-                    texts[i] = " " + texts[i]
-
-        return texts
 
     def get_chunk_size_frames(
         self, dynchunktrain_config: DynChunkTrainConfig
@@ -826,7 +804,19 @@ class StreamingASR(Pretrained):
         )
         context.decoder_hidden = h
 
-        words = self._decode_preserve_leading_space(tokens)
+        # initialize token context for real now that we know the batch size
+        if context.tokenizer_context is None:
+            context.tokenizer_context = [
+                self.hparams.make_tokenizer_streaming_context()
+                for _ in range(len(tokens))
+            ]
+
+        words = [
+            spm_decode_preserve_leading_space(
+                self.hparams.tokenizer, cur_tokens, context.tokenizer_context[i]
+            )
+            for i, cur_tokens in enumerate(tokens)
+        ]
 
         return words, tokens
 

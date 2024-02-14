@@ -9,6 +9,8 @@ import torch
 import logging
 import csv
 import json
+from dataclasses import dataclass
+from typing import List
 import sentencepiece as spm
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
@@ -484,3 +486,50 @@ def get_spm_tokens(model_path):
     model.load(model_path)
     mapping = [model.sp.id_to_piece(i) for i in range(model.sp.vocab_size())]
     return mapping
+
+
+@dataclass
+class SentencePieceDecoderStreamingContext:
+    """Mutable streaming context for a single SentencePiece streaming session.
+    """
+
+    emitted_symbol_count: int = 0
+    """The number of symbols that have been emitted for this transcription."""
+
+def spm_decode_preserve_leading_space(
+    tokenizer: spm.SentencePieceProcessor,
+    hyps: List[int],
+    context: SentencePieceDecoderStreamingContext,
+) -> List[str]:
+    """Assuming the tokenizer is sentencepiece, decodes the input hypothesis
+    but avoids incorrectly stripping leading spaces when streaming.
+    Operates on a single hypothesis, not a batch of hypotheses.
+
+    Arguments
+    ---------
+    tokenizer : sentencepiece.SentencePieceProcessor
+        The SentencePiece processor to use for decoding.
+    hyps : list of output token hypotheses
+        List of tokens to decode of any length `>=0`.
+    context : SentencePieceDecoderStreamingContext
+        Mutable streaming context for the sentencepiece decoder, which should be
+        reused across calls for the same decoding stream.
+
+    Returns
+    -------
+    str
+        Decoded text. Leading spaces are preserved, except at the start of a
+        transcription."""
+
+    proto = tokenizer.decode([hyps], out_type="immutable_proto")[0]
+    text = proto.text
+
+    if len(proto.pieces) >= 1:
+        if context.emitted_symbol_count > 0 and proto.pieces[0].piece.startswith(
+            "\u2581"
+        ):  # magic spm space
+            text = " " + text
+
+        context.emitted_symbol_count += len(proto.pieces)
+
+    return text
