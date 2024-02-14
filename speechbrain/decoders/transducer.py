@@ -126,6 +126,10 @@ class TransducerBeamSearcher(torch.nn.Module):
         tn_output : torch.tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
+        *args
+            Positional arguments to forward to the searcher.
+        **kwargs
+            Keyword arguments to forward to the searcher.
 
         Returns
         -------
