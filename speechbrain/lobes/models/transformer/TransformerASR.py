@@ -508,7 +508,7 @@ class TransformerASR(TransformerInterface):
         ...     normalize_before=True,
         ...     causal=False,
         ... )
-        >>> ctx = net.make_streaming_context(DynChunkTrainConfig(16, 24))
+        >>> ctx = net.make_streaming_context(DynChunkTrainConfig(16, 1))
         >>> src1 = torch.rand([8, 16, 64])
         >>> src2 = torch.rand([8, 16, 64])
         >>> out1 = net.encode_streaming(src1, ctx)
@@ -520,7 +520,7 @@ class TransformerASR(TransformerInterface):
         >>> out2.shape
         torch.Size([8, 16, 64])
         >>> ctx.encoder_context.layers[0].mha_left_context.shape
-        torch.Size([8, 24, 64])
+        torch.Size([8, 16, 64])
         >>> combined_out = torch.concat((out1, out2), dim=1)
         >>> combined_out.shape
         torch.Size([8, 32, 64])
