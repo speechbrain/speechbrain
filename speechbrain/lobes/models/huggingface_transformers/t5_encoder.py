@@ -18,7 +18,7 @@ import os
 import torch
 from torch import nn
 
-from speechbrain.pretrained.fetching import fetch
+from speechbrain.utils.fetching import fetch
 
 
 # We check if transformers is installed.
