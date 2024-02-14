@@ -809,7 +809,7 @@ class StreamingASR(Pretrained):
             ]
 
         words = [
-            spm_decode_preserve_leading_space(
+            self.hparams.tokenizer_decode_streaming(
                 self.hparams.tokenizer, cur_tokens, context.tokenizer_context[i]
             )
             for i, cur_tokens in enumerate(tokens)
