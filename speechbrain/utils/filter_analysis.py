@@ -83,11 +83,11 @@ class FilterProperties:
     .. code-block:: text
 
         size = 3, stride = 1, causal = true
-                <-e->
-            <-d->
-            <-c->
-            b->
-            a
+                 <-e->
+               <-d->
+             <-c->
+             b->
+             a
         in   1 2 3 4 5
     """
 
