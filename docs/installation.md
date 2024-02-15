@@ -1,11 +1,11 @@
 
 # Quick installation
 
-SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time. SpeechBrain can be installed via PyPI to rapidly use the standard library. Moreover, a local installation can be used to run experiments and modify/customize the toolkit.
+SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time. SpeechBrain can be installed via PyPI to rapidly use the standard library. Moreover, a local installation can be used to run experiments and modify/customize the toolkit and its recipes.
 
-SpeechBrain supports both CPU and GPU computations. For most recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
+SpeechBrain supports both CPU and GPU computation. For most recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
 
-We support pytorch >= 1.7 (https://pytorch.org/) and Python >= 3.7.
+We support [PyTorch](https://pytorch.org/get-started/locally/) 1.9+ and Python 3.9-3.11 (newer Python versions may work if supported by PyTorch).
 
 ## Install via PyPI
 
