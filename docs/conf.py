@@ -135,12 +135,15 @@ html_theme = "sphinx_rtd_theme"
 # See https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
 # for rtd theme options
 html_theme_options = {
+    "logo_only": True,
     # Toc options
     "collapse_navigation": False,
     "sticky_navigation": True,
     "navigation_depth": 4,
     "includehidden": True,
 }
+
+html_logo = "images/speechbrain-logo.svg"
 
 
 # Add any paths that contain custom static files (such as style sheets) here,
