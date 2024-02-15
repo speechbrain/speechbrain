@@ -45,7 +45,7 @@ Referencing SpeechBrain
 
 .. toctree::
    :maxdepth: 1
-   :caption: Getting started:
+   :caption: Getting started
 
    installation.md
    experiment.md
@@ -55,7 +55,7 @@ Referencing SpeechBrain
 
 .. toctree::
    :maxdepth: 1
-   :caption: Tips & tricks:
+   :caption: Tips & tricks
 
    audioloading.rst
 
