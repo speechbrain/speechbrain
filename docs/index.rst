@@ -11,7 +11,7 @@ SpeechBrain is an open-source and all-in-one speech toolkit based on PyTorch.
 This documentation is intended to give SpeechBrain users all the API
 information necessary to develop their projects. For tutorials,
 please refer to the official `Github <https://github.com/speechbrain/speechbrain>`_
-or the official `Website <https://speechbrain.github.io>`
+or the official `Website <https://speechbrain.github.io>`_.
 
 
 License
