@@ -4,8 +4,13 @@
    contain the root `toctree` directive.
 
 .. image:: images/speechbrain-logo.svg
+  :alt: SpeechBrain
   :width: 400
   :align: center
+
+==========
+User guide
+==========
 
 SpeechBrain is an open-source and all-in-one speech toolkit based on PyTorch.
 This documentation is intended to give SpeechBrain users all the API
