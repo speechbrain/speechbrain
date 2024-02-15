@@ -219,7 +219,7 @@ class T5DecoderModelForDialogueUnderstanding(nn.Module):
         """
 
         output = self.model.decoder(
-            input_ids=memory,
+            input_ids=memory.int(),
             encoder_hidden_states=enc_states,
             output_attentions=True,
         )
