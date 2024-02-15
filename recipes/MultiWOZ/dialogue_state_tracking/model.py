@@ -94,25 +94,11 @@ class DialogueUnderstanding(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             with torch.no_grad():
-                hyps, _ = self.hparams.valid_greedy_search(
+                hyps, _, _, _ = self.hparams.valid_greedy_search(
                     encoder_out.detach(), wavs_lens
                 )
 
         if stage == sb.Stage.VALID:
-            # FIXME: The logprobs used here should be the ones corresponding to the decoding loop of the searcher.
-            loss = self.compute_objectives(
-                (logprobs, hyps, wavs_lens), batch, stage
-            )
-            # Logging the Valid Loss
-            self.hparams.train_logger.writer.add_scalar(
-                tag="Valid Loss",
-                scalar_value=loss.detach().cpu(),
-                global_step=self.optimizer_step,
-            )
-            self.hparams.text_logger.log_stats(
-                stats_meta={"Step": self.optimizer_step},
-                train_stats={"Valid Loss: ": loss.detach().cpu()},
-            )
             target_tokens, target_lens = batch.outputs_tokens_nobos
             if not os.path.isdir(self.hparams.pred_folder):
                 os.mkdir(self.hparams.pred_folder)
