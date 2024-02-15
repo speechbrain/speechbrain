@@ -134,7 +134,7 @@ class KMeans(nn.Module):
         self,
         x: "Tensor",
         labels: "Optional[Tensor]" = None,
-        return_drift: "bool" = False,
+        return_drift: "bool" = True,
     ) -> "Optional[Tensor]":
         """"Lloyd's K-means update.
 
@@ -174,7 +174,7 @@ class KMeans(nn.Module):
             drift = _compute_drift(self.centroids, old_centroids, p=self.p_norm)
             return drift
 
-    def compute_inertia(
+    def evaluate(
         self, x: "Tensor", labels: "Optional[Tensor]" = None
     ) -> "Tensor":
         """Compute inertia for the current batch."""
@@ -226,10 +226,11 @@ class KMeans(nn.Module):
         )
 
 
-class MultiKMeans(nn.ModuleList):
+class MultiKMeans(nn.Module):
     """K-means clustering with multiple instances, each one with its own args and kwargs."""
 
     def __init__(self, *args, **kwargs) -> "None":
+        super().__init__()
         max_length = max(
             len(v)
             for v in args + tuple(kwargs.values())
@@ -254,11 +255,73 @@ class MultiKMeans(nn.ModuleList):
             all_kwargs = [{} for _ in range(len(all_args))]
         assert len(all_args) == len(all_kwargs)
 
-        modules = [
+        kmeanss = [
             KMeans(*args, **kwargs)
             for args, kwargs in zip(all_args, all_kwargs)
         ]
-        super().__init__(modules)
+        self.kmeanss = nn.ModuleList(kmeanss)
+
+    def reset_parameters(self, x: "Tensor") -> "None":
+        for i, kmeans in enumerate(self.kmeanss):
+            kmeans.reset_parameters(x[..., i])
+
+    def forward(
+        self, x: "Tensor", return_centroids: "bool" = True
+    ) -> "Tuple[Tensor, Optional[Tensor]]":
+        assert x.shape[-1] == len(self.kmeanss)
+
+        if len(self.kmeanss) == 1:
+            # Fast path
+            labels, assigned_centroids = self.kmeanss[0](
+                x[..., 0], return_centroids
+            )
+            labels = labels[..., None]
+            if return_centroids:
+                assigned_centroids = assigned_centroids[..., None]
+                return labels, assigned_centroids
+            return labels
+
+        labels_list, assigned_centroids_list = [], []
+        for i, kmeans in enumerate(self.kmeanss):
+            labels, assigned_centroids = kmeans(x[..., i], return_centroids)
+            labels_list.append(labels)
+            assigned_centroids_list.append(assigned_centroids)
+        labels = torch.stack(labels_list).movedim(0, -1)
+        if return_centroids:
+            assigned_centroids = torch.stack(assigned_centroids_list).movedim(
+                0, -1
+            )
+            return labels, assigned_centroids
+        return labels
+
+    def step(
+        self,
+        x: "Tensor",
+        labels: "Optional[Tensor]" = None,
+        return_drift: "bool" = True,
+    ) -> "Optional[Tensor]":
+        total_drift = 0.0
+        for i, kmeans in enumerate(self.kmeanss):
+            drift = kmeans.step(
+                x[..., i],
+                labels[..., i] if labels is not None else None,
+                return_drift,
+            )
+            if return_drift:
+                total_drift += drift
+        if return_drift:
+            return total_drift / len(self.kmeanss)
+
+    def evaluate(
+        self, x: "Tensor", labels: "Optional[Tensor]" = None
+    ) -> "Tensor":
+        total_inertia = 0.0
+        for i, kmeans in enumerate(self.kmeanss):
+            inertia = kmeans.evaluate(
+                x[..., i], labels[..., i] if labels is not None else None
+            )
+            total_inertia += inertia
+        return total_inertia / len(self.kmeanss)
 
 
 @torch.jit.script
@@ -433,7 +496,7 @@ if __name__ == "__main__":
         -3.5,
         1.8,
         "train time: %.2fs\ninertia: %f"
-        % (t_batch, k_means_torch.compute_inertia(X_torch).sum().item()),
+        % (t_batch, k_means_torch.evaluate(X_torch).sum().item()),
     )
 
     # Scikit-learn

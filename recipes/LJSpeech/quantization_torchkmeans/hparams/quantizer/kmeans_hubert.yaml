@@ -1,9 +1,9 @@
 # ############################################################################
-# Model: HuBERT-based K-means clustering
+# Model: HuBERT-based K-means quantizer
 # Authors: Luca Della Libera 2024
 # ############################################################################
 
-experiment_name: kmeans_hubert
+experiment_name: quantizer/kmeans_hubert
 
 # Seed needs to be set at top of YAML
 seed: 0
@@ -49,16 +49,13 @@ augment_prob: 0.75
 hubert_variant: facebook/hubert-base-ls960
 sample_rate: 16000  # NOTE: must match HuBERT's sample rate
 layer_ids: [6, 7]  # NOTE: must be smaller than HuBERT's number of layers
-hidden_size: [768, 768]  # NOTE: must match HuBERT's hidden size for the specified layer IDs
+hidden_size: 768  # NOTE: must match HuBERT's hidden size for the specified layer IDs
 
 # K-means parameters
-num_clusters: [300, 300]
+num_clusters: [300, 300]  # One for each codebook
 init: random
 normalize: null
 p_norm: 2.0
-
-# Search parameters
-valid_search_freq: 2
 
 # Augmentation
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq
@@ -85,27 +82,29 @@ augmentation: !new:speechbrain.augment.augmenter.Augmenter
     augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
 
 # Modules
-hubert: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
+encoder: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
     source: !ref <hubert_variant>
     save_path: !ref <save_folder>
     freeze: True
     freeze_feature_extractor: True
     output_all_hiddens: True
 
-kmeans: !new:models.kmeans.MultiKMeans
+quantizer: !new:models.kmeans.MultiKMeans
     num_features: !ref <hidden_size>
     num_clusters: !ref <num_clusters>
     init: !ref <init>
     normalize: !ref <normalize>
     p_norm: !ref <p_norm>
 
-discrete_model: !new:models.discrete_model.DiscreteModel
-    continuous_model: !ref <hubert>
+codec: !new:models.codec.Codec
+    encoder: !ref <encoder>
+    quantizer: !ref <quantizer>
+    dequantizer: null
+    decoder: null
     layer_ids: !ref <layer_ids>
-    quantizers: !ref <kmeans>
 
 modules:
-    discrete_model: !ref <discrete_model>
+    codec: !ref <codec>
 
 # Counters, checkpointers, loggers, etc.
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
@@ -114,7 +113,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        discrete_hubert: !ref <discrete_model>
+        quantizer: !ref <quantizer>
         counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

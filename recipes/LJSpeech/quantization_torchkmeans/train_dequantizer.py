@@ -1,9 +1,9 @@
 #!/usr/bin/env/python
 
-"""Recipe for training discrete audio representations via K-means clustering.
+"""Recipe for training a dequantizer from semantic discrete audio representations to their continuous counterpart.
 
 To run this recipe:
-> python train_kmeans.py hparams/kmeans_<variant>.yaml
+> python train_dequantizer.py hparams/dequantizer/<quantizer>_<encoder>.yaml
 
 Authors
  * Luca Della Libera 2024
@@ -19,7 +19,7 @@ from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.utils.distributed import if_main_process, run_on_main
 
 
-class Quantization(sb.Brain):
+class Dequantization(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward pass."""
         batch = batch.to(self.device)
@@ -31,34 +31,21 @@ class Quantization(sb.Brain):
 
         # Extract audio tokens
         with torch.no_grad():
-            feats = self.modules.discrete_model.forward_continuous(sig, lens)
+            feats = self.modules.codec.encode(sig, lens)
+            _, discrete_feats = self.modules.codec.quantize(feats)
 
-        return feats
+        # Forward decoder
+        rec = self.modules.codec.dequantize(discrete_feats, lens)
+
+        return rec, feats
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the objectives."""
-        feats = predictions
+        rec, feats = predictions
+        _, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
-            # Unsupervised loss + step
-            # Training loss is the drift between current centroids and old centroids
-            # If close to 0, it means that the training has converged
-            loss = 0.0
-            assert len(feats) == len(self.modules.discrete_model.quantizers)
-            for i, kmeans in enumerate(self.modules.discrete_model.quantizers):
-                drift = kmeans.step(feats[i], return_drift=True)
-                loss += drift / len(self.modules.discrete_model.quantizers)
-            # Workaround to keep consistency with standard supervised training
-            loss.requires_grad_()
-        else:
-            # Unsupervised loss
-            # Validation/test loss is the inertia
-            # The lower the inertia, the better the clustering
-            loss = 0.0
-            assert len(feats) == len(self.modules.discrete_model.quantizers)
-            for i, kmeans in enumerate(self.modules.discrete_model.quantizers):
-                inertia = kmeans.compute_inertia(feats[i]).mean()
-                loss += inertia / len(self.modules.discrete_model.quantizers)
+        # Reconstruction loss
+        loss = self.hparams.rec_loss(rec, feats, lens)
 
         return loss
 
@@ -73,19 +60,20 @@ class Quantization(sb.Brain):
 
         # Perform end-of-iteration operations, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
+            _, lr = self.hparams.scheduler(stage_stats["loss"])
+            sb.nnet.schedulers.update_learning_rate(self.optimizer, lr)
             steps = self.optimizer_step
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "steps": steps},
+                stats_meta={"epoch": epoch, "lr": lr, "steps": steps},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
-            if current_epoch % self.hparams.valid_search_freq == 0:
-                if if_main_process():
-                    self.checkpointer.save_and_keep_only(
-                        meta={"loss": stage_stats["loss"]},
-                        min_keys=["loss"],
-                        num_to_keep=self.hparams.keep_checkpoints,
-                    )
+            if if_main_process():
+                self.checkpointer.save_and_keep_only(
+                    meta={"loss": stage_stats["loss"]},
+                    min_keys=["loss"],
+                    num_to_keep=self.hparams.keep_checkpoints,
+                )
 
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -199,9 +187,14 @@ if __name__ == "__main__":
         debug=run_opts.get("debug", False), **hparams
     )
 
+    # Pretrain the specified modules
+    run_on_main(hparams["pretrainer"].collect_files)
+    run_on_main(hparams["pretrainer"].load_collected)
+
     # Trainer initialization
-    brain = Quantization(
+    brain = Dequantization(
         modules=hparams["modules"],
+        opt_class=hparams["opt_class"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
