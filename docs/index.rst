@@ -22,7 +22,7 @@ or the official `Website <https://speechbrain.github.io>`_.
 License
 -------
 
-SpeechBrain is released under the Apache license, version 2.0. The Apache license is a popular BSD-like license.
+SpeechBrain is released under the `Apache License, version 2.0 <https://github.com/speechbrain/speechbrain/blob/develop/LICENSE>`_. The Apache license is a popular BSD-like license.
 SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances you may have to distribute a license document).
 Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.
 
