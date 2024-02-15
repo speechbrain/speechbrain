@@ -61,7 +61,7 @@ tests/.run-doctests.sh
 SpeechBrain supports Linux-based distributions and macOS. A solution for windows users can be found
 in this [GitHub issue](https://github.com/speechbrain/speechbrain/issues/512).
 
-## Anaconda and venv
+## Setting up a Conda environment/virtualenv
 
 A good practice is to have different python environments for your different tools
 and toolkits, so they do not interfere with each other. This can be done either with
@@ -69,12 +69,12 @@ and toolkits, so they do not interfere with each other. This can be done either 
 
 Anaconda can be installed by simply following [this tutorial](https://docs.anaconda.com/free/anaconda/install/linux/). In practice, it is a matter of downloading the installation script and executing it.
 
-## Anaconda setup
+### Conda
 
-Once Anaconda is installed, you can create a new environment with:
+Once Conda is installed, you can create a new environment with:
 
 ```
-conda create --name speechbrain python=3.9
+conda create --name speechbrain python=3.11
 ```
 
 Then, activate it with:
