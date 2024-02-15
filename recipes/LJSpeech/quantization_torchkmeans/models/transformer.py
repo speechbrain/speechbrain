@@ -29,6 +29,7 @@ class TransformerDecoder(nn.Module):
     --------
     >>> from speechbrain.lobes.models.convolution import ConvolutionFrontEnd
     >>> from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
+    >>> from torch import nn
     >>>
     >>> input_size = 256
     >>> d_model = 128
@@ -41,7 +42,7 @@ class TransformerDecoder(nn.Module):
     ...     num_decoder_layers=0,
     ...     d_model=d_model,
     ... )
-    >>> head = torch.nn.Linear(d_model, input_size)
+    >>> head = nn.Linear(d_model, input_size)
     >>>
     >>> decoder = TransformerDecoder(frontend=frontend, backbone=backbone, head=head)
     >>>
@@ -90,7 +91,7 @@ if __name__ == "__main__":
         num_decoder_layers=0,
         d_model=d_model,
     )
-    head = torch.nn.Linear(d_model, input_size)
+    head = nn.Linear(d_model, input_size)
 
     decoder = TransformerDecoder(
         frontend=frontend, backbone=backbone, head=head
