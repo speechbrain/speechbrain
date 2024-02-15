@@ -86,6 +86,9 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_apidoc_templates"]
 
+# Make backticks behave as inline code blocks rather than italics
+default_role = "code"
+
 # -- Better apidoc -----------------------------------------------------------
 
 
