@@ -160,10 +160,12 @@ class DiscreteHuBERT(HuBERT):
                 int(file.name.split("/")[-1].split("_")[-1].split(".")[0][1:])
             )
             kmeans_models.append(joblib.load(file))
+        assert len(layer_ids) > 0, f"There is no trained k-means model avaiable for {repo_id}/{file_pattern}"
         layer_ids, kmeans_models = zip(*sorted(zip(layer_ids, kmeans_models)))
+       
         return kmeans_models, layer_ids
 
-    def forward(self, wav, wav_lens=None, ssl_layer_num=[7], deduplicte=False):
+    def forward(self, wav, wav_lens=None, ssl_layer_num=[7]):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -174,8 +176,6 @@ class DiscreteHuBERT(HuBERT):
             The relative length of the wav given in SpeechBrain format.
         ssl_layer_num: List[int] (default: [7]):
             determine which layers of SSL should be used to extract information.
-        deduplicte: False (default: False)
-            whether to remove duplicate tokens or not.
         Returns:
         ---------
         tokens : torch.Tensor
@@ -193,16 +193,8 @@ class DiscreteHuBERT(HuBERT):
         layers = []
         for layer in ssl_layer_num:
             if layer not in self.ssl_layer_ids:
-                logger.warn(
-                    f"Layer {layer} is not among trained layers for kmenas: {self.ssl_layer_ids}. We will igoner this layer when computing the tokens."
-                )
-            else:
-                layers.append(layer)
-        if len(layers) == 0:
-            raise ValueError(
-                f"None of the passed layer numbers are among the suppoorted ones: {self.ssl_layer_ids} "
-            )
-
+                raise ValueError(f"Layer {layer} is not among trained layers for k-means. Supported layers are: {self.ssl_layer_ids}.")
+        
         with torch.no_grad():
             feats = self.extract_features(wav, wav_lens)
             for layer_num, model, vocabulary in zip(
@@ -213,70 +205,48 @@ class DiscreteHuBERT(HuBERT):
                 tokens = model.predict(
                     feats[layer_num].flatten(end_dim=-2).cpu()
                 )
-                tokens = tokens.reshape(bs, -1)
+                embs = vocabulary[tokens]
+                embeddings.append( torch.tensor(embs.reshape(wav.shape[0], -1, embs.shape[-1]), dtype=torch.float,device=wav.device))
+                token_ids.append(torch.tensor(tokens.reshape(wav.shape[0], -1)+ self.num_clusters * layer_num, dtype=torch.long,device=wav.device))
 
-                if deduplicte:
-                    # assign unique token-ids for each quantizer (first later start from 0-num-cluster, second layer start from 1*num-cluster, .. 2*num-cluster,.... )
-                    tokens = tokens.reshape(bs, -1)
-                    unique_token_ids = [
-                        row[np.diff(row, prepend=np.nan).astype(bool)]
-                        for row in tokens
-                    ]
-                    layer_token_ids = [
-                        torch.tensor(
-                            row + self.num_clusters * layer_num,
-                            dtype=torch.long,
-                            device=wav.device,
-                        )
-                        for row in unique_token_ids
-                    ]
-                    token_ids.extend(layer_token_ids)
-                    embs = [
-                        torch.tensor(
-                            vocabulary[row],
-                            dtype=torch.float,
-                            device=wav.device,
-                        )
-                        for row in unique_token_ids
-                    ]
-                    embeddings.extend(embs)
-                else:
-                    layer_token_ids = [
-                        torch.tensor(
-                            row + self.num_clusters * layer_num,
-                            dtype=torch.long,
-                            device=wav.device,
-                        )
-                        for row in tokens
-                    ]
-                    token_ids.extend(layer_token_ids)
-                    embs = [
-                        torch.tensor(
-                            vocabulary[row],
-                            dtype=torch.float,
-                            device=wav.device,
-                        )
-                        for row in tokens
-                    ]
-                    embeddings.extend(embs)
 
-        return (
-            torch.stack(
-                torch.split(
-                    torch.nn.utils.rnn.pad_sequence(
-                        token_ids, batch_first=True
-                    ),
-                    bs,
-                ),
-                dim=2,
-            ),
-            torch.stack(
-                torch.split(
-                    torch.nn.utils.rnn.pad_sequence(
-                        embeddings, batch_first=True
-                    ),
-                    bs,
-                ),
-                dim=2,
-            ),
-        )
+        return torch.stack(token_ids,2), torch.stack(embeddings,2)
+
+        # return (
+        #     torch.stack(
+        #         torch.split(
+        #             torch.nn.utils.rnn.pad_sequence(
+        #                 token_ids, batch_first=True
+        #             ),
+        #             bs,
+        #         ),
+        #         dim=2,
+        #     ),
+        #     torch.stack(
+        #         torch.split(
+        #             torch.nn.utils.rnn.pad_sequence(
+        #                 embeddings, batch_first=True
+        #             ),
+        #             bs,
+        #         ),
+        #         dim=2,
+        #     ),
+        # )
+    
+
+# import torch
+# inputs = torch.rand([3, 2000])
+# model_hub = "facebook/hubert-base-ls960"
+# save_path = "savedir"
+# ssl_layer_num = [5,7]
+# kmeans_repo_id = "speechbrain/SSL_Quantization"
+# kmeans_dataset = "LibriSpeech-100-360-500"
+# kmeans_cache_dir="savedir"
+# num_clusters = 128
+
+# model = DiscreteHuBERT(model_hub, save_path,freeze = True,kmeans_repo_id=kmeans_repo_id, kmeans_dataset=kmeans_dataset, kmeans_cache_dir=kmeans_cache_dir,num_clusters=num_clusters)
+# tokens, embs = model(inputs,ssl_layer_num=ssl_layer_num)
+# print(tokens)
+# print(embs.shape)
+# print(tokens.shape)
+

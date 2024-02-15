@@ -1,0 +1,74 @@
+################################
+# Recipe for Training BPE tokenizer on discrete SSL tokens
+# Author: Pooneh Mousavi (2024)
+################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/LibriSpeech/subwording/discrete-hubert/<seed>
+save_folder: !ref <output_folder>/save
+
+
+# Data files
+data_folder: data/LibriSpeech # e,g./path/to/LibriSpeech
+train_splits: ["train-clean-100"]
+dev_splits: []
+test_splits: []
+skip_prep: False
+ckpt_interval_minutes: 25 # save checkpoint every N min
+train_csv: !ref <output_folder>/train.csv
+sample_rate: 16000
+tokenized_train: !ref <output_folder>/tokenized_train.csv
+vocab_size: 128
+
+ssl_hub: facebook/hubert-base-ls960
+ssl_folder: !ref <save_folder>/hubert_checkpoint
+kmeans_repo_id: speechbrain/SSL_Quantization
+kmeans_cache_dir: !ref <save_folder>/kmeans_checkpoint
+kmeans_dataset: LibriSpeech-100-360-500
+num_clusters: 128
+freeze_ssl: True
+freeze_feature_extractor: True
+
+sorting: ascending
+batch_size: 8
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+
+discrete_ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_hubert.DiscreteHuBERT
+   source: !ref <ssl_hub>
+   output_norm: False
+   freeze: !ref <freeze_ssl>
+   freeze_feature_extractor: !ref <freeze_feature_extractor>
+   output_all_hiddens: True
+   save_path: !ref <ssl_folder>
+   kmeans_dataset: !ref <kmeans_dataset>
+   kmeans_repo_id: !ref <kmeans_repo_id>
+   num_clusters: !ref <num_clusters>
+   kmeans_cache_dir: !ref <kmeans_cache_dir>
+
+discrete_tokenizer: !new:speechbrain.tokenizers.discrete_SSL_tokenizer.DiscreteSSLTokenizer
+   num_clusters: !ref <num_clusters>
+
+# Layer number should be among the supported layers for discrete SSL models(kmenas  model should be available for that layer)
+ssl_layer_num: [3, 7]
+deduplicate: [True, False]
+
+bpe_tokenizer_layer_7: !new:sentencepiece.SentencePieceProcessor
+bpe_tokenizer_layer_7_file: results/LibriSpeech/subwording/discrete-hubert/1986/save/tokenizer_layer_7/128_bpe.model
+bpe_tokenizer_path: [" " , !ref <bpe_tokenizer_layer_7>]
+
+tokenizer_config:
+   SSL_layers: !ref <ssl_layer_num>
+   deduplicates: !ref <deduplicate>
+   bpe_tokenizers:  !ref <bpe_tokenizer_path>
+
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>/tokenizers
+    loadables:
+        bpe_tokenizer_layer_7: !ref <bpe_tokenizer_layer_7>
+    paths:
+        bpe_tokenizer_layer_7: !ref <bpe_tokenizer_layer_7_file>
