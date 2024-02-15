@@ -15,6 +15,8 @@ Once you have created your Python environment (see instructions below) you can s
 pip install speechbrain
 ```
 
+Depending on your OS, audio loading may require the install of optional torchaudio dependencies to work. If it does not work out-of-the box for you, please visit [audio troubleshooting](audioloading.html).
+
 Then you can then access SpeechBrain with:
 
 ```
