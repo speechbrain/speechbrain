@@ -1,3 +1,8 @@
+"""Tokenizer for semantic tokens.
+
+Author
+ * Pooneh Mousavi 2024
+"""
 import numpy as np
 import torch
 
