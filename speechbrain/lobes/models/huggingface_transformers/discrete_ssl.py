@@ -12,9 +12,7 @@ import joblib
 from huggingface_hub import snapshot_download
 from pathlib import Path
 import os
-from  torch import nn
-import numpy as np
-from speechbrain.lobes.models.huggingface_transformers.hubert import HuBERT
+from torch import nn
 from speechbrain.tokenizers.discrete_SSL_tokenizer import DiscreteSSLTokenizer
 
 logger = logging.getLogger(__name__)
@@ -39,7 +37,7 @@ class DiscreteSSL(nn.Module):
     ssl_model : str
         SSL model to extract semantic tokens from its layers' output. Note that output_all_hiddens should be set to True to enable multi-layer discretenation.
     kmeans_repo_id : str
-        Huggingface repository that contains the pre-trained k-means models. 
+        Huggingface repository that contains the pre-trained k-means models.
     kmeans_dataset : str
         Name of the dataset that Kmeans model on HF repo is trained with.
     num_clusters:  (int) (default: 128)
@@ -78,7 +76,7 @@ class DiscreteSSL(nn.Module):
         kmeans_repo_id="speechbrain/SSL_Quantization",
         num_clusters=128,
     ):
-        
+
         super().__init__()
 
         self.ssl_model = ssl_model
@@ -129,12 +127,21 @@ class DiscreteSSL(nn.Module):
                 int(file.name.split("/")[-1].split("_")[-1].split(".")[0][1:])
             )
             kmeans_models.append(joblib.load(file))
-        assert len(layer_ids) > 0, f"There is no trained k-means model avaiable for {repo_id}/{file_pattern}"
+        assert (
+            len(layer_ids) > 0
+        ), f"There is no trained k-means model avaiable for {repo_id}/{file_pattern}"
         layer_ids, kmeans_models = zip(*sorted(zip(layer_ids, kmeans_models)))
-       
+
         return kmeans_models, layer_ids
 
-    def forward(self, wav, wav_lens=None, SSL_layers=[7], deduplicates=[False], bpe_tokenizers=[None]):
+    def forward(
+        self,
+        wav,
+        wav_lens=None,
+        SSL_layers=[7],
+        deduplicates=[False],
+        bpe_tokenizers=[None],
+    ):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -159,15 +166,19 @@ class DiscreteSSL(nn.Module):
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """
 
-        assert len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers), f"length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
- 
+        assert (
+            len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)
+        ), f"length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+
         embeddings = []
         token_ids = []
 
         for layer in SSL_layers:
             if layer not in self.ssl_layer_ids:
-                raise ValueError(f"Layer {layer} is not among trained layers for k-means. Supported layers are: {self.ssl_layer_ids}.")
-        
+                raise ValueError(
+                    f"Layer {layer} is not among trained layers for k-means. Supported layers are: {self.ssl_layer_ids}."
+                )
+
         with torch.no_grad():
             feats = self.ssl_model.extract_features(wav, wav_lens)
             for layer_num, model, vocabulary in zip(
@@ -179,33 +190,26 @@ class DiscreteSSL(nn.Module):
                     feats[layer_num].flatten(end_dim=-2).cpu()
                 )
                 embs = vocabulary[tokens]
-                embeddings.append( torch.tensor(embs.reshape(wav.shape[0], -1, embs.shape[-1]), dtype=torch.float,device=wav.device))
-                token_ids.append(torch.tensor(tokens.reshape(wav.shape[0], -1)+ self.num_clusters * layer_num, dtype=torch.long,device=wav.device))
-        
-        org_tokens = torch.stack(token_ids,2)
-        org_embedding = torch.stack(embeddings,2)
-        
-        processed_tokens = self.tokenizer.encode(org_tokens,SSL_layers, deduplicates, bpe_tokenizers)
-        return org_tokens, org_embedding , processed_tokens
+                embeddings.append(
+                    torch.tensor(
+                        embs.reshape(wav.shape[0], -1, embs.shape[-1]),
+                        dtype=torch.float,
+                        device=wav.device,
+                    )
+                )
+                token_ids.append(
+                    torch.tensor(
+                        tokens.reshape(wav.shape[0], -1)
+                        + self.num_clusters * layer_num,
+                        dtype=torch.long,
+                        device=wav.device,
+                    )
+                )
 
-    
-    
+        org_tokens = torch.stack(token_ids, 2)
+        org_embedding = torch.stack(embeddings, 2)
 
-import torch
-inputs = torch.rand([3, 2000])
-model_hub = "facebook/hubert-large-ll60k"
-save_path = "savedir"
-ssl_layer_num = [7,23]
-deduplicate =[False, True]
-bpe_tokenizers=[None, None]
-kmeans_repo_id = "speechbrain/SSL_Quantization"
-kmeans_dataset = "LibriSpeech-100-360-500"
-kmeans_cache_dir="savedir"
-num_clusters = 1000
-ssl_model = HuBERT(model_hub, save_path,output_all_hiddens=True)
-model = DiscreteSSL(save_path, ssl_model, kmeans_repo_id=kmeans_repo_id, kmeans_dataset=kmeans_dataset,num_clusters=num_clusters)
-tokens, embs ,pr_tokens= model(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
-print(tokens.shape)
-print(embs.shape)
-print(pr_tokens.shape)
-
+        processed_tokens = self.tokenizer.encode(
+            org_tokens, SSL_layers, deduplicates, bpe_tokenizers
+        )
+        return org_tokens, org_embedding, processed_tokens
