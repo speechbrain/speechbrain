@@ -1,9 +1,9 @@
-# ############################################################################
-# Model: wav2vec2.0-based K-means quantizer
+# ###########################################################################################
+# Model: Encoder: HuBERT | Quantizer: K-means
 # Authors: Luca Della Libera 2024
-# ############################################################################
+# ###########################################################################################
 
-experiment_name: quantizer/kmeans_wav2vec2
+experiment_name: quantizer/hubert
 
 # Seed needs to be set at top of YAML
 seed: 0
@@ -45,14 +45,14 @@ keep_checkpoints: 5
 augment: True
 augment_prob: 0.75
 
-# wav2vec2.0 parameters
-wav2vec2_variant: facebook/wav2vec2-large-960h-lv60-self
-sample_rate: 16000  # NOTE: must match wav2vec2.0's sample rate
-layer_ids: [6, 7]  # NOTE: must be smaller than wav2vec2.0's number of layers
-hidden_size: 1024  # NOTE: must match wav2vec2.0's hidden size for the specified layer IDs
+# Encoder parameters
+source: facebook/hubert-base-ls960
+sample_rate: 16000  # NOTE: must match the encoder sample rate
+layer_ids: [5]  # NOTE: must be smaller than the number of layers in the encoder
+hidden_size: 768  # NOTE: must match the encoder hidden size for the specified layer IDs
 
-# K-means parameters
-num_clusters: [300, 300]  # One for each codebook
+# Quantizer parameters
+num_clusters: [300]  # One for each codebook, len(num_clusters) == len(layer_ids)
 init: random
 normalize: null
 p_norm: 2.0
@@ -82,8 +82,8 @@ augmentation: !new:speechbrain.augment.augmenter.Augmenter
     augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
 
 # Modules
-encoder: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
-    source: !ref <wav2vec2_variant>
+encoder: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
+    source: !ref <source>
     save_path: !ref <save_folder>
     freeze: True
     freeze_feature_extractor: True

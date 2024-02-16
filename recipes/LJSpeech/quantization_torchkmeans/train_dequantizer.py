@@ -2,8 +2,10 @@
 
 """Recipe for training a dequantizer from semantic discrete audio representations to their continuous counterpart.
 
+Currently, it supports any dequantizer that implements the expected interface.
+
 To run this recipe:
-> python train_dequantizer.py hparams/dequantizer/<quantizer>_<encoder>.yaml
+> python train_dequantizer.py hparams/dequantizer/<config>.yaml
 
 Authors
  * Luca Della Libera 2024
@@ -34,18 +36,18 @@ class Dequantization(sb.Brain):
             feats = self.modules.codec.encode(sig, lens)
             _, discrete_feats = self.modules.codec.quantize(feats)
 
-        # Forward decoder
-        rec = self.modules.codec.dequantize(discrete_feats, lens)
+        # Forward dequantizer
+        feats_pred = self.modules.codec.dequantize(discrete_feats, lens)
 
-        return rec, feats
+        return feats_pred, feats
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the objectives."""
-        rec, feats = predictions
+        feats_pred, feats = predictions
         _, lens = batch.sig
 
         # Reconstruction loss
-        loss = self.hparams.rec_loss(rec, feats, lens)
+        loss = self.hparams.rec_loss(feats_pred, feats, lens)
 
         return loss
 

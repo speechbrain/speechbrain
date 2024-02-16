@@ -2,8 +2,10 @@
 
 """Recipe for training a quantizer to extract semantic discrete audio representations.
 
+Currently, it supports any quantizer that implements the expected interface.
+
 To run this recipe:
-> python train_quantizer.py hparams/quantizer/<quantizer>_<encoder>.yaml
+> python train_quantizer.py hparams/quantizer/<config>.yaml
 
 Authors
  * Luca Della Libera 2024

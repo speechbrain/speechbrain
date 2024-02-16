@@ -66,7 +66,11 @@ class TransformerDecoder(nn.Module):
         self, src: "Tensor", length: "Optional[Tensor]" = None
     ) -> "Tensor":
         output = self.frontend(src)
-        output = self.backbone.encode(output, length)
+        if hasattr(self.backbone, "encode"):
+            # Transformer ASR
+            output = self.backbone.encode(output, length)
+        else:
+            output = self.backbone(output, length)
         output = self.head(output)
         return output
 

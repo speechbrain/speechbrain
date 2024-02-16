@@ -47,7 +47,7 @@ class KMeans(nn.Module):
     >>> kmeans = KMeans(num_features, num_clusters)
     >>> input = torch.randn(batch_size, seq_length, num_features)
     >>> labels, centroids = kmeans(input)
-    >>> kmeans.step(input, labels)
+    >>> drift = kmeans.step(input, labels)
 
     """
 
@@ -136,7 +136,7 @@ class KMeans(nn.Module):
         labels: "Optional[Tensor]" = None,
         return_drift: "bool" = True,
     ) -> "Optional[Tensor]":
-        """"Lloyd's K-means update.
+        """"Lloyd K-means update.
 
         Parameters
         ----------

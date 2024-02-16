@@ -1,9 +1,9 @@
-# ############################################################################
-# Model: WavLM-based K-means dequantizer
+# ###########################################################################################
+# Model: Encoder: WavLM | Quantizer: K-means | Dequantizer: Conformer
 # Authors: Luca Della Libera 2024
-# ############################################################################
+# ###########################################################################################
 
-experiment_name: dequantizer/kmeans_wavlm
+experiment_name: dequantizer/wavlm
 
 # Seed needs to be set at top of YAML
 seed: 0
@@ -28,6 +28,7 @@ sorting: ascending
 
 # Training parameters
 num_epochs: 20
+grad_accumulation_factor: 1
 dynamic_batching: True
 train_batch_size: 8
 valid_batch_size: 8
@@ -52,20 +53,20 @@ improvement_threshold: 0.0025
 annealing_factor: 0.9
 patient: 0
 
-# WavLM parameters
-wavlm_variant: microsoft/wavlm-large
-sample_rate: 16000  # NOTE: must match WavLM's sample rate
-layer_ids: [6, 7]  # NOTE: must be smaller than WavLM's number of layers
-hidden_size: 1024  # NOTE: must match WavLM's hidden size for the specified layer IDs
+# Encoder parameters
+source: microsoft/wavlm-large
+sample_rate: 16000  # NOTE: must match the encoder sample rate
+layer_ids: [5]  # NOTE: must be smaller than the number of layers in the encoder
+hidden_size: 1024  # NOTE: must match the encoder hidden size for the specified layer IDs
 
-# K-means parameters
-num_clusters: [300, 300]  # One for each codebook
+# Quantizer parameters
+num_clusters: [300]  # One for each codebook, len(num_clusters) == len(layer_ids)
 init: random
 normalize: null
 p_norm: 2.0
 quantizer_path: null
 
-# Backbone parameters
+# Dequantizer parameters
 embedding_dim: 128
 dropout: 0.1
 activation: !name:torch.nn.GELU
@@ -102,7 +103,7 @@ augmentation: !new:speechbrain.augment.augmenter.Augmenter
 
 # Modules
 encoder: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
-    source: !ref <wavlm_variant>
+    source: !ref <source>
     save_path: !ref <save_folder>
     freeze: True
     freeze_feature_extractor: True
@@ -115,28 +116,24 @@ quantizer: !new:models.kmeans.MultiKMeans
     normalize: !ref <normalize>
     p_norm: !ref <p_norm>
 
-backbone: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR
-    input_size: !ref <hidden_size>
-    tgt_vocab: 1
-    d_model: !ref <d_model>
-    nhead: !ref <nhead>
-    num_encoder_layers: !ref <num_layers>
-    num_decoder_layers: 0
-    d_ffn: !ref <d_ffn>
-    dropout: !ref <dropout>
-    activation: !ref <activation>
-    max_length: !ref <max_length>
-    encoder_module: conformer
-    normalize_before: True
-    causal: !ref <causal>
-
-head: !new:torch.nn.Linear
-    in_features: !ref <d_model>
-    out_features: !ref <hidden_size>
-
 dequantizer: !new:models.transformer.TransformerDecoder
-    backbone: !ref <backbone>
-    head: !ref <head>
+    backbone: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR
+        input_size: !ref <hidden_size>
+        tgt_vocab: 1
+        d_model: !ref <d_model>
+        nhead: !ref <nhead>
+        num_encoder_layers: !ref <num_layers>
+        num_decoder_layers: 0
+        d_ffn: !ref <d_ffn>
+        dropout: !ref <dropout>
+        activation: !ref <activation>
+        max_length: !ref <max_length>
+        encoder_module: conformer
+        normalize_before: True
+        causal: !ref <causal>
+    head: !new:torch.nn.Linear
+        in_features: !ref <d_model>
+        out_features: !ref <hidden_size>
 
 codec: !new:models.codec.Codec
     encoder: !ref <encoder>

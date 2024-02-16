@@ -79,7 +79,7 @@ class Codec(nn.Module):
     >>> codec = Codec(encoder, quantizer, dequantizer, decoder, layer_ids)
     >>>
     >>> wavs = torch.rand([10, 16000])
-    >>> rec_wavs = codec(wavs)
+    >>> wavs_pred = codec(wavs)
 
     """
 
@@ -119,8 +119,8 @@ class Codec(nn.Module):
 
         """
         _, discrete_feats = self.encode_discrete(wav, length)
-        rec_wav = self.decode_discrete(discrete_feats, length)
-        return rec_wav
+        wav_pred = self.decode_discrete(discrete_feats, length)
+        return wav_pred
 
     def encode_discrete(
         self, wav: "Tensor", length: "Optional[Tensor]" = None
@@ -214,5 +214,5 @@ if __name__ == "__main__":
     codec = Codec(encoder, quantizer, dequantizer, decoder, layer_ids)
 
     wavs = torch.rand([10, 16000])
-    rec_wavs = codec(wavs)
-    print(rec_wavs.shape)
+    wavs_pred = codec(wavs)
+    print(wavs_pred.shape)
