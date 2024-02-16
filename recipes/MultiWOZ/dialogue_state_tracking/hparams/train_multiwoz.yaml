@@ -49,7 +49,6 @@ train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
 # Training parameters
 lr: 0.0001
 number_of_epochs: 10
-n_epochs_valid: 2
 lr_semantic_encoder: !ref <lr>
 lr_audio: !ref <lr> * 0.1
 lr_fusion_layers: !ref <lr> * 10
@@ -127,7 +126,6 @@ output_mode: state
 downsampling: True
 conv_kernel_size: 9
 conv_stride: 3
-fusion_dnn_layers: 1
 activation: !name:torch.nn.GELU
 
 audio_frozen: False
