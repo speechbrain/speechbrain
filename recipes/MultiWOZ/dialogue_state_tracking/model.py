@@ -54,9 +54,8 @@ class DialogueUnderstanding(sb.core.Brain):
         ).to(outputs_tokens.device)
 
         # Add augmentation if specified
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "augmentation"):
-            wavs = self.hparams.augmentation(wavs, wavs_lens)
-            outputs_tokens = self.hparams.augmentation.replicate_labels(outputs_tokens)
+        if stage == sb.Stage.TRAIN and self.hparams.version == "e2e" and hasattr(self.hparams, "augmentation"):
+            wavs, wavs_lens = self.hparams.augmentation(wavs, wavs_lens)
 
         semantics_enc_out = self.modules.semantic_encoder(
             semantics_tokens, semantics_lens
@@ -127,20 +126,24 @@ class DialogueUnderstanding(sb.core.Brain):
 
                     # Keeping track of the last predicted state of each dialogue to use it for the next prediction
                     if not self.hparams.gold_previous_state:
-                        # Id in the form /path/to/dialogue/Turn-N
-                        dialog_id = element_id.split("/")[-2]
-                        state = self.tokenizer.decode(hyp)
-                        with open(
-                            os.path.join(
-                                self.hparams.output_folder,
-                                "last_turns",
-                                f"{dialog_id}.txt",
-                            ),
-                            "w",
-                        ) as last_turn:
-                            last_turn.write(state + "\n")
+                        self.write_previous_pred(element_id, hyp)
 
         return logprobs, hyps, wavs_lens
+
+    def write_previous_pred(self, element_id, hyp):
+        
+        # Id in the form /path/to/dialogue/Turn-N
+        dialog_id = element_id.split("/")[-2]
+        state = self.tokenizer.decode(hyp)
+        with open(
+            os.path.join(
+                self.hparams.output_folder,
+                "last_turns",
+                f"{dialog_id}.txt",
+            ),
+            "w",
+        ) as last_turn:
+            last_turn.write(state + "\n")
 
     def compute_objectives(self, predictions, batch, stage):
         """
@@ -174,13 +177,12 @@ class DialogueUnderstanding(sb.core.Brain):
         (loss / self.hparams.gradient_accumulation).requires_grad_().backward()
 
         if should_step:
-            if self.check_gradients():
-                if not self.hparams.audio_frozen:
-                    self.audio_optimizer.step()
-                if not self.hparams.semantic_encoder_frozen:
-                    self.semantic_optimizer.step()
-                self.decoder_optimizer.step()
-                self.fusion_optimizer.step()
+            if not self.hparams.audio_frozen:
+                self.audio_optimizer.step()
+            if not self.hparams.semantic_encoder_frozen:
+                self.semantic_optimizer.step()
+            self.decoder_optimizer.step()
+            self.fusion_optimizer.step()
 
             if not self.hparams.audio_frozen:
                 self.audio_optimizer.zero_grad()
@@ -316,8 +318,8 @@ class DialogueUnderstanding(sb.core.Brain):
                 audio_params = [
                     param
                     for name, param in self.modules.audio_encoder.named_parameters()
-                    if "model.feature_extractor" in name
-                    or "model.feature_projection" in name
+                    if "model.feature_extractor" not in name
+                    and "model.feature_projection" not in name
                 ]
             else:
                 audio_params = self.modules.audio_encoder.parameters()
