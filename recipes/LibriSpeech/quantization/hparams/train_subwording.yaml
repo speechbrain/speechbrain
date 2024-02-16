@@ -5,13 +5,13 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/LibriSpeech/subwording/discrete-hubert/<seed>
+output_folder: !ref results/LibriSpeech/subwording/discrete-ssl-bpe/<seed>
 save_folder: !ref <output_folder>/save
 
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+train_splits: ["train-clean-100"]
 dev_splits: []
 test_splits: []
 skip_prep: False
@@ -19,19 +19,29 @@ ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
 sample_rate: 16000
 tokenized_train: !ref <output_folder>/tokenized_train.csv
-vocab_size: 128
+vocab_size: 1000
+unk_id: 1
+pad_id: 0
 
-ssl_hub: facebook/hubert-base-ls960
+ssl_hub: facebook/hubert-large-ll60k
 ssl_folder: !ref <save_folder>/hubert_checkpoint
 kmeans_repo_id: speechbrain/SSL_Quantization
 kmeans_cache_dir: !ref <save_folder>/kmeans_checkpoint
 kmeans_dataset: LibriSpeech-100-360-500
-num_clusters: 128
+num_clusters: 800
 freeze_ssl: True
 freeze_feature_extractor: True
 # Layer number should be among the supported layers for discrete SSL models(kmenas  model should be available for that layer)
-ssl_layer_num: [3, 7]
-deduplicate: False
+ssl_layer_num: [7, 23]
+deduplicate: [False, False]
+bpe_tokenizer_path: [null, null]
+
+
+tokenizer_config:
+   SSL_layers: !ref <ssl_layer_num>
+   deduplicates: !ref <deduplicate>
+   bpe_tokenizers: !ref <bpe_tokenizer_path>
+
 
 discrete_ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_hubert.DiscreteHuBERT
    source: !ref <ssl_hub>

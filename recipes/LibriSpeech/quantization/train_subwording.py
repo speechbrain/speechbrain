@@ -71,19 +71,15 @@ if __name__ == "__main__":
                     resampled = torchaudio.transforms.Resample(
                         info.sample_rate, hparams["sample_rate"],
                     )(sig)
-                    discrete_unit, _ = hparams["discrete_ssl_model"](
+                    discrete_units, _, _ = hparams["discrete_ssl_model"](
                         resampled.unsqueeze(0),
                         None,
-                        ssl_layer_num=hparams["ssl_layer_num"],
-                        deduplicte=hparams["deduplicate"],
+                        **hparams["tokenizer_config"],
                     )
                     row_dic = {}
                     row_dic["id"] = row[0]
                     for i, layer in enumerate(hparams["ssl_layer_num"]):
-                        tokens = (
-                            discrete_unit[:, :, i]
-                            - layer * hparams["num_clusters"]
-                        ).squeeze(0)
+                        tokens = (discrete_units[:, :, i]).squeeze(0)
                         tokens_char = " ".join(
                             [chr(token + 97) for token in tokens]
                         )
@@ -94,6 +90,8 @@ if __name__ == "__main__":
         model_dir = os.path.join(
             hparams["save_folder"], f"tokenizer_layer_{layer}"
         )
+        os.makedirs(model_dir, exist_ok=True)
+
         SentencePiece(
             model_dir=model_dir,
             vocab_size=hparams["vocab_size"],
@@ -101,4 +99,7 @@ if __name__ == "__main__":
             annotation_read=f"textified_tokens_layer_{layer}",
             annotation_format="csv",
             model_type="bpe",
+            character_coverage=1.0,
+            unk_id=hparams["unk_id"],
+            pad_id=hparams["pad_id"],
         )
