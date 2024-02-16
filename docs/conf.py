@@ -86,6 +86,9 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_apidoc_templates"]
 
+# Make backticks behave as inline code blocks rather than italics
+default_role = "code"
+
 # -- Better apidoc -----------------------------------------------------------
 
 
@@ -132,12 +135,15 @@ html_theme = "sphinx_rtd_theme"
 # See https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
 # for rtd theme options
 html_theme_options = {
+    "logo_only": True,
     # Toc options
     "collapse_navigation": False,
     "sticky_navigation": True,
     "navigation_depth": 4,
     "includehidden": True,
 }
+
+html_logo = "images/speechbrain-logo.svg"
 
 
 # Add any paths that contain custom static files (such as style sheets) here,
