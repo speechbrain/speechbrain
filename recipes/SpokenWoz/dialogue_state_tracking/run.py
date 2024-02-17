@@ -16,7 +16,7 @@ from speechbrain.dataio.dataio import read_audio
 from transformers import AutoTokenizer
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.processing.speech_augmentation import Resample
+from speechbrain.augment.time_domain import Resample
 from hyperpyyaml import load_hyperpyyaml
 
 from pathlib import Path
