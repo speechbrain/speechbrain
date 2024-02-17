@@ -43,7 +43,6 @@ class Codec(nn.Module):
     >>> from kmeans import MultiKMeans
     >>> from transformer import TransformerDecoder
     >>>
-    >>>
     >>> layer_ids = [6, 7]
     >>> num_features = 768
     >>> num_clusters = [300, 300]
@@ -166,6 +165,36 @@ class Codec(nn.Module):
         feats = feats.flatten(start_dim=-2).movedim(-1, -2)
         wav = self.decoder(feats)
         return wav[:, 0]
+
+    @classmethod
+    def from_hparams(
+        cls, hparams_file: "str", savedir: "str" = "savedir"
+    ) -> "Codec":
+        import pathlib
+        from hyperpyyaml import load_hyperpyyaml
+
+        with open(hparams_file) as fin:
+            hparams = load_hyperpyyaml(fin)
+
+        codec = hparams["codec"]
+        checkpointer = hparams["checkpointer"]
+        decoder_path = str(
+            checkpointer.find_checkpoint(min_key="loss").paramfiles["decoder"]
+        )
+        pretrainer = hparams["pretrainer"]
+        pretrainer.add_loadables({"decoder": codec.decoder})
+        pretrainer.add_paths({"decoder": decoder_path})
+        pretrainer.collect_in = pathlib.Path(savedir)
+        pretrainer.collect_files()
+        pretrainer.load_collected()
+
+        return cls(
+            codec.encoder,
+            codec.quantizer,
+            codec.dequantizer,
+            codec.decoder,
+            codec.layer_ids,
+        )
 
 
 # Test

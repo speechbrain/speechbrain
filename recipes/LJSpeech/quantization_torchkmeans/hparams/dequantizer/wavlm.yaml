@@ -42,7 +42,7 @@ dataloader_workers: 4
 nonfinite_patience: 10
 precision: fp16
 ckpt_interval_minutes: 600
-keep_checkpoints: 5
+keep_checkpoints: 3
 augment: True
 augment_prob: 0.75
 

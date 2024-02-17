@@ -261,6 +261,15 @@ class MultiKMeans(nn.Module):
         ]
         self.kmeanss = nn.ModuleList(kmeanss)
 
+    @property
+    def centroids(self) -> "Tensor":
+        if len(self.kmeanss) == 1:
+            # Fast path
+            return self.kmeanss[0].centroids[..., None]
+        centroids_list = [kmeans.centroids for kmeans in self.kmeanss]
+        centroids = torch.stack(centroids_list).movedim(0, -1)
+        return centroids
+
     def reset_parameters(self, x: "Tensor") -> "None":
         for i, kmeans in enumerate(self.kmeanss):
             kmeans.reset_parameters(x[..., i])
