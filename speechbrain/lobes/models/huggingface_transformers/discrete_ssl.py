@@ -48,6 +48,7 @@ class DiscreteSSL(nn.Module):
     Example
     -------
     >>> import torch
+    >>> from speechbrain.lobes.models.huggingface_transformers.hubert import (HuBERT)
     >>> inputs = torch.rand([3, 2000])
     >>> model_hub = "facebook/hubert-large-ll60k"
     >>> save_path = "savedir"
