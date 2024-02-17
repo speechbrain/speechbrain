@@ -162,9 +162,9 @@ def prepare_spokenwoz(
             ))
 
             if "cascade" in version:
-                annotation_file = os.path.join(data_folder, "text_5700_train_dev", "data{}.json".format(version.replace("cascade", "")))
+                annotation_file = os.path.join(data_folder, "text_5700_test", "data{}.json".format(version.replace("cascade", "")))
             else:
-                annotation_file = os.path.join(data_folder, "text_5700_train_dev", "data.json")
+                annotation_file = os.path.join(data_folder, "text_5700_test", "data.json")
             with open(annotation_file, "r") as data:
                 for line in data:
                     annotations = json.loads(line)
