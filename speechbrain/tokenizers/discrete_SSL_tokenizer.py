@@ -38,7 +38,17 @@ class DiscreteSSLTokenizer:
     def __init__(self, num_clusters):
         self.num_clusters = num_clusters
 
-    def textify(self, tokens, layer):
+    def textify(self, tokens):
+        """ Convert token ID to char to be used for training sentencepiece tokenizer.
+        Arguments
+        ---------
+        tokens : torch.Tensor
+            A (Batch x Seq ) tensor of audio tokens
+        Returns:
+        ---------
+        processed_tokens : list
+            A (Batch x Seq) list of corresponding char for each token ID.
+        """
         tokens_char = []
         # tokens = [row - layer *  self.num_clusters for row in input]
         for row in tokens:
@@ -68,8 +78,6 @@ class DiscreteSSLTokenizer:
         assert input.shape[2] == len(
             SSL_layers
         ), f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimention of input should be the same  as number of layers!!!"
-        # add 1 to all cluster ids to avoid conflict wih pad_value==0
-        # input = input + 1
         token_ids = []
         for i, duplicate in enumerate(deduplicates):
             tokens = []
@@ -88,7 +96,7 @@ class DiscreteSSLTokenizer:
                 tokens.extend(input[:, :, i])
 
             if bpe_tokenizers[i] is not None:
-                token_char = self.textify(tokens, SSL_layers[i])
+                token_char = self.textify(tokens)
                 token_ids.extend(
                     [
                         torch.LongTensor(bpe_tokenizers[i].encode_as_ids(row))
