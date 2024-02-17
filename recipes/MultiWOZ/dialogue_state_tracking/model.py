@@ -93,6 +93,7 @@ class DialogueUnderstanding(sb.core.Brain):
 
         if stage != sb.Stage.TRAIN:
             with torch.no_grad():
+                # Searcher returns ids minus more than one token
                 hyps, _, _, _ = self.hparams.valid_greedy_search(
                     encoder_out.detach(), wavs_lens
                 )
@@ -113,7 +114,7 @@ class DialogueUnderstanding(sb.core.Brain):
             # Updating running accuracy
             self.accuracy.append(
                 [self.tokenizer.decode(hyp) for hyp in hyps],
-                [self.tokenizer.decode(targ) for targ in target_tokens],
+                [self.tokenizer.decode(targ, skip_special_tokens=True) for targ in target_tokens],
             )
 
         elif stage == sb.Stage.TEST:
