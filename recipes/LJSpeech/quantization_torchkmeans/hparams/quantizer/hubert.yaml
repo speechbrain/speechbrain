@@ -27,7 +27,7 @@ test_remove_if_longer: 60.0  # Seconds
 sorting: descending
 
 # Training parameters
-num_epochs: 2
+num_epochs: 5
 dynamic_batching: True
 train_batch_size: 8
 valid_batch_size: 8
@@ -41,14 +41,14 @@ dataloader_workers: 4
 nonfinite_patience: 10
 precision: fp32
 ckpt_interval_minutes: 600
-keep_checkpoints: 3
+keep_checkpoints: 1
 augment: True
 augment_prob: 0.75
 
 # Encoder parameters
 source: facebook/hubert-base-ls960
 sample_rate: 16000  # NOTE: must match the encoder sample rate
-layer_ids: [5]  # NOTE: must be smaller than the number of layers in the encoder
+layer_ids: [6]  # NOTE: must be smaller than the number of layers in the encoder
 hidden_size: 768  # NOTE: must match the encoder hidden size for the specified layer IDs
 
 # Quantizer parameters

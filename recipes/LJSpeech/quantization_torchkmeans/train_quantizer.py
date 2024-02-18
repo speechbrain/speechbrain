@@ -33,6 +33,7 @@ class Quantization(sb.Brain):
 
         # Extract features
         with torch.no_grad():
+            self.modules.codec.encoder.eval()
             feats = self.modules.codec.encode(sig, lens)
 
         return feats

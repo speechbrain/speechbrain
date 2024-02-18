@@ -100,6 +100,9 @@ class Generation(sb.Brain):
 
         # Extract audio tokens
         with torch.no_grad():
+            self.modules.codec.encoder.eval()
+            self.modules.codec.quantizer.eval()
+            self.modules.codec.dequantizer.eval()
             _, discrete_feats = self.modules.codec.encode_discrete(sig, lens)
             feats_pred = self.modules.codec.dequantize(discrete_feats, lens)
 

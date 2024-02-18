@@ -8,7 +8,7 @@ Authors
 # https://github.com/jokofa/torch_kmeans/tree/be7d2b78664e81a985ddfa6d21d94917a8b49fe6
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor, nn
@@ -260,6 +260,26 @@ class MultiKMeans(nn.Module):
             for args, kwargs in zip(all_args, all_kwargs)
         ]
         self.kmeanss = nn.ModuleList(kmeanss)
+
+    @property
+    def num_features(self) -> "List[int]":
+        return [kmeans.num_features for kmeans in self.kmeanss]
+
+    @property
+    def num_clusters(self) -> "List[int]":
+        return [kmeans.num_clusters for kmeans in self.kmeanss]
+
+    @property
+    def init(self) -> "List[str]":
+        return [kmeans.init for kmeans in self.kmeanss]
+
+    @property
+    def normalize(self) -> "List[str]":
+        return [kmeans.normalize for kmeans in self.kmeanss]
+
+    @property
+    def p_norm(self) -> "List[float]":
+        return [kmeans.p_norm for kmeans in self.kmeanss]
 
     @property
     def centroids(self) -> "Tensor":

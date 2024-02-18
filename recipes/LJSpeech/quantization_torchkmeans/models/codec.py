@@ -138,10 +138,14 @@ class Codec(nn.Module):
     def encode(
         self, wav: "Tensor", length: "Optional[Tensor]" = None
     ) -> "Tensor":
-        # Workaround for early exiting to avoid the computational
-        # overhead of forwarding through the whole model
+        # Workaround for early exiting to avoid the computational overhead of forwarding through the whole model
+        out = self.encoder(wav, length)
         layers_backup = self.encoder.model.encoder.layers
-        self.encoder.model.encoder.layers = layers_backup[: max(self.layer_ids)]
+        # NOTE: + 1 to account for layer norm applied to the last hidden states in WavLM:
+        # https://github.com/huggingface/transformers/blob/v4.37.2/src/transformers/models/wavlm/modeling_wavlm.py#L816
+        self.encoder.model.encoder.layers = layers_backup[
+            : max(self.layer_ids) + 1
+        ]
         feats = self.encoder(wav, length)  # (K, B, N, H)
         self.encoder.model.encoder.layers = layers_backup
         return feats[self.layer_ids].movedim(0, -1)

@@ -33,6 +33,8 @@ class Dequantization(sb.Brain):
 
         # Extract audio tokens
         with torch.no_grad():
+            self.modules.codec.encoder.eval()
+            self.modules.codec.quantizer.eval()
             feats = self.modules.codec.encode(sig, lens)
             _, discrete_feats = self.modules.codec.quantize(feats)
 

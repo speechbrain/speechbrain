@@ -45,7 +45,7 @@ dataloader_workers: 4
 nonfinite_patience: 10
 precision: fp16
 ckpt_interval_minutes: 600
-keep_checkpoints: 3
+keep_checkpoints: 1
 augment: True
 augment_prob: 0.75
 
@@ -57,7 +57,7 @@ decay_factor: 0.9999
 # Encoder parameters
 source: microsoft/wavlm-large
 sample_rate: 16000  # NOTE: must match the encoder sample rate
-layer_ids: [5]  # NOTE: must be smaller than the number of layers in the encoder
+layer_ids: [6]  # NOTE: must be smaller than the number of layers in the encoder
 hidden_size: 1024  # NOTE: must match the encoder hidden size for the specified layer IDs
 
 # Quantizer parameters
@@ -69,13 +69,13 @@ p_norm: 2.0
 quantizer_path: null
 
 # Dequantizer parameters
-embedding_dim: 128
+embedding_dim: 256
 dropout: 0.1
 activation: !name:torch.nn.GELU
 d_model: 256
 nhead: 4
-num_layers: 4
-d_ffn: 512
+num_layers: 6
+d_ffn: 2048
 max_length: 5000
 causal: False
 dequantizer_path: null
