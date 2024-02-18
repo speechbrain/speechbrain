@@ -43,6 +43,7 @@ num_buckets: 40
 max_batch_size: 128
 dataloader_workers: 4
 nonfinite_patience: 10
+max_grad_norm: 5.0
 precision: fp16
 ckpt_interval_minutes: 600
 keep_checkpoints: 1
