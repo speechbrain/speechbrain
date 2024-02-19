@@ -434,7 +434,7 @@ class HifiganGenerator(torch.nn.Module):
         ):
             self.ups.append(
                 ConvTranspose1d(
-                    in_channels=upsample_initial_channel // (2**i),
+                    in_channels=upsample_initial_channel // (2 ** i),
                     out_channels=upsample_initial_channel // (2 ** (i + 1)),
                     kernel_size=k,
                     stride=u,
@@ -699,6 +699,10 @@ class UnitHifiganGenerator(HifiganGenerator):
             conv_post_bias,
         )
         self.unit_embedding = torch.nn.Embedding(num_embeddings, embedding_dim)
+        self.filter = torch.nn.Conv1d(
+            in_channels=3, out_channels=1, kernel_size=1
+        )
+
         self.duration_predictor = duration_predictor
         if duration_predictor:
             self.var_predictor = VariancePredictor(
@@ -729,7 +733,18 @@ class UnitHifiganGenerator(HifiganGenerator):
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
         """
-        u = self.unit_embedding(x).transpose(1, 2)
+        u = self.unit_embedding(x)
+        # b, t, f, e = u.shape
+        # u_ = u.view(-1, f, e)
+        # u_ = self.filter(u_)
+        # u_ = u_.view(b, t, -1)
+        # u = u_.transpose(1, 2)
+
+        mask = x > 0
+        n = mask.sum(dim=-1, keepdim=True)
+        masked_u = u * mask.unsqueeze(-1)
+        u = masked_u.sum(dim=2) / n
+        u = u.transpose(1, 2)
 
         log_dur = None
         log_dur_pred = None
@@ -760,7 +775,9 @@ class UnitHifiganGenerator(HifiganGenerator):
         x : torch.Tensor (batch, time)
             feature input tensor.
         """
-        x = self.unit_embedding(x).transpose(1, 2)
+        x = self.unit_embedding(x)
+        pooled = x.mean(dim=2, keepdim=True)
+        x = pooled.squeeze(dim=-2).transpose(1, 2)
 
         if self.duration_predictor:
             assert (
@@ -1058,15 +1075,10 @@ class HifiganDiscriminator(nn.Module):
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
     """computes the Fourier transform of short overlapping windows of the input"""
-    o = torch.stft(
-        x.squeeze(1),
-        n_fft,
-        hop_length,
-        win_length,
-    )
+    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
-    S = torch.sqrt(torch.clamp(M**2 + P**2, min=1e-8))
+    S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
     return S
 
 
@@ -1292,9 +1304,7 @@ class MelganFeatureLoss(nn.Module):
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
 
-    def __init__(
-        self,
-    ):
+    def __init__(self,):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -1331,9 +1341,7 @@ class MSEDLoss(nn.Module):
     and the samples synthesized from the generator to 0.
     """
 
-    def __init__(
-        self,
-    ):
+    def __init__(self,):
         super().__init__()
         self.loss_func = nn.MSELoss()
 

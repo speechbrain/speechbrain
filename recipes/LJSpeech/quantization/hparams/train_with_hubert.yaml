@@ -9,7 +9,8 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/LJSpeech/clustering/hubert/<seed>
+model_name: !PLACEHOLDER
+output_folder: !ref results/LJSpeech/clustering/hubert/<seed>/<model_name>
 save_folder: !ref <output_folder>/save
 
 # Data files

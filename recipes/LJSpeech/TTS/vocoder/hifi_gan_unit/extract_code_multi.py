@@ -217,9 +217,9 @@ def extract_ljspeech(
                 )(audio)
                 audio = audio.unsqueeze(0).to(device)
                 tokens, _ = encoder(
-                    audio, ssl_layer_num=[layer], deduplicte=False
+                    audio, ssl_layer_num=layer, deduplicte=False
                 )
-                tokens = np_array(tokens)
+                tokens = np_array(tokens.squeeze(0))
             np.save(code_folder / f"{key}.npy", tokens)
 
     logger.info("Extraction completed.")

@@ -453,6 +453,15 @@ def dataio_prepare(hparams):
         )(audio)
 
         code = np.load(code_folder / f"{utt_id}.npy")
+
+        if hparams["layer_drop"]:
+            num_layers_to_drop = np.random.randint(0, code.shape[1])
+            if num_layers_to_drop > 0:
+                layers_to_drop = np.random.choice(
+                    code.shape[1], size=num_layers_to_drop, replace=False
+                )
+                code[:, layers_to_drop] = 0
+
         code = torch.IntTensor(code)
 
         # Maps indices from the range [0, k] to [1, k+1]
@@ -524,7 +533,7 @@ if __name__ == "__main__":
         },
     )
 
-    from extract_code import extract_ljspeech
+    from extract_code_multi import extract_ljspeech
 
     sb.utils.distributed.run_on_main(
         extract_ljspeech,
