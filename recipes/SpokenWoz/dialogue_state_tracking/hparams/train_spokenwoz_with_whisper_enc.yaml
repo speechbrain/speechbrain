@@ -11,7 +11,7 @@
 # General experiment parameters 
 seed: 1989
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/<version>/<seed>
+output_folder: !ref ./results/<version>_whisper/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/log/
 file_train_log: !ref <output_folder>/log.txt
@@ -19,8 +19,8 @@ pred_folder: !ref <output_folder>/preds/
 
 # Checkpoints
 whisper_hub: openai/whisper-small.en
-freeze_feature_extractor: False
 t5_hub: t5-base
+freeze_feature_extractor: False
 model_size: 768
 
 # Data parameters
