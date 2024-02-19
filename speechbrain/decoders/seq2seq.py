@@ -268,7 +268,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         top_log_probs = log_probs
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1).abs() / max_length
+        top_lengths = (top_lengths).abs() / max_length
 
         return (
             hyps.unsqueeze(1),
