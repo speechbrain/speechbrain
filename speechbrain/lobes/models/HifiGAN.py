@@ -734,11 +734,6 @@ class UnitHifiganGenerator(HifiganGenerator):
             global conditioning input tensor.
         """
         u = self.unit_embedding(x)
-        # b, t, f, e = u.shape
-        # u_ = u.view(-1, f, e)
-        # u_ = self.filter(u_)
-        # u_ = u_.view(b, t, -1)
-        # u = u_.transpose(1, 2)
 
         mask = x > 0
         n = mask.sum(dim=-1, keepdim=True)
