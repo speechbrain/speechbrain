@@ -102,14 +102,14 @@ def dataio_prepare(hparams, tokenizer):
     def audio_pipeline(id, wav, start, end):
         resampler = Resample(orig_freq=8000, new_freq=16000)
         sig = read_audio(wav)
+        sig = sig[int(start):int(end)]
         sig = sig.unsqueeze(0) # Must be B*T*C
         resampled = resampler(sig)
         # Fusing both channels
         resampled = torch.mean(resampled, dim=2)
         # Selecting the correct frames: start*2 bc resampled
-        sig = torch.squeeze(resampled)[int(start)*2:int(end)*2]
+        sig = torch.squeeze(resampled)
         
-        # sig = sb.dataio.dataio.read_audio(os.path.join(hparams["data_folder"], 'turns', os.path.basename(id) + '.wav'))
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
