@@ -1,8 +1,8 @@
 # ##########################################################################
-# Model : E2E Dialogue Understanding
+# Model : Spoken Dialogue State Tracking
 # Audio Encoder: Wav2vec 2.0
-# Semantic Encoder: T5 encoder
-# Fusion method : Linear layer
+# Semantic Encoder: T5 Encoder
+# Fusion method : Transformer Encoder Layer
 # Decoder: T5 Decoder
 # Training corpora : Speech Aware DSTC11
 # Author : Lucas Druart 2024
@@ -11,15 +11,16 @@
 # General experiment parameters 
 seed: 1989
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/<version>/<seed>
+output_folder: !ref ./results/<version>_whisper/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/log/
 file_train_log: !ref <output_folder>/log.txt
 pred_folder: !ref <output_folder>/preds/
 
 # Checkpoints
-wav2vec_hub: microsoft/wavlm-base-plus
+whisper_hub: openai/whisper-small.en
 t5_hub: t5-base
+freeze_feature_extractor: False
 model_size: 768
 
 # Data parameters
@@ -137,8 +138,8 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 # Models
 
 ## Audio Encoder
-whisper_enc: !new:speechbrain.lobes.models.huggingface_whisper.HuggingFaceWhisper
-    source: openai/whisper-small.en
+whisper_enc: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+    source: !ref <whisper_hub>
     save_path: !ref <save_folder>/whisper_enc
     encoder_only: True
 
