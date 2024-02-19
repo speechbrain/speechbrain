@@ -1,8 +1,8 @@
 # ##########################################################################
-# Model : E2E Dialogue Understanding
+# Model : Spoken Dialogue State Tracking
 # Audio Encoder: Wav2vec 2.0
-# Semantic Encoder: T5 encoder
-# Fusion method : Linear layer
+# Semantic Encoder: T5 Encoder
+# Fusion method : Transformer Encoder Layer
 # Decoder: T5 Decoder
 # Training corpora : Speech Aware DSTC11
 # Author : Lucas Druart 2024
