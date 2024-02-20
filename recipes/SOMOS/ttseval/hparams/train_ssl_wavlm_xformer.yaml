@@ -10,7 +10,8 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 output_folder: !ref results/ssl_wavlm/<seed>
-save_folder: <output_folder>/save
+save_folder: !ref <output_folder>/save
+details_folder: !ref <output_folder>/details
 train_log: !ref <output_folder>/train_log.txt
 train_regression_metric: True
 # pretrained_model_path: pretrained_models/noresqa
@@ -22,6 +23,8 @@ tgt_sample_rate: 16000
 contrastive: False
 contrastive_loss_weight: 0.8
 contrastive_min_delta: 0.5
+classification_epochs: 3
+classification_threshold: 3.5
 
 lr: 0.00001
 
@@ -33,14 +36,14 @@ dataloader_options:
 number_of_epochs: 10
 ckpt_interval_minutes: 15
 
-wav2vec2_source: microsoft/wavlm-large
-wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
+wavlm_source: microsoft/wavlm-large
+wavlm_folder: !ref <save_folder>/wavlm_checkpoint
 # pretrained_wavlm_path: !PLACEHOLDER # binary classification model path
 
-#freeze all wav2vec2
-wav2vec2_freeze: False
-#set to true to freeze the CONV part of the wav2vec2 model
-wav2vec2_freeze_feature_extractor: True
+#freeze all wavlm
+wavlm_freeze: False
+#set to true to freeze the CONV part of the wavlm model
+wavlm_freeze_feature_extractor: True
 # Model parameters
 encoder_dim: 1024
 
@@ -65,15 +68,16 @@ test_annotation: !ref <data_folder>/test.csv
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
   save_file: !ref <train_log>
 
-compute_cost: !name:speechbrain.nnet.losses.l1_loss  
+compute_cost: !name:speechbrain.nnet.losses.l1_loss
 compute_cost_contrastive: !name:speechbrain.nnet.losses.mse_loss
+compute_cost_classification: !name:speechbrain.nnet.losses.bce_loss
 
 
 wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
-  source: !ref <wav2vec2_source>
+  source: !ref <wavlm_source>
   output_norm: True
-  freeze: !ref <wav2vec2_freeze>
-  freeze_feature_extractor: !ref <wav2vec2_freeze_feature_extractor>
+  freeze: !ref <wavlm_freeze>
+  freeze_feature_extractor: !ref <wavlm_freeze_feature_extractor>
   save_path: !ref <save_folder>
 
 model: !new:speechbrain.lobes.models.eval.ssl.TransformerRegression
@@ -84,8 +88,12 @@ model: !new:speechbrain.lobes.models.eval.ssl.TransformerRegression
   nhead: !ref <nhead>
   dropout: !ref <dropout>
 
+classifier: !new:speechbrain.lobes.models.eval.ssl.BaselineSSLFinetune
+  base_model: !ref <wavlm>
+
 modules:
   model: !ref <model>
+  classifier: !ref <classifier>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
   limit: !ref <number_of_epochs>
@@ -97,6 +105,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
   checkpoints_dir: !ref <save_folder>
   recoverables:
     model: !ref <model>
+    classifier: !ref <classifier>
     lr_annealing_output: !ref <lr_annealing>
     counter: !ref <epoch_counter>
 

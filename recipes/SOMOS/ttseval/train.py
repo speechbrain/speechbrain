@@ -9,6 +9,7 @@ import sys
 import speechbrain as sb
 import torchaudio
 import logging
+from enum import Enum
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 from contrastive_sampling import RegressionContrastiveEnhancement
@@ -20,6 +21,12 @@ LABEL_MODEL_SCORE = "Model Score"
 LABEL_HUMAN_SCORE = "Human Score"
 KEY_MODEL_SCORE = "model_score"
 KEY_HUMAN_SCORE = "human_score"
+
+
+class TTSEvalTrainMode(Enum):
+    CLASSIFICATION = "classification"
+    CONTRASTIVE = "contrastive"
+    REGRESSION = "regression"
 
 
 # Brain class for TTS evaluation training
@@ -49,7 +56,12 @@ class TTSEvalBrain(sb.Brain):
         batch = batch.to(self.device)
 
         # Compute predictions
-        predictions = self.modules.model(batch.sig.data, batch.sig.lengths)
+        model = (
+            self.modules.classifier
+            if self.mode == TTSEvalTrainMode.CLASSIFICATION
+            else self.modules.model
+        )
+        predictions = model(batch.sig.data, batch.sig.lengths)
 
         return predictions
 
@@ -97,12 +109,36 @@ class TTSEvalBrain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-        if self.hparams.contrastive:
-            return self.compute_objectives_contrastive(
+        if self.mode == TTSEvalTrainMode.CONTRASTIVE:
+            loss = self.compute_objectives_contrastive(
                 predictions, batch, stage
             )
-        scores = batch.score_num[:, None, None]
+        elif self.mode == TTSEvalTrainMode.CLASSIFICATION:
+            loss = self.compute_objectives_classification(
+                predictions, batch, stage
+            )
+        else:
+            loss = self.compute_objectives_regression(predictions, batch, stage)
+        return loss
 
+    def compute_objectives_regression(self, predictions, batch, stage):
+        """Computes the classification loss
+
+        Arguments
+        ---------
+        predictions : tensor
+            The output tensor from `compute_forward`.
+        batch : PaddedBatch
+            This batch object contains all the relevant tensors for computation.
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient.
+        """
+        scores = batch.score_num[:, None, None]
         loss = self.hparams.compute_cost(predictions, scores)
 
         # Append this batch of losses to the loss metric for easy
@@ -115,6 +151,33 @@ class TTSEvalBrain(sb.Brain):
                 batch.id, predictions, scores, groups=batch.system
             )
 
+        return loss
+
+    def compute_objectives_classification(self, predictions, batch, stage):
+        """Computes the classification loss
+
+        Arguments
+        ---------
+        predictions : tensor
+            The output tensor from `compute_forward`.
+        batch : PaddedBatch
+            This batch object contains all the relevant tensors for computation.
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient.
+        """
+        scores = batch.score_num[:, None]
+        targets = (scores > self.hparams.classification_threshold).float()[
+            :, None
+        ]
+        loss = self.hparams.compute_cost_classification(predictions, targets,)
+        self.loss_metric_classification.append(
+            batch.id, predictions, targets, reduction="batch",
+        )
         return loss
 
     def compute_objectives_contrastive(self, predictions, batch, stage):
@@ -194,13 +257,32 @@ class TTSEvalBrain(sb.Brain):
         """
 
         # Set up statistics trackers for this stage
+        classification_epochs = getattr(
+            self.hparams, "classification_epochs", 0
+        )
+        if epoch <= classification_epochs:
+            logger.info("Classification pretraining mode")
+            self.mode = TTSEvalTrainMode.CLASSIFICATION
+        elif self.hparams.contrastive:
+            logger.info("Contrastive training mode")
+            self.mode = TTSEvalTrainMode.CONTRASTIVE
+        else:
+            logger.info("Regular regression training mode")
+            self.mode = TTSEvalTrainMode.REGRESSION
+
         self.loss_metric = sb.utils.metric_stats.MetricStats(
             metric=self.hparams.compute_cost
         )
         self.loss_metric_contrastive = sb.utils.metric_stats.MetricStats(
             metric=self.hparams.compute_cost_contrastive
         )
-        if stage != sb.Stage.TRAIN or self.hparams.train_regression_metric:
+        self.loss_metric_classification = sb.utils.metric_stats.MetricStats(
+            metric=self.hparams.compute_cost_classification
+        )
+
+        if (
+            stage != sb.Stage.TRAIN or self.hparams.train_regression_metric
+        ) and self.mode != TTSEvalTrainMode.CLASSIFICATION:
             self.reg_metric = sb.utils.metric_stats.LinearRegressionStats(
                 scores_label=LABEL_MODEL_SCORE,
                 targets_label=LABEL_HUMAN_SCORE,
@@ -218,6 +300,29 @@ class TTSEvalBrain(sb.Brain):
             self.reg_metric = None
             self.reg_system_metric = None
 
+    def get_stats(self, stage_loss):
+        """Retrieves statistics for the current stage
+
+        Arguments
+        ---------
+        stage_loss : float
+            The average loss for all of the data processed in this stage.
+        """
+        stats = {
+            "loss": stage_loss,
+            "mode": self.mode.value,
+        }
+        if self.mode != TTSEvalTrainMode.CLASSIFICATION:
+            stats["predictive_loss"] = self.loss_metric.summarize("average")
+
+        if self.reg_metric is not None:
+            stats.update(self.get_prefixed_metric_stats(self.reg_metric, "utt"))
+            stats.update(
+                self.get_prefixed_metric_stats(self.reg_system_metric, "sys")
+            )
+
+        return stats
+
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
 
@@ -234,38 +339,11 @@ class TTSEvalBrain(sb.Brain):
 
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
-            self.train_stats = {
-                "loss": stage_loss,
-                "predictive_loss": self.loss_metric.summarize("average"),
-            }
-            if self.hparams.contrastive:
-                self.train_stats[
-                    "contrastive_loss"
-                ] = self.loss_metric_contrastive.summarize("average")
-            if self.reg_metric is not None:
-                self.train_stats.update(
-                    self.get_prefixed_metric_stats(self.reg_metric, "utt")
-                )
-                self.train_stats.update(
-                    self.get_prefixed_metric_stats(self.reg_system_metric, "sys")
-                )
+            self.train_stats = self.get_stats(stage_loss)
 
         # Summarize the statistics from the stage for record-keeping.
         else:
-            stats = {
-                "loss": stage_loss,
-                "predictive_loss": self.loss_metric.summarize("average"),
-            }
-            if self.hparams.contrastive:
-                stats[
-                    "contrastive_loss"
-                ] = self.loss_metric_contrastive.summarize("average")
-            stats.update(
-                self.get_prefixed_metric_stats(self.reg_metric, "utt")
-            )
-            stats.update(
-                self.get_prefixed_metric_stats(self.reg_system_metric, "sys")
-            )
+            stats = self.get_stats(stage_loss)
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
@@ -297,24 +375,21 @@ class TTSEvalBrain(sb.Brain):
     def get_prefixed_metric_stats(self, metric, prefix):
         """Gets statistics from a MetricStats instance and applies
         a prfix to them
-        
+
         Arguments
         ---------
         metric : speechbrain.utils.metric_stats.MetricStats
             A metric instance
         prefix : str
             The prefix to use
-        
+
         Returns
         -------
         stats : dict
             prefixed statistics
         """
         stats = metric.summarize()
-        return {
-            f"{prefix}_{key}": value
-            for key, value in stats.items()
-        }
+        return {f"{prefix}_{key}": value for key, value in stats.items()}
 
     def shuffle(self, stage):
         """Shuffles contrastive pairings

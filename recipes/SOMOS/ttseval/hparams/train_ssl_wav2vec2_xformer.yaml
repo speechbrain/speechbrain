@@ -11,6 +11,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER
 output_folder: !ref results/ssl_wav2vec2_xformer/<seed>
 save_folder: !ref <output_folder>/save
+details_folder: !ref <output_folder>/details
 train_log: !ref <output_folder>/train_log.txt
 train_regression_metric: False
 batch_size: 4
