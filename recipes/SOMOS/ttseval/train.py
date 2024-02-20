@@ -49,7 +49,7 @@ class TTSEvalBrain(sb.Brain):
         predictions : Tensor | tuple
             predictions
         """
-        if self.hparams.contrastive:
+        if self.mode == TTSEvalTrainMode.CONTRASTIVE:
             return self.compute_forward_contrastive(batch)
 
         # We first move the batch to the appropriate device.
@@ -174,7 +174,7 @@ class TTSEvalBrain(sb.Brain):
         targets = (scores > self.hparams.classification_threshold).float()[
             :, None
         ]
-        loss = self.hparams.compute_cost_classification(predictions, targets,)
+        loss = self.hparams.compute_cost_classification(predictions, targets)
         self.loss_metric_classification.append(
             batch.id, predictions, targets, reduction="batch",
         )
@@ -412,7 +412,7 @@ class TTSEvalBrain(sb.Brain):
             The epoch number"""
         if self.reg_metric is None:
             return None
-        target_path = Path(self.hparams.save_folder) / "details"
+        target_path = self.hparams.details_folder
         if epoch is not None:
             target_path = target_path / str(epoch)
         target_path.mkdir(exist_ok=True, parents=True)
@@ -496,7 +496,9 @@ def add_contrastive(datasets, hparams):
     contrastive_enhancements = {}
     for key, dataset in datasets.items():
         contrastive_enhancement = RegressionContrastiveEnhancement(
-            metric_key="score_num", min_delta=hparams["contrastive_min_delta"]
+            metric_key="score_num",
+            min_delta=hparams["contrastive_min_delta"],
+            seed=hparams["seed"],
         )
         contrastive_enhancement.bind(dataset)
         contrastive_enhancements[key] = contrastive_enhancement
@@ -554,6 +556,9 @@ if __name__ == "__main__":
 
     if hparams["contrastive"]:
         contrastive_enhancements = add_contrastive(datasets, hparams)
+        checkpointer = hparams["checkpointer"]
+        for key, enhancement in contrastive_enhancements.items():
+            checkpointer.add_recoverable(f"contrastive_{key}", enhancement)
         ttseval_brain.contrastive_enhancements = contrastive_enhancements
 
     # The `fit()` method iterates the training loop, calling the methods

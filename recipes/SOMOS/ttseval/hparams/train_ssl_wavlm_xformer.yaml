@@ -108,6 +108,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     classifier: !ref <classifier>
     lr_annealing_output: !ref <lr_annealing>
     counter: !ref <epoch_counter>
+  allow_partial_load: True
+
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
   initial_value: !ref <lr>

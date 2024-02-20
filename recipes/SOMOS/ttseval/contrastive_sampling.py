@@ -8,8 +8,10 @@ Authors
 import torch
 from functools import partial
 from speechbrain.utils.data_pipeline import takes, provides
+from speechbrain.utils import checkpoints
 
 
+@checkpoints.register_checkpoint_hooks
 class RegressionContrastiveEnhancement:
     """An dataset enhancement for contrastive learning on simple regression
     tasks with a single metric, useful for cases where consistently estimating
@@ -30,11 +32,45 @@ class RegressionContrastiveEnhancement:
     min_delta : float
         The minimum metric distance (absolute value) for a sample to be pairable
         with any given sample
+
+    Examples
+    --------
+    >>> data = {
+    ...     1: {"score": 3.5},
+    ...     2: {"score": 2.7},
+    ...     3: {"score": 5.0},
+    ...     4: {"score": 1.2},
+    ...     5: {"score": 2.5},
+    ...     6: {"score": 3.2},
+    ...     7: {"score": 3.8},
+    ...     8: {"score": 1.7},
+    ...     9: {"score": 1.2},
+    ...     10: {"score": 4.2},
+    >>> }
+    >>> from speechbrain.dataio.dataset import DynamicItemDataset
+    >>> dataset = DynamicItemDataset(data)
+    >>> dataset.set_output_keys(["id", "score"])
+    >>> from contrastive_sampling import RegressionContrastiveEnhancement
+    >>> sampling = RegressionContrastiveEnhancement(
+    ...     metric_key="score",
+    ...     min_delta=0.5,
+    ...     seed=42
+    ... )
+    ... sampling.bind(dataset)
+    >>> from speechbrain.dataio.dataloader import make_dataloader
+    >>> loader = make_dataloader(dataset)
+    >>> loader_it = iter(loader)
+    >>> batch = next(loader_it)
+    >>> batch.score.item()
+    >>> batch.contrast_score.item()
     """
 
-    def __init__(self, metric_key, min_delta):
+    def __init__(self, metric_key, min_delta, seed=None):
         self.metric_key = metric_key
         self.min_delta = min_delta
+        self.generator = torch.Generator()
+        if seed is not None:
+            self.generator.manual_seed(seed)
 
     def bind(self, dataset):
         """Binds the enhancement to a dataset, adding the contrastive pairings
@@ -58,12 +94,15 @@ class RegressionContrastiveEnhancement:
         min_shift_right = selection_blocked.triu().sum(-1)
         self.min_shift_left = selection_blocked.tril().sum(-1)
         self.indexes_sorted_mirror = torch.cat(
-            [
-                self.indexes_sorted,
-                self.indexes_sorted.flip(0)[1:],
-                self.indexes_sorted,
-            ]
+            [self.indexes_sorted.flip(0)[1:], self.indexes_sorted,]
         )
+        self.indexes_sorted_mirror = self.indexes_sorted_mirror.unsqueeze(
+            0
+        ).expand(len(dataset), self.indexes_sorted_mirror.size(-1))
+        for idx in range(len(dataset)):
+            self.indexes_sorted_mirror[idx] = self.indexes_sorted_mirror[
+                idx
+            ].roll(-idx)
 
         self.shift_max = (2 * size - 1) - self.min_shift_left - min_shift_right
         keys = list(dataset.pipeline.output_mapping.keys())
@@ -81,11 +120,13 @@ class RegressionContrastiveEnhancement:
 
     def _get_pairings_map(self):
         """Builds a returns a dictionary of item pairings"""
-        shift_rel = torch.rand(len(self.indexes))
+        shift_rel = torch.rand(len(self.indexes), generator=self.generator)
         shift_abs = (
             self.min_shift_left + (self.shift_max * shift_rel).floor().int()
         )
-        indexes_selected = self.indexes_sorted_mirror[self.indexes + shift_abs]
+        indexes_selected = self.indexes_sorted_mirror[
+            torch.arange(len(shift_abs)), shift_abs
+        ]
         pairings = torch.zeros_like(indexes_selected)
         pairings[self.indexes_sorted] = indexes_selected
         return {
@@ -97,6 +138,22 @@ class RegressionContrastiveEnhancement:
         """Re-samples the pairings"""
         pairings_map = self._get_pairings_map()
         self.pipeline.pairings = pairings_map
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {
+            "generator_state": self.generator.get_state(),
+        }
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch
+        del device
+        data = torch.load(path)
+        self.generator.set_state(data["generator_state"])
 
 
 class ContrastivePairingPipeline:
