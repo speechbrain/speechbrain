@@ -452,7 +452,7 @@ class DSTMetrics:
             )
 
     def read_spokenwoz_files(self, predictions_file: str, reference_manifest: str, filtering: bool):
-
+        self.file = predictions_file
         with open(reference_manifest, "r") as data:
             for line in data:
                 annotations = json.loads(line)
