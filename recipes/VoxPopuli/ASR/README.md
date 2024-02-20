@@ -1,0 +1,90 @@
+# VoxPopuli ASR with Transducers
+This folder contains scripts necessary to run an ASR experiment with the VoxPopuli dataset;
+Before running this recipe, make sure numba is installed (pip install numba) for faster training!
+You can download VoxPopuli at: https://github.com/facebookresearch/voxpopuli
+
+**We only report results for english but you simply need to download a different set to train with a different language!**
+
+# Extra-Dependencies
+This recipe supports two implementations of the transducer loss, see `use_torchaudio` arg in the yaml file:
+1. Transducer loss from torchaudio (this requires torchaudio version >= 0.10.0).
+2. Speechbrain implementation using Numba. To use it, please set `use_torchaudio=False` in the yaml file. This version is implemented within SpeechBrain and  allows you to directly access the python code of the transducer loss (and directly modify it if needed).
+
+The Numba implementation is currently enabled by default as the `use_torchaudio` option is incompatible with `bfloat16` training.
+
+Note: Before running this recipe, make sure numba is installed. Otherwise, run:
+```
+pip install numba
+```
+
+# How to run it
+```shell
+python train.py hparams/conformer_transducer.yaml
+```
+
+## Precision Notes
+If your GPU effectively supports fp16 (half-precision) computations, it is recommended to execute the training script with the `--precision=fp16` (or `--precision=bf16`) option.
+Enabling half precision can significantly reduce the peak VRAM requirements. For example, in the case of the Conformer Transducer recipe trained with Librispeech, the peak VRAM decreases from 39GB to 12GB when using fp16.
+According to our tests, the performance is not affected.
+
+# VoxPopuli non-streaming results
+
+Results are reported with beam search but without any language model. Models are
+trained with dynamic chunk training but decoding is offline.
+
+
+| Language | Hyperparams file | Train precision | Dev-clean Greedy | Test-clean Greedy | Model link | GPUs |
+|:-------------:|:---------------------------:|:-:| :------:| :-----------:| :------------------:| :------------------:|
+| English | conformer_transducer.yaml `streaming: True` | fp |  |  | | |
+
+<sub>\*: not evaluated due to performance issues, see [issue #2301](https://github.com/speechbrain/speechbrain/issues/2301)</sub>
+
+# VoxPopuli streaming results
+
+### WER vs chunk size & left context
+
+The following matrix presents the Word Error Rate (WER%) achieved on the test set with various chunk sizes (in ms) and left context sizes (in # of
+chunks).
+
+This is with greedy decoding only.
+
+The relative difference is not trivial to interpret, because we are not testing
+against a continuous stream of speech, but rather against utterances of various
+lengths. This tends to bias results in favor of larger chunk sizes.
+
+The chunk size might not accurately represent expected latency due to slight
+padding differences in streaming contexts.
+
+The left chunk size is not representative of the receptive field of the model.
+Because the model caches the streaming context at different layers, the model
+may end up forming indirect dependencies to audio many seconds ago.
+
+|       | full | cs=32 (1280ms) | 24 (960ms) | 16 (640ms) | 12 (480ms) | 8 (320ms) |
+|:-----:|:----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+| full  | 2.72%| -     | -     | -     | -     | -     |
+| lc=32 | -    | 3.09% | 3.07% | 3.26% | 3.31% | 3.44% |
+| 16    | -    | 3.10% | 3.07% | 3.27% | 3.32% | 3.50% |
+| 8     | -    | 3.10% | 3.11% | 3.31% | 3.39% | 3.62% |
+| 4     | -    | 3.12% | 3.13% | 3.37% | 3.51% | 3.80% |
+| 2     | -    | 3.19% | 3.24% | 3.50% | 3.79% | 4.38% |
+
+# **About SpeechBrain**
+- Website: https://speechbrain.github.io/
+- Code: https://github.com/speechbrain/speechbrain/
+- HuggingFace: https://huggingface.co/speechbrain/
+
+
+# **Citing SpeechBrain**
+Please, cite SpeechBrain if you use it for your research or business.
+
+```bibtex
+@misc{speechbrain,
+  title={{SpeechBrain}: A General-Purpose Speech Toolkit},
+  author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
+  year={2021},
+  eprint={2106.04624},
+  archivePrefix={arXiv},
+  primaryClass={eess.AS},
+  note={arXiv:2106.04624}
+}
+```
