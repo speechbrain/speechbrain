@@ -170,7 +170,7 @@ test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
         rnnlm: !ref <lm_weight>
         coverage: !ref <coverage_penalty>
         ctc: !ref <ctc_weight_decode>
-        
+
 # The final decoding on the test set can be more computationally demanding.
 # In this case, we use the LM + CTC probabilities during decoding as well.
 # Please, remove this part if you need a faster decoder.
