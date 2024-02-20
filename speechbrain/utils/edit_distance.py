@@ -6,6 +6,7 @@ Authors
 """
 
 import collections
+from typing import Callable
 
 EDIT_SYMBOLS = {
     "eq": "=",  # when tokens are equal
@@ -15,11 +16,20 @@ EDIT_SYMBOLS = {
 }
 
 
+def _str_equals(a: str, b: str):
+    return a == b
+
+
 # NOTE: There is a danger in using mutables as default arguments, as they are
 # only initialized once, and not every time the function is run. However,
 # here the default is not actually ever mutated,
 # and simply serves as an empty Counter.
-def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
+def accumulatable_wer_stats(
+    refs,
+    hyps,
+    stats=collections.Counter(),
+    equality_comparator: Callable[[str, str], bool] = _str_equals,
+):
     """Computes word error rate and the related counts for a batch.
 
     Can also be used to accumulate the counts over many batches, by passing
@@ -37,6 +47,8 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
         to accumulate the counts. It may be cleanest to initialize
         the stats yourself; then an empty collections.Counter() should
         be used.
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------
@@ -61,7 +73,9 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     >>> print("%WER {WER:.2f}, {num_ref_tokens} ref tokens".format(**stats))
     %WER 33.33, 9 ref tokens
     """
-    updated_stats = stats + _batch_stats(refs, hyps)
+    updated_stats = stats + _batch_stats(
+        refs, hyps, equality_comparator=equality_comparator
+    )
     if updated_stats["num_ref_tokens"] == 0:
         updated_stats["WER"] = float("nan")
     else:
@@ -78,7 +92,9 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     return updated_stats
 
 
-def _batch_stats(refs, hyps):
+def _batch_stats(
+    refs, hyps, equality_comparator: Callable[[str, str], bool] = _str_equals
+):
     """Internal function which actually computes the counts.
 
     Used by accumulatable_wer_stats
@@ -89,6 +105,8 @@ def _batch_stats(refs, hyps):
         Batch of reference sequences.
     hyp : iterable
         Batch of hypothesis sequences.
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------
@@ -114,14 +132,18 @@ def _batch_stats(refs, hyps):
         )
     stats = collections.Counter()
     for ref_tokens, hyp_tokens in zip(refs, hyps):
-        table = op_table(ref_tokens, hyp_tokens)
+        table = op_table(
+            ref_tokens, hyp_tokens, equality_comparator=equality_comparator
+        )
         edits = count_ops(table)
         stats += edits
         stats["num_ref_tokens"] += len(ref_tokens)
     return stats
 
 
-def op_table(a, b):
+def op_table(
+    a, b, equality_comparator: Callable[[str, str], bool] = _str_equals
+):
     """Table of edit operations between a and b.
 
     Solves for the table of edit operations, which is mainly used to
@@ -144,6 +166,8 @@ def op_table(a, b):
         Sequence for which the edit operations are solved.
     b : iterable
         Sequence for which the edit operations are solved.
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------
@@ -186,7 +210,7 @@ def op_table(a, b):
             # The dynamic programming algorithm cost rules
             insertion_cost = curr_row[j - 1] + 1
             deletion_cost = prev_row[j] + 1
-            substitution = 0 if a_token == b_token else 1
+            substitution = 0 if equality_comparator(a_token, b_token) else 1
             substitution_cost = prev_row[j - 1] + substitution
             # Here copying the Kaldi compute-wer comparison order, which in
             # ties prefers:
@@ -339,7 +363,13 @@ def _batch_to_dict_format(ids, seqs):
     return dict(zip(ids, seqs))
 
 
-def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
+def wer_details_for_batch(
+    ids,
+    refs,
+    hyps,
+    compute_alignments=False,
+    equality_comparator: Callable[[str, str], bool] = _str_equals,
+):
     """Convenient batch interface for ``wer_details_by_utterance``.
 
     ``wer_details_by_utterance`` can handle missing hypotheses, but
@@ -379,12 +409,20 @@ def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
     refs = _batch_to_dict_format(ids, refs)
     hyps = _batch_to_dict_format(ids, hyps)
     return wer_details_by_utterance(
-        refs, hyps, compute_alignments=compute_alignments, scoring_mode="strict"
+        refs,
+        hyps,
+        compute_alignments=compute_alignments,
+        scoring_mode="strict",
+        equality_comparator=equality_comparator,
     )
 
 
 def wer_details_by_utterance(
-    ref_dict, hyp_dict, compute_alignments=False, scoring_mode="strict"
+    ref_dict,
+    hyp_dict,
+    compute_alignments=False,
+    scoring_mode="strict",
+    equality_comparator: Callable[[str, str], bool] = _str_equals,
 ):
     """Computes a wealth WER info about each single utterance.
 
@@ -477,7 +515,9 @@ def wer_details_by_utterance(
         else:
             raise ValueError("Invalid scoring mode: " + scoring_mode)
         # Compute edits for this utterance
-        table = op_table(ref_tokens, hyp_tokens)
+        table = op_table(
+            ref_tokens, hyp_tokens, equality_comparator=equality_comparator
+        )
         ops = count_ops(table)
         # Take into account "" outputs as empty
         if ref_tokens[0] == "" and hyp_tokens[0] == "":

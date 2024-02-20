@@ -9,9 +9,14 @@ Authors:
 """
 
 import torch
+from typing import Callable
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
+from speechbrain.utils.edit_distance import (
+    wer_summary,
+    wer_details_for_batch,
+    _str_equals,
+)
 from speechbrain.dataio.dataio import (
     merge_char,
     split_word,
@@ -219,6 +224,8 @@ class ErrorRateStats(MetricStats):
         Start of the concept ('<' for example).
     tag_out : str
         End of the concept ('>' for example).
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Example
     -------
@@ -251,6 +258,7 @@ class ErrorRateStats(MetricStats):
         extract_concepts_values=False,
         tag_in="",
         tag_out="",
+        equality_comparator: Callable[[str, str], bool] = _str_equals,
     ):
         self.clear()
         self.merge_tokens = merge_tokens
@@ -260,6 +268,7 @@ class ErrorRateStats(MetricStats):
         self.keep_values = keep_values
         self.tag_in = tag_in
         self.tag_out = tag_out
+        self.equality_comparator = equality_comparator
 
     def append(
         self,
@@ -328,7 +337,13 @@ class ErrorRateStats(MetricStats):
                 space=self.space_token,
             )
 
-        scores = wer_details_for_batch(ids, target, predict, True)
+        scores = wer_details_for_batch(
+            ids,
+            target,
+            predict,
+            compute_alignments=True,
+            equality_comparator=self.equality_comparator,
+        )
 
         self.scores.extend(scores)
 
