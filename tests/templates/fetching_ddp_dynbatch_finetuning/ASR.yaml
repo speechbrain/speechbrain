@@ -132,26 +132,58 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     dnn_neurons: 512
     return_hidden: True  # For inference
 
+# Define your scorers for beam searcher
+
+# If the lm_scorer is set, a language model
+# is applied (with a weight specified in scorer).
+rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
+    language_model: !ref <lm_model>
+    temperature: !ref <temperature_lm>
+
+# If ctc_scorer is set, the decoder uses CTC + attention beamsearch. This
+# improves the performance, but slows down decoding.
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+# If coverage_scorer is set, coverage penalty is applied based on accumulated
+# attention weights during beamsearch.
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+    vocab_size: !ref <output_neurons>
+
+# Gathering all scorers in a scorer instance for beamsearch:
+# - full_scorers are scorers which score on full vocab set, while partial_scorers
+# are scorers which score on pruned tokens.
+# - The number of pruned tokens is decided by scorer_beam_scale * beam_size.
+# - For some scorers like ctc_scorer, ngramlm_scorer, putting them
+# into full_scorers list would be too heavy. partial_scorers are more
+# efficient because they score on pruned tokens at little cost of
+# performance drop. For other scorers, please see the speechbrain.decoders.scorer.
+test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    scorer_beam_scale: 1.5
+    full_scorers: [
+        !ref <rnnlm_scorer>,
+        !ref <coverage_scorer>]
+    partial_scorers: [!ref <ctc_scorer>]
+    weights:
+        rnnlm: !ref <lm_weight>
+        coverage: !ref <coverage_penalty>
+        ctc: !ref <ctc_weight_decode>
+        
 # The final decoding on the test set can be more computationally demanding.
 # In this case, we use the LM + CTC probabilities during decoding as well.
 # Please, remove this part if you need a faster decoder.
-test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
+test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <embedding>
     decoder: !ref <decoder>
     linear: !ref <seq_lin>
-    ctc_linear: !ref <ctc_lin>
-    language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
     eos_threshold: !ref <eos_threshold>
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
-    coverage_penalty: !ref <coverage_penalty>
-    lm_weight: !ref <lm_weight>
-    ctc_weight: !ref <ctc_weight_decode>
     temperature: !ref <temperature>
-    temperature_lm: !ref <temperature_lm>
