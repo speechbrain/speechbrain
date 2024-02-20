@@ -35,13 +35,13 @@ test_csv:
 
 number_of_epochs: 100 # Will never be reached due to next param.
 optimizer_step_limit: 70000 # In practice 70k steps are sufficient to converge.
-warmup_steps: 20000
+warmup_steps: 10000
 num_workers: 4
 batch_size_valid: 4
 batch_size_test: 1
 lr: 0.0008
 weight_decay: 0.01
-number_of_ctc_epochs: 60
+number_of_ctc_epochs: 10
 ctc_weight: 0.4 # Multitask with CTC for the encoder (0.0 = disabled)
 ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 10.0
