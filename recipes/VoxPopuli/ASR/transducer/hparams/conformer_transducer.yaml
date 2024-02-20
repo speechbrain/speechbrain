@@ -65,7 +65,6 @@ win_length: 32
 # non-streaming accuracy is very similar between `streaming: True` and
 # `streaming: False`.
 streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
-test_chunk_size: 16
 
 # Configuration for Dynamic Chunk Training.
 # In this model, a chunk is roughly equivalent to 40ms of audio.
@@ -139,7 +138,6 @@ nbest: 1
 # https://arxiv.org/abs/1904.02619
 state_beam: 2.3
 expand_beam: 2.3
-lm_weight: 0.50
 
 # If True uses torchaudio loss. Otherwise, the numba one
 use_torchaudio: False
