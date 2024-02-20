@@ -46,7 +46,7 @@ class RegressionContrastiveEnhancement:
     ...     8: {"score": 1.7},
     ...     9: {"score": 1.2},
     ...     10: {"score": 4.2},
-    >>> }
+    ... }
     >>> from speechbrain.dataio.dataset import DynamicItemDataset
     >>> dataset = DynamicItemDataset(data)
     >>> dataset.set_output_keys(["id", "score"])
@@ -56,13 +56,15 @@ class RegressionContrastiveEnhancement:
     ...     min_delta=0.5,
     ...     seed=42
     ... )
-    ... sampling.bind(dataset)
+    >>> sampling.bind(dataset)
     >>> from speechbrain.dataio.dataloader import make_dataloader
     >>> loader = make_dataloader(dataset)
     >>> loader_it = iter(loader)
     >>> batch = next(loader_it)
     >>> batch.score.item()
+    3.5
     >>> batch.contrast_score.item()
+    2.5
     """
 
     def __init__(self, metric_key, min_delta, seed=None):
@@ -94,7 +96,7 @@ class RegressionContrastiveEnhancement:
         min_shift_right = selection_blocked.triu().sum(-1)
         self.min_shift_left = selection_blocked.tril().sum(-1)
         self.indexes_sorted_mirror = torch.cat(
-            [self.indexes_sorted.flip(0)[1:], self.indexes_sorted,]
+            [self.indexes_sorted.flip(0)[1:], self.indexes_sorted]
         )
         self.indexes_sorted_mirror = self.indexes_sorted_mirror.unsqueeze(
             0

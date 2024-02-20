@@ -10,9 +10,6 @@ Authors
 from pathlib import Path
 from zipfile import ZipFile
 from speechbrain.dataio.dataio import merge_csvs
-from speechbrain.utils.superpowers import run_shell
-from subprocess import list2cmdline
-import os
 import re
 import csv
 import logging
@@ -28,6 +25,7 @@ COLUMN_ID = "ID"
 COLUMN_WAV = "wav"
 COLUMN_CHAR = "char"
 COLUMN_SCORE = "score"
+COLUMN_SYSTEM = "system"
 TOOLS_PATH = Path(__file__).parent.parent.parent.parent / "tools"
 TOOLS_PATH_VOICEMOS = TOOLS_PATH / "voicemos"
 VOICEMOS_NORM_SCRIPT = TOOLS_PATH_VOICEMOS / "sub_normRMSE.sh"
@@ -40,7 +38,6 @@ def prepare_somos(
     subset="full",
     use_transcripts=False,
     char_list_file=None,
-    audio_preprocessing=None,
 ):
     """Prepares the csv files for the Somos dataset
 
@@ -61,12 +58,6 @@ def prepare_somos(
         transcript/gather_transcripts.py has been run)
     char_list_file : str|path-like
         The list of characters
-    audio_preprocessing : str
-        The type of audio preprocessing to be applied
-        Supported:
-
-        None: no preprocessing will be applied
-        voicemos: preprocessing will be applied as specified in the VoiceMOS challenge
     """
     data_folder = Path(data_folder)
     save_folder = Path(save_folder)
@@ -92,23 +83,8 @@ def prepare_somos(
             )
         transcripts = read_transcripts(transcripts_file_name, char_set)
 
-    if audio_preprocessing:
-        audio_preprocessing_cfg = AUDIO_PREPROCESSING.get(audio_preprocessing)
-        if audio_preprocessing_cfg is None:
-            raise ValueError(
-                f"Unsupported preprocessing: {audio_preprocessing}"
-            )
-        audio_prepare = audio_preprocessing_cfg["prepare"]
-        audio_process = audio_preprocessing_cfg["process"]
-    else:
-        audio_prepare, audio_process = None, None
-
-    if audio_prepare is not None:
-        audio_prepare(save_folder)
     for split in splits:
-        process_split(
-            data_folder, save_folder, split, subset, transcripts, audio_process
-        )
+        process_split(data_folder, save_folder, split, subset, transcripts)
     merge_splits(save_folder, splits)
 
 
@@ -166,7 +142,7 @@ def get_metadata_columns(use_transcripts=False):
     columns : list
         A list of column names
     """
-    columns = [COLUMN_ID, COLUMN_WAV]
+    columns = [COLUMN_ID, COLUMN_WAV, COLUMN_SYSTEM]
     if use_transcripts:
         columns.append(COLUMN_CHAR)
     columns.append(COLUMN_SCORE)
@@ -221,9 +197,7 @@ def parse_transcript_line(line, char_set):
     return item_id, transcript
 
 
-def process_split(
-    data_folder, save_folder, split, subset, transcripts=None, process=None
-):
+def process_split(data_folder, save_folder, split, subset, transcripts=None):
     """Processes metadata for the specified split
 
     Arguments
@@ -240,17 +214,11 @@ def process_split(
         "clean" for clean data only
     transcripts : dict, optional
         The parsed transcripts
-    process : callable, optional
-        If provided, this function will be applied to the source audio
-        file
     """
     src_metadata_file_path = data_folder / PATH_METADATA.format(
         split=split, subset=subset
     )
     tgt_metadata_file_path = save_folder / f"{split}.csv"
-    if process:
-        processed_folder = save_folder / "processed"
-        processed_folder.mkdir(exist_ok=True)
     logger.info(
         "Processing %s - from %s to %s",
         split,
@@ -273,17 +241,13 @@ def process_split(
                     Path(data_folder) / PATH_AUDIOS / src_item["utteranceId"]
                 )
                 if src_audio_path.exists():
-                    tgt_item = process_item(
-                        src_item, transcripts, is_processed=process is not None
-                    )
-                    if process is not None:
-                        process(src_audio_path, processed_folder)
+                    tgt_item = process_item(src_item, transcripts)
                     writer.writerow(tgt_item)
                 else:
                     logger.warn("%s does not exist", src_audio_path)
 
 
-def process_item(item, transcripts, is_processed):
+def process_item(item, transcripts):
     """Converts a single metadata record to the SpeechBrain
     convention
 
@@ -300,14 +264,12 @@ def process_item(item, transcripts, is_processed):
         the processed item"""
     src_utterance_id = item["utteranceId"]
     tgt_utterance_id = RE_EXT_WAV.sub("", src_utterance_id)
-    wav_path = (
-        Path("$processed_folder") / src_utterance_id
-        if is_processed
-        else Path("$data_root") / PATH_AUDIOS / src_utterance_id
-    )
+    system_id = tgt_utterance_id.split("_")[:-1]
+    wav_path = Path("$data_root") / PATH_AUDIOS / src_utterance_id
     result = {
         "ID": tgt_utterance_id,
         "wav": wav_path,
+        "system": system_id,
         "score": item["mean"],
     }
     if transcripts is not None:
@@ -331,74 +293,3 @@ def merge_splits(
     tgt_file_path = save_folder / FILE_DATA
     csvs = [save_folder / f"{split}.csv" for split in splits]
     merge_csvs(save_folder, csvs, tgt_file_path)
-
-
-def prepare_voicemos(save_folder):
-    """Prepares for the installation of VoiceMOS
-
-    Arguments
-    ---------
-    save_folder : str
-        The path where results and tools will be saved"""
-    install_sv56_path = TOOLS_PATH_VOICEMOS / "install_sv56.sh"
-    logger.info("Running the sv56 installation script")
-    cmd = list2cmdline([str(install_sv56_path), str(save_folder)])
-    output, err, return_code = run_shell(cmd)
-    if return_code != 0:
-        raise PreparationException(
-            "\n".join(
-                "Unable to install sv56",
-                "Command:",
-                cmd,
-                "Output:",
-                output,
-                "Errors:",
-                err,
-            )
-        )
-    logger.info("sv56 installation was completed")
-    sv56_path = save_folder / "src" / "sv56"
-    logger.info("Adding %s to the system path", sv56_path)
-    current_path = os.environ["PATH"]
-    os.environ["PATH"] = current_path + os.pathsep + str(sv56_path)
-
-
-def process_file_voicemos(file_path, processed_folder):
-    """Processes a single file using VoiceMOS challenge scripts
-
-    Arguments
-    ---------
-    file_path : path-like
-        The path to the file
-    processed_folder : path-like
-        The destination folder
-    """
-    cmd = list2cmdline(
-        [
-            str(VOICEMOS_NORM_SCRIPT),
-            str(file_path),
-            str(TOOLS_PATH),
-            str(processed_folder),
-        ]
-    )
-    try:
-        run_shell(cmd)
-    except OSError as e:
-        raise PreparationException(
-            "\n".join(
-                f"Unable to process {file_path}",
-                "Command:",
-                cmd,
-                "Errors:",
-                str(e),
-            )
-        )
-
-
-class PreparationException(Exception):
-    pass
-
-
-AUDIO_PREPROCESSING = {
-    "voicemos": {"prepare": prepare_voicemos, "process": process_file_voicemos}
-}

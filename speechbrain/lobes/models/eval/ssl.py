@@ -143,6 +143,7 @@ class TransformerRegression(nn.Module):
     >>> scores.shape
     torch.Size([4, 1, 1])
     """
+
     def __init__(
         self,
         base_model,

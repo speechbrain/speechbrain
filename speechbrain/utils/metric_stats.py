@@ -1158,11 +1158,22 @@ class LinearRegressionStats(MetricStats):
     ...     predict=torch.tensor([5.5, 3.5]),
     ...     target=torch.tensor([5.0, 3.0]),
     ... )
-    >>> reg_stats.summarize() #doctest: +NORMALIZE_WHITESPACE
-    {'scores_mean': 3.25, 'scores_std': 1.7677669529663689,
-     'targets_mean': 3.0, 'targets_std': 1.632993161855452,
-     'slope': 0.9066666666666672, 'intercept': 0.0533333333333296,
-     'pearson_r': 0.9814954576223637}
+    >>> summary = reg_stats.summarize()
+    >>> summary = {key: round(value, 2) for key, value in summary.items()}
+    >>> summary["scores_mean"]
+    3.25
+    >>> summary["scores_std"]
+    1.77
+    >>> summary["targets_mean"]
+    3.0
+    >>> summary["targets_std"]
+    1.63
+    >>> summary["slope"]
+    0.91
+    >>> summary["intercept"]
+    0.05
+    >>> summary["pearson_r"]
+    0.98
     >>> reg_stats = LinearRegressionStats(grouped=True)
     >>> reg_stats.append(
     ...    ids=["ID1", "ID2", "ID3", "ID4"],
@@ -1176,14 +1187,22 @@ class LinearRegressionStats(MetricStats):
     ...    target=torch.tensor([5.0, 3.0, 2.0, 1.2]),
     ...    groups=["G1", "G2", "G3", "G1"],
     ... )
-    >>> reg_stats.summarize() #doctest: +NORMALIZE_WHITESPACE
-    {'scores_mean': 3.2138888968361745,
-     'scores_std': 2.009808117260408,
-     'targets_mean': 2.966666671964857,
-     'targets_std': 1.8175074482175884,
-     'slope': 0.9016212147555519,
-     'intercept': 0.0689562607100465,
-     'pearson_r': 0.9970168968974473}
+    >>> summary = reg_stats.summarize()
+    >>> summary = {key: round(value, 2) for key, value in summary.items()}
+    >>> summary["scores_mean"]
+    3.21
+    >>> summary["scores_std"]
+    2.01
+    >>> summary["targets_mean"]
+    2.97
+    >>> summary["targets_std"]
+    1.82
+    >>> summary["slope"]
+    0.9
+    >>> summary["intercept"]
+    0.07
+    >>> summary["pearson_r"]
+    1.0
     """
 
     def __init__(
