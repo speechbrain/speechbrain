@@ -410,6 +410,8 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 #       - !ref <compute_features>
 #       - !ref <normalize>
 #       - !ref <CNN>
-#    # don't consider normalization as part of the input filter chain
+#    # don't consider normalization as part of the input filter chain.
+#    # normalization will operate at chunk level, which mismatches training
+#    # somewhat, but does not appear to result in noticeable degradation.
 #    properties: !!python/object/apply:speechbrain.utils.filter_analysis.stack_filter_properties
 #       - [!ref <compute_features>, !ref <CNN>]
