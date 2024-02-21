@@ -105,10 +105,6 @@ class FilterProperties:
 
         return FilterProperties(window_size=1, stride=1)
 
-    def has_overlap(self):
-        """Whether two output frames may ever depend on the same input frame."""
-        ...
-
     def get_effective_size(self):
         """The number of input frames that span the window, including those
         ignored by dilation."""
