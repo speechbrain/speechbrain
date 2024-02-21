@@ -29,10 +29,6 @@ class ASR(sb.Brain):
 
         # Forward pass
         feats = self.hparams.compute_features(wavs)
-
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
-            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-
         feats = self.modules.normalize(feats, wav_lens)
         x = self.modules.enc(feats.detach())
         e_in = self.modules.emb(tokens_bos)  # y_in bos + tokens
@@ -73,7 +69,7 @@ class ASR(sb.Brain):
                 tokens_lens,
                 tokens_eos,
                 tokens_eos_lens,
-            ) = self.hparams.fea_augment.replicate_multiple_labels(
+            ) = self.hparams.wav_augment.replicate_multiple_labels(
                 tokens, tokens_lens, tokens_eos, tokens_eos_lens
             )
 

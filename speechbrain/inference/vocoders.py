@@ -311,16 +311,16 @@ class UnitHIFIGAN(Pretrained):
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
 
-        # Ensure that the units sequence has a length of at least 3
-        if units.size(1) < 3:
-            logger.error(
-                "The 'units' argument should have a length of at least 3 because of padding size."
+        # Ensure that the units sequence has a length of at least 4
+        if units.size(1) < 4:
+            raise RuntimeError(
+                "The 'units' argument should have a length of at least 4 because of padding size."
             )
-            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:
-            units += 1
+            # Avoid changing the input in-place
+            units = units + 1
         with torch.no_grad():
             waveform = self.infer(units.to(self.device))
         return waveform
@@ -341,16 +341,16 @@ class UnitHIFIGAN(Pretrained):
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
 
-        # Ensure that the units sequence has a length of at least 3
-        if units.size(0) < 3:
-            logger.error(
-                "The 'units' argument should have a length of at least 3 because of padding size."
+        # Ensure that the units sequence has a length of at least 4
+        if units.size(0) < 4:
+            raise RuntimeError(
+                "The 'units' argument should have a length of at least 4 because of padding size."
             )
-            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:
-            units += 1
+            # Avoid changing the input in-place
+            units = units + 1
         with torch.no_grad():
             waveform = self.infer(units.unsqueeze(0).to(self.device))
         return waveform.squeeze(0)

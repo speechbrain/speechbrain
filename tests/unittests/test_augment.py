@@ -450,7 +450,7 @@ def test_SpectrogramDrop():
 
     from speechbrain.augment.codec import CodecAugment
 
-    if torchaudio.list_audio_backends()[0] == "ffmpeg":
+    if "ffmpeg" in torchaudio.list_audio_backends():
         waveform = torch.rand(4, 16000)
         augmenter = CodecAugment(16000)
         output_waveform = augmenter(waveform)

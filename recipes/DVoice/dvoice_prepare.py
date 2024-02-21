@@ -11,7 +11,6 @@ import os
 import csv
 import re
 import logging
-import torchaudio
 import unicodedata
 from tqdm.contrib import tzip
 import random
@@ -371,12 +370,6 @@ def create_csv(
         file_name = line.split("\t")[0]
         spk_id = line.split("\t")[0].replace(".wav", "")
         snt_id = os.path.basename(file_name)
-
-        # Setting torchaudio backend to sox-io (needed to read mp3 files)
-        if torchaudio.get_audio_backend() != "sox_io":
-            logger.warning("This recipe needs the sox-io backend of torchaudio")
-            logger.warning("The torchaudio backend is changed to sox_io")
-            torchaudio.set_audio_backend("sox_io")
 
         duration = float(line.split("\t")[2])
         total_duration += duration
