@@ -709,13 +709,15 @@ class StreamingASR(Pretrained):
     def get_chunk_size_frames(
         self, dynchunktrain_config: DynChunkTrainConfig
     ) -> int:
-        """Chunk size in actual audio samples that the user should forward to
-        functions consuming individual chunks.
+        """Returns the chunk size in actual audio samples, i.e. the exact
+        expected length along the time dimension of an input chunk tensor (as
+        passed to :meth:`~StreamingASR.encode_chunk` and similar low-level
+        streaming functions).
 
         Arguments
         ---------
         dynchunktrain_config : DynChunkTrainConfig
-            The streaming configuration to determine the chunk frame count for.
+            The streaming configuration to determine the chunk frame count of.
         """
 
         return (self.filter_props.stride - 1) * dynchunktrain_config.chunk_size
