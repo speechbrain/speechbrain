@@ -9,7 +9,7 @@ Authors:
  * Abdel Heba 2021
  * Andreas Nautsch 2022, 2023
  * Pooneh Mousavi 2023
- * Sylvain de Langen 2023
+ * Sylvain de Langen 2023, 2024
  * Adel Moumen 2023, 2024
  * Pradnya Kandarkar 2023
 """

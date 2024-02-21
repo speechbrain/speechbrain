@@ -4,6 +4,7 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
  * Sarthak Yadav 2020
+ * Sylvain de Langen 2024
 """
 from dataclasses import dataclass
 import torch
