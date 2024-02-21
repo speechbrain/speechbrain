@@ -308,14 +308,6 @@ speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
    orig_freq: !ref <sample_rate>
    speeds: [95, 100, 105]
 
-# Augmenter: Combines previously defined augmentations to perform data augmentation
-wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-   min_augmentations: 1
-   max_augmentations: 1
-   augment_prob: 1.0
-   augmentations: [!ref <speed_perturb>]
-
-
 # Time Drop
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
    drop_length_low: 15
