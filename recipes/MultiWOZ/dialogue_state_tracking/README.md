@@ -38,7 +38,7 @@ pip install -r extra_requirements.txt
 
 You can download the dataset with the script [download_spoken_multiwoz](data/download_spoken_multiWoz.sh). The data will be automatically downloaded in the folder in which you run the script. Then extract the audio from each split with:
 
-```  
+```
 cd data
 python extract_audio.py --data_folder YOUR_DATA_FOLDER
 ```
@@ -55,7 +55,7 @@ Run the training with:
 python run.py hparams/train_multiwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER
 ```
 
-By default the model is trained for 10 epochs with  warmup corresponding to 20% of the training steps. For E2E models we encourage to override the default hyper-parameters with ` --number_of_epochs 20 --warmup_steps 1773` in order to increase the number of epochs while preserving the same scheduling for the first 10 epochs.  
+By default the model is trained for 10 epochs with  warmup corresponding to 20% of the training steps. For E2E models we encourage to override the default hyper-parameters with ` --number_of_epochs 20 --warmup_steps 1773` in order to increase the number of epochs while preserving the same scheduling for the first 10 epochs.
 
 ### Inference
 
@@ -75,7 +75,7 @@ Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue 
 python evaluatePredictions.py --reference_manifest PATH_TO_SPLIT_MANIFEST --predictions PATH_TO_PREDICTIONS_CSV --dataset multiwoz
 ```
 
-To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping strategy, add the argument `--evaluate_ci`. 
+To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping strategy, add the argument `--evaluate_ci`.
 
 ## Results
 
@@ -84,7 +84,6 @@ To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping
 |:------------------------:|:---:|:-----:|:----:|:-----:|
 | Cascade (WavLM)          | 58.2| 55.0  | 57.2 | 53.5  |
 | Cascade (Whisper)        | 63.7| 63.6  | 64.4 | 62.3  |
-| Local                    | 42.7| 41.4  | 41.7 | 40.8  |
 | Global (WavLM)           | 56.4| 54.0  | 53.4 | 53.0  |
 | Global (Whisper)         | 59.0| 56.9  | 58.3 | 56.6  |
 
@@ -93,7 +92,6 @@ To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping
 |:------------------------:|:---:|:-----:|:----:|:-----:|
 | Cascade (WavLM)          | 19.5| 16.2  | 17.6 | 15.3  |
 | Cascade (Whisper)        | 24.0| 21.9  | 23.1 | 21.3  |
-| Local                    | 13.0| 11.3  | 12.4 | 11.2  |
 | Global (WavLM)           | 15.1| 14.4  | 13.7 | 14.6  |
 | Global (Whisper)         | 19.1| 17.6  | 18.5 | 16.6  |
 
