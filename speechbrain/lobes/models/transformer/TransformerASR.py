@@ -80,33 +80,34 @@ def make_transformer_src_mask(
         timesteps = src.size(1)
 
         # mask the future at the right of each chunk
-        for t in range(timesteps):
+        num_of_chunks = (timesteps // dynchunktrain_config.chunk_size) + 1
+
+        for c in range(num_of_chunks):
             # if we have a chunk size of 8 then:
             # for 0..7  -> mask 8..
             # for 8..15 -> mask 16..
             # etc.
-            next_chunk_index = (t // dynchunktrain_config.chunk_size) + 1
-            visible_range = next_chunk_index * dynchunktrain_config.chunk_size
-            src_mask[t, visible_range:] = True
+            start_mask = c * dynchunktrain_config.chunk_size
+            visible_range = (c + 1) * (dynchunktrain_config.chunk_size)
+            src_mask[start_mask:visible_range, visible_range:] = True
 
         # mask the past at the left of each chunk (accounting for left context)
         # only relevant if using left context
         if not dynchunktrain_config.is_infinite_left_context():
-            for t in range(timesteps):
-                chunk_index = t // dynchunktrain_config.chunk_size
-                chunk_first_t = chunk_index * dynchunktrain_config.chunk_size
-
-                left_context_frames = (
-                    dynchunktrain_config.left_context_size
-                    * dynchunktrain_config.chunk_size
-                )
+            left_context_frames = (
+                dynchunktrain_config.left_context_size
+                * dynchunktrain_config.chunk_size
+            )
+            for c in range(num_of_chunks):
+                chunk_first_t = c * dynchunktrain_config.chunk_size
+                visible_range = (c + 1) * (dynchunktrain_config.chunk_size)
 
                 frame_remaining_context = max(
                     0, chunk_first_t - left_context_frames,
                 )
-
-                # end range is exclusive, so there is no off-by-one here
-                src_mask[t, :frame_remaining_context] = True
+                src_mask[
+                    chunk_first_t:visible_range, :frame_remaining_context
+                ] = True
 
         return src_mask
 
