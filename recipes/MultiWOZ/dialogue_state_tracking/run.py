@@ -30,8 +30,7 @@ def dataio_prepare(hparams, tokenizer):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"],
-        replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":

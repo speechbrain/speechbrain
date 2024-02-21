@@ -1,7 +1,7 @@
 """
 Data preparation for the SpokenWoz dataset.
 
-Download: 
+Download:
     - Audio files: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_train_dev.tar.gz
     - Text annotations: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_train_dev.tar.gz
     - Audio test files: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_test.tar.gz
@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 OPT_FILE = "opt_spokenwoz_prepare.pkl"
 SAMPLERATE = 8000
 
+
 def prepare_spokenwoz(
     data_folder,
     save_folder,
@@ -42,7 +43,7 @@ def prepare_spokenwoz(
 ):
     """
     This class prepares the csv files for the Spoken-Woz dataset.
-    Download: 
+    Download:
     - Audio files: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_train_dev.tar.gz
     - Text annotations: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_train_dev.tar.gz
     - Audio test files: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_test.tar.gz
@@ -53,7 +54,7 @@ def prepare_spokenwoz(
     data_folder : str
         Path to the folder where the original Multi-Woz dataset is stored.
     version : str
-        Version of dataset to prepare ("cascade" using previously computed transcriptions, 
+        Version of dataset to prepare ("cascade" using previously computed transcriptions,
         "local" using turn level states or "global" using dialogue level states).
     tr_splits : list
         List of train splits to prepare from ['train'].
@@ -112,7 +113,10 @@ def prepare_spokenwoz(
     check_spokenwoz_folders(data_folder, version, splits)
 
     dev_ids = []
-    with open(os.path.join(data_folder, "text_5700_train_dev", "valListFile.json"), "r") as val_list_file:
+    with open(
+        os.path.join(data_folder, "text_5700_train_dev", "valListFile.json"),
+        "r",
+    ) as val_list_file:
         for line in val_list_file:
             dev_ids.append(line.strip())
 
@@ -121,61 +125,94 @@ def prepare_spokenwoz(
     for split_index in range(len(splits)):
 
         split = splits[split_index]
-        
+
         wav_lst = []
         text_dict = {}
         if split == "train":
-            wav_lst.extend(get_all_files(
-                os.path.join(data_folder, "audio_5700_train_dev"), match_and=[".wav"], exclude_or=dev_ids
-            ))
+            wav_lst.extend(
+                get_all_files(
+                    os.path.join(data_folder, "audio_5700_train_dev"),
+                    match_and=[".wav"],
+                    exclude_or=dev_ids,
+                )
+            )
 
             if "cascade" in version:
-                annotation_file = os.path.join(data_folder, "text_5700_train_dev", "data{}.json".format(version.replace("cascade", "")))
+                annotation_file = os.path.join(
+                    data_folder,
+                    "text_5700_train_dev",
+                    "data{}.json".format(version.replace("cascade", "")),
+                )
             else:
-                annotation_file = os.path.join(data_folder, "text_5700_train_dev", "data.json")
+                annotation_file = os.path.join(
+                    data_folder, "text_5700_train_dev", "data.json"
+                )
             with open(annotation_file, "r") as data:
                 for line in data:
                     annotations = json.loads(line)
-            dialogues_to_remove = [k for k, _ in annotations.items() if k in dev_ids]
+            dialogues_to_remove = [
+                k for k, _ in annotations.items() if k in dev_ids
+            ]
             for dialog_id in dialogues_to_remove:
                 del annotations[dialog_id]
 
         elif split == "dev":
-            wav_lst.extend(get_all_files(
-                os.path.join(data_folder, "audio_5700_train_dev"), match_and=[".wav"], match_or=dev_ids
-            ))
+            wav_lst.extend(
+                get_all_files(
+                    os.path.join(data_folder, "audio_5700_train_dev"),
+                    match_and=[".wav"],
+                    match_or=dev_ids,
+                )
+            )
 
             if "cascade" in version:
-                annotation_file = os.path.join(data_folder, "text_5700_train_dev", "data{}.json".format(version.replace("cascade", "")))
+                annotation_file = os.path.join(
+                    data_folder,
+                    "text_5700_train_dev",
+                    "data{}.json".format(version.replace("cascade", "")),
+                )
             else:
-                annotation_file = os.path.join(data_folder, "text_5700_train_dev", "data.json")
+                annotation_file = os.path.join(
+                    data_folder, "text_5700_train_dev", "data.json"
+                )
             with open(annotation_file, "r") as data:
                 for line in data:
                     annotations = json.loads(line)
-            dialogues_to_remove = [k for k, _ in annotations.items() if k not in dev_ids]
+            dialogues_to_remove = [
+                k for k, _ in annotations.items() if k not in dev_ids
+            ]
             for dialog_id in dialogues_to_remove:
                 del annotations[dialog_id]
 
         elif split == "test":
-            wav_lst.extend(get_all_files(
-                os.path.join(data_folder, "audio_5700_test"), match_and=[".wav"]
-            ))
+            wav_lst.extend(
+                get_all_files(
+                    os.path.join(data_folder, "audio_5700_test"),
+                    match_and=[".wav"],
+                )
+            )
 
             if "cascade" in version:
-                annotation_file = os.path.join(data_folder, "text_5700_test", "data{}.json".format(version.replace("cascade", "")))
+                annotation_file = os.path.join(
+                    data_folder,
+                    "text_5700_test",
+                    "data{}.json".format(version.replace("cascade", "")),
+                )
             else:
-                annotation_file = os.path.join(data_folder, "text_5700_test", "data.json")
+                annotation_file = os.path.join(
+                    data_folder, "text_5700_test", "data.json"
+                )
             with open(annotation_file, "r") as data:
                 for line in data:
                     annotations = json.loads(line)
 
         else:
             err_msg = (
-                    "Asked for %s split which does not exist."
-                    "Please select one of (train|dev|test)" % split
-                    )
+                "Asked for %s split which does not exist."
+                "Please select one of (train|dev|test)" % split
+            )
             raise OSError(err_msg)
-        
+
         for dialog_id, dialog_info in annotations.items():
             if dialog_id not in text_dict:
                 text_dict[dialog_id] = {}
@@ -185,58 +222,91 @@ def prepare_spokenwoz(
                 if turn_id % 2 == 0:
                     # User turn --> get end time
                     if f"Turn-{turn_id}" not in text_dict[dialog_id]:
-                        text_dict[dialog_id][f'Turn-{turn_id}'] = {}
-                    text_dict[dialog_id][f'Turn-{turn_id}']['end'] = turn_info["words"][-1]["EndTime"]*(SAMPLERATE//1000)
+                        text_dict[dialog_id][f"Turn-{turn_id}"] = {}
+                    text_dict[dialog_id][f"Turn-{turn_id}"]["end"] = turn_info[
+                        "words"
+                    ][-1]["EndTime"] * (SAMPLERATE // 1000)
                     if turn_id == 0:
-                        text_dict[dialog_id][f'Turn-{turn_id}']['start'] = 0
-                        text_dict[dialog_id][f'Turn-{turn_id}']['previous'] = ""
-                        text_dict[dialog_id][f'Turn-{turn_id}']['agent'] = ""
-                    
+                        text_dict[dialog_id][f"Turn-{turn_id}"]["start"] = 0
+                        text_dict[dialog_id][f"Turn-{turn_id}"]["previous"] = ""
+                        text_dict[dialog_id][f"Turn-{turn_id}"]["agent"] = ""
+
                     # Saving the user transcription
                     if "cascade" in version:
                         # Considering the model's transcription if cascading with a provided model,
                         # otherwise the dataset's automatic transcriptions
-                        asr_model = version.replace("cascade", "").split("_")[-1]
+                        asr_model = version.replace("cascade", "").split("_")[
+                            -1
+                        ]
                         if asr_model != "":
-                            text_dict[dialog_id][f'Turn-{turn_id}']["user"] = turn_info[asr_model]
+                            text_dict[dialog_id][f"Turn-{turn_id}"][
+                                "user"
+                            ] = turn_info[asr_model]
                         else:
-                            text_dict[dialog_id][f'Turn-{turn_id}']["user"] = " ".join([word["Word"] for word in turn_info["words"]])
+                            text_dict[dialog_id][f"Turn-{turn_id}"][
+                                "user"
+                            ] = " ".join(
+                                [word["Word"] for word in turn_info["words"]]
+                            )
                     else:
-                        text_dict[dialog_id][f'Turn-{turn_id}']["user"] = ""
+                        text_dict[dialog_id][f"Turn-{turn_id}"]["user"] = ""
 
                 else:
                     # Agent turn --> dialogue state annotations
                     state = []
                     for domain, info in turn_info["metadata"].items():
                         for slot, value in info["book"].items():
-                            if slot != "booked" and value != '':
-                                state.append(f'{domain}-{slot}={value}')
+                            if slot != "booked" and value != "":
+                                state.append(f"{domain}-{slot}={value}")
                         for slot, value in info["semi"].items():
                             if value != "":
                                 # One example in train set has , between numbers
-                                state.append(f'{domain}-{slot}={value.replace(",", "")}')
-                    text_dict[dialog_id][f'Turn-{turn_id-1}']['current'] = "; ".join(state)
-                    
+                                state.append(
+                                    f'{domain}-{slot}={value.replace(",", "")}'
+                                )
+                    text_dict[dialog_id][f"Turn-{turn_id-1}"][
+                        "current"
+                    ] = "; ".join(state)
+
                     # Preparing data for next turn prediction: last dialogue turn has no succeeding user turn
                     if turn_id != len(dialog_info["log"]) - 1:
                         if f"Turn-{turn_id+1}" not in text_dict[dialog_id]:
-                            text_dict[dialog_id][f'Turn-{turn_id+1}'] = {}
-                        
+                            text_dict[dialog_id][f"Turn-{turn_id+1}"] = {}
+
                         # Agent transcription
                         if "cascade" in version:
-                        # Considering the model's transcription if cascading with a provided model,
-                        # otherwise the dataset's automatic transcriptions
-                            asr_model = version.replace("cascade", "").split("_")[-1]
+                            # Considering the model's transcription if cascading with a provided model,
+                            # otherwise the dataset's automatic transcriptions
+                            asr_model = version.replace("cascade", "").split(
+                                "_"
+                            )[-1]
                             if asr_model != "":
-                                text_dict[dialog_id][f'Turn-{turn_id+1}']["agent"] = turn_info[asr_model]
+                                text_dict[dialog_id][f"Turn-{turn_id+1}"][
+                                    "agent"
+                                ] = turn_info[asr_model]
                             else:
-                                text_dict[dialog_id][f'Turn-{turn_id+1}']["agent"] = " ".join([word["Word"] for word in turn_info["words"]])
+                                text_dict[dialog_id][f"Turn-{turn_id+1}"][
+                                    "agent"
+                                ] = " ".join(
+                                    [
+                                        word["Word"]
+                                        for word in turn_info["words"]
+                                    ]
+                                )
                         else:
-                            text_dict[dialog_id][f'Turn-{turn_id+1}']["agent"] = ""
-                        
-                        # Previous Dialogue State 
-                        text_dict[dialog_id][f'Turn-{turn_id+1}']['previous'] = "; ".join(state)
-                        text_dict[dialog_id][f'Turn-{turn_id+1}']['start'] = turn_info["words"][0]["BeginTime"]*(SAMPLERATE//1000)
+                            text_dict[dialog_id][f"Turn-{turn_id+1}"][
+                                "agent"
+                            ] = ""
+
+                        # Previous Dialogue State
+                        text_dict[dialog_id][f"Turn-{turn_id+1}"][
+                            "previous"
+                        ] = "; ".join(state)
+                        text_dict[dialog_id][f"Turn-{turn_id+1}"][
+                            "start"
+                        ] = turn_info["words"][0]["BeginTime"] * (
+                            SAMPLERATE // 1000
+                        )
 
         all_texts.update(text_dict)
 
@@ -293,7 +363,20 @@ def create_csv(
     msg = "Creating csv lists in  %s..." % (csv_file)
     logger.info(msg)
 
-    csv_lines = [["ID", "turnID", "duration", "previous_state", "wav", "start", "end", "agent", "user", "current_state"]]
+    csv_lines = [
+        [
+            "ID",
+            "turnID",
+            "duration",
+            "previous_state",
+            "wav",
+            "start",
+            "end",
+            "agent",
+            "user",
+            "current_state",
+        ]
+    ]
 
     snt_cnt = 0
     # Processing all the wav files in wav_lst
@@ -311,7 +394,7 @@ def create_csv(
             current_state = turn_annotations["current"]
 
             duration = (end - start) / SAMPLERATE
-        
+
             if select_n_sentences == snt_cnt and split == "train":
                 break
 
@@ -327,7 +410,7 @@ def create_csv(
                     str(agent),
                     str(user),
                     str(current_state),
-                    ]
+                ]
 
                 #  Appending current file to the csv_lines list
                 csv_lines.append(csv_line)
@@ -423,4 +506,3 @@ def check_spokenwoz_folders(data_folder, version, splits):
                 "Spoken-Woz dataset)" % audio_folder
             )
             raise OSError(err_msg)
-

@@ -28,6 +28,7 @@ from model import SpokenWozUnderstanding
 
 logger = logging.getLogger(__name__)
 
+
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
@@ -39,20 +40,26 @@ def dataio_prepare(hparams, tokenizer):
 
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration", key_max_value={"duration": hparams["avoid_if_longer_than"]})
+        train_data = train_data.filtered_sorted(
+            sort_key="duration",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True,
-            key_max_value={"duration": hparams["avoid_if_longer_than"]}
+            sort_key="duration",
+            reverse=True,
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_loader_kwargs"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
-        train_data = train_data.filtered_sorted(key_max_value={"duration": hparams["avoid_if_longer_than"]})
+        train_data = train_data.filtered_sorted(
+            key_max_value={"duration": hparams["avoid_if_longer_than"]}
+        )
 
     else:
         raise NotImplementedError(
@@ -76,7 +83,7 @@ def dataio_prepare(hparams, tokenizer):
         name = Path(csv_file).stem
 
         if hparams["sorting_turns"]:
-            # Sorting by turn nbr to always have the previous dialogue state already processed, 
+            # Sorting by turn nbr to always have the previous dialogue state already processed,
             # default is ascending
             ordered_csv = csv_file.replace(".csv", "_sorted.csv")
             df = pd.read_csv(csv_file)
@@ -102,22 +109,28 @@ def dataio_prepare(hparams, tokenizer):
     def audio_pipeline(id, wav, start, end):
         resampler = Resample(orig_freq=8000, new_freq=16000)
         sig = read_audio(wav)
-        sig = sig[int(start):int(end)]
-        sig = sig.unsqueeze(0) # Must be B*T*C
+        sig = sig[int(start) : int(end)]
+        sig = sig.unsqueeze(0)  # Must be B*T*C
         resampled = resampler(sig)
         # Fusing both channels
         resampled = torch.mean(resampled, dim=2)
         # Selecting the correct frames: start*2 bc resampled
         sig = torch.squeeze(resampled)
-        
+
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
-    @sb.utils.data_pipeline.takes("id", "previous_state", "agent", "user", "current_state")
+    @sb.utils.data_pipeline.takes(
+        "id", "previous_state", "agent", "user", "current_state"
+    )
     @sb.utils.data_pipeline.provides(
-        "semantics", "semantics_tokens", "outputs", "outputs_tokens", "outputs_tokens_nobos"
+        "semantics",
+        "semantics_tokens",
+        "outputs",
+        "outputs_tokens",
+        "outputs_tokens_nobos",
     )
     def text_pipeline(ID, previous_state, agent, user, current_state):
 
@@ -127,8 +140,21 @@ def dataio_prepare(hparams, tokenizer):
             dialogue_id = ID.split("/")[-1].split("_")[0]
             turn_id = int(ID.split("/")[-1].split("_")[1].replace("Turn-", ""))
             if turn_id > 1:
-                assert(os.path.isfile(os.path.join(hparams["output_folder"], "last_turns", f'{dialogue_id}.txt')))
-                with open(os.path.join(hparams["output_folder"], "last_turns", f'{dialogue_id}.txt'), "r") as last_turn:
+                assert os.path.isfile(
+                    os.path.join(
+                        hparams["output_folder"],
+                        "last_turns",
+                        f"{dialogue_id}.txt",
+                    )
+                )
+                with open(
+                    os.path.join(
+                        hparams["output_folder"],
+                        "last_turns",
+                        f"{dialogue_id}.txt",
+                    ),
+                    "r",
+                ) as last_turn:
                     for line in last_turn:
                         dialogue_last_turn = line.strip()
                 state = dialogue_last_turn
@@ -140,7 +166,9 @@ def dataio_prepare(hparams, tokenizer):
         elif hparams["version"] == "e2e":
             semantics = f"[State] {state}"
         else:
-            raise KeyError('hparams attribute "version" should be set to "cascade_model" or "e2e".')
+            raise KeyError(
+                'hparams attribute "version" should be set to "cascade_model" or "e2e".'
+            )
         yield semantics
 
         semantics_tokens = tokenizer.encode(semantics)
@@ -151,9 +179,9 @@ def dataio_prepare(hparams, tokenizer):
         yield outputs
 
         # T5 uses the pad_token_id as bos token
-        tokens_list = [tokenizer.pad_token_id] 
-        tokens_list += tokenizer.encode(f'[State] {current_state}')
-        
+        tokens_list = [tokenizer.pad_token_id]
+        tokens_list += tokenizer.encode(f"[State] {current_state}")
+
         yield torch.LongTensor(tokens_list[:-1])
 
         yield torch.LongTensor(tokens_list[1:])
@@ -163,12 +191,19 @@ def dataio_prepare(hparams, tokenizer):
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "semantics_tokens", "sig", "outputs_tokens", "outputs_tokens_nobos"],
+        [
+            "id",
+            "semantics_tokens",
+            "sig",
+            "outputs_tokens",
+            "outputs_tokens_nobos",
+        ],
     )
 
     return train_data, valid_data, test_datasets
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
 
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -222,7 +257,7 @@ if __name__=="__main__":
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,
-        checkpointer=hparams["checkpointer"]
+        checkpointer=hparams["checkpointer"],
     )
     slu_brain.tokenizer = tokenizer
 
@@ -233,7 +268,7 @@ if __name__=="__main__":
             train_data,
             valid_data,
             train_loader_kwargs=hparams["train_loader_kwargs"],
-            valid_loader_kwargs=hparams["valid_loader_kwargs"]
+            valid_loader_kwargs=hparams["valid_loader_kwargs"],
         )
 
     else:
@@ -241,8 +276,12 @@ if __name__=="__main__":
         for k in test_datasets.keys():
             if not hparams["gold_previous_state"]:
                 # Storing the last dialog's turn prediction
-                if not os.path.isdir(os.path.join(hparams["output_folder"], "last_turns")):
-                    os.mkdir(os.path.join(hparams["output_folder"], "last_turns"))
+                if not os.path.isdir(
+                    os.path.join(hparams["output_folder"], "last_turns")
+                ):
+                    os.mkdir(
+                        os.path.join(hparams["output_folder"], "last_turns")
+                    )
                 slu_brain.hparams.output_file = os.path.join(
                     hparams["pred_folder"], "{}_previous.csv".format(k)
                 )
@@ -252,5 +291,6 @@ if __name__=="__main__":
                 )
             if not os.path.isfile(slu_brain.hparams.output_file):
                 slu_brain.evaluate(
-                    test_datasets[k], test_loader_kwargs=hparams["valid_loader_kwargs"]
-                    )
+                    test_datasets[k],
+                    test_loader_kwargs=hparams["valid_loader_kwargs"],
+                )

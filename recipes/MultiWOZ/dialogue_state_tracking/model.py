@@ -16,7 +16,6 @@ import speechbrain as sb
 
 import logging
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -50,7 +49,11 @@ class DialogueUnderstanding(sb.core.Brain):
         ).to(outputs_tokens.device)
 
         # Add augmentation if specified
-        if stage == sb.Stage.TRAIN and self.hparams.version == "e2e" and hasattr(self.hparams, "augmentation"):
+        if (
+            stage == sb.Stage.TRAIN
+            and self.hparams.version == "e2e"
+            and hasattr(self.hparams, "augmentation")
+        ):
             wavs, wavs_lens = self.hparams.augmentation(wavs, wavs_lens)
 
         semantics_enc_out = self.modules.semantic_encoder(
@@ -101,7 +104,7 @@ class DialogueUnderstanding(sb.core.Brain):
             with open(
                 os.path.join(self.hparams.pred_folder, f"dev_{self.epoch}.csv"),
                 "a",
-                encoding="utf-8"
+                encoding="utf-8",
             ) as pred_file:
                 for hyp, element_id in zip(hyps, batch.id):
                     pred_file.write(
@@ -111,7 +114,10 @@ class DialogueUnderstanding(sb.core.Brain):
             # Updating running accuracy
             self.accuracy.append(
                 [self.tokenizer.decode(hyp) for hyp in hyps],
-                [self.tokenizer.decode(targ, skip_special_tokens=True) for targ in target_tokens],
+                [
+                    self.tokenizer.decode(targ, skip_special_tokens=True)
+                    for targ in target_tokens
+                ],
             )
 
         elif stage == sb.Stage.TEST:
@@ -129,15 +135,13 @@ class DialogueUnderstanding(sb.core.Brain):
         return logprobs, hyps, wavs_lens
 
     def write_previous_pred(self, element_id, hyp):
-        
+
         # Id in the form /path/to/dialogue/Turn-N
         dialog_id = element_id.split("/")[-2]
         state = self.tokenizer.decode(hyp)
         with open(
             os.path.join(
-                self.hparams.output_folder,
-                "last_turns",
-                f"{dialog_id}.txt",
+                self.hparams.output_folder, "last_turns", f"{dialog_id}.txt",
             ),
             "w",
         ) as last_turn:
