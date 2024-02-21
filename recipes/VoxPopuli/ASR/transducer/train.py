@@ -38,7 +38,11 @@ class ASR(sb.Brain):
         feats = self.hparams.compute_features(wavs)
 
         # Add feature augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "fea_augment")
+            and self.optimizer_step > self.hparams.augment_warmup_steps
+        ):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
             tokens_with_bos = self.hparams.fea_augment.replicate_labels(
                 tokens_with_bos
@@ -132,7 +136,10 @@ class ASR(sb.Brain):
             logits_transducer, wav_lens, predicted_tokens = predictions
 
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "fea_augment"):
+            if (
+                hasattr(self.hparams, "fea_augment")
+                and self.optimizer_step > self.hparams.augment_warmup_steps
+            ):
                 (
                     tokens,
                     token_lens,
