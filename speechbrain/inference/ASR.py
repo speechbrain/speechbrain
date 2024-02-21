@@ -486,11 +486,12 @@ class WhisperASR(Pretrained):
 
 @dataclass
 class ASRStreamingContext:
-    """Streaming metadata for a streaming transducer model. Initialized by
-    `TransducerASRStreamingWrapper.make_streaming_context`.
+    """Streaming metadata, initialized by
+    :meth:`~StreamingASR.make_streaming_context`.
 
-    This object is intended to be mutated, so the same object should be passed
-    across calls as streaming progresses.
+    This object is intended to be mutate: the same object should be passed
+    across calls as streaming progresses (namely when using the lower-level
+    :meth:`~StreamingASR.encode_chunk`, etc. APIs).
 
     Holds some references to opaque streaming contexts, so the context is
     model-agnostic to an extent."""
