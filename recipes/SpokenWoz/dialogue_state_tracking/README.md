@@ -1,6 +1,6 @@
 # Spoken Dialogue State Tracking
 
-This folder contains the scripts to fine-tune cascade and/or end-to-end spoken dialogue state tracking models using the SpokenWoz dataset. This recipe considers a T5 backbone model.
+This folder contains the scripts to fine-tune cascade and/or end-to-end spoken dialogue state tracking models using the SpokenWoz dataset. This recipe considers a T5 Encoder-Decoder backbone model for the textual part and Wav2Vec or Whisper to encode the audio turns. It can be adapted to other models.
 
 ## Dataset
 
@@ -30,7 +30,7 @@ You can download the dataset with the script [download_spokenwoz.sh](data/downlo
 
 ## How to run
 
-Select the version you want to run with the argument `--version (cascade[_model]|e2e)`. The `cascade_MODEL` approach will consider the transcriptions from the manifest named `data_MODEL.json` in the data folder.
+Select the version you want to run with the argument `--version (cascade[_MODEL]|e2e)`. The `cascade_MODEL` approach will consider the transcriptions from the manifest named `data_MODEL.json` in the data folder and consider the turn's field `[MODEL]` as the turn's transcription.
 
 ### Training
 
@@ -40,26 +40,24 @@ Run the training with:
 python run.py hparams/train_spokenwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER
 ```
 
-By default the model is trained for 10 epochs with  warmup corresponding to 10% of the training steps. For E2E models we encourage to override the default hyper-parameters with ` --number_of_epochs 20 --warmup_steps 2328` in order to have the same scheduling for the first 10 epochs.  
+By default the model is trained for 10 epochs with  warmup corresponding to 20% of the training steps. For E2E models we encourage to override the default hyper-parameters with ` --number_of_epochs 20 --warmup_steps 2328` in order to increase the number of epochs while preserving the same scheduling for the first 10 epochs.  
 
 ### Inference
 
-Run the inference with:
+Run inference with:
 
 ```
 python run.py hparams/train_spokenwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER --inference True
 ```
 
-Simply add the argument `--gold_previous_state False` to perform the inference with the previously predicted dialogue state.
+Simply add the argument `--gold_previous_state False` to perform the inference with the previously predicted dialogue states.
 
 ### Evaluation
 
-TODO: Move to a common folder with other datasets
-
-Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue level) and Slot Precision (per slot groups) with the script [evaluate_dialogue_state_tracking.py](evaluate_dialogue_state_tracking.py).
+Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue level) and Slot Precision (per slot groups) with the script [evaluate_dialogue_state_tracking.py](../../../speechbrain/utils/evaluate_dialogue_state_tracking.py).
 
 ```
-python evaluatePredictions.py --reference_manifest PATH_TO_SPLIT_MANIFEST --predictions PATH_TO_PREDICTIONS_CSV --dataset [multiwoz|spokenwoz]
+python evaluatePredictions.py --reference_manifest PATH_TO_SPLIT_DATA --predictions PATH_TO_PREDICTIONS_CSV --dataset spokenwoz
 ```
 
 To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping strategy, add the argument `--evaluate_ci`. 

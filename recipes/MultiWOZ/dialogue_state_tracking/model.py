@@ -16,10 +16,6 @@ import speechbrain as sb
 
 import logging
 
-from speechbrain.utils.evaluate_dialogue_state_tracking import (
-    dialogueState_str2dict,
-    dialogueState_dict2str,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +101,7 @@ class DialogueUnderstanding(sb.core.Brain):
             with open(
                 os.path.join(self.hparams.pred_folder, f"dev_{self.epoch}.csv"),
                 "a",
+                encoding="utf-8"
             ) as pred_file:
                 for hyp, element_id in zip(hyps, batch.id):
                     pred_file.write(
