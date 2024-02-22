@@ -63,7 +63,7 @@ def make_transformer_src_mask(
     Returns
     -------
     torch.Tensor
-        A boolean mask Tensor of shape (timesteps, timesteps). 
+        A boolean mask Tensor of shape (timesteps, timesteps).
     """
     if causal:
         assert dynchunktrain_config is None
