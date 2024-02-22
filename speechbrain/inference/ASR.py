@@ -677,7 +677,7 @@ class StreamingASR(Pretrained):
 
         pred = ""
 
-        for text_chunk in self.transcribe_file_stream(
+        for text_chunk in self.transcribe_file_streaming(
             path, dynchunktrain_config, use_torchaudio_streaming
         ):
             pred += text_chunk
