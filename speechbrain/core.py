@@ -841,10 +841,11 @@ class Brain:
         self.profiler = None
         if self.profile_training:
             logger.info("Pytorch profiler has been activated.")
+            self.tot_prof_steps = (self.profile_steps + self.profile_warmup) - 1
             self.profiler = prepare_profiler(
                 self.profile_warmup,
                 self.profile_steps,
-                self.hparams.output_folder,
+                self.hparams.save_folder,
             )
 
     def compute_forward(self, batch, stage):
@@ -1385,6 +1386,12 @@ class Brain:
 
                 if self.profiler is not None:
                     self.profiler.step()
+                    if self.profiler.step_num > self.tot_prof_steps:
+                        logger.info(
+                            "The profiler finished, training is stopped."
+                        )
+                        self.profiler.stop()
+                        quit()
 
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
@@ -1397,11 +1404,6 @@ class Brain:
                     self._save_intra_epoch_ckpt()
                     last_ckpt_time = time.time()
                     steps_since_ckpt = 0
-
-        if self.profiler is not None:
-            logger.info("The profiler finished, training is stopped.")
-            self.profiler.stop()
-            quit()
 
         # Run train "on_stage_end" on all processes
         self.zero_grad(set_to_none=True)  # flush gradients
