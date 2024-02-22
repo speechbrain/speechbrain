@@ -608,8 +608,6 @@ class StreamingASR(Pretrained):
             fetching from HF or a local file. When ``True``, resolves the URI
             through ffmpeg, as documented in
             :class:`torchaudio.io.StreamReader`.
-        path : str
-            Path to the audio file to trancsribe.
         dynchunktrain_config : DynChunkTrainConfig
             Streaming configuration. Sane values and how much time chunks
             actually represent is model-dependent.
