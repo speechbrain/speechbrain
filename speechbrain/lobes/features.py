@@ -485,6 +485,9 @@ class StreamingFeatureWrapper(torch.nn.Module):
     module : torch.nn.Module
         The filter to wrap; e.g. a module list that constitutes a sequential
         feature extraction pipeline.
+        The module is assumed to pad its inputs, e.g. the output of a
+        convolution with a stride of 1 would end up with the same frame count
+        as the input.
 
     properties : FilterProperties
         The effective filter properties of the provided module. This is used to
@@ -536,6 +539,12 @@ class StreamingFeatureWrapper(torch.nn.Module):
         and cached to be inserted as left context for the next chunk in time.
 
         For further explanations, see the comments in the code.
+
+        Note that due to how the padding is implemented, you may want to inject
+        chunks of zeros at the end of your input so that the final frames have
+        a chance to get processed by the filter.
+        This is not really an issue when streaming, and might not actually
+        matter in general as the number of affected frames would usually be low.
 
         Arguments
         ---------
