@@ -21,18 +21,16 @@ from speechbrain.utils.profiling import (
     report_time,
     report_memory,
 )
-from speechbrain.inference import (
-    Pretrained,
-    EncoderDecoderASR,
-    EncoderASR,
-    EndToEndSLU,
-    EncoderClassifier,
-    SpeakerRecognition,
-    VAD,
-    SepformerSeparation,
-    SpectralMaskEnhancement,
-    SNREstimator,
-)
+
+from speechbrain.inference.interfaces import Pretrained
+from speechbrain.inference.ASR import EncoderDecoderASR, EncoderASR
+from speechbrain.inference.SLU import EndToEndSLU
+from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.speaker import SpeakerRecognition
+from speechbrain.inference.VAD import VAD
+from speechbrain.inference.separation import SepformerSeparation
+from speechbrain.inference.enhancement import SpectralMaskEnhancement
+from speechbrain.inference.metrics import SNREstimator
 from typing import Optional, List
 
 
