@@ -845,7 +845,7 @@ class Brain:
             self.profiler = prepare_profiler(
                 self.profile_warmup,
                 self.profile_steps,
-                self.hparams.save_folder,
+                self.hparams.output_folder,
             )
 
     def compute_forward(self, batch, stage):
