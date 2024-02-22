@@ -549,10 +549,19 @@ class StreamingFeatureWrapper(torch.nn.Module):
         Arguments
         ---------
         chunk : torch.Tensor
-            Chunk of input of shape [batch size, time]; typically a raw waveform
+            Chunk of input of shape [batch size, time]; typically a raw
+            waveform. Normally, in a chunkwise streaming scenario,
+            `time = (stride-1) * chunk_size` where `chunk_size` is the desired
+            **output** frame count.
         context : StreamingFeatureWrapperContext
             Mutable streaming context object; should be reused for subsequent
             calls in the same streaming session.
+
+        Returns
+        -------
+        torch.Tensor
+            Processed chunk of shape [batch size, output frames]. This shape is
+            equivalent to the shape of `module(chunk)`.
         """
 
         feat_pad_size = self.get_required_padding()
