@@ -445,7 +445,10 @@ def parse_arguments(arg_list=None):
         "--profile_training",
         default=False,
         action="store_true",
-        help="If True, a profiler will be started and tensorboard logs will be produced.",
+        help=(
+            "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
+            "Please ensure you have installed the TensorBoard profiler with 'pip install torch_tb_profiler'."
+        ),
     )
     parser.add_argument(
         "--profile_warmup",
