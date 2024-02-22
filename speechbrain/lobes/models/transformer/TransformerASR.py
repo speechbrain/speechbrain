@@ -2,6 +2,8 @@
 
 Authors
 * Jianyuan Zhong 2020
+* Titouan Parcollet 2024
+* Luca Della Libera 2024
 """
 
 from dataclasses import dataclass
@@ -51,67 +53,48 @@ def make_transformer_src_mask(
         The source tensor to build a mask from. The contents of the tensor are
         not actually used currently; only its shape and other metadata (e.g.
         device).
-
     causal: bool
         Whether strict causality shall be used. Frames will not be able to
         attend to any future frame.
-
     dynchunktrain_config: DynChunkTrainConfig, optional
         Dynamic Chunk Training configuration. This implements a simple form of
-        chunkwise attention. Incompatible with `causal`."""
+        chunkwise attention. Incompatible with `causal`.
 
+    Returns
+    -------
+    torch.Tensor
+        A boolean mask Tensor of shape (timesteps, timesteps). 
+    """
     if causal:
         assert dynchunktrain_config is None
         return get_lookahead_mask(src)
 
-    if dynchunktrain_config is not None:
-        # init a mask that masks nothing by default
-        # 0 == no mask, 1 == mask
-        src_mask = torch.zeros(
-            (src.shape[1], src.shape[1]), device=src.device, dtype=torch.bool,
-        )
+    if dynchunktrain_config is None:
+        return
 
-        # The following is not really the sole source used to implement this,
-        # but it helps introduce the concept.
-        # ref: Unified Streaming and Non-streaming Two-pass End-to-end Model
-        # for Speech Recognition
-        # https://arxiv.org/pdf/2012.05481.pdf
+    # The following is not really the sole source used to implement this,
+    # but it helps introduce the concept.
+    # ref: Unified Streaming and Non-streaming Two-pass End-to-end Model for Speech Recognition
+    # https://arxiv.org/pdf/2012.05481.pdf
+    timesteps = src.size(1)
 
-        timesteps = src.size(1)
+    # Mask the future at the right of each chunk
+    chunk_size = dynchunktrain_config.chunk_size
+    num_chunks = timesteps // chunk_size
+    timestep_idx = torch.arange(timesteps, device=src.device)
+    mask_idx = torch.arange(
+        chunk_size, chunk_size * (num_chunks + 2), chunk_size, device=src.device
+    ).repeat_interleave(chunk_size)[:timesteps]
+    src_mask = timestep_idx[None] >= mask_idx[:, None]
 
-        # mask the future at the right of each chunk
-        num_of_chunks = (timesteps // dynchunktrain_config.chunk_size) + 1
+    # Mask the past at the left of each chunk (accounting for left context)
+    # only relevant if using left context
+    if not dynchunktrain_config.is_infinite_left_context():
+        num_left_chunks = dynchunktrain_config.left_context_size
+        mask_idx -= chunk_size * (num_left_chunks + 1)
+        src_mask += timestep_idx[None] < mask_idx[:, None]
 
-        for c in range(num_of_chunks):
-            # if we have a chunk size of 8 then:
-            # for 0..7  -> mask 8..
-            # for 8..15 -> mask 16..
-            # etc.
-            start_mask = c * dynchunktrain_config.chunk_size
-            visible_range = (c + 1) * (dynchunktrain_config.chunk_size)
-            src_mask[start_mask:visible_range, visible_range:] = True
-
-        # mask the past at the left of each chunk (accounting for left context)
-        # only relevant if using left context
-        if not dynchunktrain_config.is_infinite_left_context():
-            left_context_frames = (
-                dynchunktrain_config.left_context_size
-                * dynchunktrain_config.chunk_size
-            )
-            for c in range(num_of_chunks):
-                chunk_first_t = c * dynchunktrain_config.chunk_size
-                visible_range = (c + 1) * (dynchunktrain_config.chunk_size)
-
-                frame_remaining_context = max(
-                    0, chunk_first_t - left_context_frames,
-                )
-                src_mask[
-                    chunk_first_t:visible_range, :frame_remaining_context
-                ] = True
-
-        return src_mask
-
-    return None
+    return src_mask
 
 
 def make_transformer_src_tgt_masks(
