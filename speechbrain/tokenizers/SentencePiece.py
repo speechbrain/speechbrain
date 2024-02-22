@@ -506,6 +506,15 @@ def spm_decode_preserve_leading_space(
     but avoids incorrectly stripping leading spaces when streaming.
     Operates on a single hypothesis, not a batch of hypotheses.
 
+    Normally, the tokenizer always decodes full sentences at a time, with the
+    consequence that the first space in decoding will get removed.
+    However, when streaming, we might be decoding mid-utterance where spaces
+    must not be removed mid-sentence. This function handles this case.
+
+    e.g. if within the same streaming context, you decode `["▁how", "▁are"]`
+    then `["▁you"]`, the decoder would normally return `"how areyou"` instead of
+    `"how are you"` like this function does.
+
     Arguments
     ---------
     tokenizer : sentencepiece.SentencePieceProcessor
@@ -526,11 +535,13 @@ def spm_decode_preserve_leading_space(
     text = proto.text
 
     if len(proto.pieces) >= 1:
-        if context.emitted_symbol_count > 0 and proto.pieces[
-            0
-        ].piece.startswith(
-            "\u2581"
-        ):  # magic spm space
+        should_preserve_space = context.emitted_symbol_count > 0
+        # By default, SentencePiece tags spaces with `▁` i.e. \u2581
+        # (unicode for "Lower One Eighth Block").
+        if should_preserve_space and proto.pieces[0].piece.startswith("\u2581"):
+            # We are mid-sentence and the decoder has nuked the first space,
+            # as the decoder believes we are decoding a full sentence.
+            # Insert it back.
             text = " " + text
 
         context.emitted_symbol_count += len(proto.pieces)
