@@ -769,7 +769,7 @@ class StreamingASR(Pretrained):
         assert chunk.shape[-1] <= self.get_chunk_size_frames(context.config)
 
         x = self.hparams.fea_streaming_extractor(
-            chunk, context=context.fea_extractor_context, lens=chunk_len
+            chunk, context=context.fea_extractor_context, lengths=chunk_len
         )
         x = self.mods.enc.forward_streaming(x, context.encoder_context)
         x = self.mods.proj_enc(x)
