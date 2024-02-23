@@ -525,13 +525,32 @@ class StreamingFeatureWrapper(torch.nn.Module):
 
         return self.get_required_padding() // self.properties.stride
 
+    def get_recommended_final_chunk_count(self, frames_per_chunk: int) -> int:
+        """Get the recommended number of zero chunks to inject at the end of an
+        input stream depending on the filter properties of the extractor.
+
+        The number of injected chunks is chosen to ensure that the filter has
+        output frames centered on the last input frames.
+        See also :meth:`~StreamingFeatureWrapper.forward`.
+
+        Arguments
+        ---------
+        frames_per_chunk : int
+            The number of frames per chunk, i.e. the size of the time dimension
+            passed to :meth:`~StreamingFeatureWrapper.forward`."""
+
+        return (
+            upalign_value(self.get_required_padding(), frames_per_chunk)
+            // frames_per_chunk
+        )
+
     def forward(
         self,
         chunk: torch.Tensor,
         context: StreamingFeatureWrapperContext,
         *extra_args,
         **extra_kwargs,
-    ):
+    ) -> torch.Tensor:
         """Forward pass for the streaming feature wrapper.
 
         For the first chunk, 0-padding is inserted at the past of the input.
@@ -540,11 +559,13 @@ class StreamingFeatureWrapper(torch.nn.Module):
 
         For further explanations, see the comments in the code.
 
-        Note that due to how the padding is implemented, you may want to inject
-        chunks of zeros at the end of your input so that the final frames have
-        a chance to get processed by the filter.
-        This is not really an issue when streaming, and might not actually
-        matter in general as the number of affected frames would usually be low.
+        Note that due to how the padding is implemented, you may want to call
+        this with a chunk worth full of zeros (potentially more for filters with
+        large windows) at the end of your input so that the final frames have a
+        chance to get processed by the filter.
+        See :meth:`~StreamingFeatureWrapper.get_recommended_final_chunk_count`.
+        This is not really an issue when processing endless streams, but when
+        processing files, it could otherwise result in truncated outputs.
 
         Arguments
         ---------
