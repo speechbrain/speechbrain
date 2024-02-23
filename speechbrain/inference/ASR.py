@@ -811,9 +811,7 @@ class StreamingASR(Pretrained):
             List of length `batch_size`, each holding a list of tokens of any
             length `>=0`.
         """
-        tokens = self.hparams.decoding_function(
-            x=x, context=context.decoder_context
-        )
+        tokens = self.hparams.decoding_function(x, context.decoder_context)
 
         # initialize token context for real now that we know the batch size
         if context.tokenizer_context is None:

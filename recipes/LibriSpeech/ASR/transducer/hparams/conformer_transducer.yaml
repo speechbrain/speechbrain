@@ -407,7 +407,7 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 # make_decoder_streaming_context: !name:speechbrain.decoders.transducer.TransducerGreedySearcherStreamingContext # default constructor
 # decoding_function: !name:speechbrain.decoders.transducer.TransducerBeamSearcher.transducer_greedy_decode_streaming
-#    self: !ref <Greedysearcher>
+#    - !ref <Greedysearcher>  # self
 
 # fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
 #    module: !new:speechbrain.nnet.containers.LengthsCapableSequential
