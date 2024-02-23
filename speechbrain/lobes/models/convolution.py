@@ -4,7 +4,6 @@ Authors
  * Jianyuan Zhong 2020
  * Titouan Parcollet 2023
 """
-from typing import Optional
 import torch
 from speechbrain.nnet.CNN import Conv2d, Conv1d
 from speechbrain.nnet.containers import Sequential
