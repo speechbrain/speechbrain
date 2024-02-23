@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer_transducer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
@@ -413,5 +413,5 @@ cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 #    # don't consider normalization as part of the input filter chain.
 #    # normalization will operate at chunk level, which mismatches training
 #    # somewhat, but does not appear to result in noticeable degradation.
-#    properties: !!python/object/apply:speechbrain.utils.filter_analysis.stack_filter_properties
+#    properties: !apply:speechbrain.utils.filter_analysis.stack_filter_properties
 #       - [!ref <compute_features>, !ref <CNN>]
