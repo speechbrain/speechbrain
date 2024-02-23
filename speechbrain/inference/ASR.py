@@ -488,7 +488,8 @@ class WhisperASR(Pretrained):
 @dataclass
 class ASRStreamingContext:
     """Streaming metadata, initialized by
-    :meth:`~StreamingASR.make_streaming_context`.
+    :meth:`~StreamingASR.make_streaming_context` (see there for details on
+    initialization of fields here).
 
     This object is intended to be mutate: the same object should be passed
     across calls as streaming progresses (namely when using the lower-level
@@ -507,8 +508,8 @@ class ASRStreamingContext:
     encoder_context: Any
     """Opaque encoder streaming context."""
 
-    decoder_hidden: Optional[Any]
-    """Opaque hidden state of the decoder. Initially `None`."""
+    decoder_context: Any
+    """Opaque decoder streaming context."""
 
     tokenizer_context: Optional[List[Any]]
     """Opaque streaming context for the tokenizer. Initially `None`. Initialized
@@ -529,7 +530,8 @@ class StreamingASR(Pretrained):
 
     HPARAMS_NEEDED = [
         "fea_streaming_extractor",
-        "Greedysearcher",
+        "make_decoder_streaming_context",
+        "decoding_function",
         "make_tokenizer_streaming_context",
         "tokenizer_decode_streaming",
     ]
@@ -707,7 +709,7 @@ class StreamingASR(Pretrained):
             encoder_context=self.mods.enc.make_streaming_context(
                 dynchunktrain_config
             ),
-            decoder_hidden=None,
+            decoder_context=self.hparams.make_decoder_streaming_context(),
             tokenizer_context=None,
         )
 
@@ -809,10 +811,9 @@ class StreamingASR(Pretrained):
             List of length `batch_size`, each holding a list of tokens of any
             length `>=0`.
         """
-        (tokens, _scores, _, _, h,) = self.hparams.Greedysearcher(
-            x, context.decoder_hidden, return_hidden=True
+        tokens = self.hparams.decoding_function(
+            x=x, context=context.decoder_context
         )
-        context.decoder_hidden = h
 
         # initialize token context for real now that we know the batch size
         if context.tokenizer_context is None:

@@ -5,7 +5,19 @@ Author:
     Sung-Lin Yeh 2020
 """
 import torch
+from dataclasses import dataclass
 from functools import partial
+from typing import Optional, Any
+
+
+@dataclass
+class TransducerGreedySearcherStreamingContext(torch.nn.Module):
+    """Simple wrapper for the hidden state of the transducer greedy searcher.
+    Used by :meth:`~TransducerBeamSearcher.transducer_greedy_decode_streaming`.
+    """
+
+    hidden: Optional[Any] = None
+    """Hidden state; typically a tensor or a tuple of tensors."""
 
 
 class TransducerBeamSearcher(torch.nn.Module):
@@ -119,24 +131,20 @@ class TransducerBeamSearcher(torch.nn.Module):
         else:
             self.searcher = self.transducer_beam_search_decode
 
-    def forward(self, tn_output, *args, **kwargs):
+    def forward(self, tn_output):
         """
         Arguments
         ----------
         tn_output : torch.tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
-        *args
-            Positional arguments to forward to the searcher.
-        **kwargs
-            Keyword arguments to forward to the searcher.
 
         Returns
         -------
         Topk hypotheses
         """
 
-        hyps = self.searcher(tn_output, *args, **kwargs)
+        hyps = self.searcher(tn_output)
         return hyps
 
     def transducer_greedy_decode(
@@ -258,6 +266,29 @@ class TransducerBeamSearcher(torch.nn.Module):
             ret += ((out_PN, hidden,),)
 
         return ret
+
+    def transducer_greedy_decode_streaming(
+        self, x: torch.Tensor, context: TransducerGreedySearcherStreamingContext
+    ):
+        """Tiny wrapper for
+        :meth:`~TransducerBeamSearcher.transducer_greedy_decode` with an API
+        that makes it suitable to be passed as a `decoding_function` for
+        streaming.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Outputs of the prediction network (equivalent to `tn_output`)
+        context : TransducerGreedySearcherStreamingContext
+            Mutable streaming context object, which must be specified and reused
+            across calls when streaming.
+            You can obtain an initial context by initializing a default object.
+        """
+        (hyp, _scores, _, _, hidden) = self.transducer_greedy_decode(
+            x, context.hidden, return_hidden=True
+        )
+        context.hidden = hidden
+        return hyp
 
     def transducer_beam_search_decode(self, tn_output):
         """Transducer beam search decoder is a beam search decoder over batch which apply Transducer rules:
