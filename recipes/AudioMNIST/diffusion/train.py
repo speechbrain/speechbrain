@@ -92,11 +92,8 @@ class DiffusionBrain(sb.Brain):
         hparams=None,
         run_opts=None,
         checkpointer=None,
-        profiler=None,
     ):
-        super().__init__(
-            modules, opt_class, hparams, run_opts, checkpointer, profiler
-        )
+        super().__init__(modules, opt_class, hparams, run_opts, checkpointer)
         self.diffusion_mode = DiffusionMode(self.hparams.diffusion_mode)
         self.use_done_detector = "done_detector" in self.modules
 

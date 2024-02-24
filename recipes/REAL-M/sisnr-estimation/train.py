@@ -58,11 +58,11 @@ class Separation(sb.Brain):
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
-                    mix, targets = self.add_speed_perturb(targets)
+                    mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     if self.hparams.use_reverb_augment:
                         targets_rev = [
-                            self.hparams.reverb(targets[:, :, i], None)
+                            self.hparams.reverb(targets[:, :, i])
                             for i in range(self.hparams.num_spks)
                         ]
                         targets_rev = torch.stack(targets_rev, dim=-1)
@@ -322,9 +322,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speed_perturb(
-                    targets[:, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(targets[:, :, i])
                 new_targets.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[-1]
@@ -768,7 +766,7 @@ if __name__ == "__main__":
     from speechbrain.inference.separation import (
         SepformerSeparation as separator,
     )
-    from speechbrain.utils.fetch import fetch
+    from speechbrain.utils.fetching import fetch
 
     all_separators = []
     for separator_model in hparams["separators_to_use"]:
