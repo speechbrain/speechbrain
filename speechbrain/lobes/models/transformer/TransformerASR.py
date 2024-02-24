@@ -508,10 +508,7 @@ class TransformerASR(TransformerInterface):
         ...     normalize_before=True,
         ...     causal=False,
         ... )
-        >>> ctx = net.make_streaming_context(
-        ...     DynChunkTrainConfig(16, 24),
-        ...     encoder_kwargs={"mha_left_context_size": 24},
-        ... )
+        >>> ctx = net.make_streaming_context(DynChunkTrainConfig(16, 1))
         >>> src1 = torch.rand([8, 16, 64])
         >>> src2 = torch.rand([8, 16, 64])
         >>> out1 = net.encode_streaming(src1, ctx)
@@ -523,7 +520,7 @@ class TransformerASR(TransformerInterface):
         >>> out2.shape
         torch.Size([8, 16, 64])
         >>> ctx.encoder_context.layers[0].mha_left_context.shape
-        torch.Size([8, 24, 64])
+        torch.Size([8, 16, 64])
         >>> combined_out = torch.concat((out1, out2), dim=1)
         >>> combined_out.shape
         torch.Size([8, 32, 64])
@@ -587,7 +584,7 @@ class TransformerASR(TransformerInterface):
         return TransformerASRStreamingContext(
             dynchunktrain_config=dynchunktrain_config,
             encoder_context=self.encoder.make_streaming_context(
-                **encoder_kwargs,
+                dynchunktrain_config, **encoder_kwargs,
             ),
         )
 
@@ -625,8 +622,20 @@ class EncoderWrapper(nn.Module):
     def __init__(self, transformer, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.transformer = transformer
+        self.make_streaming_context = self.transformer.make_streaming_context
 
     def forward(self, x, wav_lens=None, pad_idx=0, **kwargs):
         """ Processes the input tensor x and returns an output tensor."""
         x = self.transformer.encode(x, wav_lens, pad_idx, **kwargs,)
         return x
+
+    def forward_streaming(self, x, context):
+        """Processes the input audio chunk tensor `x`, using and updating the
+        mutable encoder `context`"""
+        x = self.transformer.encode_streaming(x, context)
+        return x
+
+    def make_streaming_context(self, *args, **kwargs):
+        """Initializes a streaming context. Forwards all arguments to the
+        underlying transformer. See :meth:`speechbrain.lobes.models.transformer.TransformerASR.make_streaming_context`."""
+        return self.transformer.make_streaming_context(*args, **kwargs)
