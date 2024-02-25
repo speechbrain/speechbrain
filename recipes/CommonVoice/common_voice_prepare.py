@@ -35,7 +35,8 @@ def prepare_common_voice(
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
-    Download: https://voice.mozilla.org/en/datasets
+    Download: https://commonvoice.mozilla.org/en
+
     Arguments
     ---------
     data_folder : str
