@@ -729,7 +729,7 @@ class StreamingASR(Pretrained):
 
         return (self.filter_props.stride - 1) * dynchunktrain_config.chunk_size
 
-    @torch.no_grad
+    @torch.no_grad()
     def encode_chunk(
         self,
         context: ASRStreamingContext,
@@ -784,7 +784,7 @@ class StreamingASR(Pretrained):
         x = self.mods.proj_enc(x)
         return x
 
-    @torch.no_grad
+    @torch.no_grad()
     def decode_chunk(
         self, context: ASRStreamingContext, x: torch.Tensor
     ) -> tuple[list, list]:
