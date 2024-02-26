@@ -257,10 +257,7 @@ class TTSEvalBrain(sb.Brain):
         """
 
         # Set up statistics trackers for this stage
-        classification_epochs = getattr(
-            self.hparams, "classification_epochs", 0
-        )
-        if epoch is not None and epoch <= classification_epochs:
+        if epoch is not None and epoch <= self.hparams.classification_epochs:
             logger.info("Classification pretraining mode")
             self.mode = TTSEvalTrainMode.CLASSIFICATION
         elif self.hparams.contrastive:

@@ -42,9 +42,6 @@ wavlm_folder: !ref <save_folder>/wavlm_checkpoint
 wavlm_freeze: False
 #set to true to freeze the CONV part of the wavlm model
 wavlm_freeze_feature_extractor: True
-# Model parameters
-encoder_dim: 1024
-
 activation: !name:torch.nn.LeakyReLU
 
 d_model: 512
@@ -74,7 +71,7 @@ wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
   output_norm: True
   freeze: !ref <wavlm_freeze>
   freeze_feature_extractor: !ref <wavlm_freeze_feature_extractor>
-  save_path: !ref <save_folder>
+  save_path: !ref <wavlm_folder>
 
 model: !new:speechbrain.lobes.models.eval.ssl.TransformerRegression
   base_model: !ref <wavlm>
@@ -83,6 +80,7 @@ model: !new:speechbrain.lobes.models.eval.ssl.TransformerRegression
   num_layers: !ref <num_layers>
   nhead: !ref <nhead>
   dropout: !ref <dropout>
+  activation: !ref <activation>
 
 classifier: !new:speechbrain.lobes.models.eval.ssl.BaselineSSLFinetune
   base_model: !ref <wavlm>
