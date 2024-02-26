@@ -30,6 +30,12 @@ To run this recipe, run the following command
 python train.py --device=cuda:0  --data_folder=/your_folder/SOMOS hparams/train_ssl_wavlm_xformer.yaml
 ```
 
+# Training Results
+| Release     | Model             | hyperparams file | Val R | Test R | HuggingFace Link                                                    | Model Link                           | GPUs        |
+| ----------- |:-----------------:| ----------------:|:--------------:|:-------------------------------------------------------------------:|:------------------------------------:|:-----------:| 
+| 2024-02-26  | WavLM Transformer | train.yaml       | TBD   | TBD    | [model](https://huggingface.co/flexthink/ttseval-wavlm-transformer) | [model](https://www.dropbox.com/tbd) | 1xV100 32GB |
+
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
