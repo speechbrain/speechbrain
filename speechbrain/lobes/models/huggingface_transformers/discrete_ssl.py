@@ -200,8 +200,7 @@ class DiscreteSSL(nn.Module):
                 )
                 token_ids.append(
                     torch.tensor(
-                        tokens.reshape(wav.shape[0], -1)
-                        + self.num_clusters * layer_num,
+                        tokens.reshape(wav.shape[0], -1),
                         dtype=torch.long,
                         device=wav.device,
                     )
