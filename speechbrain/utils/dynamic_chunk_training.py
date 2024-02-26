@@ -42,6 +42,16 @@ class DynChunkTrainConfig:
         attend to any past frame)."""
         return self.left_context_size is None
 
+    def left_context_size_frames(self) -> Optional[int]:
+        """Returns the number of left context *frames* (not chunks).
+        If ``None``, the left context is infinite.
+        See also the ``left_context_size`` field."""
+
+        if self.left_context_size is None:
+            return None
+
+        return self.chunk_size * self.left_context_size
+
 
 @dataclass
 class DynChunkTrainConfigRandomSampler:

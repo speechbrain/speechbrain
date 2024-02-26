@@ -71,7 +71,7 @@ Let's take a look at recipes: their structural outline & their testing definitio
 * `recipes/DATASET/TASK/METHOD/README.md` – a _Readme_file_, which points to
   * some GDrive url – a _Result_url_ [optional]
   * some HuggingFace url – a _HF_repo_ [optional], which has
-    * pretrained model – `hyperparameters.yaml` to be loaded either by [a pretrained interface](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain/pretrained) or a custom interface
+    * pretrained model – `hyperparameters.yaml` to be loaded either by [a pretrained interface](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain/inference) or a custom interface
     * code snippets, for demonstration
   * additional references, incl. further URLs
   > _Note: all URLs references (in .py, .md & .txt files) are checked to be valid._
