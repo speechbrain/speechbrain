@@ -130,7 +130,7 @@ output_neurons: 1024
 dec_dim: 512
 dec_emb_dropout: 0.1
 dec_dropout: 0.1
-attention_type: regularMHA
+attention_type: RelPosMHAXL
 
 # Decoding parameters
 blank_index: 0
