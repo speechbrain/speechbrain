@@ -14,7 +14,6 @@ save_folder: !ref <output_folder>/save
 details_folder: !ref <output_folder>/details
 train_log: !ref <output_folder>/train_log.txt
 train_regression_metric: True
-# pretrained_model_path: pretrained_models/noresqa
 batch_size: 4
 num_workers: 4
 use_transcripts: False
@@ -38,7 +37,6 @@ ckpt_interval_minutes: 15
 
 wavlm_source: microsoft/wavlm-large
 wavlm_folder: !ref <save_folder>/wavlm_checkpoint
-# pretrained_wavlm_path: !PLACEHOLDER # binary classification model path
 
 #freeze all wavlm
 wavlm_freeze: False
@@ -54,8 +52,6 @@ d_ffn: 2048
 num_layers: 3
 nhead: 4
 dropout: 0.5
-
-out_n_neurons: 1
 
 splits: ["train", "valid", "test"]
 subset: "full"
