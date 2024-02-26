@@ -112,106 +112,17 @@ def prepare_spokenwoz(
     # Additional checks to make sure the data folder has the correct architecture
     check_spokenwoz_folders(data_folder, version, splits)
 
-    dev_ids = []
-    with open(
-        os.path.join(data_folder, "text_5700_train_dev", "valListFile.json"),
-        "r",
-    ) as val_list_file:
-        for line in val_list_file:
-            dev_ids.append(line.strip())
-
     # create csv files for each split
     all_texts = {}
     for split_index in range(len(splits)):
 
         split = splits[split_index]
 
-        wav_lst = []
         text_dict = {}
-        if split == "train":
-            wav_lst.extend(
-                get_all_files(
-                    os.path.join(data_folder, "audio_5700_train_dev"),
-                    match_and=[".wav"],
-                    exclude_or=dev_ids,
-                )
-            )
 
-            if "cascade" in version:
-                annotation_file = os.path.join(
-                    data_folder,
-                    "text_5700_train_dev",
-                    "data{}.json".format(version.replace("cascade", "")),
-                )
-            else:
-                annotation_file = os.path.join(
-                    data_folder, "text_5700_train_dev", "data.json"
-                )
-            with open(annotation_file, "r") as data:
-                for line in data:
-                    annotations = json.loads(line)
-            dialogues_to_remove = [
-                k for k, _ in annotations.items() if k in dev_ids
-            ]
-            for dialog_id in dialogues_to_remove:
-                del annotations[dialog_id]
-
-        elif split == "dev":
-            wav_lst.extend(
-                get_all_files(
-                    os.path.join(data_folder, "audio_5700_train_dev"),
-                    match_and=[".wav"],
-                    match_or=dev_ids,
-                )
-            )
-
-            if "cascade" in version:
-                annotation_file = os.path.join(
-                    data_folder,
-                    "text_5700_train_dev",
-                    "data{}.json".format(version.replace("cascade", "")),
-                )
-            else:
-                annotation_file = os.path.join(
-                    data_folder, "text_5700_train_dev", "data.json"
-                )
-            with open(annotation_file, "r") as data:
-                for line in data:
-                    annotations = json.loads(line)
-            dialogues_to_remove = [
-                k for k, _ in annotations.items() if k not in dev_ids
-            ]
-            for dialog_id in dialogues_to_remove:
-                del annotations[dialog_id]
-
-        elif split == "test":
-            wav_lst.extend(
-                get_all_files(
-                    os.path.join(data_folder, "audio_5700_test"),
-                    match_and=[".wav"],
-                )
-            )
-
-            if "cascade" in version:
-                annotation_file = os.path.join(
-                    data_folder,
-                    "text_5700_test",
-                    "data{}.json".format(version.replace("cascade", "")),
-                )
-            else:
-                annotation_file = os.path.join(
-                    data_folder, "text_5700_test", "data.json"
-                )
-            with open(annotation_file, "r") as data:
-                for line in data:
-                    annotations = json.loads(line)
-
-        else:
-            err_msg = (
-                "Asked for %s split which does not exist."
-                "Please select one of (train|dev|test)" % split
-            )
-            raise OSError(err_msg)
+        wav_lst, annotations = get_wavs_and_annotations(
+            data_folder, split, version
+        )
 
         for dialog_id, dialog_info in annotations.items():
             if dialog_id not in text_dict:
@@ -223,13 +134,13 @@ def prepare_spokenwoz(
                     # User turn --> get end time
                     if f"Turn-{turn_id}" not in text_dict[dialog_id]:
                         text_dict[dialog_id][f"Turn-{turn_id}"] = {}
-                    text_dict[dialog_id][f"Turn-{turn_id}"]["end"] = turn_info[
-                        "words"
-                    ][-1]["EndTime"] * (SAMPLERATE // 1000)
+                    current_turn = text_dict[dialog_id][f"Turn-{turn_id}"]
+                    end_time = turn_info["words"][-1]["EndTime"]
+                    current_turn["end"] = end_time * (SAMPLERATE // 1000)
                     if turn_id == 0:
-                        text_dict[dialog_id][f"Turn-{turn_id}"]["start"] = 0
-                        text_dict[dialog_id][f"Turn-{turn_id}"]["previous"] = ""
-                        text_dict[dialog_id][f"Turn-{turn_id}"]["agent"] = ""
+                        current_turn["start"] = 0
+                        current_turn["previous"] = ""
+                        current_turn["agent"] = ""
 
                     # Saving the user transcription
                     if "cascade" in version:
@@ -239,17 +150,14 @@ def prepare_spokenwoz(
                             -1
                         ]
                         if asr_model != "":
-                            text_dict[dialog_id][f"Turn-{turn_id}"][
-                                "user"
-                            ] = turn_info[asr_model]
+                            current_turn["user"] = turn_info[asr_model]
                         else:
-                            text_dict[dialog_id][f"Turn-{turn_id}"][
-                                "user"
-                            ] = " ".join(
-                                [word["Word"] for word in turn_info["words"]]
-                            )
+                            words = [
+                                word["Word"] for word in turn_info["words"]
+                            ]
+                            current_turn["user"] = " ".join(words)
                     else:
-                        text_dict[dialog_id][f"Turn-{turn_id}"]["user"] = ""
+                        current_turn["user"] = ""
 
                 else:
                     # Agent turn --> dialogue state annotations
@@ -272,7 +180,7 @@ def prepare_spokenwoz(
                     if turn_id != len(dialog_info["log"]) - 1:
                         if f"Turn-{turn_id+1}" not in text_dict[dialog_id]:
                             text_dict[dialog_id][f"Turn-{turn_id+1}"] = {}
-
+                        next_turn = text_dict[dialog_id][f"Turn-{turn_id+1}"]
                         # Agent transcription
                         if "cascade" in version:
                             # Considering the model's transcription if cascading with a provided model,
@@ -281,32 +189,19 @@ def prepare_spokenwoz(
                                 "_"
                             )[-1]
                             if asr_model != "":
-                                text_dict[dialog_id][f"Turn-{turn_id+1}"][
-                                    "agent"
-                                ] = turn_info[asr_model]
+                                next_turn["agent"] = turn_info[asr_model]
                             else:
-                                text_dict[dialog_id][f"Turn-{turn_id+1}"][
-                                    "agent"
-                                ] = " ".join(
-                                    [
-                                        word["Word"]
-                                        for word in turn_info["words"]
-                                    ]
-                                )
+                                words = [
+                                    word["Word"] for word in turn_info["words"]
+                                ]
+                                next_turn["agent"] = " ".join(words)
                         else:
-                            text_dict[dialog_id][f"Turn-{turn_id+1}"][
-                                "agent"
-                            ] = ""
+                            next_turn["agent"] = ""
 
                         # Previous Dialogue State
-                        text_dict[dialog_id][f"Turn-{turn_id+1}"][
-                            "previous"
-                        ] = "; ".join(state)
-                        text_dict[dialog_id][f"Turn-{turn_id+1}"][
-                            "start"
-                        ] = turn_info["words"][0]["BeginTime"] * (
-                            SAMPLERATE // 1000
-                        )
+                        next_turn["previous"] = "; ".join(state)
+                        begin_time = turn_info["words"][0]["BeginTime"]
+                        next_turn["start"] = begin_time * (SAMPLERATE // 1000)
 
         all_texts.update(text_dict)
 
@@ -428,6 +323,126 @@ def create_csv(
     # Final print
     msg = "%s successfully created!" % (csv_file)
     logger.info(msg)
+
+
+def get_wavs_and_annotations(data_folder, split, version):
+    """
+    Fetches the wav files and their corresponding annotations for the provided split and version.
+
+    Arguments
+    ---------
+    data_folder : str
+        Location of the root data folder containing the audio files of each split and their annotations.
+    split : str
+        The split for which the wav files and annotations should be fetched.
+    version : str
+        The dataset version required. Should be one of e2e or cascade_model.
+
+    Returns
+    -------
+    wav_lst : list
+        The list of wav files for the required split and version.
+    annotations : dict
+        The dictionary containing the annotations associated to those wav files.
+    """
+    wav_lst = []
+    if split == "train" or split == "dev":
+        dev_ids = []
+        with open(
+            os.path.join(
+                data_folder, "text_5700_train_dev", "valListFile.json"
+            ),
+            "r",
+        ) as val_list_file:
+            for line in val_list_file:
+                dev_ids.append(line.strip())
+
+    if split == "train":
+        wav_lst.extend(
+            get_all_files(
+                os.path.join(data_folder, "audio_5700_train_dev"),
+                match_and=[".wav"],
+                exclude_or=dev_ids,
+            )
+        )
+
+        if "cascade" in version:
+            annotation_file = os.path.join(
+                data_folder,
+                "text_5700_train_dev",
+                "data{}.json".format(version.replace("cascade", "")),
+            )
+        else:
+            annotation_file = os.path.join(
+                data_folder, "text_5700_train_dev", "data.json"
+            )
+        with open(annotation_file, "r") as data:
+            for line in data:
+                annotations = json.loads(line)
+        dialogues_to_remove = [
+            k for k, _ in annotations.items() if k in dev_ids
+        ]
+        for dialog_id in dialogues_to_remove:
+            del annotations[dialog_id]
+
+    elif split == "dev":
+        wav_lst.extend(
+            get_all_files(
+                os.path.join(data_folder, "audio_5700_train_dev"),
+                match_and=[".wav"],
+                match_or=dev_ids,
+            )
+        )
+
+        if "cascade" in version:
+            annotation_file = os.path.join(
+                data_folder,
+                "text_5700_train_dev",
+                "data{}.json".format(version.replace("cascade", "")),
+            )
+        else:
+            annotation_file = os.path.join(
+                data_folder, "text_5700_train_dev", "data.json"
+            )
+        with open(annotation_file, "r") as data:
+            for line in data:
+                annotations = json.loads(line)
+        dialogues_to_remove = [
+            k for k, _ in annotations.items() if k not in dev_ids
+        ]
+        for dialog_id in dialogues_to_remove:
+            del annotations[dialog_id]
+
+    elif split == "test":
+        wav_lst.extend(
+            get_all_files(
+                os.path.join(data_folder, "audio_5700_test"),
+                match_and=[".wav"],
+            )
+        )
+
+        if "cascade" in version:
+            annotation_file = os.path.join(
+                data_folder,
+                "text_5700_test",
+                "data{}.json".format(version.replace("cascade", "")),
+            )
+        else:
+            annotation_file = os.path.join(
+                data_folder, "text_5700_test", "data.json"
+            )
+        with open(annotation_file, "r") as data:
+            for line in data:
+                annotations = json.loads(line)
+
+    else:
+        err_msg = (
+            "Asked for %s split which does not exist."
+            "Please select one of (train|dev|test)" % split
+        )
+        raise OSError(err_msg)
+
+    return wav_lst, annotations
 
 
 def skip(splits, save_folder, conf):
