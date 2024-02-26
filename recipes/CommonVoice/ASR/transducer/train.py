@@ -142,7 +142,7 @@ class ASR(sb.Brain):
         if stage == sb.Stage.TRAIN:
             if (
                 hasattr(self.hparams, "fea_augment")
-                and self.optimizer_step > 5000
+                and self.optimizer_step > self.augment_warmup
             ):
                 tokens = self.hparams.fea_augment.replicate_labels(tokens)
                 token_lens = self.hparams.fea_augment.replicate_labels(
