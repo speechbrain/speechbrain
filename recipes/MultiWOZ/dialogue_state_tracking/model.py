@@ -7,8 +7,6 @@ Author
     * Lucas Druart 2024
 """
 
-# import here because order of imports causes segfault
-from torch.utils.tensorboard import SummaryWriter
 import os
 import torch
 import itertools
