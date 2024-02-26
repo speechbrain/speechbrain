@@ -264,7 +264,7 @@ def process_item(item, transcripts):
         the processed item"""
     src_utterance_id = item["utteranceId"]
     tgt_utterance_id = RE_EXT_WAV.sub("", src_utterance_id)
-    system_id = tgt_utterance_id.split("_")[:-1]
+    system_id = tgt_utterance_id.split("_")[-1]
     wav_path = Path("$data_root") / PATH_AUDIOS / src_utterance_id
     result = {
         "ID": tgt_utterance_id,
