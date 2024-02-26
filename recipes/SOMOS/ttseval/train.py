@@ -260,7 +260,7 @@ class TTSEvalBrain(sb.Brain):
         classification_epochs = getattr(
             self.hparams, "classification_epochs", 0
         )
-        if epoch <= classification_epochs:
+        if epoch is not None and epoch <= classification_epochs:
             logger.info("Classification pretraining mode")
             self.mode = TTSEvalTrainMode.CLASSIFICATION
         elif self.hparams.contrastive:
@@ -320,6 +320,8 @@ class TTSEvalBrain(sb.Brain):
             stats.update(
                 self.get_prefixed_metric_stats(self.reg_system_metric, "sys")
             )
+        else:
+            stats["utt_pearson_r"] = 0.0
 
         return stats
 
@@ -359,7 +361,9 @@ class TTSEvalBrain(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["loss"])
+            self.checkpointer.save_and_keep_only(
+                meta=stats, max_keys=["utt_pearson_r"]
+            )
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -412,9 +416,12 @@ class TTSEvalBrain(sb.Brain):
             The epoch number"""
         if self.reg_metric is None:
             return None
-        target_path = self.hparams.details_folder
+        target_path = Path(self.hparams.details_folder)
         if epoch is not None:
-            target_path = target_path / str(epoch)
+            suffix = str(epoch)
+        else:
+            suffix = "test"
+        target_path = target_path / suffix
         target_path.mkdir(exist_ok=True, parents=True)
         stage_label = str(stage.name).lower()
         csv_file_name = f"raw_{stage_label}.csv"
