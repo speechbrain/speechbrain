@@ -7,4 +7,4 @@ except ImportError as e:
         f"For more details, see https://github.com/flairNLP/flair"
     )
 
-from . import postagger
+from .sequencetagger import FlairSequenceTagger
