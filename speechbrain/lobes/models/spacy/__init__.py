@@ -7,4 +7,4 @@ except ImportError as e:
         f"For more details, see https://github.com/explosion/spaCy"
     )
 
-from .nlp import SpacyPipeline
+from .nlp import *
