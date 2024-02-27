@@ -1,4 +1,4 @@
-"""Models and tooling for part-of-speech tagging
+"""Models and tooling for sequence tagging using Flair
 
 Authors
 * Sylvain de Langen 2024
@@ -20,7 +20,7 @@ class FlairSequenceTagger:
         self.model = SequenceTagger.load(model_path)
 
     def __call__(self, inputs: Union[List[str], List[List[str]]]) -> List[List[str]]:
-        """Tag a batch of list of tokens.
+        """Tag a batch of sentences.
         
         Arguments
         ---------
