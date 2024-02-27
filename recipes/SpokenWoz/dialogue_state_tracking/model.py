@@ -54,8 +54,8 @@ class DialogueUnderstanding(sb.core.Brain):
         ):
             wavs, wavs_lens = self.hparams.augmentation(wavs, wavs_lens)
 
-        semantics_enc_out = self.modules.semantic_encoder(
-            semantics_tokens, semantics_lens
+        semantics_enc_out = self.modules.textual_model.forward_encoder(
+            semantics_tokens
         )
 
         if "cascade" in self.hparams.version:
@@ -76,7 +76,7 @@ class DialogueUnderstanding(sb.core.Brain):
                 'hparams attribute "version" should be one of "cascade[_model]" or "e2e".'
             )
 
-        decoder_out = self.modules.decoder(
+        decoder_out = self.modules.textual_model.forward_decoder(
             encoder_hidden_states=encoder_out, decoder_input_ids=outputs_tokens
         )
 
@@ -179,16 +179,12 @@ class DialogueUnderstanding(sb.core.Brain):
         if should_step:
             if not self.hparams.audio_frozen:
                 self.audio_optimizer.step()
-            if not self.hparams.semantic_encoder_frozen:
-                self.semantic_optimizer.step()
-            self.decoder_optimizer.step()
+            self.text_optimizer.step()
             self.fusion_optimizer.step()
 
             if not self.hparams.audio_frozen:
                 self.audio_optimizer.zero_grad()
-            if not self.hparams.semantic_encoder_frozen:
-                self.semantic_optimizer.zero_grad()
-            self.decoder_optimizer.zero_grad()
+            self.text_optimizer.zero_grad()
             self.fusion_optimizer.zero_grad()
             self.optimizer_step += 1
 
@@ -197,14 +193,9 @@ class DialogueUnderstanding(sb.core.Brain):
                 old_audio_lr, new_audio_lr = self.hparams.lr_annealing_audio(
                     self.audio_optimizer
                 )
-            if not self.hparams.semantic_encoder_frozen:
-                (
-                    old_semantic_lr,
-                    new_semantic_lr,
-                ) = self.hparams.lr_annealing_semantics(self.semantic_optimizer)
             self.hparams.lr_annealing_fusion(self.fusion_optimizer)
-            old_decoder_lr, new_decoder_lr = self.hparams.lr_annealing_decoder(
-                self.decoder_optimizer
+            old_decoder_lr, new_decoder_lr = self.hparams.lr_annealing_text(
+                self.text_optimizer
             )
 
             # Logging the loss and lrs
@@ -244,31 +235,15 @@ class DialogueUnderstanding(sb.core.Brain):
                         ]["lr"]
                     },
                 )
-            if not self.hparams.semantic_encoder_frozen:
-                self.hparams.train_logger.writer.add_scalar(
-                    tag="Semantic Encoder LR",
-                    scalar_value=self.semantic_optimizer.param_groups[0]["lr"],
-                    global_step=self.optimizer_step,
-                )
-                self.hparams.text_logger.log_stats(
-                    stats_meta={"Step": self.optimizer_step},
-                    train_stats={
-                        "Semantic Encoder LR": self.semantic_optimizer.param_groups[
-                            0
-                        ][
-                            "lr"
-                        ]
-                    },
-                )
             self.hparams.train_logger.writer.add_scalar(
-                tag="Decoder LR",
-                scalar_value=self.decoder_optimizer.param_groups[0]["lr"],
+                tag="Text LR",
+                scalar_value=self.text_optimizer.param_groups[0]["lr"],
                 global_step=self.optimizer_step,
             )
             self.hparams.text_logger.log_stats(
                 stats_meta={"Step": self.optimizer_step},
                 train_stats={
-                    "Decoder LR": self.decoder_optimizer.param_groups[0]["lr"]
+                    "Text LR": self.text_optimizer.param_groups[0]["lr"]
                 },
             )
 
@@ -325,11 +300,6 @@ class DialogueUnderstanding(sb.core.Brain):
                 audio_params = self.modules.audio_encoder.parameters()
             self.audio_optimizer = self.hparams.audio_opt_class(audio_params)
 
-        if not self.hparams.semantic_encoder_frozen:
-            self.semantic_optimizer = self.hparams.semantic_opt_class(
-                self.modules.semantic_encoder.parameters()
-            )
-
         fusion_params = self.modules.fusion.parameters()
         if self.hparams.downsampling:
             fusion_params = itertools.chain.from_iterable(
@@ -341,8 +311,8 @@ class DialogueUnderstanding(sb.core.Brain):
             )
         self.fusion_optimizer = self.hparams.fusion_opt_class(fusion_params)
 
-        self.decoder_optimizer = self.hparams.decoder_opt_class(
-            self.modules.decoder.parameters()
+        self.text_optimizer = self.hparams.text_opt_class(
+            self.modules.textual_model.parameters()
         )
 
     def on_stage_start(self, stage, epoch):
