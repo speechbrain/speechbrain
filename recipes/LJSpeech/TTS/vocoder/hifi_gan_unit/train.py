@@ -23,7 +23,6 @@ import torch
 import torchaudio
 import numpy as np
 from pesq import pesq
-from speechbrain.utils.metric_stats import MetricStats
 
 
 class HifiGanBrain(sb.Brain):
@@ -112,14 +111,6 @@ class HifiGanBrain(sb.Brain):
         loss_d = self.hparams.discriminator_loss(scores_fake, scores_real)
         loss = {**loss_g, **loss_d}
         self.last_loss_stats[stage] = scalarize(loss)
-
-        if stage != sb.Stage.TRAIN:
-            self.pesq_metric.append(
-                batch.id,
-                predict=y_hat.squeeze(0),
-                target=y.squeeze(0),
-                lengths=y_lens,
-            )
 
         return loss
 
@@ -268,11 +259,6 @@ class HifiGanBrain(sb.Brain):
                 mode="wb",
             )
 
-        if stage != sb.Stage.TRAIN:
-            self.pesq_metric = MetricStats(
-                metric=pesq_eval, n_jobs=1, batch_eval=False
-            )
-
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
 
@@ -295,7 +281,6 @@ class HifiGanBrain(sb.Brain):
 
             stats = {
                 **self.last_loss_stats[sb.Stage.VALID],
-                "pesq": self.pesq_metric.summarize("average"),
             }
 
             self.hparams.train_logger.log_stats(  # 1#2#
@@ -320,7 +305,7 @@ class HifiGanBrain(sb.Brain):
                 self.checkpointer.save_and_keep_only(
                     meta=epoch_metadata,
                     end_of_epoch=True,
-                    max_keys=["pesq"],
+                    min_keys=["loss"],
                     ckpt_predicate=(
                         (
                             lambda ckpt: (
@@ -453,6 +438,15 @@ def dataio_prepare(hparams):
         )(audio)
 
         code = np.load(code_folder / f"{utt_id}.npy")
+
+        if hparams["layer_drop"]:
+            num_layers_to_drop = np.random.randint(0, code.shape[1])
+            if num_layers_to_drop > 0:
+                layers_to_drop = np.random.choice(
+                    code.shape[1], size=num_layers_to_drop, replace=False
+                )
+                code[:, layers_to_drop] = 0
+
         code = torch.IntTensor(code)
 
         # Maps indices from the range [0, k] to [1, k+1]
@@ -466,8 +460,8 @@ def dataio_prepare(hparams):
         while audio.shape[0] < segment_size:
             audio = torch.hstack([audio, audio])
             code = torch.hstack([code, code])
-
         audio = audio.unsqueeze(0)
+
         if segment:
             code = code.swapdims(0, 1)
             audio, code = sample_interval([audio, code], segment_size)
@@ -577,6 +571,5 @@ if __name__ == "__main__":
     if "test" in datasets:
         hifi_gan_brain.evaluate(
             datasets["test"],
-            max_key="pesq",
             test_loader_kwargs=hparams["test_dataloader_opts"],
         )

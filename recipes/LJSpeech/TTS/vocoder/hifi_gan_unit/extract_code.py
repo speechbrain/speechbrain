@@ -19,9 +19,12 @@ from speechbrain.dataio.dataio import (
     save_pkl,
 )
 from speechbrain.lobes.models.huggingface_transformers import (
-    discrete_hubert,
-    discrete_wav2vec2,
-    discrete_wavlm,
+    hubert,
+    wav2vec2,
+    wavlm,
+)
+from speechbrain.lobes.models.huggingface_transformers.discrete_ssl import (
+    DiscreteSSL,
 )
 
 OPT_FILE = "opt_ljspeech_extract_code.pkl"
@@ -30,9 +33,9 @@ VALID_JSON = "valid.json"
 TEST_JSON = "test.json"
 
 ENCODER_CLASSES = {
-    "HuBERT": discrete_hubert.DiscreteHuBERT,
-    "Wav2Vec2": discrete_wav2vec2.DiscreteWav2Vec2,
-    "WavLM": discrete_wavlm.DiscreteWavLM,
+    "HuBERT": hubert.HuBERT,
+    "Wav2Vec2": wav2vec2.Wav2Vec2,
+    "WavLM": wavlm.WavLM,
 }
 
 
@@ -131,8 +134,8 @@ def extract_ljspeech(
         Name of the model used as feature extractor.
     encoder_source: str
         Url to the model used as feature extractor.
-    layer: int
-        Layer from which features are extracted.
+    layer: List[int] (default: [7]):
+        Determine which layers of SSL should be used to extract information.
     save_folder: str
         Path to the folder where the speech units are stored.
     sample_rate: int
@@ -142,14 +145,14 @@ def extract_ljspeech(
 
     Example
     -------
-    >>> from recipes.LJSpeech.S2ST.extract_code import extract_ljspeech
+    >>> from recipes.LJSpeech.TTS.vocoder.hifi_gan_unit.extract_code import extract_ljspeech
     >>> data_folder = 'data/LJspeech/'
     >>> splits = ['train', 'valid']
     >>> kmeans_folder = 'speechbrain/SSL_Quantization'
-    >>> kmeans_filename = LibriSpeech_hubert_k512_L7.pt
+    >>> kmeans_dataset = LibriSpeech-100-360-500
     >>> encoder_type = 'HuBERT'
-    >>> encoder_source = facebook/hubert-base-ls960
-    >>> layer = 6
+    >>> encoder_source = facebook/hubert-large-ll60k
+    >>> layer = [7]
     >>> save_folder = 'save/'
     >>> extract_ljspeech(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
     """
@@ -191,16 +194,20 @@ def extract_ljspeech(
     encoder = encoder_class(
         source=encoder_source,
         save_path=save_path.as_posix(),
-        kmeans_dataset=kmeans_dataset,
-        num_clusters=num_clusters,
-        kmeans_cache_dir=save_path.as_posix(),
-        kmeans_repo_id=kmeans_folder,
         output_norm=False,
         freeze=True,
         freeze_feature_extractor=True,
         apply_spec_augment=False,
         output_all_hiddens=True,
     ).to(device)
+
+    discrete_encoder = DiscreteSSL(
+        save_path=save_path.as_posix(),
+        ssl_model=encoder,
+        kmeans_dataset=kmeans_dataset,
+        kmeans_repo_id=kmeans_folder,
+        num_clusters=num_clusters,
+    )
 
     for split in splits:
         dataset_path = data_folder / f"{split}.json"
@@ -216,10 +223,15 @@ def extract_ljspeech(
                     info.sample_rate, sample_rate,
                 )(audio)
                 audio = audio.unsqueeze(0).to(device)
-                tokens, _ = encoder(
-                    audio, ssl_layer_num=[layer], deduplicte=False
+                deduplicates = [False for _ in layer]
+                bpe_tokenizers = [None for _ in layer]
+                tokens, _, _ = discrete_encoder(
+                    audio,
+                    SSL_layers=layer,
+                    deduplicates=deduplicates,
+                    bpe_tokenizers=bpe_tokenizers,
                 )
-                tokens = np_array(tokens)
+                tokens = np_array(tokens.squeeze(0))
             np.save(code_folder / f"{key}.npy", tokens)
 
     logger.info("Extraction completed.")
