@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer_transducer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
@@ -399,3 +399,23 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
+
+# for the inference hparams, you will need to include and uncomment something like this:
+
+# make_tokenizer_streaming_context: !name:speechbrain.tokenizers.SentencePiece.SentencePieceDecoderStreamingContext
+# tokenizer_decode_streaming: !name:speechbrain.tokenizers.SentencePiece.spm_decode_preserve_leading_space
+
+# make_decoder_streaming_context: !name:speechbrain.decoders.transducer.TransducerGreedySearcherStreamingContext # default constructor
+# decoding_function: !name:speechbrain.decoders.transducer.TransducerBeamSearcher.transducer_greedy_decode_streaming
+#    - !ref <Greedysearcher>  # self
+
+# fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
+#    module: !new:speechbrain.nnet.containers.LengthsCapableSequential
+#       - !ref <compute_features>
+#       - !ref <normalize>
+#       - !ref <CNN>
+#    # don't consider normalization as part of the input filter chain.
+#    # normalization will operate at chunk level, which mismatches training
+#    # somewhat, but does not appear to result in noticeable degradation.
+#    properties: !apply:speechbrain.utils.filter_analysis.stack_filter_properties
+#       - [!ref <compute_features>, !ref <CNN>]

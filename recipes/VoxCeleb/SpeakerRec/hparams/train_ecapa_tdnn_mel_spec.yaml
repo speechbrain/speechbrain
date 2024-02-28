@@ -43,7 +43,7 @@ lr: 0.001
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
-sample_rate: !PLACEHOLDER
+sample_rate: 16000
 sentence_len: 3.0 # seconds
 shuffle: True
 random_chunk: True

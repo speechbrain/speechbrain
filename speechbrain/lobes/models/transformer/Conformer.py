@@ -62,6 +62,10 @@ class ConformerEncoderLayerStreamingContext:
 class ConformerEncoderStreamingContext:
     """Streaming metadata and state for a `ConformerEncoder`."""
 
+    dynchunktrain_config: DynChunkTrainConfig
+    """Dynamic Chunk Training configuration holding chunk size and context size
+    information."""
+
     layers: List[ConformerEncoderLayerStreamingContext]
     """Streaming metadata and state for each layer of the encoder."""
 
@@ -731,23 +735,26 @@ class ConformerEncoder(nn.Module):
 
         return output, attention_lst
 
-    def make_streaming_context(self, mha_left_context_size: int):
+    def make_streaming_context(self, dynchunktrain_config: DynChunkTrainConfig):
         """Creates a blank streaming context for the encoder.
 
         Arguments
         ---------
+        dynchunktrain_config: Optional[DynChunkTrainConfig]
+            Dynamic Chunk Training configuration object for streaming
         mha_left_context_size : int
             How many left frames should be saved and used as left context to the
             current chunk when streaming. This value is replicated across all
             layers.
         """
         return ConformerEncoderStreamingContext(
+            dynchunktrain_config=dynchunktrain_config,
             layers=[
                 layer.make_streaming_context(
-                    mha_left_context_size=mha_left_context_size
+                    mha_left_context_size=dynchunktrain_config.left_context_size_frames()
                 )
                 for layer in self.layers
-            ]
+            ],
         )
 
 
