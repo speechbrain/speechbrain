@@ -1,5 +1,7 @@
 # .readthedocs.yaml
 
+version: 2
+
 build:
   image: latest
 
