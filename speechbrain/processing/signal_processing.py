@@ -667,7 +667,7 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
     return output
 
 
-def gammatone_impulse_response(t, frequency, fwhm, order, decay):
+def gammatone_impulse_response(t, center, order, decay):
     """
         Function for generating gammatone impulse responses
         as used by GammatoneConv1d proposed in
@@ -676,28 +676,22 @@ def gammatone_impulse_response(t, frequency, fwhm, order, decay):
         for CNN-based audio applications", in Proc of NLDL 2022 (https://septentrio.uit.no/index.php/nldl/article/view/6279)
         """
     alpha = order - 1
-    # gtone = t ** (alpha) * tf.exp(-2 * np.pi * b * t) * tf.cos(2 * np.pi * f * t)
-    # gnorm = (4 * np.pi * b) ** ((2 * alpha + 1) / 2) / tf.sqrt(tf.exp(tf.math.lgamma(2 * alpha + 1))) * np.sqrt(2)  # gamma function G(2*n+1)
-    # gtone = gtone * gnorm
-    denominator = 1.0 / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
-    gaussian = torch.exp(
+
+    norm_inv = ((4 * math.pi * decay)**(2 * alpha + 1))/torch.sqrt(torch.exp(torch.lgamma(2 * alpha + 1)) * 0.5)
+
+    gaussian_decay = torch.exp(
         torch.tensordot(
-            1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
-            (-(t ** 2.0)).unsqueeze(0),
+            decay.unsqueeze(1),
+            (-(2 * math.pi * t)).unsqueeze(0),
             dims=1,
         )
     )
-    envelop = (t**alpha)*gaussian
-    center_frequency_complex = center.type(torch.complex64)
-    t_complex = t.type(torch.complex64)
-    sinusoid = torch.exp(
-        torch.complex(torch.tensor(0.0), torch.tensor(1.0))
-        * torch.tensordot(
-            center_frequency_complex.unsqueeze(1),
-            t_complex.unsqueeze(0),
+    envelop = torch.pow(t, alpha) * gaussian_decay
+    sinusoid = torch.cos(
+         torch.tensordot(
+            center.unsqueeze(1),
+            (2 * math.pi * t).unsqueeze(0),
             dims=1,
         )
     )
-    denominator = denominator.type(torch.complex64).unsqueeze(1)
-    gaussian = gaussian.type(torch.complex64)
-    return denominator * sinusoid * gaussian
+    return envelop * sinusoid * norm_inv
