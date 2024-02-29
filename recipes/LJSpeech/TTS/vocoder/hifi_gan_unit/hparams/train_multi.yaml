@@ -88,7 +88,7 @@ test_dataloader_opts:
 duration_predictor: False
 
 # embedding params
-num_embeddings: 3001 # K-means size * num layer + 1 for padding 1000x3+1
+num_embeddings: 4001 # K-means size * num layer + 1 for padding 1000x3+1
 embedding_dim: 128
 
 # generator params
