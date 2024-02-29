@@ -2,7 +2,7 @@
 
 1. Create a new environment. For instance, using conda:
 ```
-conda create --name fresh_env python=3.9
+conda create --name fresh_env python=3.11
 ```
 2. Activate the new environment
 ```

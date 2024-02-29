@@ -53,7 +53,7 @@ def check_torchaudio_backend():
 
         if len(available_backends) == 0:
             logger.warning(
-                "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://speechbrain.readthedocs.io/en/latest/audioloading.html"
+                "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://pytorch.org/audio/stable/index.html"
             )
     else:
         logger.warning(

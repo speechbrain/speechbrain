@@ -1,5 +1,6 @@
 """
-speechbrain k2 integration
+Package providing `k2-fsa <https://github.com/k2-fsa/k2>`_ integration.
+
 Intended loading manner:
 
     >>> import speechbrain.k2_integration as sbk2

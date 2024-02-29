@@ -58,7 +58,7 @@ class SLU(sb.Brain):
 
         # Compute outputs
         if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
-            return p_seq, wav_lens
+            return p_seq, wav_lens, None
         else:
             p_tokens, _, _, _ = self.hparams.beam_searcher(
                 encoder_out, wav_lens
