@@ -4,7 +4,7 @@ For more details about hifi-gan: https://arxiv.org/pdf/2010.05646.pdf
 For more details about speech synthesis using self-supervised representations: https://arxiv.org/pdf/2104.00355.pdf
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --kmeans_folder=/path/to/Kmeans/ckpt --data_folder=/path/to/LJspeech
+> python train.py hparams/train.yaml --data_folder=/path/to/LJspeech
 
 Authors
  * Jarod Duret 2023
@@ -22,6 +22,7 @@ from speechbrain.utils.data_utils import scalarize
 import torch
 import torchaudio
 import numpy as np
+from pesq import pesq
 
 
 class HifiGanBrain(sb.Brain):
@@ -79,7 +80,7 @@ class HifiGanBrain(sb.Brain):
         batch = batch.to(self.device)
 
         x, _ = batch.code
-        y, _ = batch.sig
+        y, y_lens = batch.sig
 
         # Hold on to the batch for the inference sample. This is needed because
         # the infernece sample is run from on_stage_end only, where
@@ -106,9 +107,11 @@ class HifiGanBrain(sb.Brain):
             log_dur_pred,
             log_dur,
         )
+
         loss_d = self.hparams.discriminator_loss(scores_fake, scores_real)
         loss = {**loss_g, **loss_d}
         self.last_loss_stats[stage] = scalarize(loss)
+
         return loss
 
     def fit_batch(self, batch):
@@ -211,11 +214,11 @@ class HifiGanBrain(sb.Brain):
             self.optimizer_d = opt_d_class(
                 self.modules.discriminator.parameters()
             )
-
             self.optimizers_dict = {
                 "optimizer_g": self.optimizer_g,
                 "optimizer_d": self.optimizer_d,
             }
+
             self.scheduler_g = sch_g_class(self.optimizer_g)
             self.scheduler_d = sch_d_class(self.optimizer_d)
 
@@ -232,6 +235,29 @@ class HifiGanBrain(sb.Brain):
                 self.checkpointer.add_recoverable(
                     "scheduler_d", self.scheduler_d
                 )
+
+    def on_stage_start(self, stage, epoch=None):
+        """Gets called when a stage starts.
+
+        Useful for defining class variables used during the stage.
+
+        Arguments
+        ---------
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
+        epoch : int
+            The current epoch count.
+        """
+
+        # Define function taking (prediction, target) for parallel eval
+        def pesq_eval(pred_wav, target_wav):
+            """Computes the PESQ evaluation metric"""
+            return pesq(
+                fs=16000,
+                ref=target_wav.numpy(),
+                deg=pred_wav.numpy(),
+                mode="wb",
+            )
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -253,17 +279,21 @@ class HifiGanBrain(sb.Brain):
             lr_g = self.optimizer_g.param_groups[-1]["lr"]
             lr_d = self.optimizer_d.param_groups[-1]["lr"]
 
+            stats = {
+                **self.last_loss_stats[sb.Stage.VALID],
+            }
+
             self.hparams.train_logger.log_stats(  # 1#2#
                 stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
                 train_stats=self.last_loss_stats[sb.Stage.TRAIN],
-                valid_stats=self.last_loss_stats[sb.Stage.VALID],
+                valid_stats=stats,
             )
             # The tensorboard_logger writes a summary to stdout and to the logfile.
             if self.hparams.use_tensorboard:
                 self.tensorboard_logger.log_stats(
                     stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
                     train_stats=self.last_loss_stats[sb.Stage.TRAIN],
-                    valid_stats=self.last_loss_stats[sb.Stage.VALID],
+                    valid_stats=stats,
                 )
 
             # Save the current checkpoint and delete previous checkpoints.
@@ -277,14 +307,16 @@ class HifiGanBrain(sb.Brain):
                     end_of_epoch=True,
                     min_keys=["loss"],
                     ckpt_predicate=(
-                        lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
-                            != 0
+                        (
+                            lambda ckpt: (
+                                ckpt.meta["epoch"]
+                                % self.hparams.keep_checkpoint_interval
+                                != 0
+                            )
                         )
-                    )
-                    if self.hparams.keep_checkpoint_interval is not None
-                    else None,
+                        if self.hparams.keep_checkpoint_interval is not None
+                        else None
+                    ),
                 )
 
             self.run_inference_sample("Valid", epoch)
@@ -365,7 +397,7 @@ class HifiGanBrain(sb.Brain):
         target_path = pl.Path(self.hparams.progress_sample_path) / str(epoch)
         target_path.mkdir(parents=True, exist_ok=True)
         file_name = target_path / f"{name}.wav"
-        torchaudio.save(file_name, data.cpu(), 16000)
+        torchaudio.save(file_name.as_posix(), data.cpu(), 16000)
 
 
 def sample_interval(seqs, segment_size):
@@ -406,6 +438,15 @@ def dataio_prepare(hparams):
         )(audio)
 
         code = np.load(code_folder / f"{utt_id}.npy")
+
+        if hparams["layer_drop"]:
+            num_layers_to_drop = np.random.randint(0, code.shape[1])
+            if num_layers_to_drop > 0:
+                layers_to_drop = np.random.choice(
+                    code.shape[1], size=num_layers_to_drop, replace=False
+                )
+                code[:, layers_to_drop] = 0
+
         code = torch.IntTensor(code)
 
         # Maps indices from the range [0, k] to [1, k+1]
@@ -419,10 +460,12 @@ def dataio_prepare(hparams):
         while audio.shape[0] < segment_size:
             audio = torch.hstack([audio, audio])
             code = torch.hstack([code, code])
-
         audio = audio.unsqueeze(0)
+
         if segment:
+            code = code.swapdims(0, 1)
             audio, code = sample_interval([audio, code], segment_size)
+            code = code.swapdims(0, 1)
 
         return code, audio
 
@@ -483,7 +526,10 @@ if __name__ == "__main__":
             "data_folder": hparams["save_folder"],
             "splits": hparams["splits"],
             "kmeans_folder": hparams["kmeans_folder"],
-            "encoder": hparams["encoder_hub"],
+            "kmeans_dataset": hparams["kmeans_dataset"],
+            "num_clusters": hparams["num_clusters"],
+            "encoder_type": hparams["encoder_type"],
+            "encoder_source": hparams["encoder_hub"],
             "layer": hparams["layer"],
             "save_folder": hparams["save_folder"],
             "sample_rate": hparams["sample_rate"],

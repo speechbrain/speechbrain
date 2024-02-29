@@ -9,7 +9,6 @@ import logging
 import json
 import pathlib as pl
 
-import joblib
 import torch
 import torchaudio
 import numpy as np
@@ -19,12 +18,25 @@ from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
 )
-from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
+from speechbrain.lobes.models.huggingface_transformers import (
+    hubert,
+    wav2vec2,
+    wavlm,
+)
+from speechbrain.lobes.models.huggingface_transformers.discrete_ssl import (
+    DiscreteSSL,
+)
 
-OPT_FILE = "opt_ljspeech_extract.pkl"
+OPT_FILE = "opt_ljspeech_extract_code.pkl"
 TRAIN_JSON = "train.json"
 VALID_JSON = "valid.json"
 TEST_JSON = "test.json"
+
+ENCODER_CLASSES = {
+    "HuBERT": hubert.HuBERT,
+    "Wav2Vec2": wav2vec2.Wav2Vec2,
+    "WavLM": wavlm.WavLM,
+}
 
 
 def setup_logger():
@@ -94,7 +106,10 @@ def extract_ljspeech(
     data_folder,
     splits,
     kmeans_folder,
-    encoder,
+    kmeans_dataset,
+    num_clusters,
+    encoder_type,
+    encoder_source,
     layer,
     save_folder,
     sample_rate=16000,
@@ -110,11 +125,17 @@ def extract_ljspeech(
     splits : list
         List of splits to prepare.
     kmeans_folder: str
-        Path to the folder where the k-means model checkpoint is stored.
-    encoder: str
+        Huggingface repository if that contains the pretrained kmean model.
+    kmeans_dataset : str
+        Name of the dataset that Kmeans model on HF repo is trained with.
+    num_clusters:  (int)
+        determine the number of clusters of the targeted kmeans models to be downloaded.
+    encoder_type: str
+        Name of the model used as feature extractor.
+    encoder_source: str
         Url to the model used as feature extractor.
-    layer: int
-        Layer from which features are extracted.
+    layer: List[int] (default: [7]):
+        Determine which layers of SSL should be used to extract information.
     save_folder: str
         Path to the folder where the speech units are stored.
     sample_rate: int
@@ -124,14 +145,16 @@ def extract_ljspeech(
 
     Example
     -------
-    >>> from recipes.LJSpeech.S2ST.extract_code import extract_ljspeech
+    >>> from recipes.LJSpeech.TTS.vocoder.hifi_gan_unit.extract_code import extract_ljspeech
     >>> data_folder = 'data/LJspeech/'
     >>> splits = ['train', 'valid']
-    >>> kmeans_folder = ./Quantization/results/kmeans/4321/save
-    >>> encoder = facebook/hubert-base-ls960
-    >>> layer = 6
+    >>> kmeans_folder = 'speechbrain/SSL_Quantization'
+    >>> kmeans_dataset = LibriSpeech-100-360-500
+    >>> encoder_type = 'HuBERT'
+    >>> encoder_source = facebook/hubert-large-ll60k
+    >>> layer = [7]
     >>> save_folder = 'save/'
-    >>> extract_ljspeech(data_folder, splits, kmeans_folder, encoder, layer, save_folder)
+    >>> extract_ljspeech(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
     """
     logger = setup_logger()
 
@@ -143,7 +166,8 @@ def extract_ljspeech(
         "splits": splits,
         "save_folder": save_folder,
         "kmeans_folder": kmeans_folder,
-        "encoder": encoder,
+        "encoder_type": encoder_type,
+        "encoder_source": encoder_source,
         "layer": layer,
     }
 
@@ -158,26 +182,32 @@ def extract_ljspeech(
 
     save_opt = save_folder / OPT_FILE
     data_folder = pl.Path(data_folder)
-    kmeans_folder = pl.Path(kmeans_folder)
-    kmeans_ckpt = kmeans_folder / "kmeans.ckpt"
-    encoder_save_path = kmeans_folder / "pretrained_models"
+    save_path = save_folder / "savedir"
     code_folder = save_folder / "codes"
     code_folder.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Loading encoder: {encoder} ...")
-    encoder = Wav2Vec2(
-        encoder,
-        encoder_save_path.as_posix(),
-        output_all_hiddens=True,
+    logger.info(f"Loading encoder: {encoder_source} ...")
+    if encoder_type not in ENCODER_CLASSES:
+        raise TypeError("Not a supported Encoder")
+
+    encoder_class = ENCODER_CLASSES[encoder_type]
+    encoder = encoder_class(
+        source=encoder_source,
+        save_path=save_path.as_posix(),
         output_norm=False,
-        freeze_feature_extractor=True,
         freeze=True,
+        freeze_feature_extractor=True,
+        apply_spec_augment=False,
+        output_all_hiddens=True,
     ).to(device)
 
-    # K-means model
-    logger.info(f"Loading K-means model from {kmeans_ckpt} ...")
-    kmeans_model = joblib.load(open(kmeans_ckpt, "rb"))
-    kmeans_model.verbose = False
+    discrete_encoder = DiscreteSSL(
+        save_path=save_path.as_posix(),
+        ssl_model=encoder,
+        kmeans_dataset=kmeans_dataset,
+        kmeans_repo_id=kmeans_folder,
+        num_clusters=num_clusters,
+    )
 
     for split in splits:
         dataset_path = data_folder / f"{split}.json"
@@ -193,11 +223,16 @@ def extract_ljspeech(
                     info.sample_rate, sample_rate,
                 )(audio)
                 audio = audio.unsqueeze(0).to(device)
-                feats = encoder.extract_features(audio)
-                feats = feats[layer]
-                feats = np_array(feats)
-            pred = kmeans_model.predict(feats)
-            np.save(code_folder / f"{key}.npy", pred)
+                deduplicates = [False for _ in layer]
+                bpe_tokenizers = [None for _ in layer]
+                tokens, _, _ = discrete_encoder(
+                    audio,
+                    SSL_layers=layer,
+                    deduplicates=deduplicates,
+                    bpe_tokenizers=bpe_tokenizers,
+                )
+                tokens = np_array(tokens.squeeze(0))
+            np.save(code_folder / f"{key}.npy", tokens)
 
     logger.info("Extraction completed.")
     save_pkl(conf, save_opt)
