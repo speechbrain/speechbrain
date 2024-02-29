@@ -292,9 +292,7 @@ class SpeechT5ForASR(HFTransformersInterface):
             self.model.gradient_checkpointing_disable()  # Required by DDP
             # fetch the checkpoint file
             ckpt_full_path = fetch(
-                filename=ckpt_file,
-                source=source,
-                savedir=save_path,
+                filename=ckpt_file, source=source, savedir=save_path,
             )
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_parameters(ckpt_full_path)
