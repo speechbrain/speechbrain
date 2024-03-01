@@ -9,10 +9,11 @@ Authors:
 """
 
 import torch
-from typing import Callable
+from typing import Callable, Optional
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import (
+    EDIT_SYMBOLS,
     wer_summary,
     wer_details_for_batch,
     _str_equals,
@@ -373,9 +374,81 @@ class ErrorRateStats(MetricStats):
         print_alignments(self.scores, filestream)
 
 
-class BinaryMetricStats(MetricStats):
-    """Tracks binary metrics, such as precision, recall, F1, EER, etc.
+class EmbeddingErrorRateSimilarity:
+    """Implements the similarity function from the EmbER metric as defined by
+    https://www.isca-archive.org/interspeech_2022/roux22_interspeech.pdf
+
+    This metric involves a dictionary to map a token to a single word embedding.
+    Substitutions in the WER get weighted down when the embeddings are similar
+    enough. The goal is to reduce the impact of substitution errors with small
+    semantic impact. Only substitution errors get weighted.
+
+    This is done by computing the cosine similarity between the two embeddings,
+    then weighing the substitution with `low_similarity_weight` if
+    `similarity >= threshold` or with `high_similarity_weight` otherwise (e.g.
+    a substitution with high similarity could be weighted down to matter 10% as
+    much as a substitution with low similarity).
+
+    .. note ::
+        The cited paper recommended `(1.0, 0.0, 0.4)` as defaults for Fasttext
+        French embeddings, chosen empirically. When using different embeddings,
+        you might want to test other values; thus we don't provide defaults.
+
+    Arguments
+    ---------
+    embedding_function : Callable[[str], Optional[torch.Tensor]]
+        Function that returns an embedding (as a :class:`torch.Tensor`) from a
+        word. If no corresponding embedding could be found for the word, should
+        return `None`. In that case, `low_similarity_weight` will be chosen.
+    low_similarity_weight : float
+        Weight applied to the substitution if `cosine_similarity < threshold`.
+    high_similarity_weight : float
+        Weight applied to the substitution if `cosine_similarity >= threshold`.
+    threshold : float
+        Cosine similarity threshold used to select by how much a substitution
+        error should be weighed for this word.
     """
+
+    def __init__(
+        self,
+        embedding_function: Callable[[str], Optional[torch.Tensor]],
+        low_similarity_weight: float,
+        high_similarity_weight: float,
+        threshold: float,
+    ):
+        self.embedding_function = embedding_function
+        self.low_similarity_weight = low_similarity_weight
+        self.high_similarity_weight = high_similarity_weight
+        self.threshold = threshold
+
+    def __call__(self, edit_symbol: str, a: str, b: str) -> float:
+        if edit_symbol in (EDIT_SYMBOLS["ins"], EDIT_SYMBOLS["del"]):
+            return 1.0
+
+        if edit_symbol == EDIT_SYMBOLS["sub"]:
+            a_emb = self.embedding_function(a)
+            if a_emb is None:
+                return self.low_similarity_weight
+
+            b_emb = self.embedding_function(b)
+            if b_emb is None:
+                return self.low_similarity_weight
+
+            similarity = torch.nn.functional.cosine_similarity(
+                a_emb, b_emb, dim=0
+            ).item()
+
+            if similarity >= self.threshold:
+                return self.high_similarity_weight
+
+            return self.low_similarity_weight
+
+        # eq
+        return 0.0
+
+
+class BinaryMetricStats(MetricStats):
+    """Tracks binary metrics, such as precision, recall, F1, EER, etc."""
 
     def __init__(self, positive_label=1):
         self.clear()
@@ -497,9 +570,9 @@ class BinaryMetricStats(MetricStats):
         self.summary["precision"] = TP / (TP + FP + eps)
         self.summary["recall"] = TP / (TP + FN + eps)
         self.summary["F-score"] = (
-            (1.0 + beta ** 2.0)
+            (1.0 + beta**2.0)
             * TP
-            / ((1.0 + beta ** 2.0) * TP + beta ** 2.0 * FN + FP)
+            / ((1.0 + beta**2.0) * TP + beta**2.0 * FN + FP)
         )
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
