@@ -1,13 +1,16 @@
 # .readthedocs.yaml
 
+version: 2
+
 build:
+  os: ubuntu-20.04
   image: latest
+  tools:
+    python: "3.9"
 
 python:
-  version: 3.8
-  pip_install: True
+  install:
+    - requirements: docs/docs-requirements.txt
 
 # Don't build any extra formats
 formats: []
-
-requirements_file: docs/docs-requirements.txt
