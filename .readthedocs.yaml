@@ -9,7 +9,7 @@ build:
 
 python:
   install:
-    - requirements: docs/docs-requirements.txt
+    - requirements: docs/readthedocs-requirements.txt
 
 # Don't build any extra formats
 formats: []
