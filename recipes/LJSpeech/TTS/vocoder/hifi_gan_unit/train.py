@@ -22,7 +22,6 @@ from speechbrain.utils.data_utils import scalarize
 import torch
 import torchaudio
 import numpy as np
-from pesq import pesq
 
 
 class HifiGanBrain(sb.Brain):
@@ -248,16 +247,6 @@ class HifiGanBrain(sb.Brain):
         epoch : int
             The current epoch count.
         """
-
-        # Define function taking (prediction, target) for parallel eval
-        def pesq_eval(pred_wav, target_wav):
-            """Computes the PESQ evaluation metric"""
-            return pesq(
-                fs=16000,
-                ref=target_wav.numpy(),
-                deg=pred_wav.numpy(),
-                mode="wb",
-            )
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
