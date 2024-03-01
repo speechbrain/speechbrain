@@ -634,6 +634,10 @@ class UnitHifiganGenerator(HifiganGenerator):
         size of the convolution filter in each layer of the duration predictor.
     var_pred_dropout : float
         dropout probability of each layer in the duration predictor.
+    multi_speaker : bool
+        enable multi speaker training
+    normalize_speaker_embeddings: bool
+        enable normalization of speaker embeddings
 
     Example
     -------
@@ -674,10 +678,13 @@ class UnitHifiganGenerator(HifiganGenerator):
         conv_post_bias=True,
         num_embeddings=100,
         embedding_dim=128,
+        attn_dim=128,
         duration_predictor=False,
         var_pred_hidden_dim=128,
         var_pred_kernel_size=3,
         var_pred_dropout=0.5,
+        multi_speaker=False,
+        normalize_speaker_embeddings=False,
     ):
         super().__init__(
             in_channels,
@@ -693,6 +700,11 @@ class UnitHifiganGenerator(HifiganGenerator):
             conv_post_bias,
         )
         self.unit_embedding = torch.nn.Embedding(num_embeddings, embedding_dim)
+        self.attn_pooling = torch.nn.Sequential(
+            torch.nn.Linear(embedding_dim, attn_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(attn_dim, 1, bias=False),
+        )
         self.duration_predictor = duration_predictor
         if duration_predictor:
             self.var_predictor = VariancePredictor(
@@ -701,8 +713,20 @@ class UnitHifiganGenerator(HifiganGenerator):
                 var_pred_kernel_size,
                 var_pred_dropout,
             )
+        self.multi_speaker = multi_speaker
+        self.normalize_speaker_embeddings = normalize_speaker_embeddings
 
-    def forward(self, x, g=None):
+    @staticmethod
+    def _upsample(x, max_frames):
+        """
+        Upsamples the input tensor to match the specified max_frames.
+        """
+        batch, hidden_dim, cond_length = x.size()
+        x = x.unsqueeze(3).repeat(1, 1, 1, max_frames // cond_length)
+        x = x.view(batch, hidden_dim, max_frames)
+        return x
+
+    def forward(self, x, g=None, spk=None):
         """
         Arguments
         ---------
@@ -711,7 +735,16 @@ class UnitHifiganGenerator(HifiganGenerator):
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
         """
-        u = self.unit_embedding(x).transpose(1, 2)
+        u = self.unit_embedding(x)
+
+        batch_size, time, channel, emb_size = u.shape
+        u_ = u.view(batch_size * time, channel, emb_size)
+        attn_scores = self.attn_pooling(u_)
+        attn_weights = F.softmax(attn_scores, dim=1)
+        u_weighted = u_ * attn_weights
+        u_pooled = torch.sum(u_weighted, dim=1)
+        u = u_pooled.view(batch_size, time, emb_size)
+        u = u.transpose(1, 2)
 
         log_dur = None
         log_dur_pred = None
@@ -724,10 +757,17 @@ class UnitHifiganGenerator(HifiganGenerator):
             log_dur_pred = log_dur_pred[uniq_code_mask]
             log_dur = torch.log(dur + 1)
 
+        if self.multi_speaker:
+            if self.normalize_speaker_embeddings:
+                spk = torch.nn.functional.normalize(spk)
+            spk = spk.unsqueeze(-1)
+            spk = self._upsample(spk, u.shape[-1])
+            u = torch.cat([u, spk], dim=1)
+
         return super().forward(u), (log_dur_pred, log_dur)
 
     @torch.no_grad()
-    def inference(self, x):
+    def inference(self, x, spk=None):
         """The inference function performs duration prediction and runs the forward method.
 
         Arguments
@@ -735,7 +775,16 @@ class UnitHifiganGenerator(HifiganGenerator):
         x : torch.Tensor (batch, time)
             feature input tensor.
         """
-        x = self.unit_embedding(x).transpose(1, 2)
+        x = self.unit_embedding(x)
+
+        batch_size, time, channel, emb_size = x.shape
+        x_ = x.view(batch_size * time, channel, emb_size)
+        attn_scores = self.attn_pooling(x_)
+        attn_weights = F.softmax(attn_scores, dim=1)
+        x_weighted = x_ * attn_weights
+        x_pooled = torch.sum(x_weighted, dim=1)
+        x = x_pooled.view(batch_size, time, emb_size)
+        x = x.transpose(1, 2)
 
         if self.duration_predictor:
             assert (
@@ -747,6 +796,13 @@ class UnitHifiganGenerator(HifiganGenerator):
             )
             # B x C x T
             x = torch.repeat_interleave(x, dur_out.view(-1), dim=2)
+
+        if self.multi_speaker:
+            if self.normalize_speaker_embeddings:
+                spk = torch.nn.functional.normalize(spk)
+            spk = spk.unsqueeze(-1)
+            spk = self._upsample(spk, x.shape[-1])
+            x = torch.cat([x, spk], dim=1)
 
         return super().forward(x)
 

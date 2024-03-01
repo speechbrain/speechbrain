@@ -124,9 +124,11 @@ def train(
     model,
     train_set,
     ssl_model,
+    save_path,
     ssl_layer_num,
     kmeans_batch_size=1000,
     device="cpu",
+    checkpoint_interval=10,
 ):
     """Train a  Kmeans model .
 
@@ -138,25 +140,49 @@ def train(
             Batches of tarining data.
         ssl_model
             SSL-model used to  extract features used for clustering.
+        save_path: string
+            Path to save intra-checkpoints and dataloader.
         ssl_layer_num : int
             Specify output of which layer of the ssl_model should be used.
         device
             CPU or  GPU.
         kmeans_batch_size : int
             Size of the mini batches.
+        checkpoint_interval: int
+            Determine at which iterations to save the checkpoints.
     """
     logger.info("Start training kmeans model.")
     features_list = []
+    iteration = 0
+
     with tqdm(train_set, dynamic_ncols=True,) as t:
         for batch in t:
-            # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
-            if len(features_list) >= kmeans_batch_size:
-                model = model.fit(features_list)
-                features_list = []
             # extract features from the SSL model
             accumulate_and_extract_features(
                 batch, features_list, ssl_model, ssl_layer_num, device
             )
+
+            # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
+            if len(features_list) >= kmeans_batch_size:
+                model = model.fit(features_list)
+                iteration += 1
+                features_list = []
+
+            if (iteration + 1) % checkpoint_interval == 0:
+                logger.info(
+                    f"Saving intra-checkpoints for iteration {iteration}."
+                )
+                train_set._speechbrain_save(
+                    os.path.join(save_path, "dataloader-TRAIN.ckpt")
+                )
+                checkpoint_path = os.path.join(
+                    save_path,
+                    f"kmeans-cluster-{model.n_clusters}-layer-{ssl_layer_num}.pt",
+                )
+                save_model(model, checkpoint_path)
+
+        if len(features_list) > 0:
+            model = model.fit(features_list)
 
 
 def save_model(model, checkpoint_path):
