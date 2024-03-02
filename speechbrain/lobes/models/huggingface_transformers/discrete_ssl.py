@@ -81,8 +81,13 @@ class DiscreteSSL(nn.Module):
         super().__init__()
 
         self.ssl_model = ssl_model
+        model_name = ssl_model.__class__.__name__.lower()
         self.kmeans_models, self.ssl_layer_ids = self.load_kmeans(
-            kmeans_repo_id, kmeans_dataset, num_clusters, save_path
+            kmeans_repo_id,
+            kmeans_dataset,
+            model_name,
+            num_clusters,
+            save_path,
         )
 
         self.vocabularies = []
@@ -93,7 +98,9 @@ class DiscreteSSL(nn.Module):
 
         self.tokenizer = DiscreteSSLTokenizer(self.num_clusters)
 
-    def load_kmeans(self, repo_id, kmeans_dataset, num_clusters, cache_dir):
+    def load_kmeans(
+        self, repo_id, kmeans_dataset, encoder_name, num_clusters, cache_dir
+    ):
         """Load a Pretrained kmeans model from HF.
 
         Arguments
@@ -116,13 +123,13 @@ class DiscreteSSL(nn.Module):
 
         kmeans_models = []
         layer_ids = []
-        file_pattern = f"{kmeans_dataset}/hubert/*_k{num_clusters}*.pt"
+        file_pattern = f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters}*.pt"
         kmeans_dir = snapshot_download(
             repo_id=repo_id, allow_patterns=file_pattern, cache_dir=cache_dir
         )
-        files = Path(os.path.join(kmeans_dir, kmeans_dataset, "hubert")).glob(
-            "*.pt"
-        )
+        files = Path(
+            os.path.join(kmeans_dir, kmeans_dataset, encoder_name)
+        ).glob("*.pt")
         for file in files:
             layer_ids.append(
                 int(file.name.split("/")[-1].split("_")[-1].split(".")[0][1:])
