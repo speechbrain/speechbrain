@@ -33,6 +33,7 @@ ssl_layer_num: 7
 batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
 dataloader_num_workers: 8
 sorting: ascending
+checkpoint_interval: 100
 
 # Dataloader options
 dataloader_options:

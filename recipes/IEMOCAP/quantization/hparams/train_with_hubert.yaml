@@ -28,12 +28,13 @@ split_ratio: [80, 10, 10]
 skip_prep: False
 sample_rate: 16000
 
-ssl_hub: facebook/hubert-base-ls960
+ssl_hub: facebook/hubert-large-ll60k
 freeze_feature_extractor: True
 freeze_ssl: True
 ssl_folder: !ref <save_folder>/hubert_checkpoint
 ssl_layer_num: 7
 batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
+checkpoint_interval: 100
 
 # Dataloader options
 train_dataloader_opts:

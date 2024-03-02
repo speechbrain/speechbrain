@@ -9,18 +9,19 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/LibriSpeech/clustering/wav2vec/<seed>
+output_folder: !ref results/VoxCeleb/clustering/wav2vec/<seed>
 save_folder: !ref <output_folder>/save
 
 # Data files
-data_folder: !PLACEHOLDERS # e,g./path/to/LibriSpeech
-train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
-dev_splits: []
-test_splits: []
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voxcele
+train_annotation: !ref <save_folder>/train.csv
+verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
 skip_prep: False
-ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: !ref <output_folder>/train.csv
+split_ratio: [90]
 sample_rate: 16000
+sentence_len: 3.0 # seconds
+shuffle: True
+random_chunk: True
 
 ssl_hub: facebook/wav2vec2-large-960h-lv60-self
 freeze_feature_extractor: True
