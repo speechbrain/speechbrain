@@ -180,18 +180,6 @@ def dataio_prep(hparams):
 
     return train_data, valid_data, label_encoder
 
-def define_embedding_layers(SSL_layers,init=False):
-    for layer_num,  vocabulary in zip(hparams['discrete_ssl_model'].ssl_layer_ids, hparams['discrete_ssl_model'].vocabularies):
-        if layer_num not in SSL_layers:
-                    continue
-        hparams[f"emb_layer_{layer_num}"] = nn.Embedding(hparams['num_clusters']+1, hparams['d_dim'], padding_idx =hparams['pad_index'] ).to(run_opts['device'])
-        if init:
-            with torch.no_grad():
-                hparams[f"emb_layer_{layer_num}"].weight[hparams['pad_index']] = torch.zeros(hparams['d_dim'])
-                hparams[f"emb_layer_{layer_num}"].weight[hparams['pad_index']+1:] = vocabulary
-
-        hparams['modules']['f"emb_layer_{layer_num}"']=hparams[f"emb_layer_{layer_num}"]
-
 if __name__ == "__main__":
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
@@ -239,9 +227,6 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
-
-    define_embedding_layers(hparams['ssl_layer_num'],hparams['init_emb'])
-
     # Brain class initialization
     speaker_brain = SpeakerBrain(
         modules=hparams["modules"],
