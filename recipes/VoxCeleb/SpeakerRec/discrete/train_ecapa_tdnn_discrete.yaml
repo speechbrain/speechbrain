@@ -1,0 +1,245 @@
+# ################################
+# Model: Speaker identification with ECAPA
+# Authors: Hwidong Na & Mirco Ravanelli
+# ################################
+
+# Basic parameters
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/ecapa_discrete/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+layer_weight_file: !ref <output_folder>/layer_weight.csv
+
+# Data for augmentation
+NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
+RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?rlkey=pg9cu8vrpn2u173vhiqyu743u&dl=1
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/Voxceleb
+data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
+train_annotation: !ref <save_folder>/train.csv
+valid_annotation: !ref <save_folder>/dev.csv
+noise_annotation: !ref <save_folder>/noise.csv
+rir_annotation: !ref <save_folder>/rir.csv
+
+# Use the following links for the official voxceleb splits:
+# VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
+# VoxCeleb1-H (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_hard2.txt
+# VoxCeleb1-E (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/list_test_all2.txt.
+# VoxCeleb1-E and VoxCeleb1-H lists are drawn from the VoxCeleb1 training set.
+# Therefore you cannot use any files in VoxCeleb1 for training if you are using these lists for testing.
+verification_file: https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
+
+split_ratio: [90, 10]
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 10
+batch_size: 32
+lr: 0.001
+base_lr: 0.00000001
+max_lr: !ref <lr>
+step_size: 65000
+sample_rate: 16000
+sentence_len: 3.0 # seconds
+shuffle: True
+random_chunk: True
+
+# Feature parameters
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Number of speakers
+out_n_neurons: 7205 #1211 for vox1  # 5994 for vox2, 7205 for vox1+vox2
+
+num_workers: 4
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: !ref <num_workers>
+
+### Configuration for  discrete SSL model
+ssl_hub: facebook/hubert-large-ll60k
+ssl_folder: !ref <save_folder>/hubert_checkpoint
+kmeans_repo_id: poonehmousavi/SSL_Quantization
+kmeans_cache_dir: !ref <save_folder>/kmeans_checkpoint
+kmeans_dataset: LibriSpeech-100-360-500
+freeze_ssl: True
+freeze_feature_extractor: True
+num_clusters: 1000
+
+### Config for Tokenizer
+# Layer number should be among the supported layers for discrete SSL models(kmenas  model should be available for that layer)
+# ssl_layer_num: [3, 7, 12, 23]
+# deduplicate: [False, False, False, False]
+# bpe_tokenizer_path: [null , null,  null, null]
+ssl_layer_num: [3,7,12,18,23]
+deduplicate: [False,False,False,False,False]
+bpe_tokenizer_path: [null,null,null,null,null]
+
+
+### Configuration for Discrete Embedding
+# If True init mebedding weights with centroid embedding
+init_emb: True
+freeze_emb: True
+pad_index: 0
+# If init_emb=True, it should be the same dimension as SSL output dim.
+dis_emb_dim: 1024
+
+tokenizer_config:
+   SSL_layers: !ref <ssl_layer_num>
+   deduplicates: !ref <deduplicate>
+   bpe_tokenizers:  !ref <bpe_tokenizer_path>
+
+ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
+   source: !ref <ssl_hub>
+   output_norm: False
+   freeze: !ref <freeze_ssl>
+   freeze_feature_extractor: !ref <freeze_feature_extractor>
+   output_all_hiddens: True
+   save_path: !ref <ssl_folder>
+
+discrete_ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_ssl.DiscreteSSL
+   save_path: !ref <kmeans_cache_dir>
+   ssl_model: !ref <ssl_model>
+   kmeans_dataset: !ref <kmeans_dataset>
+   kmeans_repo_id: !ref <kmeans_repo_id>
+   num_clusters: !ref <num_clusters>
+
+discrete_embedding_layer: !new:custom_model.EmbeddingLayer
+    discrete_ssl_model: !ref <discrete_ssl_model>
+    SSL_layers: !ref <ssl_layer_num>
+    num_clusters: !ref <num_clusters>
+    emb_dim: !ref <dis_emb_dim>
+    pad_index: !ref <pad_index>
+    init: !ref <init_emb>
+    freeze: !ref <freeze_emb>
+
+attention_mlp: !new:custom_model.AttentionMLP
+    input_dim: !ref <dis_emb_dim>
+    hidden_dim: !ref <dis_emb_dim>
+
+embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
+    input_size: !ref <dis_emb_dim>
+    channels: [1024, 1024, 1024, 1024, 3072]
+    kernel_sizes: [5, 3, 3, 3, 1]
+    dilations: [1, 2, 3, 4, 1]
+    groups: [1, 1, 1, 1, 1]
+    attention_channels: 128
+    lin_neurons: 192
+
+classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    input_size: 192
+    out_neurons: !ref <out_n_neurons>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+############################## Augmentations ###################################
+
+# Download and prepare the dataset of noisy sequences for augmentation
+prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <NOISE_DATASET_URL>
+    dest_folder: !ref <data_folder_noise>
+    ext: wav
+    csv_file: !ref <noise_annotation>
+
+
+# Add noise to input signal
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
+    csv_file: !ref <noise_annotation>
+    snr_low: 0
+    snr_high: 15
+    noise_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Download and prepare the dataset of room impulse responses for augmentation
+prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <RIR_DATASET_URL>
+    dest_folder: !ref <data_folder_rir>
+    ext: wav
+    csv_file: !ref <rir_annotation>
+
+# Add reverberation to input signal
+add_reverb: !new:speechbrain.augment.time_domain.AddReverb
+    csv_file: !ref <rir_annotation>
+    reverb_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: True
+    concat_original: True
+    min_augmentations: 4
+    max_augmentations: 4
+    augment_prob: 1.0
+    augmentations: [
+        !ref <add_noise>,
+        !ref <add_reverb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+
+
+modules:
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+    attention_mlp: !ref <attention_mlp>
+    ssl_model: !ref <ssl_model>
+    discrete_embedding_layer: !ref <discrete_embedding_layer>
+
+
+compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+        margin: 0.2
+        scale: 30
+
+# compute_error: !name:speechbrain.nnet.losses.classification_error
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        attention_mlp: !ref <attention_mlp>
+        discrete_embedding_layer: !ref <discrete_embedding_layer>
+        counter: !ref <epoch_counter>
+        lr_annealing: !ref <lr_annealing>
