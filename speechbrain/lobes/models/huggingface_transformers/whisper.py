@@ -82,6 +82,7 @@ class Whisper(HFTransformersInterface):
         output_attentions=True,
         output_all_hiddens=False,
         language="en",
+        task="transcribe",
     ):
         super().__init__(
             source=source,
@@ -95,11 +96,17 @@ class Whisper(HFTransformersInterface):
         self.output_attentions = output_attentions
         self.output_all_hiddens = output_all_hiddens
         self.language = language
+        self.task = task
 
         if encoder_only:
             self.tokenizer = None
         else:
-            self.load_tokenizer(source, bos_token="<|startoftranscript|>", language=self.language)
+            self.load_tokenizer(
+                source, 
+                bos_token="<|startoftranscript|>", 
+                language=self.language,
+                task=self.task,
+            )
 
         self.load_feature_extractor(
             source, save_path, sampling_rate=sampling_rate
@@ -369,6 +376,88 @@ class Whisper(HFTransformersInterface):
         langs = list(LANGUAGES.keys())  # Convert keys to a list
         # bos_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.bos_token)
         return tuple(langs)
+
+    @cached_property
+    def non_speech_tokens(self):
+        """
+        Returns the list of tokens to suppress in order to avoid any speaker tags or non-speech
+        annotations, to prevent sampling texts that are not actually spoken in the audio, e.g.
+
+        - ♪♪♪
+        - ( SPEAKING FOREIGN LANGUAGE )
+        - [DAVID] Hey there,
+
+        keeping basic punctuations like commas, periods, question marks, exclamation points, etc.
+        """
+        symbols = list('"#()*+/:;<=>@[\\]^_`{|}~「」『』')
+        symbols += (
+            "<< >> <<< >>> -- --- -( -[ (' (\" (( )) ((( ))) [[ ]] {{ }} ♪♪ ♪♪♪".split()
+        )
+
+        # symbols that may be a single token or multiple tokens depending on the tokenizer.
+        # In case they're multiple tokens, suppress the first token, which is safe because:
+        # These are between U+2640 and U+267F miscellaneous symbols that are okay to suppress
+        # in generations, and in the 3-byte UTF-8 representation they share the first two bytes.
+        miscellaneous = set("♩♪♫♬♭♮♯")
+        assert all(0x2640 <= ord(c) <= 0x267F for c in miscellaneous)
+
+        # allow hyphens "-" and single quotes "'" between words, but not at the beginning of a word
+        result = {self.tokenizer.encode(" -", add_special_tokens=False)[0], self.tokenizer.encode(" '", add_special_tokens=False)[0]}
+        for symbol in symbols + list(miscellaneous):
+            for tokens in [
+                self.tokenizer.encode(symbol, add_special_tokens=False),
+                self.tokenizer.encode(" " + symbol, add_special_tokens=False),
+            ]:
+                if len(tokens) == 1 or symbol in miscellaneous:
+                    result.add(tokens[0])
+
+        return tuple(sorted(result))
+
+    @cached_property
+    def transcribe(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|transcribe|>")
+
+    @cached_property
+    def translate(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|translate|>")
+
+    @cached_property
+    def bos(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|startoftranscript|>")
+
+    @cached_property
+    def bos_lm(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|startoflm|>")
+
+    @cached_property
+    def bos_prev(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|startofprev|>")
+
+    @cached_property
+    def no_speech(self) -> int:
+        # TODO: inspect this. for a given reason nospeech maps to eos...
+        return 50362 # self.tokenizer.convert_tokens_to_ids("<|nospeech|>") 
+
+    @cached_property
+    def no_timestamps(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|notimestamps|>")
+
+    @cached_property
+    def timestamp_begin(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|0.00|>")
+
+    @cached_property
+    def language_token(self) -> int:
+        """Returns the token id corresponding to the value of the `language` field"""
+        if self.language is None:
+            raise ValueError("This tokenizer does not have language token configured")
+        return self.to_language_token(self.language)
+
+    def to_language_token(self, language):
+        if token := self.tokenizer.convert_tokens_to_ids.get(f"<|{language}|>", None):
+            return token
+
+        raise KeyError(f"Language {language} not found in tokenizer.")
 
     @torch.no_grad()
     def detect_language(self, mel):
