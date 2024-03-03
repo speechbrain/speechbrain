@@ -413,6 +413,10 @@ class Whisper(HFTransformersInterface):
     @cached_property
     def bos(self) -> int:
         return self.tokenizer.convert_tokens_to_ids("<|startoftranscript|>")
+    
+    @cached_property
+    def eos(self) -> int:
+        return self.tokenizer.convert_tokens_to_ids("<|endoftext|>")
 
     @cached_property
     def bos_lm(self) -> int:
