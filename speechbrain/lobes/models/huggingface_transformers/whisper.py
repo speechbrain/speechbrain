@@ -4,7 +4,7 @@ Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
 Authors
- * Adel Moumen 2022, 2024
+ * Adel Moumen 2022
  * Titouan Parcollet 2022
  * Luca Della Libera 2022
  * Ha Nguyen 2023
@@ -79,7 +79,7 @@ class Whisper(HFTransformersInterface):
         encoder_only=False,
         freeze=False,
         freeze_encoder=False,
-        output_attentions=True,
+        output_attentions=False,
         output_all_hiddens=False,
         language="en",
         task="transcribe",
@@ -342,21 +342,10 @@ class Whisper(HFTransformersInterface):
             input_ids=decoder_input_ids,
             output_attentions=self.output_attentions,
         )
-
-        attn = output_states.attentions[-1]
-        attn = attn.view(attn.shape[0] * attn.shape[1], *attn.shape[2:])
         output_states = output_states.last_hidden_state
+        logits = output_states @ self.model.decoder.embed_tokens.weight.T
 
-        logits = (
-            output_states
-            @ torch.transpose(
-                self.model.decoder.embed_tokens.weight.to(output_states.dtype),
-                0,
-                1,
-            )
-        ).to(audio_features.dtype)
-
-        return logits, attn
+        return logits, None
 
     @cached_property
     def all_language_tokens(self):
