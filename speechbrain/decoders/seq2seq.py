@@ -1584,7 +1584,6 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         bos_token=50258,
         task_token=50359,
         timestamp_token=50363,
-        max_length=448,
         temperature=0,
         suppress_blank=True,
         suppress_tokens="-1",
@@ -1592,13 +1591,14 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        # TODO: add prompting support + kv cache + + refacto a bit... 
+        
         self.model = model
 
         self.language_token = language_token  # default language is english
         self.bos_token = bos_token  # always this value
         self.task_token = task_token  # default task is transcribe
         self.timestamp_token = timestamp_token  # default is notimestamp
-        self.max_length = max_length - 3  # 3 tokens are added to the input
         self.temperature = temperature 
         self.suppress_blank = suppress_blank
         self.suppress_tokens = suppress_tokens
@@ -1606,6 +1606,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         self.sample_begin: int = len(self.initial_tokens)
         self.sot_index: int = self.initial_tokens.index(self.model.bos)
         self.initial_token_length = len(self.initial_tokens)
+        self.max_attn_tokens = self.model.model.decoder.config.max_length
 
         if use_kv_cache:
             self.kv_cache = {}
@@ -1694,13 +1695,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
 
         # Using bos as the first input
         log_probs_lst = []
-        max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
-
-        # the decoding steps can be based on the max number of tokens that a decoder can process
-        # (e.g., 448 for Whisper).
-        _, max_decode_steps = self.change_max_decoding_length(
-            0, max_decode_steps
-        )
+        max_decode_steps = min(int(enc_states.shape[1] * self.max_decode_ratio), self.max_attn_tokens)
 
         # if (inp_tokens != self.bos_index).all().item():
         #     memory = _update_mem(inp_tokens, memory)
