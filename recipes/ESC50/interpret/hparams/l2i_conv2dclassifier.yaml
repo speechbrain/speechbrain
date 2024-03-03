@@ -133,8 +133,9 @@ nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
     n_freq: !ref <n_freq>
 
 alpha: 10 # applied to NMF loss
-beta: 0.8 # L1 regularization to time activations
+beta: 0.3 # L1 regularization to time activations
 k_fidelity: 3 # top-k fidelity
+gamma: 1  # soft cross-entropy temperature
 
 modules:
     compute_stft: !ref <compute_stft>

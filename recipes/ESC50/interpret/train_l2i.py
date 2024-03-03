@@ -385,6 +385,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.top_3_fidelity.append(batch.id, theta_out, classification_out)
             self.input_fidelity.append(batch.id, wavs, classification_out)
             self.faithfulness.append(batch.id, wavs, classification_out)
+
         self.acc_metric.append(
             uttid, predict=classification_out, target=classid, length=lens
         )
@@ -393,7 +394,11 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
         loss_nmf = self.hparams.alpha * loss_nmf
+        self.rec_loss.append(uttid, loss_nmf)
+
+        prev = loss_nmf.clone().detach()
         loss_nmf += self.hparams.beta * (time_activations).abs().mean()
+        self.reg_loss.append(uttid, loss_nmf - prev)
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -402,10 +407,15 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.last_batch = batch
         self.batch_to_plot = (reconstructions.clone(), X_stft_logpower.clone())
 
-        theta_out = -torch.log(theta_out)
-        loss_fdi = (F.softmax(classification_out, dim=1) * theta_out).mean()
+        c_soft = F.softmax(
+            classification_out / self.hparams.gamma, dim=1
+        ).detach()
+        theta_out = torch.log(theta_out)
+        loss_fid = -(theta_out * c_soft).sum(1).mean()
 
-        return loss_nmf + loss_fdi
+        self.fid_loss.append(uttid, loss_fid)
+
+        return loss_nmf + loss_fid
 
     def on_stage_start(self, stage, epoch=None):
         def accuracy_value(predict, target, length):
@@ -511,12 +521,19 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             return faithfulness
 
+        def save(x):
+            return x[None]
+
         self.top_3_fidelity = MetricStats(metric=compute_fidelity)
         self.input_fidelity = MetricStats(metric=compute_inp_fidelity)
         self.faithfulness = MetricStats(metric=compute_faithfulness)
         self.acc_metric = sb.utils.metric_stats.MetricStats(
             metric=accuracy_value, n_jobs=1
         )
+        self.rec_loss = MetricStats(metric=save)
+        self.reg_loss = MetricStats(metric=save)
+        self.fid_loss = MetricStats(metric=save)
+
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -528,6 +545,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.train_loss = stage_loss
             self.train_stats = {
                 "loss": self.train_loss,
+                "rec_loss": self.rec_loss.summarize("average"),
+                "reg_loss": self.reg_loss.summarize("average"),
+                "fid_loss": self.fid_loss.summarize("average"),
                 "acc": self.acc_metric.summarize("average"),
             }
 
@@ -540,6 +560,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
             valid_stats = {
                 "loss": stage_loss,
+                "rec_loss": self.rec_loss.summarize("average"),
+                "reg_loss": self.reg_loss.summarize("average"),
+                "fid_loss": self.fid_loss.summarize("average"),
                 "acc": self.acc_metric.summarize("average"),
                 "top-3_fid": current_fid,
                 "input-fidelity": current_inpfid,
