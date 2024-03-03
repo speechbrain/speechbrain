@@ -4,7 +4,7 @@ Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
 Authors
- * Adel Moumen 2022
+ * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
  * Luca Della Libera 2022
  * Ha Nguyen 2023

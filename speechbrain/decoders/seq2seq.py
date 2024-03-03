@@ -1,7 +1,7 @@
 """Decoding methods for seq2seq autoregressive model.
 
 Authors
- * Adel Moumen 2022, 2023
+ * Adel Moumen 2022, 2023, 2024
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
@@ -355,6 +355,7 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
         """Memory permutation during beamsearch."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
+
 
     def _get_initial_tokens(self) :
         return tuple(self.model.tokenizer.prefix_tokens)
