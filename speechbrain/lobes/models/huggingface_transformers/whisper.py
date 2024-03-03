@@ -4,7 +4,7 @@ Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
 Authors
- * Adel Moumen 2022
+ * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
  * Luca Della Libera 2022
  * Ha Nguyen 2023
@@ -13,6 +13,8 @@ Authors
 import torch
 import logging
 from torch import nn
+from functools import cached_property 
+import numpy as np 
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
@@ -79,6 +81,7 @@ class Whisper(HFTransformersInterface):
         freeze_encoder=False,
         output_attentions=True,
         output_all_hiddens=False,
+        language="en",
     ):
         super().__init__(
             source=source,
@@ -91,11 +94,12 @@ class Whisper(HFTransformersInterface):
         self.freeze_encoder = freeze_encoder
         self.output_attentions = output_attentions
         self.output_all_hiddens = output_all_hiddens
+        self.language = language
 
         if encoder_only:
             self.tokenizer = None
         else:
-            self.load_tokenizer(source)
+            self.load_tokenizer(source, bos_token="<|startoftranscript|>", language=self.language)
 
         self.load_feature_extractor(
             source, save_path, sampling_rate=sampling_rate
@@ -268,7 +272,7 @@ class Whisper(HFTransformersInterface):
         log_spec = torch.clamp(mel_spec, min=1e-10).log10()
         log_spec = torch.maximum(
             log_spec,
-            (log_spec.flatten(start_dim=1).max(dim=-1)[0] - 8.0)[:, None, None],
+            log_spec.max() - 8.0,
         )
         log_spec = (log_spec + 4.0) / 4.0
         return log_spec
@@ -346,3 +350,66 @@ class Whisper(HFTransformersInterface):
         ).to(audio_features.dtype)
 
         return logits, attn
+
+    @cached_property
+    def all_language_tokens(self):
+        from transformers.models.whisper.tokenization_whisper import LANGUAGES
+        langs = list(LANGUAGES.keys())  # Convert keys to a list
+        bos_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.bos_token)
+        result = []
+        for lang in langs:
+            result.append(
+                bos_token_id + 1 + langs.index(lang)
+            )
+        return tuple(result)
+
+    @cached_property
+    def all_language_codes(self):
+        from transformers.models.whisper.tokenization_whisper import LANGUAGES
+        langs = list(LANGUAGES.keys())  # Convert keys to a list
+        # bos_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.bos_token)
+        return tuple(langs)
+
+    @torch.no_grad()
+    def detect_language(self, mel):
+        if self.tokenizer.language is None:
+            raise ValueError(
+                "This model doesn't have language tokens so it can't perform lang id"
+            )
+        
+        # forward pass using a single token, startoftranscript
+        n_audio = mel.shape[0]
+
+        audio_features = self.model.encoder(mel).last_hidden_state
+
+        bos_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.bos_token)
+        decoder_input_ids = torch.tensor([[bos_token_id]] * n_audio).to(mel.device)  # [n_audio, 1]
+        # print(decoder_input_ids)
+        logits = self.forward_decoder(audio_features, decoder_input_ids)[0][:, 0]
+        # print(logits)
+        # collect detected languages; suppress all non-language tokens
+        mask = torch.ones(logits.shape[-1], dtype=torch.bool)
+        mask[list(self.all_language_tokens)] = False
+        # print(mask)
+        logits[:, mask] = -np.inf
+        language_tokens = logits.argmax(dim=-1)
+        language_token_probs = logits.softmax(dim=-1).cpu()
+        # print("tokens = ", self.all_language_tokens)
+        # print("codes = ", self.all_language_codes)
+        # exit()
+        language_probs = [
+            {
+                c: language_token_probs[i, j].item()
+                for j, c in zip(self.all_language_tokens, self.all_language_codes)
+            }
+            for i in range(n_audio)
+        ]
+        
+        if mel.shape[0] == 1:
+            language_tokens = language_tokens[0]
+            language_probs = language_probs[0]
+
+        return language_tokens, language_probs
+
+    def logits(self, tokens: torch.Tensor, audio_features: torch.Tensor):
+        return self.decoder(tokens, audio_features)
