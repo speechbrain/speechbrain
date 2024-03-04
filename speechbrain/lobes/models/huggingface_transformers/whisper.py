@@ -178,11 +178,11 @@ class Whisper(HFTransformersInterface):
                     return out_encoder
 
                 if self.output_all_hiddens:
-                    logits, attn = self.forward_decoder(
+                    logits, attn, _ = self.forward_decoder(
                         out_encoder[-1], decoder_input_ids
                     )
                 else:
-                    logits, attn = self.forward_decoder(
+                    logits, attn, _ = self.forward_decoder(
                         out_encoder, decoder_input_ids
                     )
                 return out_encoder, logits, attn
@@ -192,11 +192,11 @@ class Whisper(HFTransformersInterface):
             else:
                 out_encoder = self.forward_encoder(wav)
                 if self.output_all_hiddens:
-                    logits, attn = self.forward_decoder(
+                    logits, attn, _ = self.forward_decoder(
                         out_encoder[-1], decoder_input_ids
                     )
                 else:
-                    logits, attn = self.forward_decoder(
+                    logits, attn, _ = self.forward_decoder(
                         out_encoder, decoder_input_ids
                     )
                 return out_encoder, logits, attn
@@ -320,7 +320,7 @@ class Whisper(HFTransformersInterface):
 
         return array
 
-    def forward_decoder(self, audio_features, decoder_input_ids):
+    def forward_decoder(self, audio_features, decoder_input_ids, use_cache=True, past_key_values=None):
         """Perform one step of the whisper decoder.
 
         Arguments
@@ -337,15 +337,25 @@ class Whisper(HFTransformersInterface):
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
         """
+        # print(decoder_input_ids)
+        if past_key_values is not None:
+            # print(decoder_input_ids.shape)
+            decoder_input_ids = decoder_input_ids[:, -1].unsqueeze(-1)
+            # print(decoder_input_ids.shape)
         output_states = self.model.decoder(
             encoder_hidden_states=audio_features,
             input_ids=decoder_input_ids,
+            past_key_values=past_key_values,
             output_attentions=self.output_attentions,
+            use_cache=use_cache,
         )
-        output_states = output_states.last_hidden_state
-        logits = output_states @ self.model.decoder.embed_tokens.weight.T
-
-        return logits, None
+        # print(len(output_states.past_key_values))
+        # exit()
+        # output_states = output_states.last_hidden_state
+        # print(output_states.last_hidden_state.shape)
+        logits = output_states.last_hidden_state @ self.model.decoder.embed_tokens.weight.T
+        # print(logits.shape)
+        return logits, None, output_states.past_key_values
 
     @cached_property
     def all_language_tokens(self):

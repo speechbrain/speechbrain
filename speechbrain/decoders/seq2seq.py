@@ -329,23 +329,11 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
         self.max_attn_tokens = self.model.model.decoder.config.max_length
 
         if use_kv_cache:
-            self.kv_cache = {}
-            self.hooks = []
-
-            key_modules = [block.self_attn.k_proj for block in self.model.model.decoder.layers]
-            value_modules = [block.self_attn.v_proj for block in self.model.model.decoder.layers]
-            self.kv_modules = key_modules + value_modules
+            self.kv_cache = None
         
     def cleanup_caching(self):
-        for hook in self.hooks:
-            hook.remove()
+        self.kv_cache = None
 
-        self.kv_cache = {}
-        self.hooks = []
-
-    def rearrange_kv_cache(self, source_indices):
-        # TODO: implement kv caching with whisper
-        ...
 
     def reset_mem(self, batch_size, device):
         """This method set the first tokens to be decoder_input_tokens during search."""
@@ -355,7 +343,6 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
         """Memory permutation during beamsearch."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
-
 
     def _get_initial_tokens(self) :
         return tuple(self.model.tokenizer.prefix_tokens)
@@ -417,7 +404,7 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
 
         # Using bos as the first input
         log_probs_lst = []
-        max_decode_steps = min(int(enc_states.shape[1] * self.max_decode_ratio), self.max_attn_tokens)
+        max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
         # if (inp_tokens != self.bos_index).all().item():
         #     memory = _update_mem(inp_tokens, memory)
@@ -444,7 +431,11 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
             # )
             # import time
             # time.sleep(1)
-            logits, _ = self.model.forward_decoder(enc_states, tokens)
+            # if not self.kv_cache:
+                # self.kv_cache, self.hooks = self.model.install_kv_cache_hooks()
+            
+            logits, _, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
+            self.kv_cache = kv 
             
             # print(logits.shape)
             if (
@@ -485,7 +476,7 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
             # print(memory)
             completed = (tokens[:, -1] == self.eos_index).all()
 
-            if completed:
+            if completed or tokens.shape[-1] > self.max_attn_tokens:
                 break
 
         tokens = tokens.reshape(batch_size, 1, -1)
@@ -499,6 +490,8 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
         ]
         tokens: List[List[int]] = [t[0].tolist() for t in tokens]
 
+        # reset cache
+        self.kv_cache = None
         return tokens, None, None, None
 
     @cached_property
