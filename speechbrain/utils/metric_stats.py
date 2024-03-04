@@ -9,7 +9,7 @@ Authors:
 """
 
 import torch
-from typing import Callable, Optional
+from typing import Callable, Optional, List, Dict
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import (
@@ -374,6 +374,101 @@ class ErrorRateStats(MetricStats):
         print_alignments(self.scores, filestream)
 
 
+class WeightedErrorRateStats(MetricStats):
+    """Metric that reweighs the WER from :class:`~ErrorRateStats` with any
+    chosen method. This does not edit the sequence of found edits
+    (insertion/deletion/substitution) but multiplies their impact on the metric
+    by a value between 0 and 1 as returned by the cost function.
+    
+    base_stats : ErrorRateStats
+        The base WER calculator to use.
+    cost_function : Callable[[str, Optional[str], Optional[str]], float]
+        Cost function of signature `fn(edit_symbol, a, b) -> float`, where the
+        returned value, between 0 and 1, is the weight that should be assigned
+        to a particular edit in the weighted WER calculation.
+        In the case of insertions and deletions, either of `a` or `b` may be
+        `None`. In the case of substitutions, `a` and `b` will never be `None`.
+    weight_name : str
+        Prefix to be prepended to each metric name (e.g. `xxx_wer`)
+    """
+
+    def __init__(
+        self, base_stats: ErrorRateStats, cost_function: Callable[[str, Optional[str], Optional[str]], float], weight_name: str = "weighted"
+    ):
+        self.base_stats = base_stats
+        self.cost_function = cost_function
+        self.weight_name = weight_name
+
+    def summarize(self, field=None):
+        """Returns a dict containing some detailed WER statistics after weighting
+        every edit with a weight determined by `cost_function` (returning `0.0`
+        for no error, `1.0` for the default error behavior, and anything in
+        between).
+
+        See :meth:`~ErrorRateStats.summarize`."""
+
+        weighted_insertions = 0.0
+        weighted_substitutions = 0.0
+        weighted_deletions = 0.0
+        total = 0.0
+
+        for utterance in self.base_stats.scores:
+            for edit_symbol, a_idx, b_idx in utterance["alignment"]:
+                a = (
+                    utterance["ref_tokens"][a_idx]
+                    if a_idx is not None
+                    else None
+                )
+                b = (
+                    utterance["hyp_tokens"][b_idx]
+                    if b_idx is not None
+                    else None
+                )
+
+                if edit_symbol != EDIT_SYMBOLS["eq"]:
+                    pair_score = self.cost_function(edit_symbol, a, b)
+
+                    if edit_symbol == EDIT_SYMBOLS["ins"]:
+                        weighted_insertions += pair_score
+                    elif edit_symbol == EDIT_SYMBOLS["del"]:
+                        weighted_deletions += pair_score
+                    elif edit_symbol == EDIT_SYMBOLS["sub"]:
+                        weighted_substitutions += pair_score
+
+                total += 1.0
+
+        weighted_edits = (
+            weighted_insertions + weighted_substitutions + weighted_deletions
+        )
+        wwer_ratio = weighted_edits / total
+
+        self.summary = {
+            f"{self.weight_name}_wer": wwer_ratio * 100.0,
+            f"{self.weight_name}_insertions": weighted_insertions,
+            f"{self.weight_name}_substitutions": weighted_substitutions,
+            f"{self.weight_name}_deletions": weighted_deletions,
+            f"{self.weight_name}_num_edits": weighted_edits,
+        }
+
+        if field is not None:
+            return self.summary[field]
+        else:
+            return self.summary
+
+    def write_stats(self, filestream):
+        """Write all relevant info to file; here, only the weighted info as
+        returned by `summarize`.
+        See :meth:`~ErrorRateStats.write_stats`.
+        """
+        if not self.summary:
+            self.summarize()
+
+        print(f"Weighted WER metrics ({self.weight_name}):", file=filestream)
+
+        for k, v in self.summary.items():
+            print(f"{k}: {v}", file=filestream)
+
+
 class EmbeddingErrorRateSimilarity:
     """Implements the similarity function from the EmbER metric as defined by
     https://www.isca-archive.org/interspeech_2022/roux22_interspeech.pdf
@@ -421,11 +516,15 @@ class EmbeddingErrorRateSimilarity:
         self.high_similarity_weight = high_similarity_weight
         self.threshold = threshold
 
-    def __call__(self, edit_symbol: str, a: str, b: str) -> float:
+    def __call__(self, edit_symbol: str, a: Optional[str], b: Optional[str]) -> float:
         if edit_symbol in (EDIT_SYMBOLS["ins"], EDIT_SYMBOLS["del"]):
             return 1.0
 
         if edit_symbol == EDIT_SYMBOLS["sub"]:
+            # shouldn't ever be true for sub
+            assert a is not None
+            assert b is not None
+
             a_emb = self.embedding_function(a)
             if a_emb is None:
                 return self.low_similarity_weight
