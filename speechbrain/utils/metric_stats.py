@@ -395,6 +395,7 @@ class WeightedErrorRateStats(MetricStats):
     def __init__(
         self, base_stats: ErrorRateStats, cost_function: Callable[[str, Optional[str], Optional[str]], float], weight_name: str = "weighted"
     ):
+        self.clear()
         self.base_stats = base_stats
         self.cost_function = cost_function
         self.weight_name = weight_name
@@ -406,6 +407,7 @@ class WeightedErrorRateStats(MetricStats):
         between).
 
         See :meth:`~ErrorRateStats.summarize`."""
+
 
         weighted_insertions = 0.0
         weighted_substitutions = 0.0
@@ -485,7 +487,7 @@ class EmbeddingErrorRateSimilarity:
     much as a substitution with low similarity).
 
     .. note ::
-        The cited paper recommended `(1.0, 0.0, 0.4)` as defaults for Fasttext
+        The cited paper recommended `(1.0, 0.1, 0.4)` as defaults for Fasttext
         French embeddings, chosen empirically. When using different embeddings,
         you might want to test other values; thus we don't provide defaults.
 
