@@ -7,7 +7,6 @@ Authors
  * Mirco Ravanelli 2020
  * Sung-Lin Yeh 2020
 """
-
 import torch
 from speechbrain.decoders.utils import (
     inflate_tensor,
@@ -18,7 +17,7 @@ from speechbrain.utils.data_utils import undo_padding
 
 
 class AlivedHypotheses(torch.nn.Module):
-    """This class handle the data for the hypotheses during the decoding.
+    """ This class handle the data for the hypotheses during the decoding.
 
     Arguments
     ---------
@@ -721,7 +720,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         return prev_attn_peak
 
     def _update_reset_memory(self, enc_states, enc_lens):
-        """Call reset memory for each module.
+        """ Call reset memory for each module.
 
         Arguments
         ---------
@@ -1813,7 +1812,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        (dec_out, attn,) = self.model.forward_decoder(enc_states, memory)
+        dec_out, attn, = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1] / self.temperature)
         return log_probs, memory, attn
 

@@ -8,6 +8,7 @@ Authors
  * Haroun Elleuch 2024
 """
 
+import pathlib
 import torch
 import logging
 
@@ -16,12 +17,17 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
 )
 
 from transformers import SpeechT5ForSpeechToText, SpeechT5Config
+from speechbrain.utils.checkpoints import (
+    mark_as_loader,
+    register_checkpoint_hooks,
+)
 from speechbrain.utils.fetching import fetch
 
 
 logger = logging.getLogger(__name__)
 
 
+@register_checkpoint_hooks
 class SpeechT5ForASR(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace and SpeechBrain
     pretrained SpeechT5 models for Automatic Speech Recognition.
@@ -286,16 +292,19 @@ class SpeechT5ForASR(HFTransformersInterface):
         is_sb, ckpt_file, _ = self._check_model_source(source, save_path)
 
         if is_sb or self.for_pretraining:
-            self.model = SpeechT5ForSpeechToText.from_config(self.config)
+            self.model = SpeechT5ForSpeechToText._from_config(self.config)
 
         if is_sb:
             self.model.gradient_checkpointing_disable()  # Required by DDP
             # fetch the checkpoint file
             ckpt_full_path = fetch(
-                filename=ckpt_file, source=source, savedir=save_path,
+                filename=ckpt_file,
+                source=source,
+                savedir=save_path,
+                huggingface_cache_dir=cache_dir,
             )
             # We transfer the parameters from the checkpoint.
-            self._load_sb_pretrained_parameters(ckpt_full_path)
+            self._load_sb_pretrained_parameters(path=ckpt_full_path,)
         elif not self.for_pretraining:
             self.model = SpeechT5ForSpeechToText.from_pretrained(
                 source,
@@ -304,6 +313,30 @@ class SpeechT5ForASR(HFTransformersInterface):
                 quantization_config=self.quantization_config,
                 ignore_mismatched_sizes=True,
             )
+
+    @mark_as_loader
+    def _on_load_checkpoint(
+        self, path: pathlib.Path | str, end_of_epoch: bool
+    ) -> None:
+        loaded_state_dict = torch.load(path)
+        model_state_dict = self.state_dict()
+        is_changed = False
+        for k in loaded_state_dict:
+            if k in model_state_dict:
+                if loaded_state_dict[k].shape != model_state_dict[k].shape:
+                    logger.warning(
+                        f"Skip loading parameter: {k}, "
+                        f"required shape: {model_state_dict[k].shape}, "
+                        f"loaded shape: {loaded_state_dict[k].shape}"
+                    )
+                    loaded_state_dict[k] = model_state_dict[k]
+                    is_changed = True
+            else:
+                logger.warning(f"Dropping parameter {k}")
+                is_changed = True
+
+        if is_changed:
+            loaded_state_dict.pop("optimizer_states", None)
 
 
 def custom_padding(x, org_pad, custom_pad):
