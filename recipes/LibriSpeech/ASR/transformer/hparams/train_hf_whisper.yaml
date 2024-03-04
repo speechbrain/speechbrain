@@ -118,6 +118,8 @@ whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     freeze: !ref <freeze_whisper>
     save_path: !ref <whisper_folder>
     encoder_only: False
+    language: "en"
+    task: "translate"
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -135,18 +137,8 @@ whisper_opt_class: !name:torch.optim.AdamW
 
 valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>
-    bos_index: !ref <timestamp_index>
-    eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
-
-test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
-    module: [!ref <whisper>]
-    bos_index: !ref <timestamp_index>
-    eos_index: !ref <eos_index>
-    min_decode_ratio: !ref <min_decode_ratio>
-    max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NewBobScheduler
     initial_value: !ref <lr_whisper>

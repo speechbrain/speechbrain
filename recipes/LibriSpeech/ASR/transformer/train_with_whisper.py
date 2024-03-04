@@ -53,21 +53,18 @@ class ASR(sb.Brain):
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
         # Forward encoder + decoder
-        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
+        enc_out, logits, _ = self.modules.whisper(
+            wavs, 
+            bos_tokens
+        )
 
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            # Decide searcher for inference: valid or test search
-            if stage == sb.Stage.VALID:
-                hyps, _, _, _ = self.hparams.valid_search(
-                    enc_out.detach(), wav_lens
-                )
-            else:
-                hyps, _, _, _ = self.hparams.test_search(
-                    enc_out.detach(), wav_lens
-                )
+        if stage != sb.Stage.TRAIN:            
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
 
         return log_probs, hyps, wav_lens
 
@@ -93,33 +90,29 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
-            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
-
             # Decode token terms to words
-            predicted_words = self.tokenizer.batch_decode(
-                hyps, skip_special_tokens=True
-            )
+            predicted_words = [self.tokenizer.decode(t).strip() for t in hyps]
 
+            print(predicted_words)
+            exit()
+            # print(predicted_words)
+            # exit()
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
             target_words = self.tokenizer.batch_decode(
                 target_words, skip_special_tokens=True
             )
-
-            if hasattr(self.hparams, "normalized_transcripts"):
-                predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
+            
+            predicted_words = [
+                    self.tokenizer.normalize(text).split(" ")
                     for text in predicted_words
-                ]
+            ]
 
-                target_words = [
-                    self.tokenizer._normalize(text).split(" ")
-                    for text in target_words
-                ]
-            else:
-                predicted_words = [text.split(" ") for text in predicted_words]
-
-                target_words = [text.split(" ") for text in target_words]
+            target_words = [
+                self.tokenizer.normalize(text).split(" ")
+                for text in target_words
+            ]
+            
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -237,6 +230,7 @@ def dataio_prepare(hparams, tokenizer):
         # avoid bos and eos tokens.
         tokens_list = tokens_list[1:-1]
         yield tokens_list
+        # TODO: check this..
         tokens_bos = torch.LongTensor([hparams["bos_index"]] + tokens_list)
         yield tokens_bos
         tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
@@ -292,14 +286,6 @@ if __name__ == "__main__":
 
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
-    tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
-
-    # we need to prepare the tokens for searchers
-    hparams["valid_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
-    hparams["valid_search"].set_language_token(tokenizer.prefix_tokens[1])
-
-    hparams["test_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
-    hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)

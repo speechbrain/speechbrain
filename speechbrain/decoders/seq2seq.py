@@ -332,7 +332,11 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
             self.kv_cache = None
         
     def cleanup_caching(self):
-        self.kv_cache = None
+        for hook in self.hooks:
+            hook.remove()
+
+        self.kv_cache = {}
+        self.hooks = []
 
 
     def reset_mem(self, batch_size, device):
@@ -367,14 +371,7 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
 
         return log_probs, memory, attn
 
-    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
-        """set the minimum/maximum length the decoder can take."""
-        return (
-            int(self.min_decode_ratio * self.max_length),
-            int(self.max_decode_ratio * self.max_length),
-        )
-
-    def forward(self, enc_states, wav_len):
+    def forward(self, enc_states, wav_len=None):
         """This method performs a greedy search.
 
         Arguments

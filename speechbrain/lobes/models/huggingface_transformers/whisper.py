@@ -171,35 +171,27 @@ class Whisper(HFTransformersInterface):
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
         """
+        
+        def _fwd():
+            out_encoder = self.forward_encoder(wav)
+            if self.encoder_only:
+                return out_encoder
+            else:
+                if self.output_all_hiddens:
+                    decoder_logits, decoder_attn, _ = self.forward_decoder(
+                        out_encoder[-1], decoder_input_ids
+                    )
+                else:
+                    decoder_logits, decoder_attn, _ = self.forward_decoder(
+                        out_encoder, decoder_input_ids
+                    )
+                return out_encoder, decoder_logits, decoder_attn
+
         if self.freeze:
             with torch.no_grad():
-                out_encoder = self.forward_encoder(wav)
-                if self.encoder_only:
-                    return out_encoder
-
-                if self.output_all_hiddens:
-                    logits, attn, _ = self.forward_decoder(
-                        out_encoder[-1], decoder_input_ids
-                    )
-                else:
-                    logits, attn, _ = self.forward_decoder(
-                        out_encoder, decoder_input_ids
-                    )
-                return out_encoder, logits, attn
+                return _fwd()
         else:
-            if self.encoder_only:
-                return self.forward_encoder(wav)
-            else:
-                out_encoder = self.forward_encoder(wav)
-                if self.output_all_hiddens:
-                    logits, attn, _ = self.forward_decoder(
-                        out_encoder[-1], decoder_input_ids
-                    )
-                else:
-                    logits, attn, _ = self.forward_decoder(
-                        out_encoder, decoder_input_ids
-                    )
-                return out_encoder, logits, attn
+            return _fwd()
 
     def forward_encoder(self, wav):
         """Perform one step of the whisper encoder with Mel FBANKs as Input.
@@ -209,12 +201,7 @@ class Whisper(HFTransformersInterface):
         wav : torch.Tensor (FBANKs)
             A batch of Mel FBANK from HF to transform to features.
         """
-
-        if self.freeze_encoder:
-            with torch.no_grad():
-                return self._get_encoder_states(wav)
-        else:
-            return self._get_encoder_states(wav)
+        return self._get_encoder_states(wav)
 
     def _get_encoder_states(self, wav):
         """Takes an input waveform and return its corresponding encoder states.
@@ -353,7 +340,10 @@ class Whisper(HFTransformersInterface):
         # exit()
         # output_states = output_states.last_hidden_state
         # print(output_states.last_hidden_state.shape)
+        # logits = output_states.last_hidden_state @ self.model.decoder.embed_tokens.weight.T
+
         logits = output_states.last_hidden_state @ self.model.decoder.embed_tokens.weight.T
+        
         # print(logits.shape)
         return logits, None, output_states.past_key_values
 
@@ -462,6 +452,18 @@ class Whisper(HFTransformersInterface):
 
         raise KeyError(f"Language {language} not found in tokenizer.")
 
+    def set_language_token(self, language):
+        self.language = language 
+        self.tokenizer.set_prefix_tokens(
+            language=self.language
+        )
+
+    def set_task(self, task):
+        self.task = task 
+        self.tokenizer.set_prefix_tokens(
+            task=self.task
+        )
+
     @torch.no_grad()
     def detect_language(self, mel):
         if self.tokenizer.language is None:
@@ -474,8 +476,7 @@ class Whisper(HFTransformersInterface):
 
         audio_features = self.model.encoder(mel).last_hidden_state
 
-        bos_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.bos_token)
-        decoder_input_ids = torch.tensor([[bos_token_id]] * n_audio).to(mel.device)  # [n_audio, 1]
+        decoder_input_ids = torch.tensor([[self.bos]] * n_audio).to(mel.device)  # [n_audio, 1]
         # print(decoder_input_ids)
         logits = self.forward_decoder(audio_features, decoder_input_ids)[0][:, 0]
         # print(logits)
@@ -502,6 +503,3 @@ class Whisper(HFTransformersInterface):
             language_probs = language_probs[0]
 
         return language_tokens, language_probs
-
-    def logits(self, tokens: torch.Tensor, audio_features: torch.Tensor):
-        return self.decoder(tokens, audio_features)
