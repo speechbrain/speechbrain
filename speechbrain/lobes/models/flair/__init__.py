@@ -1,3 +1,5 @@
+"""Package providing simple wrappers for flair models."""
+
 try:
     import flair
 except ImportError as e:

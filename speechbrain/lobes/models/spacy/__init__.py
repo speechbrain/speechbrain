@@ -1,3 +1,5 @@
+"""Package providing simple wrappers for spaCy models."""
+
 try:
     import spacy
 except ImportError as e:
