@@ -124,84 +124,7 @@ def prepare_spokenwoz(
             data_folder, split, version
         )
 
-        for dialog_id, dialog_info in annotations.items():
-            if dialog_id not in text_dict:
-                text_dict[dialog_id] = {}
-
-            for turn_id, turn_info in enumerate(dialog_info["log"]):
-                # Dialogue States are updated at each agent turns considering the turns up to the previous user turn
-                if turn_id % 2 == 0:
-                    # User turn --> get end time
-                    if f"Turn-{turn_id}" not in text_dict[dialog_id]:
-                        text_dict[dialog_id][f"Turn-{turn_id}"] = {}
-                    current_turn = text_dict[dialog_id][f"Turn-{turn_id}"]
-                    end_time = turn_info["words"][-1]["EndTime"]
-                    current_turn["end"] = end_time * (SAMPLERATE // 1000)
-                    if turn_id == 0:
-                        current_turn["start"] = 0
-                        current_turn["previous"] = ""
-                        current_turn["agent"] = ""
-
-                    # Saving the user transcription
-                    if "cascade" in version:
-                        # Considering the model's transcription if cascading with a provided model,
-                        # otherwise the dataset's automatic transcriptions
-                        asr_model = version.replace("cascade", "").split("_")[
-                            -1
-                        ]
-                        if asr_model != "":
-                            current_turn["user"] = turn_info[asr_model]
-                        else:
-                            words = [
-                                word["Word"] for word in turn_info["words"]
-                            ]
-                            current_turn["user"] = " ".join(words)
-                    else:
-                        current_turn["user"] = ""
-
-                else:
-                    # Agent turn --> dialogue state annotations
-                    state = []
-                    for domain, info in turn_info["metadata"].items():
-                        for slot, value in info["book"].items():
-                            if slot != "booked" and value != "":
-                                state.append(f"{domain}-{slot}={value}")
-                        for slot, value in info["semi"].items():
-                            if value != "":
-                                # One example in train set has , between numbers
-                                state.append(
-                                    f'{domain}-{slot}={value.replace(",", "")}'
-                                )
-                    text_dict[dialog_id][f"Turn-{turn_id-1}"][
-                        "current"
-                    ] = "; ".join(state)
-
-                    # Preparing data for next turn prediction: last dialogue turn has no succeeding user turn
-                    if turn_id != len(dialog_info["log"]) - 1:
-                        if f"Turn-{turn_id+1}" not in text_dict[dialog_id]:
-                            text_dict[dialog_id][f"Turn-{turn_id+1}"] = {}
-                        next_turn = text_dict[dialog_id][f"Turn-{turn_id+1}"]
-                        # Agent transcription
-                        if "cascade" in version:
-                            # Considering the model's transcription if cascading with a provided model,
-                            # otherwise the dataset's automatic transcriptions
-                            asr_model = version.replace("cascade", "").split(
-                                "_"
-                            )[-1]
-                            if asr_model != "":
-                                next_turn["agent"] = turn_info[asr_model]
-                            else:
-                                words = [
-                                    word["Word"] for word in turn_info["words"]
-                                ]
-                                next_turn["agent"] = " ".join(words)
-                        else:
-                            next_turn["agent"] = ""
-
-                        # Previous Dialogue State
-                        next_turn["previous"] = "; ".join(state)
-                        begin_time = turn_info["words"][0]["BeginTime"]
-                        next_turn["start"] = begin_time * (SAMPLERATE // 1000)
+        prepare_spokenwoz_split(text_dict, annotations, version)
 
         all_texts.update(text_dict)
 
@@ -223,6 +146,99 @@ def prepare_spokenwoz(
 
     # saving options
     save_pkl(conf, save_opt)
+
+
+def prepare_spokenwoz_split(text_dict, annotations, version):
+    """
+    Fills the text dictionary with the adequate annotations according to the required version.
+
+    Arguments
+    ---------
+    text_dict : dict
+        The split dictionary to fill to create the split csv.
+    annotations : dict
+        The dictionary from which to extract the relevant information.
+    version: str
+        The version of the processing required (cascade[-MODEL] or e2e).
+
+    Returns
+    -------
+    None
+    """
+    for dialog_id, dialog_info in annotations.items():
+        if dialog_id not in text_dict:
+            text_dict[dialog_id] = {}
+
+        for turn_id, turn_info in enumerate(dialog_info["log"]):
+            # Dialogue States are updated at each agent turns considering the turns up to the previous user turn
+            if turn_id % 2 == 0:
+                # User turn --> get end time
+                if f"Turn-{turn_id}" not in text_dict[dialog_id]:
+                    text_dict[dialog_id][f"Turn-{turn_id}"] = {}
+                current_turn = text_dict[dialog_id][f"Turn-{turn_id}"]
+                end_time = turn_info["words"][-1]["EndTime"]
+                current_turn["end"] = end_time * (SAMPLERATE // 1000)
+                if turn_id == 0:
+                    current_turn["start"] = 0
+                    current_turn["previous"] = ""
+                    current_turn["agent"] = ""
+
+                # Saving the user transcription
+                if "cascade" in version:
+                    # Considering the model's transcription if cascading with a provided model,
+                    # otherwise the dataset's automatic transcriptions
+                    asr_model = version.replace("cascade", "").split("_")[-1]
+                    if asr_model != "":
+                        current_turn["user"] = turn_info[asr_model]
+                    else:
+                        words = [word["Word"] for word in turn_info["words"]]
+                        current_turn["user"] = " ".join(words)
+                else:
+                    current_turn["user"] = ""
+
+            else:
+                # Agent turn --> dialogue state annotations
+                state = []
+                for domain, info in turn_info["metadata"].items():
+                    for slot, value in info["book"].items():
+                        if slot != "booked" and value != "":
+                            state.append(f"{domain}-{slot}={value}")
+                    for slot, value in info["semi"].items():
+                        if value != "":
+                            # One example in train set has , between numbers
+                            state.append(
+                                f'{domain}-{slot}={value.replace(",", "")}'
+                            )
+                text_dict[dialog_id][f"Turn-{turn_id-1}"][
+                    "current"
+                ] = "; ".join(state)
+
+                # Preparing data for next turn prediction: last dialogue turn has no succeeding user turn
+                if turn_id != len(dialog_info["log"]) - 1:
+                    if f"Turn-{turn_id+1}" not in text_dict[dialog_id]:
+                        text_dict[dialog_id][f"Turn-{turn_id+1}"] = {}
+                    next_turn = text_dict[dialog_id][f"Turn-{turn_id+1}"]
+                    # Agent transcription
+                    if "cascade" in version:
+                        # Considering the model's transcription if cascading with a provided model,
+                        # otherwise the dataset's automatic transcriptions
+                        asr_model = version.replace("cascade", "").split("_")[
+                            -1
+                        ]
+                        if asr_model != "":
+                            next_turn["agent"] = turn_info[asr_model]
+                        else:
+                            words = [
+                                word["Word"] for word in turn_info["words"]
+                            ]
+                            next_turn["agent"] = " ".join(words)
+                    else:
+                        next_turn["agent"] = ""
+
+                    # Previous Dialogue State
+                    next_turn["previous"] = "; ".join(state)
+                    begin_time = turn_info["words"][0]["BeginTime"]
+                    next_turn["start"] = begin_time * (SAMPLERATE // 1000)
 
 
 def create_csv(
