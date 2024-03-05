@@ -7,7 +7,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.log
 
 # root data folder points to 17h version inside the github folder (IWSLT2022_Tamasheq_data/taq_fra_clean/)
-root_data_folder: /media/elya1/corpus/IWSLT2022_Tamasheq_data/taq_fra_clean
+root_data_folder: !PLACEHOLDER
 # data folder is the place where the json files will be stored prior to training
 data_folder: !ref <root_data_folder>/json_version/
 
