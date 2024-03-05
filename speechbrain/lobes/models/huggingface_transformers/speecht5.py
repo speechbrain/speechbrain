@@ -8,17 +8,24 @@ Authors
  * Haroun Elleuch 2024
 """
 
-import pathlib
+from os import PathLike
 import torch
 import logging
+import gc
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
 
-from transformers import SpeechT5ForSpeechToText, SpeechT5Config
+from transformers import (
+    SpeechT5ForSpeechToText,
+    SpeechT5Config,
+    GenerationConfig,
+)
+
 from speechbrain.utils.checkpoints import (
     mark_as_loader,
+    mark_as_saver,
     register_checkpoint_hooks,
 )
 from speechbrain.utils.fetching import fetch
@@ -106,6 +113,7 @@ class SpeechT5ForASR(HFTransformersInterface):
         self.freeze_feature_extractor = freeze_feature_extractor
         self.output_attentions = output_attentions
         self.output_all_hiddens = output_all_hiddens
+        self.generation_config = None
 
         self.load_tokenizer(source=source, **kwargs)
 
@@ -291,6 +299,8 @@ class SpeechT5ForASR(HFTransformersInterface):
 
         is_sb, ckpt_file, _ = self._check_model_source(source, save_path)
 
+        logger.info(f"###\nIS_SB: {is_sb}###")
+
         if is_sb or self.for_pretraining:
             self.model = SpeechT5ForSpeechToText._from_config(self.config)
 
@@ -304,7 +314,9 @@ class SpeechT5ForASR(HFTransformersInterface):
                 huggingface_cache_dir=cache_dir,
             )
             # We transfer the parameters from the checkpoint.
-            self._load_sb_pretrained_parameters(path=ckpt_full_path,)
+            self._load_sb_pretrained_parameters(
+                path=ckpt_full_path,
+            )
         elif not self.for_pretraining:
             self.model = SpeechT5ForSpeechToText.from_pretrained(
                 source,
@@ -314,29 +326,114 @@ class SpeechT5ForASR(HFTransformersInterface):
                 ignore_mismatched_sizes=True,
             )
 
-    @mark_as_loader
-    def _on_load_checkpoint(
-        self, path: pathlib.Path | str, end_of_epoch: bool
-    ) -> None:
-        loaded_state_dict = torch.load(path)
-        model_state_dict = self.state_dict()
-        is_changed = False
-        for k in loaded_state_dict:
-            if k in model_state_dict:
-                if loaded_state_dict[k].shape != model_state_dict[k].shape:
-                    logger.warning(
-                        f"Skip loading parameter: {k}, "
-                        f"required shape: {model_state_dict[k].shape}, "
-                        f"loaded shape: {loaded_state_dict[k].shape}"
-                    )
-                    loaded_state_dict[k] = model_state_dict[k]
-                    is_changed = True
-            else:
-                logger.warning(f"Dropping parameter {k}")
-                is_changed = True
+    def _free_memory(self):
+        """Frees the memory by deleting the model."""
+        del self.model
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-        if is_changed:
-            loaded_state_dict.pop("optimizer_states", None)
+    def get_generation_config(self) -> GenerationConfig:
+        """Returns the HuggingFace Transformers generation config associated with SpeechT5.
+        If the generation config is None, it will create a new one.
+
+        Returns
+        -------
+        GenerationConfig
+            Model generation config.
+        """
+        if self.generation_config is None:
+            self.generation_config = GenerationConfig(
+                decoder_start_token_id=2,
+                eos_token_id=self.model.config.eos_token_id,
+                pad_token=self.model.config.pad_token_id,
+                max_length=450,
+            )
+
+        return self.generation_config
+
+    @mark_as_loader
+    def load_checkpoint_hf(
+        self, path: PathLike | str, end_of_epoch: bool
+    ) -> None:
+        """Custom checkpoint loading hook used to avoid the model size mismatch when using Pytorch's format.
+        This function will call the transformers library implementaions of `from_pretrained()` to load :
+            - The model
+            - The model configuration
+            - The generation configuration
+
+        Arguments
+        ----------
+        path : PathLike | str
+            Path of the checkpoint directory.
+        end_of_epoch : bool
+            Whether or not the checkpoint was saved duraing the end of an epoch.
+        """
+        self._free_memory()
+        self.config = SpeechT5Config.from_pretrained(path)
+
+        if torch.cuda.is_available():
+            self.model = SpeechT5ForSpeechToText.from_pretrained(
+                path,
+                config=self.config,
+                local_files_only=True,
+                ignore_mismatched_sizes=False,
+                use_safetensors=True,
+            ).cuda()
+        else:
+            self.model = SpeechT5ForSpeechToText.from_pretrained(
+                path,
+                config=self.config,
+                local_files_only=True,
+                ignore_mismatched_sizes=False,
+                use_safetensors=True,
+            )
+
+        self.generation_config = GenerationConfig.from_pretrained(
+            path, "generation_config.json"
+        )
+
+    @mark_as_saver
+    def save_checkpoint_hf(self, path: PathLike | str):
+        """Custom checkpoint saving hook used to avoid the model size mismatch when using Pytorch's format.
+        This function will call the transformers library implementaions of `save_pretrained()` to save :
+            - The model and its configuration
+            - The generation configuration
+
+        Arguments
+        ----------
+        path :
+            Path where the checkpoint will be saved
+        """
+        self.model.save_pretrained(
+            path, from_pt=True, state_dict=self.model.state_dict()
+        )
+        self.get_generation_config().save_pretrained(
+            path, "generation_config.json"
+        )
+
+    def _modify_state_dict(self, path):
+        """A custom loading ensures SpeechBrain compatibility for Pretrain and model
+        de/serialization. Here, the scope is to remove '.model' before loading.
+
+        Arguments
+        ---------
+        path : str
+            Checkpoint path, file name relative to the repo root.
+
+        Returns
+        -------
+        modified_state_dict : see torch.load
+            SpeechBrain-valid deserialized pretrained model.
+        """
+        modified_state_dict = {}
+        orig_state_dict = torch.load(path, map_location="cpu")
+
+        # We remove the .model in the state dict.
+        for key, params in orig_state_dict.items():
+            save_key = key.replace("model.", "")
+            modified_state_dict[save_key] = params
+        return modified_state_dict
 
 
 def custom_padding(x, org_pad, custom_pad):
