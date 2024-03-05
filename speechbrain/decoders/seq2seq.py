@@ -1859,6 +1859,36 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
 
 
 class S2SSpeechT5BeamSearch(S2SBeamSearcher):
+    """This class implements the beam search decoding
+    for SpeechT5 for speech to text.
+    This class inherits from S2SBeamSearcher.
+    See speechbrain.lobes.models.huggingface_transformers.speecht5
+    for more details.
+    
+    Arguments
+    ---------
+    module : list with the following elements:
+        model : torch.nn.Module
+            A Transformer model.
+        seq_lin : torch.nn.Module
+            A linear output layer.
+            Normally set to None for this usecase.
+    temperature: float
+        decoding temperature
+    temperature_lm: float
+        temperature for the model LM head.
+    bos_token: int
+        BOS token ID. 0 by default.
+    pad_token: int
+        Padding token ID. 1 by default.
+    eos_token: int
+        EOS token ID. 2 by default.
+    normalize: bool
+        Whether or not to normailze the text.
+    **kwargs
+        Arguments to pass to S2SBeamSearcher
+    """
+
     def __init__(
         self,
         module,
