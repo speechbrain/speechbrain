@@ -390,6 +390,10 @@ class DSTMetrics:
             )
 
     def get_average_jga(self):
+        """
+        Returns the average Joint-Goal Accuracy of the tracked turns.
+        It is especially useful for logging during training.
+        """
         round(100 * self.correct / self.total, 2) if self.total != 0 else 100.00
 
     def read_multiwoz_files(
@@ -516,6 +520,14 @@ class DSTMetrics:
             )
 
     def summary(self):
+        """
+        Computes both turn-level Joint-Goal Accuracy and slot F1.
+
+        Returns
+        -------
+        str
+        A string summarizing the computed results.
+        """
         self.jga()
         self.slot_precision_recall()
         summary = f"==================Metric report of {self.file}==================\n"
@@ -608,7 +620,7 @@ class DSTMetrics:
         return summary
 
 
-def main():
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--reference_manifest",
@@ -671,7 +683,3 @@ def main():
     metrics.prepare_samples(evaluate_ci=args.evaluate_ci)
 
     print(metrics.summary())
-
-
-if __name__ == "__main__":
-    main()
