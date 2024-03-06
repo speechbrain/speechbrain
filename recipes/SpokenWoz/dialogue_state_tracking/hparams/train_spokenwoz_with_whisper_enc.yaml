@@ -122,7 +122,7 @@ conv_stride: 3
 activation: !name:torch.nn.GELU
 
 audio_frozen: False
-semantic_encoder_frozen: False
+freeze_feature_extractor: False
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
