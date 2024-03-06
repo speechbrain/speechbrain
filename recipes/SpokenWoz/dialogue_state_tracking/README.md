@@ -4,7 +4,7 @@ This folder contains the scripts to fine-tune cascade and/or end-to-end spoken d
 
 ## Dataset
 
-The SpokenWoz dataset is available on their [official website](https://spokenwoz.github.io/SpokenWOZ-github.io/). It consists of human-human task-oriented dialogue recordings associated with Dialogue States for each agent dialogue turn. 
+The SpokenWoz dataset is available on their [official website](https://spokenwoz.github.io/SpokenWOZ-github.io/). It consists of human-human task-oriented dialogue recordings associated with Dialogue States for each agent dialogue turn.
 
 - Train and Dev data:
     - [audio_5700_train_dev.tar.gz](https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_train_dev.tar.gz) contains each dialogue's audio recording.
@@ -40,7 +40,7 @@ Run the training with:
 python run.py hparams/train_spokenwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER
 ```
 
-By default the model is trained for 10 epochs with  warmup corresponding to 20% of the training steps. For E2E models we encourage to override the default hyper-parameters with ` --number_of_epochs 20 --warmup_steps 2328` in order to increase the number of epochs while preserving the same scheduling for the first 10 epochs.  
+By default the model is trained for 10 epochs with  warmup corresponding to 20% of the training steps. For E2E models we encourage to override the default hyper-parameters with ` --number_of_epochs 20 --warmup_steps 2328` in order to increase the number of epochs while preserving the same scheduling for the first 10 epochs.
 
 ### Inference
 
@@ -60,7 +60,7 @@ Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue 
 python evaluatePredictions.py --reference_manifest PATH_TO_SPLIT_DATA --predictions PATH_TO_PREDICTIONS_CSV --dataset spokenwoz
 ```
 
-To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping strategy, add the argument `--evaluate_ci`. 
+To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping strategy, add the argument `--evaluate_ci`.
 
 ## Results
 
@@ -77,7 +77,7 @@ See [issue](https://github.com/AlibabaResearch/DAMO-ConvAI/issues/87) for misali
 |:------------------------:|:-----------:|:------------:|
 | Cascade (their ASR)      |     24.6    |     23.4     |
 | Cascade (Whisper)        |     24.3    |     23.5     |
-| Global (WavLM)           |     22.2    |     20.3     | 
+| Global (WavLM)           |     22.2    |     20.3     |
 | Global (Whisper)         |     26.5    |     24.1     |
 
 
