@@ -1,10 +1,6 @@
 """
 Data preparation for the Spoken Multiwoz dataset vocalized by the DSTC11 Speech Aware challenge.
-
-Download:
-    - https://storage.googleapis.com/gresearch/dstc11/dstc11_20221102a.html
-Prerequisite:
-    - Extract the audio of each turn with the script data/extract_audio.py
+See `dialogue_state_tracking/README.md` for instructions.
 
 Author
     Lucas Druart 2024
@@ -44,7 +40,7 @@ def prepare_multiwoz(
     Download:
         - https://storage.googleapis.com/gresearch/dstc11/dstc11_20221102a.html
     Prerequisite:
-        - Extract the audio of each turn with the script ./extract_audio.py
+        - Extract the audio of each turn with the script ./meta/dstc11_extract_audio.py
 
     Arguments
     ---------
