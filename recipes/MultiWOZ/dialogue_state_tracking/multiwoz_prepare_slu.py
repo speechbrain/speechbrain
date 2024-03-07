@@ -20,6 +20,7 @@ from speechbrain.dataio.dataio import (
     load_pkl,
     save_pkl,
     merge_csvs,
+    read_audio_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -301,9 +302,8 @@ def create_csv(
             "$", " dollars "
         )
 
-        signal, fs = torchaudio.load(wav_file)
-        signal = signal.squeeze(0)
-        duration = signal.shape[0] / SAMPLERATE
+        info = read_audio_info(wav_file)
+        duration = info.num_frames / SAMPLERATE
 
         if snt_cnt == select_n_sentences:
             break
