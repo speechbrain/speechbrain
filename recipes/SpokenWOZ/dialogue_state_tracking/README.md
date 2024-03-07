@@ -17,7 +17,7 @@ The SpokenWOZ dataset is available on their [official website](https://spokenwoz
 
 ### Dataset download & pre-processing
 
-In order to download and extract the dataset for use by this reicpe, you may use the following commands:
+In order to download and extract the dataset for use by this recipe, you may use the following commands:
 
 ```bash
 wget https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_train_dev.tar.gz
