@@ -369,7 +369,7 @@ class DialogueUnderstanding(sb.core.Brain):
 class SpokenWozUnderstanding(DialogueUnderstanding):
     def write_previous_pred(self, element_id, hyp):
         """
-        Overriding the write_previous_pred method to match the id format from SpokenWoz.
+        Overriding the write_previous_pred method to match the id format from SpokenWOZ.
         """
         # Id in the form /path/to/dialogue_Turn-N
         dialog_id = element_id.split("/")[-1].split("_")[0]

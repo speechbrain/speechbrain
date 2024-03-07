@@ -1,10 +1,10 @@
 # Spoken Dialogue State Tracking
 
-This folder contains the scripts to fine-tune cascade and/or end-to-end spoken dialogue state tracking models using the SpokenWoz dataset. This recipe considers a T5 Encoder-Decoder backbone model for the textual part and Wav2Vec or Whisper to encode the audio turns. It can be adapted to other models.
+This folder contains the scripts to fine-tune cascade and/or end-to-end spoken dialogue state tracking models using the SpokenWOZ dataset. This recipe considers a T5 Encoder-Decoder backbone model for the textual part and Wav2Vec or Whisper to encode the audio turns. It can be adapted to other models.
 
 ## Dataset
 
-The SpokenWoz dataset is available on their [official website](https://spokenwoz.github.io/SpokenWOZ-github.io/). It consists of human-human task-oriented dialogue recordings associated with Dialogue States for each agent dialogue turn.
+The SpokenWOZ dataset is available on their [official website](https://spokenwoz.github.io/SpokenWOZ-github.io/). It consists of human-human task-oriented dialogue recordings associated with Dialogue States for each agent dialogue turn.
 
 - Train and Dev data:
     - [audio_5700_train_dev.tar.gz](https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_train_dev.tar.gz) contains each dialogue's audio recording.
