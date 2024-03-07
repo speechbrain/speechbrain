@@ -6,6 +6,7 @@ Download:
     - Text annotations: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_train_dev.tar.gz
     - Audio test files: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_test.tar.gz
     - Text test annotations: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_test.tar.gz
+See `SpokenWoz/dialogue_state_tracking/README.md` for more details.
 
 Author
 ------

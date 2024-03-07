@@ -15,18 +15,20 @@ The SpokenWoz dataset is available on their [official website](https://spokenwoz
 
 ## Pre-requisites
 
-### Extra Dependencies
+### Dataset download & pre-processing
 
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+In order to download and extract the dataset for use by this reicpe, you may use the following commands:
 
+```bash
+wget https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_train_dev.tar.gz
+wget https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_train_dev.tar.gz
+wget https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_test.tar.gz
+wget https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_test.tar.gz
+tar -xzf audio_5700_train_dev.tar.gz --exclude '\._*'
+tar -xzf text_5700_train_dev.tar.gz --exclude '\._*'
+tar -xzf audio_5700_test.tar.gz --exclude '\._*'
+tar -xzf text_5700_test.tar.gz --exclude '\._*'
 ```
-cd recipes/MultiWOZ/dialogue_state_tracking/
-pip install -r extra_requirements.txt
-```
-
-### Data pre-processing
-
-You can download the dataset with the script [download_spokenwoz.sh](data/download_spokenwoz.sh). The data will be automatically downloaded in the folder in which you run the script.
 
 ## How to run
 
