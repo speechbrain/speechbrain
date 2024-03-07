@@ -39,7 +39,7 @@ Select the version you want to run with the argument `--version (cascade[_MODEL]
 Run the training with:
 
 ```
-python run.py hparams/train_spokenwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER
+python train.py hparams/train_spokenwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER
 ```
 
 By default the model is trained for 10 epochs with  warmup corresponding to 20% of the training steps. For E2E models we encourage to override the default hyper-parameters with ` --number_of_epochs 20 --warmup_steps 2328` in order to increase the number of epochs while preserving the same scheduling for the first 10 epochs.
@@ -49,7 +49,7 @@ By default the model is trained for 10 epochs with  warmup corresponding to 20% 
 Run inference with:
 
 ```
-python run.py hparams/train_spokenwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER --inference True
+python train.py hparams/train_spokenwoz[_with_whisper_enc].yaml --data_folder YOUR_DATA_FOLDER --inference True
 ```
 
 Simply add the argument `--gold_previous_state False` to perform the inference with the previously predicted dialogue states.
