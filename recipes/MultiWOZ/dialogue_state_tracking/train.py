@@ -559,7 +559,7 @@ if __name__ == "__main__":
 
     if not hparams["skip_prep"]:
         # Dataset preparation
-        from multiwoz_prepare_slu import prepare_multiwoz
+        from multiwoz_dstc11_prepare import prepare_multiwoz
 
         # multi-gpu (ddp) save data preparation
         run_on_main(
