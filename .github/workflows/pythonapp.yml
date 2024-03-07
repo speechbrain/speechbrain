@@ -43,7 +43,7 @@ jobs:
                   pip install ctc-segmentation
                   pip install k2==1.24.4.dev20240223+cpu.torch2.2.1 -f https://k2-fsa.github.io/k2/cpu.html
                   pip install protobuf
-                  pip install kaldilm==1.15
+                  pip install kaldilm==1.15.1
             - name: Consistency tests with pytest
               run: |
                   pytest tests/consistency
