@@ -178,6 +178,10 @@ class DialogueUnderstanding(sb.core.Brain):
         should_step = self.step % self.hparams.gradient_accumulation == 0
         debug_step = self.step % self.hparams.debug_print == 0
 
+        # with fp16, the loss explodes almost immediately for this model.
+        # could reinvestigate in the future and rework `fit_batch`.
+        assert self.precision == "fp32", "AMP is not supported for this model"
+
         outputs = self.compute_forward(batch, sb.Stage.TRAIN)
         loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
