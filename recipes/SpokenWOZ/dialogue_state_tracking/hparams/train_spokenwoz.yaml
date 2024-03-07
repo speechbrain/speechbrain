@@ -4,7 +4,7 @@
 # Semantic Encoder: T5 Encoder
 # Fusion method : Transformer Encoder Layer
 # Decoder: T5 Decoder
-# Training corpora : SpokenWoz (all)
+# Training corpora : SpokenWOZ (all)
 # Author : Lucas Druart 2024
 # ##########################################################################
 

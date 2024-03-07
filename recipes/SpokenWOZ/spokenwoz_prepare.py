@@ -1,12 +1,12 @@
 """
-Data preparation for the SpokenWoz dataset.
+Data preparation for the SpokenWOZ dataset.
 
 Download:
     - Audio files: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_train_dev.tar.gz
     - Text annotations: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_train_dev.tar.gz
     - Audio test files: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/audio_5700_test.tar.gz
     - Text test annotations: https://spokenwoz.oss-cn-wulanchabu.aliyuncs.com/text_5700_test.tar.gz
-See `SpokenWoz/dialogue_state_tracking/README.md` for more details.
+See `SpokenWOZ/dialogue_state_tracking/README.md` for more details.
 
 Author
 ------
@@ -77,7 +77,7 @@ def prepare_spokenwoz(
 
     Example
     -------
-    >>> data_folder = 'datasets/SpokenWoz'
+    >>> data_folder = 'datasets/SpokenWOZ'
     >>> versions = 'e2e'
     >>> tr_splits = ['train']
     >>> dev_splits = ['dev']
