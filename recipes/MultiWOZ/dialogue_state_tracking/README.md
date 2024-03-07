@@ -21,7 +21,7 @@ The spoken MultiWoz dataset, adapted from MultiWoz 2.1, is available on the [Spe
     - [test-dstc11.human-verbatim.2022-09-29.zip](https://storage.googleapis.com/gresearch/dstc11/test-dstc11.human-verbatim.2022-09-29.zip) contains all the 1000 dialogs turns spoken by crowd workers.
 - Test data DST annotations:
     - [test-dstc11.2022-1102.gold.json](https://storage.googleapis.com/gresearch/dstc11/dev-dstc11.2022-1102.gold.json) contains the gold DST annotations for the test set.
-    - The [test manifest](data/test_manifest.txt) with the DST annotations integrated in the same format as the other splits is available in the [data](data/) folder. <!-- TODO -->
+    - The [test manifest](https://www.dropbox.com/scl/fi/8232druizd7vixaqwh4kj/test_manifest.txt?rlkey=fns9snqxh8zqvew4i1qetu8hb&dl=0) with the DST annotations integrated in the same format as the other splits (see dataset preprocessing steps).
 
 ## Pre-requisites
 
@@ -34,7 +34,7 @@ cd recipes/MultiWOZ/dialogue_state_tracking/
 pip install -r extra_requirements.txt
 ```
 
-### Data pre-processing
+### Dataset download & pre-processing
 
 In order to download and extract the dataset for use by this recipe, you may use the following commands:
 
@@ -56,8 +56,7 @@ unzip dev-dstc11.human-verbatim.2022-09-29.zip
 mv dev-dstc11.human-verbatim DSTC11_dev_human
 wget https://storage.googleapis.com/gresearch/dstc11/test-dstc11-tts-verbatim.2022-09-21.zip
 wget https://storage.googleapis.com/gresearch/dstc11/test-dstc11.human-verbatim.2022-09-29.zip
-# TODO: wget ... test_manifest.txt
-# mv test-dstc11.2022-09-21.txt test_manifest.txt
+wget 'https://www.dropbox.com/scl/fi/8232druizd7vixaqwh4kj/test_manifest.txt?rlkey=fns9snqxh8zqvew4i1qetu8hb&dl=0' -O test_manifest.txt
 unzip test-dstc11-tts-verbatim.2022-09-21.zip
 mv tmp/tts DSTC11_test_tts
 rm -d tmp
