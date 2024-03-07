@@ -21,7 +21,7 @@ The spoken MultiWoz dataset, adapted from MultiWoz 2.1, is available on the [Spe
     - [test-dstc11.human-verbatim.2022-09-29.zip](https://storage.googleapis.com/gresearch/dstc11/test-dstc11.human-verbatim.2022-09-29.zip) contains all the 1000 dialogs turns spoken by crowd workers.
 - Test data DST annotations:
     - [test-dstc11.2022-1102.gold.json](https://storage.googleapis.com/gresearch/dstc11/dev-dstc11.2022-1102.gold.json) contains the gold DST annotations for the test set.
-    - The [test manifest](data/test_manifest.txt) with the DST annotations integrated in the same format as the other splits is available in the [data](data/) folder.
+    - The [test manifest](data/test_manifest.txt) with the DST annotations integrated in the same format as the other splits is available in the [data](data/) folder. <!-- TODO -->
 
 ## Pre-requisites
 
@@ -36,11 +36,39 @@ pip install -r extra_requirements.txt
 
 ### Data pre-processing
 
-You can download the dataset with the script [download_spoken_multiwoz](data/download_spoken_multiWoz.sh). The data will be automatically downloaded in the folder in which you run the script. Then extract the audio from each split with:
+In order to download and extract the dataset for use by this recipe, you may use the following commands:
+
+```bash
+cd YOUR_DATA_FOLDER
+wget https://storage.googleapis.com/gresearch/dstc11/train.tts-verbatim.2022-07-27.zip
+wget https://storage.googleapis.com/gresearch/dstc11/train.tts-verbatim.2022-07-27.txt
+mv train.tts-verbatim.2022-07-27.txt train_manifest.txt
+unzip train.tts-verbatim.2022-07-27.zip
+# Using only one of the synthetic voices
+mv train/tpa DSTC11_train_tts
+wget https://storage.googleapis.com/gresearch/dstc11/dev-dstc11.tts-verbatim.2022-07-27.zip
+wget https://storage.googleapis.com/gresearch/dstc11/dev-dstc11.human-verbatim.2022-09-29.zip
+wget https://storage.googleapis.com/gresearch/dstc11/dev-dstc11.2022-07-27.txt
+mv dev-dstc11.2022-07-27.txt dev_manifest.txt
+unzip dev-dstc11.tts-verbatim.2022-07-27.zip
+mv dev-dstc11.tts-verbatim DSTC11_dev_tts
+unzip dev-dstc11.human-verbatim.2022-09-29.zip
+mv dev-dstc11.human-verbatim DSTC11_dev_human
+wget https://storage.googleapis.com/gresearch/dstc11/test-dstc11-tts-verbatim.2022-09-21.zip
+wget https://storage.googleapis.com/gresearch/dstc11/test-dstc11.human-verbatim.2022-09-29.zip
+# TODO: wget ... test_manifest.txt
+# mv test-dstc11.2022-09-21.txt test_manifest.txt
+unzip test-dstc11-tts-verbatim.2022-09-21.zip
+mv tmp/tts DSTC11_test_tts
+rm -d tmp
+unzip test-dstc11.human-verbatim.2022-09-29.zip
+mv test-dstc11.human-verbatim DSTC11_test_human
+```
+
+Then you may extract the audio from each split with:
 
 ```
-cd data
-python extract_audio.py --data_folder YOUR_DATA_FOLDER
+python ../meta/extract_audio.py --data_folder YOUR_DATA_FOLDER
 ```
 
 ## How to run
