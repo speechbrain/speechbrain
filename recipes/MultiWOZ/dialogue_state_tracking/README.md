@@ -107,14 +107,18 @@ To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping
 
 ## Results
 
-| Gold Previous State      | Dev TTS | Dev Human | Test TTS | Test Human |
+### Gold Previous State
+
+|                          | Dev TTS | Dev Human | Test TTS | Test Human |
 |:------------------------:|:-------:|:---------:|:--------:|:----------:|
 | Cascade (WavLM)          |    58.2 |      55.0 |     57.2 |       53.5 |
 | Cascade (Whisper)        |    63.7 |      63.6 |     64.4 |       62.3 |
 | Global (WavLM)           |    56.4 |      54.0 |     53.4 |       53.0 |
 | Global (Whisper)         |    59.0 |      56.9 |     58.3 |       56.6 |
 
-| Predicted Previous State | Dev TTS | Dev Human | Test TTS | Test Human |
+### Predicted Previous State
+
+|                          | Dev TTS | Dev Human | Test TTS | Test Human |
 |:------------------------:|:-------:|:---------:|:--------:|:----------:|
 | Cascade (WavLM)          |    19.5 |      16.2 |     17.6 |       15.3 |
 | Cascade (Whisper)        |    24.0 |      21.9 |     23.1 |       21.3 |
