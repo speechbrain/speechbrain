@@ -224,7 +224,7 @@ if __name__ == "__main__":
     if not hparams["skip_prep"]:
 
         # Dataset preparation
-        from spokenwoz_prepare_slu import prepare_spokenwoz
+        from spokenwoz_prepare import prepare_spokenwoz
 
         # multi-gpu (ddp) save data preparation
         run_on_main(
