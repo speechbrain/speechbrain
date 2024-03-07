@@ -13,7 +13,6 @@ Author
 import os
 import csv
 import logging
-import torchaudio
 from tqdm.contrib import tzip
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.dataio.dataio import (
@@ -179,6 +178,8 @@ def prepare_multiwoz(
                         )
                         state = text_split[-1].strip()
 
+                        base_path = wav_path.split(".wav")[0]
+
                         # Fetching the previous state
                         if int(turn_id) > 2:
                             previous_turn_path = os.path.join(
@@ -190,23 +191,15 @@ def prepare_multiwoz(
                             previous_state = text_dict[
                                 previous_turn_path + "_current"
                             ]
-                            text_dict[
-                                wav_path.split(".wav")[0] + "_previous"
-                            ] = previous_state
+                            text_dict[base_path + "_previous"] = previous_state
                         else:
-                            text_dict[
-                                wav_path.split(".wav")[0] + "_previous"
-                            ] = ""
+                            text_dict[base_path + "_previous"] = ""
 
+                        text_dict[base_path + "_current"] = state
                         text_dict[
-                            wav_path.split(".wav")[0] + "_current"
-                        ] = state
-                        text_dict[
-                            wav_path.split(".wav")[0] + "_transcription"
+                            base_path + "_transcription"
                         ] = user_transcription
-                        text_dict[
-                            wav_path.split(".wav")[0] + "_agent"
-                        ] = agent_transcription
+                        text_dict[base_path + "_agent"] = agent_transcription
 
                     else:
                         # Extracting the text part (transcription) of the line
@@ -288,19 +281,14 @@ def create_csv(
     for wav_file in tzip(wav_lst):
         wav_file = wav_file[0]
 
-        # SpeechBrain uses "$" symbol for variable replacements in the csvs therefore replacing them in the transcriptions
         utterance_id = wav_file.replace(".wav", "")
         turn_id = int(utterance_id.split("/")[-1].split("-")[-1].split("_")[-1])
-        previous_state = text_dict[utterance_id + "_previous"].replace(
-            "$", " dollars "
+        previous_state = normalize_text(text_dict[utterance_id + "_previous"])
+        transcription = normalize_text(
+            text_dict[utterance_id + "_transcription"]
         )
-        transcription = text_dict[utterance_id + "_transcription"].replace(
-            "$", " dollars "
-        )
-        agent = text_dict[utterance_id + "_agent"].replace("$", " dollars ")
-        current_state = text_dict[utterance_id + "_current"].replace(
-            "$", " dollars "
-        )
+        agent = normalize_text(text_dict[utterance_id + "_agent"])
+        current_state = normalize_text(text_dict[utterance_id + "_current"])
 
         info = read_audio_info(wav_file)
         duration = info.num_frames / SAMPLERATE
@@ -335,6 +323,13 @@ def create_csv(
     # Final print
     msg = "%s successfully created!" % (csv_file)
     logger.info(msg)
+
+
+def normalize_text(text: str) -> str:
+    # SpeechBrain uses "$" symbol for variable replacements in the csvs
+    # therefore replacing them in the transcriptions
+    text = text.replace("$", " dollars ")
+    return text
 
 
 def skip(splits, save_folder, conf):
