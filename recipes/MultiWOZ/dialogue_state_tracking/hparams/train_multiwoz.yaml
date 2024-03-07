@@ -125,7 +125,6 @@ output_mode: state
 downsampling: True
 conv_kernel_size: 9
 conv_stride: 3
-activation: !name:torch.nn.GELU
 
 audio_frozen: False
 freeze_feature_extractor: True
