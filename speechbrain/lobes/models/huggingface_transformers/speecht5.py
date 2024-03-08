@@ -377,7 +377,7 @@ class SpeechT5ForASR(HFTransformersInterface):
                 path,
                 config=self.config,
                 local_files_only=True,
-                ignore_mismatched_sizes=False,
+                ignore_mismatched_sizes=True,
                 use_safetensors=True,
             ).cuda()
         else:
@@ -385,7 +385,7 @@ class SpeechT5ForASR(HFTransformersInterface):
                 path,
                 config=self.config,
                 local_files_only=True,
-                ignore_mismatched_sizes=False,
+                ignore_mismatched_sizes=True,
                 use_safetensors=True,
             )
 
