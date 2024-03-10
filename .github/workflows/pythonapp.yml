@@ -21,22 +21,29 @@ jobs:
               uses: actions/setup-python@v1
               with:
                   python-version: ${{ matrix.python-version }}
-            - name: Install libsndfile
+            - name: Install sox
               run: |
                   sudo apt-get update
-                  sudo apt-get install -y libsndfile1
-            - name: Install ffmpeg
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y ffmpeg
+                  sudo apt install sox libsox-dev
+            # Installing only SoX for now due to FFmpeg issues on the CI server with Torchaudio 2.1.
+            # FFmpeg works fine on all other machines. We'll switch back when the CI server is fixed.
+            #- name: Install ffmpeg
+            #  run: |
+            #      sudo apt-get update
+            #      sudo apt-get install -y ffmpeg
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
               run: |
                   sudo apt-get update
+                  # up to k2 compatible torch version
+                  pip install torch==2.1.2 torchaudio==2.1.2
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install ctc-segmentation
+                  pip install k2==1.24.4.dev20231220+cpu.torch2.1.2 -f https://k2-fsa.github.io/k2/cpu.html
+                  pip install protobuf
+                  pip install kaldilm==1.15
             - name: Consistency tests with pytest
               run: |
                   pytest tests/consistency

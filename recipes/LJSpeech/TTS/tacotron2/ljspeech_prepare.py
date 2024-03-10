@@ -1,1 +1,1 @@
-../ljspeech_prepare.py
+../../ljspeech_prepare.py

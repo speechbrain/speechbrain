@@ -1,0 +1,46 @@
+# ############################################################################
+# Model: K-means
+# Training: LJSpeech
+# Authors:  Duret, Jarod 2023
+# ############################################################################
+
+
+###################################
+# Experiment Parameters and setup #
+###################################
+seed: 4321
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+no_cuda: False
+output_folder: !ref ./results/kmeans/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+#################################
+# Data files and pre-processing #
+#################################
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+splits: [train, valid]
+split_ratio: [90, 10]
+skip_prep: False
+sample_pct: 0.2
+sample_rate: 16000
+
+# URL for the HuggingFace model we want to load
+encoder_hub: facebook/hubert-base-ls960
+encoder_folder: !ref <save_folder>/pretrained_models
+layer: 6
+
+####################
+# Model Parameters #
+####################
+num_clusters: 100
+init: k-means++
+max_iter: 100
+batch_size: 10000
+tol: 0.0
+max_no_improvement: 100
+n_init: 20
+reassignment_ratio: 0.0
+out_kmeans_model_path: !ref <save_folder>/kmeans.ckpt

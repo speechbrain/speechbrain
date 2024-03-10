@@ -64,7 +64,7 @@ import traceback
 from cmd import Cmd
 from argparse import ArgumentParser
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.pretrained.interfaces import GraphemeToPhoneme
+from speechbrain.inference.text import GraphemeToPhoneme
 from tqdm.auto import tqdm
 
 MSG_MODEL_NOT_FOUND = "Model path not found"
@@ -77,7 +77,7 @@ def transcribe_text(g2p, text):
 
     Arguments
     ---------
-    g2p: speechbrain.pretrained.interfaces.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GrpahemeToPhoneme
         a pretrained G2P model instance
 
     text: str
@@ -91,7 +91,7 @@ def transcribe_file(g2p, text_file_name, output_file_name=None, batch_size=64):
     """
     Transcribes a file with one example per line
 
-    g2p: speechbrain.pretrained.interfaces.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GrpahemeToPhoneme
         a pretrained G2P model instance
 
     text_file_name: str
@@ -146,7 +146,7 @@ def transcribe_stream(g2p, text_file, output_file, batch_size=64, total=None):
 
     Arguments
     ---------
-    g2p: speechbrain.pretrained.interfaces.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GrpahemeToPhoneme
         a pretrained G2P model instance
     text_file: file
         a file object from which text samples will be read
@@ -208,7 +208,7 @@ class InteractiveG2P(Cmd):
 
     Arguments
     ---------
-    model: speechbrain.pretrained.interfaces.GrpahemeToPhoneme
+    model: speechbrain.inference.text.GrpahemeToPhoneme
         a pretrained G2P model instance
     """
 
@@ -299,7 +299,7 @@ def load_g2p_checkpoint(
 
     Returns
     -------
-    g2p: speechbrain.pretrained.interfaces.GraphemeToPhoneme
+    g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model, initialized from a checkpoint
     """
     with open(hparams_file_name) as hparams_file:

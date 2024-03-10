@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import sys
-import torch
 import logging
 import torchaudio
 import speechbrain as sb
@@ -36,15 +35,9 @@ class LID(sb.Brain):
         """
         wavs, lens = wavs
 
-        # Add augmentation if specified. In this version of augmentation, we
-        # concatenate the original and the augment batches in a single bigger
-        # batch. This is more memory-demanding, but helps to improve the
-        # performance. Change it if you run OOM.
-        if stage == sb.Stage.TRAIN:
-            wavs_noise = self.modules.env_corrupt(wavs, lens)
-            wavs = torch.cat([wavs, wavs_noise], dim=0)
-            lens = torch.cat([lens, lens], dim=0)
-            wavs = self.hparams.augmentation(wavs, lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -103,11 +96,10 @@ class LID(sb.Brain):
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
-            targets = torch.cat([targets, targets], dim=0)
-            lens = torch.cat([lens, lens], dim=0)
-
-            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-                self.hparams.lr_annealing.on_batch_end(self.optimizer)
+            if hasattr(self.hparams, "wav_augment"):
+                targets = self.hparams.wav_augment.replicate_labels(targets)
+                if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+                    self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         loss = self.hparams.compute_cost(predictions, targets)
 
@@ -279,13 +271,16 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    # Data preparation for augmentation
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # Create dataset objects "train", "dev", and "test" and language_encoder
     datasets, language_encoder = dataio_prep(hparams)
 
     # Fetch and laod pretrained modules
     sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Initialize the Brain object to prepare for mask training.
     lid_brain = LID(

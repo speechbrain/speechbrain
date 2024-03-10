@@ -23,7 +23,7 @@ csv_test_synth: !ref <output_folder>/test-synth-type=decoupled.csv
 csv_test_real: !ref <output_folder>/test-real-type=decoupled.csv
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 10
 batch_size: 128
 lr: 0.0003

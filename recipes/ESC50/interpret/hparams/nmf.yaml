@@ -40,13 +40,11 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 100
 batch_size: 2
 lr: 0.0002
 sample_rate: 44100
-
-device: "cpu"
 
 shuffle: True
 dataloader_options:

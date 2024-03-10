@@ -1,14 +1,26 @@
+"""
+LibriTTS data preparation
+
+Authors
+ * Pradnya Kandarkar 2022
+"""
+
 from speechbrain.utils.data_utils import get_all_files, download_file
-from speechbrain.processing.speech_augmentation import Resample
 import json
 import os
 import shutil
 import random
 import logging
 import torchaudio
+import torch
+from tqdm import tqdm
+from speechbrain.inference.txt import GraphemeToPhoneme
+from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 logger = logging.getLogger(__name__)
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def prepare_libritts(
@@ -18,11 +30,17 @@ def prepare_libritts(
     save_json_test,
     sample_rate,
     split_ratio=[80, 10, 10],
-    libritts_subsets=["train-clean-100"],
+    libritts_subsets=None,
+    train_split=None,
+    valid_split=None,
+    test_split=None,
+    seed=1234,
+    model_name=None,
 ):
     """
     Prepares the json files for the LibriTTS dataset.
     Downloads the dataset if it is not found in the `data_folder` as expected.
+
     Arguments
     ---------
     data_folder : str
@@ -41,23 +59,82 @@ def prepare_libritts(
     sample_rate : int
         The sample rate to be used for the dataset
     libritts_subsets: list
-        List of librispeech subsets to use (e.g., dev-clean, train-clean-100, ...).
-    Example
-    -------
-    >>> data_folder = '/path/to/LibriTTS'
-    >>> prepare_libritts(data_folder, 'train.json', 'valid.json', 'test.json', 2050)
+        List of librispeech subsets to use (e.g., dev-clean, train-clean-100, ...) for the experiment.
+        This parameter will be ignored if explicit data splits are provided.
+        Explicit data splits parameters: "train_split", "valid_split", "test_split"
+    train_split : list
+        List of librispeech subsets to use (e.g.,train-clean-100, train-clean-360) for the experiment training stage.
+    valid_split : list
+        List of librispeech subsets to use (e.g., dev-clean) for the experiment validation stage.
+    test_split : list
+        List of librispeech subsets to use (e.g., test-clean) for the experiment testing stage.
+    seed : int
+        Seed value
+    model_name : str
+        Model name (used to prepare additional model specific data)
     """
+
+    # Setting the seed value
+    random.seed(seed)
 
     # Checks if this phase is already done (if so, skips it)
     if skip(save_json_train, save_json_valid, save_json_test):
         logger.info("Preparation completed in previous run, skipping.")
         return
 
+    logger.info(
+        f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
+    )
+
+    # If specific splits are provided, creates data manifest files accordingly
+    if train_split:
+        wav_list = prepare_split(data_folder, train_split)
+        create_json(wav_list, save_json_train, sample_rate, model_name)
+    if valid_split:
+        wav_list = prepare_split(data_folder, valid_split)
+        create_json(wav_list, save_json_valid, sample_rate, model_name)
+    if test_split:
+        wav_list = prepare_split(data_folder, test_split)
+        create_json(wav_list, save_json_test, sample_rate, model_name)
+
+    if skip(save_json_train, save_json_valid, save_json_test):
+        logger.info("Preparation completed.")
+        return
+
+    # If specific splits are not provided, and a list of subsets if provided, creates train, valid, test splits
+    # Creates data manifest files according to the data splits
+    if libritts_subsets:
+        wav_list = prepare_split(data_folder, libritts_subsets)
+        # Random split the signal list into train, valid, and test sets.
+        data_split = split_sets(wav_list, split_ratio)
+        # Creating json files
+        create_json(data_split["train"], save_json_train, sample_rate)
+        create_json(data_split["valid"], save_json_valid, sample_rate)
+        create_json(data_split["test"], save_json_test, sample_rate)
+
+
+def prepare_split(data_folder, split_list):
+    """
+    Processes the provided list of LibriTTS subsets and creates a list of all the .wav files present in the subsets.
+    Downloads the LibriTTS subsets as required.
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the LibriTTS dataset is stored
+    split_list : list
+        List of librispeech subsets to process (e.g., dev-clean, train-clean-100, ...)
+
+    Returns
+    -------
+    wav_list : list
+        List of all .wav files to be processed
+    """
     extension = [".wav"]  # The expected extension for audio files
     wav_list = list()  # Stores all audio file paths for the dataset
 
-    # For every subset of the dataset, if it doesn't exist, downloads it and sets flag to resample the subset
-    for subset_name in libritts_subsets:
+    # For every subset of the dataset, if it doesn't exist, downloads it
+    for subset_name in split_list:
 
         subset_folder = os.path.join(data_folder, subset_name)
         subset_archive = os.path.join(subset_folder, subset_name + ".tar.gz")
@@ -84,19 +161,10 @@ def prepare_libritts(
         # Collects all files matching the provided extension
         wav_list.extend(get_all_files(subset_folder, match_and=extension))
 
-    logger.info(
-        f"Creating {save_json_train}, {save_json_valid}, and {save_json_test}"
-    )
-
-    # Random split the signal list into train, valid, and test sets.
-    data_split = split_sets(wav_list, split_ratio)
-    # Creating json files
-    create_json(data_split["train"], save_json_train, sample_rate)
-    create_json(data_split["valid"], save_json_valid, sample_rate)
-    create_json(data_split["test"], save_json_test, sample_rate)
+    return wav_list
 
 
-def create_json(wav_list, json_file, sample_rate):
+def create_json(wav_list, json_file, sample_rate, model_name=None):
     """
     Creates the json file given a list of wav files.
     Arguments
@@ -107,39 +175,48 @@ def create_json(wav_list, json_file, sample_rate):
         The path of the output json file
     sample_rate : int
         The sample rate to be used for the dataset
+    model_name : str
+        Model name (used to prepare additional model specific data)
     """
 
+    # Downloads and initializes the G2P model to compute the phonemes if data is being prepared for Tacotron2 experiments
+    if model_name == "Tacotron2":
+        logger.info(
+            "Computing phonemes for labels using SpeechBrain G2P. This may take a while."
+        )
+        g2p = GraphemeToPhoneme.from_hparams(
+            "speechbrain/soundchoice-g2p", run_opts={"device": DEVICE}
+        )
+
     json_dict = {}
-    # Creates a resampler object with orig_freq set to LibriTTS sample rate (24KHz) and  new_freq set to SAMPLERATE
-    resampler = Resample(orig_freq=24000, new_freq=sample_rate)
 
     # Processes all the wav files in the list
-    for wav_file in wav_list:
+    for wav_file in tqdm(wav_list):
 
         # Reads the signal
         signal, sig_sr = torchaudio.load(wav_file)
-        signal = signal.squeeze(0)
-
+        duration = signal.shape[1] / sig_sr
         # Manipulates path to get relative path and uttid
         path_parts = wav_file.split(os.path.sep)
         uttid, _ = os.path.splitext(path_parts[-1])
         relative_path = os.path.join("{data_root}", *path_parts[-6:])
 
-        # Gets the path for the  text files and extracts the input text
-        original_text_path = os.path.join(
-            "/", *path_parts[:-1], uttid + ".original.txt"
+        # Gets the path for the text files and extracts the input text
+        normalized_text_path = os.path.join(
+            "/", *path_parts[:-1], uttid + ".normalized.txt"
         )
-        with open(original_text_path) as f:
-            original_text = f.read()
-            if original_text.__contains__("{"):
-                original_text = original_text.replace("{", "")
-            if original_text.__contains__("}"):
-                original_text = original_text.replace("}", "")
+        with open(normalized_text_path) as f:
+            normalized_text = f.read()
+            if normalized_text.__contains__("{"):
+                normalized_text = normalized_text.replace("{", "")
+            if normalized_text.__contains__("}"):
+                normalized_text = normalized_text.replace("}", "")
 
         # Resamples the audio file if required
         if sig_sr != sample_rate:
-            signal = signal.unsqueeze(0)
-            resampled_signal = resampler(signal)
+            resampled_signal = torchaudio.functional.resample(
+                signal, sig_sr, sample_rate
+            )
             os.unlink(wav_file)
             torchaudio.save(wav_file, resampled_signal, sample_rate=sample_rate)
 
@@ -148,11 +225,19 @@ def create_json(wav_list, json_file, sample_rate):
 
         # Creates an entry for the utterance
         json_dict[uttid] = {
+            "uttid": uttid,
             "wav": relative_path,
+            "duration": duration,
             "spk_id": spk_id,
-            "label": original_text,
+            "label": normalized_text,
             "segment": True if "train" in json_file else False,
         }
+
+        # Characters are used for Tacotron2, phonemes may be needed for other models
+        if model_name != "Tacotron2":
+            # Computes phoneme labels using SpeechBrain G2P and keeps the punctuations
+            phonemes = _g2p_keep_punctuations(g2p, normalized_text)
+            json_dict[uttid].update({"label_phoneme": phonemes})
 
     # Writes the dictionary to the json file
     with open(json_file, mode="w") as json_f:
@@ -215,9 +300,3 @@ def check_folders(*folders):
         if not os.path.exists(folder):
             return False
     return True
-
-
-if __name__ == "__main__":
-    prepare_libritts(
-        "libritts_data", "train.json", "valid.json", "test.json", 16000
-    )

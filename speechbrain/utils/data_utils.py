@@ -4,6 +4,8 @@ Authors
  * Mirco Ravanelli 2020
  * Aku Rouhe 2020
  * Samuele Cornell 2020
+ * Adel Moumen 2024
+ * Pierre Champion 2023
 """
 
 import math
@@ -18,6 +20,7 @@ import tqdm
 import pathlib
 import speechbrain as sb
 from numbers import Number
+import gzip
 
 
 def undo_padding(batch, lengths):
@@ -351,7 +354,18 @@ def download_file(
                 if dest_unpack is None:
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
-                shutil.unpack_archive(dest, dest_unpack)
+                # shutil unpack_archive does not work with tar.gz files
+                if (
+                    source.endswith(".tar.gz")
+                    or source.endswith(".tgz")
+                    or source.endswith(".gz")
+                ):
+                    out = dest.replace(".gz", "")
+                    with gzip.open(dest, "rb") as f_in:
+                        with open(out, "wb") as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+                else:
+                    shutil.unpack_archive(dest, dest_unpack)
                 if write_permissions:
                     set_writing_permissions(dest_unpack)
 
@@ -376,7 +390,7 @@ def set_writing_permissions(folder_path):
 
 
 def pad_right_to(
-    tensor: torch.Tensor, target_shape: (list, tuple), mode="constant", value=0,
+    tensor: torch.Tensor, target_shape, mode="constant", value=0,
 ):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target
@@ -596,10 +610,10 @@ def split_path(path):
             # Interpret as path to file in current directory.
             return "./", src
 
-    if isinstance(path, sb.pretrained.fetching.FetchSource):
+    if isinstance(path, sb.utils.fetching.FetchSource):
         fetch_from, fetch_path = path
         source, filename = split(fetch_path)
-        return sb.pretrained.fetching.FetchSource(fetch_from, source), filename
+        return sb.utils.fetching.FetchSource(fetch_from, source), filename
     else:
         return split(path)
 

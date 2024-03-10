@@ -9,7 +9,6 @@ import torch
 import collections
 import itertools
 import logging
-import warnings
 import speechbrain as sb
 from speechbrain.utils.checkpoints import (
     mark_as_saver,
@@ -613,7 +612,7 @@ class CategoricalEncoder:
         logger.debug(f"Loaded categorical encoding from {path}")
 
     @mark_as_loader
-    def load_if_possible(self, path, end_of_epoch=False, device=None):
+    def load_if_possible(self, path, end_of_epoch=False):
         """Loads if possible, returns a bool indicating if loaded or not.
 
         Arguments
@@ -644,7 +643,6 @@ class CategoricalEncoder:
         ['a', 'b', 'c', 'd']
         """
         del end_of_epoch  # Unused here.
-        del device  # Unused here.
 
         try:
             self.load(path)
@@ -719,7 +717,7 @@ class CategoricalEncoder:
                     f"but {real_len} categories found"
                 )
         else:
-            warnings.warn(
+            logger.debug(
                 f"{self.__class__.__name__}.expect_len was never called: "
                 f"assuming category count of {len(self)} to be correct! "
                 "Sanity check your encoder using `.expect_len`. "
@@ -1172,3 +1170,25 @@ class CTCTextEncoder(TextEncoder):
         super()._set_extras(extras)
         if "blank_label" in extras:
             self.blank_label = extras["blank_label"]
+
+
+def load_text_encoder_tokens(model_path):
+    """Loads the encoder tokens from a pretrained model.
+
+    This method is useful when you used with a pretrained HF model.
+    It will load the tokens in the yaml and then you will be able
+    to instantiate any CTCBaseSearcher directly in the YAML file.
+
+    Arguments
+    ---------
+    model_path : str, Path
+        Path to the pretrained model.
+
+    Returns
+    -------
+    list
+        List of tokens.
+    """
+    label_encoder = TextEncoder()
+    label_encoder.load(model_path)
+    return list(label_encoder.lab2ind.keys())

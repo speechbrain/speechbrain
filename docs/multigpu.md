@@ -27,7 +27,7 @@ Using SpeechBrain, this would look like:
 
 ```bash
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=4 experiment.py hyperparams.yaml --distributed_launch
+torchrun --nproc_per_node=4 experiment.py hyperparams.yaml
 ```
 
 ... where `nproc_per_node` is the the number of processes to spawn/GPUs to use.
@@ -45,27 +45,25 @@ While DDP is more efficient than `DataParallel`, it is somewhat prone to exhibit
 
 Let's start with a simple example where a user is able to connect to each node directly. Consider that we have 2 nodes with 2 GPUs each (for a total of 4 GPUs).
 
-We use `torch.distributed.launch` once on each machine, with the following parameters:
+We use `torchrun` once on each machine, with the following parameters:
 
 - `--nproc_per_node=2` means we will spawn 2 processes per node, which equates to 2 GPUs per nodes.
 - `--nnodes=2` means we will be using two nodes in total.
 - `--node_rank=0` and `--node_rank=1` refer to the rank/"index" we are attributing to the node/machine.
 - `--master_addr`/`--master_port` define the IP address and the port of the "master" machine. In this case, we're arbitrarily choosing the first machine to be the "master" of everyone else (the 2nd machine in our case). Note that `5555` might be taken by a different process if you are unlucky or if you would run multiple different training scripts on that node, so you may need to choose a different free port.
 
-We also need to pass `--distributed_launch` as a parameter **to our script** (`experiment.py`) as opposed to `torch.distributed.launch`. This is so we tell SpeechBrain to enable DDP.
-
 Hence, we get:
 
 ```bash
 # Machine 1
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
+torchrun --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml
 ```
 
 ```bash
 # Machine 2
 cd recipes/<dataset>/<task>/
-python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml --distributed_launch
+torchrun --nproc_per_node=2 --nnodes=2 --node_rank=1 --master_addr machine_1_address --master_port 5555 experiment.py hyperparams.yaml
 ```
 
 In this setup:
@@ -77,7 +75,7 @@ In this setup:
     - Subprocess #1: `local_rank`=0, `rank`=2
     - Subprocess #2: `local_rank`=1, `rank`=3
 
-In practice, using `torch.distributed.launch` ensures that the right environment variables are set (`local_rank` and `rank`), so you don't have to bother with it.
+In practice, using `torchrun` ensures that the right environment variables are set (`LOCAL_RANK` and `RANK`), so you don't have to bother with it.
 
 #### Multi-node setup with Slurm
 
@@ -118,8 +116,8 @@ conda activate super_cool_sb_env
 LISTNODES=`scontrol show hostname $SLURM_JOB_NODELIST`
 MASTER=`echo $LISTNODES | cut -d" " -f1`
 
-# here --nproc_per_node=4 because we want torch.distributed to spawn 4 processes (4 GPUs). Then we give the total amount of nodes requested (--nnodes) and then --node_rank that is necessary to dissociate the node that we are calling this from.
-python -m torch.distributed.launch --nproc_per_node=4 --nnodes=${SLURM_JOB_NUM_NODES} --node_rank=${SLURM_NODEID} --master_addr=${MASTER} --master_port=5555 train.py hparams/myrecipe.yaml
+# here --nproc_per_node=4 because we want torchrun to spawn 4 processes (4 GPUs). Then we give the total amount of nodes requested (--nnodes) and then --node_rank that is necessary to dissociate the node that we are calling this from.
+torchrun --nproc_per_node=4 --nnodes=${SLURM_JOB_NUM_NODES} --node_rank=${SLURM_NODEID} --master_addr=${MASTER} --master_port=5555 train.py hparams/myrecipe.yaml
 ```
 
 ## (DEPRECATED) Single-node multi-GPU training using Data Parallel

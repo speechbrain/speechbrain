@@ -153,7 +153,7 @@ def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
     if run_opts is None:
         run_opts = {}
     else:
-        hparams["rank"] = run_opts["local_rank"]
+        hparams["rank"] = os.environ["RANK"]
     run_opts["device"] = device
 
     ctc_brain = SamplingBrain(
@@ -186,13 +186,13 @@ def ddp_recipes(rank, size, backend="gloo"):
     """ Initialize the distributed environment. """
     os.environ["WORLD_SIZE"] = f"{size}"
     os.environ["RANK"] = f"{rank}"
+    os.environ["LOCAL_RANK"] = f"{rank}"
     os.environ["MASTER_ADDR"] = "127.0.0.1"
     os.environ["MASTER_PORT"] = "29500"
 
     run_opts = dict()
     run_opts["distributed_launch"] = True
     run_opts["distributed_backend"] = backend
-    run_opts["local_rank"] = rank
 
     sb.utils.distributed.ddp_init_group(run_opts)
 

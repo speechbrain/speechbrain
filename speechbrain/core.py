@@ -35,12 +35,13 @@ from torch.utils.data import IterableDataset
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from hyperpyyaml import resolve_references
-from speechbrain.utils.distributed import if_main_process
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
+from speechbrain.utils.profiling import prepare_profiler
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -50,6 +51,83 @@ torch._C._jit_set_profiling_mode(False)
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 7
+
+# Arguments passed via the run opts dictionary
+run_opt_defaults = {
+    "test_only": False,
+    "debug": False,
+    "debug_batches": 2,
+    "debug_epochs": 2,
+    "debug_persistently": False,
+    "device": "cpu",
+    "data_parallel_backend": False,
+    "distributed_backend": "nccl",
+    "find_unused_parameters": False,
+    "jit": False,
+    "jit_module_keys": None,
+    "compile": False,
+    "compile_module_keys": None,
+    "compile_mode": "reduce-overhead",
+    "compile_using_fullgraph": False,
+    "compile_using_dynamic_shape_tracing": False,
+    "precision": "fp32",
+    "eval_precision": "fp32",
+    "auto_mix_prec": False,
+    "bfloat16_mix_prec": False,
+    "max_grad_norm": 5.0,
+    "skip_nonfinite_grads": False,
+    "nonfinite_patience": 3,
+    "noprogressbar": False,
+    "ckpt_interval_minutes": 0,
+    "ckpt_interval_steps": 0,
+    "grad_accumulation_factor": 1,
+    "optimizer_step_limit": None,
+    "tqdm_colored_bar": False,
+    "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
+    "remove_vector_weight_decay": False,
+    "profile_training": False,
+    "profile_warmup": 5,
+    "profile_steps": 5,
+}
+
+
+@dataclass
+class AMPConfig:
+    """Configuration for automatic mixed precision (AMP).
+
+    Arguments
+    ---------
+    dtype : torch.dtype
+        The dtype to use for AMP.
+    """
+
+    dtype: torch.dtype
+
+    @classmethod
+    def from_name(self, name):
+        """Create an AMPConfig from a string name.
+
+        Arguments
+        ---------
+        name : str
+            The name of the AMPConfig to create.  Must be one of `fp32`,
+            `fp16`, or `bf16`.
+
+        Returns
+        -------
+        AMPConfig
+            The AMPConfig corresponding to the name.
+        """
+        if name is None or name == "fp32":
+            return AMPConfig(torch.float32)
+        elif name == "fp16":
+            return AMPConfig(torch.float16)
+        elif name == "bf16":
+            return AMPConfig(torch.bfloat16)
+        else:
+            raise ValueError(
+                f"Specified autocast mode ({name}) incorrect, expected one of `fp32`, `fp16`, `bf16`."
+            )
 
 
 def create_experiment_directory(
@@ -208,13 +286,6 @@ def parse_arguments(arg_list=None):
         type=str,
         help="A file storing the configuration options for logging",
     )
-    # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument(
-        "--local_rank",
-        "--local-rank",  # alias required for PyTorch 2.x
-        type=int,
-        help="Rank on local machine",
-    )
     parser.add_argument(
         "--device",
         type=str,
@@ -226,13 +297,6 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="This flag enables training with data_parallel.",
-    )
-    parser.add_argument(
-        "--distributed_launch",
-        default=False,
-        action="store_true",
-        help="This flag enables training with DDP. Assumes script run with "
-        "`torch.distributed.launch`",
     )
     parser.add_argument(
         "--distributed_backend",
@@ -296,6 +360,18 @@ def parse_arguments(arg_list=None):
         help="Use dynamic shape tracing for compilation",
     )
     parser.add_argument(
+        "--precision",
+        type=str,
+        help="This flag enables training with automatic mixed-precision."
+        "It can be set to `fp32`, `fp16`, or `bf16`.",
+    )
+    parser.add_argument(
+        "--eval_precision",
+        type=str,
+        help="This flag enables inference with automatic mixed-precision."
+        "It can be set to `fp32`, `fp16`, or `bf16`.",
+    )
+    parser.add_argument(
         "--auto_mix_prec",
         default=None,
         action="store_true",
@@ -312,6 +388,12 @@ def parse_arguments(arg_list=None):
         type=float,
         help="Gradient norm will be clipped to this value, "
         "enter negative value to disable.",
+    )
+    parser.add_argument(
+        "--skip_nonfinite_grads",
+        default=False,
+        action="store_true",
+        help="Set the gradients to None if they are nonfinite (inf or nan).",
     )
     parser.add_argument(
         "--nonfinite_patience",
@@ -359,6 +441,27 @@ def parse_arguments(arg_list=None):
         action="store_true",
         help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
     )
+    parser.add_argument(
+        "--profile_training",
+        default=False,
+        action="store_true",
+        help=(
+            "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
+            "Please ensure you have installed the TensorBoard profiler with 'pip install torch_tb_profiler'."
+        ),
+    )
+    parser.add_argument(
+        "--profile_warmup",
+        default=5,
+        type=int,
+        help="Number of warmup steps before logging for the profiler.",
+    )
+    parser.add_argument(
+        "--profile_steps",
+        default=5,
+        type=int,
+        help="Number of steps of logging for the profiler",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -376,17 +479,8 @@ def parse_arguments(arg_list=None):
         if torch.cuda.device_count() == 0:
             raise ValueError("You must have at least 1 GPU.")
 
-    # For DDP, the device args must equal to local_rank used by
-    # torch.distributed.launch. If run_opts["local_rank"] exists,
-    # use os.environ["LOCAL_RANK"]
-    local_rank = None
-    if "local_rank" in run_opts:
-        local_rank = run_opts["local_rank"]
-    else:
-        if "LOCAL_RANK" in os.environ and os.environ["LOCAL_RANK"] != "":
-            local_rank = int(os.environ["LOCAL_RANK"])
-
-    # force device arg to be the same as local_rank from torch.distributed.lunch
+    # force device arg to be the same as local_rank from torchrun
+    local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is not None and "cuda" in run_opts["device"]:
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
 
@@ -491,12 +585,24 @@ class Brain:
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
             The location for performing computations.
+        precision (str)
+            One of ``fp32``, ``fp16``, ``bf16``.
+        eval_precision (str)
+            One of ``fp32``, ``fp16``, ``bf16``.
         auto_mix_prec (bool)
-            If ``True``, automatic mixed-precision is used.
-            Activate it only with cuda.
+            If ``True``, automatic mixed-precision (fp16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
+        bfloat16_mix_prec (bool)
+            If ``True``, automatic mixed-precision (bf16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
         max_grad_norm (float)
             Default implementation of ``fit_batch()`` uses
             ``clip_grad_norm_`` with this value. Default: ``5``.
+        skip_nonfinite_grads (bool)
+            If ``True``, sets gradients to zero if they are non-finite
+            (e.g., NaN, Inf). Default: ``False``.
         nonfinite_patience (int)
             Number of times to ignore non-finite losses before stopping.
             Default: ``3``.
@@ -517,9 +623,6 @@ class Brain:
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
-    profiler : torch.profiler.profile
-        Context manager for profiling and benchmarking of training/inference steps.
-        Default: ``None`` (skip profiling).
 
     Example
     -------
@@ -541,48 +644,10 @@ class Brain:
         hparams=None,
         run_opts=None,
         checkpointer=None,
-        profiler=None,
     ):
+        self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        self.profiler = profiler
-
-        # Arguments passed via the run opts dictionary
-        run_opt_defaults = {
-            "test_only": False,
-            "debug": False,
-            "debug_batches": 2,
-            "debug_epochs": 2,
-            "debug_persistently": False,
-            "device": "cpu",
-            "data_parallel_backend": False,
-            "distributed_launch": False,
-            "distributed_backend": "nccl",
-            "find_unused_parameters": False,
-            "jit": False,
-            "jit_module_keys": None,
-            "compile": False,
-            "compile_module_keys": None,
-            "compile_mode": "reduce-overhead",
-            "compile_using_fullgraph": False,
-            "compile_using_dynamic_shape_tracing": False,
-            "auto_mix_prec": False,
-            "bfloat16_mix_prec": False,
-            "max_grad_norm": 5.0,
-            "nonfinite_patience": 3,
-            "noprogressbar": False,
-            "ckpt_interval_minutes": 0,
-            "ckpt_interval_steps": 0,
-            "grad_accumulation_factor": 1,
-            "optimizer_step_limit": None,
-            "tqdm_colored_bar": False,
-            "tqdm_barcolor": {
-                "train": "GREEN",
-                "valid": "MAGENTA",
-                "test": "CYAN",
-            },
-            "remove_vector_weight_decay": False,
-        }
 
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -621,30 +686,25 @@ class Brain:
                 + str(PYTHON_VERSION_MINOR)
             )
 
+        # Assume `torchrun` was used if `RANK` and `LOCAL_RANK` are set
+        self.distributed_launch = (
+            os.environ.get("RANK") is not None
+            and os.environ.get("LOCAL_RANK") is not None
+        )
+
         if self.data_parallel_backend and self.distributed_launch:
             raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
-                "--data_parallel_backend=True"
+                "--data_parallel_backend=True\n"
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
-                "--distributed_backend=nccl"
-            )
-
-        if self.distributed_launch and self.ckpt_interval_minutes > 0:
-            logger.warning(
-                "The --ckpt_interval_minutes option saves only on the main "
-                "process to avoid race conditions. If you need to save an "
-                "intra-epoch checkpoint on multiple processes (e.g. FSDP), "
-                "consider switching to intervals based on # of steps with the "
-                "argument --ckpt_interval_steps."
+                "torchrun [args] experiment.py hyperparams.yaml"
             )
 
         if self.ckpt_interval_minutes > 0 and self.ckpt_interval_steps > 0:
             sys.exit(
                 "The options `ckpt_interval_minutes` and `ckpt_interval_steps` "
-                "are mutually exclusive to prevent race conditions. "
+                "are mutually exclusive. "
                 "Please keep only one active per experiment run."
             )
 
@@ -690,11 +750,53 @@ class Brain:
         # to have your_sampler.set_epoch() called on each epoch.
         self.train_sampler = None
 
-        # Automatic mixed precision init
         if self.auto_mix_prec:
-            self.scaler = torch.cuda.amp.GradScaler()
-            if self.checkpointer is not None:
-                self.checkpointer.add_recoverable("scaler", self.scaler)
+            logger.warning(
+                "The option `--auto_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=fp16` instead."
+            )
+            self.precision = "fp16"
+
+        if self.bfloat16_mix_prec:
+            logger.warning(
+                "The option `--bfloat16_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=bf16` instead."
+            )
+            self.precision = "bf16"
+
+        if self.device == "cpu" and (
+            self.precision == "fp16" or self.eval_precision == "fp16"
+        ):
+            raise ValueError(
+                "The option `--precision` or `--eval_precision` is set to fp16. "
+                "This option is not yet supported on CPU. "
+                "Please use `--precision=bf16` or `--eval_precision=bf16` instead "
+                "to enable mixed precision on CPU."
+            )
+
+        gradscaler_enabled = self.precision == "fp16" and "cuda" in self.device
+        if self.skip_nonfinite_grads and gradscaler_enabled:
+            logger.warning(
+                "The option `skip_nonfinite_grads` will be ignored "
+                "because GradScaler is enabled and will automatically "
+                "skip nonfinite gradients."
+            )
+
+        logger.info(
+            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
+        )
+        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+
+        self.use_amp = False
+        if self.device == "cpu" and self.precision == "bf16":
+            self.use_amp = True
+        elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
+            self.use_amp = True
+
+        if self.use_amp and self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "scaler", self.scaler, optional_load=True
+            )
 
         # List parameter count for the user
         total_params = sum(
@@ -713,9 +815,7 @@ class Brain:
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
-                        "python -m torch.distributed.launch [args]\n\t"
-                        "experiment.py hyperparams.yaml "
-                        "--distributed_launch=True --distributed_backend=nccl"
+                        "torchrun [args] experiment.py hyperparams.yaml"
                     )
                 else:
                     logger.warning(
@@ -730,7 +830,6 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
-        self.valid_step = 0
         self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
@@ -740,6 +839,17 @@ class Brain:
         # Force default color for tqdm progrressbar
         if not self.tqdm_colored_bar:
             self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
+
+        # Profiler setup
+        self.profiler = None
+        if self.profile_training:
+            logger.info("Pytorch profiler has been activated.")
+            self.tot_prof_steps = (self.profile_steps + self.profile_warmup) - 1
+            self.profiler = prepare_profiler(
+                self.profile_warmup,
+                self.profile_steps,
+                self.hparams.output_folder,
+            )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -968,9 +1078,7 @@ class Brain:
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
@@ -992,6 +1100,8 @@ class Brain:
 
             self.optimizer = self.opt_class(all_params)
 
+            self.optimizers_dict = {"opt_class": self.optimizer}
+
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
@@ -1002,8 +1112,11 @@ class Brain:
         Setting gradients to None should save the memory, e.g.
         during ``evaluate()`` and thus larger batch might be used.
         """
-        if hasattr(self, "optimizer"):
-            self.optimizer.zero_grad(set_to_none)
+        if self.optimizers_dict is not None:
+            for opt in self.freeze_optimizers(self.optimizers_dict).values():
+                opt.zero_grad(set_to_none=set_to_none)
+        elif self.opt_class is not None:
+            self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
@@ -1024,9 +1137,7 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key,
-                min_key=min_key,
-                device=torch.device(self.device),
+                max_key=max_key, min_key=min_key,
             )
 
     def fit_batch(self, batch):
@@ -1037,6 +1148,7 @@ class Brain:
 
         * ``compute_forward()``
         * ``compute_objectives()``
+        * ``optimizers_step()``
 
         Also depends on having optimizers passed at initialization.
 
@@ -1050,62 +1162,144 @@ class Brain:
         -------
         detached loss
         """
-        valid_loss = False
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
 
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with torch.autocast(device_type=torch.device(self.device).type):
-                outputs = self.compute_forward(batch, Stage.TRAIN)
-
-            # Losses are excluded from mixed precision to avoid instabilities
-            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-
-            if self.check_gradients(loss):
-                valid_loss = True
-                self.valid_step += 1
-
-            should_step = self.valid_step % self.grad_accumulation_factor == 0
-            if valid_loss:
-                with self.no_sync(not should_step):
-                    self.scaler.scale(
-                        loss / self.grad_accumulation_factor
-                    ).backward()
-                if should_step:
-                    self.scaler.unscale_(self.optimizer)
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                    self.zero_grad()
-                    self.optimizer_step += 1
-        else:
-            if self.bfloat16_mix_prec:
+        with self.no_sync(not should_step):
+            if self.use_amp:
                 with torch.autocast(
-                    device_type=torch.device(self.device).type,
-                    dtype=torch.bfloat16,
+                    dtype=amp.dtype, device_type=torch.device(self.device).type,
                 ):
-                    outputs = self.compute_forward(batch, Stage.TRAIN)
-                    loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
             else:
-                outputs = self.compute_forward(batch, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
 
-            if self.check_gradients(loss):
-                valid_loss = True
-                self.valid_step += 1
+            scaled_loss = self.scaler.scale(
+                loss / self.grad_accumulation_factor
+            )
+            self.check_loss_isfinite(scaled_loss)
+            scaled_loss.backward()
 
-            should_step = self.valid_step % self.grad_accumulation_factor == 0
-            if valid_loss:
-                with self.no_sync(not should_step):
-                    (loss / self.grad_accumulation_factor).backward()
-                if should_step:
-                    self.optimizer.step()
-                    self.zero_grad()
-                    self.optimizer_step += 1
+        if should_step:
+            self.optimizers_step()
 
         self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
 
+    def check_loss_isfinite(self, loss):
+        """Check if the loss is finite.
+
+        If the loss is not finite, log a helpful message and increment the `nonfinite_count`.
+        If the `nonfinite_count` exceeds the `--nonfinite_patience` threshold, stop the training
+        and raise an error.
+
+        This check is particularly useful when the loss becomes NaN or inf, while the
+        parameters and gradients remain finite. It helps prevent getting stuck in an
+        infinite loop during training.
+
+        Arguments
+        ---------
+        loss : tensor
+            The loss tensor after ``backward()`` has been called but
+            before the optimizers ``step()``.
+        """
+        if not torch.isfinite(loss):
+            self.nonfinite_count += 1
+
+            # Check if patience is exhausted
+            if self.nonfinite_count > self.nonfinite_patience:
+                raise ValueError(
+                    "Loss is not finite and patience is exhausted. "
+                    "To debug, wrap `fit()` with "
+                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
+                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
+                )
+            else:
+                logger.warning("Patience not yet exhausted.")
+
+    def check_gradients(self):
+        """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
+        for param in self.modules.parameters():
+            if param.requires_grad and param.grad is not None:
+                if not torch.isfinite(param.grad).all():
+                    param.grad = None
+                    logger.warning(
+                        f"Gradients {param.name} contain NaN or Inf. Setting to None."
+                    )
+
+    def freeze_optimizers(self, optimizers):
+        """By default, this method returns the passed optimizers.
+        Override this method if you want to freeze some optimizers
+        during training. To do so, return a of active optimizers.
+        """
+        return optimizers
+
+    def optimizers_step(self):
+        """Performs a step of gradient descent on the optimizers. This method is called every
+        ``grad_accumulation_factor`` steps."""
+        # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
+        if self.optimizers_dict is not None:
+            valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        elif self.opt_class is not None:
+            # if valid_optimizers is not defined which could happen if a user is using an old
+            # init_optimizers() method, then we assume that the only valid optimizer is
+            # self.optimizer (which is the default behavior).
+            valid_optimizers = {"optimizer": self.optimizer}
+        else:
+            # Note: in some cases you might want to only compute gradients statistics and
+            # you do not need to call the optimizers.step() method. In this case, you can
+            # simply return from this method and skip the rest of the code.
+            return
+
+        # 2. unscale the gradients of the valid optimizers
+        for opt in valid_optimizers.values():
+            self.scaler.unscale_(opt)
+
+        # 3. clip gradients
+        # We are clipping this way because clipping on self.modules.parameters()
+        # can leads to NaN/Inf gradients norm as doing the concatenation
+        # of all parameters in a single vector can lead to overflow/underflow.
+        for opt in valid_optimizers.values():
+            torch.nn.utils.clip_grad_norm_(
+                opt.param_groups[0]["params"], self.max_grad_norm
+            )
+
+        # Note: no need to activate this flag if you are in fp16
+        # since GradScaler is automatically handling the nonfinite gradients
+        if not self.scaler.is_enabled() and self.skip_nonfinite_grads:
+            self.check_gradients()
+
+        # 4. step the valid optimizers
+        # If the scaler is disable, it simply calls optimizer.step()
+        for opt in valid_optimizers.values():
+            self.scaler.step(opt)
+
+        self.scaler.update()
+
+        for opt in valid_optimizers.values():
+            opt.zero_grad(set_to_none=True)
+
+        self.optimizer_step += 1
+
+    def on_fit_batch_start(self, batch, should_step):
+        """Called at the beginning of ``fit_batch()``.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
+        pass
+
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """Called after ``fit_batch()``, meant for calculating and logging metrics.
+        """Called after ``fit_batch()``.
 
         Arguments
         ---------
@@ -1121,51 +1315,7 @@ class Brain:
         """
         pass
 
-    def check_gradients(self, loss):
-        """Check if gradients are finite and not too large.
-        Automatically clips large gradients.
-
-        Arguments
-        ---------
-        loss : tensor
-            The loss tensor after ``backward()`` has been called but
-            before the optimizers ``step()``.
-
-        Returns
-        -------
-        bool
-            Whether or not the optimizer step should be carried out.
-        """
-        if not torch.isfinite(loss):
-            self.nonfinite_count += 1
-
-            # Print helpful debug info
-            logger.warning(f"Loss is {loss}.")
-            for p in self.modules.parameters():
-                if not torch.isfinite(p).all():
-                    logger.warning("Parameter is not finite: " + str(p))
-
-            # Check if patience is exhausted
-            if self.nonfinite_count > self.nonfinite_patience:
-                raise ValueError(
-                    "Loss is not finite and patience is exhausted. "
-                    "To debug, wrap `fit()` with "
-                    "autograd's `detect_anomaly()`, e.g.\n\nwith "
-                    "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
-                )
-            else:
-                logger.warning(
-                    "Patience not yet exhausted, ignoring this batch."
-                )
-                return False
-
-        if self.max_grad_norm > 0.0:
-            torch.nn.utils.clip_grad_norm_(
-                (p for p in self.modules.parameters()), self.max_grad_norm
-            )
-
-        return True
-
+    @torch.no_grad()
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
 
@@ -1187,9 +1337,16 @@ class Brain:
         -------
         detached loss
         """
-
-        out = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(out, batch, stage=stage)
+        amp = AMPConfig.from_name(self.eval_precision)
+        if self.use_amp:
+            with torch.autocast(
+                dtype=amp.dtype, device_type=torch.device(self.device).type,
+            ):
+                out = self.compute_forward(batch, stage=stage)
+                loss = self.compute_objectives(out, batch, stage=stage)
+        else:
+            out = self.compute_forward(batch, stage=stage)
+            loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def _fit_train(self, train_set, epoch, enable):
@@ -1216,6 +1373,8 @@ class Brain:
             disable=not enable,
             colour=self.tqdm_barcolor["train"],
         ) as t:
+            if self.profiler is not None:
+                self.profiler.start()
             for batch in t:
                 if self._optimizer_step_limit_exceeded:
                     logger.info("Train iteration limit exceeded")
@@ -1228,10 +1387,14 @@ class Brain:
                 )
                 t.set_postfix(train_loss=self.avg_train_loss)
 
-                # Profile only if desired (steps allow the profiler to know when all is warmed up)
                 if self.profiler is not None:
-                    if self.profiler.record_steps:
-                        self.profiler.step()
+                    self.profiler.step()
+                    if self.profiler.step_num > self.tot_prof_steps:
+                        logger.info(
+                            "The profiler finished, training is stopped."
+                        )
+                        self.profiler.stop()
+                        quit()
 
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
@@ -1250,7 +1413,6 @@ class Brain:
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
-        self.valid_step = 0
 
     def _should_save_intra_epoch_ckpt(self, last_ckpt_time, steps_since_ckpt):
         """Determines if an intra-epoch checkpoint should be saved.
@@ -1260,15 +1422,28 @@ class Brain:
         if self.checkpointer is None:
             return False
 
-        # Check if we've run for the requested amount of time
-        if 0 < self.ckpt_interval_minutes * 60.0 < time.time() - last_ckpt_time:
-            # Only save on the main process to avoid race conditions
-            return if_main_process()
+        # Return early if mid-epoch checkpoints are disabled to avoid sync
+        if self.ckpt_interval_minutes <= 0 and self.ckpt_interval_steps <= 0:
+            return False
 
-        # Save after requested # of steps. This option is the only one that
-        # allows saving on multiple processes. The logic for whether saving
-        # is run only on the main process is handled by the checkpointer.
-        return 0 < self.ckpt_interval_steps <= steps_since_ckpt
+        # Check if we've run for the requested amount of time
+        elapsed_minutes = (time.time() - last_ckpt_time) / 60.0
+        decision = 0 < self.ckpt_interval_minutes < elapsed_minutes
+
+        # Save after requested # of steps
+        decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
+
+        # If the program is not distributed, just return
+        if not torch.distributed.is_initialized():
+            return decision
+
+        # Otherwise, broadcast decision to all processes from main (rank 0)
+        # This solves synchronization issues where main gets a different
+        # timing result than the other processes.
+        else:
+            broadcast_list = [decision]
+            torch.distributed.broadcast_object_list(broadcast_list, src=0)
+            return broadcast_list[0]
 
     def _fit_valid(self, valid_set, epoch, enable):
         # Validation stage
@@ -1286,11 +1461,6 @@ class Brain:
                     self.step += 1
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)
                     avg_valid_loss = self.update_average(loss, avg_valid_loss)
-
-                    # Profile only if desired (steps allow the profiler to know when all is warmed up)
-                    if self.profiler is not None:
-                        if self.profiler.record_steps:
-                            self.profiler.step()
 
                     # Debug mode only runs a few batches
                     if self.debug and self.step == self.debug_batches:
@@ -1562,11 +1732,6 @@ class Brain:
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
 
-                # Profile only if desired (steps allow the profiler to know when all is warmed up)
-                if self.profiler is not None:
-                    if self.profiler.record_steps:
-                        self.profiler.step()
-
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
                     break
@@ -1614,16 +1779,16 @@ class Brain:
             for module in self.modules.values():
                 if not hasattr(module, "require_backward_grad_sync"):
                     # if not using DDP
-                    break
+                    continue
                 old_values_list.append(module.require_backward_grad_sync)
                 module.require_backward_grad_sync = False
             yield
-            for module, old_value in zip(
-                self.modules.values(), old_values_list
-            ):
+            i = 0
+            for module in self.modules.values():
                 if not hasattr(module, "require_backward_grad_sync"):
-                    break
-                module.require_backward_grad_sync = old_value
+                    continue
+                module.require_backward_grad_sync = old_values_list[i]
+                i += 1
         else:
             yield
 
@@ -1638,9 +1803,8 @@ class Brain:
             w.write(yaml.dump(save_dict))
 
     @sb.utils.checkpoints.mark_as_loader
-    def _recover(self, path, end_of_epoch, device):
+    def _recover(self, path, end_of_epoch):
         del end_of_epoch
-        del device
         with open(path) as f:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]

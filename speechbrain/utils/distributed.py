@@ -3,13 +3,14 @@
 Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
+ * Peter Plantinga 2023
 """
+import datetime
 import os
 import torch
-import logging
 from functools import wraps
 
-logger = logging.getLogger(__name__)
+MAIN_PROC_ONLY = 0
 
 
 def run_on_main(
@@ -56,27 +57,17 @@ def run_on_main(
     if post_kwargs is None:
         post_kwargs = {}
 
-    if if_main_process():
-        # Main comes here
-        try:
-            func(*args, **kwargs)
-        finally:
-            ddp_barrier()
-    else:
-        # Others go here
-        ddp_barrier()
+    main_process_only(func)(*args, **kwargs)
+    ddp_barrier()
+
     if post_func is not None:
         if run_post_on_main:
             # Just run on every process without any barrier.
             post_func(*post_args, **post_kwargs)
-        elif not if_main_process():
-            # Others go here
-            try:
-                post_func(*post_args, **post_kwargs)
-            finally:
-                ddp_barrier()
         else:
-            # But main comes here
+            # Do the opposite of `run_on_main`
+            if not if_main_process():
+                post_func(*post_args, **post_kwargs)
             ddp_barrier()
 
 
@@ -105,8 +96,14 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
+        global MAIN_PROC_ONLY
+        MAIN_PROC_ONLY += 1
         if if_main_process():
-            return function(*args, **kwargs)
+            result = function(*args, **kwargs)
+        else:
+            result = None
+        MAIN_PROC_ONLY -= 1
+        return result
 
     return main_proc_wrapped_func
 
@@ -116,8 +113,37 @@ def ddp_barrier():
     torch.distributed.barrier() will block processes until the whole
     group enters this function.
     """
-    if torch.distributed.is_initialized():
+    # Check if we're in a single-threaded section, skip barrier
+    if MAIN_PROC_ONLY >= 1:
+        return
+    elif torch.distributed.is_initialized():
         torch.distributed.barrier()
+
+
+def ddp_broadcast(communication_object, src=0):
+    """In DDP mode, this function will broadcast an object to all
+    processes.
+
+    Arguments
+    ---------
+    communication_object: Any
+        The object to be communicated to all processes. Must be picklable.
+        See docs for ``torch.distributed.broadcast_object_list()``
+    src: int
+        The rank which holds the object to be communicated.
+
+    Returns
+    -------
+    The communication_object passed on rank src.
+    """
+    if MAIN_PROC_ONLY >= 1 or not torch.distributed.is_initialized():
+        return communication_object
+
+    # Wrapping object in a list is required for preventing
+    # a copy of the object, maintaining a pointer instead
+    communication_list = [communication_object]
+    torch.distributed.broadcast_object_list(communication_list, src=src)
+    return communication_list[0]
 
 
 def ddp_init_group(run_opts):
@@ -133,69 +159,44 @@ def ddp_init_group(run_opts):
     run_opts: list
         A list of arguments to parse, most often from `sys.argv[1:]`.
     """
-    if run_opts["distributed_launch"]:
-        if "local_rank" not in run_opts:
-            raise ValueError(
-                "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.launch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch "
-                "--distributed_backend=nccl"
-            )
-        else:
-            if not run_opts["distributed_backend"] == "gloo":
-                if run_opts["local_rank"] + 1 > torch.cuda.device_count():
-                    raise ValueError(
-                        "Killing process " + str() + "\n"
-                        "Not enough GPUs available!"
-                    )
-        if "RANK" in os.environ is None or os.environ["RANK"] == "":
-            raise ValueError(
-                "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.launch [args]\n\t"
-                "experiment.py hyperparams.yaml --distributed_launch "
-                "--distributed_backend=nccl"
-            )
-        rank = int(os.environ["RANK"])
+    rank = os.environ.get("RANK")
+    local_rank = os.environ.get("LOCAL_RANK")
+    if local_rank is None or rank is None:
+        return
 
-        if run_opts["distributed_backend"] == "nccl":
-            if not torch.distributed.is_nccl_available():
-                raise ValueError("NCCL is not supported in your machine.")
-        elif run_opts["distributed_backend"] == "gloo":
-            if not torch.distributed.is_gloo_available():
-                raise ValueError("GLOO is not supported in your machine.")
-        elif run_opts["distributed_backend"] == "mpi":
-            if not torch.distributed.is_mpi_available():
-                raise ValueError("MPI is not supported in your machine.")
-        else:
-            logger.info(
-                run_opts["distributed_backend"]
-                + " communcation protocol doesn't exist."
-            )
+    local_rank = int(local_rank)
+    if not run_opts["distributed_backend"] == "gloo":
+        if local_rank + 1 > torch.cuda.device_count():
             raise ValueError(
-                run_opts["distributed_backend"]
-                + " communcation protocol doesn't exist."
+                "Killing process " + str() + "\n" "Not enough GPUs available!"
             )
-        # rank arg is used to set the right rank of the current process for ddp.
-        # if you have 2 servers with 2 gpu:
-        # server1:
-        #   GPU0: local_rank=device=0, rank=0
-        #   GPU1: local_rank=device=1, rank=1
-        # server2:
-        #   GPU0: local_rank=device=0, rank=2
-        #   GPU1: local_rank=device=1, rank=3
-        torch.distributed.init_process_group(
-            backend=run_opts["distributed_backend"], rank=rank
-        )
+    rank = int(rank)
+
+    if run_opts["distributed_backend"] == "nccl":
+        if not torch.distributed.is_nccl_available():
+            raise ValueError("NCCL is not supported in your machine.")
+    elif run_opts["distributed_backend"] == "gloo":
+        if not torch.distributed.is_gloo_available():
+            raise ValueError("GLOO is not supported in your machine.")
+    elif run_opts["distributed_backend"] == "mpi":
+        if not torch.distributed.is_mpi_available():
+            raise ValueError("MPI is not supported in your machine.")
     else:
-        logger.info(
-            "distributed_launch flag is disabled, "
-            "this experiment will be executed without DDP."
+        raise ValueError(
+            run_opts["distributed_backend"]
+            + " communcation protocol doesn't exist."
         )
-        if "local_rank" in run_opts and run_opts["local_rank"] > 0:
-            raise ValueError(
-                "DDP is disabled, local_rank must not be set.\n"
-                "For DDP training, please use --distributed_launch. "
-                "For example:\n\tpython -m torch.distributed.launch "
-                "experiment.py hyperparams.yaml "
-                "--distributed_launch --distributed_backend=nccl"
-            )
+
+    # rank arg is used to set the right rank of the current process for ddp.
+    # if you have 2 servers with 2 gpu:
+    # server1:
+    #   GPU0: local_rank=device=0, rank=0
+    #   GPU1: local_rank=device=1, rank=1
+    # server2:
+    #   GPU0: local_rank=device=0, rank=2
+    #   GPU1: local_rank=device=1, rank=3
+    torch.distributed.init_process_group(
+        backend=run_opts["distributed_backend"],
+        rank=rank,
+        timeout=datetime.timedelta(seconds=7200),
+    )

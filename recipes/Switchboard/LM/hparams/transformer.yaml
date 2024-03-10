@@ -36,11 +36,11 @@ test_csv: !ref <save_folder>/test.csv
 # (e.g. /path/to/2000_unigram.model)
 tokenizer_file: !PLACEHOLDER
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 100
 batch_size: 164
 lr: 1
-accu_steps: 2 # Gradient accumulation to simulate large batch training
+grad_accumulation_factor: 2 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options

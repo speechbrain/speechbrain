@@ -82,17 +82,20 @@ class ST(sb.core.Brain):
             mt_pred = self.modules.seq_lin(mt_pred)
             mt_p_seq = self.hparams.log_softmax(mt_pred)
 
-        # compute outputs
+        # Compute outputs
         hyps = None
-        if stage == sb.Stage.TRAIN:
-            hyps = None
-        elif stage == sb.Stage.VALID:
-            hyps = None
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch % self.hparams.valid_search_interval == 0:
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        is_valid_search = (
+            stage == sb.Stage.VALID
+            and current_epoch % self.hparams.valid_search_interval == 0
+        )
+        is_test_search = stage == sb.Stage.TEST
+        if is_valid_search:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+        elif is_test_search:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps
 
@@ -202,28 +205,16 @@ class ST(sb.core.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
+    def on_fit_batch_start(self, batch, should_step):
+        """Gets called at the beginning of each fit_batch."""
         # check if we need to switch optimizer
         # if so change the optimizer from Adam to SGD
         self.check_and_reset_optimizer()
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
 
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-            # anneal lr every update
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -251,7 +242,7 @@ class ST(sb.core.Brain):
                 stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
             current_epoch = self.hparams.epoch_counter.current
 
             # report different epoch stages according current stage
@@ -279,7 +270,7 @@ class ST(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:
@@ -338,9 +329,7 @@ class ST(sb.core.Brain):
                 if "momentum" not in group:
                     return
 
-                self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device)
-                )
+                self.checkpointer.recover_if_possible()
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """perform checkpoint averge if needed"""
@@ -350,7 +339,7 @@ class ST(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -603,7 +592,7 @@ if __name__ == "__main__":
 
     # transcription/translation tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)

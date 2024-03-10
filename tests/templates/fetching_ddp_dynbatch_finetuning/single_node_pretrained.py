@@ -10,8 +10,8 @@ Authors:
 import logging
 import speechbrain as sb
 from copy import deepcopy
-from speechbrain.pretrained import EncoderDecoderASR
-from speechbrain.pretrained.fetching import FetchFrom, FetchSource
+from speechbrain.inference.ASR import EncoderDecoderASR
+from speechbrain.utils.fetching import FetchFrom, FetchSource
 
 
 logger = logging.getLogger(__name__)

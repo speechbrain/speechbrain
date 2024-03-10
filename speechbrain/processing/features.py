@@ -43,6 +43,7 @@ from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
 )
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.filter_analysis import FilterProperties
 
 
 logger = logging.getLogger(__name__)
@@ -176,6 +177,17 @@ class STFT(torch.nn.Module):
             stft = stft.transpose(2, 1)
 
         return stft
+
+    def get_filter_properties(self) -> FilterProperties:
+        if not self.center:
+            raise ValueError(
+                "ValueProperties cannot model a non-centered STFT, as it "
+                "assumes either centering or causality"
+            )
+
+        return FilterProperties(
+            window_size=self.win_length, stride=self.hop_length
+        )
 
 
 class ISTFT(torch.nn.Module):
@@ -1045,11 +1057,13 @@ class InputNormalization(torch.nn.Module):
                             self.weight = self.avg_factor
 
                         self.spk_dict_mean[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_mean[spk_id]
+                            (1 - self.weight)
+                            * self.spk_dict_mean[spk_id].to(current_mean)
                             + self.weight * current_mean
                         )
                         self.spk_dict_std[spk_id] = (
-                            (1 - self.weight) * self.spk_dict_std[spk_id]
+                            (1 - self.weight)
+                            * self.spk_dict_std[spk_id].to(current_std)
                             + self.weight * current_std
                         )
 
@@ -1081,26 +1095,26 @@ class InputNormalization(torch.nn.Module):
                         self.glob_mean = current_mean
                         self.glob_std = current_std
 
-                    elif epoch < self.update_until_epoch:
+                    elif epoch is None or epoch < self.update_until_epoch:
                         if self.avg_factor is None:
                             self.weight = 1 / (self.count + 1)
                         else:
                             self.weight = self.avg_factor
 
-                        self.glob_mean = (
-                            1 - self.weight
-                        ) * self.glob_mean + self.weight * current_mean
+                        self.glob_mean = (1 - self.weight) * self.glob_mean.to(
+                            current_mean
+                        ) + self.weight * current_mean
 
-                        self.glob_std = (
-                            1 - self.weight
-                        ) * self.glob_std + self.weight * current_std
+                        self.glob_std = (1 - self.weight) * self.glob_std.to(
+                            current_std
+                        ) + self.weight * current_std
 
                     self.glob_mean.detach()
                     self.glob_std.detach()
 
                     self.count = self.count + 1
 
-                x = (x - self.glob_mean.data) / (self.glob_std.data)
+                x = (x - self.glob_mean.data.to(x)) / (self.glob_std.data.to(x))
 
         return x
 
@@ -1162,16 +1176,16 @@ class InputNormalization(torch.nn.Module):
         # Loading the spk_dict_mean in the right device
         self.spk_dict_mean = {}
         for spk in state["spk_dict_mean"]:
-            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk].to(
-                self.device_inp
-            )
+            self.spk_dict_mean[spk] = state["spk_dict_mean"][spk]  # .to(
+            #    self.device_inp
+            # )
 
         # Loading the spk_dict_std in the right device
         self.spk_dict_std = {}
         for spk in state["spk_dict_std"]:
-            self.spk_dict_std[spk] = state["spk_dict_std"][spk].to(
-                self.device_inp
-            )
+            self.spk_dict_std[spk] = state["spk_dict_std"][spk]  # .to(
+            #    self.device_inp
+            # )
 
         self.spk_dict_count = state["spk_dict_count"]
 
@@ -1201,17 +1215,16 @@ class InputNormalization(torch.nn.Module):
 
     @mark_as_transfer
     @mark_as_loader
-    def _load(self, path, end_of_epoch=False, device=None):
+    def _load(self, path, end_of_epoch=False):
         """Load statistic dictionary.
 
         Arguments
         ---------
         path : str
             The path of the statistic dictionary
-        device : str, None
-            Passed to torch.load(..., map_location=device)
         """
         del end_of_epoch  # Unused here.
+        device = "cpu"
         stats = torch.load(path, map_location=device)
         self._load_statistics_dict(stats)
 

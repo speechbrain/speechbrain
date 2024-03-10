@@ -2,9 +2,9 @@
 
 Authors
  * Peter Plantinga 2020
+ * Jarod Duret 2023
 """
 import logging
-import ruamel.yaml
 import torch
 import os
 from speechbrain.utils.distributed import main_process_only, if_main_process
@@ -182,22 +182,46 @@ class TensorboardLogger(TrainLogger):
 
 
 class WandBLogger(TrainLogger):
-    """Logger for wandb. To be used the same way as TrainLogger. Handles nested dicts as well.
-    An example on how to use this can be found in recipes/Voicebank/MTL/CoopNet/"""
+    """
+    Logger for WandB (Weights & Biases). This logger is designed to be used in the same way as TrainLogger
+    and supports handling nested dictionaries as well.
 
-    def __init__(self, *args, **kwargs):
+    Arguments
+    ---------
+    initializer: callable
+        A callable function that initializes the WandB run.
+        For more information on the parameters that can be passed to the initializer, refer to
+        the documentation: https://docs.wandb.ai/ref/python/init
+    *args: tuple
+        Positional arguments to be passed to the initializer function.
+    **kwargs: dict
+        Keyword arguments to be passed to the initializer function.
+
+    Example
+    -------
+    To initialize the logger, use the following pattern in hparams.yaml:
+
+    ```
+    train_logger: !new:speechbrain.utils.train_logger.WandBLogger
+        initializer: !name:wandb.init
+            entity: speechbrain
+            project: sb_project
+            name: sb_run
+            reinit: True
+            resume: False
+            dir: !ref <output_folder>/wandb
+    ```
+
+    NOTE
+    ----
+    If there is an issue with the WandB Logger initialization, it raises an exception.
+    """
+
+    def __init__(self, initializer, *args, **kwargs):
         try:
-            yaml_file = kwargs.pop("yaml_config")
-            with open(yaml_file, "r") as yaml_stream:
-                # Read yaml with ruamel to ignore bangs
-                config_dict = ruamel.yaml.YAML().load(yaml_stream)
-
-            # Run initializer only on main
             self.run = None
             if if_main_process():
-                self.run = kwargs.pop("initializer", None)(
-                    *args, **kwargs, config=config_dict
-                )
+                self.run = initializer(*args, **kwargs)
         except Exception as e:
             raise e("There was an issue with the WandB Logger initialization")
 

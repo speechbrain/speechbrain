@@ -1,5 +1,6 @@
 ## ################################
 # Model: downsampling + wavlm + DNN + CTC
+# Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: SpecAugment
 # Authors: Sung-Lin Yeh 2021
 # Salah Zaiem 2023
@@ -32,19 +33,18 @@ test_csv:
    - !ref <output_folder>/test-clean.csv
    - !ref <output_folder>/test-other.csv
 
-# Training parameters
+####################### Training Parameters ####################################
+
 number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 
 #Downsampling parameters
 downsampling_factor: 3
 upsampling: True
-use_language_modelling: False
-ngram_lm_path: /path/to/lm # Download from https://www.openslr.org/11/
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
@@ -62,7 +62,8 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
-# Model parameters
+####################### Model Parameters #######################################
+
 activation: !name:torch.nn.LeakyReLU
 dnn_layers: 2
 dnn_neurons: 1024
@@ -71,8 +72,6 @@ freeze_wav2vec: True
 # Outputs
 ctc_neurons: 58 # Twice bigger than the  number of characters for upsampling
 output_neurons: 29  # Characters size, index(blank/eos/bos) = 0
-
-# Decoding parameters
 blank_index: 0
 
 #
@@ -81,9 +80,6 @@ blank_index: 0
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-   sample_rate: !ref <sample_rate>
-   speeds: [95, 100, 105]
 
 enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    input_shape: [null, null, 1024]
@@ -91,7 +87,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    dnn_blocks: !ref <dnn_layers>
    dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze_feature_extractor: True
@@ -153,7 +149,57 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
    annealing_factor: 0.9
    patient: 0
 
+############################## Decoding ########################################
+
+test_beam_search:
+   beam_size: 200
+   topk: 1
+   blank_index: !ref <blank_index>
+   space_token: ' ' # make sure this is the same as the one used in the tokenizer
+   beam_prune_logp: -10.0
+   token_prune_min_logp: -5
+   prune_history: True
+   alpha: 0.5
+   beta: 1.5
+   # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+   # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+   # If you don't want to use an LM, comment it out or set it to null
+   kenlm_model_path: null
+
 label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
+
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+   drop_freq_low: 0
+   drop_freq_high: 1
+   drop_freq_count_low: 1
+   drop_freq_count_high: 3
+   drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+   drop_length_low: 1000
+   drop_length_high: 2000
+   drop_count_low: 1
+   drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   concat_original: True
+   min_augmentations: 4
+   max_augmentations: 4
+   augment_prob: 1.0
+   augmentations: [
+      !ref <speed_perturb>,
+      !ref <drop_freq>,
+      !ref <drop_chunk>]
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>

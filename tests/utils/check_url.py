@@ -65,7 +65,7 @@ def get_all_urls(file_lst, avoid_urls):
     for path in file_lst:
         if ".gz" in path:
             continue
-
+        print(path)
         urls = get_url(path)
 
         for url in urls:

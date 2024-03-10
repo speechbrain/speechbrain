@@ -1,4 +1,4 @@
-"""Transformer implementaion in the SpeechBrain style.
+"""Transformer implementation in the SpeechBrain style.
 Authors
 * Jianyuan Zhong 2020
 * Samuele Cornell 2021
@@ -126,7 +126,7 @@ class TransformerInterface(nn.Module):
         self.decoder_kdim = decoder_kdim
         self.decoder_vdim = decoder_vdim
 
-        assert attention_type in ["regularMHA", "RelPosMHAXL"]
+        assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
         assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
@@ -242,6 +242,10 @@ class PositionalEncoding(nn.Module):
 
     def __init__(self, input_size, max_len=2500):
         super().__init__()
+        if input_size % 2 != 0:
+            raise ValueError(
+                f"Cannot use sin/cos positional encoding with odd channels (got channels={input_size})"
+            )
         self.max_len = max_len
         pe = torch.zeros(self.max_len, input_size, requires_grad=False)
         positions = torch.arange(0, self.max_len).unsqueeze(1).float()
@@ -337,6 +341,14 @@ class TransformerEncoderLayer(nn.Module):
             self.self_att = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
             )
+        elif attention_type == "hypermixing":
+            self.self_att = sb.nnet.hypermixing.HyperMixing(
+                input_output_dim=d_model,
+                hypernet_size=d_ffn,
+                tied=False,
+                num_heads=nhead,
+                fix_tm_hidden_size=False,
+            )
 
         if ffn_type == "regularFFN":
             self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
@@ -351,14 +363,14 @@ class TransformerEncoderLayer(nn.Module):
                     in_channels=d_model,
                     out_channels=d_ffn,
                     kernel_size=ffn_cnn_kernel_size_list[0],
-                    padding="same",
+                    padding="causal" if causal else "same",
                 ),
                 nn.ReLU(),
                 Conv1d(
                     in_channels=d_ffn,
                     out_channels=d_model,
                     kernel_size=ffn_cnn_kernel_size_list[1],
-                    padding="same",
+                    padding="causal" if causal else "same",
                 ),
             )
 
@@ -518,6 +530,7 @@ class TransformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
+        dynchunktrain_config=None,
     ):
         """
         Arguments
@@ -529,6 +542,10 @@ class TransformerEncoder(nn.Module):
         src_key_padding_mask : tensor
             The mask for the src keys per batch (optional).
         """
+        assert (
+            dynchunktrain_config is None
+        ), "Dynamic Chunk Training unsupported for this encoder"
+
         output = src
         if self.layerdrop_prob > 0.0:
             keep_probs = self.rng.random(len(self.layers))
@@ -858,6 +875,7 @@ class NormalizedEmbedding(nn.Module):
 
 def get_key_padding_mask(padded_input, pad_idx):
     """Creates a binary mask to prevent attention to padded locations.
+    We suggest using get_mask_from_lengths instead of this function.
     Arguments
     ----------
     padded_input: int
@@ -912,3 +930,32 @@ def get_lookahead_mask(padded_input):
         .masked_fill(mask == 1, float(0.0))
     )
     return mask.detach().to(padded_input.device)
+
+
+def get_mask_from_lengths(lengths, max_len=None):
+    """Creates a binary mask from sequence lengths
+    Arguments
+    ---------
+    lengths: torch.Tensor
+        A tensor of sequence lengths
+    max_len: int (Optional)
+        Maximum sequence length, defaults to None.
+    Returns
+    -------
+    mask: torch.Tensor
+        the mask where padded elements are set to True.
+        Then one can use tensor.masked_fill_(mask, 0) for the masking.
+    Example
+    -------
+    >>> lengths = torch.tensor([3, 2, 4])
+    >>> get_mask_from_lengths(lengths)
+    tensor([[False, False, False,  True],
+            [False, False,  True,  True],
+            [False, False, False, False]])
+    """
+    if max_len is None:
+        max_len = torch.max(lengths).item()
+    seq_range = torch.arange(
+        max_len, device=lengths.device, dtype=lengths.dtype
+    )
+    return ~(seq_range.unsqueeze(0) < lengths.unsqueeze(1))

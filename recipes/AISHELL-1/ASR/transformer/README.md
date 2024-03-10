@@ -6,9 +6,8 @@ This folder contains recipes for tokenization and speech recognition with [AISHE
 
 ```
 cd ../../Tokenizer
-python train.py hparams/train_transformer_tokenizer_bpe5000.yaml --data_folder=/localscratch/aishell/
+python train.py hparams/train_transformer_tokenizer_bpe5000.yaml --data_folder=/path/to/aishell
 ```
-If not present in the specified data_folder, the dataset will be automatically downloaded there.
 This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not
 specify a different tokenizer in the speech recognition recipe.
 
@@ -17,7 +16,7 @@ specify a different tokenizer in the speech recognition recipe.
 python train.py hparams/train_ASR_transformer.yaml --data_folder=/localscratch/aishell/
 ```
 
-Make sure to have "transformers" installed if you use the wav2vec2 recipe (see extra-requirements.txt)
+Make sure to have `transformers` installed if you use the wav2vec2 recipe (see extra-requirements.txt)
 
 # Performance summary
 Results are reported in terms of Character Error Rate (CER).

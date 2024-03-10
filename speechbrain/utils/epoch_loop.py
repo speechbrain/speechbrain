@@ -55,12 +55,11 @@ class EpochCounter:
             fo.write(str(self.current))
 
     @mark_as_loader
-    def _recover(self, path, end_of_epoch=True, device=None):
+    def _recover(self, path, end_of_epoch=True):
         # NOTE: end_of_epoch = True by default so that when
         #  loaded in parameter transfer, this starts a new epoch.
         #  However, parameter transfer to EpochCounter should
         #  probably never be used really.
-        del device  # Not used.
         with open(path) as fi:
             saved_value = int(fi.read())
             if end_of_epoch:

@@ -36,10 +36,11 @@ class SLU(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, tokens_bos_lens = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
+
         # wav2vec forward pass
         wav2vec2_out = self.modules.wav2vec2(wavs, wav_lens)
         # SLU forward pass
@@ -51,22 +52,18 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
+                encoder_out, wav_lens
+            )
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
 
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             p_seq, wav_lens = predictions
         else:
             p_seq, wav_lens, predicted_tokens = predictions
@@ -75,15 +72,20 @@ class SLU(sb.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
+            )
+
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
         )
 
         loss = loss_seq
 
-        if (stage != sb.Stage.TRAIN) or (
-            self.batch_count % show_results_every == 0
-        ):
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
                 tokenizer.decode_ids(utt_seq).split(" ")
@@ -107,31 +109,8 @@ class SLU(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        loss.backward()
-        if self.check_gradients(loss):
-            self.wav2vec2_optimizer.step()
-            self.optimizer.step()
-
-        self.wav2vec2_optimizer.zero_grad()
-        self.optimizer.zero_grad()
-        self.batch_count += 1
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        self.batch_count = 0
 
         if stage != sb.Stage.TRAIN:
 
@@ -196,9 +175,10 @@ class SLU(sb.Brain):
             )
             self.checkpointer.add_recoverable("optimizer", self.optimizer)
 
-    def zero_grad(self, set_to_none=False):
-        self.wav2vec2_optimizer.zero_grad(set_to_none)
-        self.optimizer.zero_grad(set_to_none)
+        self.optimizers_dict = {
+            "wav2vec2_optimizer": self.wav2vec2_optimizer,
+            "model_optimizer": self.optimizer,
+        }
 
 
 def dataio_prepare(hparams):
@@ -322,7 +302,6 @@ if __name__ == "__main__":
 
     show_results_every = 100  # plots results every N iterations
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -360,7 +339,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])
 

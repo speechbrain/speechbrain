@@ -30,14 +30,13 @@ train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 15
 lr: 0.0001
 lr_wav2vec: 0.00001
-sorting: ascending
-# auto_mix_prec: False
+# precision: fp32 # bf16, fp16 or fp32
 # do_resample: False
-sample_rate: 16000
+# sample_rate: 16000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
@@ -69,10 +68,6 @@ dataloader_options:
 test_dataloader_opts:
     batch_size: !ref <test_batch_size>
 
-# Model parameters
-activation: !name:torch.nn.LeakyReLU
-# dnn_layers: 2
-
 # # DER evaluation parameters
 # ignore_overlap: True
 # forgiveness_collar: 0.25
@@ -80,15 +75,12 @@ activation: !name:torch.nn.LeakyReLU
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 input_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec2>
@@ -119,11 +111,6 @@ modules:
 
 model: !new:torch.nn.ModuleList
     - [!ref <output_mlp>]
-
-model_opt_class: !name:torch.optim.Adadelta
-    lr: !ref <lr>
-    rho: 0.95
-    eps: 1.e-8
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -156,8 +143,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
-
-error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 error_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:speechbrain.nnet.losses.classification_error

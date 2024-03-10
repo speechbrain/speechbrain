@@ -1,7 +1,8 @@
 # ################################
 # Model: wav2vec2 + DNN + CTC
+# Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021
+# Authors: Sung-Lin Yeh 2021, Adel Moumen 2023
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -31,12 +32,13 @@ test_csv:
    - !ref <output_folder>/test-clean.csv
    - !ref <output_folder>/test-other.csv
 
-# Training parameters
+####################### Training Parameters ####################################
+
 number_of_epochs: 1
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 
 # With data_parallel batch_size is split into N jobs
@@ -55,7 +57,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dnn_layers: 2
 dnn_neurons: 1024
@@ -63,21 +65,16 @@ freeze_wav2vec: True
 
 # Outputs
 output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
-
-# Decoding parameters
 blank_index: 0
-use_language_modelling: False
-# ngram_lm_path: !PLACEHOLDER
 
 #
 # Functions and classes
 #
+
+label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
+
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
-
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-   sample_rate: !ref <sample_rate>
-   speeds: [95, 100, 105]
 
 enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    input_shape: [null, null, 1024]
@@ -85,7 +82,7 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
    dnn_blocks: !ref <dnn_layers>
    dnn_neurons: !ref <dnn_neurons>
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>
@@ -141,7 +138,58 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
    annealing_factor: 0.9
    patient: 0
 
-label_encoder: !new:speechbrain.dataio.encoder.CTCTextEncoder
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+   drop_freq_low: 0
+   drop_freq_high: 1
+   drop_freq_count_low: 1
+   drop_freq_count_high: 3
+   drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+   drop_length_low: 1000
+   drop_length_high: 2000
+   drop_count_low: 1
+   drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   concat_original: True
+   min_augmentations: 4
+   max_augmentations: 4
+   augment_prob: 1.0
+   augmentations: [
+      !ref <speed_perturb>,
+      !ref <drop_freq>,
+      !ref <drop_chunk>]
+
+############################## Decoding ########################################
+
+# Decoding parameters
+test_beam_search:
+   beam_size: 143
+   topk: 1
+   blank_index: !ref <blank_index>
+   space_token: ' ' # make sure this is the same as the one used in the tokenizer
+   beam_prune_logp: -12.0
+   token_prune_min_logp: -1.2
+   prune_history: True
+   alpha: 0.8
+   beta: 1.2
+   # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+   # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+   # If you don't want to use an LM, comment it out or set it to null
+   kenlm_model_path: null
+
+############################## Logging and Pretrainer ##########################
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>

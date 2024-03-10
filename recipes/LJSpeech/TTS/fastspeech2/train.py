@@ -18,11 +18,11 @@ import logging
 import torchaudio
 import numpy as np
 import speechbrain as sb
-from speechbrain.pretrained import HIFIGAN
+from speechbrain.inference.vocoders import HIFIGAN
 from pathlib import Path
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
-from speechbrain.pretrained import GraphemeToPhoneme
+from speechbrain.inference.text import GraphemeToPhoneme
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 class FastSpeech2Brain(sb.Brain):
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics
+        """
         self.hparams.progress_sample_logger.reset()
         self.last_epoch = 0
         self.last_batch = None
@@ -97,20 +98,10 @@ class FastSpeech2Brain(sb.Brain):
             spn_preds,
         )
 
-    def fit_batch(self, batch):
-        """Fits a single batch
-        Arguments
-        ---------
-        batch: tuple
-            a training batch
-        Returns
-        -------
-        loss: torch.Tensor
-            detached loss
-        """
-        result = super().fit_batch(batch)
-        self.hparams.noam_annealing(self.optimizer)
-        return result
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
@@ -264,8 +255,7 @@ class FastSpeech2Brain(sb.Brain):
             )
 
     def run_inference(self):
-        """Produces a sample in inference mode with predicted durations.
-        """
+        """Produces a sample in inference mode with predicted durations."""
         if self.last_batch is None:
             return
         tokens, *_, labels, _ = self.last_batch
@@ -420,17 +410,17 @@ class FastSpeech2Brain(sb.Brain):
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
-            Arguments
-            ---------
-            batch: tuple
-                the batch to use
-            return_metadata: bool
-                indicates whether the metadata should be returned
-            Returns
-            -------
-            batch: tuple
-                the batch on the correct device
-            """
+        Arguments
+        ---------
+        batch: tuple
+            the batch to use
+        return_metadata: bool
+            indicates whether the metadata should be returned
+        Returns
+        -------
+        batch: tuple
+            the batch on the correct device
+        """
 
         (
             text_padded,
@@ -510,7 +500,6 @@ def dataio_prepare(hparams):
         spn_labels,
         last_phoneme_flags,
     ):
-
         durs = np.load(dur)
         durs_seq = torch.from_numpy(durs).int()
         label_phoneme = label_phoneme.strip()
@@ -583,7 +572,6 @@ def main():
         overrides=overrides,
     )
 
-    sys.path.append("../")
     from ljspeech_prepare import prepare_ljspeech
 
     sb.utils.distributed.run_on_main(

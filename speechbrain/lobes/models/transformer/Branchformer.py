@@ -17,6 +17,8 @@ from speechbrain.nnet.attention import RelPosMHAXL, MultiheadAttention
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
 
+from speechbrain.nnet.hypermixing import HyperMixing
+
 
 class ConvolutionBranch(nn.Module):
     """This is an implementation of the convolution branch in Branchformer.
@@ -157,6 +159,14 @@ class BranchformerEncoderLayer(nn.Module):
                 embed_dim=d_model,
                 dropout=dropout,
                 mask_pos_future=False,
+            )
+        elif attention_type == "hypermixing":
+            self.mha_layer = HyperMixing(
+                input_output_dim=d_model,
+                hypernet_size=d_model * 4,
+                tied=False,
+                num_heads=nhead,
+                fix_tm_hidden_size=False,
             )
 
         self.convolution_branch = ConvolutionBranch(
@@ -310,6 +320,7 @@ class BranchformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
+        dynchunktrain_config=None,
     ):
         """
         Arguments
@@ -325,6 +336,9 @@ class BranchformerEncoder(nn.Module):
             If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
             where S is the sequence length, and E is the embedding dimension.
         """
+        assert (
+            dynchunktrain_config is None
+        ), "Dynamic Chunk Training unsupported for this encoder"
 
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:

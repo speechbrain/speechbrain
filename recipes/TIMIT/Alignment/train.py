@@ -26,14 +26,9 @@ class AlignBrain(sb.Brain):
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
 
-        # Adding augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         feats = self.hparams.compute_features(wavs)
         if hasattr(self.hparams, "normalize"):
@@ -51,9 +46,9 @@ class AlignBrain(sb.Brain):
         phns, phn_lens = batch.phn_encoded
         phn_ends, _ = batch.phn_ends
 
-        if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
-            phns = torch.cat([phns, phns], dim=0)
-            phn_lens = torch.cat([phn_lens, phn_lens], dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
 
         phns, phn_lens = phns.to(self.device), phn_lens.to(self.device)
         phns_orig = sb.utils.data_utils.undo_padding(phns, phn_lens)

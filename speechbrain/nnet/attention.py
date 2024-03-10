@@ -591,17 +591,28 @@ class RelPosMHAXL(nn.Module):
             query + self.pos_bias_v.view(1, 1, self.num_heads, self.head_dim)
         ).transpose(1, 2)
 
+        # Moved the `* self.scale` mul from after the `attn_score` sum to prior
+        # to the matmul in order to lower overflow risks on fp16.
+        # This change is inspired by the following paper, but no other changes
+        # were ported from there so far.
+        # ref: E.T.: Re-Thinking Self-Attention for Transformer Models on GPUs
+        # https://asherliu.github.io/docs/sc21a.pdf
+
         # (batch, head, qlen, klen)
-        matrix_ac = torch.matmul(q_with_bias_u, key.permute(0, 2, 3, 1))
+        matrix_ac = torch.matmul(
+            q_with_bias_u * self.scale, key.permute(0, 2, 3, 1)
+        )
         # (batch, num_heads, klen, 2*klen-1)
-        matrix_bd = torch.matmul(q_with_bias_v, p_k.permute(0, 2, 3, 1))
+        matrix_bd = torch.matmul(
+            q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1)
+        )
         matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
 
         # if klen != qlen:
         #   import ipdb
         #  ipdb.set_trace(
 
-        attn_score = (matrix_ac + matrix_bd) * self.scale
+        attn_score = matrix_ac + matrix_bd  # already scaled above
 
         # compute attention probability
         if attn_mask is not None:
@@ -622,8 +633,25 @@ class RelPosMHAXL(nn.Module):
                 key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
             )
 
-        attn_score = F.softmax(attn_score, dim=-1)
+        attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
         attn_score = self.dropout_att(attn_score)
+
+        # it is possible for us to hit full NaN when using chunked training
+        # so reapply masks, except with 0.0 instead as we are after the softmax
+        # because -inf would output 0.0 regardless anyway
+        if attn_mask is not None:
+            if attn_mask.dtype == torch.bool:
+                attn_score = attn_score.masked_fill(attn_mask, 0.0)
+            else:
+                # NOTE: the above fix is not implemented for this case as
+                # summing the mask with NaN would still result in NaN
+                pass
+
+        if key_padding_mask is not None:
+            attn_score = attn_score.masked_fill(
+                key_padding_mask.view(bsz, 1, 1, klen), 0.0,
+            )
+
         x = torch.matmul(
             attn_score, value.transpose(1, 2)
         )  # (batch, head, time1, d_k)
@@ -701,7 +729,7 @@ class MultiheadAttention(nn.Module):
         value,
         attn_mask: Optional[torch.Tensor] = None,
         key_padding_mask: Optional[torch.Tensor] = None,
-        return_attn_weights: Optional[torch.Tensor] = True,
+        return_attn_weights: bool = True,
         pos_embs: Optional[torch.Tensor] = None,
     ):
         """
@@ -716,13 +744,6 @@ class MultiheadAttention(nn.Module):
         value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        key_padding_mask : torch.Tensor, optional
-            (B, S) where B is the batch size, S is the source sequence
-            length. If a ByteTensor is provided, the non-zero positions will
-            be ignored while the position with the zero positions will be
-            unchanged. If a BoolTensor is provided, the positions with the
-            value of True will be ignored while the position with the value
-            of False will be unchanged.
         attn_mask : torch.Tensor, optional
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
@@ -734,7 +755,16 @@ class MultiheadAttention(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
-        pos_embs: torch.Tensor, optional
+        key_padding_mask : torch.Tensor, optional
+            (B, S) where B is the batch size, S is the source sequence
+            length. If a ByteTensor is provided, the non-zero positions will
+            be ignored while the position with the zero positions will be
+            unchanged. If a BoolTensor is provided, the positions with the
+            value of True will be ignored while the position with the value
+            of False will be unchanged.
+        return_attn_weights : bool, optional
+            True to additionally return the attention weights, False otherwise.
+        pos_embs : torch.Tensor, optional
             Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
 
         Outputs
@@ -745,6 +775,7 @@ class MultiheadAttention(nn.Module):
         attn_output_weights : torch.Tensor
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
+            This is returned only if `return_attn_weights=True` (True by default).
         """
         # give tensors of shape (time, batch, fea)
         query = query.permute(1, 0, 2)
@@ -759,7 +790,7 @@ class MultiheadAttention(nn.Module):
             else:
                 attn_mask = pos_embs
 
-        output = self.att(
+        output, attention_weights = self.att(
             query,
             key,
             value,
@@ -768,14 +799,13 @@ class MultiheadAttention(nn.Module):
             need_weights=return_attn_weights,
         )
 
+        # reshape the output back to (batch, time, fea)
+        output = output.permute(1, 0, 2)
+
         if return_attn_weights:
-            output, attention_weights = output
-            # reshape the output back to (batch, time, fea)
-            output = output.permute(1, 0, 2)
             return output, attention_weights
-        else:
-            output = output.permute(1, 0, 2)
-            return output
+
+        return output
 
 
 class PositionalwiseFeedForward(nn.Module):

@@ -11,7 +11,7 @@ dataloader_options:
 
 models: !include:models.yaml
 
-add_noise: !new:speechbrain.processing.speech_augmentation.AddNoise
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
 
 modules:
     generator: !ref <models[generator]>

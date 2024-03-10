@@ -11,7 +11,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/cv_transducer/<seed>
+output_folder: !ref results/cv_transducer_fr/<seed>
 test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -32,12 +32,13 @@ skip_prep: False # Skip data preparation
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 10.0
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 30
 batch_size: 6
 batch_size_valid: 1
 lr: 1.0
 sorting: ascending
+precision: fp32 # bf16, fp16 or fp32
 ckpt_interval_minutes: 15 # save checkpoint every N min
 # MTL for encoder with CTC (uncomment enc_lin layer)
 #number_of_ctc_epochs: 2
@@ -70,7 +71,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <batch_size_valid>
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 3
@@ -108,18 +109,37 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_fft: !ref <n_fft>
    n_mels: !ref <n_mels>
 
-# Frequency domain SpecAugment
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-   time_warp: True
-   time_warp_window: 5
-   time_warp_mode: bicubic
-   freq_mask: True
-   n_freq_mask: 2
-   time_mask: True
-   n_time_mask: 2
-   replace_with_zero: False
-   freq_mask_width: 30
-   time_mask_width: 40
+############################## Augmentations ###################################
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: 15
+   drop_length_high: 25
+   drop_count_low: 5
+   drop_count_high: 5
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: 25
+   drop_length_high: 35
+   drop_count_low: 3
+   drop_count_high: 3
+   dim: 2
+
+# Time warp
+
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+   min_augmentations: 3
+   max_augmentations: 3
+   augment_prob: 1.0
+   augmentations: [
+      !ref <time_drop>,
+      !ref <freq_drop>,
+      !ref <time_warp>]
+
+############################## Models ##########################################
 
 enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
    input_shape: [null, null, !ref <n_mels>]
@@ -197,7 +217,6 @@ modules:
    Tjoint: !ref <Tjoint>
    transducer_lin: !ref <transducer_lin>
    normalize: !ref <normalize>
-   augmentation: !ref <augmentation>
 
 # for MTL
 # update model if any HEAD module is added

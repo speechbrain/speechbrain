@@ -6,7 +6,6 @@ This folder contains a CTC-wav2vec2 recipe for speech recognition with [AISHELL-
 A pretrained tokenizer from [huggingface](https://huggingface.co/bert-base-chinese) is used and can be downloaded
 automatically.
 
-If not present in the specified data_folder, the dataset will be automatically downloaded there.
 This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not
 specify a different tokenizer in the speech recognition recipe.
 

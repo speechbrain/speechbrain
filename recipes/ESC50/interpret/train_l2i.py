@@ -655,9 +655,9 @@ if __name__ == "__main__":
         hparams["pretrained_esc50"].load_collected()
 
     # transfer the frozen parts to the model to the device
-    hparams["embedding_model"].to(hparams["device"])
-    hparams["classifier"].to(hparams["device"])
-    hparams["nmf_decoder"].to(hparams["device"])
+    hparams["embedding_model"].to(run_opts["device"])
+    hparams["classifier"].to(run_opts["device"])
+    hparams["nmf_decoder"].to(run_opts["device"])
     hparams["embedding_model"].eval()
 
     Interpreter_brain.fit(

@@ -6,6 +6,27 @@ The LibriTTS dataset is available here: https://www.openslr.org/60/, https://www
 
 The `libritts_prepare.py` file automatically downloads the dataset if not present and has facilities to provide the names of the subsets to be downloaded.
 
+# Zero-Shot Multi-Speaker Tacotron2
+The subfolder "TTS/mstacotron2" contains the recipe for training a zero-shot multi-speaker version of the [Tacotron2](https://arxiv.org/abs/1712.05884) model.
+To run this recipe, go into the `"TTS/mstacotron2"` folder and run:
+
+```bash
+python train.py hparams/train.yaml --data_folder=/path/to/libritts_data --device=cuda:0 --max_grad_norm=1.0
+```
+
+Please ensure that you use absolute paths when specifying the data folder.
+
+Training time required on NVIDIA A100 GPU using LibriTTS train-clean-100 and train-clean-360 subsets: ~ 2 hours 54 minutes per epoch
+
+The training logs are available [here](https://www.dropbox.com/sh/ti2vk7sce8f9fgd/AABcDGWCrBvLX_ZQs76mlJRYa?dl=0).
+
+For now, enhancements are needed for traning the model from scratch when train-clean-360 is included. Inference can be effectuated with `clone_voice_char_input` function in the MSTacotron2 interface.
+
+The pre-trained model (a model fine-tuned from LJSpeech tacotron2) with an easy-inference interface is available on [HuggingFace](https://huggingface.co/speechbrain/tts-mstacotron2-libritts).
+
+**Please Note**: The current model effectively captures speaker identities. Nevertheless, the synthesized speech quality exhibits some metallic characteristics and may include artifacts like overly long pauses.
+We are actively working to enhancing the model and will release updates as soon as improvements are achieved. We warmly welcome contributions from the community to collaboratively make the model even better!
+
 # HiFi GAN (Vocoder)
 The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotron2).
@@ -14,11 +35,13 @@ We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the 
 
 To run this recipe, go into the `"vocoder/hifigan/"` folder and run:
 
-```
+```bash
 python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
 ```
 
-The recipe will automatically download the librispeech dataset and resamples it as specified.
+The recipe will automatically download the LibriTTS dataset and resamples it as specified.
+
+Training time required on NVIDIA A100 GPU using LibriTTS train-clean-100 and train-clean-360 subsets: ~ 1 hour 50 minutes per epoch
 
 The training logs and checkpoints are available [here](https://www.dropbox.com/sh/gjs1kslxkxz819q/AABPriN4dOoD1qL7NoIyVk0Oa?dl=0).
 

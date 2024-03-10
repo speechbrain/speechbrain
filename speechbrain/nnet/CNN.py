@@ -544,6 +544,12 @@ class Conv2d(nn.Module):
         documentation for more information.
     bias : bool
         If True, the additive bias b is adopted.
+    max_norm: float
+        kernel max-norm.
+    swap: bool
+        If True, the convolution is done with the format (B, C, W, H).
+        If False, the convolution is dine with (B, H, W, C).
+        Active only if skip_transpose is False.
     skip_transpose : bool
         If False, uses batch x spatial.dim2 x spatial.dim1 x channel convention of speechbrain.
         If True, uses batch x channel x spatial.dim1 x spatial.dim2 convention.
@@ -576,6 +582,8 @@ class Conv2d(nn.Module):
         groups=1,
         bias=True,
         padding_mode="reflect",
+        max_norm=None,
+        swap=False,
         skip_transpose=False,
         weight_norm=False,
         conv_init=None,
@@ -596,6 +604,8 @@ class Conv2d(nn.Module):
         self.padding = padding
         self.padding_mode = padding_mode
         self.unsqueeze = False
+        self.max_norm = max_norm
+        self.swap = swap
         self.skip_transpose = skip_transpose
 
         if input_shape is None and in_channels is None:
@@ -637,6 +647,8 @@ class Conv2d(nn.Module):
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
+            if self.swap:
+                x = x.transpose(-1, -2)
 
         if self.unsqueeze:
             x = x.unsqueeze(1)
@@ -659,6 +671,11 @@ class Conv2d(nn.Module):
                 + self.padding
             )
 
+        if self.max_norm is not None:
+            self.conv.weight.data = torch.renorm(
+                self.conv.weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+
         wx = self.conv(x)
 
         if self.unsqueeze:
@@ -666,7 +683,8 @@ class Conv2d(nn.Module):
 
         if not self.skip_transpose:
             wx = wx.transpose(1, -1)
-
+            if self.swap:
+                wx = wx.transpose(1, 2)
         return wx
 
     def _manage_padding(
@@ -731,72 +749,6 @@ class Conv2d(nn.Module):
     def remove_weight_norm(self):
         """Removes weight normalization at inference if used during training."""
         self.conv = nn.utils.remove_weight_norm(self.conv)
-
-
-class Conv2dWithConstraint(Conv2d):
-    """This function implements 2d convolution with kernel max-norm constaint.
-    This corresponds to set an upper bound for the kernel norm.
-
-    Arguments
-    ---------
-    out_channels : int
-        It is the number of output channels.
-    kernel_size : tuple
-        Kernel size of the 2d convolutional filters over time and frequency
-        axis.
-    input_shape : tuple
-        The shape of the input. Alternatively use ``in_channels``.
-    in_channels : int
-        The number of input channels. Alternatively use ``input_shape``.
-    stride: int
-        Stride factor of the 2d convolutional filters over time and frequency
-        axis.
-    dilation : int
-        Dilation factor of the 2d convolutional filters over time and
-        frequency axis.
-    padding : str
-        (same, valid). If "valid", no padding is performed.
-        If "same" and stride is 1, output shape is same as input shape.
-    padding_mode : str
-        This flag specifies the type of padding. See torch.nn documentation
-        for more information.
-    groups : int
-        This option specifies the convolutional groups. See torch.nn
-        documentation for more information.
-    bias : bool
-        If True, the additive bias b is adopted.
-    max_norm : float
-        kernel  max-norm
-
-    Example
-    -------
-    >>> inp_tensor = torch.rand([10, 40, 16, 8])
-    >>> max_norm = 1
-    >>> cnn_2d_constrained = Conv2dWithConstraint(
-    ...     in_channels=inp_tensor.shape[-1], out_channels=5, kernel_size=(7, 3)
-    ... )
-    >>> out_tensor = cnn_2d_constrained(inp_tensor)
-    >>> torch.any(torch.norm(cnn_2d_constrained.conv.weight.data, p=2, dim=0)>max_norm)
-    tensor(False)
-    """
-
-    def __init__(self, *args, max_norm=1, **kwargs):
-        self.max_norm = max_norm
-        super().__init__(*args, **kwargs)
-
-    def forward(self, x):
-        """Returns the output of the convolution.
-
-        Arguments
-        ---------
-        x : torch.Tensor (batch, time, channel)
-            input to convolve. 2d or 4d tensors are expected.
-
-        """
-        self.conv.weight.data = torch.renorm(
-            self.conv.weight.data, p=2, dim=0, maxnorm=self.max_norm
-        )
-        return super().forward(x)
 
 
 class ConvTranspose1d(nn.Module):

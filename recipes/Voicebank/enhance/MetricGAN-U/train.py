@@ -34,7 +34,7 @@ from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 
 ### For DNSMSOS
 # URL for the web service
-SCORING_URI = "https://dnsmos-4.azurewebsites.net/score"
+SCORING_URI = "https://github.com/microsoft/DNS-Challenge"
 # If the service is authenticated, set the key or token
 AUTH_KEY = ""
 if AUTH_KEY == "":
@@ -412,8 +412,10 @@ class MetricGanBrain(sb.Brain):
                 )
                 self.d_optimizer.zero_grad()
                 loss.backward()
-                if self.check_gradients(loss):
-                    self.d_optimizer.step()
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.max_grad_norm
+                )
+                self.d_optimizer.step()
                 loss_tracker += loss.detach() / 3
         elif self.sub_stage == SubStage.HISTORICAL:
             loss = self.compute_objectives(
@@ -421,8 +423,10 @@ class MetricGanBrain(sb.Brain):
             )
             self.d_optimizer.zero_grad()
             loss.backward()
-            if self.check_gradients(loss):
-                self.d_optimizer.step()
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.max_grad_norm
+            )
+            self.d_optimizer.step()
             loss_tracker += loss.detach()
         elif self.sub_stage == SubStage.GENERATOR:
             for name, param in self.modules.generator.named_parameters():
@@ -436,8 +440,10 @@ class MetricGanBrain(sb.Brain):
             )
             self.g_optimizer.zero_grad()
             loss.backward()
-            if self.check_gradients(loss):
-                self.g_optimizer.step()
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.max_grad_norm
+            )
+            self.g_optimizer.step()
             loss_tracker += loss.detach()
 
         return loss_tracker

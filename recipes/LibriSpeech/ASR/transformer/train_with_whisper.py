@@ -35,10 +35,13 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         bos_tokens, bos_tokens_lens = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
+            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
+                bos_tokens_lens
+            )
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -55,10 +58,16 @@ class ASR(sb.Brain):
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage == sb.Stage.VALID:
-            hyps, _ = self.hparams.valid_greedy_searcher(enc_out, wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_beam_searcher(enc_out, wav_lens)
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
+            # Decide searcher for inference: valid or test search
+            if stage == sb.Stage.VALID:
+                hyps, _, _, _ = self.hparams.valid_search(
+                    enc_out.detach(), wav_lens
+                )
+            else:
+                hyps, _, _, _ = self.hparams.test_search(
+                    enc_out.detach(), wav_lens
+                )
 
         return log_probs, hyps, wav_lens
 
@@ -70,12 +79,21 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
+            )
+
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens,
         )
 
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
+
+            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
 
             # Decode token terms to words
             predicted_words = self.tokenizer.batch_decode(
@@ -241,7 +259,6 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -278,17 +295,11 @@ if __name__ == "__main__":
     tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
 
     # we need to prepare the tokens for searchers
-    hparams["valid_greedy_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["valid_greedy_searcher"].set_language_token(
-        tokenizer.prefix_tokens[1]
-    )
+    hparams["valid_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
+    hparams["valid_search"].set_language_token(tokenizer.prefix_tokens[1])
 
-    hparams["test_beam_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
+    hparams["test_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
+    hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)

@@ -15,50 +15,13 @@ from speechbrain.nnet import CNN, linear
 from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerEncoder,
+    PositionalEncoding,
     get_key_padding_mask,
+    get_mask_from_lengths,
 )
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.losses import bce_loss
-
-
-class PositionalEmbedding(nn.Module):
-    """Computation of the positional embeddings.
-    Arguments
-    ---------
-    embed_dim: int
-        dimensionality of the embeddings.
-    """
-
-    def __init__(self, embed_dim):
-        super(PositionalEmbedding, self).__init__()
-        self.demb = embed_dim
-        inv_freq = 1 / (
-            10000 ** (torch.arange(0.0, embed_dim, 2.0) / embed_dim)
-        )
-        self.register_buffer("inv_freq", inv_freq)
-
-    def forward(self, seq_len, mask, dtype):
-        """Computes the forward pass
-        Arguments
-        ---------
-        seq_len: int
-            length of the sequence
-        mask: torch.tensor
-            mask applied to the positional embeddings
-        dtype: str
-            dtype of the embeddings
-        Returns
-        -------
-        pos_emb: torch.Tensor
-            the tensor with positional embeddings
-        """
-        pos_seq = torch.arange(seq_len, device=mask.device).to(dtype)
-
-        sinusoid_inp = torch.matmul(
-            torch.unsqueeze(pos_seq, -1), torch.unsqueeze(self.inv_freq, 0)
-        )
-        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=1)
-        return pos_emb[None, :, :] * mask[:, :, None]
+import numpy as np
 
 
 class EncoderPreNet(nn.Module):
@@ -322,7 +285,7 @@ class SPNPredictor(nn.Module):
             n_char, padding_idx, out_channels=enc_d_model
         )
 
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
 
@@ -365,9 +328,7 @@ class SPNPredictor(nn.Module):
 
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
 
         spn_mask = (
@@ -414,7 +375,7 @@ class FastSpeech2(nn.Module):
     This class is the main entry point for the model, which is responsible
     for instantiating all submodules, which, in turn, manage the individual
     neural network layers
-    Simplified STRUCTURE: input->token embedding ->encoder ->duration predictor ->duration
+    Simplified STRUCTURE: input->token embedding ->encoder ->duration/pitch/energy predictor ->duration
     upsampler -> decoder -> output
     During training, teacher forcing is used (ground truth durations are used for upsampling)
     Arguments
@@ -567,10 +528,10 @@ class FastSpeech2(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
-        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
             dec_d_model
         )
 
@@ -700,9 +661,7 @@ class FastSpeech2(nn.Module):
 
         # prenet & encoder
         token_feats = self.encPreNet(tokens)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -761,7 +720,8 @@ class FastSpeech2(nn.Module):
             durations if durations is not None else dur_pred_reverse_log,
             pace=pace,
         )
-        srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -771,10 +731,7 @@ class FastSpeech2(nn.Module):
         )
 
         # decoder
-        pos = self.sinusoidal_positional_embed_decoder(
-            spec_feats.shape[1], srcmask, spec_feats.dtype
-        )
-
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats)
         spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
 
         output_mel_feats, memory, *_ = self.decoder(
@@ -1771,3 +1728,1060 @@ class _SSIMLoss(_Loss):
             k2=self.k2,
         )
         return torch.ones_like(score) - score
+
+
+class TextMelCollateWithAlignment:
+    """ Zero-pads model inputs and targets based on number of frames per step
+    result: tuple
+        a tuple of tensors to be used as inputs/targets
+        (
+            text_padded,
+            dur_padded,
+            input_lengths,
+            mel_padded,
+            output_lengths,
+            len_x,
+            labels,
+            wavs
+        )
+    """
+
+    # TODO: Make this more intuitive, use the pipeline
+    def __call__(self, batch):
+        """Collate's training batch from normalized text and mel-spectrogram
+        Arguments
+        ---------
+        batch: list
+            [text_normalized, mel_normalized]
+        """
+        # TODO: Remove for loops
+        raw_batch = list(batch)
+        for i in range(
+            len(batch)
+        ):  # the pipline return a dictionary wiht one elemnent
+            batch[i] = batch[i]["mel_text_pair"]
+
+        # Right zero-pad all one-hot text sequences to max input length
+        input_lengths, ids_sorted_decreasing = torch.sort(
+            torch.LongTensor([len(x[0]) for x in batch]), dim=0, descending=True
+        )
+
+        max_input_len = input_lengths[0]
+
+        phoneme_padded = torch.LongTensor(len(batch), max_input_len)
+        phoneme_padded.zero_()
+
+        for i in range(len(ids_sorted_decreasing)):
+            phoneme = batch[ids_sorted_decreasing[i]][0]
+            phoneme_padded[i, : phoneme.size(0)] = phoneme
+
+        # Right zero-pad mel-spec
+        num_mels = batch[0][1].size(0)
+        max_target_len = max([x[1].size(1) for x in batch])
+
+        # include mel padded and gate padded
+        mel_padded = torch.FloatTensor(len(batch), num_mels, max_target_len)
+        mel_padded.zero_()
+        pitch_padded = torch.FloatTensor(len(batch), max_target_len)
+        pitch_padded.zero_()
+        energy_padded = torch.FloatTensor(len(batch), max_target_len)
+        energy_padded.zero_()
+        output_lengths = torch.LongTensor(len(batch))
+        labels, wavs = [], []
+        for i in range(len(ids_sorted_decreasing)):
+            idx = ids_sorted_decreasing[i]
+            mel = batch[idx][1]
+            pitch = batch[idx][2]
+            energy = batch[idx][3]
+            mel_padded[i, :, : mel.size(1)] = mel
+            pitch_padded[i, : pitch.size(0)] = pitch
+            energy_padded[i, : energy.size(0)] = energy
+            output_lengths[i] = mel.size(1)
+            labels.append(raw_batch[idx]["label"])
+            wavs.append(raw_batch[idx]["wav"])
+
+        mel_padded = mel_padded.permute(0, 2, 1)
+        return (
+            phoneme_padded,
+            input_lengths,
+            mel_padded,
+            pitch_padded,
+            energy_padded,
+            output_lengths,
+            labels,
+            wavs,
+        )
+
+
+def maximum_path_numpy(value, mask):
+    """
+    Monotonic alignment search algorithm, numpy works faster than the torch implementation.
+    Arguments
+    ---------
+    value: torch.Tensor
+        input alignment values [b, t_x, t_y]
+    mask: torch.Tensor
+        input alignment mask [b, t_x, t_y]
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import maximum_path_numpy
+    >>> alignment = torch.rand(2, 5, 100)
+    >>> mask = torch.ones(2, 5, 100)
+    >>> hard_alignments = maximum_path_numpy(alignment, mask)
+    """
+    max_neg_val = -np.inf  # Patch for Sphinx complaint
+    value = value * mask
+
+    device = value.device
+    dtype = value.dtype
+    value = value.cpu().detach().numpy()
+    mask = mask.cpu().detach().numpy().astype(np.bool_)
+
+    b, t_x, t_y = value.shape
+    direction = np.zeros(value.shape, dtype=np.int64)
+    v = np.zeros((b, t_x), dtype=np.float32)
+    x_range = np.arange(t_x, dtype=np.float32).reshape(1, -1)
+    for j in range(t_y):
+        v0 = np.pad(
+            v, [[0, 0], [1, 0]], mode="constant", constant_values=max_neg_val
+        )[:, :-1]
+        v1 = v
+        max_mask = v1 >= v0
+        v_max = np.where(max_mask, v1, v0)
+        direction[:, :, j] = max_mask
+
+        index_mask = x_range <= j
+        v = np.where(index_mask, v_max + value[:, :, j], max_neg_val)
+    direction = np.where(mask, direction, 1)
+
+    path = np.zeros(value.shape, dtype=np.float32)
+    index = mask[:, :, 0].sum(1).astype(np.int64) - 1
+    index_range = np.arange(b)
+    for j in reversed(range(t_y)):
+        path[index_range, index, j] = 1
+        index = index + direction[index_range, index, j] - 1
+    path = path * mask.astype(np.float32)
+    path = torch.from_numpy(path).to(device=device, dtype=dtype)
+    return path
+
+
+class AlignmentNetwork(torch.nn.Module):
+    """Learns the alignment between the input text
+    and the spectrogram with Gaussian Attention.
+
+    query -> conv1d -> relu -> conv1d -> relu -> conv1d -> L2_dist -> softmax -> alignment
+    key   -> conv1d -> relu -> conv1d - - - - - - - - - - - -^
+
+    Arguments
+    ---------
+    in_query_channels: int
+        Number of channels in the query network. Defaults to 80.
+    in_key_channels: int
+        Number of channels in the key network. Defaults to 512.
+    attn_channels: int
+        Number of inner channels in the attention layers. Defaults to 80.
+    temperature: float
+        Temperature for the softmax. Defaults to 0.0005.
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import AlignmentNetwork
+    >>> aligner = AlignmentNetwork(
+    ...     in_query_channels=80,
+    ...     in_key_channels=512,
+    ...     attn_channels=80,
+    ...     temperature=0.0005,
+    ... )
+    >>> phoneme_feats = torch.rand(2, 512, 20)
+    >>> mels = torch.rand(2, 80, 100)
+    >>> alignment_soft, alignment_logprob = aligner(mels, phoneme_feats, None, None)
+    >>> alignment_soft.shape, alignment_logprob.shape
+    (torch.Size([2, 1, 100, 20]), torch.Size([2, 1, 100, 20]))
+    """
+
+    def __init__(
+        self,
+        in_query_channels=80,
+        in_key_channels=512,
+        attn_channels=80,
+        temperature=0.0005,
+    ):
+        super().__init__()
+        self.temperature = temperature
+        self.softmax = torch.nn.Softmax(dim=3)
+        self.log_softmax = torch.nn.LogSoftmax(dim=3)
+
+        self.key_layer = nn.Sequential(
+            CNN.Conv1d(
+                in_channels=in_key_channels,
+                out_channels=in_key_channels * 2,
+                kernel_size=3,
+                padding="same",
+                bias=True,
+                skip_transpose=True,
+            ),
+            torch.nn.ReLU(),
+            CNN.Conv1d(
+                in_channels=in_key_channels * 2,
+                out_channels=attn_channels,
+                kernel_size=1,
+                padding="same",
+                bias=True,
+                skip_transpose=True,
+            ),
+        )
+
+        self.query_layer = nn.Sequential(
+            CNN.Conv1d(
+                in_channels=in_query_channels,
+                out_channels=in_query_channels * 2,
+                kernel_size=3,
+                padding="same",
+                bias=True,
+                skip_transpose=True,
+            ),
+            torch.nn.ReLU(),
+            CNN.Conv1d(
+                in_channels=in_query_channels * 2,
+                out_channels=in_query_channels,
+                kernel_size=1,
+                padding="same",
+                bias=True,
+                skip_transpose=True,
+            ),
+            torch.nn.ReLU(),
+            CNN.Conv1d(
+                in_channels=in_query_channels,
+                out_channels=attn_channels,
+                kernel_size=1,
+                padding="same",
+                bias=True,
+                skip_transpose=True,
+            ),
+        )
+
+    def forward(self, queries, keys, mask, attn_prior):
+        """Forward pass of the aligner encoder.
+        Arguments
+        ---------
+        queries: torch.Tensor
+            the query tensor [B, C, T_de]
+        keys: torch.Tensor
+            the query tensor [B, C_emb, T_en]
+        mask: torch.Tensor
+            the query mask[B, T_de]
+        attn_prior: torch.Tensor
+            the prior attention tensor [B, 1, T_en, T_de]
+        Returns
+        ---------
+        attn: torch.tensor
+            soft attention [B, 1, T_en, T_de]
+        attn_logp: torch.tensor
+            log probabilities [B, 1, T_en , T_de]
+        """
+        key_out = self.key_layer(keys)
+        query_out = self.query_layer(queries)
+        attn_factor = (query_out[:, :, :, None] - key_out[:, :, None]) ** 2
+        attn_logp = -self.temperature * attn_factor.sum(1, keepdim=True)
+        if attn_prior is not None:
+            attn_logp = self.log_softmax(attn_logp) + torch.log(
+                attn_prior[:, None] + 1e-8
+            )
+        if mask is not None:
+            attn_logp.data.masked_fill_(
+                ~mask.bool().unsqueeze(2), -float("inf")
+            )
+        attn = self.softmax(attn_logp)
+        return attn, attn_logp
+
+
+class FastSpeech2WithAlignment(nn.Module):
+    """The FastSpeech2 text-to-speech model with internal alignment.
+    This class is the main entry point for the model, which is responsible
+    for instantiating all submodules, which, in turn, manage the individual
+    neural network layers. Certain parts are adopted from the following implementation:
+    https://github.com/coqui-ai/TTS/blob/dev/TTS/tts/models/forward_tts.py
+
+    Simplified STRUCTURE:
+    input -> token embedding -> encoder -> aligner -> duration/pitch/energy -> upsampler -> decoder -> output
+
+    Arguments
+    ---------
+    #encoder parameters
+    enc_num_layers: int
+        number of transformer layers (TransformerEncoderLayer) in encoder
+    enc_num_head: int
+        number of multi-head-attention (MHA) heads in encoder transformer layers
+    enc_d_model: int
+        the number of expected features in the encoder
+    enc_ffn_dim: int
+        the dimension of the feedforward network model
+    enc_k_dim: int
+        the dimension of the key
+    enc_v_dim: int
+        the dimension of the value
+    enc_dropout: float
+        Dropout for the encoder
+    normalize_before: bool
+        whether normalization should be applied before or after MHA or FFN in Transformer layers.
+    ffn_type: str
+        whether to use convolutional layers instead of feed forward network inside tranformer layer
+    ffn_cnn_kernel_size_list: list of int
+        conv kernel size of 2 1d-convs if ffn_type is 1dcnn
+    #aligner parameters
+    in_query_channels: int
+        Number of channels in the query network.
+    in_key_channels: int
+        Number of channels in the key network.
+    attn_channels: int
+        Number of inner channels in the attention layers.
+    temperature: float
+        Temperature for the softmax.
+    #decoder parameters
+    dec_num_layers: int
+        number of transformer layers (TransformerEncoderLayer) in decoder
+    dec_num_head: int
+        number of multi-head-attention (MHA) heads in decoder transformer layers
+    dec_d_model: int
+        the number of expected features in the decoder
+    dec_ffn_dim: int
+        the dimension of the feedforward network model
+    dec_k_dim: int
+        the dimension of the key
+    dec_v_dim: int
+        the dimension of the value
+    dec_dropout: float
+        dropout for the decoder
+    normalize_before: bool
+        whether normalization should be applied before or after MHA or FFN in Transformer layers.
+    ffn_type: str
+        whether to use convolutional layers instead of feed forward network inside tranformer layer.
+    ffn_cnn_kernel_size_list: list of int
+        conv kernel size of 2 1d-convs if ffn_type is 1dcnn
+    n_char: int
+        the number of symbols for the token embedding
+    n_mels: int
+        number of bins in mel spectrogram
+    postnet_embedding_dim: int
+       output feature dimension for convolution layers
+    postnet_kernel_size: int
+       postnet convolution kernal size
+    postnet_n_convolutions: int
+       number of convolution layers
+    postnet_dropout: float
+        dropout probability fot postnet
+    padding_idx: int
+        the index for padding
+    dur_pred_kernel_size: int
+        the convolution kernel size in duration predictor
+    pitch_pred_kernel_size: int
+        kernel size for pitch prediction.
+    energy_pred_kernel_size: int
+        kernel size for energy prediction.
+    variance_predictor_dropout: float
+        dropout probability for variance predictor (duration/pitch/energy)
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2WithAlignment
+    >>> model = FastSpeech2WithAlignment(
+    ...    enc_num_layers=6,
+    ...    enc_num_head=2,
+    ...    enc_d_model=384,
+    ...    enc_ffn_dim=1536,
+    ...    enc_k_dim=384,
+    ...    enc_v_dim=384,
+    ...    enc_dropout=0.1,
+    ...    in_query_channels=80,
+    ...    in_key_channels=384,
+    ...    attn_channels=80,
+    ...    temperature=0.0005,
+    ...    dec_num_layers=6,
+    ...    dec_num_head=2,
+    ...    dec_d_model=384,
+    ...    dec_ffn_dim=1536,
+    ...    dec_k_dim=384,
+    ...    dec_v_dim=384,
+    ...    dec_dropout=0.1,
+    ...    normalize_before=False,
+    ...    ffn_type='1dcnn',
+    ...    ffn_cnn_kernel_size_list=[9, 1],
+    ...    n_char=40,
+    ...    n_mels=80,
+    ...    postnet_embedding_dim=512,
+    ...    postnet_kernel_size=5,
+    ...    postnet_n_convolutions=5,
+    ...    postnet_dropout=0.5,
+    ...    padding_idx=0,
+    ...    dur_pred_kernel_size=3,
+    ...    pitch_pred_kernel_size=3,
+    ...    energy_pred_kernel_size=3,
+    ...    variance_predictor_dropout=0.5)
+    >>> inputs = torch.tensor([
+    ...     [13, 12, 31, 14, 19],
+    ...     [31, 16, 30, 31, 0],
+    ... ])
+    >>> mels = torch.rand(2, 100, 80)
+    >>> mel_post, postnet_output, durations, predict_pitch, avg_pitch, predict_energy, avg_energy, mel_lens, alignment_durations, alignment_soft, alignment_logprob, alignment_mas = model(inputs, mels)
+    >>> mel_post.shape, durations.shape
+    (torch.Size([2, 100, 80]), torch.Size([2, 5]))
+    >>> predict_pitch.shape, predict_energy.shape
+    (torch.Size([2, 5, 1]), torch.Size([2, 5, 1]))
+    >>> alignment_soft.shape, alignment_mas.shape
+    (torch.Size([2, 100, 5]), torch.Size([2, 100, 5]))
+    """
+
+    def __init__(
+        self,
+        enc_num_layers,
+        enc_num_head,
+        enc_d_model,
+        enc_ffn_dim,
+        enc_k_dim,
+        enc_v_dim,
+        enc_dropout,
+        in_query_channels,
+        in_key_channels,
+        attn_channels,
+        temperature,
+        dec_num_layers,
+        dec_num_head,
+        dec_d_model,
+        dec_ffn_dim,
+        dec_k_dim,
+        dec_v_dim,
+        dec_dropout,
+        normalize_before,
+        ffn_type,
+        ffn_cnn_kernel_size_list,
+        n_char,
+        n_mels,
+        postnet_embedding_dim,
+        postnet_kernel_size,
+        postnet_n_convolutions,
+        postnet_dropout,
+        padding_idx,
+        dur_pred_kernel_size,
+        pitch_pred_kernel_size,
+        energy_pred_kernel_size,
+        variance_predictor_dropout,
+    ):
+        super().__init__()
+        self.enc_num_head = enc_num_head
+        self.dec_num_head = dec_num_head
+        self.padding_idx = padding_idx
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
+            enc_d_model
+        )
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
+            dec_d_model
+        )
+
+        self.encPreNet = EncoderPreNet(
+            n_char, padding_idx, out_channels=enc_d_model
+        )
+        self.durPred = DurationPredictor(
+            in_channels=enc_d_model,
+            out_channels=enc_d_model,
+            kernel_size=dur_pred_kernel_size,
+            dropout=variance_predictor_dropout,
+        )
+        self.pitchPred = DurationPredictor(
+            in_channels=enc_d_model,
+            out_channels=enc_d_model,
+            kernel_size=dur_pred_kernel_size,
+            dropout=variance_predictor_dropout,
+        )
+        self.energyPred = DurationPredictor(
+            in_channels=enc_d_model,
+            out_channels=enc_d_model,
+            kernel_size=dur_pred_kernel_size,
+            dropout=variance_predictor_dropout,
+        )
+        self.pitchEmbed = CNN.Conv1d(
+            in_channels=1,
+            out_channels=enc_d_model,
+            kernel_size=pitch_pred_kernel_size,
+            padding="same",
+            skip_transpose=True,
+        )
+
+        self.energyEmbed = CNN.Conv1d(
+            in_channels=1,
+            out_channels=enc_d_model,
+            kernel_size=energy_pred_kernel_size,
+            padding="same",
+            skip_transpose=True,
+        )
+        self.encoder = TransformerEncoder(
+            num_layers=enc_num_layers,
+            nhead=enc_num_head,
+            d_ffn=enc_ffn_dim,
+            d_model=enc_d_model,
+            kdim=enc_k_dim,
+            vdim=enc_v_dim,
+            dropout=enc_dropout,
+            activation=nn.ReLU,
+            normalize_before=normalize_before,
+            ffn_type=ffn_type,
+            ffn_cnn_kernel_size_list=ffn_cnn_kernel_size_list,
+        )
+
+        self.decoder = TransformerEncoder(
+            num_layers=dec_num_layers,
+            nhead=dec_num_head,
+            d_ffn=dec_ffn_dim,
+            d_model=dec_d_model,
+            kdim=dec_k_dim,
+            vdim=dec_v_dim,
+            dropout=dec_dropout,
+            activation=nn.ReLU,
+            normalize_before=normalize_before,
+            ffn_type=ffn_type,
+            ffn_cnn_kernel_size_list=ffn_cnn_kernel_size_list,
+        )
+
+        self.linear = linear.Linear(n_neurons=n_mels, input_size=dec_d_model)
+        self.postnet = PostNet(
+            n_mel_channels=n_mels,
+            postnet_embedding_dim=postnet_embedding_dim,
+            postnet_kernel_size=postnet_kernel_size,
+            postnet_n_convolutions=postnet_n_convolutions,
+            postnet_dropout=postnet_dropout,
+        )
+        self.aligner = AlignmentNetwork(
+            in_query_channels=in_query_channels,
+            in_key_channels=in_key_channels,
+            attn_channels=attn_channels,
+            temperature=temperature,
+        )
+
+    def _forward_aligner(self, x, y, x_mask, y_mask):
+        """Aligner forward pass.
+        1. Compute a mask to apply to the attention map.
+        2. Run the alignment network.
+        3. Apply MAS (Monotonic alignment search) to compute the hard alignment map.
+        4. Compute the durations from the hard alignment map.
+
+        Arguments
+        ---------
+        x: torch.Tensor
+            Input sequence [B, T_en, C_en].
+        y: torch.Tensor
+            Output sequence [B, T_de, C_de].
+        x_mask: torch.Tensor
+            Input sequence mask [B, 1, T_en].
+        y_mask: torch.Tensor
+            Output sequence mask [B, 1, T_de].
+        Returns
+        ---------
+        durations: torch.Tensor
+            Durations from the hard alignment map [B, T_en].
+        alignment_soft: torch.Tensor
+            soft alignment potentials [B, T_en, T_de].
+        alignment_logprob: torch.Tensor
+            log scale alignment potentials [B, 1, T_de, T_en].
+        alignment_mas: torch.Tensor
+            hard alignment map [B, T_en, T_de].
+        """
+        attn_mask = torch.unsqueeze(x_mask, -1) * torch.unsqueeze(y_mask, 2)
+        alignment_soft, alignment_logprob = self.aligner(
+            y.transpose(1, 2), x.transpose(1, 2), x_mask, None
+        )
+        alignment_mas = maximum_path_numpy(
+            alignment_soft.squeeze(1).transpose(1, 2).contiguous(),
+            attn_mask.squeeze(1).contiguous(),
+        )
+        durations = torch.sum(alignment_mas, -1).int()
+        alignment_soft = alignment_soft.squeeze(1).transpose(1, 2)
+        return durations, alignment_soft, alignment_logprob, alignment_mas
+
+    def forward(
+        self,
+        tokens,
+        mel_spectograms=None,
+        pitch=None,
+        energy=None,
+        pace=1.0,
+        pitch_rate=1.0,
+        energy_rate=1.0,
+    ):
+        """forward pass for training and inference
+        Arguments
+        ---------
+        tokens: torch.Tensor
+            batch of input tokens
+        mel_spectograms: torch.Tensor
+            batch of mel_spectograms (used only for training)
+        pitch: torch.Tensor
+            batch of pitch for each frame. If it is None, the model will infer on predicted pitches
+        energy: torch.Tensor
+            batch of energy for each frame. If it is None, the model will infer on predicted energies
+        pace: float
+            scaling factor for durations
+        pitch_rate: float
+            scaling factor for pitches
+        energy_rate: float
+            scaling factor for energies
+        Returns
+        ---------
+        mel_post: torch.Tensor
+            mel outputs from the decoder
+        postnet_output: torch.Tensor
+            mel outputs from the postnet
+        predict_durations: torch.Tensor
+            predicted durations of each token
+        predict_pitch: torch.Tensor
+            predicted pitches of each token
+        avg_pitch: torch.Tensor
+            target pitches for each token if input pitch is not None
+            None if input pitch is None
+        predict_energy: torch.Tensor
+            predicted energies of each token
+        avg_energy: torch.Tensor
+            target energies for each token if input energy is not None
+            None if input energy is None
+        mel_length:
+            predicted lengths of mel spectrograms
+        alignment_durations:
+            durations from the hard alignment map
+        alignment_soft: torch.Tensor
+            soft alignment potentials
+        alignment_logprob: torch.Tensor
+            log scale alignment potentials
+        alignment_mas: torch.Tensor
+            hard alignment map
+        """
+        srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
+
+        # encoder
+        token_feats = self.encPreNet(tokens)
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
+        token_feats = torch.add(token_feats, pos) * srcmask_inverted
+        attn_mask = (
+            srcmask.unsqueeze(-1)
+            .repeat(self.enc_num_head, 1, token_feats.shape[1])
+            .permute(0, 2, 1)
+            .bool()
+        )
+        token_feats, _ = self.encoder(
+            token_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
+        )
+        token_feats = token_feats * srcmask_inverted
+
+        # aligner
+        alignment_durations = None
+        alignment_soft = None
+        alignment_logprob = None
+        alignment_mas = None
+        if mel_spectograms is not None:
+            y_mask = get_key_padding_mask(
+                mel_spectograms, pad_idx=self.padding_idx
+            )
+            y_mask_inverted = (~y_mask).unsqueeze(-1)
+
+            (
+                alignment_durations,
+                alignment_soft,
+                alignment_logprob,
+                alignment_mas,
+            ) = self._forward_aligner(
+                token_feats,
+                mel_spectograms,
+                srcmask_inverted.transpose(1, 2),
+                y_mask_inverted.transpose(1, 2),
+            )
+
+            alignment_soft = alignment_soft.transpose(1, 2)
+            alignment_mas = alignment_mas.transpose(1, 2)
+
+        # duration predictor
+        predict_durations = self.durPred(
+            token_feats, srcmask_inverted
+        ).squeeze()
+        if predict_durations.dim() == 1:
+            predict_durations = predict_durations.unsqueeze(0)
+        predict_durations_reverse_log = torch.clamp(
+            torch.exp(predict_durations) - 1, 0
+        )
+
+        # pitch predictor
+        avg_pitch = None
+        predict_pitch = self.pitchPred(token_feats, srcmask_inverted)
+        # use a pitch rate to adjust the pitch
+        predict_pitch = predict_pitch * pitch_rate
+        if pitch is not None:
+            avg_pitch = average_over_durations(
+                pitch.unsqueeze(1), alignment_durations
+            )
+            pitch = self.pitchEmbed(avg_pitch)
+            avg_pitch = avg_pitch.permute(0, 2, 1)
+        else:
+            pitch = self.pitchEmbed(predict_pitch.permute(0, 2, 1))
+        pitch = pitch.permute(0, 2, 1)
+        token_feats = token_feats.add(pitch)
+
+        # energy predictor
+        avg_energy = None
+        predict_energy = self.energyPred(token_feats, srcmask_inverted)
+        # use an energy rate to adjust the energy
+        predict_energy = predict_energy * energy_rate
+        if energy is not None:
+            avg_energy = average_over_durations(
+                energy.unsqueeze(1), alignment_durations
+            )
+            energy = self.energyEmbed(avg_energy)
+            avg_energy = avg_energy.permute(0, 2, 1)
+        else:
+            energy = self.energyEmbed(predict_energy.permute(0, 2, 1))
+        energy = energy.permute(0, 2, 1)
+        token_feats = token_feats.add(energy)
+
+        # upsampling
+        spec_feats, mel_lens = upsample(
+            token_feats,
+            alignment_durations
+            if alignment_durations is not None
+            else predict_durations_reverse_log,
+            pace=pace,
+        )
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
+        srcmask_inverted = (~srcmask).unsqueeze(-1)
+        attn_mask = (
+            srcmask.unsqueeze(-1)
+            .repeat(self.dec_num_head, 1, spec_feats.shape[1])
+            .permute(0, 2, 1)
+            .bool()
+        )
+
+        # decoder
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats)
+        spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
+
+        output_mel_feats, memory, *_ = self.decoder(
+            spec_feats, src_mask=attn_mask, src_key_padding_mask=srcmask
+        )
+
+        # postnet
+        mel_post = self.linear(output_mel_feats) * srcmask_inverted
+        postnet_output = self.postnet(mel_post) + mel_post
+
+        return (
+            mel_post,
+            postnet_output,
+            predict_durations,
+            predict_pitch,
+            avg_pitch,
+            predict_energy,
+            avg_energy,
+            torch.tensor(mel_lens),
+            alignment_durations,
+            alignment_soft,
+            alignment_logprob,
+            alignment_mas,
+        )
+
+
+class LossWithAlignment(nn.Module):
+    """Loss computation including internal aligner
+    Arguments
+    ---------
+    log_scale_durations: bool
+       applies logarithm to target durations
+    ssim_loss_weight: float
+       weight for the ssim loss
+    duration_loss_weight: float
+       weight for the duration loss
+    pitch_loss_weight: float
+       weight for the pitch loss
+    energy_loss_weight: float
+       weight for the energy loss
+    mel_loss_weight: float
+       weight for the mel loss
+    postnet_mel_loss_weight: float
+       weight for the postnet mel loss
+    aligner_loss_weight: float
+       weight for the alignment loss
+    binary_alignment_loss_weight: float
+       weight for the postnet mel loss
+    binary_alignment_loss_warmup_epochs: int
+       Number of epochs to gradually increase the impact of binary loss.
+    binary_alignment_loss_max_epochs: int
+       From this epoch on the impact of binary loss is ignored.
+    """
+
+    def __init__(
+        self,
+        log_scale_durations,
+        ssim_loss_weight,
+        duration_loss_weight,
+        pitch_loss_weight,
+        energy_loss_weight,
+        mel_loss_weight,
+        postnet_mel_loss_weight,
+        aligner_loss_weight,
+        binary_alignment_loss_weight,
+        binary_alignment_loss_warmup_epochs,
+        binary_alignment_loss_max_epochs,
+    ):
+        super().__init__()
+
+        self.ssim_loss = SSIMLoss()
+        self.mel_loss = nn.MSELoss()
+        self.postnet_mel_loss = nn.MSELoss()
+        self.dur_loss = nn.MSELoss()
+        self.pitch_loss = nn.MSELoss()
+        self.energy_loss = nn.MSELoss()
+        self.aligner_loss = ForwardSumLoss()
+        self.binary_alignment_loss = BinaryAlignmentLoss()
+        self.log_scale_durations = log_scale_durations
+        self.ssim_loss_weight = ssim_loss_weight
+        self.mel_loss_weight = mel_loss_weight
+        self.postnet_mel_loss_weight = postnet_mel_loss_weight
+        self.duration_loss_weight = duration_loss_weight
+        self.pitch_loss_weight = pitch_loss_weight
+        self.energy_loss_weight = energy_loss_weight
+        self.aligner_loss_weight = aligner_loss_weight
+        self.binary_alignment_loss_weight = binary_alignment_loss_weight
+        self.binary_alignment_loss_warmup_epochs = (
+            binary_alignment_loss_warmup_epochs
+        )
+        self.binary_alignment_loss_max_epochs = binary_alignment_loss_max_epochs
+
+    def forward(self, predictions, targets, current_epoch):
+        """Computes the value of the loss function and updates stats
+        Arguments
+        ---------
+        predictions: tuple
+            model predictions
+        targets: tuple
+            ground truth data
+        current_epoch: int
+            used to determinate the start/end of the binary alignment loss
+        Returns
+        -------
+        loss: torch.Tensor
+            the loss value
+        """
+        (
+            mel_target,
+            target_pitch,
+            target_energy,
+            mel_length,
+            phon_len,
+        ) = targets
+        assert len(mel_target.shape) == 3
+        (
+            mel_out,
+            postnet_mel_out,
+            log_durations,
+            predicted_pitch,
+            average_pitch,
+            predicted_energy,
+            average_energy,
+            mel_lens,
+            alignment_durations,
+            alignment_soft,
+            alignment_logprob,
+            alignment_hard,
+        ) = predictions
+
+        predicted_pitch = predicted_pitch.squeeze(-1)
+        predicted_energy = predicted_energy.squeeze(-1)
+
+        target_pitch = average_pitch.squeeze(-1)
+        target_energy = average_energy.squeeze(-1)
+
+        log_durations = log_durations.squeeze(-1)
+        if self.log_scale_durations:
+            log_target_durations = torch.log(alignment_durations.float() + 1)
+        # change this to perform batch level using padding mask
+
+        for i in range(mel_target.shape[0]):
+            if i == 0:
+                mel_loss = self.mel_loss(
+                    mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
+                )
+                postnet_mel_loss = self.postnet_mel_loss(
+                    postnet_mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
+                )
+                dur_loss = self.dur_loss(
+                    log_durations[i, : phon_len[i]],
+                    log_target_durations[i, : phon_len[i]].to(torch.float32),
+                )
+                pitch_loss = self.pitch_loss(
+                    predicted_pitch[i, : mel_length[i]],
+                    target_pitch[i, : mel_length[i]].to(torch.float32),
+                )
+                energy_loss = self.energy_loss(
+                    predicted_energy[i, : mel_length[i]],
+                    target_energy[i, : mel_length[i]].to(torch.float32),
+                )
+            else:
+                mel_loss = mel_loss + self.mel_loss(
+                    mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
+                )
+                postnet_mel_loss = postnet_mel_loss + self.postnet_mel_loss(
+                    postnet_mel_out[i, : mel_length[i], :],
+                    mel_target[i, : mel_length[i], :],
+                )
+                dur_loss = dur_loss + self.dur_loss(
+                    log_durations[i, : phon_len[i]],
+                    log_target_durations[i, : phon_len[i]].to(torch.float32),
+                )
+                pitch_loss = pitch_loss + self.pitch_loss(
+                    predicted_pitch[i, : mel_length[i]],
+                    target_pitch[i, : mel_length[i]].to(torch.float32),
+                )
+                energy_loss = energy_loss + self.energy_loss(
+                    predicted_energy[i, : mel_length[i]],
+                    target_energy[i, : mel_length[i]].to(torch.float32),
+                )
+
+        total_loss = 0
+        loss = {}
+
+        ssim_loss = self.ssim_loss(mel_out, mel_target, mel_length)
+        loss["ssim_loss"] = ssim_loss * self.ssim_loss_weight
+
+        mel_loss = torch.div(mel_loss, len(mel_target))
+        loss["mel_loss"] = mel_loss * self.mel_loss_weight
+
+        postnet_mel_loss = torch.div(postnet_mel_loss, len(mel_target))
+        loss["postnet_mel_loss"] = (
+            postnet_mel_loss * self.postnet_mel_loss_weight
+        )
+
+        dur_loss = torch.div(dur_loss, len(mel_target))
+        loss["dur_loss"] = dur_loss * self.duration_loss_weight
+
+        pitch_loss = torch.div(pitch_loss, len(mel_target))
+        loss["pitch_loss"] = pitch_loss * self.pitch_loss_weight
+
+        energy_loss = torch.div(energy_loss, len(mel_target))
+        loss["energy_loss"] = energy_loss * self.energy_loss_weight
+
+        if alignment_logprob is not None:
+            aligner_loss = self.aligner_loss(
+                alignment_logprob, phon_len, mel_length
+            )
+            loss["aligner_loss"] = aligner_loss * self.aligner_loss_weight
+
+        if alignment_soft is not None and alignment_hard is not None:
+            if current_epoch > self.binary_alignment_loss_max_epochs:
+                binary_loss_warmup_weight = 0
+            else:
+                binary_loss_warmup_weight = (
+                    min(
+                        current_epoch
+                        / self.binary_alignment_loss_warmup_epochs,
+                        1.0,
+                    )
+                    * 1.0
+                )
+
+            binary_alignment_loss = self.binary_alignment_loss(
+                alignment_hard, alignment_soft
+            )
+            loss["binary_alignment_loss"] = (
+                binary_alignment_loss
+                * self.binary_alignment_loss_weight
+                * binary_loss_warmup_weight
+            )
+
+        total_loss = sum(loss.values())
+        loss["total_loss"] = total_loss
+        return loss
+
+
+class ForwardSumLoss(nn.Module):
+    """CTC alignment loss
+    Arguments
+    ---------
+    blank_logprob: pad value
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import ForwardSumLoss
+    >>> loss_func = ForwardSumLoss()
+    >>> attn_logprob = torch.rand(2, 1, 100, 5)
+    >>> key_lens = torch.tensor([5, 5])
+    >>> query_lens = torch.tensor([100, 100])
+    >>> loss = loss_func(attn_logprob, key_lens, query_lens)
+    """
+
+    def __init__(self, blank_logprob=-1):
+        super().__init__()
+        self.log_softmax = torch.nn.LogSoftmax(dim=3)
+        self.ctc_loss = torch.nn.CTCLoss(zero_infinity=True)
+        self.blank_logprob = blank_logprob
+
+    def forward(self, attn_logprob, key_lens, query_lens):
+        """
+        Arguments
+        ---------
+        attn_logprob: torch.Tensor
+            log scale alignment potentials [B, 1, query_lens, key_lens]
+        key_lens: torch.Tensor
+            mel lengths
+        query_lens: torch.Tensor
+            phoneme lengths
+        """
+        attn_logprob_padded = torch.nn.functional.pad(
+            input=attn_logprob, pad=(1, 0), value=self.blank_logprob
+        )
+
+        total_loss = 0.0
+        for bid in range(attn_logprob.shape[0]):
+            target_seq = torch.arange(1, key_lens[bid] + 1).unsqueeze(0)
+            curr_logprob = attn_logprob_padded[bid].permute(1, 0, 2)[
+                : query_lens[bid], :, : key_lens[bid] + 1
+            ]
+
+            curr_logprob = self.log_softmax(curr_logprob[None])[0]
+            loss = self.ctc_loss(
+                curr_logprob,
+                target_seq,
+                input_lengths=query_lens[bid : bid + 1],
+                target_lengths=key_lens[bid : bid + 1],
+            )
+            total_loss = total_loss + loss
+
+        total_loss = total_loss / attn_logprob.shape[0]
+        return total_loss
+
+
+class BinaryAlignmentLoss(nn.Module):
+    """Binary loss that forces soft alignments to match the hard alignments as
+    explained in `https://arxiv.org/pdf/2108.10447.pdf`.
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.lobes.models.FastSpeech2 import BinaryAlignmentLoss
+    >>> loss_func = BinaryAlignmentLoss()
+    >>> alignment_hard = torch.randint(0, 2, (2, 100, 5))
+    >>> alignment_soft = torch.rand(2, 100, 5)
+    >>> loss = loss_func(alignment_hard, alignment_soft)
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, alignment_hard, alignment_soft):
+        """
+        alignment_hard: torch.Tensor
+            hard alignment map [B, mel_lens, phoneme_lens]
+        alignment_soft: torch.Tensor
+            soft alignment potentials [B, mel_lens, phoneme_lens]
+        """
+        log_sum = torch.log(
+            torch.clamp(alignment_soft[alignment_hard == 1], min=1e-12)
+        ).sum()
+        return -log_sum / alignment_hard.sum()

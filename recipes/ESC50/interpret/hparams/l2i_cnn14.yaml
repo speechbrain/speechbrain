@@ -39,15 +39,13 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 200
 batch_size: 2
 lr: 0.0001
 sample_rate: 44100
 interpret_period: 1
 relevance_th: 0.2
-
-device: "cuda"
 
 # Feature parameters
 n_mels: 80

@@ -2,8 +2,17 @@
 This folder contains the scripts to train a CTC system using TIMIT.
 TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
 
-# How to run
-python train.py hparams/train.yaml --jit
+# Running the Code
+
+To execute the code, use the following command:
+
+```
+python train.py hparams/train.yaml --data_folder=your_data_folder/TIMIT --jit
+```
+
+**Note on Compilation**:
+Enabling the just-in-time (JIT) compiler significantly improves code performance, resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
+This speed improvement is observed specifically when using the CRDNN model.
 
 # Results
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |

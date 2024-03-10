@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer_transducer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
@@ -29,7 +29,6 @@ data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 # If RIRS_NOISES dir exists in /localscratch/xxx_corpus/RIRS_NOISES
 # then data_folder_rirs should be /localscratch/xxx_corpus
 # otherwise the dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
@@ -41,9 +40,10 @@ test_csv:
 skip_prep: False
 ckpt_interval_minutes: 5 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
+
 # To make Transformers converge, the global bath size should be large enough.
-# The global batch size is computed as batch_size * n_gpus * gradient_accumulation.
+# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 100
@@ -57,18 +57,42 @@ ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
 ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
+precision: fp32 # bf16, fp16 or fp32
 
 # The batch size is used if and only if dynamic batching is set to False
 # Validation and testing are done with fixed batches and not dynamic batching.
 batch_size: 8
 grad_accumulation_factor: 4
 sorting: random
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 512
 n_mels: 80
 win_length: 32
+
+# Streaming & dynamic chunk training options
+# At least for the current architecture on LibriSpeech, we found out that
+# non-streaming accuracy is very similar between `streaming: True` and
+# `streaming: False`.
+streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
+
+# Configuration for Dynamic Chunk Training.
+# In this model, a chunk is roughly equivalent to 40ms of audio.
+dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
+   chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
+   chunk_size_min: 8 # Minimum chunk size (if in a DynChunkTrain batch)
+   chunk_size_max: 32 # Maximum chunk size (if in a DynChunkTrain batch)
+   limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
+   left_context_chunks_min: 2 # Minimum left context size (in # of chunks)
+   left_context_chunks_max: 32 # Maximum left context size (in # of chunks)
+   # If you specify a valid/test config, you can optionally have evaluation be
+   # done with a specific DynChunkTrain configuration.
+   # valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+   #    chunk_size: 24
+   #    left_context_size: 16
+   # test_config: ...
 
 # Dataloader options
 train_dataloader_opts:
@@ -97,7 +121,8 @@ dynamic_batch_sampler:
    batch_ordering: random
    max_batch_ex: 256
 
-# Model parameters
+####################### Model Parameters #######################################
+
 # Transformer
 d_model: 512
 joint_dim: 640
@@ -141,30 +166,55 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_mels: !ref <n_mels>
    win_length: !ref <win_length>
 
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-   time_warp: True
-   time_warp_window: 5
-   time_warp_mode: bicubic
-   freq_mask: True
-   n_freq_mask: 2
-   time_mask: True
-   n_time_mask: 5
-   replace_with_zero: False
-   freq_mask_width: 30
-   time_mask_width: 20
+############################## Augmentations ###################################
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
    orig_freq: !ref <sample_rate>
    speeds: [95, 100, 105]
 
-# Uncomment if interested in env corruption
-# env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-#   openrir_folder: !ref <data_folder_rirs>
-#   babble_prob: 0.0
-#   reverb_prob: 0.0
-#   noise_prob: 1.0
-#   noise_snr_low: 0
-#   noise_snr_high: 15
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   min_augmentations: 1
+   max_augmentations: 1
+   augment_prob: 1.0
+   augmentations: [!ref <speed_perturb>]
+
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: 15
+   drop_length_high: 25
+   drop_count_low: 5
+   drop_count_high: 5
+   replace: "zeros"
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: 25
+   drop_length_high: 35
+   drop_count_low: 2
+   drop_count_high: 2
+   replace: "zeros"
+   dim: 2
+
+# Time warp
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: False
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 3
+   max_augmentations: 3
+   augment_prob: 1.0
+   augmentations: [
+      !ref <time_drop>,
+      !ref <freq_drop>,
+      !ref <time_warp>]
+
+############################## Models ##########################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
@@ -276,7 +326,6 @@ modules:
    Tjoint: !ref <Tjoint>
    transducer_lin: !ref <transducer_lin>
    normalize: !ref <normalize>
-   augmentation: !ref <augmentation>
    lm_model: !ref <lm_model>
    proj_ctc: !ref <proj_ctc>
    proj_dec: !ref <proj_dec>
@@ -287,6 +336,8 @@ modules:
 # update model if any HEAD module is added
 model: !new:torch.nn.ModuleList
    - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <proj_enc>, !ref <proj_dec>, !ref <proj_ctc>, !ref <transducer_lin>]
+
+############################## Decoding & optimiser ############################
 
 # Tokenizer initialization
 tokenizer: !new:sentencepiece.SentencePieceProcessor
@@ -321,6 +372,8 @@ noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr>
    n_warmup_steps: !ref <warmup_steps>
 
+############################## Logging and Pretrainer ##########################
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
    recoverables:
@@ -346,3 +399,23 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
+
+# for the inference hparams, you will need to include and uncomment something like this:
+
+# make_tokenizer_streaming_context: !name:speechbrain.tokenizers.SentencePiece.SentencePieceDecoderStreamingContext
+# tokenizer_decode_streaming: !name:speechbrain.tokenizers.SentencePiece.spm_decode_preserve_leading_space
+
+# make_decoder_streaming_context: !name:speechbrain.decoders.transducer.TransducerGreedySearcherStreamingContext # default constructor
+# decoding_function: !name:speechbrain.decoders.transducer.TransducerBeamSearcher.transducer_greedy_decode_streaming
+#    - !ref <Greedysearcher>  # self
+
+# fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
+#    module: !new:speechbrain.nnet.containers.LengthsCapableSequential
+#       - !ref <compute_features>
+#       - !ref <normalize>
+#       - !ref <CNN>
+#    # don't consider normalization as part of the input filter chain.
+#    # normalization will operate at chunk level, which mismatches training
+#    # somewhat, but does not appear to result in noticeable degradation.
+#    properties: !apply:speechbrain.utils.filter_analysis.stack_filter_properties
+#       - [!ref <compute_features>, !ref <CNN>]

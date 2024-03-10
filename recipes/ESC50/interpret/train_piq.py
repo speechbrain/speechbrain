@@ -739,8 +739,8 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
 
-    hparams["embedding_model"].to(hparams["device"])
-    hparams["classifier"].to(hparams["device"])
+    hparams["embedding_model"].to(run_opts["device"])
+    hparams["classifier"].to(run_opts["device"])
     hparams["embedding_model"].eval()
 
     Interpreter_brain.fit(
@@ -755,7 +755,6 @@ if __name__ == "__main__":
 
     Interpreter_brain.checkpointer.recover_if_possible(
         max_key="valid_top-3_fid",
-        device=torch.device(Interpreter_brain.device),
     )
 
     test_stats = Interpreter_brain.evaluate(

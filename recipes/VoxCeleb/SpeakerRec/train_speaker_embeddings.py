@@ -36,34 +36,19 @@ class SpeakerBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
+        if (
+            hasattr(self.hparams, "use_tacotron2_mel_spec")
+            and self.hparams.use_tacotron2_mel_spec
+        ):
+            feats = self.hparams.compute_features(audio=wavs)
+            feats = torch.transpose(feats, 1, 2)
+        else:
+            feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
@@ -79,8 +64,8 @@ class SpeakerBrain(sb.core.Brain):
         spkid, _ = batch.spk_id_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            spkid = torch.cat([spkid] * self.n_augment, dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            spkid = self.hparams.wav_augment.replicate_labels(spkid)
 
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
@@ -223,6 +208,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, label_encoder = dataio_prep(hparams)

@@ -48,9 +48,10 @@ class ASR(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
 
         # Forward pass
         feats = self.modules.wav2vec2(wavs, wav_lens)
@@ -63,40 +64,42 @@ class ASR(sb.core.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
+        p_ctc, p_tokens = None, None
         if stage == sb.Stage.TRAIN:
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.number_of_ctc_epochs:
                 # Output layer for ctc log-probabilities
                 logits = self.modules.ctc_lin(x)
                 p_ctc = self.hparams.log_softmax(logits)
-                return p_ctc, p_seq, wav_lens
-            else:
-                return p_seq, wav_lens
         else:
-            p_tokens, scores = self.hparams.beam_searcher(x, wav_lens)
-            return p_seq, wav_lens, p_tokens
+            p_tokens, _, _, _ = self.hparams.beam_searcher(x, wav_lens)
+
+        return p_ctc, p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        current_epoch = self.hparams.epoch_counter.current
-        if stage == sb.Stage.TRAIN:
-            if current_epoch <= self.hparams.number_of_ctc_epochs:
-                p_ctc, p_seq, wav_lens = predictions
-            else:
-                p_seq, wav_lens = predictions
-        else:
-            p_seq, wav_lens, predicted_tokens = predictions
+        p_ctc, p_seq, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
+
+        # Augment Labels
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens = self.hparams.wav_augment.replicate_labels(tokens)
+            tokens_lens = self.hparams.wav_augment.replicate_labels(tokens_lens)
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
+            )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
         )
 
         # Add ctc loss if necessary
+        current_epoch = self.hparams.epoch_counter.current
         if (
             stage == sb.Stage.TRAIN
             and current_epoch <= self.hparams.number_of_ctc_epochs
@@ -123,53 +126,6 @@ class ASR(sb.core.Brain):
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
-
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        if self.auto_mix_prec:
-
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-            self.scaler.scale(loss).backward()
-            if not self.hparams.wav2vec2.freeze:
-                self.scaler.unscale_(self.wav2vec_optimizer)
-            self.scaler.unscale_(self.model_optimizer)
-
-            if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
-                    self.scaler.step(self.wav2vec_optimizer)
-                self.scaler.step(self.model_optimizer)
-
-            self.scaler.update()
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            loss.backward()
-
-            if self.check_gradients(loss):
-                if not self.hparams.wav2vec2.freeze:
-                    self.wav2vec_optimizer.step()
-                self.model_optimizer.step()
-
-            if not self.hparams.wav2vec2.freeze:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        with torch.no_grad():
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -240,10 +196,23 @@ class ASR(sb.core.Brain):
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
-    def zero_grad(self, set_to_none=False):
-        self.model_optimizer.zero_grad(set_to_none)
         if not self.hparams.wav2vec2.freeze:
-            self.wav2vec_optimizer.zero_grad(set_to_none)
+            self.optimizers_dict = {
+                "wav2vec_optimizer": self.wav2vec_optimizer,
+                "model_optimizer": self.model_optimizer,
+            }
+        else:
+            self.optimizers_dict = {"model_optimizer": self.model_optimizer}
+
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
+        if not self.hparams.wav2vec2.freeze:
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
 
 
 # Define custom data procedure
@@ -343,7 +312,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 

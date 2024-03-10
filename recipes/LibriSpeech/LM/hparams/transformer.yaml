@@ -29,11 +29,11 @@ test_transcripts_pattern: "test*/**/*.trans.txt"
 # Tokenizer model
 tokenizer_file: speechbrain/asr-transformer-transformerlm-librispeech/tokenizer.ckpt
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 16
 lr: 10
-accu_steps: 8 # Gradient accumulation to simulate large batch training
+grad_accumulation_factor: 8 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options
