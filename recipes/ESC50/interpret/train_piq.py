@@ -106,8 +106,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
+                    self.hparams.output_folder, "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -192,8 +191,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder,
-            exist_ok=True,
+            out_folder, exist_ok=True,
         )
 
         torchaudio.save(
@@ -288,17 +286,14 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.title("mask")
 
         out_folder = os.path.join(
-            self.hparams.output_folder,
-            "reconstructions/" f"{batch.id[0]}",
+            self.hparams.output_folder, "reconstructions/" f"{batch.id[0]}",
         )
         makedirs(
-            out_folder,
-            exist_ok=True,
+            out_folder, exist_ok=True,
         )
 
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"),
-            format="png",
+            os.path.join(out_folder, "reconstructions.png"), format="png",
         )
         plt.close()
 

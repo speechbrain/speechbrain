@@ -200,8 +200,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
+                    self.hparams.output_folder, "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -278,8 +277,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder,
-            exist_ok=True,
+            out_folder, exist_ok=True,
         )
 
         torchaudio.save(
