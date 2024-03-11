@@ -10,7 +10,7 @@ To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
 
 Authors
- * Adel Moumen 2022
+ * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
 """
 
@@ -44,7 +44,7 @@ class ASR(sb.Brain):
             )
 
         # We compute the padding mask and replace the values with the pad_token_id
-        # that the Whisper decoder expect to see.
+        # # that the Whisper decoder expect to see.
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
@@ -52,12 +52,10 @@ class ASR(sb.Brain):
         )
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
+        # TODO: make this only for traning. At inference needs two
         # Forward encoder + decoder
-        enc_out, logits, _ = self.modules.whisper(
-            wavs, 
-            bos_tokens
-        )
-
+        enc_out = self.modules.whisper.forward_encoder(wavs)
+        logits = self.modules.whisper.forward_decoder(enc_out, bos_tokens, False)[0]
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
@@ -93,10 +91,6 @@ class ASR(sb.Brain):
             # Decode token terms to words
             predicted_words = [self.tokenizer.decode(t).strip() for t in hyps]
 
-            print(predicted_words)
-            exit()
-            # print(predicted_words)
-            # exit()
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
             target_words = self.tokenizer.batch_decode(
@@ -136,16 +130,9 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
-            old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
-                stage_stats["loss"]
-            )
-
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer, new_lr_whisper
-            )
+            lr = self.hparams.lr_annealing_whisper.current_lr
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
+                stats_meta={"epoch": epoch, "lr": lr},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -225,15 +212,14 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
+        wrd = tokenizer.normalize(wrd)
         yield wrd
-        tokens_list = tokenizer.encode(wrd)
-        # avoid bos and eos tokens.
-        tokens_list = tokens_list[1:-1]
+        tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
         yield tokens_list
-        # TODO: check this..
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + tokens_list)
+        tokens_list = tokenizer.build_inputs_with_special_tokens(tokens_list)
+        tokens_bos = torch.LongTensor(tokens_list[:-1])
         yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        tokens_eos = torch.LongTensor(tokens_list[1:])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
