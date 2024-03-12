@@ -143,6 +143,15 @@ def bert_score(
         (e.g. recall).
     """
 
+    # TODO: compare results with official implementation
+    # TODO: implement idf calculation generically
+    # TODO: add HF interface
+    # TODO: add wrapper to do this with a batch size; maybe at metric class level?
+    # ref_tokens = tokenizer(ref_text, return_tensors="pt", padding=True)
+    # hyp_tokens = tokenizer(hyp_text, return_tensors="pt", padding=True)
+    # ref_hidden = lm(**ref_tokens).last_hidden_state
+    # hyp_hidden = lm(**hyp_tokens).last_hidden_state
+
     # shape [batch, ref dim, hyp dim]
     similarity_matrix = cosine_similarity_matrix(ref_hidden, hyp_hidden)
 
