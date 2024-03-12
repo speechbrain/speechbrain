@@ -787,7 +787,7 @@ class StreamingASR(Pretrained):
     @torch.no_grad()
     def decode_chunk(
         self, context: ASRStreamingContext, x: torch.Tensor
-    ) -> Tuple[List[str], List[int]]:
+    ) -> Tuple[List[str], List[List[int]]]:
         """Decodes the output of the encoder into tokens and the associated
         transcription.
         Must be called over a given context in the correct order of chunks over
