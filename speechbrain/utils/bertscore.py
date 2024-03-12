@@ -1,7 +1,7 @@
 """Provides a function to compute the BERTscore metric.
 
 Authors
-* Sylvain de Langen 2023
+* Sylvain de Langen 2024
 """
 
 import torch
