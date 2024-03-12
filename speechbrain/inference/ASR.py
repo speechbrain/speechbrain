@@ -14,7 +14,7 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 from dataclasses import dataclass
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Tuple
 import itertools
 import torch
 import torchaudio
@@ -787,7 +787,7 @@ class StreamingASR(Pretrained):
     @torch.no_grad()
     def decode_chunk(
         self, context: ASRStreamingContext, x: torch.Tensor
-    ) -> tuple[list, list]:
+    ) -> Tuple[List[str], List[List[int]]]:
         """Decodes the output of the encoder into tokens and the associated
         transcription.
         Must be called over a given context in the correct order of chunks over
