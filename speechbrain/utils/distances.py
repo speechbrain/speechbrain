@@ -5,7 +5,7 @@ import torch
 
 def cosine_similarity_matrix(
     a: torch.Tensor, b: torch.Tensor, eps: float = 1.0e-8
-):
+) -> torch.Tensor:
     """Computes a matrix evaluating all pairwise cosine similarities.
     The cosine similarity can otherwise be determined with
     :class:`torch.nn.CosineSimilarity`.
