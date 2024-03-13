@@ -5,10 +5,20 @@ Authors
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 import torch
 
 from speechbrain.utils.distances import cosine_similarity_matrix
+from speechbrain.utils.metric_stats import MetricStats
+
+FIXME
+#    SEP and CLS tokens should be zeroed
+#    so token_weights should be edited accordingly even if non present to set it
+#    to zero. also are we supposed to truncate and/or weight the tokens as they
+#    are in the hyps?? because otherwise it could match against SEP/CLS...
+
+FIXME
+# why is the 3rd example so broken
 
 
 @dataclass
@@ -28,22 +38,10 @@ class BERTScoreOutput:
     contextualized token in the hypothesis were matched with which
     contextualized token in the reference text."""
 
-    weight_sum: float
-    """Sum of the weights within the selected path. If no token weights were
-    specified, this will be the number of reference tokens."""
-
-    # FIXME: NEED TO HANDLE THE FACT WE'RE NOT GOING TO HAVE A SINGLE BERTSCOREOUTPUT FOR ALL THE CORPUS
-    # can we reuse the existing statistics class for recall? that'd probably be a ton better
-    def recall(self, eps: float = 1.0e-8) -> float:
-        """Computes the recall metric for this output.
-
-        Arguments
-        ---------
-        eps : float, optional
-            Epsilon value; used to avoid a division by zero."""
-
-        sum = self.selected_values.sum(dim=-1).item()
-        return sum / max(self.weight_sum, eps)
+    weight_sum: torch.Tensor
+    """Sum of the weights within the selected path of shape `[batch]`. If no
+    token weights were specified, this will be the number of reference tokens.
+    """
 
 
 def bert_score(
@@ -69,10 +67,12 @@ def bert_score(
     ---------
     ref_hidden : torch.Tensor
         Outputs of the LM encoder for the reference text, i.e. contextualized
-        tokens.
+        tokens. May include special tokens (such as `[CLS]` and `[SEP]` tokens)
+        in which case they are taken into account.
     hyp_hidden : torch.Tensor
         Outputs of the LM encoder for the hypothesis text, i.e. contextualized
-        tokens.
+        tokens. May include special tokens (such as `[CLS]` and `[SEP]` tokens)
+        in which case they are taken into account.
     ref_mask : Optional[torch.BoolTensor]
         Boolean mask for the reference hidden states where `True` is a token
         that should **not** be ignored. Should be specified if all texts in the
@@ -91,6 +91,8 @@ def bert_score(
         Token weights, of shape `[vocab_size]`. When specified, all tokens
         referenced by `ref_inputs` must be a valid index in `token_weights`.
         Otherwise, all tokens in the reference are weighted equally.
+        Token weighting is performed at reference word level.
+        BERTScore typically uses the Inverse Document Frequency (IDF) metric.
 
     Returns
     -------
@@ -99,17 +101,14 @@ def bert_score(
         (e.g. recall).
     """
 
+    # TODO: in token_weights link to IDF function
     # TODO: compare results with official implementation
     # TODO: implement idf calculation generically
-    # TODO: add HF interface
-    # TODO: add wrapper to do this with a batch size; maybe at metric class level?
-    # ref_tokens = tokenizer(ref_text, return_tensors="pt", padding=True)
-    # hyp_tokens = tokenizer(hyp_text, return_tensors="pt", padding=True)
-    # ref_hidden = lm(**ref_tokens).last_hidden_state
-    # hyp_hidden = lm(**hyp_tokens).last_hidden_state
 
     # shape [batch, ref dim, hyp dim]
     similarity_matrix = cosine_similarity_matrix(ref_hidden, hyp_hidden)
+
+    print(similarity_matrix)
 
     # zero out similarity for any pair where either of the tokens is padding
     if ref_mask is not None:
@@ -134,13 +133,13 @@ def bert_score(
         if ref_mask is not None:
             ref_weights = torch.masked_fill(ref_weights, ~ref_mask, 0.0)
 
-        weight_sum = torch.sum(ref_weights, dim=-1).item()
+        weight_sum = torch.sum(ref_weights, dim=-1)
 
         # weight the cosine distance for every ref token
         selected_values *= ref_weights
     else:
         if ref_mask is not None:
-            weight_sum = torch.sum(ref_mask, dim=-1).item()
+            weight_sum = torch.sum(ref_mask, dim=-1)
         else:
             weight_sum = float(selected_values.size(-1))
 
@@ -150,3 +149,111 @@ def bert_score(
         selected_indices=selected_indices,
         weight_sum=weight_sum,
     )
+
+
+class BERTScoreStats(MetricStats):
+    """Computes BERTScore with a provided tokenizer and LM.
+    See :func:`speechbrain.utils.bertscore.bert_score` for details.
+
+    Arguments
+    ---------
+    model : transformers.AutoModelForTextEncoding
+        Transformers text encoder. May live on a non-CPU device.
+    tokenizer : transformers.AutoTokenizer
+        Transformers tokenizer.
+    batch_size : int
+        How many pairs of utterances should be considered at once. Higher is
+        faster but may result in OOM.
+    """
+
+    def __init__(self, lm, tokenizer, batch_size: int):
+        self.clear()
+        self.lm = lm
+        self.tokenizer = tokenizer
+        self.batch_size = batch_size
+
+    def clear(self):
+        """Clears the collected statistics"""
+        self.ids = []
+        self.predictions = []
+        self.targets = []
+        self.summary = {}
+
+    def append(self, ids, predictions, targets):
+        """
+        Appends inputs, predictions and targets to internal
+        lists
+
+        Arguments
+        ---------
+        ids: list
+            the string IDs for the samples
+        predictions: list
+            the model's predictions in tokenizable format
+        targets: list
+            the ground truths in tokenizable format
+        """
+        self.ids.extend(ids)
+        self.predictions.extend(predictions)
+        self.targets.extend(targets)
+
+    def summarize(self, field=None):
+        """Summarize the classification metric scores
+
+        The following statistics are computed:
+
+        TODO
+
+        Arguments
+        ---------
+        field : str
+            If provided, only returns selected statistic. If not,
+            returns all computed statistics.
+
+        Returns
+        -------
+        float or dict
+            Returns a float if ``field`` is provided, otherwise
+            returns a dictionary containing all computed stats.
+        """
+
+        # TODO: calculate IDF weights
+
+        selected_sum = 0.0
+        weight_sum = 0.0
+
+        for chunk_idx in range(0, len(self.predictions), self.batch_size):
+            chunk_refs = self.targets[chunk_idx:chunk_idx+self.batch_size]
+            chunk_hyps = self.predictions[chunk_idx:chunk_idx+self.batch_size]
+
+            with torch.no_grad():
+                chunk_stats = self._get_batch_stats(chunk_refs, chunk_hyps)
+
+                selected_sum += chunk_stats.selected_values.sum().item()
+                weight_sum += chunk_stats.weight_sum.sum().item()
+
+                print(chunk_stats.selected_values)
+                #chunk_stats.selected_values.sum()
+
+        self.summary["bertscore-recall"] = selected_sum / weight_sum
+
+        if field is not None:
+            return self.summary[field]
+        else:
+            return self.summary
+
+
+    def _get_batch_stats(self, ref_text: List[str], hyp_text: List[str]):
+        ref_tokens = self.tokenizer(ref_text, return_tensors="pt", padding=True)
+        hyp_tokens = self.tokenizer(hyp_text, return_tensors="pt", padding=True)
+        ref_hidden = self.lm(**ref_tokens).last_hidden_state
+        hyp_hidden = self.lm(**hyp_tokens).last_hidden_state
+
+        return bert_score(
+            ref_hidden=ref_hidden,
+            hyp_hidden=hyp_hidden,
+            ref_mask=ref_tokens["attention_mask"].bool(),
+            hyp_mask=hyp_tokens["attention_mask"].bool(),
+            ref_inputs=ref_tokens["input_ids"],
+            # token_weights=TODO
+        )
