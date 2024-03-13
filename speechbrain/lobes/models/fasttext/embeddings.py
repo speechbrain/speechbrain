@@ -41,12 +41,7 @@ class FasttextModel:
             Extra keyword arguments to pass to :func:`speechbrain.utils.fetching.fetch`
         """
 
-        model_path = fetch(
-            filename=filename,
-            source=source,
-            *args,
-            **kwargs,
-        )
+        model_path = fetch(filename=filename, source=source, *args, **kwargs,)
         return FasttextModel(fasttext.load_model(str(model_path)))
 
     def get_word_vector(self, word: str) -> Optional[torch.Tensor]:

@@ -2,7 +2,10 @@
 
 import torch
 
-def cosine_similarity_matrix(a: torch.Tensor, b: torch.Tensor, eps: float = 1.0e-8):
+
+def cosine_similarity_matrix(
+    a: torch.Tensor, b: torch.Tensor, eps: float = 1.0e-8
+):
     """Computes a matrix evaluating all pairwise cosine similarities.
     The cosine similarity can otherwise be determined with
     :class:`torch.nn.CosineSimilarity`.
@@ -29,7 +32,9 @@ def cosine_similarity_matrix(a: torch.Tensor, b: torch.Tensor, eps: float = 1.0e
 
     assert a.dim() == b.dim(), "Inputs must be of the same dim"
     assert a.dim() >= 2, "Expected at least 2 dims [X, cos_sim_dim]"
-    assert a.shape[:-2] == b.shape[:-2], "Input shape must match until last 2 dims"
+    assert (
+        a.shape[:-2] == b.shape[:-2]
+    ), "Input shape must match until last 2 dims"
 
     a_norm = torch.linalg.vector_norm(a, dim=-1).unsqueeze(-1)  # [..., X, 1]
     b_norm = torch.linalg.vector_norm(b, dim=-1).unsqueeze(-1)  # [..., Y, 1]

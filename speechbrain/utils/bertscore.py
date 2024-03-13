@@ -10,6 +10,7 @@ import torch
 
 from speechbrain.utils.distances import cosine_similarity_matrix
 
+
 @dataclass
 class BERTScoreOutput:
     """Output of an evaluation of BERTScore for a batch of refs and hypothesis.
@@ -46,12 +47,13 @@ class BERTScoreOutput:
 
 
 def bert_score(
-        ref_hidden: torch.Tensor,
-        hyp_hidden: torch.Tensor,
-        ref_mask: Optional[torch.BoolTensor] = None,
-        hyp_mask: Optional[torch.BoolTensor] = None,
-        ref_inputs: Optional[torch.Tensor] = None,
-        token_weights: Optional[torch.Tensor] = None,):
+    ref_hidden: torch.Tensor,
+    hyp_hidden: torch.Tensor,
+    ref_mask: Optional[torch.BoolTensor] = None,
+    hyp_mask: Optional[torch.BoolTensor] = None,
+    ref_inputs: Optional[torch.Tensor] = None,
+    token_weights: Optional[torch.Tensor] = None,
+):
     """Computes the BERTScore evaluation metric, as described in the paper
     `BERTScore: Evaluating Text Generation with BERT <https://arxiv.org/abs/1904.09675>`_.
 
@@ -126,9 +128,7 @@ def bert_score(
         # ref_inputs -> weight for every ref input sampled from token_weights
         # the result is a weight tensor with the same shape as the inputs
         ref_weights = torch.index_select(
-            input=token_weights,
-            dim=0,
-            index=ref_inputs.flatten()
+            input=token_weights, dim=0, index=ref_inputs.flatten()
         ).reshape(ref_inputs.shape)
 
         if ref_mask is not None:
@@ -148,6 +148,5 @@ def bert_score(
         similarity_matrix=similarity_matrix,
         selected_values=selected_values,
         selected_indices=selected_indices,
-        weight_sum=weight_sum
+        weight_sum=weight_sum,
     )
-

@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import Iterable
 import json
 
+
 class SynonymDictionary:
     """Loads sets of synonym words and lets you look up if two words are
     synonyms.
@@ -14,9 +15,10 @@ class SynonymDictionary:
     This could, for instance, be used to check for equality in the case of two
     spellings of the same word when normalization might be unsuitable.
 
-    Synonyms are not considered to be transitive: 
+    Synonyms are not considered to be transitive:
     If A is a synonym of B and B is a synonym of C, then A is NOT considered a
     synonym of C unless they are added in the same synonym set."""
+
     def __init__(self):
         self.word_map = defaultdict(lambda: set())
 
@@ -39,7 +41,9 @@ class SynonymDictionary:
             if isinstance(entry, list):
                 synonym_dict.add_synonym_set(entry)
             else:
-                raise ValueError(f"Unexpected entry type {type(entry)} in synonyms JSON (expected list)")
+                raise ValueError(
+                    f"Unexpected entry type {type(entry)} in synonyms JSON (expected list)"
+                )
 
         return synonym_dict
 
@@ -58,7 +62,7 @@ class SynonymDictionary:
 
     def __call__(self, a: str, b: str) -> bool:
         """Check for the equality or synonym equality of two words.
-        
+
         Arguments
         ---------
         a : str
@@ -71,7 +75,7 @@ class SynonymDictionary:
 
     def get_synonyms_for(self, word: str) -> set:
         """Returns the set of synonyms for a given word.
-        
+
         Arguments
         ---------
         word : str

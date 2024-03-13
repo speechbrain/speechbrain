@@ -13,12 +13,12 @@ from typing import List, Union, Iterable
 def _as_sentence(sentence: Union[str, List[str]]):
     """Ensures that a sentence is a `str` rather than a list of `str` tokens to
     be passed to spaCy pipelines correctly.
-    
+
     Arguments
     ---------
     sentence: str or list of str
         Sentence to return or list of tokens.
-    
+
     Returns
     -------
     str
@@ -30,10 +30,11 @@ def _as_sentence(sentence: Union[str, List[str]]):
 
     return " ".join(sentence)
 
+
 def _extract_lemmas(docs: Iterable[spacy.tokens.Doc]):
     """Returns a batch of list of lemmas from a list of Doc (as returned by the
     pipeline).
-    
+
     Arguments
     ---------
     docs: iterable of Doc
@@ -43,10 +44,8 @@ def _extract_lemmas(docs: Iterable[spacy.tokens.Doc]):
     -------
     list of list of str
         For each sentence, the sequence of extracted lemmas as `str`s."""
-    return [
-        [tok.lemma_ for tok in doc]
-        for doc in docs
-    ]
+    return [[tok.lemma_ for tok in doc] for doc in docs]
+
 
 class SpacyPipeline:
     def __init__(self, nlp):
@@ -68,9 +67,11 @@ class SpacyPipeline:
             Extra keyword arguments passed to `spacy.load`."""
         return SpacyPipeline(spacy.load(name, *args, **kwargs))
 
-    def lemmatize(self, inputs: Union[List[str], List[List[str]]]) -> List[List[str]]:
+    def lemmatize(
+        self, inputs: Union[List[str], List[List[str]]]
+    ) -> List[List[str]]:
         """Lemmatize a batch of sentences.
-        
+
         Arguments
         ---------
         inputs: list of sentences (str or list of tokens)

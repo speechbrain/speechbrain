@@ -19,9 +19,11 @@ class FlairSequenceTagger:
     def __init__(self, model_path):
         self.model = SequenceTagger.load(model_path)
 
-    def __call__(self, inputs: Union[List[str], List[List[str]]]) -> List[List[str]]:
+    def __call__(
+        self, inputs: Union[List[str], List[List[str]]]
+    ) -> List[List[str]]:
         """Tag a batch of sentences.
-        
+
         Arguments
         ---------
         inputs: list of sentences (str or list of tokens)
@@ -38,10 +40,7 @@ class FlairSequenceTagger:
         if isinstance(inputs, str):
             raise ValueError("Expected a list of sentences, not a single str")
 
-        sentences = [
-            Sentence(sentence)
-            for sentence in inputs
-        ]
+        sentences = [Sentence(sentence) for sentence in inputs]
 
         self.model.predict(sentences)
 

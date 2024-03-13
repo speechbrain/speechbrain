@@ -9,7 +9,7 @@ Authors:
 """
 
 import torch
-from typing import Callable, Optional, List, Dict
+from typing import Callable, Optional
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import (
@@ -379,7 +379,7 @@ class WeightedErrorRateStats(MetricStats):
     chosen method. This does not edit the sequence of found edits
     (insertion/deletion/substitution) but multiplies their impact on the metric
     by a value between 0 and 1 as returned by the cost function.
-    
+
     base_stats : ErrorRateStats
         The base WER calculator to use.
     cost_function : Callable[[str, Optional[str], Optional[str]], float]
@@ -393,7 +393,10 @@ class WeightedErrorRateStats(MetricStats):
     """
 
     def __init__(
-        self, base_stats: ErrorRateStats, cost_function: Callable[[str, Optional[str], Optional[str]], float], weight_name: str = "weighted"
+        self,
+        base_stats: ErrorRateStats,
+        cost_function: Callable[[str, Optional[str], Optional[str]], float],
+        weight_name: str = "weighted",
     ):
         self.clear()
         self.base_stats = base_stats
@@ -407,7 +410,6 @@ class WeightedErrorRateStats(MetricStats):
         between).
 
         See :meth:`~ErrorRateStats.summarize`."""
-
 
         weighted_insertions = 0.0
         weighted_substitutions = 0.0
@@ -518,7 +520,9 @@ class EmbeddingErrorRateSimilarity:
         self.high_similarity_weight = high_similarity_weight
         self.threshold = threshold
 
-    def __call__(self, edit_symbol: str, a: Optional[str], b: Optional[str]) -> float:
+    def __call__(
+        self, edit_symbol: str, a: Optional[str], b: Optional[str]
+    ) -> float:
         if edit_symbol in (EDIT_SYMBOLS["ins"], EDIT_SYMBOLS["del"]):
             return 1.0
 
@@ -671,9 +675,9 @@ class BinaryMetricStats(MetricStats):
         self.summary["precision"] = TP / (TP + FP + eps)
         self.summary["recall"] = TP / (TP + FN + eps)
         self.summary["F-score"] = (
-            (1.0 + beta**2.0)
+            (1.0 + beta ** 2.0)
             * TP
-            / ((1.0 + beta**2.0) * TP + beta**2.0 * FN + FP)
+            / ((1.0 + beta ** 2.0) * TP + beta ** 2.0 * FN + FP)
         )
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
