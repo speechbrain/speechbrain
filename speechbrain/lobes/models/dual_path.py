@@ -47,7 +47,7 @@ class GlobalLayerNorm(nn.Module):
     """
 
     def __init__(self, dim, shape, eps=1e-8, elementwise_affine=True):
-        super(GlobalLayerNorm, self).__init__()
+        super().__init__()
         self.dim = dim
         self.eps = eps
         self.elementwise_affine = elementwise_affine
@@ -117,9 +117,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
     """
 
     def __init__(self, dim, elementwise_affine=True, eps=1e-8):
-        super(CumulativeLayerNorm, self).__init__(
-            dim, elementwise_affine=elementwise_affine, eps=eps
-        )
+        super().__init__(dim, elementwise_affine=elementwise_affine, eps=eps)
 
     def forward(self, x):
         """Returns the normalized tensor.
@@ -182,7 +180,7 @@ class Encoder(nn.Module):
     """
 
     def __init__(self, kernel_size=2, out_channels=64, in_channels=1):
-        super(Encoder, self).__init__()
+        super().__init__()
         self.conv1d = nn.Conv1d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -243,7 +241,7 @@ class Decoder(nn.ConvTranspose1d):
     """
 
     def __init__(self, *args, **kwargs):
-        super(Decoder, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def forward(self, x):
         """Return the decoded output.
@@ -332,7 +330,7 @@ class FastTransformerBlock(nn.Module):
         activation="relu",
         reformer_bucket_size=32,
     ):
-        super(FastTransformerBlock, self).__init__()
+        super().__init__()
         from fast_transformers.builders import TransformerEncoderBuilder
 
         builder = TransformerEncoderBuilder.from_kwargs(
@@ -403,7 +401,7 @@ class PyTorchPositionalEncoding(nn.Module):
     """
 
     def __init__(self, d_model, dropout=0.1, max_len=5000):
-        super(PyTorchPositionalEncoding, self).__init__()
+        super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
         pe = torch.zeros(max_len, d_model)
@@ -470,7 +468,7 @@ class PytorchTransformerBlock(nn.Module):
         activation="relu",
         use_positional_encoding=True,
     ):
-        super(PytorchTransformerBlock, self).__init__()
+        super().__init__()
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=out_channels,
@@ -556,7 +554,7 @@ class SBTransformerBlock(nn.Module):
         norm_before=False,
         attention_type="regularMHA",
     ):
-        super(SBTransformerBlock, self).__init__()
+        super().__init__()
         self.use_positional_encoding = use_positional_encoding
 
         if activation == "relu":
@@ -638,7 +636,7 @@ class SBRNNBlock(nn.Module):
         dropout=0,
         bidirectional=True,
     ):
-        super(SBRNNBlock, self).__init__()
+        super().__init__()
 
         self.mdl = getattr(SBRNN, rnn_type)(
             hidden_channels,
@@ -698,7 +696,7 @@ class DPTNetBlock(nn.Module):
         from torch.nn.modules.rnn import LSTM
         from torch.nn.modules.linear import Linear
 
-        super(DPTNetBlock, self).__init__()
+        super().__init__()
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
         # self.linear1 = Linear(d_model, dim_feedforward)
@@ -717,7 +715,7 @@ class DPTNetBlock(nn.Module):
     def __setstate__(self, state):
         if "activation" not in state:
             state["activation"] = F.relu
-        super(DPTNetBlock, self).__setstate__(state)
+        super().__setstate__(state)
 
     def forward(self, src):
         """Pass the input through the encoder layer.
@@ -794,7 +792,7 @@ class Dual_Computation_Block(nn.Module):
         skip_around_intra=True,
         linear_layer_after_inter_intra=True,
     ):
-        super(Dual_Computation_Block, self).__init__()
+        super().__init__()
 
         self.intra_mdl = intra_mdl
         self.inter_mdl = inter_mdl
@@ -946,7 +944,7 @@ class Dual_Path_Model(nn.Module):
         use_global_pos_enc=False,
         max_length=20000,
     ):
-        super(Dual_Path_Model, self).__init__()
+        super().__init__()
         self.K = K
         self.num_spks = num_spks
         self.num_layers = num_layers
@@ -1233,7 +1231,7 @@ class SepformerWrapper(nn.Module):
         inter_norm_before=True,
     ):
 
-        super(SepformerWrapper, self).__init__()
+        super().__init__()
         self.encoder = Encoder(
             kernel_size=encoder_kernel_size,
             out_channels=encoder_out_nchannels,
@@ -1376,7 +1374,7 @@ class SBConformerEncoderBlock(nn.Module):
         use_positional_encoding=True,
         attention_type="RelPosMHAXL",
     ):
-        super(SBConformerEncoderBlock, self).__init__()
+        super().__init__()
         self.use_positional_encoding = use_positional_encoding
         self.attention_type = attention_type
 

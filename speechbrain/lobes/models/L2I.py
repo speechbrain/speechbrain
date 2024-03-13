@@ -38,7 +38,7 @@ class Psi(nn.Module):
         """
         Computes NMF activations given classifier hidden representations
         """
-        super(Psi, self).__init__()
+        super().__init__()
         self.in_emb_dims = in_emb_dims
         self.upsamp = nn.UpsamplingBilinear2d(scale_factor=(2, 2))
         self.upsamp_time = nn.UpsamplingBilinear2d(size=(T, 1))
@@ -128,7 +128,7 @@ class NMFDecoderAudio(nn.Module):
     """
 
     def __init__(self, n_comp=100, n_freq=513, device="cuda"):
-        super(NMFDecoderAudio, self).__init__()
+        super().__init__()
 
         self.W = nn.Parameter(
             0.1 * torch.rand(n_freq, n_comp), requires_grad=True
