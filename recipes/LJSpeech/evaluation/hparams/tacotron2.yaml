@@ -10,6 +10,8 @@ sorting: descending
 splits: ["train", "valid", "test"]
 split_ratio: [90, 5, 5]
 skip_prep: False
+skip_ignore_folders: False
+frozen_split_path: null
 batch_size: 8
 
 train_json: !ref <prepare_save_folder>/train.json
