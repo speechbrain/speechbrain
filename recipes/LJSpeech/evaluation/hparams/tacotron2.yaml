@@ -1,0 +1,53 @@
+seed: 1234
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref ./results/tacotron2/<seed>
+
+data_folder: !PLACEHOLDER
+prepare_save_folder: !ref <data_folder>/prepared
+evaluations: asr,mos
+eval_dataset: valid
+sorting: descending
+splits: ["train", "valid", "test"]
+split_ratio: [90, 5, 5]
+skip_prep: False
+batch_size: 8
+
+train_json: !ref <prepare_save_folder>/train.json
+valid_json: !ref <prepare_save_folder>/valid.json
+test_json: !ref <prepare_save_folder>/test.json
+
+
+asr_source: speechbrain/asr-transformer-transformerlm-librispeech
+tts_source: speechbrain/tts-tacotron2-ljspeech
+mos_source: flexthink/ttseval-wavlm-transformer
+vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
+
+vocoder: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
+    source: !ref <vocoder_model>
+
+tts: !apply:speechbrain.inference.TTS.Tacotron2.from_hparams
+    source: !ref <tts_source>
+
+tts2wav: !new:adapters.MelAdapter
+    vocoder: !ref <vocoder>
+
+evaluators:
+    mos: !name:speechbrain.inference.eval.RegressionModelSpeechEvaluator
+        source: !ref <mos_source>
+    asr: !name:speechbrain.inference.eval.EncoderDecoderASRSpeechEvaluator
+        source: !ref <asr_source>
+
+output_files:
+    mos: !ref <output_folder>/mos.csv
+    asr: !ref <output_folder>/asr.csv
+    summary: !ref <output_folder>/summary.json
+
+modules:
+    tts: !ref <tts>
+    tts2wav: !ref <tts2wav>
+
+eval_summary:
+    mos:
+        descriptive: ["score"]
+    asr:
+        descriptive: ["wer", "cer", "wer_ref", "cer_ref", "dwer", "dcer"]
