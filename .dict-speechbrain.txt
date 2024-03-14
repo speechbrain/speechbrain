@@ -1,3 +1,9 @@
+## Contents ##
+### Common Words for use in Compound Words ###
+### Jargon ###
+### Names ###
+### Unsorted ###
+
 ####### Common Words for use in Compound Words #######
 acoustics
 bar
@@ -22,6 +28,7 @@ range
 speech
 test
 your
+
 ####### Compound Words With 1 or 2 letter Words #######
 aMax
 aRange
@@ -138,6 +145,7 @@ yLim
 yMat
 yTickLabels
 yTicks
+
 ####### Jargon #######
 arxiv
 bleu
@@ -302,6 +310,7 @@ wavs
 wrds
 xargs
 xmls
+
 ####### Names #######
 Abdel
 Abdelmoumene
@@ -485,7 +494,8 @@ Yoshua
 Yusuke
 Zhang
 Zhong
-##### Unsorted #####
+
+####### Unsorted #######
 ABDALMALIK
 accu
 accum
