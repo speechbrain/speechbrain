@@ -16,6 +16,7 @@ import logging
 import torch
 import torchaudio
 import numpy as np
+from pathlib import Path
 from tqdm import tqdm
 from speechbrain.utils.data_utils import download_file
 from speechbrain.dataio.dataio import load_pkl, save_pkl
@@ -51,6 +52,8 @@ def prepare_ljspeech(
     pitch_min_f0=65,
     pitch_max_f0=400,
     skip_prep=False,
+    skip_ignore_folders=False,
+    frozen_split_path=None,
     use_custom_cleaner=False,
     device="cpu",
 ):
@@ -83,6 +86,11 @@ def prepare_ljspeech(
         If True, skip preparation
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
+    skip_ignore_folders : bool
+        Whether to ignore differences in data and save folders when
+        checking if the dataset has already been prepared. This is
+        useful on high-performance compute clusters where such
+        folders are not permanent
     device : str
         Device for to be used for computation (used as required)
 
@@ -154,7 +162,7 @@ def prepare_ljspeech(
             os.makedirs(pitch_folder)
 
     # Check if this phase is already done (if so, skip it)
-    if skip(splits, save_folder, conf):
+    if skip(splits, save_folder, conf, ignore_foders=skip_ignore_folders):
         logger.info("Skipping preparation, completed in previous run.")
         return
 
@@ -165,7 +173,9 @@ def prepare_ljspeech(
     # Prepare data splits
     msg = "Creating json file for ljspeech Dataset.."
     logger.info(msg)
-    data_split, meta_csv = split_sets(data_folder, splits, split_ratio)
+    data_split, meta_csv = split_sets(
+        data_folder, splits, split_ratio, frozen_split_path
+    )
 
     if "train" in splits:
         prepare_json(
@@ -221,10 +231,22 @@ def prepare_ljspeech(
     save_pkl(conf, save_opt)
 
 
-def skip(splits, save_folder, conf):
+def skip(splits, save_folder, conf, ignore_foders=False):
     """
     Detects if the ljspeech data_preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits : list
+        The list of split identifiers
+    save_folder : str | path-like
+        The folder where the prepared dataset is saved
+    conf : dict
+        The dataset preparation configuration
+    ignore_folders : bool
+        Whether differences in folder parameters are to be
+        ignored
 
     Returns
     -------
@@ -250,6 +272,10 @@ def skip(splits, save_folder, conf):
     if skip is True:
         if os.path.isfile(save_opt):
             opts_old = load_pkl(save_opt)
+            if ignore_foders:
+                opts_old = remove_folder_opts(opts_old)
+                conf = remove_folder_opts(opts_old)
+
             if opts_old == conf:
                 skip = True
             else:
@@ -259,7 +285,23 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def split_sets(data_folder, splits, split_ratio):
+def remove_folder_opts(conf):
+    """Removes all folder options from  the configuration dict
+
+    Arguments
+    ---------
+    conf : dict
+        The configuration dictionary
+
+    Returns
+    -------
+    conf : dict
+        The resulting configuration
+    """
+    return {k: v for k, v in conf.items() if not k.endswith("_folder")}
+
+
+def split_sets(data_folder, splits, split_ratio, frozen_split_path):
     """Randomly splits the wav list into training, validation, and test lists.
     Note that a better approach is to make sure that all the classes have the
     same proportion of samples for each session.
@@ -284,6 +326,17 @@ def split_sets(data_folder, splits, split_ratio):
     )
 
     meta_csv = list(csv_reader)
+    if frozen_split_path is not None:
+        frozen_split_path = Path(frozen_split_path)
+        if frozen_split_path.exists():
+            logger.info("Found frozen splits in %s", frozen_split_path)
+            with open(frozen_split_path, "r") as frozen_split_file:
+                data_split = json.load(frozen_split_file)
+            return data_split, meta_csv
+        else:
+            logger.info(
+                "Frozen split %s does not exst, spllitting", frozen_split_path
+            )
 
     index_for_sessions = []
     session_id_start = "LJ001"
@@ -322,6 +375,11 @@ def split_sets(data_folder, splits, split_ratio):
                     data_split[split].extend(index_for_sessions[j])
             if split == "test":
                 data_split[split].extend(index_for_sessions[j])
+
+    if frozen_split_path is not None:
+        logger.info("Saving frozen splits in %s", frozen_split_path)
+        with open(frozen_split_path, "w") as frozen_split_file:
+            json.dump(data_split, frozen_split_file, indent=0)
 
     return data_split, meta_csv
 

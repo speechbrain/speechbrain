@@ -388,6 +388,8 @@ if __name__ == "__main__":
             "split_ratio": hparams["split_ratio"],
             "seed": hparams["seed"],
             "skip_prep": hparams["skip_prep"],
+            "skip_ignore_folders": hparams["skip_ignore_folders"],
+            "frozen_split_path": hparams["frozen_split_path"],
         },
     )
 
