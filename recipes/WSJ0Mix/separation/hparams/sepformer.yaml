@@ -40,7 +40,7 @@ save_audio: True # Save estimated sources on disk
 n_audio_to_save: 20
 sample_rate: 8000
 
-# Training parameters
+####################### Training Parameters ####################################
 N_epochs: 200
 batch_size: 1
 lr: 0.00015

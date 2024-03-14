@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer_transducer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
@@ -40,7 +40,8 @@ test_csv:
 skip_prep: False
 ckpt_interval_minutes: 5 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
+
 # To make Transformers converge, the global bath size should be large enough.
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
@@ -120,7 +121,8 @@ dynamic_batch_sampler:
    batch_ordering: random
    max_batch_ex: 256
 
-# Model parameters
+####################### Model Parameters #######################################
+
 # Transformer
 d_model: 512
 joint_dim: 640
@@ -164,18 +166,15 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_mels: !ref <n_mels>
    win_length: !ref <win_length>
 
+############################## Augmentations ###################################
+
 # Speed perturbation
-speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
    orig_freq: !ref <sample_rate>
-   speeds: !ref <speed_changes>
+   speeds: [95, 100, 105]
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-   parallel_augment: False
-   concat_original: False
-   repeat_augment: 1
-   shuffle_augmentations: False
    min_augmentations: 1
    max_augmentations: 1
    augment_prob: 1.0
@@ -183,43 +182,24 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
 
 
 # Time Drop
-time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
-time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram
-time_drop_count_low: 5  # Min number of chunks to drop in time in the spectrogram
-time_drop_count_high: 5  # Max number of chunks to drop in time in the spectrogram
-time_drop_replace: "zeros"  # Method of dropping chunks
-
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-   drop_length_low: !ref <time_drop_length_low>
-   drop_length_high: !ref <time_drop_length_high>
-   drop_count_low: !ref <time_drop_count_low>
-   drop_count_high: !ref <time_drop_count_high>
-   replace: !ref <time_drop_replace>
-   dim: 1
+   drop_length_low: 15
+   drop_length_high: 25
+   drop_count_low: 5
+   drop_count_high: 5
+   replace: "zeros"
 
 # Frequency Drop
-freq_drop_length_low: 25  # Min length for chunks to drop in frequency in the spectrogram
-freq_drop_length_high: 35  # Max length for chunks to drop in frequency in the spectrogram
-freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
-freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
-freq_drop_replace: "zeros"  # Method of dropping chunks
-
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-   drop_length_low: !ref <freq_drop_length_low>
-   drop_length_high: !ref <freq_drop_length_high>
-   drop_count_low: !ref <freq_drop_count_low>
-   drop_count_high: !ref <freq_drop_count_high>
-   replace: !ref <freq_drop_replace>
+   drop_length_low: 25
+   drop_length_high: 35
+   drop_count_low: 2
+   drop_count_high: 2
+   replace: "zeros"
    dim: 2
 
 # Time warp
-time_warp_window: 5  # Length of time warping window
-time_warp_mode: "bicubic"  # Time warping method
-
 time_warp: !new:speechbrain.augment.freq_domain.Warping
-   warp_window: !ref <time_warp_window>
-   warp_mode: !ref <time_warp_mode>
-   dim: 1
 
 fea_augment: !new:speechbrain.augment.augmenter.Augmenter
    parallel_augment: False
@@ -233,6 +213,8 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
       !ref <time_drop>,
       !ref <freq_drop>,
       !ref <time_warp>]
+
+############################## Models ##########################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
@@ -355,6 +337,8 @@ modules:
 model: !new:torch.nn.ModuleList
    - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <proj_enc>, !ref <proj_dec>, !ref <proj_ctc>, !ref <transducer_lin>]
 
+############################## Decoding & optimiser ############################
+
 # Tokenizer initialization
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
@@ -388,6 +372,8 @@ noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr>
    n_warmup_steps: !ref <warmup_steps>
 
+############################## Logging and Pretrainer ##########################
+
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
    recoverables:
@@ -413,3 +399,23 @@ error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
+
+# for the inference hparams, you will need to include and uncomment something like this:
+
+# make_tokenizer_streaming_context: !name:speechbrain.tokenizers.SentencePiece.SentencePieceDecoderStreamingContext
+# tokenizer_decode_streaming: !name:speechbrain.tokenizers.SentencePiece.spm_decode_preserve_leading_space
+
+# make_decoder_streaming_context: !name:speechbrain.decoders.transducer.TransducerGreedySearcherStreamingContext # default constructor
+# decoding_function: !name:speechbrain.decoders.transducer.TransducerBeamSearcher.transducer_greedy_decode_streaming
+#    - !ref <Greedysearcher>  # self
+
+# fea_streaming_extractor: !new:speechbrain.lobes.features.StreamingFeatureWrapper
+#    module: !new:speechbrain.nnet.containers.LengthsCapableSequential
+#       - !ref <compute_features>
+#       - !ref <normalize>
+#       - !ref <CNN>
+#    # don't consider normalization as part of the input filter chain.
+#    # normalization will operate at chunk level, which mismatches training
+#    # somewhat, but does not appear to result in noticeable degradation.
+#    properties: !apply:speechbrain.utils.filter_analysis.stack_filter_properties
+#       - [!ref <compute_features>, !ref <CNN>]

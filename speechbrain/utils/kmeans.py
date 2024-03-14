@@ -12,7 +12,12 @@ from tqdm.contrib import tqdm
 try:
     from sklearn.cluster import MiniBatchKMeans
 except ImportError:
-    print("Please install sklearn  in order to use the k-means model")
+    err_msg = "The optional dependency sklearn is needed to use this module\n"
+    err_msg += "Cannot import sklearn.cluster.MiniBatchKMeans to use KMeans/\n"
+    err_msg += "Please follow the instructions below\n"
+    err_msg += "=============================\n"
+    err_msg += "pip install -U scikit-learn\n"
+    raise ImportError(err_msg)
 import joblib
 
 logger = logging.getLogger(__name__)

@@ -58,7 +58,7 @@ max_history: 5
 ignore_index: -100
 label_smoothing: 0
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 4
 batch_size: 8
 test_batch_size: 4

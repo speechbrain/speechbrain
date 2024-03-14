@@ -9,6 +9,7 @@ Authors
 
 from functools import reduce
 from speechbrain.wordemb.util import expand_to_chars
+from torch import nn
 import speechbrain as sb
 import torch
 import re
@@ -522,6 +523,43 @@ def _map_tokens_item(tokens, char_map):
     return [char_map[char] for char in tokens]
 
 
+class LazyInit(nn.Module):
+    """A lazy initialization wrapper
+
+    Arguments
+    ---------
+    init : callable
+        The function to initialize the underlying object"""
+
+    def __init__(self, init):
+        super().__init__()
+        self.instance = None
+        self.init = init
+        self.device = None
+
+    def __call__(self):
+        """Initializes the object instance, if necessary
+        and returns it."""
+        if self.instance is None:
+            self.instance = self.init()
+        return self.instance
+
+    def to(self, device):
+        """Moves the underlying object to the specified device
+
+        Arguments
+        ---------
+        device : str | torch.device
+            the device
+        """
+        super().to(device)
+        if self.instance is None:
+            self.instance = self.init()
+        if hasattr(self.instance, "to"):
+            self.instance = self.instance.to(device)
+        return self
+
+
 def lazy_init(init):
     """A wrapper to ensure that the specified object is initialzied
     only once (used mainly for tokenizers that train when the
@@ -537,16 +575,7 @@ def lazy_init(init):
     instance: object
         the object instance
     """
-    instance = None
-
-    def f():
-        """The initializer function"""
-        nonlocal instance
-        if instance is None:
-            instance = init()
-        return instance
-
-    return f
+    return LazyInit(init)
 
 
 def get_sequence_key(key, mode):

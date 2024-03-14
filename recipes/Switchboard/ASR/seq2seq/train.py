@@ -55,7 +55,6 @@ class ASR(sb.Brain):
         hparams=None,
         run_opts=None,
         checkpointer=None,
-        profiler=None,
         normalize_fn=None,
     ):
 
@@ -67,7 +66,6 @@ class ASR(sb.Brain):
             hparams=hparams,
             run_opts=run_opts,
             checkpointer=checkpointer,
-            profiler=profiler,
         )
 
     def compute_forward(self, batch, stage):
@@ -127,12 +125,16 @@ class ASR(sb.Brain):
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
+        # Labels must be extended if parallel augmentation or concatenated
+        # augmentation was performed on the input (increasing the time dimension)
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
-            tokens = self.hparams.wav_augment.replicate_labels(tokens)
-            tokens_lens = self.hparams.wav_augment.replicate_labels(tokens_lens)
-            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
-            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
-                tokens_eos_lens
+            (
+                tokens,
+                tokens_lens,
+                tokens_eos,
+                tokens_eos_lens,
+            ) = self.hparams.wav_augment.replicate_multiple_labels(
+                tokens, tokens_lens, tokens_eos, tokens_eos_lens
             )
 
         loss_seq = self.hparams.seq_cost(

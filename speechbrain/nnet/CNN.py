@@ -1214,7 +1214,7 @@ class GaborConv1d(nn.Module):
         use_legacy_complex=False,
         skip_transpose=False,
     ):
-        super(GaborConv1d, self).__init__()
+        super().__init__()
         self.filters = out_channels // 2
         self.kernel_size = kernel_size
         self.stride = stride

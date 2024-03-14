@@ -40,6 +40,7 @@ from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
+from speechbrain.utils.profiling import prepare_profiler
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ run_opt_defaults = {
     "compile_using_fullgraph": False,
     "compile_using_dynamic_shape_tracing": False,
     "precision": "fp32",
+    "eval_precision": "fp32",
     "auto_mix_prec": False,
     "bfloat16_mix_prec": False,
     "max_grad_norm": 5.0,
@@ -83,6 +85,9 @@ run_opt_defaults = {
     "tqdm_colored_bar": False,
     "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
     "remove_vector_weight_decay": False,
+    "profile_training": False,
+    "profile_warmup": 5,
+    "profile_steps": 5,
 }
 
 
@@ -361,6 +366,12 @@ def parse_arguments(arg_list=None):
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
+        "--eval_precision",
+        type=str,
+        help="This flag enables inference with automatic mixed-precision."
+        "It can be set to `fp32`, `fp16`, or `bf16`.",
+    )
+    parser.add_argument(
         "--auto_mix_prec",
         default=None,
         action="store_true",
@@ -429,6 +440,27 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
+    )
+    parser.add_argument(
+        "--profile_training",
+        default=False,
+        action="store_true",
+        help=(
+            "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
+            "Please ensure you have installed the TensorBoard profiler with 'pip install torch_tb_profiler'."
+        ),
+    )
+    parser.add_argument(
+        "--profile_warmup",
+        default=5,
+        type=int,
+        help="Number of warmup steps before logging for the profiler.",
+    )
+    parser.add_argument(
+        "--profile_steps",
+        default=5,
+        type=int,
+        help="Number of steps of logging for the profiler",
     )
 
     # Accept extra args to override yaml
@@ -555,6 +587,8 @@ class Brain:
             The location for performing computations.
         precision (str)
             One of ``fp32``, ``fp16``, ``bf16``.
+        eval_precision (str)
+            One of ``fp32``, ``fp16``, ``bf16``.
         auto_mix_prec (bool)
             If ``True``, automatic mixed-precision (fp16) is used.
             Activate it only with cuda. Note: this is a
@@ -589,9 +623,6 @@ class Brain:
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
-    profiler : torch.profiler.profile
-        Context manager for profiling and benchmarking of training/inference steps.
-        Default: ``None`` (skip profiling).
 
     Example
     -------
@@ -613,11 +644,10 @@ class Brain:
         hparams=None,
         run_opts=None,
         checkpointer=None,
-        profiler=None,
     ):
+        self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        self.profiler = profiler
 
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -734,12 +764,14 @@ class Brain:
             )
             self.precision = "bf16"
 
-        if self.device == "cpu" and self.precision == "fp16":
+        if self.device == "cpu" and (
+            self.precision == "fp16" or self.eval_precision == "fp16"
+        ):
             raise ValueError(
-                "The option `--precision` is enabled with the value "
-                "fp16. This option is not yet supported on CPU. "
-                "Please use `--precision=bf16` instead to get "
-                "mixed precision on CPU."
+                "The option `--precision` or `--eval_precision` is set to fp16. "
+                "This option is not yet supported on CPU. "
+                "Please use `--precision=bf16` or `--eval_precision=bf16` instead "
+                "to enable mixed precision on CPU."
             )
 
         gradscaler_enabled = self.precision == "fp16" and "cuda" in self.device
@@ -762,7 +794,9 @@ class Brain:
             self.use_amp = True
 
         if self.use_amp and self.checkpointer is not None:
-            self.checkpointer.add_recoverable("scaler", self.scaler)
+            self.checkpointer.add_recoverable(
+                "scaler", self.scaler, optional_load=True
+            )
 
         # List parameter count for the user
         total_params = sum(
@@ -805,6 +839,17 @@ class Brain:
         # Force default color for tqdm progrressbar
         if not self.tqdm_colored_bar:
             self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
+
+        # Profiler setup
+        self.profiler = None
+        if self.profile_training:
+            logger.info("Pytorch profiler has been activated.")
+            self.tot_prof_steps = (self.profile_steps + self.profile_warmup) - 1
+            self.profiler = prepare_profiler(
+                self.profile_warmup,
+                self.profile_steps,
+                self.hparams.output_folder,
+            )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -1067,8 +1112,11 @@ class Brain:
         Setting gradients to None should save the memory, e.g.
         during ``evaluate()`` and thus larger batch might be used.
         """
-        for opt in self.freeze_optimizers(self.optimizers_dict).values():
-            opt.zero_grad(set_to_none=set_to_none)
+        if self.optimizers_dict is not None:
+            for opt in self.freeze_optimizers(self.optimizers_dict).values():
+                opt.zero_grad(set_to_none=set_to_none)
+        elif self.opt_class is not None:
+            self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
@@ -1194,7 +1242,18 @@ class Brain:
         """Performs a step of gradient descent on the optimizers. This method is called every
         ``grad_accumulation_factor`` steps."""
         # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
-        valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        if self.optimizers_dict is not None:
+            valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        elif self.opt_class is not None:
+            # if valid_optimizers is not defined which could happen if a user is using an old
+            # init_optimizers() method, then we assume that the only valid optimizer is
+            # self.optimizer (which is the default behavior).
+            valid_optimizers = {"optimizer": self.optimizer}
+        else:
+            # Note: in some cases you might want to only compute gradients statistics and
+            # you do not need to call the optimizers.step() method. In this case, you can
+            # simply return from this method and skip the rest of the code.
+            return
 
         # 2. unscale the gradients of the valid optimizers
         for opt in valid_optimizers.values():
@@ -1209,7 +1268,7 @@ class Brain:
                 opt.param_groups[0]["params"], self.max_grad_norm
             )
 
-        # no need to activate this flag if you are in fp16
+        # Note: no need to activate this flag if you are in fp16
         # since GradScaler is automatically handling the nonfinite gradients
         if not self.scaler.is_enabled() and self.skip_nonfinite_grads:
             self.check_gradients()
@@ -1278,9 +1337,16 @@ class Brain:
         -------
         detached loss
         """
-
-        out = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(out, batch, stage=stage)
+        amp = AMPConfig.from_name(self.eval_precision)
+        if self.use_amp:
+            with torch.autocast(
+                dtype=amp.dtype, device_type=torch.device(self.device).type,
+            ):
+                out = self.compute_forward(batch, stage=stage)
+                loss = self.compute_objectives(out, batch, stage=stage)
+        else:
+            out = self.compute_forward(batch, stage=stage)
+            loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def _fit_train(self, train_set, epoch, enable):
@@ -1307,6 +1373,8 @@ class Brain:
             disable=not enable,
             colour=self.tqdm_barcolor["train"],
         ) as t:
+            if self.profiler is not None:
+                self.profiler.start()
             for batch in t:
                 if self._optimizer_step_limit_exceeded:
                     logger.info("Train iteration limit exceeded")
@@ -1319,10 +1387,14 @@ class Brain:
                 )
                 t.set_postfix(train_loss=self.avg_train_loss)
 
-                # Profile only if desired (steps allow the profiler to know when all is warmed up)
                 if self.profiler is not None:
-                    if self.profiler.record_steps:
-                        self.profiler.step()
+                    self.profiler.step()
+                    if self.profiler.step_num > self.tot_prof_steps:
+                        logger.info(
+                            "The profiler finished, training is stopped."
+                        )
+                        self.profiler.stop()
+                        quit()
 
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
@@ -1389,11 +1461,6 @@ class Brain:
                     self.step += 1
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)
                     avg_valid_loss = self.update_average(loss, avg_valid_loss)
-
-                    # Profile only if desired (steps allow the profiler to know when all is warmed up)
-                    if self.profiler is not None:
-                        if self.profiler.record_steps:
-                            self.profiler.step()
 
                     # Debug mode only runs a few batches
                     if self.debug and self.step == self.debug_batches:
@@ -1664,11 +1731,6 @@ class Brain:
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
-
-                # Profile only if desired (steps allow the profiler to know when all is warmed up)
-                if self.profiler is not None:
-                    if self.profiler.record_steps:
-                        self.profiler.step()
 
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:

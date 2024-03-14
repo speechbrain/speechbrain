@@ -9,9 +9,34 @@ Authors
 import torch
 from torch.autograd import Function
 from torch.nn import Module
+import logging
+import math
+import warnings
+
+NUMBA_VERBOSE = 0
+
+logger = logging.getLogger(__name__)
 
 try:
     from numba import cuda
+
+    # Numba is extra verbose and this may lead to log.txt file of multiple gigabytes... we deactivate
+    if not NUMBA_VERBOSE:
+        logger.info(
+            "Numba verbose is deactivated. To enable it, set NUMBA_VERBOSE to 1."
+        )
+
+        nb_logger = logging.getLogger("numba")
+        nb_logger.setLevel(logging.ERROR)  # only show error
+
+        from numba.core.errors import NumbaPerformanceWarning
+
+        warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
+    else:
+        logger.info(
+            "Numba verbose is enabled. To desactivate it, set NUMBA_VERBOSE to 0."
+        )
+
 except ImportError:
     err_msg = "The optional dependency Numba is needed to use this module\n"
     err_msg += "Cannot import numba. To use Transducer loss\n"
@@ -23,10 +48,8 @@ except ImportError:
     err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
     err_msg += "================================ \n"
     err_msg += "If you use conda:\n"
-    err_msg += "conda install numba cudatoolkit=9.0"
+    err_msg += "conda install numba cudatoolkit"
     raise ImportError(err_msg)
-
-import math
 
 
 @cuda.jit()
@@ -320,7 +343,7 @@ class TransducerLoss(Module):
     """
 
     def __init__(self, blank=0, reduction="mean"):
-        super(TransducerLoss, self).__init__()
+        super().__init__()
         self.blank = blank
         self.reduction = reduction
         self.loss = Transducer.apply

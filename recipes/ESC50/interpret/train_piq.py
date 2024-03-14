@@ -100,7 +100,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             wavs
         )
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-        if not (batch is None):
+        if batch is not None:
             x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
 
             # save reconstructed and original spectrograms

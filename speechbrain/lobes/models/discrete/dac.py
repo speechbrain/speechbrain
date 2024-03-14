@@ -18,7 +18,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.parametrizations import weight_norm
+
+# Note: The path torch.nn.utils.parametrizations may not be available
+# in older PyTorch versions, such as 1.13.1. To ensure compatibility,
+# it is recommended to check and use the appropriate import statement.
+
+# Attempt to import the preferred module for parametrizations in newer PyTorch versions
+try:
+    from torch.nn.utils.parametrizations import weight_norm
+
+# If the preferred import fails, fallback to the alternative import for compatibility
+except ImportError:
+    from torch.nn.utils import weight_norm
 
 logger = logging.getLogger(__name__)
 

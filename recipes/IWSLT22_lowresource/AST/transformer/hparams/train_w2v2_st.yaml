@@ -36,7 +36,7 @@ wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 wav2vec2_frozen: False
 keep_n_layers: 6 # keep first N layers from the Transformer Encoder stack inside the wav2vec 2.0 model
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 100
 lr: 0.001
 lr_wav2vec: 0.00001

@@ -89,7 +89,7 @@ def check_docstrings(
 
                 # Check if the docstring is written after the class/funct declaration
                 if check_line:
-                    if line[0] != '"' and not (is_class):
+                    if line[0] != '"' and not is_class:
                         if line[0:2] == 'r"':
                             check_line = False
                             continue

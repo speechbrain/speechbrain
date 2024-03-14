@@ -34,7 +34,7 @@ from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 
 ### For DNSMSOS
 # URL for the web service
-SCORING_URI = "https://dnsmos-4.azurewebsites.net/score"
+SCORING_URI = "https://github.com/microsoft/DNS-Challenge"
 # If the service is authenticated, set the key or token
 AUTH_KEY = ""
 if AUTH_KEY == "":

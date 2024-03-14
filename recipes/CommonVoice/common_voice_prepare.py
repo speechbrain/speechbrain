@@ -14,7 +14,6 @@ import os
 import csv
 import re
 import logging
-import torchaudio
 import unicodedata
 import functools
 
@@ -36,7 +35,8 @@ def prepare_common_voice(
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
-    Download: https://voice.mozilla.org/en/datasets
+    Download: https://commonvoice.mozilla.org/en
+
     Arguments
     ---------
     data_folder : str
@@ -174,12 +174,6 @@ def process_line(line, data_folder, language, accented_letters):
     file_name = mp3_path.split(".")[-2].split("/")[-1]
     spk_id = line.split("\t")[0]
     snt_id = file_name
-
-    # Setting torchaudio backend to sox-io (needed to read mp3 files)
-    if torchaudio.get_audio_backend() != "sox_io":
-        logger.warning("This recipe needs the sox-io backend of torchaudio")
-        logger.warning("The torchaudio backend is changed to sox_io")
-        torchaudio.set_audio_backend("sox_io")
 
     # Reading the signal (to retrieve duration in seconds)
     if os.path.isfile(mp3_path):

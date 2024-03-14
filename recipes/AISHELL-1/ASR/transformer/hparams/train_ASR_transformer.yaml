@@ -30,7 +30,8 @@ test_data: !ref <save_folder>/test.csv
 noise_annotation: !ref <save_folder>/noise.csv #The data manifest files are created by the data preparation script
 tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 
-# Training parameters
+####################### Training Parameters ####################################
+
 number_of_epochs: 50
 batch_size: 8
 ctc_weight: 0.3
@@ -77,7 +78,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
-####################### Model parameters ###########################
+####################### Model Parameters #######################################
 # Transformer
 d_model: 256
 nhead: 4
@@ -103,7 +104,7 @@ valid_beam_size: 10
 test_beam_size: 10
 ctc_weight_decode: 0.40
 
-############################## models ################################
+############################## Models ##########################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
@@ -157,7 +158,8 @@ SGD: !name:torch.optim.SGD
     momentum: 0.99
     nesterov: True
 
-# Scorer
+############################## Decoding & optimiser ############################
+
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
@@ -227,7 +229,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-# ----- WAVEFORM AUGMENTATION ----- #
+############################## Augmentation ####################################
 
 # Download and prepare the dataset of noisy sequences for augmentation
 prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
@@ -238,75 +240,43 @@ prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_U
 
 
 # Add noise to input signal
-snr_low: 0  # Min SNR for noise augmentation
-snr_high: 15  # Max SNR for noise augmentation
-
 add_noise: !new:speechbrain.augment.time_domain.AddNoise
     csv_file: !ref <noise_annotation>
-    snr_low: !ref <snr_low>
-    snr_high: !ref <snr_high>
+    snr_low: 0
+    snr_high: 15
     noise_sample_rate: !ref <sample_rate>
     clean_sample_rate: !ref <sample_rate>
     num_workers: !ref <num_workers>
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: False
     concat_original: True
-    repeat_augment: 1
-    shuffle_augmentations: False
     min_augmentations: 1
     max_augmentations: 1
     augment_prob: 1.0
     augmentations: [
         !ref <add_noise>]
 
-
- # ----- FEATURE AUGMENTATION ----- #
-time_drop_length_low: 0  # Min length for temporal chunk to drop in spectrogram
-time_drop_length_high: 100  # Max length for temporal chunk to drop in spectrogram
-time_drop_count_low: 2  # Min number of chunks to drop in time in the spectrogram
-time_drop_count_high: 2  # Max number of chunks to drop in time in the spectrogram
-time_drop_replace: "zeros"  # Method of dropping chunks
-
 # Time Drop
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-    drop_length_low: !ref <time_drop_length_low>
-    drop_length_high: !ref <time_drop_length_high>
-    drop_count_low: !ref <time_drop_count_low>
-    drop_count_high: !ref <time_drop_count_high>
-    replace: !ref <time_drop_replace>
-    dim: 1
-
-freq_drop_length_low: 30  # Min length for chunks to drop in frequency in the spectrogram
-freq_drop_length_high: 40  # Max length for chunks to drop in frequency in the spectrogram
-freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
-freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
-freq_drop_replace: "zeros"  # Method of dropping chunks
+    drop_length_low: 0
+    drop_length_high: 100
+    drop_count_low: 2
+    drop_count_high: 2
 
 # Frequency Drop
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-    drop_length_low: !ref <freq_drop_length_low>
-    drop_length_high: !ref <freq_drop_length_high>
-    drop_count_low: !ref <freq_drop_count_low>
-    drop_count_high: !ref <freq_drop_count_high>
-    replace: !ref <freq_drop_replace>
+    drop_length_low: 30
+    drop_length_high: 40
+    drop_count_low: 2
+    drop_count_high: 2
     dim: 2
-
-time_warp_window: 5  # Length of time warping window
-time_warp_mode: "bicubic"  # Time warping method
 
 # Time warp
 time_warp: !new:speechbrain.augment.freq_domain.Warping
-    warp_window: !ref <time_warp_window>
-    warp_mode: !ref <time_warp_mode>
-    dim: 1
 
 fea_augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: False
     concat_original: True
-    repeat_augment: 1
-    shuffle_augmentations: False
     min_augmentations: 1
     max_augmentations: 1
     augment_start_index: !ref <batch_size> # This leaves unchanges original inputs
@@ -317,6 +287,8 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <freq_drop>,
         !ref <time_warp>]
 
+############################## Logging and Pretrainer ##########################
+
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
@@ -324,7 +296,6 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 # which Chinese writing normally does not do.
 # If remove_spaces, spaces are removed
 # from the transcript before computing CER.
-# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 

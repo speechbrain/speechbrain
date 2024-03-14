@@ -167,11 +167,11 @@ def check_yaml_vs_script(hparam_file, script_file):
     print("Checking %s..." % (hparam_file))
 
     # Check if files exist
-    if not (os.path.exists(hparam_file)):
+    if not os.path.exists(hparam_file):
         print("File %s not found!" % (hparam_file,))
         return False
 
-    if not (os.path.exists(script_file)):
+    if not os.path.exists(script_file):
         print("File %s not found!" % (script_file,))
         return False
 
@@ -182,7 +182,9 @@ def check_yaml_vs_script(hparam_file, script_file):
     detected_vars_train = detect_script_vars(script_file, var_lst)
 
     # Check which variables are declared but not used
-    default_run_opt_keys = list(run_opt_defaults.keys())
+    default_run_opt_keys = list(run_opt_defaults.keys()) + [
+        "rescoring_lm_scale"
+    ]
 
     unused_vars = list(
         set(var_lst) - set(detected_vars_train) - set(default_run_opt_keys)

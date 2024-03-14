@@ -41,7 +41,7 @@ skip_prep: False
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 10.0
 
-## Model parameters- Enhance model
+## Model Parameters- Enhance model
 dereverberate: False
 save_audio: True
 sample_rate: 16000
@@ -54,7 +54,7 @@ use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
 
-## Training parameters- ASR
+######################## Training Parameters ####################################- ASR
 number_of_epochs: 10
 lr_whisper: 0.00003
 sorting: ascending
