@@ -4,7 +4,9 @@ Authors
 * Artem Ploujnikov, 2024
 """
 
+import torch
 from torch import nn
+from speechbrain.dataio.dataio import length_to_mask
 
 
 class MelAdapter(nn.Module):
@@ -54,7 +56,7 @@ class MelAdapter(nn.Module):
         lengths : torch.Tensor
             The lengths
         """
-        mel_outputs, mel_lengths, _ = tts_out
+        mel_outputs, mel_lengths = tts_out[:2]
         vocoder = self._get_vocoder()
         max_len = mel_lengths.max()
         mel_outputs = mel_outputs[:, :, :max_len]
@@ -70,6 +72,7 @@ class MelAdapter(nn.Module):
         ---------
         device : str | torch.Device
             The device
+
 
         Returns
         -------

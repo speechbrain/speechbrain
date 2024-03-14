@@ -375,6 +375,7 @@ class FastSpeech2(Pretrained):
     HPARAMS_NEEDED = ["spn_predictor", "model", "input_encoder"]
 
     def __init__(self, *args, **kwargs):
+        self.return_lengths = kwargs.pop("return_lengths", False)
         super().__init__(*args, **kwargs)
         lexicon = self.hparams.lexicon
         lexicon = ["@@"] + lexicon
@@ -567,7 +568,7 @@ class FastSpeech2(Pretrained):
                 _,
                 energy,
                 _,
-                _,
+                mel_lens,
             ) = self.hparams.model(
                 tokens_padded,
                 pace=pace,
@@ -578,7 +579,11 @@ class FastSpeech2(Pretrained):
             # Transposes to make in compliant with HiFI GAN expected format
             post_mel_outputs = post_mel_outputs.transpose(-1, 1)
 
-        return post_mel_outputs, durations, pitch, energy
+        if self.return_lengths:
+            result = post_mel_outputs, mel_lens, durations, pitch, energy
+        else:
+            result = post_mel_outputs, durations, pitch, energy
+        return result
 
     def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Batch inference for a tensor of phoneme sequences
@@ -593,8 +598,10 @@ class FastSpeech2(Pretrained):
         energy_rate : float
             scaling factor for phoneme energies
         """
+        if isinstance(text, str):
+            text = [text]
         return self.encode_text(
-            [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+            text, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
         )
 
 
@@ -630,6 +637,7 @@ class FastSpeech2InternalAlignment(Pretrained):
     HPARAMS_NEEDED = ["model", "input_encoder"]
 
     def __init__(self, *args, **kwargs):
+        self.return_lengths = kwargs.pop("return_lengths", False)
         super().__init__(*args, **kwargs)
         lexicon = self.hparams.lexicon
         lexicon = ["@@"] + lexicon
@@ -816,7 +824,7 @@ class FastSpeech2InternalAlignment(Pretrained):
                 _,
                 _,
                 _,
-                _,
+                mel_lens,
                 _,
             ) = self.hparams.model(
                 tokens_padded,
@@ -828,7 +836,11 @@ class FastSpeech2InternalAlignment(Pretrained):
             # Transposes to make in compliant with HiFI GAN expected format
             post_mel_outputs = post_mel_outputs.transpose(-1, 1)
 
-        return post_mel_outputs, durations, pitch, energy
+        if self.return_lengths:
+            result = post_mel_outputs, mel_lens, durations, pitch, energy
+        else:
+            result = post_mel_outputs, durations, pitch, energy
+        return result
 
     def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Batch inference for a tensor of phoneme sequences
@@ -843,6 +855,8 @@ class FastSpeech2InternalAlignment(Pretrained):
         energy_rate : float
             scaling factor for phoneme energies
         """
+        if isinstance(text, str):
+            text = [text]
         return self.encode_text(
-            [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
+            text, pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
         )
