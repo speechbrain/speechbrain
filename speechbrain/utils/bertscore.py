@@ -4,20 +4,19 @@ Authors
 * Sylvain de Langen 2024
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Iterable
 import torch
+import logging
+import math
 
 from speechbrain.utils.distances import cosine_similarity_matrix
 from speechbrain.utils.metric_stats import MetricStats
 
-FIXME
-#    SEP and CLS tokens should be zeroed
-#    so token_weights should be edited accordingly even if non present to set it
-#    to zero. also are we supposed to truncate and/or weight the tokens as they
-#    are in the hyps?? because otherwise it could match against SEP/CLS...
+logger = logging.getLogger(__name__)
 
-FIXME
+# FIXME:
 # why is the 3rd example so broken
 
 
@@ -47,10 +46,10 @@ class BERTScoreOutput:
 def bert_score(
     ref_hidden: torch.Tensor,
     hyp_hidden: torch.Tensor,
+    ref_inputs: torch.Tensor,
+    token_weights: torch.Tensor,
     ref_mask: Optional[torch.BoolTensor] = None,
     hyp_mask: Optional[torch.BoolTensor] = None,
-    ref_inputs: Optional[torch.Tensor] = None,
-    token_weights: Optional[torch.Tensor] = None,
 ):
     """Computes the BERTScore evaluation metric, as described in the paper
     `BERTScore: Evaluating Text Generation with BERT <https://arxiv.org/abs/1904.09675>`_.
@@ -73,6 +72,16 @@ def bert_score(
         Outputs of the LM encoder for the hypothesis text, i.e. contextualized
         tokens. May include special tokens (such as `[CLS]` and `[SEP]` tokens)
         in which case they are taken into account.
+    ref_inputs : torch.Tensor
+        Tokenized reference text (usually a tensor of an integral type), where
+        the shape must strictly match `ref_hidden.shape[:-1]`.
+    token_weights : torch.Tensor
+        Token weights, of shape `[vocab_size]` so that all tokens referenced by
+        `ref_inputs` must be a valid index in `token_weights`.
+        Otherwise, all tokens in the reference are weighted equally.
+        Token weighting is performed at reference word level.
+        BERTScore typically uses the Inverse Document Frequency (IDF) for token
+        weighting. See :func:`~make_bert_token_weights`.
     ref_mask : Optional[torch.BoolTensor]
         Boolean mask for the reference hidden states where `True` is a token
         that should **not** be ignored. Should be specified if all texts in the
@@ -83,16 +92,6 @@ def bert_score(
         that should **not** be ignored. Should be specified if all texts in the
         batch are not the same length. When provided, the shape must strictly
         match `hyp_hidden.shape[:-1]`.
-    ref_inputs : Optional[torch.Tensor]
-        Tokenized reference text (usually a tensor of an integral type).
-        Normally unused but must be specified if `token_weights` is provided.
-        When provided, the shape must strictly match `ref_hidden.shape[:-1]`.
-    token_weights : Optional[torch.Tensor]
-        Token weights, of shape `[vocab_size]`. When specified, all tokens
-        referenced by `ref_inputs` must be a valid index in `token_weights`.
-        Otherwise, all tokens in the reference are weighted equally.
-        Token weighting is performed at reference word level.
-        BERTScore typically uses the Inverse Document Frequency (IDF) metric.
 
     Returns
     -------
@@ -101,14 +100,10 @@ def bert_score(
         (e.g. recall).
     """
 
-    # TODO: in token_weights link to IDF function
     # TODO: compare results with official implementation
-    # TODO: implement idf calculation generically
 
     # shape [batch, ref dim, hyp dim]
     similarity_matrix = cosine_similarity_matrix(ref_hidden, hyp_hidden)
-
-    print(similarity_matrix)
 
     # zero out similarity for any pair where either of the tokens is padding
     if ref_mask is not None:
@@ -120,28 +115,19 @@ def bert_score(
     # thus of shape [batch, ref dim]
     selected_values, selected_indices = torch.max(similarity_matrix, dim=-1)
 
-    if token_weights is not None:
-        if ref_inputs is None:
-            raise ValueError("Must specify ref_inputs when weighting tokens!")
+    # ref_inputs -> weight for every ref input sampled from token_weights
+    # the result is a weight tensor with the same shape as the inputs
+    ref_weights = torch.index_select(
+        input=token_weights, dim=0, index=ref_inputs.flatten()
+    ).reshape(ref_inputs.shape)
 
-        # ref_inputs -> weight for every ref input sampled from token_weights
-        # the result is a weight tensor with the same shape as the inputs
-        ref_weights = torch.index_select(
-            input=token_weights, dim=0, index=ref_inputs.flatten()
-        ).reshape(ref_inputs.shape)
+    if ref_mask is not None:
+        ref_weights = torch.masked_fill(ref_weights, ~ref_mask, 0.0)
 
-        if ref_mask is not None:
-            ref_weights = torch.masked_fill(ref_weights, ~ref_mask, 0.0)
+    weight_sum = torch.sum(ref_weights, dim=-1)
 
-        weight_sum = torch.sum(ref_weights, dim=-1)
-
-        # weight the cosine distance for every ref token
-        selected_values *= ref_weights
-    else:
-        if ref_mask is not None:
-            weight_sum = torch.sum(ref_mask, dim=-1)
-        else:
-            weight_sum = float(selected_values.size(-1))
+    # weight the cosine distance for every ref token
+    selected_values *= ref_weights
 
     return BERTScoreOutput(
         similarity_matrix=similarity_matrix,
@@ -151,8 +137,77 @@ def bert_score(
     )
 
 
+def get_bert_token_weights(
+    tokenizer, mask_special_tokens: bool = True
+) -> torch.Tensor:
+    """Returns token weights suitable to be used as a `token_weights` in
+    :func:`~bert_score`. By default, all tokens are weighted equally, and
+    special tokens can optionally be weighted to `0`.
+
+    Arguments
+    ---------
+    tokenizer
+        HuggingFace tokenizer for the BERT model.
+    mask_special_tokens : bool
+        Whether special tokens (such as `[CLS]`, etc. for BERT) should be
+        masked.
+
+    Returns
+    -------
+    torch.BoolTensor
+        A mask tensor that can be indexed by token ID.
+    """
+
+    vocab = tokenizer.get_vocab()
+    max_idx = max(vocab.values())
+
+    mask = torch.ones((max_idx + 1,))
+
+    if mask_special_tokens:
+        for special_token in tokenizer.special_tokens_map.values():
+            mask[vocab[special_token]] = 0.0
+
+    return mask
+
+
+def apply_idf_weights(
+    tokenizer, weights_to_update: torch.Tensor, corpus: Iterable[str]
+) -> None:
+    """Over a token weights tensor generated by :func:`~get_bert_token_weights`,
+    weight input tokens extracted from `corpus` according to the Inverse
+    Document Frequency (IDF).
+    
+    Arguments
+    ---------
+    tokenizer
+        HuggingFace tokenizer for the BERT model.
+    weights_to_update : torch.Tensor
+        The token weights tensor to update with IDF.
+        Weights will be multiplied with the IDF (only for tokens that are
+        present in the corpus) to obtain the final weight for each token.
+    corpus : Iterable[str]
+        Iterable corpus to compute the IDF from. Each iterated value is
+        considered a document in the corpus in the IDF calculation.
+    """
+    freq_dict = defaultdict(lambda: 0)
+
+    for document_idx, document in enumerate(corpus):
+        tokens = tokenizer(document)["input_ids"]
+        unique_words = set(tokens)
+
+        for unique_word in unique_words:
+            freq_dict[unique_word] += 1
+
+    document_count = document_idx + 1
+
+    for token, freq in freq_dict.items():
+        idf = math.log(document_count / freq)
+        weights_to_update[token] *= idf
+
+
 class BERTScoreStats(MetricStats):
-    """Computes BERTScore with a provided tokenizer and LM.
+    """Computes BERTScore with a provided HuggingFace Transformers tokenizer and
+    LM.
     See :func:`speechbrain.utils.bertscore.bert_score` for details.
 
     Arguments
@@ -164,13 +219,30 @@ class BERTScoreStats(MetricStats):
     batch_size : int
         How many pairs of utterances should be considered at once. Higher is
         faster but may result in OOM.
+    uses_idf : bool
+        If enabled (default), tokens in the reference are weighted by
+        Inverse Document Frequency, which allows to weight down the impact of
+        common words that may carry less information.
+    mask_special_tokens : bool
+        Whether special tokens (such as `[SEP]` and `[CLS]`) tokens should be
+        masked away in the similarity matrix. This property is queried by
+        calling `tokenizer.get_special_tokens_mask`.
     """
 
-    def __init__(self, lm, tokenizer, batch_size: int):
+    def __init__(
+        self,
+        lm,
+        tokenizer,
+        batch_size: int,
+        uses_idf: bool = True,
+        mask_special_tokens: bool = True,
+    ):
         self.clear()
         self.lm = lm
         self.tokenizer = tokenizer
         self.batch_size = batch_size
+        self.uses_idf = uses_idf
+        self.mask_special_tokens = mask_special_tokens
 
     def clear(self):
         """Clears the collected statistics"""
@@ -217,23 +289,40 @@ class BERTScoreStats(MetricStats):
             returns a dictionary containing all computed stats.
         """
 
-        # TODO: calculate IDF weights
-
         selected_sum = 0.0
         weight_sum = 0.0
 
+        can_use_idf = True
+        if self.uses_idf and len(self.predictions) == 1:
+            logger.warning(
+                "Token IDF weighting was enabled, but 1 pred is not enough "
+                "to calculate any IDF. Disabling for this summary."
+            )
+            can_use_idf = False
+
+        token_weights = get_bert_token_weights(
+            self.tokenizer, self.mask_special_tokens
+        )
+
+        if can_use_idf:
+            apply_idf_weights(self.tokenizer, token_weights, self.targets)
+
         for chunk_idx in range(0, len(self.predictions), self.batch_size):
-            chunk_refs = self.targets[chunk_idx:chunk_idx+self.batch_size]
-            chunk_hyps = self.predictions[chunk_idx:chunk_idx+self.batch_size]
+            chunk_refs = self.targets[chunk_idx : chunk_idx + self.batch_size]
+            chunk_hyps = self.predictions[
+                chunk_idx : chunk_idx + self.batch_size
+            ]
 
             with torch.no_grad():
-                chunk_stats = self._get_batch_stats(chunk_refs, chunk_hyps)
+                chunk_stats = self._get_batch_stats(
+                    chunk_refs, chunk_hyps, token_weights
+                )
 
                 selected_sum += chunk_stats.selected_values.sum().item()
                 weight_sum += chunk_stats.weight_sum.sum().item()
 
                 print(chunk_stats.selected_values)
-                #chunk_stats.selected_values.sum()
+                # chunk_stats.selected_values.sum()
 
         self.summary["bertscore-recall"] = selected_sum / weight_sum
 
@@ -242,8 +331,12 @@ class BERTScoreStats(MetricStats):
         else:
             return self.summary
 
-
-    def _get_batch_stats(self, ref_text: List[str], hyp_text: List[str]):
+    def _get_batch_stats(
+        self,
+        ref_text: List[str],
+        hyp_text: List[str],
+        token_weights: torch.Tensor,
+    ):
         ref_tokens = self.tokenizer(ref_text, return_tensors="pt", padding=True)
         hyp_tokens = self.tokenizer(hyp_text, return_tensors="pt", padding=True)
         ref_hidden = self.lm(**ref_tokens).last_hidden_state
@@ -252,8 +345,8 @@ class BERTScoreStats(MetricStats):
         return bert_score(
             ref_hidden=ref_hidden,
             hyp_hidden=hyp_hidden,
+            ref_inputs=ref_tokens["input_ids"],
+            token_weights=token_weights,
             ref_mask=ref_tokens["attention_mask"].bool(),
             hyp_mask=hyp_tokens["attention_mask"].bool(),
-            ref_inputs=ref_tokens["input_ids"],
-            # token_weights=TODO
         )
