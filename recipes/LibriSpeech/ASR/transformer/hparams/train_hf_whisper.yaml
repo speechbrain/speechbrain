@@ -7,13 +7,13 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/train_whisper_medium.en.unfreeze/<seed>
+output_folder: !ref /workspace/output/results/train_whisper.larve-3.en.freeze/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
-whisper_hub: openai/whisper-medium.en
+whisper_hub: openai/whisper-large-v3
 whisper_folder: !ref <save_folder>/whisper_checkpoint
 language: english
 
@@ -26,7 +26,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-skip_prep: False
+skip_prep: True
 train_csv: /workspace/output/LibriSpeech/train.csv
 valid_csv: /workspace/output/LibriSpeech/dev-clean.csv
 test_csv:
@@ -42,8 +42,9 @@ ckpt_interval_minutes: 10 # save checkpoint every N min
 avoid_if_longer_than: 30.0
 
 ############################## Training Parameters #############################
-freeze_encoder: False
-number_of_epochs: 10
+freeze_encoder: True
+number_of_epochs: 1
+weight_decay: 0.01
 lr_whisper: 1e-5
 warmup_steps: 500
 max_grad_norm: 2.0
@@ -56,7 +57,7 @@ sample_rate: 16000
 # With DDP batch_size is multiplied by N jobs
 batch_size: 16
 test_batch_size: 16
-grad_accumulation_factor: 1
+grad_accumulation_factor: 1.0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -99,7 +100,7 @@ modules:
 
 whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
-    weight_decay: 0.01
+    weight_decay: !ref <weight_decay>
 
 valid_search: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
     model: !ref <whisper>
