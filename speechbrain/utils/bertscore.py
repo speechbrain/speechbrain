@@ -272,9 +272,8 @@ class BERTScoreStats(MetricStats):
     def summarize(self, field=None):
         """Summarize the classification metric scores
 
-        The following statistics are computed:
-
-        TODO
+        Full set of fields:
+         - `bertscore-recall`: `(sum of weighted distances) / (sum of weights)`
 
         Arguments
         ---------
@@ -289,23 +288,10 @@ class BERTScoreStats(MetricStats):
             returns a dictionary containing all computed stats.
         """
 
+        token_weights = self._make_weights()
+
         selected_sum = 0.0
         weight_sum = 0.0
-
-        can_use_idf = True
-        if self.uses_idf and len(self.predictions) == 1:
-            logger.warning(
-                "Token IDF weighting was enabled, but 1 pred is not enough "
-                "to calculate any IDF. Disabling for this summary."
-            )
-            can_use_idf = False
-
-        token_weights = get_bert_token_weights(
-            self.tokenizer, self.mask_special_tokens
-        )
-
-        if can_use_idf:
-            apply_idf_weights(self.tokenizer, token_weights, self.targets)
 
         for chunk_idx in range(0, len(self.predictions), self.batch_size):
             chunk_refs = self.targets[chunk_idx : chunk_idx + self.batch_size]
@@ -321,15 +307,28 @@ class BERTScoreStats(MetricStats):
                 selected_sum += chunk_stats.selected_values.sum().item()
                 weight_sum += chunk_stats.weight_sum.sum().item()
 
-                print(chunk_stats.selected_values)
-                # chunk_stats.selected_values.sum()
-
         self.summary["bertscore-recall"] = selected_sum / weight_sum
 
         if field is not None:
             return self.summary[field]
-        else:
-            return self.summary
+
+        return self.summary
+
+    def _make_weights(self):
+        token_weights = get_bert_token_weights(
+            self.tokenizer, self.mask_special_tokens
+        )
+
+        if self.uses_idf:
+            if len(self.predictions) == 1:
+                logger.warning(
+                    "Token IDF weighting was enabled, but 1 pred is not enough "
+                    "to calculate any IDF. Disabling for this summary."
+                )
+            else:
+                apply_idf_weights(self.tokenizer, token_weights, self.targets)
+
+        return token_weights
 
     def _get_batch_stats(
         self,
