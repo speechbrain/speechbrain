@@ -50,6 +50,7 @@ class Evaluator:
             if modules
             else {}
         )
+        self.modules.tts2wav.to(self.device)
         self.enabled_evaluators = set(self.hparams.evaluations.split(","))
         self.evaluators = {
             evaluator_key: evaluator_fn(run_opts={"device": self.device})
