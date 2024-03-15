@@ -52,10 +52,9 @@ class ASR(sb.Brain):
         )
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
-        # TODO: make this only for traning. At inference needs two
+        
         # Forward encoder + decoder
-        enc_out = self.modules.whisper.forward_encoder(wavs)
-        logits = self.modules.whisper.forward_decoder(enc_out, bos_tokens, False)[0]
+        enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
@@ -316,3 +315,11 @@ if __name__ == "__main__":
             test_loader_kwargs=hparams["test_loader_kwargs"],
             min_key="WER",
         )
+
+"""
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 164/164 [01:53<00:00,  1.44it/s]
+speechbrain.utils.train_logger - Epoch loaded: 1 - test loss: 8.90e-02, test CER: 9.26e-01, test WER: 2.62
+speechbrain.utils.checkpoints - Loading a checkpoint from results/train_whisper_ls_100_small.en/1986/save/CKPT+2024-03-11+17-50-19+00
+100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 184/184 [02:00<00:00,  1.53it/s]
+speechbrain.utils.train_logger - Epoch loaded: 1 - test loss: 2.12e-01, test CER: 2.78, test WER: 6.36
+"""
