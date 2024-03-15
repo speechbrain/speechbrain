@@ -72,11 +72,12 @@ class S2SBaseSearcher(torch.nn.Module):
     def __init__(
         self, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
     ):
-        super().__init__()
+        super(S2SBaseSearcher, self).__init__()
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.min_decode_ratio = min_decode_ratio
         self.max_decode_ratio = max_decode_ratio
+        self.temperature = 0
         self.kv_cache = None
 
     def forward(self, enc_states, wav_len):
@@ -197,16 +198,24 @@ class S2SGreedySearcher(S2SBaseSearcher):
             0, max_decode_steps
         )
 
-        has_ended = enc_states.new_zeros(batch_size).bool()
         for _ in range(max_decode_steps):
-            log_probs, memory, _ = self.forward_step(
+            logits, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
+            
+            if self.temperature == 0:
+                inp_tokens = logits.argmax(dim=-1)
+            else:
+                inp_tokens = Categorical(logits=logits / self.temperature).sample()
+
+            log_probs = F.log_softmax(logits.float(), dim=-1)
             log_probs_lst.append(log_probs)
-            inp_tokens = log_probs.argmax(dim=-1)
-            log_probs[has_ended] = float("inf")
-            has_ended = has_ended | (inp_tokens == self.eos_index)
-            if has_ended.all():
+
+            inp_tokens[memory[:, -1] == self.eos_index] = self.eos_index
+        
+            completed = (memory[:, -1] == self.eos_index).all()
+            
+            if completed  or (memory.shape[-1] + 1) > self.max_attn_tokens:
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
@@ -272,7 +281,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         top_log_probs = log_probs
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths - 1).abs() / max_length
+        top_lengths = (top_lengths).abs() / max_length
 
         return (
             hyps.unsqueeze(1),
@@ -281,264 +290,262 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_log_probs.unsqueeze(1),
         )
 
-class S2SWhisperGreedySearch(S2SBaseSearcher):
-    """
-    This class implements the greedy decoding
-    for Whisper neural nets made by OpenAI in
-    https://cdn.openai.com/papers/whisper.pdf.
-    Arguments
-    ---------
-    model : HuggingFaceWhisper
-        The Whisper model.
-    language_token : int
-        The language token to be used for the decoder input.
-    bos_token : int
-        The beginning of sentence token to be used for the decoder input.
-    task_token : int
-        The task token to be used for the decoder input.
-    timestamp_token : int
-        The timestamp token to be used for the decoder input.
-    max_length : int
-        The maximum decoding steps to perform.
-        The Whisper model has a maximum length of 448.
-    **kwargs
-        see S2SBaseSearcher, arguments are directly passed.
-    """
+# class S2SWhisperGreedySearch(S2SBaseSearcher):
+#     """
+#     This class implements the greedy decoding
+#     for Whisper neural nets made by OpenAI in
+#     https://cdn.openai.com/papers/whisper.pdf.
+#     Arguments
+#     ---------
+#     model : HuggingFaceWhisper
+#         The Whisper model.
+#     language_token : int
+#         The language token to be used for the decoder input.
+#     bos_token : int
+#         The beginning of sentence token to be used for the decoder input.
+#     task_token : int
+#         The task token to be used for the decoder input.
+#     timestamp_token : int
+#         The timestamp token to be used for the decoder input.
+#     max_length : int
+#         The maximum decoding steps to perform.
+#         The Whisper model has a maximum length of 448.
+#     **kwargs
+#         see S2SBaseSearcher, arguments are directly passed.
+#     """
 
-    def __init__(
-        self,
-        model,
-        temperature=0,
-        suppress_blank=True,
-        suppress_tokens="-1",
-        use_kv_cache=True,
-        **kwargs,
-    ):
-        super().__init__(
-            bos_index=model.bos,
-            eos_index=model.eos,
-            **kwargs,
-        )
-        # TODO: add prompting support + refacto a bit... 
-        # TODO: maybe timestamps support as well :p
+#     def __init__(
+#         self,
+#         model,
+#         temperature=0,
+#         suppress_blank=True,
+#         suppress_tokens="-1",
+#         use_kv_cache=True,
+#         **kwargs,
+#     ):
+#         super().__init__(
+#             bos_index=model.bos,
+#             eos_index=model.eos,
+#             **kwargs,
+#         )
+#         # TODO: add prompting support + refacto a bit... 
+#         # TODO: maybe timestamps support as well :p
 
-        self.model = model
-        self.temperature = temperature 
-        self.suppress_blank = suppress_blank
-        self.suppress_tokens = suppress_tokens
-        self.initial_tokens = self._get_initial_tokens()
+#         self.model = model
+#         self.temperature = temperature 
+#         self.use_kv_cache = use_kv_cache
+#         self.suppress_blank = suppress_blank
+#         self.suppress_tokens = suppress_tokens
+#         self.initial_tokens = self._get_initial_tokens()
         
-        self.sample_begin: int = len(self.initial_tokens)
-        self.sot_index: int = self.initial_tokens.index(self.model.bos)
-        self.initial_token_length = len(self.initial_tokens)
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
-
-        if use_kv_cache:
-            self.kv_cache = None
+#         self.sample_begin: int = len(self.initial_tokens)
+#         self.sot_index: int = self.initial_tokens.index(self.model.bos)
+#         self.initial_token_length = len(self.initial_tokens)
+#         self.max_attn_tokens = self.model.model.decoder.config.max_length
         
-    def cleanup_caching(self):
-        for hook in self.hooks:
-            hook.remove()
+#     def cleanup_caching(self):
+#         for hook in self.hooks:
+#             hook.remove()
 
-        self.kv_cache = {}
-        self.hooks = []
+#         self.kv_cache = {}
+#         self.hooks = []
 
 
-    def reset_mem(self, batch_size, device):
-        """This method set the first tokens to be decoder_input_tokens during search."""
-        return torch.tensor([self.initial_tokens] * batch_size).to(device)
+#     def reset_mem(self, batch_size, device):
+#         """This method set the first tokens to be decoder_input_tokens during search."""
+#         return torch.tensor([self.initial_tokens] * batch_size).to(device)
 
-    def permute_mem(self, memory, index):
-        """Memory permutation during beamsearch."""
-        memory = torch.index_select(memory, dim=0, index=index)
-        return memory
+#     def permute_mem(self, memory, index):
+#         """Memory permutation during beamsearch."""
+#         memory = torch.index_select(memory, dim=0, index=index)
+#         return memory
 
-    def _get_initial_tokens(self) :
-        return tuple(self.model.tokenizer.prefix_tokens)
+#     def _get_initial_tokens(self) :
+#         return tuple(self.model.tokenizer.prefix_tokens)
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        """Performs a step in the implemented beamsearcher."""
-        # TODO: use this function next
-        # print(memory) # tensor([[50258, 50259, 50359, 50363]], device='cuda:0')
-        # exit()
-        if (inp_tokens != self.bos_index).all().item():
-            memory = _update_mem(inp_tokens, memory)
+#     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+#         """Performs a step in the implemented beamsearcher."""
+#         # TODO: use this function next
+#         # print(memory) # tensor([[50258, 50259, 50359, 50363]], device='cuda:0')
+#         # exit()
+#         if (inp_tokens != self.bos_index).all().item():
+#             memory = _update_mem(inp_tokens, memory)
 
-        # WARNING: the max_decode_ratio need to be under 448 because
-        #  of positinal encoding
-        dec_out, attn = self.model.forward_decoder(enc_states, memory)
+#         # WARNING: the max_decode_ratio need to be under 448 because
+#         #  of positinal encoding
+#         dec_out, attn = self.model.forward_decoder(enc_states, memory)
         
-        # use this after
-        # dec_out, attn = self.inference.logits(memory, enc_states)
+#         # use this after
+#         # dec_out, attn = self.inference.logits(memory, enc_states)
 
-        log_probs = F.log_softmax(dec_out[:, -1].float(), dim=-1)
-        # log_probs = self.softmax(dec_out[:, -1])
+#         log_probs = F.log_softmax(dec_out[:, -1].float(), dim=-1)
+#         # log_probs = self.softmax(dec_out[:, -1])
 
-        return log_probs, memory, attn
+#         return log_probs, memory, attn
 
-    def forward(self, enc_states, enc_lens):
-        """This method performs a greedy search.
+#     def forward(self, enc_states, enc_lens):
+#         """This method performs a greedy search.
 
-        Arguments
-        ---------
-        enc_states : torch.Tensor
-            The precomputed encoder states to be used when decoding.
-            (ex. the encoded speech representation to be attended).
-        wav_len : torch.Tensor
-            The speechbrain-style relative length.
+#         Arguments
+#         ---------
+#         enc_states : torch.Tensor
+#             The precomputed encoder states to be used when decoding.
+#             (ex. the encoded speech representation to be attended).
+#         wav_len : torch.Tensor
+#             The speechbrain-style relative length.
 
-        Returns
-        -------
-        hyps : List containing hypotheses.
-        top_lengths : torch.Tensor (batch)
-            This tensor contains the final scores of hypotheses.
-        top_scores : torch.Tensor (batch)
-            The length of each topk sequence in the batch.
-        top_log_probs : torch.Tensor (batch, max length of token_id sequences)
-            The log probabilities of each hypotheses.
-        """
-        # TODO: refacto this function + cleanup a bit
-        # enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
-        device = enc_states.device
-        batch_size = enc_states.shape[0]
+#         Returns
+#         -------
+#         hyps : List containing hypotheses.
+#         top_lengths : torch.Tensor (batch)
+#             This tensor contains the final scores of hypotheses.
+#         top_scores : torch.Tensor (batch)
+#             The length of each topk sequence in the batch.
+#         top_log_probs : torch.Tensor (batch, max length of token_id sequences)
+#             The log probabilities of each hypotheses.
+#         """
+#         # TODO: refacto this function + cleanup a bit
+#         # enc_lens = torch.round(enc_states.shape[1] * wav_len).int()
+#         device = enc_states.device
+#         batch_size = enc_states.shape[0]
 
-        tokens = self.reset_mem(batch_size, device=device)
+#         tokens = self.reset_mem(batch_size, device=device)
 
-        # Using bos as the first input
-        log_probs_lst = []
-        max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
+#         # Using bos as the first input
+#         log_probs_lst = []
+#         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
-        # if (inp_tokens != self.bos_index).all().item():
-        #     memory = _update_mem(inp_tokens, memory)
+#         # if (inp_tokens != self.bos_index).all().item():
+#         #     memory = _update_mem(inp_tokens, memory)
 
-        # # WARNING: the max_decode_ratio need to be under 448 because
-        # #  of positinal encoding
-        # dec_out, attn = self.model.forward_decoder(enc_states, memory)
+#         # # WARNING: the max_decode_ratio need to be under 448 because
+#         # #  of positinal encoding
+#         # dec_out, attn = self.model.forward_decoder(enc_states, memory)
         
-        # # use this after
-        # # dec_out, attn = self.inference.logits(memory, enc_states)
+#         # # use this after
+#         # # dec_out, attn = self.inference.logits(memory, enc_states)
 
-        # log_probs = F.log_softmax(dec_out[:, -1].float(), dim=-1)
-        # # log_probs = self.softmax(dec_out[:, -1])
+#         # log_probs = F.log_softmax(dec_out[:, -1].float(), dim=-1)
+#         # # log_probs = self.softmax(dec_out[:, -1])
 
-        # return log_probs, memory, attn
+#         # return log_probs, memory, attn
 
-        # has_ended = enc_states.new_zeros(batch_size).bool()
-        # print(max_decode_steps)
-        sum_logprobs: Tensor = torch.zeros(batch_size, device=enc_states.device)
-        no_speech_probs = [np.nan] * batch_size
-        for i in range(max_decode_steps):
-            # print("i = ", i)
+#         # has_ended = enc_states.new_zeros(batch_size).bool()
+#         # print(max_decode_steps)
+#         sum_logprobs: Tensor = torch.zeros(batch_size, device=enc_states.device)
+#         no_speech_probs = [np.nan] * batch_size
+#         for i in range(max_decode_steps):
+#             # print("i = ", i)
 
-            # log_probs, memory, _ = self.forward_step(
-            #     inp_tokens, memory, enc_states, enc_lens
-            # )
-            # import time
-            # time.sleep(1)
-            # if not self.kv_cache:
-                # self.kv_cache, self.hooks = self.model.install_kv_cache_hooks()
-            # print(tokens)
-            # exit()
-            # print(self.kv_cache)
-            # if tokens.shape[-1] > self.initial_token_length:
-            #     tokens = tokens[:, -1:]
+#             # log_probs, memory, _ = self.forward_step(
+#             #     inp_tokens, memory, enc_states, enc_lens
+#             # )
+#             # import time
+#             # time.sleep(1)
+#             # if not self.kv_cache:
+#                 # self.kv_cache, self.hooks = self.model.install_kv_cache_hooks()
+#             # print(tokens)
+#             # exit()
+#             # print(self.kv_cache)
+#             # if tokens.shape[-1] > self.initial_token_length:
+#             #     tokens = tokens[:, -1:]
             
-            logits, _, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
-            self.kv_cache = kv 
+#             logits, _, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
+#             self.kv_cache = kv 
             
-            # print(logits.shape)
-            if (
-                i == 0 and self.model.no_speech is not None
-            ):  # save no_speech_probs
-                probs_at_sot = logits[:, self.sot_index].float().softmax(dim=-1)
-                no_speech_probs = probs_at_sot[:, self.model.no_speech].tolist()
-            # torch.Size([1, 4, 51865])
-            # print(logits)
-            #         tensor([[[-2.1680, -5.8516,  1.5010,  ...,  1.3164,  0.5732,  1.7783],
-            #      [10.8203,  9.6484,  9.1797,  ...,  9.5156,  9.0312,  9.6953],
-            #      [10.9375,  9.0391,  5.2383,  ...,  4.7344,  4.4297,  1.2617],
-            #      [14.6484, 18.4844, 11.3203,  ..., 13.3750, 13.2422, 13.2500]]],
-            #    device='cuda:0')
-            # exit()
+#             # print(logits.shape)
+#             if (
+#                 i == 0 and self.model.no_speech is not None
+#             ):  # save no_speech_probs
+#                 probs_at_sot = logits[:, self.sot_index].float().softmax(dim=-1)
+#                 no_speech_probs = probs_at_sot[:, self.model.no_speech].tolist()
+#             # torch.Size([1, 4, 51865])
+#             # print(logits)
+#             #         tensor([[[-2.1680, -5.8516,  1.5010,  ...,  1.3164,  0.5732,  1.7783],
+#             #      [10.8203,  9.6484,  9.1797,  ...,  9.5156,  9.0312,  9.6953],
+#             #      [10.9375,  9.0391,  5.2383,  ...,  4.7344,  4.4297,  1.2617],
+#             #      [14.6484, 18.4844, 11.3203,  ..., 13.3750, 13.2422, 13.2500]]],
+#             #    device='cuda:0')
+#             # exit()
 
-            logits = logits[:, -1]
+#             logits = logits[:, -1]
 
-            if self.suppress_blank:
-                if tokens.shape[1] == self.sample_begin:                    
-                    logits[:, self.model.tokenizer.encode(" ", add_special_tokens=False) + [self.eos_index]] = -np.inf
-                    # print("here")
-            if self.suppress_tokens:
-                logits[:, list(self._get_suppress_tokens)] = -np.inf
-            # tensor([[14.6484,    -inf,    -inf,  ..., 13.3750, 13.2422, 13.2500]],
+#             if self.suppress_blank:
+#                 if tokens.shape[1] == self.sample_begin:                    
+#                     logits[:, self.model.tokenizer.encode(" ", add_special_tokens=False) + [self.eos_index]] = -np.inf
+#                     # print("here")
+#             if self.suppress_tokens:
+#                 logits[:, list(self._get_suppress_tokens)] = -np.inf
+#             # tensor([[14.6484,    -inf,    -inf,  ..., 13.3750, 13.2422, 13.2500]],
             
-            if self.temperature == 0:
-                next_tokens = logits.argmax(dim=-1)
-            else:
-                next_tokens = Categorical(logits=logits / self.temperature).sample()
+#             if self.temperature == 0:
+#                 next_tokens = logits.argmax(dim=-1)
+#             else:
+#                 next_tokens = Categorical(logits=logits / self.temperature).sample()
 
-            log_probs = F.log_softmax(logits.float(), dim=-1)
-            current_logprobs = log_probs[torch.arange(batch_size), next_tokens]
-            sum_logprobs += current_logprobs * (tokens[:, -1] != self.eos_index)
+#             log_probs = F.log_softmax(logits.float(), dim=-1)
+#             current_logprobs = log_probs[torch.arange(batch_size), next_tokens]
+#             sum_logprobs += current_logprobs * (tokens[:, -1] != self.eos_index)
             
-            # print(self.eos_index)
-            next_tokens[tokens[:, -1] == self.eos_index] = self.eos_index
-            tokens = torch.cat([tokens, next_tokens[:, None]], dim=-1)
-            # inp_tokens = next_tokens[:, None]
-            # print(memory)
-            completed = (tokens[:, -1] == self.eos_index).all()
-            # print(completed)
-            if completed or tokens.shape[-1] > self.max_attn_tokens:
-                break
+#             # print(self.eos_index)
+#             next_tokens[tokens[:, -1] == self.eos_index] = self.eos_index
+#             tokens = torch.cat([tokens, next_tokens[:, None]], dim=-1)
+#             # inp_tokens = next_tokens[:, None]
+#             # print(memory)
+#             completed = (tokens[:, -1] == self.eos_index).all()
+#             # print(completed)
+#             if completed or tokens.shape[-1] > self.max_attn_tokens:
+#                 break
 
         
-        tokens = tokens.reshape(batch_size, 1, -1)
-        # sum_logprobs = sum_logprobs.reshape(n_audio, self.n_group)
+#         tokens = tokens.reshape(batch_size, 1, -1)
+#         # sum_logprobs = sum_logprobs.reshape(n_audio, self.n_group)
 
-        tokens = F.pad(tokens, (0, 1), value=self.eos_index)
+#         tokens = F.pad(tokens, (0, 1), value=self.eos_index)
 
-        tokens: List[List[Tensor]] = [
-            [t[self.sample_begin : (t == self.eos_index).nonzero()[0, 0]] for t in s]
-            for s in tokens
-        ]
-        tokens: List[List[int]] = [t[0].tolist() for t in tokens]
+#         tokens: List[List[Tensor]] = [
+#             [t[self.sample_begin : (t == self.eos_index).nonzero()[0, 0]] for t in s]
+#             for s in tokens
+#         ]
+#         tokens: List[List[int]] = [t[0].tolist() for t in tokens]
 
-        # reset cache
-        self.kv_cache = None
-        return tokens, None, None, None
+#         # reset cache
+#         self.kv_cache = None
+#         return tokens, None, None, None
 
-    @cached_property
-    def _get_suppress_tokens(self):
-        suppress_tokens = self.suppress_tokens
+#     @cached_property
+#     def _get_suppress_tokens(self):
+#         suppress_tokens = self.suppress_tokens
 
-        if isinstance(suppress_tokens, str):
-            suppress_tokens = [int(t) for t in suppress_tokens.split(",")]
+#         if isinstance(suppress_tokens, str):
+#             suppress_tokens = [int(t) for t in suppress_tokens.split(",")]
 
-        if -1 in suppress_tokens:
-            suppress_tokens = [t for t in suppress_tokens if t >= 0]
-            suppress_tokens.extend(self.model.non_speech_tokens)
-        elif suppress_tokens is None or len(suppress_tokens) == 0:
-            suppress_tokens = []  # interpret empty string as an empty list
-        else:
-            assert isinstance(suppress_tokens, list), "suppress_tokens must be a list"
+#         if -1 in suppress_tokens:
+#             suppress_tokens = [t for t in suppress_tokens if t >= 0]
+#             suppress_tokens.extend(self.model.non_speech_tokens)
+#         elif suppress_tokens is None or len(suppress_tokens) == 0:
+#             suppress_tokens = []  # interpret empty string as an empty list
+#         else:
+#             assert isinstance(suppress_tokens, list), "suppress_tokens must be a list"
         
-        suppress_tokens.extend(
-            [
-                self.model.transcribe,
-                self.model.translate,
-                self.model.bos,
-                self.model.bos_prev,
-                self.model.bos_lm,
-            ]
-        )
-        # print("here")
-        if self.model.no_speech is not None:
-            # no-speech probability is collected separately
-            suppress_tokens.append(self.model.no_speech)
+#         suppress_tokens.extend(
+#             [
+#                 self.model.transcribe,
+#                 self.model.translate,
+#                 self.model.bos,
+#                 self.model.bos_prev,
+#                 self.model.bos_lm,
+#             ]
+#         )
+#         # print("here")
+#         if self.model.no_speech is not None:
+#             # no-speech probability is collected separately
+#             suppress_tokens.append(self.model.no_speech)
 
         return tuple(sorted(set(suppress_tokens)))
 
 
-class S2SWhisperGreedySearchV2(S2SGreedySearcher):
+class S2SWhisperGreedySearch(S2SGreedySearcher):
     """
     This class implements the greedy decoding
     for Whisper neural nets made by OpenAI in
@@ -579,6 +586,7 @@ class S2SWhisperGreedySearchV2(S2SGreedySearcher):
 
         self.suppress_blank = suppress_blank
         self.suppress_tokens = suppress_tokens
+        self.use_kv_cache = use_kv_cache
     
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
@@ -609,18 +617,23 @@ class S2SWhisperGreedySearchV2(S2SGreedySearcher):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
 
+        # print('-' * 50)
+        # print("tokens = ", tokens.shape)
         logits, attn, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
-        self.kv_cache = kv 
+
+        # print("logits = ", logits.shape)
+        logits = logits[:, -1]
+
+        if self.use_kv_cache:
+            self.kv_cache = kv 
 
         if self.suppress_blank:
             if tokens.shape[1] == self.sample_begin:                    
                 logits[:, self.model.tokenizer.encode(" ", add_special_tokens=False) + [self.eos_index]] = -np.inf
         if self.suppress_tokens:
             logits[:, list(self._get_suppress_tokens)] = -np.inf
-        
-        log_probs = F.log_softmax(logits[:, -1].float(), dim=-1)
 
-        return log_probs, tokens, attn
+        return logits, tokens, attn
 
     @cached_property
     def _get_suppress_tokens(self):
@@ -702,7 +715,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
 
     def __init__(self, embedding, decoder, linear, **kwargs):
-        super().__init__(**kwargs)
+        super(S2SRNNGreedySearcher, self).__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
@@ -786,7 +799,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         max_attn_shift=60,
         minus_inf=-1e20,
     ):
-        super().__init__(
+        super(S2SBeamSearcher, self).__init__(
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
         )
         self.beam_size = beam_size
@@ -1813,7 +1826,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     def __init__(
         self, embedding, decoder, linear, temperature=1.0, **kwargs,
     ):
-        super().__init__(**kwargs)
+        super(S2SRNNBeamSearcher, self).__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
@@ -1910,7 +1923,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     def __init__(
         self, modules, temperature=1.0, **kwargs,
     ):
-        super().__init__(**kwargs)
+        super(S2STransformerBeamSearcher, self).__init__(**kwargs)
 
         self.model = modules[0]
         self.fc = modules[1]
@@ -1972,125 +1985,6 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
         pred, attn = self.model.decode(memory, enc_states, enc_lens)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
-
-
-class S2SWhisperBeamSearch(S2SBeamSearcher):
-    """This class implements the beam search decoding
-    for Whisper neural nets made by OpenAI in
-    https://cdn.openai.com/papers/whisper.pdf.
-    Arguments
-    ---------
-    module : list with the followings one:
-        model : torch.nn.Module
-            A whisper model. It should have a decode() method.
-        ctc_lin : torch.nn.Module (optional)
-            A linear output layer for CTC.
-    language_token : int
-        The token to use for language.
-    bos_token : int
-        The token to use for beginning of sentence.
-    task_token : int
-        The token to use for task.
-    timestamp_token : int
-        The token to use for timestamp.
-    max_length : int
-        The maximum decoding steps to perform.
-        The Whisper model has a maximum length of 448.
-    **kwargs
-        Arguments to pass to S2SBeamSearcher
-    """
-
-    def __init__(
-        self,
-        module,
-        temperature=1.0,
-        language_token=50259,
-        bos_token=50258,
-        task_token=50359,
-        timestamp_token=50363,
-        max_length=448,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-
-        self.model = module[0]
-
-        self.softmax = torch.nn.LogSoftmax(dim=-1)
-
-        self.temperature = temperature
-
-        self.decoder_input_tokens = None
-        self.language_token = language_token  # default language is english
-        self.bos_token = bos_token  # always this value
-        self.task_token = task_token  # default task is transcribe
-        self.timestamp_token = timestamp_token  # default is notimestamp
-
-        self.max_length = max_length - 3  # -3 for [bos, language, task]
-
-    def set_language_token(self, language_token):
-        """set the language token to use for the decoder input."""
-        self.language_token = language_token
-
-    def set_bos_token(self, bos_token):
-        """set the bos token to use for the decoder input."""
-        self.bos_token = bos_token
-
-    def set_task_token(self, task_token):
-        """set the task token to use for the decoder input."""
-        self.task_token = task_token
-
-    def set_timestamp_token(self, timestamp_token):
-        """set the timestamp token to use for the decoder input."""
-        self.timestamp_token = timestamp_token
-        # need to reset bos_index too as timestamp_token is the first
-        # inp_token and need to be the first so that the first input gave
-        # to the model is [bos, language, task, timestamp] (order matters).
-        self.bos_index = self.timestamp_token
-
-    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
-        """set the minimum/maximum length the decoder can take."""
-        return (
-            int(self.min_decode_ratio * self.max_length),
-            int(self.max_decode_ratio * self.max_length),
-        )
-
-    def set_decoder_input_tokens(self, decoder_input_tokens):
-        """decoder_input_tokens are the tokens used as input to the decoder.
-        They are directly taken from the tokenizer.prefix_tokens attribute.
-        decoder_input_tokens = [bos_token, language_token, task_token, timestamp_token]
-        """
-        self.set_bos_token(decoder_input_tokens[0])
-        self.set_language_token(decoder_input_tokens[1])
-        self.set_task_token(decoder_input_tokens[2])
-        self.set_timestamp_token(decoder_input_tokens[3])
-
-        # bos will be timestamp in our case.
-        self.decoder_input_tokens = [
-            self.bos_token,
-            self.language_token,
-            self.task_token,
-        ]
-
-    def reset_mem(self, batch_size, device):
-        """This method set the first tokens to be decoder_input_tokens during search."""
-        return torch.tensor([self.decoder_input_tokens] * batch_size).to(device)
-
-    def permute_mem(self, memory, index):
-        """Permutes the memory."""
-        memory = torch.index_select(memory, dim=0, index=index)
-        return memory
-
-    def set_n_out(self):
-        """set the number of output tokens."""
-        return self.model.model.decoder.embed_tokens.weight.shape[0]
-
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        """Performs a step in the implemented beamsearcher."""
-        memory = _update_mem(inp_tokens, memory)
-        dec_out, attn, = self.model.forward_decoder(enc_states, memory)
-        log_probs = self.softmax(dec_out[:, -1] / self.temperature)
-        return log_probs, memory, attn
-
 
 class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
     """This class implements the beam search decoding

@@ -7,15 +7,14 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref /workspace/output/results/train_whisper.large-v3.en.freeze.augmentations/<seed>
+output_folder: !ref results/whisper/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
-whisper_hub: openai/whisper-large-v3
+whisper_hub: openai/whisper-small.en
 whisper_folder: !ref <save_folder>/whisper_checkpoint
-language: english
 
 # Normalize the english inputs with
 # the same normalization done in the paper
@@ -25,14 +24,15 @@ normalized_transcripts: True
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
-skip_prep: True
-train_csv: /workspace/output/LibriSpeech/train.csv
-valid_csv: /workspace/output/LibriSpeech/dev-clean.csv
+test_splits: ["test-clean", "test-other"] # "dev-clean", 
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-    - /workspace/output/LibriSpeech/dev-clean.csv
-    - /workspace/output/LibriSpeech/test-clean.csv
-    - /workspace/output/LibriSpeech/test-other.csv
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
+    # - !ref <output_folder>/dev-clean.csv
+    # - !ref <output_folder>/test-other.csv
 
 ckpt_interval_minutes: 10 # save checkpoint every N min
 

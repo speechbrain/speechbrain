@@ -88,7 +88,7 @@ class ASR(sb.Brain):
             tokens, tokens_lens = batch.tokens
 
             # Decode token terms to words
-            predicted_words = [self.tokenizer.decode(t).strip() for t in hyps]
+            predicted_words = [self.tokenizer.decode(t, skip_special_tokens=True).strip() for t in hyps]
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
