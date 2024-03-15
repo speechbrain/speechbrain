@@ -44,6 +44,7 @@ class Evaluator:
         self.run_opts = run_opts or {}
         self.device = run_opts.get("device", "cpu")
         modules = hparams.get("modules")
+        self.tts = self.hparams.tts(run_opts={"device": self.device})
         self.modules = (
             nn.ModuleDict(self.hparams.modules).to(self.device)
             if modules
@@ -159,7 +160,7 @@ class Evaluator:
         length : torch.Tensor
             The lengths
         """
-        tts_out = self.modules.tts(text)
+        tts_out = self.tts(text)
         wav, length = self.modules.tts2wav(tts_out)
         if wav.dim() > 2:
             wav = wav.squeeze(1)

@@ -27,7 +27,7 @@ vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 vocoder: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
     source: !ref <vocoder_model>
 
-tts: !apply:speechbrain.inference.TTS.Tacotron2.from_hparams
+tts: !name:speechbrain.inference.TTS.Tacotron2.from_hparams
     source: !ref <tts_source>
 
 tts2wav: !new:adapters.MelAdapter
@@ -45,7 +45,6 @@ output_files:
     summary: !ref <output_folder>/summary.json
 
 modules:
-    tts: !ref <tts>
     tts2wav: !ref <tts2wav>
 
 eval_summary:
