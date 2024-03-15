@@ -48,6 +48,8 @@ def _extract_lemmas(docs: Iterable[spacy.tokens.Doc]):
 
 
 class SpacyPipeline:
+    """Modelizes a spaCy pipeline."""
+
     def __init__(self, nlp):
         self.nlp = nlp
 
@@ -55,7 +57,8 @@ class SpacyPipeline:
     def from_name(name, *args, **kwargs):
         """Create a pipeline by loading a model using `spacy.load`.
         Unlike other toolkits, you must explicitly download the model if you
-        want to use a remote model (e.g. `spacy download fr_core_news_md`).
+        want to use a remote model (e.g. `spacy download fr_core_news_md`)
+        rather than just specifying a HF hub name.
 
         Arguments
         ---------
@@ -65,6 +68,7 @@ class SpacyPipeline:
             Extra positional arguments passed to `spacy.load`.
         **kwargs
             Extra keyword arguments passed to `spacy.load`."""
+
         return SpacyPipeline(spacy.load(name, *args, **kwargs))
 
     def lemmatize(

@@ -228,6 +228,19 @@ class BERTScoreStats(MetricStats):
                 hyp_token_weights, hyp_tokens
             )
 
+            # mask off weights
+            recall_weights[~ref_mask] = 0.0
+            precision_weights[~hyp_mask] = 0.0
+
+            print()
+            print(similarity_matrix)
+            print(recall_values)
+            print(recall_weights)
+            print(ref_text)
+            print(hyp_text)
+            print((recall_values * recall_weights).sum() / recall_weights.sum())
+            print((precision_values * precision_weights).sum() / precision_weights.sum())
+
             recall_sum += (recall_values * recall_weights).sum()
             recall_weight += recall_weights.sum()
 
