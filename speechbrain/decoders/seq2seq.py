@@ -77,6 +77,7 @@ class S2SBaseSearcher(torch.nn.Module):
         self.eos_index = eos_index
         self.min_decode_ratio = min_decode_ratio
         self.max_decode_ratio = max_decode_ratio
+        self.kv_cache = None
 
     def forward(self, enc_states, wav_len):
         """This method should implement the forward algorithm of decoding method.
@@ -224,6 +225,9 @@ class S2SGreedySearcher(S2SBaseSearcher):
         # Convert best hypothesis to list
         hyps = undo_padding(top_hyps[:, 0], top_lengths)
 
+        # reset KV cache if needed
+        self.kv_cache = None
+
         return hyps, top_lengths, top_scores, top_log_probs
 
     def _get_top_prediction(self, hyps, scores, log_probs):
@@ -323,6 +327,7 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
         self.suppress_blank = suppress_blank
         self.suppress_tokens = suppress_tokens
         self.initial_tokens = self._get_initial_tokens()
+        
         self.sample_begin: int = len(self.initial_tokens)
         self.sot_index: int = self.initial_tokens.index(self.model.bos)
         self.initial_token_length = len(self.initial_tokens)
@@ -371,7 +376,7 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
 
         return log_probs, memory, attn
 
-    def forward(self, enc_states, wav_len=None):
+    def forward(self, enc_states, enc_lens):
         """This method performs a greedy search.
 
         Arguments
@@ -419,7 +424,9 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
         # return log_probs, memory, attn
 
         # has_ended = enc_states.new_zeros(batch_size).bool()
-
+        # print(max_decode_steps)
+        sum_logprobs: Tensor = torch.zeros(batch_size, device=enc_states.device)
+        no_speech_probs = [np.nan] * batch_size
         for i in range(max_decode_steps):
             # print("i = ", i)
 
@@ -430,6 +437,11 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
             # time.sleep(1)
             # if not self.kv_cache:
                 # self.kv_cache, self.hooks = self.model.install_kv_cache_hooks()
+            # print(tokens)
+            # exit()
+            # print(self.kv_cache)
+            # if tokens.shape[-1] > self.initial_token_length:
+            #     tokens = tokens[:, -1:]
             
             logits, _, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
             self.kv_cache = kv 
@@ -465,6 +477,8 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
                 next_tokens = Categorical(logits=logits / self.temperature).sample()
 
             log_probs = F.log_softmax(logits.float(), dim=-1)
+            current_logprobs = log_probs[torch.arange(batch_size), next_tokens]
+            sum_logprobs += current_logprobs * (tokens[:, -1] != self.eos_index)
             
             # print(self.eos_index)
             next_tokens[tokens[:, -1] == self.eos_index] = self.eos_index
@@ -472,10 +486,11 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
             # inp_tokens = next_tokens[:, None]
             # print(memory)
             completed = (tokens[:, -1] == self.eos_index).all()
-
+            # print(completed)
             if completed or tokens.shape[-1] > self.max_attn_tokens:
                 break
 
+        
         tokens = tokens.reshape(batch_size, 1, -1)
         # sum_logprobs = sum_logprobs.reshape(n_audio, self.n_group)
 
@@ -522,6 +537,128 @@ class S2SWhisperGreedySearch(S2SBaseSearcher):
 
         return tuple(sorted(set(suppress_tokens)))
 
+
+class S2SWhisperGreedySearchV2(S2SGreedySearcher):
+    """
+    This class implements the greedy decoding
+    for Whisper neural nets made by OpenAI in
+    https://cdn.openai.com/papers/whisper.pdf.
+    Arguments
+    ---------
+    model : HuggingFaceWhisper
+        The Whisper model.
+    language_token : int
+        The language token to be used for the decoder input.
+    bos_token : int
+        The beginning of sentence token to be used for the decoder input.
+    task_token : int
+        The task token to be used for the decoder input.
+    timestamp_token : int
+        The timestamp token to be used for the decoder input.
+    max_length : int
+        The maximum decoding steps to perform.
+        The Whisper model has a maximum length of 448.
+    **kwargs
+        see S2SBaseSearcher, arguments are directly passed.
+    """
+
+    def __init__(
+        self,
+        model,
+        suppress_blank: bool=True, 
+        suppress_tokens: str="-1",
+        use_kv_cache=True,
+        **kwargs,
+    ):
+        super().__init__(
+            bos_index=model.bos,
+            eos_index=model.eos,
+            **kwargs,
+        )
+        self.model = model
+
+        self.suppress_blank = suppress_blank
+        self.suppress_tokens = suppress_tokens
+    
+        self.initial_tokens = self._get_initial_tokens()
+        self.sample_begin: int = len(self.initial_tokens)
+        self.eos_index: int = self.model.eos
+        self.bos_index: int = self.initial_tokens[-1]
+        self.initial_token_length = len(self.initial_tokens)
+        self.max_attn_tokens = self.model.model.decoder.config.max_length
+
+        if use_kv_cache:
+            self.kv_cache = None
+
+
+    def _get_initial_tokens(self) :
+        return tuple(self.model.tokenizer.prefix_tokens)
+
+    def reset_mem(self, batch_size, device):
+        """This method set the first tokens to be decoder_input_tokens during search."""
+        memory_tokens = self.initial_tokens[:-1] # the last token will be used as
+        # the first input token 
+        return torch.tensor([memory_tokens] * batch_size).to(device)
+
+    def permute_mem(self, memory, index):
+        """Memory permutation during beamsearch."""
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        tokens = _update_mem(inp_tokens, memory)
+
+        logits, attn, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
+        self.kv_cache = kv 
+
+        if self.suppress_blank:
+            if tokens.shape[1] == self.sample_begin:                    
+                logits[:, self.model.tokenizer.encode(" ", add_special_tokens=False) + [self.eos_index]] = -np.inf
+        if self.suppress_tokens:
+            logits[:, list(self._get_suppress_tokens)] = -np.inf
+        
+        log_probs = F.log_softmax(logits[:, -1].float(), dim=-1)
+
+        return log_probs, tokens, attn
+
+    @cached_property
+    def _get_suppress_tokens(self):
+        suppress_tokens = self.suppress_tokens
+
+        if isinstance(suppress_tokens, str):
+            suppress_tokens = [int(t) for t in suppress_tokens.split(",")]
+
+        if -1 in suppress_tokens:
+            suppress_tokens = [t for t in suppress_tokens if t >= 0]
+            suppress_tokens.extend(self.model.non_speech_tokens)
+        elif suppress_tokens is None or len(suppress_tokens) == 0:
+            suppress_tokens = []  # interpret empty string as an empty list
+        else:
+            assert isinstance(suppress_tokens, list), "suppress_tokens must be a list"
+        
+        suppress_tokens.extend(
+            [
+                self.model.transcribe,
+                self.model.translate,
+                self.model.bos,
+                self.model.bos_prev,
+                self.model.bos_lm,
+            ]
+        )
+        # print("here")
+        if self.model.no_speech is not None:
+            # no-speech probability is collected separately
+            suppress_tokens.append(self.model.no_speech)
+
+        return tuple(sorted(set(suppress_tokens)))
+
+    def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
+        """set the minimum/maximum length the decoder can take."""
+        return (
+            int(self.min_decode_ratio * self.max_attn_tokens),
+            int(self.max_decode_ratio * self.max_attn_tokens),
+        )
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
