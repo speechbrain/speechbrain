@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_bert_token_mask(tokenizer) -> torch.BoolTensor:
-    """Returns a token mask
+    """Returns a token mask with special tokens masked.
 
     Arguments
     ---------
@@ -27,7 +27,7 @@ def get_bert_token_mask(tokenizer) -> torch.BoolTensor:
     Returns
     -------
     torch.BoolTensor
-        A mask tensor that can be indexed by token ID.
+        A mask tensor that can be indexed by token ID (of shape `[vocab_size]`).
     """
 
     vocab = tokenizer.get_vocab()
