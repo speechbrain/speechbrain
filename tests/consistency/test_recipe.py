@@ -120,7 +120,7 @@ def test_recipe_files(
                 files = files.split(" ")
                 files = filter(None, files)
                 for file in files:
-                    if not (os.path.exists(file.strip())):
+                    if not os.path.exists(file.strip()):
                         print(
                             "\tERROR: The file %s listed in %s does not exist!"
                             % (file, recipe_csvfile)
@@ -160,7 +160,7 @@ def test_mandatory_files(
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
                 for field in must_exist:
-                    if not (os.path.exists(row[field].strip())):
+                    if not os.path.exists(row[field].strip()):
                         print(
                             "\tERROR: The recipe %s does not contain a %s. Please add it to %s!"
                             % (row_id, field, recipe_csvfile)
@@ -208,7 +208,7 @@ def test_README_links(
                         for link in links:
                             if len(link) == 0:
                                 continue
-                            if not (link in content):
+                            if link not in content:
                                 print(
                                     "\tERROR: The link to %s does not exist in %s. Please add it to %s!"
                                     % (link, row[readme_field], recipe_csvfile)

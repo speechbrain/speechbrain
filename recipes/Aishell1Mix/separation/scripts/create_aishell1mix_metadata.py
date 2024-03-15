@@ -73,7 +73,7 @@ def main(args):
     md_dir = args.metadata_outdir
     if md_dir is None:
         root = os.path.dirname(aishell1_dir)
-        md_dir = os.path.join(root, f"aishell1mix/metadata")
+        md_dir = os.path.join(root, "aishell1mix/metadata")
     os.makedirs(md_dir, exist_ok=True)
     create_aishell1mix_metadata(
         aishell1_dir, aishell1_md_dir, wham_dir, wham_md_dir, md_dir, n_src

@@ -351,7 +351,7 @@ class Leaf(torch.nn.Module):
         skip_transpose=False,
         n_fft=512,
     ):
-        super(Leaf, self).__init__()
+        super().__init__()
         self.out_channels = out_channels
         window_size = int(sample_rate * window_len // 1000 + 1)
         window_stride = int(sample_rate * window_stride // 1000)
