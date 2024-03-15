@@ -580,6 +580,7 @@ class FastSpeech2(Pretrained):
             post_mel_outputs = post_mel_outputs.transpose(-1, 1)
 
         if self.return_lengths:
+            mel_lens = mel_lens.to(post_mel_outputs.device)
             result = post_mel_outputs, mel_lens, durations, pitch, energy
         else:
             result = post_mel_outputs, durations, pitch, energy
