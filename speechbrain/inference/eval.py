@@ -286,6 +286,7 @@ class RegressionModelSpeechEvaluator(SpeechEvaluator):
 
 
 class ASRSpeechEvaluator(SpeechEvaluator):
+    """A superclass for ASR-based speech evaluators"""
     def evaluate(
         self,
         wavs,
@@ -350,6 +351,23 @@ class ASRSpeechEvaluator(SpeechEvaluator):
         return SpeechEvaluationResult(score=details["wer"], details=details,)
 
     def compute_diff_rate(self, details, device):
+        """Computes diferrential scores (dWER and dCER)
+
+        Arguments
+        ---------
+        details : dict
+            A details dictory, containing keys 'pred' (the ASR prediction of TTS output)
+            and 'pred_ref' (the ASR prediction of the ground truth)
+        device : str | torch.device
+            the device
+
+        Returns
+        -------
+        result : dict
+            A dictionary with two keys
+            'dwer' : the differential Word Error Rate
+            'dcer': the differential Character Error Rate
+        """
         ids = range(1, len(details["pred"]) + 1)
         wer_metric, cer_metric = init_asr_metrics()
         pred = self._replace_blanks(details["pred"])
