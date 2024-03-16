@@ -85,7 +85,6 @@ class S2SBaseSearcher(torch.nn.Module):
         self.min_decode_ratio = min_decode_ratio
         self.max_decode_ratio = max_decode_ratio
         self.temperature = 0
-        self.kv_cache = None
 
     def forward(self, enc_states, wav_len):
         """This method should implement the forward algorithm of decoding method.
@@ -148,7 +147,7 @@ class S2SBaseSearcher(torch.nn.Module):
         raise NotImplementedError
 
     def change_max_decoding_length(self, min_decode_steps, max_decode_steps):
-        """set the minimum/maximum length the decoder can take."""
+        """set the minimum/maximum length of enc_states to be attended."""
         return min_decode_steps, max_decode_steps
 
     def set_n_out(self):
@@ -158,6 +157,13 @@ class S2SBaseSearcher(torch.nn.Module):
         """
         return self.fc.w.out_features
 
+    def _check_end_condition(self, memory):
+        """This method is supposed to be overridden by the child class.
+        For instance, if the decoder has a maximal number of tokens that it can 
+        attend to, this method should return True when the maximal number of tokens
+        is reached.
+        """
+        return False
 
 class S2SGreedySearcher(S2SBaseSearcher):
     """This class implements the general forward-pass of
@@ -197,15 +203,14 @@ class S2SGreedySearcher(S2SBaseSearcher):
         )
 
         log_probs_lst = []
+        min_decode_steps = int(enc_states.shape[1] * self.min_decode_ratio)
         max_decode_steps = int(enc_states.shape[1] * self.max_decode_ratio)
 
-        # the decoding steps can be based on the max number of tokens that a decoder can process
-        # (e.g., 448 for Whisper).
-        _, max_decode_steps = self.change_max_decoding_length(
-            0, max_decode_steps
+        min_decode_steps, max_decode_steps = self.change_max_decoding_length(
+            min_decode_steps, max_decode_steps
         )
 
-        for _ in range(max_decode_steps):
+        for step in range(min_decode_steps, max_decode_steps):
             logits, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
             )
@@ -222,7 +227,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         
             completed = (memory[:, -1] == self.eos_index).all()
             
-            if completed  or (memory.shape[-1] + 1) > self.max_attn_tokens:
+            if completed  or self._check_end_condition(memory):
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
@@ -294,6 +299,45 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_log_probs.unsqueeze(1),
         )
 
+class S2STransformerGreedySearch(S2SGreedySearcher):
+    """This class implements the greedy decoding
+    for Transformer.
+
+    Arguments
+    ---------
+    modules : list with the followings one:
+        model : torch.nn.Module
+            A TransformerASR model.
+        seq_lin : torch.nn.Module
+            A linear output layer for the seq2seq model.
+    temperature : float
+        Temperature to use during decoding.
+    **kwargs
+        Arguments to pass to S2SGreedySearcher
+    """
+
+    def __init__(
+        self, modules, temperature=1.0, **kwargs,
+    ):
+        super(S2SGreedySearcher, self).__init__(**kwargs)
+
+        self.model = modules[0]
+        self.fc = modules[1]
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+        self.temperature = temperature
+
+    def reset_mem(self, batch_size, device):
+        """Needed to reset the memory during greedy search."""
+        return None
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented greedy searcher."""
+        memory = _update_mem(inp_tokens, memory)
+        pred, attn = self.model.decode(memory, enc_states, enc_lens)
+        logits = self.fc(pred) 
+        return logits[:, -1, :], memory, attn
+    
 class S2SWhisperGreedySearch(S2SGreedySearcher):
     """
     This class implements the greedy decoding
@@ -369,6 +413,10 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
             self.kv_cache = kv 
 
         return logits, tokens, attn
+    
+    def _check_end_condition(self, memory):
+        """This method checks if the max length is reached."""
+        return memory.shape[1] >= self.max_attn_tokens
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
@@ -434,8 +482,8 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         dec_out, hs, c, w = self.dec.forward_step(
             e, hs, c, enc_states, enc_lens
         )
-        log_probs = self.softmax(self.fc(dec_out))
-        return log_probs, (hs, c), w
+        logits = self.fc(dec_out)
+        return logits, (hs, c), w
 
 
 class S2SBeamSearcher(S2SBaseSearcher):
@@ -1651,45 +1699,6 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
-        memory = _update_mem(inp_tokens, memory)
-        pred, attn = self.model.decode(memory, enc_states, enc_lens)
-        prob_dist = self.softmax(self.fc(pred) / self.temperature)
-        return prob_dist[:, -1, :], memory, attn
-
-class S2STransformerGreedySearch(S2SGreedySearcher):
-    """This class implements the greedy decoding
-    for Transformer.
-
-    Arguments
-    ---------
-    modules : list with the followings one:
-        model : torch.nn.Module
-            A TransformerASR model.
-        seq_lin : torch.nn.Module
-            A linear output layer for the seq2seq model.
-    temperature : float
-        Temperature to use during decoding.
-    **kwargs
-        Arguments to pass to S2SGreedySearcher
-    """
-
-    def __init__(
-        self, modules, temperature=1.0, **kwargs,
-    ):
-        super(S2SGreedySearcher, self).__init__(**kwargs)
-
-        self.model = modules[0]
-        self.fc = modules[1]
-        self.softmax = torch.nn.LogSoftmax(dim=-1)
-
-        self.temperature = temperature
-
-    def reset_mem(self, batch_size, device):
-        """Needed to reset the memory during greedy search."""
-        return None
-
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        """Performs a step in the implemented greedy searcher."""
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states, enc_lens)
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
