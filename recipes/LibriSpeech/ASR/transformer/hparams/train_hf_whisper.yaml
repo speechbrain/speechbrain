@@ -35,7 +35,6 @@ test_csv:
 
 ckpt_interval_minutes: 10 # save checkpoint every N min
 
-# TODO: add this in code as well. 
 # We remove utterance slonger than 30s in the train/dev/test sets as
 # Whisper cannot deal with utterances superior to 30s. 
 avoid_if_longer_than: 30.0
@@ -143,7 +142,7 @@ test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
     module: [!ref <whisper>]
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
-    beam_size: 20
+    beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NoamScheduler
    lr_initial: !ref <lr_whisper>

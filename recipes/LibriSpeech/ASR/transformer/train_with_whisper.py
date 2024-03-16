@@ -44,7 +44,7 @@ class ASR(sb.Brain):
             )
 
         # We compute the padding mask and replace the values with the pad_token_id
-        # # that the Whisper decoder expect to see.
+        # that the Whisper decoder expect to see.
         abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
@@ -100,15 +100,19 @@ class ASR(sb.Brain):
                 target_words, skip_special_tokens=True
             )
             
-            predicted_words = [
-                    self.tokenizer.normalize(text).split(" ")
+            if hasattr(self.hparams, "normalized_transcripts"):
+                predicted_words = [
+                    self.tokenizer._normalize(text).split(" ")
                     for text in predicted_words
-            ]
+                ]
 
-            target_words = [
-                self.tokenizer.normalize(text).split(" ")
-                for text in target_words
-            ]
+                target_words = [
+                    self.tokenizer._normalize(text).split(" ")
+                    for text in target_words
+                ]
+            else:
+                predicted_words = [text.split(" ") for text in predicted_words]
+                target_words = [text.split(" ") for text in target_words]
             
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
@@ -215,7 +219,8 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        wrd = tokenizer.normalize(wrd)
+        if hasattr(hparams, "normalized_transcripts"):
+            wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
         yield tokens_list
@@ -307,8 +312,7 @@ if __name__ == "__main__":
     )
 
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.test_wer_file = os.path.join(
@@ -319,11 +323,3 @@ if __name__ == "__main__":
             test_loader_kwargs=hparams["test_loader_kwargs"],
             min_key="WER",
         )
-
-"""
-100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 164/164 [01:53<00:00,  1.44it/s]
-speechbrain.utils.train_logger - Epoch loaded: 1 - test loss: 8.90e-02, test CER: 9.26e-01, test WER: 2.62
-speechbrain.utils.checkpoints - Loading a checkpoint from results/train_whisper_ls_100_small.en/1986/save/CKPT+2024-03-11+17-50-19+00
-100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 184/184 [02:00<00:00,  1.53it/s]
-speechbrain.utils.train_logger - Epoch loaded: 1 - test loss: 2.12e-01, test CER: 2.78, test WER: 6.36
-"""
