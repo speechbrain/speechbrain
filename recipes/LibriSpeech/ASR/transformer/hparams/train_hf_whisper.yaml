@@ -24,15 +24,14 @@ normalized_transcripts: True
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"] # "dev-clean", 
+test_splits: ["dev-clean", "test-clean", "test-other"]
 skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-    - !ref <output_folder>/test-other.csv
+    - !ref <output_folder>/dev-clean.csv
     - !ref <output_folder>/test-clean.csv
-    # - !ref <output_folder>/dev-clean.csv
-    # - !ref <output_folder>/test-other.csv
+    - !ref <output_folder>/test-other.csv
 
 ckpt_interval_minutes: 10 # save checkpoint every N min
 
@@ -81,36 +80,36 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 ############################## Augmentations ###################################
 
-# Speed perturbation
-speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
-    orig_freq: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# UNCOMMENT THIS SECTION TO ADD AUGMENTATIONS
+# speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+#     orig_freq: !ref <sample_rate>
+#     speeds: [95, 100, 105]
 
-# Frequency drop: randomly drops a number of frequency bands to zero.
-drop_freq: !new:speechbrain.augment.time_domain.DropFreq
-    drop_freq_low: 0  # Min frequency band dropout probability
-    drop_freq_high: 1  # Max frequency band dropout probability
-    drop_freq_count_low: 1  # Min number of frequency bands to drop
-    drop_freq_count_high: 3  # Max number of frequency bands to drop
-    drop_freq_width: 0.05  # Width of frequency bands to drop
+# # Frequency drop: randomly drops a number of frequency bands to zero.
+# drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+#     drop_freq_low: 0  # Min frequency band dropout probability
+#     drop_freq_high: 1  # Max frequency band dropout probability
+#     drop_freq_count_low: 1  # Min number of frequency bands to drop
+#     drop_freq_count_high: 3  # Max number of frequency bands to drop
+#     drop_freq_width: 0.05  # Width of frequency bands to drop
 
-# Time drop: randomly drops a number of temporal chunks.
-drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
-    drop_length_low: 1
-    drop_length_high: 5
-    drop_count_low: 1000
-    drop_count_high: 2000
+# # Time drop: randomly drops a number of temporal chunks.
+# drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+#     drop_length_low: 1
+#     drop_length_high: 5
+#     drop_count_low: 1000
+#     drop_count_high: 2000
 
-# Augmenter: Combines previously defined augmentations to perform data augmentation
-wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-    concat_original: True
-    min_augmentations: 3
-    max_augmentations: 3
-    augment_prob: 1.0
-    augmentations: [
-        !ref <speed_perturb>,
-        !ref <drop_freq>,
-        !ref <drop_chunk>]
+# # Augmenter: Combines previously defined augmentations to perform data augmentation
+# wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+#     concat_original: True
+#     min_augmentations: 3
+#     max_augmentations: 3
+#     augment_prob: 1.0
+#     augmentations: [
+#         !ref <speed_perturb>,
+#         !ref <drop_freq>,
+#         !ref <drop_chunk>]
 
 ############################## Models ##########################################
 
