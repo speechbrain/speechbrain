@@ -365,8 +365,6 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     def __init__(
         self,
         model,
-        suppress_blank: bool=True, 
-        suppress_tokens: str="-1",
         use_kv_cache=True,
         **kwargs,
     ):
@@ -376,10 +374,8 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
             **kwargs,
         )
         self.model = model
-
-        self.suppress_blank = suppress_blank
-        self.suppress_tokens = suppress_tokens
         self.use_kv_cache = use_kv_cache
+        self.kv_cache = None
     
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
@@ -1746,6 +1742,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.model = module[0]
         self.temperature = temperature
         self.use_kv_cache = use_kv_cache
+        self.kv_cache = None
     
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
