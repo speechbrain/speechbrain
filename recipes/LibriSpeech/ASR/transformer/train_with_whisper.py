@@ -58,8 +58,12 @@ class ASR(sb.Brain):
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage != sb.Stage.TRAIN:            
+        if stage == sb.Stage.VALID:            
             hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+        elif stage == sb.Stage.TEST:
+            hyps, _, _, _ = self.hparams.test_search(
                 enc_out.detach(), wav_lens
             )
 
