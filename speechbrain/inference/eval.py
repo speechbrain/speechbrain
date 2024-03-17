@@ -287,6 +287,7 @@ class RegressionModelSpeechEvaluator(SpeechEvaluator):
 
 class ASRSpeechEvaluator(SpeechEvaluator):
     """A superclass for ASR-based speech evaluators"""
+
     def evaluate(
         self,
         wavs,
@@ -402,7 +403,32 @@ class EncoderDecoderASRSpeechEvaluator(ASRSpeechEvaluator):
         self.asr = EncoderDecoderASR.from_hparams(source, *args, **kwargs)
         self.device = next(self.asr.mods.parameters()).device
 
-    def evaluate_samples(self, wavs, length, text, sample_rate):
+    def evaluate_samples(self, wavs, length, text=None, sample_rate=None):
+        """Evaluates a batch of samples
+
+        Arguments
+        ---------
+        wav : torch.Tensor
+            A batch of waveforms
+        lengths : torch.Tensor
+            Relative lengths
+        text : list
+            A list of ground truth texts, one per sample
+        sample_rate : int
+            The sample of the waveforms. If not provided,
+            it will be assumed to match the underlying
+            model
+
+        Returns
+        -------
+        results : dict
+            A results dictionary with the following keys
+            wer : the word error rates (tensor)
+            cer : the character error rate (tensor)
+            pred : text predictions (list of strings)
+            target : the ground truth (list of strings)
+        """
+
         wavs = self.resample(wavs, sample_rate)
         if text is None:
             raise ValueError("This evaluator requires ground-truth text")
@@ -486,6 +512,28 @@ class EncoderDecoderASRSpeechEvaluator(ASRSpeechEvaluator):
 
 
 class WhisperASRSpeechEvaluator(ASRSpeechEvaluator):
+    """Similar to EncoderDecoderASRSpeechEvaluator, but for the
+    Whisper-based ASR
+    
+    Arguments
+    ---------
+    source : str
+        The model source (path or HF hub)
+    savedir : str
+        The save directory
+    sample_rate : int
+        The model sample rate
+    bos_index : int
+        The index of the BOS token
+    eos_index : int
+        The index of the EOS token
+    min_decode_ratio : int
+        The minimum decode ratio
+    max_decode_ratio : int
+        The maximum decode ratio
+    run_opts : dict
+        The run options
+    """
     def __init__(
         self,
         source,
@@ -519,7 +567,31 @@ class WhisperASRSpeechEvaluator(ASRSpeechEvaluator):
         device = run_opts.get("device", next(self.model.parameters()).device)
         self.to(device)
 
-    def evaluate_samples(self, wavs, length, text, sample_rate):
+    def evaluate_samples(self, wavs, length, text=None, sample_rate=None):
+        """Evaluates a batch of samples
+
+        Arguments
+        ---------
+        wav : torch.Tensor
+            A batch of waveforms
+        lengths : torch.Tensor
+            Relative lengths
+        text : list
+            A list of ground truth texts, one per sample
+        sample_rate : int
+            The sample of the waveforms. If not provided,
+            it will be assumed to match the underlying
+            model
+
+        Returns
+        -------
+        results : dict
+            A results dictionary with the following keys
+            wer : the word error rates (tensor)
+            cer : the character error rate (tensor)
+            pred : text predictions (list of strings)
+            target : the ground truth (list of strings)
+        """
         if text is None:
             raise ValueError("This evaluator requires ground-truth text")
         wavs = self.resample(wavs, sample_rate)
@@ -546,7 +618,20 @@ class WhisperASRSpeechEvaluator(ASRSpeechEvaluator):
             "target": text,
         }
 
-    def normalize(seflf, text):
+    def normalize(self, text):
+        """Normalizes the prediction by converting to uppercase,
+        and removing leading/trailing spaces and punctuation
+
+        Arguments
+        ---------
+        text : str
+            Unnormalized text
+
+        Returns
+        -------
+        result : str
+            Normalized text
+        """
         text = text.upper()
         text = text.strip()
         text = RE_PUNCTUATION.sub("", text)
