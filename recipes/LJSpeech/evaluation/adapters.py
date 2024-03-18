@@ -4,9 +4,7 @@ Authors
 * Artem Ploujnikov, 2024
 """
 
-import torch
 from torch import nn
-from speechbrain.dataio.dataio import length_to_mask
 
 
 class MelAdapter(nn.Module):

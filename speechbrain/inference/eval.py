@@ -514,7 +514,7 @@ class EncoderDecoderASRSpeechEvaluator(ASRSpeechEvaluator):
 class WhisperASRSpeechEvaluator(ASRSpeechEvaluator):
     """Similar to EncoderDecoderASRSpeechEvaluator, but for the
     Whisper-based ASR
-    
+
     Arguments
     ---------
     source : str
@@ -534,6 +534,7 @@ class WhisperASRSpeechEvaluator(ASRSpeechEvaluator):
     run_opts : dict
         The run options
     """
+
     def __init__(
         self,
         source,
