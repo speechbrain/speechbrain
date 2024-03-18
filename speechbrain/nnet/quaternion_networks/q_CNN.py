@@ -165,11 +165,11 @@ class QConv1d(torch.nn.Module):
 
         if bias:
             self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
-            self.bias.data.fill_(0)
         else:
             self.bias = torch.Tensor(4 * self.out_channels).requires_grad_(
                 False
             )
+        self.bias.data.fill_(0)
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
@@ -493,12 +493,12 @@ class QConv2d(torch.nn.Module):
 
         if bias:
             self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
-            self.bias.data.fill_(0)
         else:
             self.register_buffer(
                 "bias",
                 torch.Tensor(4 * self.out_channels).requires_grad_(False),
             )
+        self.bias.data.fill_(0)
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
