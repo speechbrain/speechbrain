@@ -2,6 +2,7 @@
 
 Authors
  * Titouan Parcollet 2020
+ * Drew Wagner 2024
 """
 
 import torch
@@ -71,6 +72,8 @@ class QLinear(torch.nn.Module):
         with deep configurations. The vector_scale parameters are learnable
         parameters that acts like gates by multiplying the output vector with
         a small trainable parameter (default False).
+    max_norm: float
+        weight max-norm.
 
     Example
     -------

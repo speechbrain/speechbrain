@@ -2,6 +2,7 @@
 
 Authors
  * Titouan Parcollet 2020
+ * Drew Wagner 2024
 """
 
 import torch

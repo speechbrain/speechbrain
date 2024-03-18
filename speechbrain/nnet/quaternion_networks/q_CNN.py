@@ -2,6 +2,7 @@
 
 Authors
  * Titouan Parcollet 2020
+ * Drew Wagner 2024
 """
 
 import torch
@@ -81,6 +82,8 @@ class QConv1d(torch.nn.Module):
         with deep configurations. The vector_scale parameters are learnable
         parameters that acts like gates by multiplying the output vector with
         a small trainable parameter (default False).
+    max_norm: float
+        kernel max-norm.
 
     Example
     -------
@@ -109,7 +112,6 @@ class QConv1d(torch.nn.Module):
         spinor=False,
         vector_scale=False,
         max_norm=None,
-        swap=False,
     ):
         super().__init__()
         self.input_shape = input_shape
@@ -126,7 +128,6 @@ class QConv1d(torch.nn.Module):
         self.spinor = spinor
         self.vector_scale = vector_scale
         self.max_norm = max_norm
-        self.swap = swap
 
         self.in_channels = self._check_input(input_shape) // 4
 
@@ -192,9 +193,7 @@ class QConv1d(torch.nn.Module):
         """
         # (batch, channel, time)
         x = x.transpose(1, -1)
-        if self.swap:
-            x = x.transpose(-1, -2)
-        
+
         if self.max_norm is not None:
             self.r_weight.data = torch.renorm(self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm)
             self.i_weight.data = torch.renorm(self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm)
@@ -251,8 +250,6 @@ class QConv1d(torch.nn.Module):
             )
 
         out = out.transpose(1, -1)
-        if self.swap:
-            out = out.transpose(1, 2)
 
         return out
 
@@ -378,6 +375,12 @@ class QConv2d(torch.nn.Module):
         with deep configurations. The vector_scale parameters are learnable
         parameters that acts like gates by multiplying the output vector with
         a small trainable parameter (default False).
+    max_norm: float
+        kernel max-norm.
+    swap: bool
+        If True, the convolution is done with the format (B, C, W, H).
+        If False, the convolution is dine with (B, H, W, C).
+        Active only if skip_transpose is False.
 
     Example
     -------
