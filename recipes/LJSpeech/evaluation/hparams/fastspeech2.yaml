@@ -39,6 +39,8 @@ evaluators:
         source: !ref <mos_source>
     asr: !name:speechbrain.inference.eval.EncoderDecoderASRSpeechEvaluator
         source: !ref <asr_source>
+        overrides:
+            lm_weight: 0.0
 
 output_files:
     mos: !ref <output_folder>/mos.csv
