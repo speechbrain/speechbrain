@@ -97,20 +97,6 @@ def run_apidoc(app):
     import better_apidoc
 
     better_apidoc.APP = app
-
-    better_apidoc.main(
-        [
-            "better-apidoc",
-            "-t",
-            "_apidoc_templates",
-            "--force",
-            "--no-toc",
-            "--separate",
-            "-o",
-            "API",
-            os.path.dirname(hyperpyyaml.__file__),
-        ]
-    )
     better_apidoc.main(
         [
             "better-apidoc",
@@ -122,6 +108,7 @@ def run_apidoc(app):
             "-o",
             "API",
             os.path.join("../", "speechbrain"),
+            os.path.dirname(hyperpyyaml.__file__),
         ]
     )
 

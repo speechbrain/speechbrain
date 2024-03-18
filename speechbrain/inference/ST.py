@@ -117,7 +117,7 @@ class EncoderDecoderS2UT(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, _ = self.mods.decoder(encoder_out, wav_lens)
+            predicted_tokens, _, _, _ = self.mods.decoder(encoder_out, wav_lens)
         return predicted_tokens
 
     def forward(self, wavs, wav_lens):

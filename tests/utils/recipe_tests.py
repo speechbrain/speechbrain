@@ -43,7 +43,7 @@ def check_row_for_test(row, filters_fields, filters, test_field):
         field_values = filters[i]
         if type(field_values) == str:
             # ... AND ... filter
-            if not (field_values == row[field]):
+            if not field_values == row[field]:
                 test = False
         elif type(field_values) == list:  # type(field) == list
             # ... AND (... OR ...) ... filter; at least one entry of the list matches
@@ -193,7 +193,7 @@ def check_files(
 
     for file_to_check in files_to_check:
         check_path = os.path.join(output_folder, file_to_check)
-        if not (os.path.exists(check_path)):
+        if not os.path.exists(check_path):
             print(
                 "\tERROR: The recipe %s does not contain the expected file %s"
                 % (recipe_id, check_path)
@@ -243,7 +243,7 @@ def check_performance(
     threshold = performance_to_check[2].strip()
     epoch = performance_to_check[3].strip()
 
-    if not (os.path.exists(filename)):
+    if not os.path.exists(filename):
         print(
             "\tERROR: The file %s of recipe %s does not exist (needed for performance checks)"
             % (filename, recipe_id)
@@ -291,7 +291,7 @@ def check_performance(
         var_value = float(var_value)
         check = check_threshold(threshold, var_value)
 
-        if not (check):
+        if not check:
             print(
                 "\tERROR: The variable %s of file %s (recipe %s) violated the specified threshold (%s %s)"
                 % (variable, filename, recipe_id, var_value, threshold)

@@ -294,7 +294,7 @@ class SBRNNBlock(nn.Module):
         dropout=0,
         bidirectional=True,
     ):
-        super(SBRNNBlock, self).__init__()
+        super().__init__()
 
         self.mdl = getattr(SBRNN, rnn_type)(
             hidden_channels,
@@ -378,7 +378,7 @@ class SBTransformerBlock_wnormandskip(nn.Module):
         use_skip=True,
         norm_type="gln",
     ):
-        super(SBTransformerBlock_wnormandskip, self).__init__()
+        super().__init__()
         self.use_positional_encoding = use_positional_encoding
 
         if activation == "relu":

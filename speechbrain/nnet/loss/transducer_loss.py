@@ -343,7 +343,7 @@ class TransducerLoss(Module):
     """
 
     def __init__(self, blank=0, reduction="mean"):
-        super(TransducerLoss, self).__init__()
+        super().__init__()
         self.blank = blank
         self.reduction = reduction
         self.loss = Transducer.apply

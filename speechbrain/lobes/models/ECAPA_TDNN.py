@@ -64,7 +64,7 @@ class TDNNBlock(nn.Module):
         activation=nn.ReLU,
         groups=1,
     ):
-        super(TDNNBlock, self).__init__()
+        super().__init__()
         self.conv = Conv1d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -108,7 +108,7 @@ class Res2NetBlock(torch.nn.Module):
     def __init__(
         self, in_channels, out_channels, scale=8, kernel_size=3, dilation=1
     ):
-        super(Res2NetBlock, self).__init__()
+        super().__init__()
         assert in_channels % scale == 0
         assert out_channels % scale == 0
 
@@ -166,7 +166,7 @@ class SEBlock(nn.Module):
     """
 
     def __init__(self, in_channels, se_channels, out_channels):
-        super(SEBlock, self).__init__()
+        super().__init__()
 
         self.conv1 = Conv1d(
             in_channels=in_channels, out_channels=se_channels, kernel_size=1

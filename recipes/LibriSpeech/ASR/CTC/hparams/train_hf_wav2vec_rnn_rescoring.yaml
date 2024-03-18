@@ -160,6 +160,10 @@ tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 ############################## Decoding ########################################
 
+# Decoding parameters
+lm_weight: 0.5
+blank_index: 0
+
 # topk is the number of hypotheses that will be rescored in the rescorer
 # lowering this value might decrease the wer, but will increase speed.
 test_beam_search:

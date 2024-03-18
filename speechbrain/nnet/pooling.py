@@ -444,7 +444,7 @@ class GaussianLowpassPooling(nn.Module):
         bias=True,
         skip_transpose=False,
     ):
-        super(GaussianLowpassPooling, self).__init__()
+        super().__init__()
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding

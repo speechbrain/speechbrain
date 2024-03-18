@@ -118,7 +118,7 @@ class EndToEndSLU(Pretrained):
         with torch.no_grad():
             wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, scores = self.mods.beam_searcher(
+            predicted_tokens, scores, _, _ = self.mods.beam_searcher(
                 encoder_out, wav_lens
             )
             predicted_words = [
