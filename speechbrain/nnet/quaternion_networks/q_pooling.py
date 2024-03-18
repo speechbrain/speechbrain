@@ -84,7 +84,7 @@ class QPooling2d(sb.nnet.pooling.Pooling2d):
 
         elif self.pool_type == "max":
             # Compute the magnitude of the quaternion
-            m = x_r**2 + x_i**2 + x_j**2 + x_k**2
+            m = x_r ** 2 + x_i ** 2 + x_j ** 2 + x_k ** 2
 
             # Add extra two dimension at the last two, and then swap the pool_axis to them
             # Example: pool_axis=[1,2]
@@ -100,7 +100,7 @@ class QPooling2d(sb.nnet.pooling.Pooling2d):
                 .squeeze(self.pool_axis[1])
                 .squeeze(self.pool_axis[0])
             )
-            
+
             # Perform max pooling of the magnitude, returning only the indices
             _, idx = self.pool_layer(m)
             idx = (

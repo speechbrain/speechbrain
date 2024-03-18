@@ -165,7 +165,9 @@ class QConv1d(torch.nn.Module):
             self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
             self.bias.data.fill_(0)
         else:
-            self.bias = torch.Tensor(4 * self.out_channels).requires_grad_(False)
+            self.bias = torch.Tensor(4 * self.out_channels).requires_grad_(
+                False
+            )
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
@@ -195,10 +197,18 @@ class QConv1d(torch.nn.Module):
         x = x.transpose(1, -1)
 
         if self.max_norm is not None:
-            self.r_weight.data = torch.renorm(self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.i_weight.data = torch.renorm(self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.j_weight.data = torch.renorm(self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.k_weight.data = torch.renorm(self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.r_weight.data = torch.renorm(
+                self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.i_weight.data = torch.renorm(
+                self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.j_weight.data = torch.renorm(
+                self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.k_weight.data = torch.renorm(
+                self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -254,8 +264,7 @@ class QConv1d(torch.nn.Module):
         return out
 
     def _get_kernel_and_weight_shape(self):
-        """ Returns the kernel size and weight shape for convolutional layers.
-        """
+        """Returns the kernel size and weight shape for convolutional layers."""
         ks = self.kernel_size
         w_shape = (self.out_channels, self.in_channels) + tuple((ks,))
         return ks, w_shape
@@ -290,8 +299,7 @@ class QConv1d(torch.nn.Module):
         return x
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of input channels.
-        """
+        """Checks the input and returns the number of input channels."""
 
         if len(input_shape) == 3:
             in_channels = input_shape[2]
@@ -471,7 +479,10 @@ class QConv2d(torch.nn.Module):
             self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
             self.bias.data.fill_(0)
         else:
-            self.register_buffer('bias', torch.Tensor(4 * self.out_channels).requires_grad_(False))
+            self.register_buffer(
+                "bias",
+                torch.Tensor(4 * self.out_channels).requires_grad_(False),
+            )
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
@@ -501,12 +512,20 @@ class QConv2d(torch.nn.Module):
         x = x.transpose(1, -1)
         if self.swap:
             x = x.transpose(-1, -2)
-        
+
         if self.max_norm is not None:
-            self.r_weight.data = torch.renorm(self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.i_weight.data = torch.renorm(self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.j_weight.data = torch.renorm(self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.k_weight.data = torch.renorm(self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.r_weight.data = torch.renorm(
+                self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.i_weight.data = torch.renorm(
+                self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.j_weight.data = torch.renorm(
+                self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.k_weight.data = torch.renorm(
+                self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -560,8 +579,7 @@ class QConv2d(torch.nn.Module):
         return out
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of input channels.
-        """
+        """Checks the input and returns the number of input channels."""
 
         if len(input_shape) == 4:
             in_channels = input_shape[-1]
@@ -587,8 +605,7 @@ class QConv2d(torch.nn.Module):
         return in_channels
 
     def _get_kernel_and_weight_shape(self):
-        """ Returns the kernel size and weight shape for convolutional layers.
-        """
+        """Returns the kernel size and weight shape for convolutional layers."""
 
         ks = (self.kernel_size[0], self.kernel_size[1])
         w_shape = (self.out_channels, self.in_channels) + (*ks,)
