@@ -137,7 +137,7 @@ class Whisper(HFTransformersInterface):
         logger.warning(
             "speechbrain.lobes.models.huggingface_transformers.whisper - whisper encoder-decoder is frozen."
         )
-        model.train()  # we keep it to train to have dropout and LN computed adequaly
+        model.train()  # we keep it to train to have dropout and LN computed adequately
         for param in model.parameters():
             param.requires_grad = False
 

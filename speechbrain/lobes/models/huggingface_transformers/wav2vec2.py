@@ -53,8 +53,8 @@ class Wav2Vec2(HFTransformersInterface):
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     freeze_feature_extractor :  bool (default: False)
-        When freeze = False and freeze_feature_extractor True, the featue_extractor module of the model is Frozen. If False
-        all the wav2vec model will be trained including featue_extractor module.
+        When freeze = False and freeze_feature_extractor True, the feature_extractor module of the model is Frozen. If False
+        all the wav2vec model will be trained including feature_extractor module.
     apply_spec_augment : bool (default: False)
         If True, the model will apply spec augment on the output of feature extractor
         (inside huggingface Wav2VecModel() class).
@@ -270,7 +270,7 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
 
         # 2. Sample the negative samples from the entire sequence.
         # Fairseq does it only on the masked indices, but this only work if you
-        # have long sentences. For more versatily, we sample on the entire sequence.
+        # have long sentences. For more versatility, we sample on the entire sequence.
         # value.
         full_sentence_indices = np.ones((batch_size, sequence_length))
 
@@ -296,12 +296,12 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
         )
 
     def override_config(self, config):
-        """If the config needs to be overrided, here is the place
+        """If the config needs to be overridden, here is the place
 
         Arguments
         ---------
         config : Wav2Vec2Config
-            The original config needs to be overrided.
+            The original config needs to be overridden.
 
         Returns
         -------

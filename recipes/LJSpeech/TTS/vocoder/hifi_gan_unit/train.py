@@ -43,7 +43,7 @@ class HifiGanBrain(sb.Brain):
         x, _ = batch.code
         y, _ = batch.sig
 
-        # generate sythesized waveforms
+        # generate synthesized waveforms
         y_g_hat, (log_dur_pred, log_dur) = self.modules.generator(x)
         y_g_hat = y_g_hat[:, :, : y.size(2)]
 
@@ -82,7 +82,7 @@ class HifiGanBrain(sb.Brain):
         y, _ = batch.sig
 
         # Hold on to the batch for the inference sample. This is needed because
-        # the infernece sample is run from on_stage_end only, where
+        # the inference sample is run from on_stage_end only, where
         # batch information is not available
         self.last_batch = (x, y)
 

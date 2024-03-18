@@ -66,7 +66,7 @@ def ctc_k2(
     >>> log_probs.requires_grad = True
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
-    >>> # Create a samll lexicon containing only two words and write it to a file.
+    >>> # Create a small lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
     >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")

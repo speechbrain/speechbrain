@@ -338,7 +338,7 @@ class LLAMA2(HFTransformersInterface):
         input_ids : torch.Tensor ()
             A batch of input-id   which are dialogue context tokens
         # decoder_type : Str
-        #     It shows strategy for autoregressive decoding either beam seach or greedy.
+        #     It shows strategy for autoregressive decoding either beam search or greedy.
         # attention_mask : torch.Tensor ()
         #     A batch of attention_mask.
         """
@@ -376,7 +376,7 @@ class LLAMA2(HFTransformersInterface):
         Arguments
         ---------
         config : HuggingFace config object
-            The orginal config.
+            The original config.
 
         Returns
         ---------

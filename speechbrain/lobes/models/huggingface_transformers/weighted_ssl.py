@@ -90,12 +90,12 @@ class WeightedSSLModel(HFTransformersInterface):
         return weighted_feats
 
     def override_config(self, config):
-        """If the config needs to be overrided, here is the place
+        """If the config needs to be overridden, here is the place
 
         Arguments
         ---------
         config : Wav2Vec2Config
-            The original config needs to be overrided.
+            The original config needs to be overridden.
 
         Returns
         -------

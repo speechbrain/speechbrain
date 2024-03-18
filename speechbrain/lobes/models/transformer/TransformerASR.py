@@ -106,7 +106,7 @@ def make_transformer_src_tgt_masks(
     dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
 ):
     """This function generates masks for training the transformer model,
-    opiniated for an ASR context with encoding masks and, optionally, decoding
+    opinionated for an ASR context with encoding masks and, optionally, decoding
     masks (if specifying `tgt`).
 
     Arguments

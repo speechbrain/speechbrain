@@ -63,7 +63,7 @@ def prepare_mwoz_21(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
+    # Setting output files
     save_train = save_folder + "/train.json"
     save_dev = save_folder + "/dev.json"
     save_test = save_folder + "/test.json"
@@ -174,17 +174,17 @@ def skip(save_train, save_dev, save_test):
 
 
 def get_splits(dataset_folder) -> Tuple[List[str], List[str], List[str]]:
-    mwoz_21_dialouges = get_json_object(
+    mwoz_21_dialogues = get_json_object(
         os.path.join(dataset_folder, "data.json")
     )
-    dialougues_keys: Set[str] = set(mwoz_21_dialouges.keys())
+    dialogues_keys: Set[str] = set(mwoz_21_dialogues.keys())
     tr_split: List[str] = []
     with open(os.path.join(dataset_folder, "valListFile.txt")) as f:
         dev_split: List[str] = [key.strip() for key in f]
     with open(os.path.join(dataset_folder, "testListFile.txt")) as f:
         te_split: List[str] = [key.strip() for key in f]
 
-    for key in dialougues_keys:
+    for key in dialogues_keys:
         if key not in dev_split and key not in te_split:
             tr_split.append(key)
 
@@ -413,7 +413,7 @@ def insertSpace(token, text):
         sidx += 1
     return text
 
-
+# cspell:ignore childs businesss inchs
 TOKEN_EXCEPTIONS = {
     "childs": "children",
     "businesss": "businesses",
@@ -474,7 +474,7 @@ def invert_trade_subtokenization(
             token = token_exceptions[token]
 
         # assume there are no tokens on left and right side of the subtokens' pieces
-        left_token = None  # if token is at the beginnig
+        left_token = None  # if token is at the beginning
         right_token = None  # if token is at the end
         # try looking for them
         if len(left_side) > 1:

@@ -202,7 +202,7 @@ class ST(sb.core.Brain):
                 valid_stats=stage_stats,
             )
 
-            # create checkpoing
+            # create checkpoint
             valid_search_interval = self.hparams.valid_search_interval
             if (
                 current_epoch % valid_search_interval == 0
