@@ -234,11 +234,14 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("audio_path", "begin_time", "end_time")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(audio_path, begin_time, end_time):
-        start_sample = int(float(begin_time) * hparams["sample_rate"])
-        stop_sample = int(float(end_time) * hparams["sample_rate"])
-        sig = sb.dataio.dataio.read_audio(
-            {"file": audio_path, "start": start_sample, "stop": stop_sample}
-        )
+        if hparams["download_with_HF"]:
+            sig = sb.dataio.dataio.read_audio(audio_path)
+        else:
+            start_sample = int(float(begin_time) * hparams["sample_rate"])
+            stop_sample = int(float(end_time) * hparams["sample_rate"])
+            sig = sb.dataio.dataio.read_audio(
+                {"file": audio_path, "start": start_sample, "stop": stop_sample}
+            )
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
@@ -314,6 +317,7 @@ if __name__ == "__main__":
             "json_file": hparams["json_file"],
             "skip_prep": hparams["skip_prep"],
             "convert_opus_to_wav": hparams["convert_opus_to_wav"],
+            "download_with_HF": hparams["download_with_HF"],
         },
     )
 

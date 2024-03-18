@@ -8,7 +8,8 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/train_wavlm_char/<seed>
+experiment_name: train_wavlm_char
+output_folder: !ref results/<experiment_name>/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -24,6 +25,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # and  ["DEV", "TEST"] for the eval splits.
 splits: ["XS", "DEV", "TEST"]
 skip_prep: False
+download_with_HF: True
 convert_opus_to_wav: True
 ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
