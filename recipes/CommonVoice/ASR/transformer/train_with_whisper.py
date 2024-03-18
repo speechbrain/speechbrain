@@ -19,7 +19,6 @@ import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
-from transformers.models.whisper.tokenization_whisper import LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +53,12 @@ class ASR(sb.Brain):
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage == sb.Stage.VALID:            
+        if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.valid_search(
                 enc_out.detach(), wav_lens
             )
         elif stage == sb.Stage.TEST:
-            hyps, _, _, _ = self.hparams.test_search(
-                enc_out.detach(), wav_lens
-            )
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return log_probs, hyps, wav_lens
 
@@ -88,7 +85,10 @@ class ASR(sb.Brain):
             tokens, tokens_lens = batch.tokens
 
             # Decode token terms to words
-            predicted_words = [self.tokenizer.decode(t, skip_special_tokens=True).strip() for t in hyps]
+            predicted_words = [
+                self.tokenizer.decode(t, skip_special_tokens=True).strip()
+                for t in hyps
+            ]
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -98,18 +98,18 @@ class ASR(sb.Brain):
 
             if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
                 target_words = [text.split(" ") for text in target_words]
-                
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -205,10 +205,11 @@ def dataio_prepare(hparams, tokenizer):
     def audio_pipeline(wav):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
-        )(sig)
-        return resampled
+        if info.sample_rate != hparams["sample_rate"]:
+            sig = torchaudio.transforms.Resample(
+                info.sample_rate, hparams["sample_rate"]
+            )(sig)
+        return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
@@ -219,7 +220,7 @@ def dataio_prepare(hparams, tokenizer):
     )
     def text_pipeline(wrd):
         if hasattr(hparams, "normalized_transcripts"):
-            wrd = tokenizer.normalize(wrd)    
+            wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
         yield tokens_list
@@ -310,13 +311,6 @@ if __name__ == "__main__":
     )
 
     # Testing
-    asr_brain.hparams.test_wer_file = hparams["valid_wer_file"]
-    asr_brain.evaluate(
-        valid_data,
-        min_key="WER",
-        test_loader_kwargs=hparams["test_loader_kwargs"],
-    )
-
     asr_brain.hparams.test_wer_file = hparams["test_wer_file"]
     asr_brain.evaluate(
         test_data,
@@ -324,3 +318,9 @@ if __name__ == "__main__":
         test_loader_kwargs=hparams["test_loader_kwargs"],
     )
 
+    asr_brain.hparams.test_wer_file = hparams["valid_wer_file"]
+    asr_brain.evaluate(
+        valid_data,
+        min_key="WER",
+        test_loader_kwargs=hparams["test_loader_kwargs"],
+    )
