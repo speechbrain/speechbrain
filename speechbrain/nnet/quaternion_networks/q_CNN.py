@@ -110,6 +110,8 @@ class QConv1d(torch.nn.Module):
         weight_init="quaternion",
         spinor=False,
         vector_scale=False,
+        max_norm=None,
+        swap=False,
     ):
         super().__init__()
         self.input_shape = input_shape
@@ -119,13 +121,14 @@ class QConv1d(torch.nn.Module):
         self.dilation = dilation
         self.padding = padding
         self.groups = groups
-        self.bias = bias
         self.padding_mode = padding_mode
         self.unsqueeze = False
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.spinor = spinor
         self.vector_scale = vector_scale
+        self.max_norm = max_norm
+        self.swap = swap
 
         self.in_channels = self._check_input(input_shape) // 4
 
@@ -159,11 +162,11 @@ class QConv1d(torch.nn.Module):
                 False
             )
 
-        if self.bias:
-            self.b = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
-            self.b.data.fill_(0)
+        if bias:
+            self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
+            self.bias.data.fill_(0)
         else:
-            self.b = torch.Tensor(4 * self.out_channels).requires_grad_(False)
+            self.bias = torch.Tensor(4 * self.out_channels).requires_grad_(False)
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
@@ -195,6 +198,15 @@ class QConv1d(torch.nn.Module):
         """
         # (batch, channel, time)
         x = x.transpose(1, -1)
+        if self.swap:
+            x = x.transpose(-1, -2)
+        
+        if self.max_norm is not None:
+            self.r_weight.data = torch.renorm(self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.i_weight.data = torch.renorm(self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.j_weight.data = torch.renorm(self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.k_weight.data = torch.renorm(self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+
         if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
@@ -220,7 +232,7 @@ class QConv1d(torch.nn.Module):
                 self.i_weight,
                 self.j_weight,
                 self.k_weight,
-                self.b,
+                self.bias,
                 scale=self.scale_param,
                 zero_kernel=self.zero_kernel,
                 stride=self.stride,
@@ -236,7 +248,7 @@ class QConv1d(torch.nn.Module):
                 self.i_weight,
                 self.j_weight,
                 self.k_weight,
-                self.b,
+                self.bias,
                 stride=self.stride,
                 dilation=self.dilation,
                 padding=0,  # already managed
@@ -245,6 +257,9 @@ class QConv1d(torch.nn.Module):
             )
 
         out = out.transpose(1, -1)
+        if self.swap:
+            out = out.transpose(1, 2)
+
         return out
 
     def _get_kernel_and_weight_shape(self):
@@ -397,6 +412,8 @@ class QConv2d(torch.nn.Module):
         weight_init="quaternion",
         spinor=False,
         vector_scale=False,
+        max_norm=None,
+        swap=False,
     ):
         super().__init__()
         self.input_shape = input_shape
@@ -406,12 +423,13 @@ class QConv2d(torch.nn.Module):
         self.dilation = dilation
         self.padding = padding
         self.groups = groups
-        self.bias = bias
         self.padding_mode = padding_mode
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.spinor = spinor
         self.vector_scale = vector_scale
+        self.max_norm = max_norm
+        self.swap = swap
 
         # handle the case if some parameters are int
         if isinstance(kernel_size, int):
@@ -453,11 +471,11 @@ class QConv2d(torch.nn.Module):
                 False
             )
 
-        if self.bias:
-            self.b = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
-            self.b.data.fill_(0)
+        if bias:
+            self.bias = torch.nn.Parameter(torch.Tensor(4 * self.out_channels))
+            self.bias.data.fill_(0)
         else:
-            self.b = torch.Tensor(4 * self.out_channels).requires_grad_(False)
+            self.register_buffer('bias', torch.Tensor(4 * self.out_channels).requires_grad_(False))
 
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
             self.weight_init
@@ -490,6 +508,14 @@ class QConv2d(torch.nn.Module):
 
         # (batch, channel, time)
         x = x.transpose(1, -1)
+        if self.swap:
+            x = x.transpose(-1, -2)
+        
+        if self.max_norm is not None:
+            self.r_weight.data = torch.renorm(self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.i_weight.data = torch.renorm(self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.j_weight.data = torch.renorm(self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.k_weight.data = torch.renorm(self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm)
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -512,7 +538,7 @@ class QConv2d(torch.nn.Module):
                 self.i_weight,
                 self.j_weight,
                 self.k_weight,
-                self.b,
+                self.bias,
                 scale=self.scale_param,
                 zero_kernel=self.zero_kernel,
                 stride=self.stride[0],
@@ -528,7 +554,7 @@ class QConv2d(torch.nn.Module):
                 self.i_weight,
                 self.j_weight,
                 self.k_weight,
-                self.b,
+                self.bias,
                 stride=self.stride[0],
                 dilation=self.dilation[0],
                 padding=0,  # already managed
@@ -537,6 +563,9 @@ class QConv2d(torch.nn.Module):
             )
 
         out = out.transpose(1, -1)
+        if self.swap:
+            out = out.transpose(1, 2)
+
         return out
 
     def _check_input(self, input_shape):
