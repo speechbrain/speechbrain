@@ -4,6 +4,7 @@ output_folder: !ref ./results/tacotron2/<seed>
 
 data_folder: !PLACEHOLDER
 prepare_save_folder: !ref <data_folder>/prepared
+pretrained_model_save_folder: !ref <prepare_save_folder>
 evaluations: asr,mos
 eval_dataset: valid
 sorting: descending
@@ -26,9 +27,11 @@ vocoder_model: speechbrain/tts-hifigan-libritts-16kHz
 
 vocoder: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
     source: !ref <vocoder_model>
+    savedir: !ref <pretrained_model_save_folder>/vocoder
 
 tts: !name:speechbrain.inference.TTS.Tacotron2.from_hparams
     source: !ref <tts_source>
+    savedir: !ref <pretrained_model_save_folder>/tts-tacotron
 
 tts2wav: !new:adapters.MelAdapter
     vocoder: !ref <vocoder>
@@ -36,8 +39,10 @@ tts2wav: !new:adapters.MelAdapter
 evaluators:
     mos: !name:speechbrain.inference.eval.RegressionModelSpeechEvaluator
         source: !ref <mos_source>
+        savedir: !ref <pretrained_model_save_folder>/mos
     asr: !name:speechbrain.inference.eval.EncoderDecoderASRSpeechEvaluator
         source: !ref <asr_source>
+        savedir: !ref <pretrained_model_save_folder>/asr
         overrides:
             lm_weight: 0.0
 
