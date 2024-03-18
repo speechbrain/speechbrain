@@ -15,9 +15,10 @@ from speechbrain.decoders.utils import (
 )
 from speechbrain.utils.data_utils import undo_padding
 import torch.nn.functional as F
-import numpy as np 
+import numpy as np
 from torch.distributions import Categorical
 from functools import cached_property
+
 
 class AlivedHypotheses(torch.nn.Module):
     """ This class handle the data for the hypotheses during the decoding.
@@ -39,13 +40,16 @@ class AlivedHypotheses(torch.nn.Module):
         self.alived_seq = alived_seq
         self.alived_log_probs = alived_log_probs
         self.sequence_scores = sequence_scores
-    
+
     def __getitem__(self, index):
-        return self.alived_seq[index], self.alived_log_probs[index], self.sequence_scores[index]
-    
+        return (
+            self.alived_seq[index],
+            self.alived_log_probs[index],
+            self.sequence_scores[index],
+        )
+
     def __str__(self):
         return f"AlivedHypotheses(alived_seq={self.alived_seq}, alived_log_probs={self.alived_log_probs}, sequence_scores={self.sequence_scores})"
-
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -159,11 +163,12 @@ class S2SBaseSearcher(torch.nn.Module):
 
     def _check_end_condition(self, memory):
         """This method is supposed to be overridden by the child class.
-        For instance, if the decoder has a maximal number of tokens that it can 
+        For instance, if the decoder has a maximal number of tokens that it can
         attend to, this method should return True when the maximal number of tokens
         is reached.
         """
         return False
+
 
 class S2SGreedySearcher(S2SBaseSearcher):
     """This class implements the general forward-pass of
@@ -212,22 +217,27 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         for step in range(min_decode_steps, max_decode_steps):
             logits, memory, _ = self.forward_step(
-                inp_tokens, memory, enc_states, enc_lens
+                step, inp_tokens, memory, enc_states, enc_lens
             )
-            
+
+            # if step < 10:
+            #     print("i = ", step, " logits = ", logits.sum().detach().item(), " dtype = ", logits.dtype)
+
             if self.temperature == 0:
                 inp_tokens = logits.argmax(dim=-1)
             else:
-                inp_tokens = Categorical(logits=logits / self.temperature).sample()
+                inp_tokens = Categorical(
+                    logits=logits / self.temperature
+                ).sample()
 
             log_probs = F.log_softmax(logits.float(), dim=-1)
             log_probs_lst.append(log_probs)
 
             inp_tokens[memory[:, -1] == self.eos_index] = self.eos_index
-        
+
             completed = (memory[:, -1] == self.eos_index).all()
-            
-            if completed  or self._check_end_condition(memory):
+
+            if completed or self._check_end_condition(memory):
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
@@ -299,6 +309,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             top_log_probs.unsqueeze(1),
         )
 
+
 class S2STransformerGreedySearch(S2SGreedySearcher):
     """This class implements the greedy decoding
     for Transformer.
@@ -335,9 +346,10 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
         """Performs a step in the implemented greedy searcher."""
         memory = _update_mem(inp_tokens, memory)
         pred, attn = self.model.decode(memory, enc_states, enc_lens)
-        logits = self.fc(pred) 
+        logits = self.fc(pred)
         return logits[:, -1, :], memory, attn
-    
+
+
 class S2SWhisperGreedySearch(S2SGreedySearcher):
     """
     This class implements the greedy decoding
@@ -363,20 +375,17 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     """
 
     def __init__(
-        self,
-        model,
-        use_kv_cache=True,
-        **kwargs,
+        self, model, use_kv_cache=True, **kwargs,
     ):
         super().__init__(
-            bos_index=model.bos,
-            eos_index=model.eos,
-            **kwargs,
+            bos_index=model.bos, eos_index=model.eos, **kwargs,
         )
         self.model = model
         self.use_kv_cache = use_kv_cache
         self.kv_cache = None
-    
+        self.suppress_blank = True
+        self.suppress_tokens = "-1"
+
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
         self.eos_index: int = self.model.eos
@@ -384,7 +393,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         self.initial_token_length = len(self.initial_tokens)
         self.max_attn_tokens = self.model.model.decoder.config.max_length
 
-    def _get_initial_tokens(self) :
+    def _get_initial_tokens(self):
         return tuple(self.model.tokenizer.prefix_tokens)
 
     def reset_mem(self, batch_size, device):
@@ -393,26 +402,82 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         if self.use_kv_cache:
             self.kv_cache = None
 
-        memory_tokens = self.initial_tokens[:-1] # the last token will be used as
-        # the first input token 
+        memory_tokens = self.initial_tokens[
+            :-1
+        ]  # the last token will be used as
+        # the first input token
         return torch.tensor([memory_tokens] * batch_size).to(device)
 
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, step, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
 
-        logits, attn, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
+        # if step < 10:
+        #     print("enc_states = ", enc_states.sum().detach().item(), " dtype = ", enc_states.dtype)
+        #     print("tokens = ", tokens[:, -1], " dtype = ", tokens.dtype)
+
+        logits, attn, kv = self.model.forward_decoder(
+            enc_states, tokens, past_key_values=self.kv_cache
+        )
 
         logits = logits[:, -1]
 
         if self.use_kv_cache:
-            self.kv_cache = kv 
+            self.kv_cache = kv
+
+        if self.suppress_blank:
+            if tokens.shape[1] == self.sample_begin:
+                logits[
+                    :,
+                    self.model.tokenizer.encode(" ", add_special_tokens=False)
+                    + [self.eos_index],
+                ] = -np.inf
+                # print(self.model.tokenizer.encode(" ", add_special_tokens=False) + [self.eos_index]) -> [220, 50257]
+
+        if self.suppress_tokens:
+            logits[:, list(self._get_suppress_tokens)] = -np.inf
+            # print(list(self._get_suppress_tokens)) -> [1, 2, 7, 8, 9, 10, 14, 25, 26, 27, 28, 29, 31, 58, 59, 60, 61, 62, 63, 90, 91, 92, 93, 359, 503, 522, 542, 873, 893, 902, 918, 922, 931, 1350, 1853, 1982, 2460, 2627, 3246, 3253, 3268, 3536, 3846, 3961, 4183, 4667, 6585, 6647, 7273, 9061, 9383, 10428, 10929, 11938, 12033, 12331, 12562, 13793, 14157, 14635, 15265, 15618, 16553, 16604, 18362, 18956, 20075, 21675, 22520, 26130, 26161, 26435, 28279, 29464, 31650, 32302, 32470, 36865, 42863, 47425, 49870, 50254, 50258, 50358, 50359, 50360, 50361, 50362]
+            # exit()
 
         return logits, tokens, attn
-    
+
     def _check_end_condition(self, memory):
         """This method checks if the max length is reached."""
-        return memory.shape[1] >= self.max_attn_tokens
+        return memory.shape[1] >= self.max_attn_tokens - self.sample_begin
+
+    @cached_property
+    def _get_suppress_tokens(self):
+        suppress_tokens = self.suppress_tokens
+
+        if isinstance(suppress_tokens, str):
+            suppress_tokens = [int(t) for t in suppress_tokens.split(",")]
+
+        if -1 in suppress_tokens:
+            suppress_tokens = [t for t in suppress_tokens if t >= 0]
+            suppress_tokens.extend(self.model.non_speech_tokens)
+        elif suppress_tokens is None or len(suppress_tokens) == 0:
+            suppress_tokens = []  # interpret empty string as an empty list
+        else:
+            assert isinstance(
+                suppress_tokens, list
+            ), "suppress_tokens must be a list"
+
+        suppress_tokens.extend(
+            [
+                self.model.transcribe,
+                self.model.translate,
+                self.model.bos,
+                self.model.bos_prev,
+                self.model.bos_lm,
+            ]
+        )
+        # print("here")
+        if self.model.no_speech is not None:
+            # no-speech probability is collected separately
+            suppress_tokens.append(self.model.no_speech)
+
+        return tuple(sorted(set(suppress_tokens)))
+
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
@@ -1471,7 +1536,6 @@ class S2SBeamSearcher(S2SBaseSearcher):
             if self._check_end_condition(alived_hyps):
                 break
 
-
         finals_hyps_and_log_probs_scores = self._fill_alived_hyps_with_eos_token(
             alived_hyps, eos_hyps_and_log_probs_scores, scores,
         )
@@ -1499,7 +1563,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
     def _check_end_condition(self, alived_hyps):
         """This method is supposed to be overridden by the child class.
-        For instance, if the decoder has a maximal number of tokens that it can 
+        For instance, if the decoder has a maximal number of tokens that it can
         attend to, this method should return True when the maximal number of tokens
         is reached.
         """
@@ -1700,6 +1764,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
         prob_dist = self.softmax(self.fc(pred) / self.temperature)
         return prob_dist[:, -1, :], memory, attn
 
+
 class S2SWhisperBeamSearch(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Whisper neural nets made by OpenAI in
@@ -1727,23 +1792,19 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     """
 
     def __init__(
-        self,
-        module,
-        temperature=1.0,
-        use_kv_cache=True,
-        **kwargs,
+        self, module, temperature=1.0, use_kv_cache=True, **kwargs,
     ):
         super().__init__(
-            bos_index=module[0].bos,
-            eos_index=module[0].eos,
-            **kwargs,
+            bos_index=module[0].bos, eos_index=module[0].eos, **kwargs,
         )
 
         self.model = module[0]
         self.temperature = temperature
         self.use_kv_cache = use_kv_cache
         self.kv_cache = None
-    
+        self.suppress_blank = True
+        self.suppress_tokens = "-1"
+
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
         self.eos_index: int = self.model.eos
@@ -1752,16 +1813,22 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.max_attn_tokens = self.model.model.decoder.config.max_length
 
     def _check_end_condition(self, alived_hyps):
-        return alived_hyps.alived_seq.shape[1] >= self.max_attn_tokens - 1
+        # print(alived_hyps.alived_seq.shape[1], self.max_attn_tokens)
+        return (
+            alived_hyps.alived_seq.shape[1]
+            >= self.max_attn_tokens - self.sample_begin
+        )
 
-    def _get_initial_tokens(self) :
+    def _get_initial_tokens(self):
         return tuple(self.model.tokenizer.prefix_tokens)
 
     def reset_mem(self, batch_size, device):
         """This method set the first tokens to be decoder_input_tokens during search."""
         if self.use_kv_cache:
-            self.kv_cache = None 
-        memory_tokens = self.initial_tokens[:-1] # the last token will be used as the first input token 
+            self.kv_cache = None
+        memory_tokens = self.initial_tokens[
+            :-1
+        ]  # the last token will be used as the first input token
         return torch.tensor([memory_tokens] * batch_size).to(device)
 
     def permute_mem(self, memory, index):
@@ -1771,12 +1838,15 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         if self.use_kv_cache:
             self.kv_cache = self._reorder_cache(self.kv_cache, index)
         return memory
-    
+
     def _reorder_cache(self, past_key_values, beam_idx):
         reordered_past = ()
         for layer_past in past_key_values:
             reordered_past += (
-                tuple(past_state.index_select(0, beam_idx) for past_state in layer_past),
+                tuple(
+                    past_state.index_select(0, beam_idx)
+                    for past_state in layer_past
+                ),
             )
         return reordered_past
 
@@ -1787,17 +1857,63 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
-        
-        logits, attn, kv = self.model.forward_decoder(enc_states, tokens, past_key_values=self.kv_cache)
 
-        logits = logits[:, -1]        
-        
+        logits, attn, kv = self.model.forward_decoder(
+            enc_states, tokens, past_key_values=self.kv_cache
+        )
+        logits = logits[:, -1]
+
         if self.use_kv_cache:
-            self.kv_cache = kv 
+            self.kv_cache = kv
+
+        if self.suppress_blank:
+            if tokens.shape[1] == self.sample_begin:
+                logits[
+                    :,
+                    self.model.tokenizer.encode(" ", add_special_tokens=False)
+                    + [self.eos_index],
+                ] = -np.inf
+
+        if self.suppress_tokens:
+            logits[:, list(self._get_suppress_tokens)] = -np.inf
 
         log_probs = F.log_softmax(logits.float(), dim=-1) / self.temperature
-    
+
         return log_probs, tokens, attn
+
+    @cached_property
+    def _get_suppress_tokens(self):
+        suppress_tokens = self.suppress_tokens
+
+        if isinstance(suppress_tokens, str):
+            suppress_tokens = [int(t) for t in suppress_tokens.split(",")]
+
+        if -1 in suppress_tokens:
+            suppress_tokens = [t for t in suppress_tokens if t >= 0]
+            suppress_tokens.extend(self.model.non_speech_tokens)
+        elif suppress_tokens is None or len(suppress_tokens) == 0:
+            suppress_tokens = []  # interpret empty string as an empty list
+        else:
+            assert isinstance(
+                suppress_tokens, list
+            ), "suppress_tokens must be a list"
+
+        suppress_tokens.extend(
+            [
+                self.model.transcribe,
+                self.model.translate,
+                self.model.bos,
+                self.model.bos_prev,
+                self.model.bos_lm,
+            ]
+        )
+        # print("here")
+        if self.model.no_speech is not None:
+            # no-speech probability is collected separately
+            suppress_tokens.append(self.model.no_speech)
+
+        return tuple(sorted(set(suppress_tokens)))
+
 
 class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
     """This class implements the beam search decoding
