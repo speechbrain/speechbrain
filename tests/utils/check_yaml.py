@@ -167,11 +167,11 @@ def check_yaml_vs_script(hparam_file, script_file):
     print("Checking %s..." % (hparam_file))
 
     # Check if files exist
-    if not (os.path.exists(hparam_file)):
+    if not os.path.exists(hparam_file):
         print("File %s not found!" % (hparam_file,))
         return False
 
-    if not (os.path.exists(script_file)):
+    if not os.path.exists(script_file):
         print("File %s not found!" % (script_file,))
         return False
 

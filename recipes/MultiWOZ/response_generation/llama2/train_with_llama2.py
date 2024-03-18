@@ -152,7 +152,9 @@ class ResGenBrain(sb.Brain):
                 meta={"PPL": stage_stats["PPL"]}, min_keys=["PPL"],
             )
             if epoch == hparams["number_of_epochs"] - 1:
-                with open(self.hparams.bleu_4_valid_file, "w") as w:
+                with open(
+                    self.hparams.bleu_4_valid_file, "w", encoding="utf-8"
+                ) as w:
                     self.bleu_4_metric.write_stats(w)
                     for i in range(len(self.hyps)):
                         w.write("target: " + str(self.references[i]) + "\n")
@@ -168,7 +170,9 @@ class ResGenBrain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.bleu_4_test_file, "w") as w:
+            with open(
+                self.hparams.bleu_4_test_file, "w", encoding="utf-8"
+            ) as w:
                 self.bleu_4_metric.write_stats(w)
                 for i in range(len(self.hyps)):
                     w.write("target: " + str(self.references[i]) + "\n")

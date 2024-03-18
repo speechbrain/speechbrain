@@ -85,7 +85,7 @@ class S2UT(sb.core.Brain):
                     if stage == sb.Stage.VALID
                     else self.hparams.test_search
                 )
-                hyps, _ = search(enc_out.detach(), wav_lens)
+                hyps, _, _, _ = search(enc_out.detach(), wav_lens)
 
                 # generate speech and transcriptions
                 wavs = []

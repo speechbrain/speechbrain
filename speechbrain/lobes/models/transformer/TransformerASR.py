@@ -2,6 +2,8 @@
 
 Authors
 * Jianyuan Zhong 2020
+* Titouan Parcollet 2024
+* Luca Della Libera 2024
 """
 
 from dataclasses import dataclass
@@ -51,66 +53,48 @@ def make_transformer_src_mask(
         The source tensor to build a mask from. The contents of the tensor are
         not actually used currently; only its shape and other metadata (e.g.
         device).
-
     causal: bool
         Whether strict causality shall be used. Frames will not be able to
         attend to any future frame.
-
     dynchunktrain_config: DynChunkTrainConfig, optional
         Dynamic Chunk Training configuration. This implements a simple form of
-        chunkwise attention. Incompatible with `causal`."""
+        chunkwise attention. Incompatible with `causal`.
 
+    Returns
+    -------
+    torch.Tensor
+        A boolean mask Tensor of shape (timesteps, timesteps).
+    """
     if causal:
         assert dynchunktrain_config is None
         return get_lookahead_mask(src)
 
-    if dynchunktrain_config is not None:
-        # init a mask that masks nothing by default
-        # 0 == no mask, 1 == mask
-        src_mask = torch.zeros(
-            (src.shape[1], src.shape[1]), device=src.device, dtype=torch.bool,
-        )
+    if dynchunktrain_config is None:
+        return
 
-        # The following is not really the sole source used to implement this,
-        # but it helps introduce the concept.
-        # ref: Unified Streaming and Non-streaming Two-pass End-to-end Model
-        # for Speech Recognition
-        # https://arxiv.org/pdf/2012.05481.pdf
+    # The following is not really the sole source used to implement this,
+    # but it helps introduce the concept.
+    # ref: Unified Streaming and Non-streaming Two-pass End-to-end Model for Speech Recognition
+    # https://arxiv.org/pdf/2012.05481.pdf
+    timesteps = src.size(1)
 
-        timesteps = src.size(1)
+    # Mask the future at the right of each chunk
+    chunk_size = dynchunktrain_config.chunk_size
+    num_chunks = timesteps // chunk_size
+    timestep_idx = torch.arange(timesteps, device=src.device)
+    mask_idx = torch.arange(
+        chunk_size, chunk_size * (num_chunks + 2), chunk_size, device=src.device
+    ).repeat_interleave(chunk_size)[:timesteps]
+    src_mask = timestep_idx[None] >= mask_idx[:, None]
 
-        # mask the future at the right of each chunk
-        for t in range(timesteps):
-            # if we have a chunk size of 8 then:
-            # for 0..7  -> mask 8..
-            # for 8..15 -> mask 16..
-            # etc.
-            next_chunk_index = (t // dynchunktrain_config.chunk_size) + 1
-            visible_range = next_chunk_index * dynchunktrain_config.chunk_size
-            src_mask[t, visible_range:] = True
+    # Mask the past at the left of each chunk (accounting for left context)
+    # only relevant if using left context
+    if not dynchunktrain_config.is_infinite_left_context():
+        num_left_chunks = dynchunktrain_config.left_context_size
+        mask_idx -= chunk_size * (num_left_chunks + 1)
+        src_mask += timestep_idx[None] < mask_idx[:, None]
 
-        # mask the past at the left of each chunk (accounting for left context)
-        # only relevant if using left context
-        if not dynchunktrain_config.is_infinite_left_context():
-            for t in range(timesteps):
-                chunk_index = t // dynchunktrain_config.chunk_size
-                chunk_first_t = chunk_index * dynchunktrain_config.chunk_size
-
-                left_context_frames = (
-                    dynchunktrain_config.left_context_size
-                    * dynchunktrain_config.chunk_size
-                )
-
-                frame_remaining_context = max(
-                    0, chunk_first_t - left_context_frames,
-                )
-
-                # end range is exclusive, so there is no off-by-one here
-                src_mask[t, :frame_remaining_context] = True
-
-        return src_mask
-
-    return None
+    return src_mask
 
 
 def make_transformer_src_tgt_masks(
@@ -508,10 +492,7 @@ class TransformerASR(TransformerInterface):
         ...     normalize_before=True,
         ...     causal=False,
         ... )
-        >>> ctx = net.make_streaming_context(
-        ...     DynChunkTrainConfig(16, 24),
-        ...     encoder_kwargs={"mha_left_context_size": 24},
-        ... )
+        >>> ctx = net.make_streaming_context(DynChunkTrainConfig(16, 1))
         >>> src1 = torch.rand([8, 16, 64])
         >>> src2 = torch.rand([8, 16, 64])
         >>> out1 = net.encode_streaming(src1, ctx)
@@ -523,7 +504,7 @@ class TransformerASR(TransformerInterface):
         >>> out2.shape
         torch.Size([8, 16, 64])
         >>> ctx.encoder_context.layers[0].mha_left_context.shape
-        torch.Size([8, 24, 64])
+        torch.Size([8, 16, 64])
         >>> combined_out = torch.concat((out1, out2), dim=1)
         >>> combined_out.shape
         torch.Size([8, 32, 64])
@@ -587,7 +568,7 @@ class TransformerASR(TransformerInterface):
         return TransformerASRStreamingContext(
             dynchunktrain_config=dynchunktrain_config,
             encoder_context=self.encoder.make_streaming_context(
-                **encoder_kwargs,
+                dynchunktrain_config, **encoder_kwargs,
             ),
         )
 
@@ -625,8 +606,20 @@ class EncoderWrapper(nn.Module):
     def __init__(self, transformer, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.transformer = transformer
+        self.make_streaming_context = self.transformer.make_streaming_context
 
     def forward(self, x, wav_lens=None, pad_idx=0, **kwargs):
         """ Processes the input tensor x and returns an output tensor."""
         x = self.transformer.encode(x, wav_lens, pad_idx, **kwargs,)
         return x
+
+    def forward_streaming(self, x, context):
+        """Processes the input audio chunk tensor `x`, using and updating the
+        mutable encoder `context`"""
+        x = self.transformer.encode_streaming(x, context)
+        return x
+
+    def make_streaming_context(self, *args, **kwargs):
+        """Initializes a streaming context. Forwards all arguments to the
+        underlying transformer. See :meth:`speechbrain.lobes.models.transformer.TransformerASR.make_streaming_context`."""
+        return self.transformer.make_streaming_context(*args, **kwargs)

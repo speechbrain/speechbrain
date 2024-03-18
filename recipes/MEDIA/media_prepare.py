@@ -114,7 +114,7 @@ def prepare_media(
     channels, filenames = get_channels(channels_path)
 
     # Wavs.
-    if not (skip_wav):
+    if not skip_wav:
         logger.info("Processing wavs")
         for wav_path in tqdm(wav_paths):
             filename = wav_path.split("/")[-1][:-4]
@@ -728,7 +728,7 @@ def process_sync_node(
     """
 
     # If the segment has no speech yet
-    if not (has_speech):
+    if not has_speech:
         # Change time_beg for the last segment
         sentences[n][2] = node.getAttribute("time")
     # If the segment has speech and sync doesn't cut a concept

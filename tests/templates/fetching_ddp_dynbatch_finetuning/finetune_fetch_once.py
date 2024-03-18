@@ -326,7 +326,7 @@ if __name__ == "__main__":
         )
 
     # Re:testing w/ previous dataloader // note: needs to run as last item (the script might get stuck otherwise)
-    logger.info(f"\nTesting w/ asr_brain's eval dataloader")
+    logger.info("\nTesting w/ asr_brain's eval dataloader")
     run_on_main(
         eval_test_use_recipe_dataio,
         kwargs={

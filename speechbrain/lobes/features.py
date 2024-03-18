@@ -4,8 +4,11 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
  * Sarthak Yadav 2020
+ * Sylvain de Langen 2024
 """
+from dataclasses import dataclass
 import torch
+from typing import Optional
 from speechbrain.processing.features import (
     STFT,
     spectral_magnitude,
@@ -15,6 +18,7 @@ from speechbrain.processing.features import (
     ContextWindow,
 )
 from speechbrain.utils.autocast import fwd_default_precision
+from speechbrain.utils.filter_analysis import FilterProperties
 from speechbrain.nnet.CNN import GaborConv1d
 from speechbrain.nnet.normalization import PCEN
 from speechbrain.nnet.pooling import GaussianLowpassPooling
@@ -147,6 +151,10 @@ class Fbank(torch.nn.Module):
         if self.context:
             fbanks = self.context_window(fbanks)
         return fbanks
+
+    def get_filter_properties(self) -> FilterProperties:
+        # only the STFT affects the FilterProperties of the Fbank
+        return self.compute_STFT.get_filter_properties()
 
 
 class MFCC(torch.nn.Module):
@@ -343,7 +351,7 @@ class Leaf(torch.nn.Module):
         skip_transpose=False,
         n_fft=512,
     ):
-        super(Leaf, self).__init__()
+        super().__init__()
         self.out_channels = out_channels
         window_size = int(sample_rate * window_len // 1000 + 1)
         window_stride = int(sample_rate * window_stride // 1000)
@@ -441,3 +449,185 @@ class Leaf(torch.nn.Module):
                 "Leaf expects 2d or 3d inputs. Got " + str(len(shape))
             )
         return in_channels
+
+
+def upalign_value(x, to: int) -> int:
+    """If `x` cannot evenly divide `to`, round it up to the next value that
+    can."""
+
+    assert x >= 0
+
+    if (x % to) == 0:
+        return x
+
+    return x + to - (x % to)
+
+
+@dataclass
+class StreamingFeatureWrapperContext:
+    """Streaming metadata for the feature extractor. Holds some past context
+    frames."""
+
+    left_context: Optional[torch.Tensor]
+    """Cached left frames to be inserted as left padding for the next chunk.
+    Initially `None` then gets updated from the last frames of the current
+    chunk.
+    See the relevant `forward` function for details."""
+
+
+class StreamingFeatureWrapper(torch.nn.Module):
+    """Wraps an arbitrary filter so that it can be used in a streaming fashion
+    (i.e. on a per-chunk basis), by remembering context and making "clever" use
+    of padding.
+
+    Arguments
+    ---------
+    module : torch.nn.Module
+        The filter to wrap; e.g. a module list that constitutes a sequential
+        feature extraction pipeline.
+        The module is assumed to pad its inputs, e.g. the output of a
+        convolution with a stride of 1 would end up with the same frame count
+        as the input.
+
+    properties : FilterProperties
+        The effective filter properties of the provided module. This is used to
+        determine padding and caching.
+    """
+
+    def __init__(self, module: torch.nn.Module, properties: FilterProperties):
+        super().__init__()
+
+        self.module = module
+        self.properties = properties
+
+        if self.properties.causal:
+            raise ValueError(
+                "Causal streaming feature wrapper is not yet supported"
+            )
+
+        if self.properties.dilation != 1:
+            raise ValueError(
+                "Dilation not yet supported in streaming feature wrapper"
+            )
+
+    def get_required_padding(self) -> int:
+        """Computes the number of padding/context frames that need to be
+        injected at the past and future of the input signal in the forward pass.
+        """
+
+        return upalign_value(
+            (self.properties.window_size - 1) // 2, self.properties.stride
+        )
+
+    def get_output_count_per_pad_frame(self) -> int:
+        """Computes the exact number of produced frames (along the time
+        dimension) per input pad frame."""
+
+        return self.get_required_padding() // self.properties.stride
+
+    def get_recommended_final_chunk_count(self, frames_per_chunk: int) -> int:
+        """Get the recommended number of zero chunks to inject at the end of an
+        input stream depending on the filter properties of the extractor.
+
+        The number of injected chunks is chosen to ensure that the filter has
+        output frames centered on the last input frames.
+        See also :meth:`~StreamingFeatureWrapper.forward`.
+
+        Arguments
+        ---------
+        frames_per_chunk : int
+            The number of frames per chunk, i.e. the size of the time dimension
+            passed to :meth:`~StreamingFeatureWrapper.forward`."""
+
+        return (
+            upalign_value(self.get_required_padding(), frames_per_chunk)
+            // frames_per_chunk
+        )
+
+    def forward(
+        self,
+        chunk: torch.Tensor,
+        context: StreamingFeatureWrapperContext,
+        *extra_args,
+        **extra_kwargs,
+    ) -> torch.Tensor:
+        """Forward pass for the streaming feature wrapper.
+
+        For the first chunk, 0-padding is inserted at the past of the input.
+        For any chunk (including the first), some future frames get truncated
+        and cached to be inserted as left context for the next chunk in time.
+
+        For further explanations, see the comments in the code.
+
+        Note that due to how the padding is implemented, you may want to call
+        this with a chunk worth full of zeros (potentially more for filters with
+        large windows) at the end of your input so that the final frames have a
+        chance to get processed by the filter.
+        See :meth:`~StreamingFeatureWrapper.get_recommended_final_chunk_count`.
+        This is not really an issue when processing endless streams, but when
+        processing files, it could otherwise result in truncated outputs.
+
+        Arguments
+        ---------
+        chunk : torch.Tensor
+            Chunk of input of shape [batch size, time]; typically a raw
+            waveform. Normally, in a chunkwise streaming scenario,
+            `time = (stride-1) * chunk_size` where `chunk_size` is the desired
+            **output** frame count.
+        context : StreamingFeatureWrapperContext
+            Mutable streaming context object; should be reused for subsequent
+            calls in the same streaming session.
+
+        Returns
+        -------
+        torch.Tensor
+            Processed chunk of shape [batch size, output frames]. This shape is
+            equivalent to the shape of `module(chunk)`.
+        """
+
+        feat_pad_size = self.get_required_padding()
+        num_outputs_per_pad = self.get_output_count_per_pad_frame()
+
+        # consider two audio chunks of 6 samples (for the example), where
+        # each sample is denoted by 1, 2, ..., 6
+        # so chunk 1 is 123456 and chunk 2 is 123456
+        if context.left_context is None:
+            # for the first chunk we left pad the input by two padding's worth of zeros,
+            # and truncate the right, so that we can pretend to have right padding and
+            # still consume the same amount of samples every time
+            #
+            # our first processed chunk will look like:
+            # 0000123456
+            #         ^^ right padding (truncated)
+            #   ^^^^^^ frames that some outputs are centered on
+            # ^^ left padding (truncated)
+            chunk = torch.nn.functional.pad(chunk, (feat_pad_size * 2, 0))
+        else:
+            # prepend left context
+            #
+            # for the second chunk ownwards, given the above example:
+            # 34 of the previous chunk becomes left padding
+            # 56 of the previous chunk becomes the first frames of this chunk
+            # thus on the second iteration (and onwards) it will look like:
+            # 3456123456
+            #         ^^ right padding (truncated)
+            #   ^^^^^^ frames that some outputs are centered on
+            # ^^ left padding (truncated)
+            chunk = torch.cat((context.left_context, chunk), 1)
+
+        # our chunk's right context will become the start of the "next processed chunk"
+        # plus we need left padding for that one, so make it double
+        context.left_context = chunk[:, -feat_pad_size * 2 :]
+
+        feats = self.module(chunk, *extra_args, **extra_kwargs)
+
+        # truncate left and right context
+        feats = feats[:, num_outputs_per_pad:-num_outputs_per_pad, ...]
+
+        return feats
+
+    def get_filter_properties(self) -> FilterProperties:
+        return self.properties
+
+    def make_streaming_context(self) -> StreamingFeatureWrapperContext:
+        return StreamingFeatureWrapperContext(None)

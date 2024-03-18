@@ -963,7 +963,7 @@ class CyclicLRScheduler:
         scale_fn=None,
         scale_mode="cycle",
     ):
-        super(CyclicLRScheduler, self).__init__()
+        super().__init__()
 
         self.losses = []
         self.base_lr = base_lr
@@ -1265,7 +1265,7 @@ class WarmCoolDecayLRSchedule:
         decay_factor=0.75,
         decay_every=100000,
     ):
-        super(WarmCoolDecayLRSchedule, self).__init__()
+        super().__init__()
         self.base_lr = lr
         self.warmup = warmup
         self.cooldown = cooldown

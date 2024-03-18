@@ -223,7 +223,7 @@ class CLSTM_Layer(torch.nn.Module):
         weight_init="complex",
     ):
 
-        super(CLSTM_Layer, self).__init__()
+        super().__init__()
 
         self.hidden_size = int(hidden_size) // 2  # Express in term of quat
         self.input_size = int(input_size)
@@ -606,7 +606,7 @@ class CRNN_Layer(torch.nn.Module):
         weight_init="complex",
     ):
 
-        super(CRNN_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size) // 2  # Express in term of complex
         self.input_size = int(input_size)
         self.batch_size = batch_size
@@ -1004,7 +1004,7 @@ class CLiGRU_Layer(torch.nn.Module):
         weight_init="complex",
     ):
 
-        super(CLiGRU_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size) // 2
         self.input_size = int(input_size)
         self.batch_size = batch_size
