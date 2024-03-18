@@ -5,11 +5,13 @@
 ### Jargon ###
 ### Names ###
 ### British ###
+### Non-English ###
 ### Unsorted ###
 
 ####### Common Words for use in Compound Words #######
 acoustics
 bar
+csv
 dummy
 estimator
 file
@@ -30,6 +32,7 @@ path
 range
 speech
 test
+writer
 your
 
 ####### Compound Words With 1 or 2 letter Words #######
@@ -37,6 +40,7 @@ aMax
 aRange
 asArray
 asType
+atleast
 BackW
 bFloat
 bname
@@ -68,9 +72,11 @@ hcand
 hCat
 hHat
 hStack
+idword
 inProceedings
 isEmpty
 isGenerator
+isreal
 istop
 itTop
 Kmax
@@ -78,11 +84,13 @@ kMeans
 kNeighbors
 kWeight
 lLoss
+MANHATTANINJANUARY
 maskL
 maskR
 mDay
 modelFt
 mvNorm
+mychannel
 myFile
 myFormat
 myRecipe
@@ -124,6 +132,7 @@ sourceL
 sourceR
 sprintF
 sType
+textid
 tGap
 tMax
 tMin
@@ -169,7 +178,10 @@ Zpad
 
 ####### Jargon #######
 arxiv
+averager
 bleu
+cbaks
+certifi
 CKPT
 classifer
 convolutional
@@ -183,7 +195,9 @@ denoising
 denorm
 denormalize
 denormalized
+dequantized
 dereverberation
+determinize
 detokenization
 detokenize
 detokenized
@@ -194,13 +208,16 @@ diarize
 diarizes
 Diarizing
 diDataset
+disambig
 discretized
 discretizes
 dnsmos
 drawio
+dynchunktrain
 eess
 Eigenvoice
 embs
+encodec
 evals
 evaluatable
 EXPECTIN
@@ -216,6 +233,7 @@ gelu
 GLITTERIN
 glorot
 GOIN
+gptmodel
 HAIN'T
 hparam
 hparams
@@ -225,11 +243,13 @@ hyperparams
 hyperpyyaml
 hyps
 iemocap
+inclusivity
 initialising
 ISTFT
 jsonl
 kaldi
 Kaldi's
+kaldilm
 keyfuncs
 Kpad
 kspon
@@ -241,6 +261,7 @@ lstm
 mels
 mfcc
 mhaxl
+misversioned
 nbest
 ndim
 NEIGHBOURHOOD
@@ -263,6 +284,9 @@ Optimised
 organised
 OSAMA
 PAEDOPHILES
+parametrizations
+peft
+percactive
 pesq
 phns
 plda
@@ -279,6 +303,7 @@ Pytorch
 Pytorch's
 quantisers
 quantizer
+quantizers
 randn
 REALISATION
 refactorings
@@ -318,6 +343,8 @@ spks
 srnn
 STFT
 stoi
+subtokenization
+subtokenizations
 TDNN
 timit
 tjoint
@@ -330,23 +357,28 @@ UNFAVOURABLY
 unmixing
 unnormalized
 unpadded
+unquantized
 unscale
 unsqueeze
 unsqueezed
 unsqueezes
 utilises
 uttid
+uttr
 vals
 vctk
 vect
 vectorize
 vocoding
+vocos
 Vtrans
 wav
 wavs
+wids
 wrds
 xargs
 xmls
+yamls
 
 ####### Names #######
 Abdel
@@ -355,9 +387,11 @@ Abdelwahab
 Abdou
 Abous
 Adel
+Aichner
 Alaa
 Algayres
 Algazi
+Alghisi
 Alumäe
 Alya
 Andreas
@@ -365,12 +399,14 @@ Aravind
 Aris
 Arjun
 ARNIE
+Arseniy
 Artem
 Avendano
 Awni
 Bahdanau
 Bain
 Bengio
+Benoit
 Bernd
 Bikrenkanu
 BLUNKETT
@@ -393,6 +429,8 @@ Choi
 Chorowski
 Chun
 Coeff
+Comberts
+Concordia
 Cuda
 Darija
 Davide
@@ -404,6 +442,7 @@ Dimas
 Diola
 DOCHERTY
 Dominik
+Dubey
 Duchêne
 Duda
 Duret
@@ -414,6 +453,8 @@ Efthymios
 Eigen
 Émile
 Emov
+Emre
+Eskimez
 Essid
 Estève
 Fance
@@ -433,18 +474,26 @@ Gaudet
 Gaussianly
 Gdrive
 Genabith
+Georgios
 GEORGY
 GEORGY'S
 Getreuer
 Ghannay
+Gopal
+Gorin
 Gradio
 Grondin
+Guimarães
 Guoguo
 Hakha
+Hannes
 Hanning
 Hanzi
+Harishchandra
 Heba
+Heitor
 Hifigan
+hnguyen
 HORATIUS
 Hsieh
 Hsuan
@@ -463,6 +512,7 @@ Jianyuan
 Junkai
 Kandarkar
 Kappenman
+Karakasidis
 Kazemzadeh
 Kenlm
 Khudanpur
@@ -474,12 +524,16 @@ Klocmax
 Korbayová
 Kruijf
 Kruijff
+Kuang
+Kullback
 Kürzinger
 LAGREE'S
 Langevin
 Laperrière
+Leibler
 Ligru
 Limame
+Linv
 Luca
 Ludwigsfelde
 Luft
@@ -490,6 +544,7 @@ MACCADON
 Makuhari
 Mangolian
 MANTELISH'S
+Matusevych
 Maurizio
 MCCONNELL
 MCGREGOR
@@ -504,9 +559,11 @@ Mila
 Mirco
 Mirko
 Mohonk
+Montréal
 MORGESON
 Mori
 MORLAND
+Motlicek
 Moumen
 Mousavi
 MOYNE'S
@@ -535,6 +592,7 @@ Parcollt
 Pascual
 Pavlo
 Pelloin
+Petr
 Piyush
 Plantinga
 Ploujnikov
@@ -554,10 +612,12 @@ Rescu
 Rigoll
 Riguidel
 Rjeili
+rocheng
 Rouhe
 Rouvier
 Ruban
 Ryant
+Safaya
 Sagar
 Sahar
 Salah
@@ -571,13 +631,19 @@ Saurous
 Schuldigen
 SEBASTOPOL
 SEBASTOPOLIS
+Sefik
+Sergiy
 Serr
 Seung
 Shona
 Shou
 Shrikanth
+Shubham
+Shucong
 Sinc
+Sinica
 Smaragdis
+Sobule
 Soninke
 Souhir
 Spinor
@@ -586,12 +652,15 @@ Sridharan
 Sungbok
 Sylvain
 Tagliasacchi
+Takuya
 TAMAGAMI
 Tamasheq
 Tanel
 Tasnet
 Teboul
 Technische
+Tedlium
+Thakker
 THEON
 Thienpondt
 Titouan
@@ -607,6 +676,7 @@ Valk
 Vassil
 Vaswani
 Vater
+Vishak
 Viterbi
 Vogt
 VOLTAIREAN
@@ -626,6 +696,7 @@ Yanni
 Yannick
 Yeol
 Yingzhi
+Yoshioka
 Yoshua
 Yusuke
 Yuxuan
@@ -634,7 +705,9 @@ Zaion
 Zanon
 Zeghidour
 Zenodo
+Zeyu
 Zhang
+Zhao
 Zhepei
 Zhong
 Zijian
@@ -658,7 +731,21 @@ traveller
 travellers
 visualisation
 
+####### Non-English #######
+AUJOURD
+AUJOURD'HUI
+collés
+encadre
+Politecnica
+quelques
+Université
+Università
+ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ
+ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ
+ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ
+
 ####### Unsorted #######
+aabbbb
 ABDALMALIK
 abdelwah
 abedul
@@ -673,6 +760,8 @@ activlev
 addmm
 adiyoss
 ADRAMMYTIUM
+adsp
+Adspvqe
 AEIOUÁÉÍÓÚ
 AFFETTATORE
 aggregatable
@@ -710,22 +799,24 @@ audiomnist
 AUDIOMNIST
 AUROC
 AUROCs
-averager
 awgn
 AZOF
 BARBERINI
 BAROCCO
 BATSY
+bbcc
 BEFEL
 BEGINNIN
 BELGIOJOSO
-Benchmarh
 biquad
 biquads
 BLANKENHEIM
 BLEMMYES
+blmf
 blstm
 BMBF
+bmlf
+bmlh
 BONHOMME
 BORGO
 BOSPHORUS
@@ -733,6 +824,7 @@ bouleau
 BRESCHIA
 BRIR
 CABUC
+cafile
 cand
 canoa
 canoë
@@ -744,15 +836,19 @@ catr
 CBAK
 CELESTINE
 CERINTHUS
+cffinit
 cfgs
 chans
 CHANVRERIE
+charactr
 cheby
 cheybyshev
 CHIAJA
+chkarada
 chnl
 chnls
 chpt
+chrs
 cinquante
 CIPIC
 ckps
@@ -785,12 +881,12 @@ convtranspose
 coproducida
 CORINTHE
 CORRESPONDIENCE
-CORRESPONDIENCE
 CORSO
 COSETTE
 couldnt
 couldve
 COVL
+covls
 CPULM
 CRAGGS
 CRAYTURE
@@ -799,6 +895,7 @@ csgraph
 csgu
 CSGU
 CSIG
+csigs
 csvf
 ctcatt
 CUBEY
@@ -819,6 +916,7 @@ datio
 dawalatn
 DBLP
 dbstop
+dcconv
 dclassifier
 dcnn
 DDPM
@@ -827,12 +925,14 @@ DECESARIS
 DEFENCE
 delations
 delations
+delle
 dels
 demb
 dependee
 depod
 dereverb
 ders
+descript
 deslizó
 dets
 devel
@@ -861,6 +961,7 @@ durch
 durs
 dvoice
 DVOICE
+DWFST
 Dynamique
 dynbatch
 EBIONITES
@@ -872,6 +973,7 @@ eesungkim
 eigh
 eigsh
 einsum
+ELBO
 elems
 ellip
 ELRA
@@ -880,6 +982,7 @@ emoid
 EMOV
 emovdb
 EMOVDB
+enhc
 entlarvt
 epaca
 ERPCORE
@@ -902,6 +1005,7 @@ finfo
 fini
 finv
 FITZOOTH
+fltp
 foler
 fongbe
 FONGBE
@@ -909,7 +1013,11 @@ foos
 FORNINT
 fptot
 FRINCH
+fromx
 frostige
+fsa's
+fsas
+fstaddselfloops
 funct
 fwhm
 fwhms
@@ -979,6 +1087,7 @@ indx
 indxs
 infs
 inpfid
+inpricey
 inps
 inpt
 INSEA
@@ -988,12 +1097,14 @@ iowait
 ipdb
 iref
 irfft
+IRIT
 IRRITABILE
 isdst
 isft
 ISSN
 isspmatrix
 isstruct
+issubseq
 isys
 iterrows
 ivar
@@ -1011,6 +1122,9 @@ jsonlines
 Jspeech
 JUPERNO
 kaiming
+Karpathy's
+kbit
+kbps
 kdim
 keepmodidx
 keepsegidx
@@ -1021,10 +1135,12 @@ KHAZARS
 kineto
 kldiv
 klen
+kmean
 KNOLLYS
 KNOWL
 kwags
 kwonlyargs
+labse
 LACRYMA
 LAGREE
 langengullís
@@ -1033,6 +1149,7 @@ Lbrain
 ldir
 lerp
 levdb
+libeigen
 libnvvm
 libritts
 LIBRITTS
@@ -1042,6 +1159,7 @@ lisses
 ljspeech
 LMCTC
 LMNT
+lmplz
 LOCRINOS
 logit
 LORDY
@@ -1058,6 +1176,7 @@ matvec
 matvecmul
 maxfilt
 maxvecmul
+mbart
 MCCALL
 MCLEOD
 METAFNAME
@@ -1067,6 +1186,7 @@ MIMO
 MINILIBRI
 miniters
 MISFORTUNED
+mlps
 mmap
 MNIST
 MODERNISATION
@@ -1080,12 +1200,18 @@ msed
 MSED
 mseg
 MSEG
+mstacotron
 mtrand
+mulaw
 mult
+multiwoz
+MULTIWOZ
 MUSHA
 muti
 MVDR
 mvec
+mwoz
+myrir
 nans
 nargin
 nargout
@@ -1102,6 +1228,8 @@ nfft
 ngramlm
 nikvaessen
 NIPPEWA
+nllb
+NLLB
 NLTK
 nmfbrain
 nmfdictionary
@@ -1112,6 +1240,7 @@ NOVATIANS
 noviembre
 nproc
 nprocs
+nput
 nsamp
 NSPK
 nspks
@@ -1128,9 +1257,12 @@ nwerr
 objfname
 OBSTRUCKT
 oemax
+onnxruntime
 onwsj
+openfst
 orgn
 OSSOLI
+OVRL
 paissan
 PARBLEU
 PARFOIS
@@ -1138,7 +1270,10 @@ PASTRINI
 PASTRINI'S
 pcen
 PCEN
+pcolormesh
+PDNS
 PELAGIUS
+perc
 perturbator
 pesqs
 PESTE
@@ -1152,7 +1287,9 @@ PLACEHOLDED
 planches
 PLASMOID
 PLEROMA
+PMUL
 PONTMERCY
+pooler
 POPOLO
 PORFORIO
 PORTA
@@ -1204,6 +1341,7 @@ rfft
 rgen
 rglob
 RIETI
+rnnlmrescorer
 RNNN
 rnnp
 RNNT
@@ -1220,8 +1358,12 @@ RWBEG
 RWDUR
 RWEND
 sagar
+SAIT
+samu
+SAMU
 sangeet
 SARVE
+sasx
 SATIS
 SAVEZ
 SBRNN
@@ -1236,11 +1378,14 @@ segsets
 segsnr
 SENATEUR
 sents
+seqlm
 sers
 sess
+setu
 SHAKSPEARE
 SHET
 shouldve
+sidx
 sigm
 sils
 silu
@@ -1254,6 +1399,7 @@ sligru
 slogdet
 SLURM
 SNOD
+snrlevels
 snrs
 sobre
 soixante
@@ -1262,6 +1408,7 @@ SORRA
 soxi
 SPEAKIN
 spectr
+sphs
 spkid
 spkrdata
 spkrec
@@ -1310,6 +1457,7 @@ theyd
 theyre
 thic
 THRAVELS
+tids
 TMID
 tocoo
 tocsr
@@ -1319,15 +1467,18 @@ TOFIX
 TOITY
 TOLLIVER
 topk
+topo
 tovl
 trac
 TRAC
+transformerlmrescorer
 traversé
 trente
 TRIBUTOR
 tril
 triu
 trnpath
+trous
 TWUSN'T
 Úáéíóú
 über
@@ -1337,9 +1488,12 @@ underdogliu
 undoc
 UNEGOISTIC
 unet
+unflatten
+unflattened
 UNLEX
 unorm
 unsq
+upalign
 updown
 UPLO
 utts
@@ -1349,17 +1503,22 @@ vecs
 ville
 vingt
 vltk
+vocav
 voceleb
+vorbis
 VOUS
+VQGAN
 VRAM
 wagnerdo
 wandb
 wavlm
+wavscp
 wavxk
 wbeg
 WCOLS
 WDUR
 webrtcvad
+WFST
 WHAR
 winit
 wlen
@@ -1381,6 +1540,3 @@ z'ÁÉÍÓ
 zaiem
 zenodo
 ӿéæœâçèàûî
-ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ
-ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ
-ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ
