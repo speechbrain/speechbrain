@@ -32,6 +32,7 @@ def prepare_voxpopuli(
     """
     Prepares the csv files for the Vox Populi dataset.
     Download: https://github.com/facebookresearch/voxpopuli
+
     Arguments
     ---------
     data_folder : str
@@ -53,6 +54,7 @@ def prepare_voxpopuli(
     remove_if_longer_than: int, optional
         Some audio files in VoxPopuli can be very long (200+ seconds). This option
         removes them from the train set.
+
     Example
     -------
     >>> from recipes.VoxPopuli.ASR.voxpopuli_prepare import prepare_voxpopuli
@@ -70,7 +72,7 @@ def prepare_voxpopuli(
     if skip_prep:
         return
 
-    # If not specified point toward standard location w.r.t CommonVoice tree
+    # If not specified point toward standard location w.r.t VoxPopuli tree
     if train_tsv_file is None:
         train_tsv_file = data_folder + "/asr_train.tsv"
     else:
@@ -87,8 +89,7 @@ def prepare_voxpopuli(
         test_tsv_file = test_tsv_file
 
     # Setting the save folder
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+    os.makedirs(save_folder, exist_ok=True)
 
     # Setting ouput files
     save_csv_train = save_folder + "/train.csv"
@@ -124,8 +125,9 @@ def prepare_voxpopuli(
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
-    Detects if the Common Voice data preparation has been already done.
+    Detects if the VoxPopuli data preparation has been already done.
     If the preparation has been done, we can skip it.
+
     Returns
     -------
     bool
@@ -147,16 +149,32 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 
 
 @dataclass
-class CVRow:
+class VPRow:
     snt_id: str
     duration: float
-    mp3_path: str
+    ogg_path: str
     spk_id: str
     words: str
 
 
 def process_line(line, data_folder, language):
+    """
+    Processes each line of the CSV (most likely hapening with multiple threads)
 
+    Arguments
+    ---------
+    line : str
+        Line of the csv file.
+    data_folder : str
+        Path of the Vox Populi dataset.
+    language: str, optional
+        The language of the voxpopuli dataset. This is used to apply language
+        specific text normalisation.
+
+    Returns
+    -------
+    VPRow
+    """
     year_path = os.path.join(line[0:4], line.split("\t")[0])
     ogg_path = os.path.join(data_folder, year_path) + ".ogg"
     file_name = line.split("\t")[0]
@@ -191,18 +209,21 @@ def process_line(line, data_folder, language):
         return None
 
     # Composition of the csv_line
-    return CVRow(snt_id, duration, ogg_path, spk_id, words)
+    return VPRow(snt_id, duration, ogg_path, spk_id, words)
 
 
 def create_csv(
     orig_tsv_file, csv_file, data_folder, language, remove_if_longer_than
 ):
     """
-    Creates the csv file given a list of wav files.
+    Creates the csv file given a list of ogg files.
+
     Arguments
     ---------
     orig_tsv_file : str
         Path to the Vox Populi tsv file (standard file).
+    csv_file : str
+        Path to the csv file where data will be dumped.
     data_folder : str
         Path of the Vox Populi dataset.
     language: str, optional
@@ -266,7 +287,7 @@ def create_csv(
                 [
                     row.snt_id,
                     str(row.duration),
-                    row.mp3_path,
+                    row.ogg_path,
                     row.spk_id,
                     row.words,
                 ]
@@ -291,6 +312,7 @@ def check_voxpopuli_folders(data_folder):
     """
     Check if the data folder actually contains the voxpopuli dataset.
     If not, raises an error.
+
     Returns
     -------
     None
@@ -314,11 +336,26 @@ def unicode_normalisation(text):
 
 
 def language_specific_preprocess(language, words):
+    """
+    Format the input string according to some rules depending on the language.
+
+    Arguments
+    ---------
+    language : str
+        Corresponds to the two letters for language-specficic sets
+    words : str
+        The string to be cleaned.
+
+    Returns
+    -------
+    str
+    """
+
     # !! Language specific cleaning !!
     # Important: feel free to specify the text normalization
     # corresponding to your alphabet.
 
-    if language in ["en", "fr", "it", "rw"]:
+    if language in ["en", "fr", "it"]:
         words = re.sub(
             "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
         )
@@ -384,40 +421,5 @@ def language_specific_preprocess(language, words):
         words = words.replace("O'", "O")
         words = words.replace("X'", "X")
         words = words.replace("AUJOURD' HUI", "AUJOURD'HUI")
-    elif language == "ar":
-        HAMZA = "\u0621"
-        ALEF_MADDA = "\u0622"
-        ALEF_HAMZA_ABOVE = "\u0623"
-        letters = (
-            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"
-            + HAMZA
-            + ALEF_MADDA
-            + ALEF_HAMZA_ABOVE
-        )
-        words = re.sub("[^" + letters + " ]+", "", words)
-    elif language == "fa":
-        HAMZA = "\u0621"
-        ALEF_MADDA = "\u0622"
-        ALEF_HAMZA_ABOVE = "\u0623"
-        letters = (
-            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
-            + HAMZA
-            + ALEF_MADDA
-            + ALEF_HAMZA_ABOVE
-        )
-        words = re.sub("[^" + letters + " ]+", "", words)
-    elif language == "ga-IE":
-        # Irish lower() is complicated, but upper() is nondeterministic, so use lowercase
-        def pfxuc(a):
-            return len(a) >= 2 and a[0] in "tn" and a[1] in "AEIOUÁÉÍÓÚ"
 
-        def galc(w):
-            return w.lower() if not pfxuc(w) else w[0] + "-" + w[1:].lower()
-
-        words = re.sub("[^-A-Za-z'ÁÉÍÓÚáéíóú]+", " ", words)
-        words = " ".join(map(galc, words.split(" ")))
-    elif language == "es":
-        # Fix the following error in dataset large:
-        # KeyError: 'The item En noviembre lanzaron Queen Elizabeth , coproducida por Foreign Noi$e . requires replacements which were not supplied.'
-        words = words.replace("$", "s")
     return words
