@@ -1,1 +1,1 @@
-../ASR/voxpopuli_prepare.py
+../voxpopuli_prepare.py

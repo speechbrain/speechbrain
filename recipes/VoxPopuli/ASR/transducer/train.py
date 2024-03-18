@@ -1,7 +1,7 @@
 #!/usr/bin/env/python3
 """Recipe for training a streaming Transducer ASR system with VoxPopuli.
 The system employs an encoder, a decoder, and an joint network
-between them. Decoding is performed with breamsearch.
+between them. Decoding is performed with Beamsearch.
 
 To run this recipe, do the following:
 > python train.py hparams/conformer_transducer.yaml
@@ -408,6 +408,7 @@ if __name__ == "__main__":
             "data_folder": hparams["data_folder"],
             "save_folder": hparams["output_folder"],
             "skip_prep": hparams["skip_prep"],
+            "remove_if_longer_than": hparams["remove_if_longer_than"],
         },
     )
 
@@ -462,9 +463,7 @@ if __name__ == "__main__":
 
     import os
 
-    # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.test_wer_file = os.path.join(

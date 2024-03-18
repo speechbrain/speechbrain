@@ -31,6 +31,8 @@ test_csv:
    - !ref <output_folder>/dev.csv
    - !ref <output_folder>/test.csv
 
+remove_if_longer_than: 100 # any segment longer than 100s is removed.
+
 ####################### Training Parameters ####################################
 
 number_of_epochs: 100 # Will never be reached due to next param.
