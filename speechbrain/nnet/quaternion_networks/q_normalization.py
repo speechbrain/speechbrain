@@ -140,8 +140,9 @@ class QBatchNorm(torch.nn.Module):
                 ) * self.running_mean + exponential_average_factor * mu
 
                 self.running_var = (
-                    1 - exponential_average_factor
-                ) * self.running_var + exponential_average_factor * quat_variance
+                    (1 - exponential_average_factor) * self.running_var
+                    + exponential_average_factor * quat_variance
+                )
         else:
             q_var = torch.cat(
                 [

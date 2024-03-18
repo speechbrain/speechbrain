@@ -96,7 +96,7 @@ class QLinear(torch.nn.Module):
         autograd=True,
         spinor=False,
         vector_scale=False,
-        max_norm=None
+        max_norm=None,
     ):
         super().__init__()
         self.n_neurons = n_neurons
@@ -187,12 +187,20 @@ class QLinear(torch.nn.Module):
         -------
         The linearly transformed input.
         """
-        
+
         if self.max_norm is not None:
-            self.r_weight.data = torch.renorm(self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.i_weight.data = torch.renorm(self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.j_weight.data = torch.renorm(self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm)
-            self.k_weight.data = torch.renorm(self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.r_weight.data = torch.renorm(
+                self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.i_weight.data = torch.renorm(
+                self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.j_weight.data = torch.renorm(
+                self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+            self.k_weight.data = torch.renorm(
+                self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
 
         if self.autograd:
             if self.spinor:
