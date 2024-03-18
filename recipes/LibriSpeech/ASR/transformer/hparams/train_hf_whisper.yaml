@@ -36,7 +36,7 @@ test_csv:
 ckpt_interval_minutes: 10 # save checkpoint every N min
 
 # We remove utterance slonger than 30s in the train/dev/test sets as
-# Whisper cannot deal with utterances superior to 30s. 
+# Whisper cannot deal with utterances superior to 30s.
 avoid_if_longer_than: 30.0
 
 ############################## Training Parameters #############################
@@ -53,9 +53,10 @@ sample_rate: 16000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-batch_size: 8
-test_batch_size: 8
-grad_accumulation_factor: 2
+# This setup works well with 1x 32GB GPU
+batch_size: 16
+test_batch_size: 16
+grad_accumulation_factor: 1
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -145,8 +146,8 @@ test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
     beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NoamScheduler
-   lr_initial: !ref <lr_whisper>
-   n_warmup_steps: !ref <warmup_steps>
+    lr_initial: !ref <lr_whisper>
+    n_warmup_steps: !ref <warmup_steps>
 
 ############################## Logging and Pretrainer ##########################
 

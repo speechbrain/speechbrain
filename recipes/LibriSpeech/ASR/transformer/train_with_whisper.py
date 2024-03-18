@@ -52,20 +52,17 @@ class ASR(sb.Brain):
         )
         bos_tokens[~pad_mask] = self.tokenizer.pad_token_id
 
-        
         # Forward encoder + decoder
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage == sb.Stage.VALID:            
+        if stage == sb.Stage.VALID:
             hyps, _, _, _ = self.hparams.valid_search(
                 enc_out.detach(), wav_lens
             )
         elif stage == sb.Stage.TEST:
-            hyps, _, _, _ = self.hparams.test_search(
-                enc_out.detach(), wav_lens
-            )
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return log_probs, hyps, wav_lens
 
@@ -92,28 +89,31 @@ class ASR(sb.Brain):
             tokens, tokens_lens = batch.tokens
 
             # Decode token terms to words
-            predicted_words = [self.tokenizer.decode(t, skip_special_tokens=True).strip() for t in hyps]
+            predicted_words = [
+                self.tokenizer.decode(t, skip_special_tokens=True).strip()
+                for t in hyps
+            ]
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
             target_words = self.tokenizer.batch_decode(
                 target_words, skip_special_tokens=True
             )
-            
+
             if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
                 target_words = [text.split(" ") for text in target_words]
-            
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
