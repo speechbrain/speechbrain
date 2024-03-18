@@ -1,5 +1,7 @@
 """
 Note for reviewer: this is a temporary script. It may be removed in the future.
+Note2: for EU/US users, using this script might be VERY slow. It is instead
+recommended to use the HuggingFace script.
 
 Download script for GigaSpeech dataset.
 
