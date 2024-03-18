@@ -93,15 +93,16 @@ class QLinear(torch.nn.Module):
         autograd=True,
         spinor=False,
         vector_scale=False,
+        max_norm=None
     ):
         super().__init__()
         self.n_neurons = n_neurons
-        self.bias = bias
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.autograd = autograd
         self.spinor = spinor
         self.vector_scale = vector_scale
+        self.max_norm = max_norm
 
         # When initialising with speechbrain the input_shape is an integer !
         # we need to transform it into a list it works with all the question ops
@@ -149,11 +150,11 @@ class QLinear(torch.nn.Module):
                 self.in_features, self.out_features
             ).requires_grad_(False)
 
-        if self.bias:
-            self.b = torch.nn.Parameter(torch.Tensor(4 * n_neurons))
-            self.b.data.fill_(0)
+        if bias:
+            self.bias = torch.nn.Parameter(torch.Tensor(4 * n_neurons))
+            self.bias.data.fill_(0)
         else:
-            self.b = torch.Tensor(4 * n_neurons).requires_grad_(False)
+            self.bias = torch.Tensor(4 * n_neurons).requires_grad_(False)
 
         # Managing the weight initialization and bias
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
@@ -183,6 +184,12 @@ class QLinear(torch.nn.Module):
         -------
         The linearly transformed input.
         """
+        
+        if self.max_norm is not None:
+            self.r_weight.data = torch.renorm(self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.i_weight.data = torch.renorm(self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.j_weight.data = torch.renorm(self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm)
+            self.k_weight.data = torch.renorm(self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm)
 
         if self.autograd:
             if self.spinor:
@@ -192,7 +199,7 @@ class QLinear(torch.nn.Module):
                     self.i_weight,
                     self.j_weight,
                     self.k_weight,
-                    self.b,
+                    self.bias,
                     self.scale_param,
                     self.zero_kernel,
                 )
@@ -203,7 +210,7 @@ class QLinear(torch.nn.Module):
                     self.i_weight,
                     self.j_weight,
                     self.k_weight,
-                    self.b,
+                    self.bias,
                 )
         else:
             # The custom backward needs an input with 2D at most!
@@ -218,7 +225,7 @@ class QLinear(torch.nn.Module):
                 self.i_weight,
                 self.j_weight,
                 self.k_weight,
-                self.b,
+                self.bias,
             )
 
             if input_dim == 3:
