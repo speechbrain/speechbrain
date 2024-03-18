@@ -265,8 +265,15 @@ class QConv1d(torch.nn.Module):
 
     def _get_kernel_and_weight_shape(self):
         """Returns the kernel size and weight shape for convolutional layers."""
+        if self.in_channels % self.groups != 0:
+            raise ValueError("in_channels must be divisible by groups")
+        if self.out_channels % self.groups != 0:
+            raise ValueError("out_channels must be divisible by groups")
+
         ks = self.kernel_size
-        w_shape = (self.out_channels, self.in_channels) + tuple((ks,))
+        w_shape = (self.out_channels, self.in_channels // self.groups) + tuple(
+            (ks,)
+        )
         return ks, w_shape
 
     def _manage_padding(
@@ -606,9 +613,13 @@ class QConv2d(torch.nn.Module):
 
     def _get_kernel_and_weight_shape(self):
         """Returns the kernel size and weight shape for convolutional layers."""
+        if self.in_channels % self.groups != 0:
+            raise ValueError("in_channels must be divisible by groups")
+        if self.out_channels % self.groups != 0:
+            raise ValueError("out_channels must be divisible by groups")
 
         ks = (self.kernel_size[0], self.kernel_size[1])
-        w_shape = (self.out_channels, self.in_channels) + (*ks,)
+        w_shape = (self.out_channels, self.in_channels // self.groups) + (*ks,)
         return ks, w_shape
 
     def _manage_padding(
