@@ -16,7 +16,6 @@ import csv
 from dataclasses import dataclass
 import functools
 from speechbrain.utils.parallel import parallel_map
-import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,6 @@ PUNCTUATION_TAGS = {
 SPLITS = ["DEV", "TEST"]
 TRAIN_SUBSET = ["XS", "S", "M", "L", "XL"]
 SAMPLING_RATE = 16000
-VERBOSITY_WEBDATASET = 0
 
 
 @dataclass
@@ -77,9 +75,6 @@ def prepare_gigaspeech(
     json_file: str = "GigaSpeech.json",
     skip_prep: bool = False,
     convert_opus_to_wav: bool = True,
-    use_webdataset: bool = True,
-    samples_per_shard=500,
-    max_size_shard=1e9,
 ) -> None:
     """ Prepare the csv files for GigaSpeech dataset.
 
@@ -112,12 +107,6 @@ def prepare_gigaspeech(
         If True, the data preparation will be skipped, and the function will return immediately.
     convert_opus_to_wav : bool, optional
         If True, the opus files will be converted to wav files.
-    use_webdataset : bool, optional
-        If True, the data will be saved in the webdataset format.
-    samples_per_shard: int
-        The number of samples per shard.
-    max_size_shard : int
-        The maximum size of the shard.
 
     Returns
     -------
@@ -154,14 +143,8 @@ def prepare_gigaspeech(
             elif split == "TEST":
                 save_output[split] = output_test
 
-        if use_webdataset:
-            os.makedirs(save_output[split], exist_ok=True)
-
     # check if the data is already prepared
-    if use_webdataset and skip_webdataset(save_output):
-        logger.info("Skipping preparation, completed in previous run.")
-        return
-    elif skip_csv(save_output):
+    if skip_csv(save_output):
         logger.info("Skipping preparation, completed in previous run.")
         return
     else:
@@ -177,18 +160,7 @@ def prepare_gigaspeech(
 
     for split, output in save_output.items():
         logger.info(f"Starting creating {output} using {split} split.")
-        if use_webdataset:
-            create_shards(
-                output,
-                info,
-                data_folder,
-                split,
-                convert_opus_to_wav,
-                samples_per_shard=samples_per_shard,
-                max_size_shard=max_size_shard,
-            )
-        else:
-            create_csv(output, info, data_folder, split, convert_opus_to_wav)
+        create_csv(output, info, data_folder, split, convert_opus_to_wav)
     logger.info("Data preparation completed!")
 
 
@@ -242,147 +214,6 @@ def process_line(
                 )
                 utterances.append(utterance)
         return utterances
-
-
-def _write_in_sink(
-    items, max_size_shard, samples_per_shard, save_folder,
-):
-    """
-    Write the GigaSpeechRow in the webdataset sinks.
-
-    Parameters
-    ----------
-    items : list
-        The list of items to be written in the sink.
-    max_size_shard : int
-        The maximum size of the shard.
-    samples_per_shard: int
-        The number of samples per shard.
-    save_folder : str
-        The path to the folder where the shards will be saved.
-
-    Returns
-    -------
-    list
-        The list of items written in the sink.
-    """
-    import webdataset as wds
-
-    id_proc, row = items
-    pattern = os.path.join(save_folder, f"GigaSpeech-{id_proc}-%06d.tar")
-    with wds.ShardWriter(
-        pattern,
-        maxsize=max_size_shard,
-        maxcount=samples_per_shard,
-        verbose=VERBOSITY_WEBDATASET,
-    ) as sink:
-        for item in row:
-            start_sample = int(item.begin_time * SAMPLING_RATE)
-            stop_sample = int(item.end_time * SAMPLING_RATE)
-            audio = sb.dataio.dataio.read_audio(
-                {
-                    "file": item.audio_path,
-                    "start": start_sample,
-                    "stop": stop_sample,
-                }
-            )
-
-            sample = {
-                "__key__": item.utt_id,
-                "audio.pth": audio,
-                "text": item.text,
-            }
-
-            # write back to sink
-            sink.write(sample)
-    return row
-
-
-def create_shards(
-    shards_folder_path: str,
-    info: json,
-    data_folder: str,
-    split: str,
-    convert_opus_to_wav: bool,
-    samples_per_shard=500,
-    max_size_shard=1e9,
-) -> None:
-    """
-    Create shards for the GigaSpeech dataset.
-
-    Parameters
-    ----------
-    shards_folder_path : str
-        The path to the shards folder.
-    info : dict
-        The GigaSpeech JSON file content.
-    data_folder : str
-        The path to the GigaSpeech dataset.
-    split : str
-        The split to be used for filtering the data.
-    convert_opus_to_wav : bool
-        If True, the opus files will be converted to wav files.
-    samples_per_shard: int
-        The number of samples per shard.
-    max_size_shard : int
-        The maximum size of the shard.
-
-    Returns
-    -------
-    None
-    """
-    total_duration = 0.0
-    nb_samples = 0
-
-    line_processor = functools.partial(
-        process_line,
-        data_folder=data_folder,
-        split=split,
-        convert_opus_to_wav=convert_opus_to_wav,
-    )
-
-    os.makedirs(shards_folder_path, exist_ok=True)
-
-    audios_info = [(0, [])]
-    id_proc = 1
-    for row in parallel_map(line_processor, info["audios"]):
-        if row is None:
-            continue
-
-        # creates buckets of samples_per_shard size for each shard
-        for item in row:
-            audios_info[-1][1].append(item)
-            if len(audios_info[-1][1]) == samples_per_shard:
-                audios_info.append((id_proc, []))
-                id_proc += 1
-
-    sink_processor = functools.partial(
-        _write_in_sink,
-        save_folder=shards_folder_path,
-        max_size_shard=max_size_shard,
-        samples_per_shard=samples_per_shard,
-    )
-
-    logger.info(f"Starting writing shards in {shards_folder_path}...")
-    for row in parallel_map(sink_processor, audios_info, chunk_size=1):
-        for item in row:
-            total_duration += item.duration
-            nb_samples += 1
-
-    metadata_dict = {
-        "split": split,
-        "nb_samples": nb_samples,
-    }
-    metadata_file_path = os.path.join(shards_folder_path, "metadata.json")
-    # we need to save the size of the split so that TQDM can work properly
-    with open(metadata_file_path, "w") as f:
-        json.dump(metadata_dict, f)
-
-    logger.info(f"{split} shards succesfully created at {shards_folder_path}!")
-    logger.info(f"Number of samples in {split} split: {nb_samples}")
-    logger.info(
-        f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours"
-    )
 
 
 def create_csv(
@@ -537,22 +368,6 @@ def preprocess_text(text: str) -> str:
         "<" not in text and ">" not in text
     ), f"Found tags in the text: {text}"
     return text.lower()
-
-
-def skip_webdataset(save_folders: str) -> bool:
-    """ Check if the webdataset shards already exist.
-
-    Parameters
-    ----------
-    save_folders : str
-        The path to the folder where the shards will be saved.
-
-    Returns
-    -------
-    bool
-        True if the webdataset shards already exist, False otherwise.
-    """
-    return all(os.listdir(folder) for folder in save_folders.values())
 
 
 def skip_csv(save_csv_files: dict) -> bool:
