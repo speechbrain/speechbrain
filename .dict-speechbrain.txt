@@ -1500,6 +1500,7 @@ utts
 VAMPA
 VASTE
 vecs
+veri
 ville
 vingt
 vltk
