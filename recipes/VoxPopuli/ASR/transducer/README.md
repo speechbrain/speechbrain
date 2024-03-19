@@ -35,38 +35,22 @@ trained with dynamic chunk training but decoding is offline.
 
 | Language | Hyperparams file | Train precision | Dev-clean Greedy | Test-clean Greedy | Model link | GPUs |
 |:-------------:|:---------------------------:|:-:| :------:| :-----------:| :------------------:| :------------------:|
-| English | conformer_transducer.yaml `streaming: True` | fp |  |  | | |
+| English | conformer_transducer.yaml `streaming: True` | fp | 9.80 | 10.18 | |6x A40|
 
-<sub>\*: not evaluated due to performance issues, see [issue #2301](https://github.com/speechbrain/speechbrain/issues/2301)</sub>
 
 # VoxPopuli streaming results
 
 ### WER vs chunk size & left context
 
-The following matrix presents the Word Error Rate (WER%) achieved on the test set with various chunk sizes (in ms) and left context sizes (in # of
-chunks).
+The following matrix presents the Word Error Rate (WER%) achieved on the test set with various chunk sizes (in ms).
 
 This is with greedy decoding only.
 
-The relative difference is not trivial to interpret, because we are not testing
-against a continuous stream of speech, but rather against utterances of various
-lengths. This tends to bias results in favor of larger chunk sizes.
 
-The chunk size might not accurately represent expected latency due to slight
-padding differences in streaming contexts.
-
-The left chunk size is not representative of the receptive field of the model.
-Because the model caches the streaming context at different layers, the model
-may end up forming indirect dependencies to audio many seconds ago.
-
-|       | full | cs=32 (1280ms) | 24 (960ms) | 16 (640ms) | 12 (480ms) | 8 (320ms) |
-|:-----:|:----:|:-----:|:-----:|:-----:|:-----:|:-----:|
-| full  | 2.72%| -     | -     | -     | -     | -     |
-| lc=32 | -    | 3.09% | 3.07% | 3.26% | 3.31% | 3.44% |
-| 16    | -    | 3.10% | 3.07% | 3.27% | 3.32% | 3.50% |
-| 8     | -    | 3.10% | 3.11% | 3.31% | 3.39% | 3.62% |
-| 4     | -    | 3.12% | 3.13% | 3.37% | 3.51% | 3.80% |
-| 2     | -    | 3.19% | 3.24% | 3.50% | 3.79% | 4.38% |
+|       | full | cs=32 (1280ms) | 16 (640ms) | 8 (320ms) |
+|:-----:|:----:|:-----:|:-----:|:-----:|
+| full  | 10.18| -     | -     | -     |
+| lc=32 | -    | 10.88 | 11.39 | 12.37 |
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
