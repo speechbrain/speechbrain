@@ -113,7 +113,7 @@ class QBatchNorm(torch.nn.Module):
 
             # Get mean along batch axis
             mu = torch.mean(input, dim=0)
-            mu_r, mu_i, mu_j, mu_k = torch.chunk(mu, 4, dim=self.dim)
+            # mu_r, mu_i, mu_j, mu_k = torch.chunk(mu, 4, dim=self.dim)
 
             # Get variance along batch axis
             delta = input - mu
@@ -127,8 +127,8 @@ class QBatchNorm(torch.nn.Module):
 
             denominator = torch.sqrt(quat_variance + self.eps)
 
-            # x - mu / sqrt(var + e)
-            out = input / torch.cat(
+            # (x - mu) / sqrt(var + e)
+            out = delta / torch.cat(
                 [denominator, denominator, denominator, denominator],
                 dim=self.dim,
             )

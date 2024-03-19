@@ -79,3 +79,15 @@ def test_QPooling2d(device):
     assert torch.all(torch.eq(output, input.mean(2).unsqueeze(2)))
 
     assert torch.jit.trace(pool, input)
+
+
+def test_QBatchNorm(device):
+    from speechbrain.nnet.quaternion_networks.q_normalization import QBatchNorm
+
+    input = torch.randn(100, 4 * 4, device=device) + 2.0
+    norm = QBatchNorm(input_size=input.shape[-1]).to(device)
+    output = norm(input)
+    assert input.shape == output.shape
+
+    current_mean = output.mean(dim=0)
+    assert torch.all(torch.abs(current_mean) < 1e-06)
