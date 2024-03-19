@@ -109,7 +109,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         state_beam=2.3,
         expand_beam=2.3,
     ):
-        super(TransducerBeamSearcher, self).__init__()
+        super().__init__()
         self.decode_network_lst = decode_network_lst
         self.tjoint = tjoint
         self.classifier_network = classifier_network

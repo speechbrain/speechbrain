@@ -30,7 +30,7 @@ class Encoder(nn.Module):
     """
 
     def __init__(self, L, N):
-        super(Encoder, self).__init__()
+        super().__init__()
 
         # 50% overlap
         self.conv1d_U = sb.nnet.CNN.Conv1d(
@@ -82,7 +82,7 @@ class Decoder(nn.Module):
     """
 
     def __init__(self, L, N):
-        super(Decoder, self).__init__()
+        super().__init__()
 
         # Hyper-parameter
         self.L = L
@@ -218,7 +218,7 @@ class MaskNet(nn.Module):
         causal=False,
         mask_nonlinear="relu",
     ):
-        super(MaskNet, self).__init__()
+        super().__init__()
 
         # Hyper-parameter
         self.C = C
@@ -478,7 +478,7 @@ class Chomp1d(nn.Module):
     """
 
     def __init__(self, chomp_size):
-        super(Chomp1d, self).__init__()
+        super().__init__()
         self.chomp_size = chomp_size
 
     def forward(self, x):
@@ -537,7 +537,7 @@ class ChannelwiseLayerNorm(nn.Module):
     """
 
     def __init__(self, channel_size):
-        super(ChannelwiseLayerNorm, self).__init__()
+        super().__init__()
         self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.reset_parameters()
@@ -578,7 +578,7 @@ class GlobalLayerNorm(nn.Module):
     """
 
     def __init__(self, channel_size):
-        super(GlobalLayerNorm, self).__init__()
+        super().__init__()
         self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.reset_parameters()
