@@ -65,7 +65,6 @@ def get_bertscore_token_weights(
     """
 
     max_idx = max(tokenizer.get_vocab().values())
-    weights = torch.ones((max_idx + 1,))
 
     if corpus is not None:
         freq_dict = defaultdict(lambda: 0)
@@ -79,12 +78,12 @@ def get_bertscore_token_weights(
 
         document_count = document_idx + 1
 
-        for token_id in range(weights.size(0)):
-            weights[token_id] *= math.log(
-                document_count / freq_dict.get(token_id, 1)
-            )
+        weights = [
+            math.log(document_count / (freq_dict[token_id] + 1))
+            for token_id in range(max_idx + 1)
+        ]
 
-    return weights
+    return torch.tensor(weights)
 
 
 class BERTScoreStats(MetricStats):
@@ -93,7 +92,9 @@ class BERTScoreStats(MetricStats):
     `BERTScore: Evaluating Text Generation with BERT <https://arxiv.org/abs/1904.09675>`_.
 
     BERTScore operates over contextualized tokens (e.g. the output of BERT, but
-    many other models would work). See the linked resources for more details.
+    many other models would work). Since cosine similarities are used, the
+    output range would be between `-1` and `1`.
+    See the linked resources for more details.
 
     Special tokens (as queried from the tokenizer) are entirely ignored.
 
@@ -108,29 +109,54 @@ class BERTScoreStats(MetricStats):
         Transformers text encoder. May live on a non-CPU device.
     tokenizer : transformers.AutoTokenizer
         Transformers tokenizer.
-    batch_size : int
+    batch_size : int, optional
         How many pairs of utterances should be considered at once. Higher is
         faster but may result in OOM.
-    uses_idf : bool
+    uses_idf : bool, optional
         If enabled (default), tokens in the reference are weighted by
         Inverse Document Frequency, which allows to weight down the impact of
-        common words that may carry less information.
+        common words that may carry less information. Every sentence appended
+        is considered a document in the IDF calculation.
+    sentence_level_averaging : bool, optional
+        When `True`, the final recall/precision metrics will be the average of
+        recall/precision for each tested sentence, rather of each tested token,
+        e.g. a very long sentence will weigh as much as a very short sentence in
+        the final metrics. The default is `True`, which matches the reference
+        implementation.
+    cut_encoder_layer : int, optional
+        When specified, the passed model will be truncated to the specified
+        layer (mutating it). This means that the embeddings will be those of the
+        Nth layer rather than the last layer. For certain tasks, cutting at a
+        lower layer can be beneficial.
+    allow_matching_special_tokens : int, optional
+        When specified, when considering a non-special token, greedy matching
+        may allow matching against a special token (`[CLS]`/`[SEP]`, but not
+        padding).
+        The default is `True`, for compatibility with the reference
+        implementation; see
+        `bert_score#180 <https://github.com/Tiiiger/bert_score/issues/180>`_.
     """
 
     def __init__(
         self,
         lm,
         tokenizer,
-        batch_size: int,
+        batch_size: int = 64,
         uses_idf: bool = True,
-        mask_special_tokens: bool = True,
+        sentence_level_averaging: bool = True,
+        cut_encoder_layer: Optional[int] = None,
+        allow_matching_special_tokens: bool = True,
     ):
         self.clear()
         self.lm = lm
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.uses_idf = uses_idf
-        self.mask_special_tokens = mask_special_tokens
+        self.sentence_level_averaging = sentence_level_averaging
+        self.allow_matching_special_tokens = allow_matching_special_tokens
+
+        if cut_encoder_layer is not None:
+            self._truncate_lm(cut_encoder_layer)
 
     def clear(self):
         """Clears the collected statistics"""
@@ -179,9 +205,17 @@ class BERTScoreStats(MetricStats):
             returns a dictionary containing all computed stats.
         """
 
+        with torch.no_grad():
+            self._update_summary()
+
+        if field is not None:
+            return self.summary[field]
+
+        return self.summary
+
+    def _update_summary(self):
         token_masks = get_bert_token_mask(self.tokenizer)
-        ref_token_weights = self._make_weights(self.targets)
-        hyp_token_weights = self._make_weights(self.predictions)
+        token_weights = self._make_weights(self.targets)
 
         recall_sum = 0.0
         recall_weight = 0.0
@@ -193,11 +227,15 @@ class BERTScoreStats(MetricStats):
             ref_text = self.targets[chunk_idx : chunk_idx + self.batch_size]
             hyp_text = self.predictions[chunk_idx : chunk_idx + self.batch_size]
 
-            refs = self.tokenizer(ref_text, return_tensors="pt", padding=True)
-            hyps = self.tokenizer(hyp_text, return_tensors="pt", padding=True)
+            refs = self.tokenizer(
+                ref_text, return_tensors="pt", padding=True
+            ).to(self.lm.device)
+            hyps = self.tokenizer(
+                hyp_text, return_tensors="pt", padding=True
+            ).to(self.lm.device)
 
-            ref_tokens = refs["input_ids"]
-            hyp_tokens = hyps["input_ids"]
+            ref_tokens = refs["input_ids"].cpu()
+            hyp_tokens = hyps["input_ids"].cpu()
 
             ref_hidden = self.lm(**refs).last_hidden_state.cpu()
             hyp_hidden = self.lm(**hyps).last_hidden_state.cpu()
@@ -209,9 +247,9 @@ class BERTScoreStats(MetricStats):
             hyp_mask = self._select_by_tokens(token_masks, hyp_tokens)
 
             # mask rows according to ref_mask and columns according to hyp_mask
-            # reminder: this is the mask used to mask off special tokens
-            similarity_matrix[~ref_mask, :] = 0.0
-            similarity_matrix.transpose(1, 2)[~hyp_mask, :] = 0.0
+            if not self.allow_matching_special_tokens:
+                similarity_matrix[~ref_mask, :] = 0.0
+                similarity_matrix.transpose(1, 2)[~hyp_mask, :] = 0.0
 
             # for recall, greedily select the "closest" hyp token for every ref
             # token, thus of shape [batch, ref dim]
@@ -221,31 +259,30 @@ class BERTScoreStats(MetricStats):
 
             # for each token, load the matching token weight
             # the result is a weight tensor with the same shape as the inputs
-            recall_weights = self._select_by_tokens(
-                ref_token_weights, ref_tokens
-            )
+            recall_weights = self._select_by_tokens(token_weights, ref_tokens)
             precision_weights = self._select_by_tokens(
-                hyp_token_weights, hyp_tokens
+                token_weights, hyp_tokens
             )
 
             # mask off weights
             recall_weights[~ref_mask] = 0.0
             precision_weights[~hyp_mask] = 0.0
 
-            print()
-            print(similarity_matrix)
-            print(recall_values)
-            print(recall_weights)
-            print(ref_text)
-            print(hyp_text)
-            print((recall_values * recall_weights).sum() / recall_weights.sum())
-            print((precision_values * precision_weights).sum() / precision_weights.sum())
+            batch_recall = (recall_values * recall_weights).sum()
+            batch_precision = (precision_values * precision_weights).sum()
 
-            recall_sum += (recall_values * recall_weights).sum()
-            recall_weight += recall_weights.sum()
+            if self.sentence_level_averaging:
+                recall_sum += batch_recall / recall_weights.sum()
+                recall_weight += 1.0
 
-            precision_sum += (precision_values * precision_weights).sum()
-            precision_weight += precision_weights.sum()
+                precision_sum += batch_precision / precision_weights.sum()
+                precision_weight += 1.0
+            else:
+                recall_sum += batch_recall
+                recall_weight += recall_weights.sum()
+
+                precision_sum += batch_precision
+                precision_weight += precision_weights.sum()
 
         recall = recall_sum / recall_weight
         precision = precision_sum / precision_weight
@@ -259,10 +296,23 @@ class BERTScoreStats(MetricStats):
             }
         )
 
-        if field is not None:
-            return self.summary[field]
+    def _truncate_lm(self, keep_layers: int):
+        """Truncates the encoder to a specific layer so that output embeddings
+        are the hidden state of the n-th layer.
 
-        return self.summary
+        Arguments
+        ---------
+        keep_layers : int
+            Number of layers to keep, e.g. 4 would keep layers `[0, 1, 2, 3]`.
+        """
+
+        assert (
+            keep_layers > 0
+        ), "Invalid requested layer count: Must keep at least one LM layer (negative values are not allowed)"
+        assert keep_layers <= len(
+            self.lm.encoder.layer
+        ), "Too few layers in LM: kept layer count requested is too high"
+        self.lm.encoder.layer = self.lm.encoder.layer[:keep_layers]
 
     def _make_weights(self, corpus):
         """Makes a token weight tensor, optionally including IDF. If not using
