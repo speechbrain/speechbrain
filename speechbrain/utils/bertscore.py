@@ -117,7 +117,7 @@ class BERTScoreStats(MetricStats):
     batch_size : int, optional
         How many pairs of utterances should be considered at once. Higher is
         faster but may result in OOM.
-    uses_idf : bool, optional
+    use_idf : bool, optional
         If enabled (default), tokens in the reference are weighted by
         Inverse Document Frequency, which allows to weight down the impact of
         common words that may carry less information. Every sentence appended
@@ -150,7 +150,7 @@ class BERTScoreStats(MetricStats):
         lm,
         tokenizer,
         batch_size: int = 64,
-        uses_idf: bool = True,
+        use_idf: bool = True,
         sentence_level_averaging: bool = True,
         num_layers: Optional[int] = None,
         allow_matching_special_tokens: bool = False,
@@ -159,7 +159,7 @@ class BERTScoreStats(MetricStats):
         self.lm = lm
         self.tokenizer = tokenizer
         self.batch_size = batch_size
-        self.uses_idf = uses_idf
+        self.use_idf = use_idf
         self.sentence_level_averaging = sentence_level_averaging
         self.allow_matching_special_tokens = allow_matching_special_tokens
 
@@ -328,7 +328,7 @@ class BERTScoreStats(MetricStats):
     def _make_weights(self, corpus):
         """Makes a token weight tensor, optionally including IDF. If not using
         IDF, currently simply returns a tensor full of ones."""
-        if self.uses_idf:
+        if self.use_idf:
             if len(self.predictions) == 1:
                 raise ValueError(
                     "Token IDF weighting was enabled, but 1 text is not "
