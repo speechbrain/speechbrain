@@ -352,7 +352,7 @@ if __name__ == "__main__":
         prepare_common_voice,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "save_folder": hparams["save_folder"],
+            "save_folder": hparams["output_folder"],
             "train_tsv_file": hparams["train_tsv_file"],
             "dev_tsv_file": hparams["dev_tsv_file"],
             "test_tsv_file": hparams["test_tsv_file"],
@@ -379,7 +379,7 @@ if __name__ == "__main__":
     (
         train_data,
         valid_data,
-        test_datasets,
+        test_data,
         train_bsampler,
         valid_bsampler,
     ) = dataio_prepare(hparams, tokenizer)
@@ -427,20 +427,28 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=train_dataloader_opts,
+        valid_loader_kwargs=valid_dataloader_opts,
     )
 
     # Testing
     if not os.path.exists(hparams["output_wer_folder"]):
         os.makedirs(hparams["output_wer_folder"])
 
-    for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        asr_brain.hparams.test_wer_file = os.path.join(
-            hparams["output_wer_folder"], f"wer_{k}.txt"
-        )
-        asr_brain.evaluate(
-            test_datasets[k],
-            max_key="ACC",
-            test_loader_kwargs=hparams["test_dataloader_opts"],
-        )
+    asr_brain.hparams.test_wer_file = os.path.join(
+        hparams["output_wer_folder"], f"wer_valid.txt"
+    )
+    asr_brain.evaluate(
+        valid_data,
+        max_key="ACC",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+    )
+
+    asr_brain.hparams.test_wer_file = os.path.join(
+        hparams["output_wer_folder"], f"wer_test.txt"
+    )
+    asr_brain.evaluate(
+        test_data,
+        max_key="ACC",
+        test_loader_kwargs=hparams["test_dataloader_opts"],
+    )

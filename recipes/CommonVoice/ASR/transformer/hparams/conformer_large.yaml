@@ -23,9 +23,7 @@ accented_letters: False
 language: en # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev.csv
-test_csv:
-    - !ref <output_folder>/dev.csv
-    - !ref <output_folder>/test.csv
+test_csv: !ref <output_folder>/test.csv
 skip_prep: False # Skip data preparation
 convert_to_wav: False # Switch this to True to convert all mp3 files to wav.
 
@@ -42,6 +40,7 @@ ctc_weight: 0.3
 grad_accumulation_factor: 4
 loss_reduction: 'batchmean'
 sorting: random
+num_workers: 4
 precision: fp32 # bf16, fp16 or fp32
 
 # stages related parameters
@@ -86,11 +85,14 @@ dynamic_batch_sampler_valid:
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
-    num_workers: 6
+    num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+    batch_size: 1
 
 test_dataloader_opts:
     batch_size: 1
-    num_workers: 6
+
 
 ####################### Model Parameters ###########################
 # Transformer
