@@ -98,10 +98,15 @@ class BERTScoreStats(MetricStats):
 
     Special tokens (as queried from the tokenizer) are entirely ignored.
 
-    Authors' own implementation of the metric can be found
+    Authors' reference implementation of the metric can be found
     `here <https://github.com/Tiiiger/bert_score>`_. The linked page extensively
     describes the approach and compares how the BERTScore relates to human
     evaluation with many different models.
+
+    .. warning::
+        Out of the box, this implementation may not strictly match the results
+        of the reference implementation. Please read the argument documentation
+        to understand the differences.
 
     Arguments
     ---------
@@ -123,18 +128,21 @@ class BERTScoreStats(MetricStats):
         e.g. a very long sentence will weigh as much as a very short sentence in
         the final metrics. The default is `True`, which matches the reference
         implementation.
-    cut_encoder_layer : int, optional
-        When specified, the passed model will be truncated to the specified
+    num_layers : int, optional
+        When specified, and assuming the passed LM can be truncated that way,
+        the encoder for the passed model will be truncated to the specified
         layer (mutating it). This means that the embeddings will be those of the
-        Nth layer rather than the last layer. For certain tasks, cutting at a
-        lower layer can be beneficial.
-    allow_matching_special_tokens : int, optional
-        When specified, when considering a non-special token, greedy matching
-        may allow matching against a special token (`[CLS]`/`[SEP]`, but not
-        padding).
-        The default is `True`, for compatibility with the reference
-        implementation; see
-        `bert_score#180 <https://github.com/Tiiiger/bert_score/issues/180>`_.
+        Nth layer rather than the last layer. The last layer is not necessarily
+        the best when it comes to the quality of the metric. Note that the
+        reference implementation automatically selects a default hardcoded layer
+        for certain models.
+    allow_matching_special_tokens : bool, optional
+        When `True`, non-special tokens may match against special tokens during
+        greedy matching (e.g. `[CLS]`/`[SEP]`). Batch size must be 1 due to
+        padding handling.
+        The default is `False`, which is different behavior from the reference
+        implementation (see
+        `bert_score#180 <https://github.com/Tiiiger/bert_score/issues/180>`_).
     """
 
     def __init__(
@@ -144,8 +152,8 @@ class BERTScoreStats(MetricStats):
         batch_size: int = 64,
         uses_idf: bool = True,
         sentence_level_averaging: bool = True,
-        cut_encoder_layer: Optional[int] = None,
-        allow_matching_special_tokens: bool = True,
+        num_layers: Optional[int] = None,
+        allow_matching_special_tokens: bool = False,
     ):
         self.clear()
         self.lm = lm
@@ -155,8 +163,8 @@ class BERTScoreStats(MetricStats):
         self.sentence_level_averaging = sentence_level_averaging
         self.allow_matching_special_tokens = allow_matching_special_tokens
 
-        if cut_encoder_layer is not None:
-            self._truncate_lm(cut_encoder_layer)
+        if num_layers is not None:
+            self._truncate_lm(num_layers)
 
     def clear(self):
         """Clears the collected statistics"""
@@ -214,14 +222,17 @@ class BERTScoreStats(MetricStats):
         return self.summary
 
     def _update_summary(self):
+        if not self.allow_matching_special_tokens:
+            assert self.batch_size == 1, (
+                "Batch size must be 1 when passing "
+                "`allow_matching_special_tokens` due to padding handling."
+            )
+
         token_masks = get_bert_token_mask(self.tokenizer)
         token_weights = self._make_weights(self.targets)
 
-        recall_sum = 0.0
-        recall_weight = 0.0
-
-        precision_sum = 0.0
-        precision_weight = 0.0
+        recall_sum = recall_weight = 0.0
+        precision_sum = precision_weight = 0.0
 
         for chunk_idx in range(0, len(self.predictions), self.batch_size):
             ref_text = self.targets[chunk_idx : chunk_idx + self.batch_size]
