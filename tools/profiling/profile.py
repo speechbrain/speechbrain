@@ -82,7 +82,6 @@ def get_funcs_to_profile(
     prepare(batch_size, duration, sampling_rate=16000) - function handle to create dimensioned batch input
     call(model, **kwargs) - function handle to the inference function to be profiled
     """
-
     # Put all data directly to cpu/cuda
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

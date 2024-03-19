@@ -125,7 +125,7 @@ def get_line_count(text_file_name):
 
     Arguments
     ---------
-    file_name: str
+    text_file_name: str
         the file name
 
     Returns
@@ -261,6 +261,10 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
         ---------
         inp: str
             the user input
+
+        Returns
+        -------
+        True if quitting, else None
         """
         if inp.strip() in self.QUIT_COMMANDS:
             return True
@@ -282,8 +286,6 @@ def load_g2p_checkpoint(
     ---------
     hparams_file_name: str
         the path to the hyperparameters file
-    run_opts: dict
-        the run options
     path: str
         the path to the specified checkpoint
     best: bool

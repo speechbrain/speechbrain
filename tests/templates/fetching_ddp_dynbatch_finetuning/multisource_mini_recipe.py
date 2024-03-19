@@ -76,7 +76,6 @@ class SLU(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
-
         if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             p_seq, asr_tokens_lens = predictions
         else:
@@ -119,7 +118,6 @@ class SLU(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-
         if stage != sb.Stage.TRAIN:
 
             self.cer_metric = self.hparams.cer_computer()
@@ -159,8 +157,8 @@ class SLU(sb.Brain):
 
 def data_io_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
-
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
@@ -231,7 +229,7 @@ def data_io_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        """ see original recipe
+        """See original recipe
         """
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
@@ -244,7 +242,7 @@ def data_io_prepare(hparams):
         "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(semantics):
-        """ see original recipe
+        """See original recipe
         """
         yield semantics
         tokens_list = tokenizer.encode_as_ids(semantics)

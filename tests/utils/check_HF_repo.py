@@ -26,7 +26,7 @@ def run_HF_check(
         Where to download the HF readme files.
 
     Returns
-    ---------
+    -------
     check: True
         True if all the code runs, False otherwise.
     """
@@ -57,7 +57,7 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
         Field of the csv recipe file containing the links to HF repos.
 
     Returns
-    ---------
+    -------
     HF_repos: list
         List of the detected HF repos.
     """
@@ -92,7 +92,7 @@ def check_repo(HF_repo):
         URL of the HF repository to check.
 
     Returns
-    ---------
+    -------
     check: bool
         True if all the code runs, False otherwise.
     """
