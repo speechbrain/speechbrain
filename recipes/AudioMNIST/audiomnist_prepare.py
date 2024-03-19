@@ -560,7 +560,9 @@ def get_item_id(file_name):
     """
     _, file_name = os.path.split(file_name)
     file_base_name = os.path.basename(file_name)
-    file_base_name_noext, _ = os.path.splitext(file_base_name) # cspell:ignore noext
+    file_base_name_noext, _ = os.path.splitext(
+        file_base_name
+    )  # cspell:ignore noext
     return file_base_name_noext
 
 

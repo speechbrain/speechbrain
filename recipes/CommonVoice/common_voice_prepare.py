@@ -374,13 +374,15 @@ def language_specific_preprocess(language, words):
         words = words.replace("Z'", "Z")
         words = words.replace("O'", "O")
         words = words.replace("X'", "X")
-        words = words.replace("AUJOURD' HUI", "AUJOURD'HUI") # cspell:disable-line
+        words = words.replace(
+            "AUJOURD' HUI", "AUJOURD'HUI"  # cspell:disable-line
+        )
     elif language == "ar":
         HAMZA = "\u0621"
         ALEF_MADDA = "\u0622"
         ALEF_HAMZA_ABOVE = "\u0623"
         letters = (
-            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ" # cspell:disable-line
+            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"  # cspell:disable-line
             + HAMZA
             + ALEF_MADDA
             + ALEF_HAMZA_ABOVE
@@ -391,7 +393,7 @@ def language_specific_preprocess(language, words):
         ALEF_MADDA = "\u0622"
         ALEF_HAMZA_ABOVE = "\u0623"
         letters = (
-            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ" # cspell:disable-line
+            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"  # cspell:disable-line
             + HAMZA
             + ALEF_MADDA
             + ALEF_HAMZA_ABOVE
