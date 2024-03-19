@@ -32,7 +32,7 @@ Each of the test cases below is of a different nature.
 The `finetune.py` example serves as a template to an extensive set of all of the above use cases combined.
 Accompanied by `finetune.yaml`, a YAML infrastructure is demonstrated that uses inputs from other hparam files.
 The benefit is a simple one: the training/fine-tuning hparams share a common set of yaml entries with the pretrained model: `ASR.yaml`.
-As such, the pretrained model yaml `source_pretrained/pretrained.ymal` also references inputs from `ASR.yaml` and
+As such, the pretrained model yaml `source_pretrained/pretrained.yaml` also references inputs from `ASR.yaml` and
 provides symlinks in `source_pretrained` to an expected CKPT that is created during the execution of the script.
 
 How to run with DDP:

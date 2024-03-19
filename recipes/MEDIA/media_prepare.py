@@ -845,6 +845,7 @@ def normalize_sentence(sentence):
     str
     """
 
+    # cspell:disable
     # Apostrophes
     sentence = sentence.replace(" '", "'")  # Join apostrophe to previous word
     sentence = sentence.replace("'", "' ")  # Detach apostrophe to next word
@@ -875,6 +876,7 @@ def normalize_sentence(sentence):
     # Specific
     sentence = sentence.replace("c' est", "c'est")  # Re-join this word
     return sentence
+    # cspell:enable
 
 
 def write_first_row(save_folder, corpus):

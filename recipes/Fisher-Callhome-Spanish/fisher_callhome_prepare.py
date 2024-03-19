@@ -90,7 +90,7 @@ def prepare_fisher_callhome_spanish(
     Example
     -------
     >>> data_folder = '/path/to/fisher-callhome'
-    >>> save_foler = 'data'
+    >>> save_folder = 'data'
     >>> prepare_fisher_callhome_spanish(data_folder, save_folder)
     """
 
@@ -550,7 +550,7 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"\<players with the meaning of singers\>", "", text)
     text = re.sub(r"\<this phrase barely made any sense whatsoever\>", "", text)
     text = re.sub(
-        r"\<colorcito does not exist as a word so I have no ideea what he means about that\>",
+        r"\<colorcito does not exist as a word so I have no ideea what he means about that\>", # cspell:ignore ideea
         "",
         text,
     )

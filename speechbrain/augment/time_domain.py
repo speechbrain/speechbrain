@@ -1153,7 +1153,7 @@ class RandAmp(torch.nn.Module):
 
 
 class ChannelDrop(torch.nn.Module):
-    """This function drops random channels in the multi-channel nput waveform.
+    """This function drops random channels in the multi-channel input waveform.
 
     Arguments
     ---------

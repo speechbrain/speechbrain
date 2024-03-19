@@ -231,6 +231,7 @@ def split_sets(speaker_dict, split_ratio):
     return data_split
 
 
+# cspell:ignore ahsn
 def transform_data(path_loadSession):
     """
     Create a dictionary that maps speaker id and corresponding wavs
@@ -267,7 +268,7 @@ def load_utterInfo(inputFile):
     Load utterInfo from original IEMOCAP database
     """
 
-    # this regx allow to create a list with:
+    # this regex allow to create a list with:
     # [START_TIME - END_TIME] TURN_NAME EMOTION [V, A, D]
     # [V, A, D] means [Valence, Arousal, Dominance]
     pattern = re.compile(

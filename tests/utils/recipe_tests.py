@@ -725,7 +725,7 @@ def load_yaml_test(
     # Get current working directory
     cwd = os.getcwd()
 
-    # Set data_foler and output folder
+    # Set data_folder and output folder
     data_folder = os.path.join(cwd, data_folder)
     output_folder = os.path.join(cwd, output_folder)
     rir_folder = os.path.join(cwd, rir_folder)

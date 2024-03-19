@@ -41,14 +41,13 @@
         "**.{cache,drawio,flac,flat,gz,idea,iml,jar,jks,keystore,lock,map,otf,pdf,pem,pkl,pro,puml,raw,RData,so,sph,tar,ttf,vcr_recording,xcf,xml,xsd,zip}",
         "**.{doc,docx,ppt,pptx,xls,xlsx}",
         "**.ckpt",
-        "**/results/**",
-        "**/save/**",
-        "**/tmp/**",
+        "**/(results|save|tmp)/**",
         "**/FREESOUNDCREDITS.txt",
         "**/unittests/tokenizer_data/dev-clean.csv",
-        "**/templates/speech_recognition/LM/data/test.txt",
+        "**/templates/speech_recognition/LM/data/(test|train|valid).txt",
         "**/package*.json",
-        "package*.json"
+        "package*.json",
+        "/tests/samples/annotation/(multi_annotation|dev-clean|tokenizer).(json|csv)"
     ],
     "allowCompoundWords": true
 }

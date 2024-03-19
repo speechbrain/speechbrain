@@ -478,7 +478,7 @@ class RelPosMHAXL(nn.Module):
 
         if self.mask_pos_future:
             ones = torch.ones((x.size(2), x.size(3)), device=x.device)
-            x = x * torch.tril(ones, x.size(3) - x.size(2))[None, None, :, :]
+            x = x * torch.tril(ones, x.size(3) - x.size(2))[None, None, :, :] # cspell:ignore tril
 
         return x[..., : pos_len // 2 + 1]
 

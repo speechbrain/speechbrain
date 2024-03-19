@@ -114,7 +114,7 @@ def prepare_timit(
 
 def _get_phonemes():
 
-    # This dictionary is used to conver the 60 phoneme set
+    # This dictionary is used to convert the 60 phoneme set
     # into the 48 one
     from_60_to_48_phn = {}
     from_60_to_48_phn["sil"] = "sil"
@@ -180,7 +180,7 @@ def _get_phonemes():
     from_60_to_48_phn["z"] = "z"
     from_60_to_48_phn["zh"] = "zh"
 
-    # This dictionary is used to conver the 60 phoneme set
+    # This dictionary is used to convert the 60 phoneme set
     from_60_to_39_phn = {}
     from_60_to_39_phn["sil"] = "sil"
     from_60_to_39_phn["aa"] = "aa"

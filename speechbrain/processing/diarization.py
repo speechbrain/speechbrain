@@ -425,6 +425,7 @@ def _set_diag(laplacian, value, norm_laplacian):
 
     n_nodes = laplacian.shape[0]
     # We need all entries in the diagonal to values
+    # cspell:ignore arpack isspmatrix matvec tocoo todia tocsr
     if not sparse.isspmatrix(laplacian):
         if norm_laplacian:
             laplacian.flat[:: n_nodes + 1] = value

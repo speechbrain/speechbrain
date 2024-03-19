@@ -89,7 +89,7 @@ If you have access to a compute cluster using Slurm, you can automate this proce
 ```bash
 #SBATCH --nodes=2 # We want two nodes (servers)
 #SBATCH --ntasks-per-node=1 # we will run once the next srun per node
-#SBATCH --gres=gpu:4 # we want 4 GPUs per node
+#SBATCH --gres=gpu:4 # we want 4 GPUs per node #cspell:ignore gres
 #SBATCH --job-name=SBisSOcool
 #SBATCH --cpus-per-task=10 # the only task will request 10 cores
 #SBATCH --time=20:00:00 # Everything will run for 20H.

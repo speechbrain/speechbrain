@@ -43,7 +43,7 @@ LRELU_SLOPE = 0.1
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamique range compression for audio signals"""
+    """Dynamic range compression for audio signals"""
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 

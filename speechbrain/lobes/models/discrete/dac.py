@@ -171,6 +171,7 @@ def download(
             f"Could not find model with tag {tag} and model type {model_type}"
         )
 
+    # cspell:ignore descript 
     if local_path is None:
         local_path = (
             Path.home()

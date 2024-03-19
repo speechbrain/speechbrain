@@ -41,6 +41,7 @@ BANDWIDTHS = [1.5, 3.0, 6.0, 12.0]
 logger = logging.getLogger(__name__)
 
 
+# cspell:ignore charactr
 class Vocos(nn.Module):
     """An wrapper for the HuggingFace Vocos model
 

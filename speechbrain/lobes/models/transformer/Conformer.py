@@ -460,7 +460,7 @@ class ConformerEncoderLayer(nn.Module):
             conv_mask = src_key_padding_mask.unsqueeze(-1)
         # ffn module
         x = x + 0.5 * self.ffn_module1(x)
-        # muti-head attention module
+        # multi-head attention module
         skip = x
         x = self.norm1(x)
 
@@ -898,7 +898,7 @@ class ConformerDecoderLayer(nn.Module):
         """
         # ffn module
         tgt = tgt + 0.5 * self.ffn_module1(tgt)
-        # muti-head attention module
+        # multi-head attention module
         skip = tgt
         x = self.norm1(tgt)
         x, self_attn = self.mha_layer(

@@ -310,7 +310,7 @@ class DiffusionBrain(sb.Brain):
                 (loss / self.grad_accumulation_factor).backward(
                     retain_graph=True
                 )
-        # Done loss - iffapplicable
+        # Done loss - iff applicable
         if self.use_done_detector:
             with self.no_sync(not should_step):
                 (loss_done / self.grad_accumulation_factor).backward(

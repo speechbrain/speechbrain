@@ -648,7 +648,7 @@ class Encoder(nn.Module):
 
     @torch.jit.export
     def infer(self, x, input_lengths):
-        """Performs a forward stap in the inference context
+        """Performs a forward step in the inference context
 
         Arguments
         ---------

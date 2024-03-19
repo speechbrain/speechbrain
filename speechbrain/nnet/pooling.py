@@ -346,7 +346,7 @@ class AdaptivePool(nn.Module):
 
     Arguments
     ---------
-    delations : output_size
+    dilations : output_size
         The size of the output.
 
     Example
