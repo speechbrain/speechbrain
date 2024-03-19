@@ -155,9 +155,9 @@ class QLinear(torch.nn.Module):
 
         if bias:
             self.bias = torch.nn.Parameter(torch.Tensor(4 * n_neurons))
-            self.bias.data.fill_(0)
         else:
             self.bias = torch.Tensor(4 * n_neurons).requires_grad_(False)
+        self.bias.data.fill_(0)
 
         # Managing the weight initialization and bias
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
