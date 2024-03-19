@@ -97,6 +97,11 @@ class HyperparameterOptimizationReporter:
         ---------
         result: dict
             a dictionary with the run result.
+
+        Returns
+        -------
+        objective: dict
+            A mapping from metric to score.
         """
         return NotImplemented
 
@@ -122,9 +127,14 @@ class GenericHyperparameterOptimizationReporter(
 
     Arguments
     ---------
-    objective_key: str
-        the key from the result dictionary to be used as the objective
-
+    reference_date: datetime.datetime
+        The date used to create trial id
+    output: stream
+        The stream to report the results to
+    *args: tuple
+        Arguments to be forwarded to parent class
+    **kwargs: dict
+        Arguments to be forwarded to parent class
     """
 
     def __init__(self, reference_date=None, output=None, *args, **kwargs):
@@ -182,8 +192,8 @@ class OrionHyperparameterOptimizationReporter(
 
     Arguments
     ---------
-    orion_client: module
-        the Python module for Orion
+    objective_key: str
+        the key from the result dictionary to be used as the objective
     """
 
     def __init__(self, objective_key):
@@ -210,7 +220,8 @@ class OrionHyperparameterOptimizationReporter(
         Returns
         -------
         message: str
-            a formatted message"""
+            a formatted message
+        """
         return ", ".join(f"{key} = {value}" for key, value in result.items())
 
     def report_objective(self, result):
@@ -241,7 +252,8 @@ class OrionHyperparameterOptimizationReporter(
         """Determines if Orion is available. In order for it to
         be available, the library needs to be installed, and at
         least one of ORION_EXPERIMENT_NAME, ORION_EXPERIMENT_VERSION,
-        ORION_TRIAL_ID needs to be set"""
+        ORION_TRIAL_ID needs to be set
+        """
         return self.orion_client is not None and any(
             os.getenv(name) for name in ORION_TRIAL_ID_ENV
         )
@@ -257,6 +269,10 @@ def get_reporter(mode, *args, **kwargs):
         a string identifier for a registered hyperparametr
         optimization mode, corresponding to a specific reporter
         instance
+    *args: tuple
+        Arguments to forward to the reporter class.
+    **kwargs: dict
+        Arguments to forward to the reporter class.
 
     Returns
     -------
@@ -405,6 +421,17 @@ class HyperparameterOptimizationContext:
 
 def hyperparameter_optimization(*args, **kwargs):
     """Initializes the hyperparameter optimization context
+
+    Arguments
+    ---------
+    *args : tuple
+        Arguments to forward to HyperparameterOptimizationContext
+    **kwargs : dict
+        Arguments to forward to HyperparameterOptimizationContext
+
+    Returns
+    -------
+    HyperparameterOptimizationContext
 
     Example
     -------

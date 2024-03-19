@@ -1,5 +1,5 @@
 [flake8]
-ignore = E203, E266, E501, W503, DOC105, DOC106, DOC107, DOC203, DOC501, DOC502
+ignore = E203, E266, E501, W503, DOC105, DOC106, DOC107, DOC203, DOC403, DOC404, DOC405, DOC501, DOC502
 # line length is intentionally set to 80 here because black uses Bugbear
 # See https://github.com/psf/black/blob/master/README.md#line-length for more details
 max-line-length = 80

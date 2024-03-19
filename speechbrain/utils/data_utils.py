@@ -29,10 +29,15 @@ def undo_padding(batch, lengths):
 
     Arguments
     ---------
-    batch : tensor
+    batch : Tensor
         Batch of sentences gathered in a batch.
-    lengths : tensor
+    lengths : Tensor
         Relative length of each sentence in the batch.
+
+    Returns
+    -------
+    as_list : list
+        A python list of the corresponding input tensor.
 
     Example
     -------
@@ -76,12 +81,16 @@ def get_all_files(
         A list that contains pattern to match. The file is
         returned if it fails to match one of the entries in `exclude_or`.
 
+    Returns
+    -------
+    allFiles : list
+        The list of files matching the patterns.
+
     Example
     -------
     >>> get_all_files('tests/samples/RIRs', match_and=['3.wav'])
     ['tests/samples/RIRs/rir3.wav']
     """
-
     # Match/exclude variable initialization
     match_and_entry = True
     match_or_entry = True
@@ -163,7 +172,7 @@ def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
 
     Arguments
     ---------
-    csv_file: path
+    csvfile: path
         Path to the csv file.
     field: str
         Field of the csv file used to create the list.
@@ -171,6 +180,10 @@ def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
         Delimiter of the csv file.
     skipinitialspace: bool
         Set it to true to skip initial spaces in the entries.
+
+    Returns
+    -------
+    The list of files in the given field of a csv
     """
     lst = []
     with open(csvfile, newline="") as csvf:
@@ -191,6 +204,10 @@ def split_list(seq, num):
         The input list, to be split.
     num : int
         The number of chunks to produce.
+
+    Returns
+    -------
+    A list of lists, length num and containing all elements of seq.
 
     Example
     -------
@@ -319,7 +336,7 @@ def download_file(
         if sb.utils.distributed.if_main_process():
 
             class DownloadProgressBar(tqdm.tqdm):
-                """ DownloadProgressBar class."""
+                """DownloadProgressBar class."""
 
                 def update_to(self, b=1, bsize=1, tsize=None):
                     """Needed to support multigpu training."""
@@ -390,7 +407,7 @@ def set_writing_permissions(folder_path):
 
 
 def pad_right_to(
-    tensor: torch.Tensor, target_shape, mode="constant", value=0,
+    tensor, target_shape, mode="constant", value=0,
 ):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target
@@ -398,7 +415,7 @@ def pad_right_to(
 
     Parameters
     ----------
-    tensor : input torch tensor
+    tensor : Tensor
         Input tensor whose dimension we need to pad.
     target_shape : (list, tuple)
         Target shape we want for the target tensor its len must be equal to tensor.ndim
@@ -409,7 +426,7 @@ def pad_right_to(
 
     Returns
     -------
-    tensor : torch.Tensor
+    tensor : Tensor
         Padded tensor.
     valid_vals : list
         List containing proportion for each dimension of original, non-padded values.
@@ -448,13 +465,12 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
 
     Returns
     -------
-    tensor : torch.Tensor
+    tensor : Tensor
         Padded tensor.
     valid_vals : list
         List containing proportion for each dimension of original, non-padded values.
 
     """
-
     if not len(tensors):
         raise IndexError("Tensors list must not be empty")
 
@@ -621,10 +637,12 @@ def split_path(path):
 def scalarize(value):
     """Converts a namedtuple or dictionary containing tensors
     to their scalar value
-    Arguments:
-    ----------
+
+    Arguments
+    ---------
     value: dict or namedtuple
         a dictionary or named tuple of tensors
+
     Returns
     -------
     result: dict
@@ -643,15 +661,16 @@ def unsqueeze_as(x, target):
 
     Arguments
     ---------
-    x: torch.Tensor
+    x: Tensor
         the original tensor
-    target: torch.Tensor
+    target: Tensor
         the tensor whose shape
 
     Returns
     -------
-    result: torch.Tensor
-        a view of tensor x reshaped to a shape compatible with y"""
+    result: Tensor
+        a view of tensor x reshaped to a shape compatible with y
+    """
     return x.view(x.shape + (1,) * (target.dim() - x.dim()))
 
 
@@ -664,10 +683,10 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     Arguments
     ---------
-    tensor: torch.Tensor
+    tensor: Tensor
         the tensor to be padded, of arbitrary dimension
 
-    length: torch.Tensor
+    length: Tensor
         a 1-D tensor of relative lengths
 
     factor: int
@@ -681,10 +700,10 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     Returns
     -------
-    tensor_padded: torch.Tensor
+    tensor_padded: Tensor
         the tensor, with additional padding if required
 
-    length: torch.Tensor
+    length: Tensor
         the adjsted length tensor, if provided
 
     Example
@@ -699,7 +718,6 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
     >>> lens_pad
     tensor([0.8000, 0.4000])
     """
-
     time_dim = tensor.size(len_dim)
 
     desired_time_dim = time_dim
@@ -724,14 +742,14 @@ def trim_to_shape(tensor, shape):
 
     Arguments
     ---------
-    tensor: torch.Tensor
+    tensor: Tensor
         a tensor
     shape: enumerable
         the desired shape
 
     Returns
     -------
-    tensor: torch.Tensor
+    tensor: Tensor
         the trimmed tensor
     """
     for dim, size in enumerate(shape):
@@ -745,14 +763,14 @@ def trim_as(tensor, other):
 
     Arguments
     ---------
-    tensor: torch.Tensor:
+    tensor: Tensor:
         a tensor
-    other: torch.Tensor
+    other: Tensor
         the tensor whose shape to match
 
     Returns
     -------
-    tensor: torch.Tensor
+    tensor: Tensor
         the trimmed tensor
     """
     return trim_to_shape(tensor, other.shape)
@@ -764,14 +782,14 @@ def match_shape(tensor, other):
 
     Arguments
     ---------
-    tensor: torch.Tensor:
+    tensor: Tensor:
         a tensor
-    other: torch.Tensor
+    other: Tensor
         the tensor whose shape to match
 
     Returns
     -------
-    tensor: torch.Tensor
+    tensor: Tensor
         the tensor with matching shape
     """
     result = unsqueeze_as(tensor, other)
@@ -787,7 +805,6 @@ def batch_shuffle(items, batch_size):
     ---------
     items: sequence
         a tensor or an indexable sequence, such as a list
-
     batch_size: int
         the batch size
 
@@ -828,25 +845,22 @@ def concat_padded_features(
     ---------
     feats: list
         a list of padded tesnors
-
     lens: list
         a list of length tensors
-
+    dim: int
+        The dimension on which to perform concatenation
     feats_slice_start: list
         offsets, relative to the beginning of the sequence, for each
         of the tensors being concatenated. This is useful if only
         a subsequence of some slices is included
-
     feats_slice_end: list
         offsets, relative to the end of the sequence, for each
         of the tensors being concatenated. This is useful if only
         a subsequence of some slices is included
 
-
-
     Returns
     -------
-    out: torch.Tensor
+    out: Tensor
         a concatenated tensor
     """
     first_item = feats[0]
@@ -890,15 +904,14 @@ def _offset_to_tensor(offset, lengths):
 
     Arguments
     ---------
-    offset: list|torch.Tensor
+    offset: list|Tensor
         a list or tensor of offsets
-
-    lengths: torch.Tensor
+    lengths: Tensor
         a length tensor
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a tensor of offsets
     """
     if offset is None:
@@ -925,24 +938,27 @@ def _lens_to_boundaries(
     """Converts a tensor of lengths to a tensor of start and end
     boundaries, used for concat_padded_features
 
-
     Arguments
     ---------
-    lengths: torch.Tensor
+    lengths: Tensor
         a (component x batch) tensor of absolute lengths
-
-    slice_start: torch.Tensor
+    slice_start: Tensor
         a (component x batch) tensor of relative start offsets
-
-    slice_end: torch.Tensor
+    slice_end: Tensor
         a (component x batch) tensor of relative end offsets
-
-    cumultative: True
+    cumulative: True
         if true, the start of a given component is assumed to
         be at the end of the previous component.
         if false, all components start at the beginning of the
         length dimension
-     """
+
+    Returns
+    -------
+    start: Tensor
+        the starting boundary
+    end: Tensor
+        the ending boundary
+    """
     batch_size = lengths.size(-1)
     batch_padding = torch.zeros((1, batch_size)).int().to(lengths.device)
 
@@ -976,22 +992,21 @@ def _boundaries_to_mask(target, start, end, len_dim=1):
 
     Arguments
     ---------
-    target: torch.Tensor
+    target: Tensor
         the target tensor
-
-    start: torch.Tensor
+    start: Tensor
         the tensor indicating the starting positions along the length
         dimension within each batch
-    end: torch.Tensor
+    end: Tensor
         the tensor indicating the final positions within each batch
-
     len_dim: int
         the dimension used as the length
 
     Returns
     -------
-    mask: torch.Tensor
-        a Boolean mask of the same shape as target"""
+    mask: Tensor
+        a Boolean mask of the same shape as target
+    """
     out_range = length_range(target, len_dim)
     feats_dim = target.dim()
     item_start = unsqueeze_1d(start, feats_dim, 0)
@@ -1007,17 +1022,16 @@ def unsqueeze_1d(value, dim, value_dim):
 
     Arguments
     ---------
-    value: torch.Tensor
+    value: Tensor
         A 1-D tensor
     dim: int
         the number of dimension
     value_dim: int
         the dimension that the value tensor represents
 
-
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a dim-dimensional tensor
     """
     unsqueeze_dim = [None] * dim
@@ -1031,16 +1045,17 @@ def length_range(feats, len_dim):
 
     Arguments
     ---------
-    feats: torch.Tensor
+    feats: Tensor
         a features tensor of arbitrary shape
-    len_dim: torch.Tensor
+    len_dim: Tensor
         the dimension used as length
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a tensor matching the shape of feats with an 0 to max-length range along
-        the length dimension repeated across other dimensions"""
+        the length dimension repeated across other dimensions
+    """
     max_len = feats.size(len_dim)
     feats_range = torch.arange(max_len).to(feats.device)
     out = unsqueeze_1d(feats_range, feats.dim(), len_dim)
@@ -1057,7 +1072,7 @@ def non_batch_dims(sample):
 
     Arguments
     ---------
-    sample: torch.Tensor
+    sample: Tensor
         an arbitrary tensor
 
     Returns
@@ -1074,15 +1089,14 @@ def masked_mean(sample, mask=None):
 
     Arguments
     ---------
-    samples: torch.Tensor
+    sample: Tensor
         a tensor of spectrograms
-
-    mask: torch.Tensor
+    mask: Tensor
         a length mask
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1097,15 +1111,14 @@ def masked_std(sample, mask=None):
 
     Arguments
     ---------
-    samples: torch.Tensor
+    sample: Tensor
         a tensor of spectrograms
-
-    mask: torch.Tensor
+    mask: Tensor
         a length mask
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1123,15 +1136,14 @@ def masked_min(sample, mask=None):
 
     Arguments
     ---------
-    samples: torch.Tensor
+    sample: Tensor
         a tensor of spectrograms
-
-    mask: torch.Tensor
+    mask: Tensor
         a length mask
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1145,15 +1157,14 @@ def masked_max(sample, mask=None):
 
     Arguments
     ---------
-    samples: torch.Tensor
+    sample: Tensor
         a tensor of spectrograms
-
-    mask: torch.Tensor
+    mask: Tensor
         a length mask
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1165,18 +1176,16 @@ def masked_max(sample, mask=None):
 def dist_stats(sample, mask=None):
     """Returns standard distribution statistics (mean, std, min, max)
 
-
     Arguments
     ---------
-    samples: torch.Tensor
+    sample: Tensor
         a tensor of spectrograms
-
-    mask: torch.Tensor
+    mask: Tensor
         a length mask
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         a tensor fo means
     """
     return {
@@ -1200,9 +1209,6 @@ def dict_value_combinations(values):
             "digit": [1,2,3],
             "speaker": [10, 20]
         }
-
-    keys: list
-        the keys to consider
 
     Returns
     -------
@@ -1230,7 +1236,6 @@ def dict_value_combinations_gen(values, keys):
             "digit": [1,2,3],
             "speaker": [10, 20]
         }
-
     keys: list
         the keys to consider
 

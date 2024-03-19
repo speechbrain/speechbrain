@@ -89,11 +89,11 @@ def setup_logging(
     ---------
     config_path : str
         The path to a logging config file.
-    default_level : int
-        The level to use if the config file is not found.
     overrides : dict
         A dictionary of the same structure as the config dict
         with any updated values that need to be applied.
+    default_level : int
+        The level to use if the config file is not found.
     """
     if os.path.exists(config_path):
         with open(config_path, "rt") as f:

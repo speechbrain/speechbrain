@@ -26,10 +26,10 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     the output back to the function in the call for the next batch.
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
     stats : collections.Counter
         The running statistics.
@@ -84,10 +84,10 @@ def _batch_stats(refs, hyps):
     Used by accumulatable_wer_stats
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
 
     Returns
@@ -220,7 +220,7 @@ def alignment(table):
     alignment is monotonic, one-to-zero-or-one.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 
@@ -283,7 +283,7 @@ def count_ops(table):
     recognition to report the number of different error types separately.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 

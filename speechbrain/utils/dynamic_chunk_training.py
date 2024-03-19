@@ -15,6 +15,7 @@ from typing import Optional
 
 import torch
 
+
 # NOTE: this configuration object is intended to be relatively specific to
 # Dynamic Chunk Training; if you want to implement a different similar type of
 # chunking different from that, you should consider using a different object.
@@ -24,7 +25,8 @@ class DynChunkTrainConfig:
     often in ASR for streaming.
 
     This object may be used both to configure masking at training time and for
-    run-time configuration of DynChunkTrain-ready models."""
+    run-time configuration of DynChunkTrain-ready models.
+    """
 
     chunk_size: int
     """Size in frames of a single chunk, always `>0`.
@@ -39,14 +41,15 @@ class DynChunkTrainConfig:
 
     def is_infinite_left_context(self) -> bool:
         """Returns true if the left context is infinite (i.e. any chunk can
-        attend to any past frame)."""
+        attend to any past frame).
+        """
         return self.left_context_size is None
 
     def left_context_size_frames(self) -> Optional[int]:
         """Returns the number of left context *frames* (not chunks).
         If ``None``, the left context is infinite.
-        See also the ``left_context_size`` field."""
-
+        See also the ``left_context_size`` field.
+        """
         if self.left_context_size is None:
             return None
 
@@ -81,7 +84,8 @@ class DynChunkTrainConfigRandomSampler:
     >>> one_train_config.is_infinite_left_context()
     True
     >>> sampler(Stage.TEST)
-    DynChunkTrainConfig(chunk_size=32, left_context_size=16)"""
+    DynChunkTrainConfig(chunk_size=32, left_context_size=16)
+    """
 
     chunkwise_prob: float
     """When sampling (during `Stage.TRAIN`), the probability that a finite chunk
@@ -118,17 +122,22 @@ class DynChunkTrainConfigRandomSampler:
     """The configuration that should be used for `Stage.VALID`.
     When `None`, evaluation is done with full context (i.e. non-streaming)."""
 
-    def _sample_bool(self, prob: float) -> bool:
+    def _sample_bool(self, prob):
         """Samples a random boolean with a probability, in a way that depends on
         PyTorch's RNG seed.
 
         Arguments
         ---------
         prob : float
-            Probability (0..1) to return True (False otherwise)."""
+            Probability (0..1) to return True (False otherwise).
+
+        Returns
+        -------
+        The sampled boolean
+        """
         return torch.rand((1,)).item() < prob
 
-    def __call__(self, stage: "sb.core.Stage") -> DynChunkTrainConfig:
+    def __call__(self, stage):
         """In training stage, samples a random DynChunkTrain configuration.
         During validation or testing, returns the relevant configuration.
 
@@ -140,6 +149,10 @@ class DynChunkTrainConfigRandomSampler:
             according to the specified probabilities and ranges.
             During evaluation, the relevant DynChunkTrainConfig attribute will
             be picked.
+
+        Returns
+        -------
+        The appropriate configuration
         """
         if stage == sb.core.Stage.TRAIN:
             # When training for streaming, for each batch, we have a

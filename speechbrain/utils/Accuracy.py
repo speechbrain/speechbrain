@@ -11,13 +11,20 @@ def Accuracy(log_probabilities, targets, length=None):
     """Calculates the accuracy for predicted log probabilities and targets in a batch.
 
     Arguments
-    ----------
-    log_probabilities : tensor
+    ---------
+    log_probabilities : Tensor
         Predicted log probabilities (batch_size, time, feature).
-    targets : tensor
+    targets : Tensor
         Target (batch_size, time).
-    length : tensor
+    length : Tensor
         Length of target (batch_size,).
+
+    Returns
+    -------
+    numerator : float
+        The number of correct samples
+    denominator : float
+        The total number of samples
 
     Example
     -------
@@ -68,12 +75,12 @@ class AccuracyStats:
         and target in the current batch.
 
         Arguments
-        ----------
-        log_probabilities : tensor
+        ---------
+        log_probabilities : Tensor
             Predicted log probabilities (batch_size, time, feature).
-        targets : tensor
+        targets : Tensor
             Target (batch_size, time).
-        length: tensor
+        length : Tensor
             Length of target (batch_size,).
         """
         numerator, denominator = Accuracy(log_probabilities, targets, length)

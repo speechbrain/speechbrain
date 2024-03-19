@@ -21,6 +21,11 @@ class EpochCounter:
     Note that this iterator gives you the numbers from [1 ... limit] not
     [0 ... limit-1] as range(limit) would.
 
+    Arguments
+    ---------
+    limit: int
+        maximum number of epochs
+
     Example
     -------
     >>> from speechbrain.utils.checkpoints import Checkpointer

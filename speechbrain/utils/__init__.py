@@ -1,4 +1,4 @@
-""" Package containing various tools (accuracy, checkpoints ...)
+"""Package containing various tools (accuracy, checkpoints ...)
 """
 import os
 

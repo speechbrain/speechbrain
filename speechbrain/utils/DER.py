@@ -24,7 +24,6 @@ ERROR_SPEAKER_TIME = re.compile(r"(?<=SPEAKER ERROR TIME =)[\d.]+")
 def rectify(arr):
     """Corrects corner cases and converts scores into percentage.
     """
-
     # Numerator and denominator both 0.
     arr[np.isnan(arr)] = 0
 
@@ -51,12 +50,12 @@ def DER(
         The path of reference/groundtruth RTTM file.
     sys_rttm : str
         The path of the system generated RTTM file.
-    individual_file : bool
-        If True, returns scores for each file in order.
-    collar : float
-        Forgiveness collar.
     ignore_overlap : bool
         If True, ignores overlapping speech during evaluation.
+    collar : float
+        Forgiveness collar.
+    individual_file_scores : bool
+        If True, returns scores for each file in order.
 
     Returns
     -------
@@ -82,7 +81,6 @@ def DER(
     >>> print (Scores)
     (array([0., 0.]), array([0., 0.]), array([7.16923618, 7.16923618]), array([7.16923618, 7.16923618]))
     """
-
     curr = os.path.abspath(os.path.dirname(__file__))
     mdEval = os.path.join(curr, "../../tools/der_eval/md-eval.pl")
 

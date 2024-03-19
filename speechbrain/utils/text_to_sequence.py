@@ -1,4 +1,4 @@
-""" from https://github.com/keithito/tacotron """
+"""from https://github.com/keithito/tacotron"""
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -177,7 +177,7 @@ _abbreviations = [
 
 
 def expand_abbreviations(text):
-    """expand abbreviations pre-defined
+    """Expand abbreviations pre-defined
     """
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
@@ -189,7 +189,7 @@ def expand_abbreviations(text):
 
 
 def lowercase(text):
-    """lowercase the text
+    """Lowercase the text
     """
     return text.lower()
 
@@ -242,8 +242,7 @@ def english_cleaners(text):
 
 
 def text_to_sequence(text, cleaner_names):
-    """Returns a list of integers corresponding to the symbols in the text.
-    Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
+    """Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
     The text can optionally have ARPAbet sequences enclosed in curly braces embedded
     in it. For example, "Turn left on {HH AW1 S S T AH0 N} Street."
 
@@ -254,6 +253,10 @@ def text_to_sequence(text, cleaner_names):
     cleaner_names : list
         names of the cleaner functions to run the text through
 
+    Returns
+    -------
+    sequence : list
+        The integers corresponding to the symbols in the text.
     """
     sequence = []
 
@@ -285,7 +288,7 @@ def sequence_to_text(sequence):
 
 
 def _clean_text(text, cleaner_names):
-    """apply different cleaning pipeline according to cleaner_names
+    """Apply different cleaning pipeline according to cleaner_names
     """
     for name in cleaner_names:
         if name == "english_cleaners":
@@ -303,7 +306,7 @@ def _clean_text(text, cleaner_names):
 
 
 def _symbols_to_sequence(symbols):
-    """convert symbols to sequence
+    """Convert symbols to sequence
     """
     return [_symbol_to_id[s] for s in symbols if _should_keep_symbol(s)]
 
@@ -315,18 +318,24 @@ def _arpabet_to_sequence(text):
 
 
 def _should_keep_symbol(s):
-    """whether to keep a certain symbol
+    """Whether to keep a certain symbol
     """
     return s in _symbol_to_id and s != "_" and s != "~"
 
 
 def _g2p_keep_punctuations(g2p_model, text):
-    """do grapheme to phoneme and keep the punctuations between the words
+    """Do grapheme to phoneme and keep the punctuations between the words
+
     Arguments
     ---------
-    g2p_model: speechbrain.inference.text g2p model
+    g2p_model: speechbrain.inference.text.GraphemeToPhoneme
+        Model to apply to the given text while keeping punctuation.
     text: string
-        the input text
+        the input text.
+
+    Returns
+    -------
+    The text string's corresponding phoneme symbols with punctuation symbols.
 
     Example
     -------
