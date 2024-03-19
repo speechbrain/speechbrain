@@ -98,3 +98,38 @@ def test_QBatchNorm(device):
     assert torch.all(torch.abs(1.0 - average_magnitude) < 0.10)
 
     assert torch.jit.trace(norm, input)
+
+
+def test_QConv2d(device):
+    from speechbrain.nnet.quaternion_networks.q_CNN import QConv2d
+
+    input = torch.rand([4, 11, 32, 4], device=device)
+
+    convolve = QConv2d(
+        out_channels=1,
+        input_shape=input.shape,
+        kernel_size=(1, 1),
+        padding="same",
+    ).to(device)
+    output = convolve(input)
+    assert output.shape[-1] == input.shape[-1]
+
+    with torch.no_grad():
+        convolve.r_weight.fill_(0.0)
+        convolve.i_weight.fill_(0.0)
+        convolve.j_weight.fill_(0.0)
+        convolve.k_weight.fill_(0.0)
+
+    output = convolve(input)
+    assert torch.all(torch.eq(torch.zeros(input.shape, device=device), output))
+
+    with torch.no_grad():
+        convolve.r_weight.fill_(1.0)
+        convolve.i_weight.fill_(0.0)
+        convolve.j_weight.fill_(0.0)
+        convolve.k_weight.fill_(0.0)
+
+    output = convolve(input)
+    assert torch.all(torch.eq(input, output))
+
+    assert torch.jit.trace(convolve, input)
