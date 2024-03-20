@@ -22,7 +22,7 @@ from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
-en_detoeknizer = MosesDetokenizer(lang="en")
+en_detokenizer = MosesDetokenizer(lang="en")
 
 
 class ST(sb.core.Brain):
@@ -161,7 +161,7 @@ class ST(sb.core.Brain):
             if stage == sb.Stage.TEST:
                 # 4 references bleu score
                 predictions = [
-                    en_detoeknizer.detokenize(
+                    en_detokenizer.detokenize(
                         hparams["tokenizer"].decode_ids(utt_seq).split(" ")
                     )
                     for utt_seq in hyps
@@ -177,7 +177,7 @@ class ST(sb.core.Brain):
                 targets = []
                 for reference in four_references:
                     detokenized_translation = [
-                        en_detoeknizer.detokenize(translation.split(" "))
+                        en_detokenizer.detokenize(translation.split(" "))
                         for translation in reference
                     ]
                     targets.append(detokenized_translation)
@@ -188,14 +188,14 @@ class ST(sb.core.Brain):
                 and stage == sb.Stage.VALID
             ):
                 predictions = [
-                    en_detoeknizer.detokenize(
+                    en_detokenizer.detokenize(
                         hparams["tokenizer"].decode_ids(utt_seq).split(" ")
                     )
                     for utt_seq in hyps
                 ]
 
                 targets = [
-                    en_detoeknizer.detokenize(translation.split(" "))
+                    en_detokenizer.detokenize(translation.split(" "))
                     for translation in batch.translation_0
                 ]
                 self.bleu_metric.append(ids, predictions, [targets])
@@ -332,7 +332,7 @@ class ST(sb.core.Brain):
                 self.checkpointer.recover_if_possible()
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
+        """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(

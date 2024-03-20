@@ -279,8 +279,8 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
     concat_original: True
     min_augmentations: 1
     max_augmentations: 1
-    augment_start_index: !ref <batch_size> # This leaves unchanges original inputs
-    concat_end_index: !ref <batch_size> # This leaves unchanges original inputs
+    augment_start_index: !ref <batch_size> # This leaves original inputs unchanged
+    concat_end_index: !ref <batch_size> # This leaves original inputs unchanged
     augment_prob: 1.0
     augmentations: [
         !ref <time_drop>,

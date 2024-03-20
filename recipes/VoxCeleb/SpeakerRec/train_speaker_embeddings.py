@@ -187,7 +187,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         hparams["save_folder"], os.path.basename(hparams["verification_file"])
     )

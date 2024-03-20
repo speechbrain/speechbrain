@@ -289,7 +289,7 @@ def create_json(data, json_file):
 
 
 def check_and_prepare_dataset(
-    data_folder, data_name, prepare_function, dictonary, seed
+    data_folder, data_name, prepare_function, dictionary, seed
 ):
     """check if the preparation is done, do it if not
 
@@ -297,7 +297,7 @@ def check_and_prepare_dataset(
         data_folder (str): path to dataset
         data_name (str): name of the dataset
         prepare_function (function): the preparation function
-        dictonary (dict): the overall dictionary to be updated
+        dictionary (dict): the overall dictionary to be updated
         seed (int): the random seed for reproduction
     """
     if data_folder is not None:
@@ -314,6 +314,6 @@ def check_and_prepare_dataset(
             )
             with open(json_path, "r") as f:
                 data = json.load(f)
-        dictonary.update(data.items())
+        dictionary.update(data.items())
     else:
         logger.info(f"{data_name} is not used in this exp.")

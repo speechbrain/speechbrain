@@ -11,7 +11,7 @@ Paper: https://arxiv.org/pdf/2306.00814.pdf
 TODO: There is an open feature request to add this model to
 HuggingFace Transformers.
 
-If this is impemented, it will be possible to make this model
+If this is implemented, it will be possible to make this model
 inherit from HFTransformersInterface
 
 https://github.com/huggingface/transformers/issues/25123
@@ -41,6 +41,7 @@ BANDWIDTHS = [1.5, 3.0, 6.0, 12.0]
 logger = logging.getLogger(__name__)
 
 
+# cspell:ignore charactr
 class Vocos(nn.Module):
     """An wrapper for the HuggingFace Vocos model
 

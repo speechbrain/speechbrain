@@ -59,7 +59,7 @@ start = time.time()
 
 def add_pyreverb(clean_speech, rir):
     """
-    Add reverb to cean signal
+    Add reverb to clean signal
     """
     reverb_speech = signal.fftconvolve(clean_speech, rir, mode="full")
 
@@ -670,7 +670,7 @@ def main_body():  # noqa
         clean_low_activity_files + noise_low_activity_files,
     )
 
-    # Compute and print stats about percentange of clipped and low activity files
+    # Compute and print stats about percentage of clipped and low activity files
     total_clean = (
         len(clean_source_files)
         + len(clean_clipped_files)

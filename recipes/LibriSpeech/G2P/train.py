@@ -51,7 +51,7 @@ G2PPredictions = namedtuple(
 
 
 class TrainMode(Enum):
-    """An enumeration that represents the trainining mode
+    """An enumeration that represents the training mode
 
     NORMAL: trains the sequence-to-sequence model
     HOMOGRAPH: fine-tunes a trained model on homographs"""
@@ -1016,7 +1016,7 @@ def dataio_prep(hparams, train_step=None):
             "takes": ["char"],
             "provides": [
                 "grapheme_list",
-                "grpaheme_encoded_list",
+                "grapheme_encoded_list",
                 "grapheme_encoded",
             ],
         },
@@ -1218,7 +1218,7 @@ if __name__ == "__main__":
             g2p_brain.phoneme_encoder = phoneme_encoder
 
             # NOTE: This gets modified after the first run and causes a double
-            # agument issue
+            # argument issue
             dataloader_opts = train_step.get(
                 "dataloader_opts", hparams.get("dataloader_opts", {})
             )

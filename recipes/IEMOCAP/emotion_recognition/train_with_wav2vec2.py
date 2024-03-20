@@ -26,7 +26,7 @@ class EmoIdBrain(sb.Brain):
 
         outputs = self.modules.wav2vec2(wavs, lens)
 
-        # last dim will be used for AdaptativeAVG pool
+        # last dim will be used for AdaptiveAVG pool
         outputs = self.hparams.avg_pool(outputs, lens)
         outputs = outputs.view(outputs.shape[0], -1)
 
@@ -170,7 +170,7 @@ def dataio_prep(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    # Initialization of the label encoder. The label encoder assignes to each
+    # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
@@ -199,7 +199,7 @@ def dataio_prep(hparams):
         )
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(

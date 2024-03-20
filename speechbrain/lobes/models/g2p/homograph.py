@@ -591,8 +591,8 @@ class SubsequenceExtractor:
     def extract_hyps(
         self, ref_seq, hyps, subsequence_phn_start, use_base=False
     ):
-        """Extracts a subsequnce from hypotheses (e.g. the result of a beam
-        search) based on a refernece sequence, which can be either a sequence of phonemes (the target during training)
+        """Extracts a subsequence from hypotheses (e.g. the result of a beam
+        search) based on a reference sequence, which can be either a sequence of phonemes (the target during training)
         Arguments
         ---------
         ref_seq: torch.Tensor
@@ -626,9 +626,9 @@ class SubsequenceExtractor:
         ]
         result = [
             self._extract_hyp_word(
-                item_hyps, item_separtaor_indexes, word_index
+                item_hyps, item_separator_indexes, word_index
             )
-            for item_hyps, item_separtaor_indexes, word_index in zip(
+            for item_hyps, item_separator_indexes, word_index in zip(
                 hyps, separator_indexes, target_word_indexes
             )
         ]

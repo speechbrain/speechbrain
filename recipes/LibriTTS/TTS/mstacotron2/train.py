@@ -111,7 +111,7 @@ class Tacotron2Brain(sb.Brain):
         """
         effective_batch = self.batch_to_device(batch)
         # Hold on to the batch for the inference sample.
-        # This is needed because the infernece sample is run from on_stage_end only,
+        # This is needed because the inference sample is run from on_stage_end only,
         # where batch information is not available
         self.last_batch = effective_batch
         self.last_preds = predictions

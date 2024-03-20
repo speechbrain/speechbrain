@@ -68,7 +68,7 @@ To train a language model, use the `train_lm.py` script provided.
 For an RNN-based language model:
 > python train_lm.py hparams/hparams_lm_rnn.yaml
 
-For a transformer-based language modle:
+For a transformer-based language model:
 > python train_lm.py hparams/hparams_lm_transformer.yaml
 
 To use a language model during training or inference
@@ -86,7 +86,7 @@ on the SpeechBrian website:
 
 https://speechbrain.github.io/tutorial_advanced.html
 
-A supplemental hyperparameter file is provided for hyperparameter optimiszation,
+A supplemental hyperparameter file is provided for hyperparameter optimization,
 which will turn off checkpointing and limit the number of epochs:
 
 hparams/hpopt.yaml
