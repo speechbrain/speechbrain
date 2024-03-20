@@ -216,11 +216,18 @@ class BERTScoreStats(MetricStats):
 
             for i, utt_id in enumerate(ids):
                 # TODO: optionally provide a token->token map
-                self.scores.append({
-                    "key": utt_id,
-                    "recall": (batch_recall[i].sum() / recall_weights[i].sum()).item(),
-                    "precision": (batch_precision[i].sum() / precision_weights[i].sum()).item(),
-                })
+                self.scores.append(
+                    {
+                        "key": utt_id,
+                        "recall": (
+                            batch_recall[i].sum() / recall_weights[i].sum()
+                        ).item(),
+                        "precision": (
+                            batch_precision[i].sum()
+                            / precision_weights[i].sum()
+                        ).item(),
+                    }
+                )
 
             if self.sentence_level_averaging:
                 recall_sum += batch_recall.sum() / recall_weights.sum()
@@ -341,7 +348,7 @@ def get_bertscore_token_weights(
 
     if corpus is None:
         return torch.ones((max_idx,))
-    
+
     freq_dict = defaultdict(lambda: 0)
 
     for document_idx, document in enumerate(corpus):

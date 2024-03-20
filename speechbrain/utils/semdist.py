@@ -96,10 +96,9 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
             chunk_semdist = (1.0 - similarity) * self.scale
 
             for i, utt_id in enumerate(ids):
-                self.scores.append({
-                    "key": utt_id,
-                    "semdist": chunk_semdist[i].item(),
-                })
+                self.scores.append(
+                    {"key": utt_id, "semdist": chunk_semdist[i].item(),}
+                )
 
             semdist_sum += chunk_semdist.sum()
 
@@ -158,3 +157,7 @@ class SemDistStats(BaseSemDistStats):
             ) / nonmasked_counts.unsqueeze(-1)
         elif self.method == "cls":
             return hidden[:, 0, :]  # the first token
+        else:
+            raise ValueError(
+                f"Specified SemDist method {self.method} is invalid"
+            )
