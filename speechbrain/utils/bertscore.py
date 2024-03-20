@@ -16,76 +16,6 @@ from speechbrain.utils.metric_stats import MetricStats
 logger = logging.getLogger(__name__)
 
 
-def get_bert_token_mask(tokenizer) -> torch.BoolTensor:
-    """Returns a token mask with special tokens masked.
-
-    Arguments
-    ---------
-    tokenizer
-        HuggingFace tokenizer for the BERT model.
-
-    Returns
-    -------
-    torch.BoolTensor
-        A mask tensor that can be indexed by token ID (of shape `[vocab_size]`).
-    """
-
-    vocab = tokenizer.get_vocab()
-    max_idx = max(vocab.values())
-
-    weights = torch.ones((max_idx + 1,), dtype=torch.bool)
-
-    special_tokens = [
-        vocab[token] for token in tokenizer.special_tokens_map.values()
-    ]
-
-    weights[special_tokens] = False
-
-    return weights
-
-
-def get_bertscore_token_weights(
-    tokenizer, corpus: Optional[Iterable[str]] = None
-) -> torch.Tensor:
-    """Returns token weights for use with the BERTScore metric.
-    When specifying `corpus`, the weights are the Inverse Document Frequency
-    (IDF) of each token, extracted from the `corpus`.
-
-    The IDF formula is adapted from the BERTScore paper, where words missing
-    from the reference corpus are weighted with `+1` smoothing.
-
-    Arguments
-    ---------
-    tokenizer
-        HuggingFace tokenizer for the BERT model.
-    corpus : Iterable[str], optional
-        Iterable corpus to compute the IDF from. Each iterated value is
-        considered a document in the corpus in the IDF calculation.
-        If omitted, no IDF weighting is done.
-    """
-
-    max_idx = max(tokenizer.get_vocab().values())
-
-    if corpus is not None:
-        freq_dict = defaultdict(lambda: 0)
-
-        for document_idx, document in enumerate(corpus):
-            tokens = tokenizer(document)["input_ids"]
-            unique_words = set(tokens)
-
-            for unique_word in unique_words:
-                freq_dict[unique_word] += 1
-
-        document_count = document_idx + 1
-
-        weights = [
-            math.log(document_count / (freq_dict[token_id] + 1))
-            for token_id in range(max_idx + 1)
-        ]
-
-    return torch.tensor(weights)
-
-
 class BERTScoreStats(MetricStats):
     """Computes BERTScore with a provided HuggingFace Transformers tokenizer and
     LM, using the method described in the paper
@@ -347,3 +277,73 @@ class BERTScoreStats(MetricStats):
         return token_weight.index_select(
             dim=0, index=input_tokens.flatten()
         ).reshape(input_tokens.shape)
+
+
+def get_bert_token_mask(tokenizer) -> torch.BoolTensor:
+    """Returns a token mask with special tokens masked.
+
+    Arguments
+    ---------
+    tokenizer
+        HuggingFace tokenizer for the BERT model.
+
+    Returns
+    -------
+    torch.BoolTensor
+        A mask tensor that can be indexed by token ID (of shape `[vocab_size]`).
+    """
+
+    vocab = tokenizer.get_vocab()
+    max_idx = max(vocab.values())
+
+    weights = torch.ones((max_idx + 1,), dtype=torch.bool)
+
+    special_tokens = [
+        vocab[token] for token in tokenizer.special_tokens_map.values()
+    ]
+
+    weights[special_tokens] = False
+
+    return weights
+
+
+def get_bertscore_token_weights(
+    tokenizer, corpus: Optional[Iterable[str]] = None
+) -> torch.Tensor:
+    """Returns token weights for use with the BERTScore metric.
+    When specifying `corpus`, the weights are the Inverse Document Frequency
+    (IDF) of each token, extracted from the `corpus`.
+
+    The IDF formula is adapted from the BERTScore paper, where words missing
+    from the reference corpus are weighted with `+1` smoothing.
+
+    Arguments
+    ---------
+    tokenizer
+        HuggingFace tokenizer for the BERT model.
+    corpus : Iterable[str], optional
+        Iterable corpus to compute the IDF from. Each iterated value is
+        considered a document in the corpus in the IDF calculation.
+        If omitted, no IDF weighting is done.
+    """
+
+    max_idx = max(tokenizer.get_vocab().values())
+
+    if corpus is not None:
+        freq_dict = defaultdict(lambda: 0)
+
+        for document_idx, document in enumerate(corpus):
+            tokens = tokenizer(document)["input_ids"]
+            unique_words = set(tokens)
+
+            for unique_word in unique_words:
+                freq_dict[unique_word] += 1
+
+        document_count = document_idx + 1
+
+        weights = [
+            math.log(document_count / (freq_dict[token_id] + 1))
+            for token_id in range(max_idx + 1)
+        ]
+
+    return torch.tensor(weights)
