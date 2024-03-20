@@ -85,8 +85,8 @@ import speechbrain.processing.decomposition as eig
 class Covariance(torch.nn.Module):
     """Computes the covariance matrices of the signals.
 
-    Arguments:
-    ----------
+    Arguments
+    ---------
     average : bool
         Informs the module if it should return an average
         (computed on the time dimension) of the covariance
@@ -123,7 +123,7 @@ class Covariance(torch.nn.Module):
         self.average = average
 
     def forward(self, Xs):
-        """ This method uses the utility function _cov to compute covariance
+        """This method uses the utility function _cov to compute covariance
         matrices. Therefore, the result has the following format:
         (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
 
@@ -135,23 +135,22 @@ class Covariance(torch.nn.Module):
 
         Arguments:
         ----------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
         """
-
         XXs = Covariance._cov(Xs=Xs, average=self.average)
         return XXs
 
     @staticmethod
     def _cov(Xs, average=True):
-        """ Computes the covariance matrices (XXs) of the signals. The result will
+        """Computes the covariance matrices (XXs) of the signals. The result will
         have the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics + n_pairs).
 
         Arguments:
         ----------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
@@ -161,7 +160,6 @@ class Covariance(torch.nn.Module):
             (computed on the time dimension) of the covariance
             matrices. Default value is True.
         """
-
         # Get useful dimensions
         n_mics = Xs.shape[4]
 
@@ -197,37 +195,37 @@ class Covariance(torch.nn.Module):
 
 class DelaySum(torch.nn.Module):
     """Performs delay and sum beamforming by using the TDOAs and
-        the first channel as a reference.
+    the first channel as a reference.
 
-        Example
-        -------
-        >>> import torch
+    Example
+    -------
+    >>> import torch
 
-        >>> from speechbrain.dataio.dataio import read_audio
-        >>> from speechbrain.processing.features import STFT, ISTFT
-        >>> from speechbrain.processing.multi_mic import Covariance
-        >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
-        >>>
-        >>> xs_speech = read_audio(
-        ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
-        ... )
-        >>> xs_speech = xs_speech. unsqueeze(0) # [batch, time, channel]
-        >>> xs_noise  = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
-        >>> xs_noise = xs_noise.unsqueeze(0) #[batch, time, channels]
-        >>> fs = 16000
-        >>> xs = xs_speech + 0.05 * xs_noise
-        >>>
-        >>> stft = STFT(sample_rate=fs)
-        >>> cov = Covariance()
-        >>> gccphat = GccPhat()
-        >>> delaysum = DelaySum()
-        >>> istft = ISTFT(sample_rate=fs)
-        >>>
-        >>> Xs = stft(xs)
-        >>> XXs = cov(Xs)
-        >>> tdoas = gccphat(XXs)
-        >>> Ys = delaysum(Xs, tdoas)
-        >>> ys = istft(Ys)
+    >>> from speechbrain.dataio.dataio import read_audio
+    >>> from speechbrain.processing.features import STFT, ISTFT
+    >>> from speechbrain.processing.multi_mic import Covariance
+    >>> from speechbrain.processing.multi_mic import GccPhat, DelaySum
+    >>>
+    >>> xs_speech = read_audio(
+    ...    'tests/samples/multi-mic/speech_-0.82918_0.55279_-0.082918.flac'
+    ... )
+    >>> xs_speech = xs_speech. unsqueeze(0) # [batch, time, channel]
+    >>> xs_noise  = read_audio('tests/samples/multi-mic/noise_diffuse.flac')
+    >>> xs_noise = xs_noise.unsqueeze(0) #[batch, time, channels]
+    >>> fs = 16000
+    >>> xs = xs_speech + 0.05 * xs_noise
+    >>>
+    >>> stft = STFT(sample_rate=fs)
+    >>> cov = Covariance()
+    >>> gccphat = GccPhat()
+    >>> delaysum = DelaySum()
+    >>> istft = ISTFT(sample_rate=fs)
+    >>>
+    >>> Xs = stft(xs)
+    >>> XXs = cov(Xs)
+    >>> tdoas = gccphat(XXs)
+    >>> Ys = delaysum(Xs, tdoas)
+    >>> ys = istft(Ys)
     """
 
     def __init__(self):
@@ -249,11 +247,11 @@ class DelaySum(torch.nn.Module):
 
         Arguments
         ---------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
-        localization_tensor : tensor
+        localization_tensor : Tensor
             A tensor containing either time differences of arrival (TDOAs)
             (in samples) for each timestamp or directions of arrival (DOAs)
             (xyz coordinates in meters). If localization_tensor represents
@@ -263,7 +261,7 @@ class DelaySum(torch.nn.Module):
         doa_mode : bool
             The user needs to set this parameter to True if localization_tensor
             represents DOAs instead of TDOAs. Its default value is set to False.
-        mics : tensor
+        mics : Tensor
             The cartesian position (xyz coordinates in meters) of each microphone.
             The tensor must have the following format (n_mics, 3). This
             parameter is only mandatory when localization_tensor represents
@@ -275,8 +273,11 @@ class DelaySum(torch.nn.Module):
             The speed of sound in the medium. The speed is expressed in meters
             per second and the default value of this parameter is 343 m/s. This
             parameter is only used when localization_tensor represents DOAs.
-        """
 
+        Returns
+        -------
+        Ys : Tensor
+        """
         # Get useful dimensions
         n_fft = Xs.shape[2]
         localization_tensor = localization_tensor.to(Xs.device)
@@ -302,16 +303,19 @@ class DelaySum(torch.nn.Module):
 
         Arguments
         ---------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
-        As : tensor
+        As : Tensor
             The steering vector to point in the direction of
             the target source. The tensor must have the format
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
-        """
 
+        Returns
+        -------
+        Ys : Tensor
+        """
         # Get useful dimensions
         n_mics = Xs.shape[4]
 
@@ -393,14 +397,14 @@ class Mvdr(torch.nn.Module):
 
         Arguments
         ---------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics)
-        NNs : tensor
+        NNs : Tensor
             The covariance matrices of the noise signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs)
-        localization_tensor : tensor
+        localization_tensor : Tensor
             A tensor containing either time differences of arrival (TDOAs)
             (in samples) for each timestamp or directions of arrival (DOAs)
             (xyz coordinates in meters). If localization_tensor represents
@@ -410,7 +414,7 @@ class Mvdr(torch.nn.Module):
         doa_mode : bool
             The user needs to set this parameter to True if localization_tensor
             represents DOAs instead of TDOAs. Its default value is set to False.
-        mics : tensor
+        mics : Tensor
             The cartesian position (xyz coordinates in meters) of each microphone.
             The tensor must have the following format (n_mics, 3). This
             parameter is only mandatory when localization_tensor represents
@@ -422,6 +426,10 @@ class Mvdr(torch.nn.Module):
             The speed of sound in the medium. The speed is expressed in meters
             per second and the default value of this parameter is 343 m/s. This
             parameter is only used when localization_tensor represents DOAs.
+
+        Returns
+        -------
+        Ys : Tensor
         """
         # Get useful dimensions
         n_fft = Xs.shape[2]
@@ -451,19 +459,24 @@ class Mvdr(torch.nn.Module):
 
         Arguments
         ---------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics).
-        NNs : tensor
+        NNs : Tensor
             The covariance matrices of the noise signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        As : tensor
+        As : Tensor
             The steering vector to point in the direction of
             the target source. The tensor must have the format
             (batch, time_step, n_fft/2 + 1, 2, n_mics).
-        """
+        eps : float
+            A small value to avoid division by zero.
 
+        Returns
+        -------
+        Ys : Tensor
+        """
         # Get unique covariance values to reduce the number of computations
         NNs_val, NNs_idx = torch.unique(NNs, return_inverse=True, dim=1)
 
@@ -554,47 +567,53 @@ class Gev(torch.nn.Module):
         super().__init__()
 
     def forward(self, Xs, SSs, NNs):
-        """ This method uses the utility function _gev to perform generalized
+        """This method uses the utility function _gev to perform generalized
         eigenvalue decomposition beamforming. Therefore, the result has
         the following format: (batch, time_step, n_fft, 2, 1).
 
         Arguments
         ---------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics).
-        SSs : tensor
+        SSs : Tensor
             The covariance matrices of the target signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        NNs : tensor
+        NNs : Tensor
             The covariance matrices of the noise signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        """
 
+        Returns
+        -------
+        Ys : Tensor
+        """
         Ys = Gev._gev(Xs=Xs, SSs=SSs, NNs=NNs)
 
         return Ys
 
     @staticmethod
     def _gev(Xs, SSs, NNs):
-        """ Perform generalized eigenvalue decomposition beamforming. The result
+        """Perform generalized eigenvalue decomposition beamforming. The result
         has the following format: (batch, time_step, n_fft, 2, 1).
 
         Arguments
         ---------
-        Xs : tensor
+        Xs : Tensor
             A batch of audio signals in the frequency domain.
             The tensor must have the following format:
             (batch, time_step, n_fft/2 + 1, 2, n_mics).
-        SSs : tensor
+        SSs : Tensor
             The covariance matrices of the target signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        NNs : tensor
+        NNs : Tensor
             The covariance matrices of the noise signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        """
 
+        Returns
+        -------
+        Ys : Tensor
+        """
         # Putting on the right device
         SSs = SSs.to(Xs.device)
         NNs = NNs.to(Xs.device)
@@ -688,7 +707,7 @@ class GccPhat(torch.nn.Module):
         self.eps = eps
 
     def forward(self, XXs):
-        """ Perform generalized cross-correlation with phase transform localization
+        """Perform generalized cross-correlation with phase transform localization
         by using the utility function _gcc_phat and by extracting the delays (in samples)
         before performing a quadratic interpolation to improve the accuracy.
         The result has the format: (batch, time_steps, n_mics + n_pairs).
@@ -701,11 +720,10 @@ class GccPhat(torch.nn.Module):
 
         Arguments:
         ----------
-        XXs : tensor
+        XXs : Tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
         """
-
         xxs = GccPhat._gcc_phat(XXs=XXs, eps=self.eps)
         delays = GccPhat._extract_delays(xxs=xxs, tdoa_max=self.tdoa_max)
         tdoas = GccPhat._interpolate(xxs=xxs, delays=delays)
@@ -713,19 +731,22 @@ class GccPhat(torch.nn.Module):
 
     @staticmethod
     def _gcc_phat(XXs, eps=1e-20):
-        """ Evaluate GCC-PHAT for each timestamp. It returns the result in the time
+        """Evaluate GCC-PHAT for each timestamp. It returns the result in the time
         domain. The result has the format: (batch, time_steps, n_fft, n_mics + n_pairs).
 
         Arguments
         ---------
-        XXs : tensor
+        XXs : Tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
         eps : float
             A small value to avoid divisions by 0 with the phase transform. The
             default value is 1e-20.
-        """
 
+        Returns
+        -------
+        xxs : Tensor
+        """
         # Get useful dimensions
         n_samples = (XXs.shape[2] - 1) * 2
 
@@ -759,12 +780,12 @@ class GccPhat(torch.nn.Module):
 
     @staticmethod
     def _extract_delays(xxs, tdoa_max=None):
-        """ Extract the rounded delays from the cross-correlation for each timestamp.
+        """Extract the rounded delays from the cross-correlation for each timestamp.
         The result has the format: (batch, time_steps, n_mics + n_pairs).
 
         Arguments
         ---------
-        xxs : tensor
+        xxs : Tensor
             The correlation signals obtained after a gcc-phat operation. The tensor
             must have the format (batch, time_steps, n_fft, n_mics + n_pairs).
         tdoa_max : int
@@ -773,8 +794,11 @@ class GccPhat(torch.nn.Module):
             between -10 and 10 samples. This parameter is optional and its
             default value is None. When tdoa_max is None, the method will
             search for delays between -n_fft/2 and +n_fft/2 (full range).
-        """
 
+        Returns
+        -------
+        delays : Tensor
+        """
         # Get useful dimensions
         n_fft = xxs.shape[2]
 
@@ -809,15 +833,18 @@ class GccPhat(torch.nn.Module):
 
         Arguments
         ---------
-        xxs : tensor
+        xxs : Tensor
             The correlation signals obtained after a gcc-phat operation. The tensor
             must have the format (batch, time_steps, n_fft, n_mics + n_pairs).
-        delays : tensor
+        delays : Tensor
             The rounded tdoas obtained by selecting the sample with the highest
             amplitude. The tensor must have the format
             (batch, time_steps, n_mics + n_pairs).
-        """
 
+        Returns
+        -------
+        delays_frac : Tensor
+        """
         # Get useful dimensions
         n_fft = xxs.shape[2]
 
@@ -840,7 +867,7 @@ class SrpPhat(torch.nn.Module):
 
     Arguments
     ---------
-    mics : tensor
+    mics : Tensor
         The cartesian coordinates (xyz) in meters of each microphone.
         The tensor must have the following format (n_mics, 3).
     space : string
@@ -929,7 +956,7 @@ class SrpPhat(torch.nn.Module):
         self.eps = eps
 
     def forward(self, XXs):
-        """ Perform SRP-PHAT localization on a signal by computing a steering
+        """Perform SRP-PHAT localization on a signal by computing a steering
         vector and then by using the utility function _srp_phat to extract the doas.
         The result is a tensor containing the directions of arrival (xyz coordinates
         (in meters) in the direction of the sound source). The output tensor
@@ -940,9 +967,13 @@ class SrpPhat(torch.nn.Module):
 
         Arguments
         ---------
-        XXs : tensor
+        XXs : Tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
+
+        Returns
+        -------
+        doas : Tensor
         """
         # Get useful dimensions
         n_fft = XXs.shape[2]
@@ -964,18 +995,23 @@ class SrpPhat(torch.nn.Module):
 
         Arguments
         ---------
-        XXs : tensor
+        XXs : Tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        As : tensor
+        As : Tensor
             The steering vector that cover the all the potential directions
             of arrival. The tensor must have the format
             (n_doas, n_fft/2 + 1, 2, n_mics).
-        doas : tensor
+        doas : Tensor
             All the possible directions of arrival that will be scanned. The
             tensor must have the format (n_doas, 3).
-        """
+        eps : float
+            A very small value used to avoid division by 0.
 
+        Returns
+        -------
+        doas : Tensor
+        """
         # Putting on the right device
         As = As.to(XXs.device)
         doas = doas.to(XXs.device)
@@ -1027,7 +1063,7 @@ class Music(torch.nn.Module):
 
     Arguments
     ---------
-    mics : tensor
+    mics : Tensor
         The cartesian coordinates (xyz) in meters of each microphone.
         The tensor must have the following format (n_mics, 3).
     space : string
@@ -1131,11 +1167,14 @@ class Music(torch.nn.Module):
 
         Arguments
         ---------
-        XXs : tensor
+        XXs : Tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        """
 
+        Returns
+        -------
+        doas : Tensor
+        """
         # Get useful dimensions
         n_fft = XXs.shape[2]
 
@@ -1157,20 +1196,25 @@ class Music(torch.nn.Module):
 
         Arguments
         ---------
-        XXs : tensor
+        XXs : Tensor
             The covariance matrices of the input signal. The tensor must
             have the format (batch, time_steps, n_fft/2 + 1, 2, n_mics + n_pairs).
-        As : tensor
+        As : Tensor
             The steering vector that covers the all the potential directions
             of arrival. The tensor must have the format.
             (n_doas, n_fft/2 + 1, 2, n_mics).
-        doas : tensor
+        doas : Tensor
             All the possible directions of arrival that will be scanned. The
             tensor must have the format (n_doas, 3).
         n_sig : int
             The number of signals in the signal + noise subspace (default is 1).
-        """
+        eps : float
+            A small number to avoid div by zero errors.
 
+        Returns
+        -------
+        doas : Tensor
+        """
         # Putting on the right device
         As = As.to(XXs.device)
         doas = doas.to(XXs.device)
@@ -1232,10 +1276,10 @@ def doas2taus(doas, mics, fs, c=343.0):
 
     Arguments
     ---------
-    doas : tensor
+    doas : Tensor
         The directions of arrival expressed with cartesian coordinates (xyz)
         in meters. The tensor must have the following format: (batch, time_steps, 3).
-    mics : tensor
+    mics : Tensor
         The cartesian position (xyz) in meters of each microphone.
         The tensor must have the following format (n_mics, 3).
     fs : int
@@ -1243,6 +1287,10 @@ def doas2taus(doas, mics, fs, c=343.0):
     c : float
         The speed of sound in the medium. The speed is expressed in meters
         per second and the default value of this parameter is 343 m/s.
+
+    Returns
+    -------
+    taus : Tensor
 
     Example
     -------
@@ -1263,23 +1311,26 @@ def doas2taus(doas, mics, fs, c=343.0):
     >>> doas = sphere()
     >>> taus = doas2taus(doas, mics, fs)
     """
-
     taus = (fs / c) * torch.matmul(doas.to(mics.device), mics.transpose(0, 1))
 
     return taus
 
 
 def tdoas2taus(tdoas):
-    """ This function selects the tdoas of each channel and put them
+    """This function selects the tdoas of each channel and put them
     in a tensor. The result has the following format:
     (batch, time_steps, n_mics).
 
-    Arguments:
-    ----------
-    tdoas : tensor
+    Arguments
+    ---------
+    tdoas : Tensor
        The time difference of arrival (TDOA) (in samples) for
        each timestamp. The tensor has the format
        (batch, time_steps, n_mics + n_pairs).
+
+    Returns
+    -------
+    taus : Tensor
 
     Example
     -------
@@ -1306,7 +1357,6 @@ def tdoas2taus(tdoas):
     >>> tdoas = gccphat(XXs)
     >>> taus = tdoas2taus(tdoas)
     """
-
     n_pairs = tdoas.shape[len(tdoas.shape) - 1]
     n_channels = int(((1 + 8 * n_pairs) ** 0.5 - 1) / 2)
     taus = tdoas[..., range(0, n_channels)]
@@ -1315,13 +1365,13 @@ def tdoas2taus(tdoas):
 
 
 def steering(taus, n_fft):
-    """ This function computes a steering vector by using the time differences
+    """This function computes a steering vector by using the time differences
     of arrival for each channel (in samples) and the number of bins (n_fft).
     The result has the following format: (batch, time_step, n_fft/2 + 1, 2, n_mics).
 
     Arguments:
     ----------
-    taus : tensor
+    taus : Tensor
         The time differences of arrival for each channel. The tensor must have
         the following format: (batch, time_steps, n_mics).
 
@@ -1356,7 +1406,6 @@ def steering(taus, n_fft):
     >>> taus = tdoas2taus(tdoas)
     >>> As = steering(taus, n_fft)
     """
-
     # Collecting useful numbers
     pi = 3.141592653589793
 
@@ -1381,7 +1430,7 @@ def steering(taus, n_fft):
 
 
 def sphere(levels_count=4):
-    """ This function generates cartesian coordinates (xyz) for a set
+    """This function generates cartesian coordinates (xyz) for a set
     of points forming a 3D sphere. The coordinates are expressed in
     meters and can be used as doas. The result has the format:
     (n_points, 3).
@@ -1399,13 +1448,17 @@ def sphere(levels_count=4):
             - ...
         By default, levels_count is set to 4.
 
+    Returns
+    -------
+    pts : Tensor
+        The list of xyz points in the sphere.
+
     Example
     -------
     >>> import torch
     >>> from speechbrain.processing.multi_mic import sphere
     >>> doas = sphere()
     """
-
     # Generate points at level 0
 
     h = (5.0 ** 0.5) / 5.0

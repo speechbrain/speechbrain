@@ -64,7 +64,6 @@ def read_rttm(rttm_file_path):
     rttm : list
         List containing rows of RTTM file.
     """
-
     rttm = []
     with open(rttm_file_path, "r") as f:
         for line in f:
@@ -85,7 +84,6 @@ def write_ders_file(ref_rttm, DER, out_der_file):
     out_der_file : str
         File to write the DERs.
     """
-
     rttm = read_rttm(ref_rttm)
     spkr_info = list(filter(lambda x: x.startswith("SPKR-INFO"), rttm))
 
@@ -119,7 +117,6 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
     out_csv_file : str
         Path of the output csv file.
     """
-
     out_csv_head = [full_diary_csv[0]]
     entry = []
     for row in full_diary_csv:
@@ -159,7 +156,6 @@ def is_overlapped(end1, start2):
     >>> diar.is_overlapped(5.5, 6.4)
     False
     """
-
     if start2 > end1:
         return False
     else:
@@ -191,7 +187,6 @@ def merge_ssegs_same_speaker(lol):
     >>> diar.merge_ssegs_same_speaker(lol)
     [['r1', 5.5, 11.0, 's1'], ['r1', 11.5, 13.0, 's2'], ['r1', 14.0, 15.0, 's2'], ['r1', 14.5, 15.0, 's1']]
     """
-
     new_lol = []
 
     # Start from the first sub-seg
@@ -244,7 +239,6 @@ def distribute_overlap(lol):
     >>> diar.distribute_overlap(lol)
     [['r1', 5.5, 8.5, 's1'], ['r1', 8.5, 11.0, 's2'], ['r1', 11.5, 12.5, 's2'], ['r1', 12.5, 15.0, 's1']]
     """
-
     new_lol = []
     sseg = lol[0]
 
@@ -308,7 +302,6 @@ def write_rttm(segs_list, out_rttm_file):
     out_rttm_file : str
         Path of the output RTTM file.
     """
-
     rttm = []
     rec_id = segs_list[0][0]
 
@@ -355,7 +348,6 @@ def _graph_connected_component(graph, node_id):
         An array of bool value indicating the indexes of the nodes belonging
         to the largest connected components of the given query node.
     """
-
     n_node = graph.shape[0]
     if sparse.issparse(graph):
         # speed up row-wise access to boolean connection mask
@@ -392,7 +384,6 @@ def _graph_is_connected(graph):
     is_connected : bool
         True means the graph is fully connected and False means not.
     """
-
     if sparse.isspmatrix(graph):
         # sparse graph, find all the connected components
         n_connected_components, _ = connected_components(graph)
@@ -422,7 +413,6 @@ def _set_diag(laplacian, value, norm_laplacian):
         An array of matrix in a form that is well suited to fast eigenvalue
         decomposition, depending on the bandwidth of the matrix.
     """
-
     n_nodes = laplacian.shape[0]
     # We need all entries in the diagonal to values
     # cspell:ignore arpack isspmatrix matvec tocoo todia tocsr
@@ -463,7 +453,6 @@ def _deterministic_vector_sign_flip(u):
     u_flipped : ndarray
         Array with the sign flipped vectors as its rows. The same shape as `u`.
     """
-
     max_abs_rows = np.argmax(np.abs(u), axis=1)
     signs = np.sign(u[range(u.shape[0]), max_abs_rows])
     u *= signs[:, np.newaxis]
@@ -480,8 +469,11 @@ def _check_random_state(seed):
         If seed is an int, return a new RandomState instance seeded with seed.
         If seed is already a RandomState instance, return it.
         Otherwise raise ValueError.
-    """
 
+    Returns
+    -------
+    np.random.RandomState
+    """
     if seed is None or seed is np.random:
         return np.random.mtrand._rand
     if isinstance(seed, numbers.Integral):
@@ -508,6 +500,10 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     spkr_info : list
         Header of the RTTM file. Starting with `SPKR-INFO`.
 
+    Returns
+    -------
+    num_spkrs : int
+
     Example
     -------
     >>> from speechbrain.processing import diarization as diar
@@ -523,7 +519,6 @@ def get_oracle_num_spkrs(rec_id, spkr_info):
     >>> diar.get_oracle_num_spkrs('ES2011b', spkr_info)
     3
     """
-
     num_spkrs = 0
     for line in spkr_info:
         if rec_id in line:
@@ -583,7 +578,6 @@ def spectral_embedding_sb(
      [-0.198 -0.084 -0.122]
      [-0.167 -0.044  0.316]]
     """
-
     # Whether to drop the first eigenvector
     if drop_first:
         n_components = n_components + 1
@@ -633,7 +627,7 @@ def spectral_clustering_sb(
         Number of components to retain while estimating spectral embeddings.
     random_state : int
         A pseudo random number generator used by kmeans.
-     n_init : int
+    n_init : int
         Number of time the k-means algorithm will be run with different centroid seeds.
 
     Returns
@@ -658,7 +652,6 @@ def spectral_clustering_sb(
     >>> labs = diar.spectral_clustering_sb(affinity, 3)
     >>> # print (labs) # [2 2 2 1 1 1 0 0 0 0]
     """
-
     random_state = _check_random_state(random_state)
     n_components = n_clusters if n_components is None else n_components
 
@@ -687,11 +680,14 @@ class Spec_Cluster(SpectralClustering):
         n_neighbors : int
             Number of neighbors in estimating affinity matrix.
 
+        Returns
+        -------
+        Spec_Cluster
+
         Reference
         ---------
         https://github.com/scikit-learn/scikit-learn/blob/0fb307bf3/sklearn/cluster/_spectral.py
         """
-
         # Computation of affinity matrix
         connectivity = kneighbors_graph(
             X, n_neighbors=n_neighbors, include_self=True,
@@ -712,6 +708,13 @@ class Spec_Clust_unorm:
     """
     This class implements the spectral clustering with unnormalized affinity matrix.
     Useful when affinity matrix is based on cosine similarities.
+
+    Arguments
+    ---------
+    min_num_spkrs : int
+        Minimum number of expected speakers.
+    max_num_spkrs : int
+        Maximum number of expected speakers.
 
     Reference
     ---------
@@ -794,7 +797,6 @@ class Spec_Clust_unorm:
         p_val : float
             p percent value to prune the affinity matrix.
         """
-
         # Similarity matrix computation
         sim_mat = self.get_sim_mat(X)
 
@@ -828,7 +830,6 @@ class Spec_Clust_unorm:
             (n_samples, n_samples).
             Similarity matrix with cosine similarities between each pair of embedding.
         """
-
         # Cosine similarities
         M = sklearn.metrics.pairwise.cosine_similarity(X, X)
         return M
@@ -850,7 +851,6 @@ class Spec_Clust_unorm:
             (n_samples, n_samples).
             pruned affinity matrix based on p_val.
         """
-
         n_elems = int((1 - pval) * A.shape[0])
 
         # For each row in a affinity matrix
@@ -878,7 +878,6 @@ class Spec_Clust_unorm:
             (n_samples, n_samples)
             Laplacian matrix.
         """
-
         M[np.diag_indices(M.shape[0])] = 0
         D = np.sum(np.abs(M), axis=1)
         D = np.diag(D)
@@ -905,7 +904,6 @@ class Spec_Clust_unorm:
             Estimated number of speakers. If the condition is set to the oracle
             number of speakers then returns k_oracle.
         """
-
         lambdas, eig_vecs = scipy.linalg.eigh(L)
 
         # if params["oracle_n_spkrs"] is True:
@@ -940,11 +938,6 @@ class Spec_Clust_unorm:
             Spectral embedding for each sample with n Eigen components.
         k : int
             Number of clusters to kmeans.
-
-        Returns
-        -------
-        self.labels_ : self
-            Labels for each sample embedding.
         """
         _, self.labels_, _ = k_means(emb, k)
 
@@ -961,7 +954,6 @@ class Spec_Clust_unorm:
         eig_vals_gap_list : list
             List of differences (gaps) between adjacent Eigen values.
         """
-
         eig_vals_gap_list = []
         for i in range(len(eig_vals) - 1):
             gap = float(eig_vals[i + 1]) - float(eig_vals[i])
@@ -994,8 +986,9 @@ def do_spec_clustering(
         `pval` for pruning affinity matrix.
     affinity_type : str
         Type of similarity to be used to get affinity matrix (cos or nn).
+    n_neighbors : int
+        Number of neighbors to use for clustering
     """
-
     if affinity_type == "cos":
         clust_obj = Spec_Clust_unorm(min_num_spkrs=2, max_num_spkrs=10)
         k_oracle = k  # use it only when oracle num of speakers
@@ -1056,14 +1049,13 @@ def do_kmeans_clustering(
         Path of the output RTTM file.
     rec_id : str
         Recording ID for the recording under processing.
-    k : int
+    k_oracle : int
         Number of speaker (None, if it has to be estimated).
-    pval : float
+    p_val : float
         `pval` for pruning affinity matrix. Used only when number of speakers
         are unknown. Note that this is just for experiment. Prefer Spectral clustering
         for better clustering results.
     """
-
     if k_oracle is not None:
         num_of_spk = k_oracle
     else:
@@ -1135,14 +1127,13 @@ def do_AHC(diary_obj, out_rttm_file, rec_id, k_oracle=4, p_val=0.3):
         Path of the output RTTM file.
     rec_id : str
         Recording ID for the recording under processing.
-    k : int
+    k_oracle : int
         Number of speaker (None, if it has to be estimated).
-    pval : float
+    p_val : float
         `pval` for pruning affinity matrix. Used only when number of speakers
         are unknown. Note that this is just for experiment. Prefer Spectral clustering
         for better clustering results.
     """
-
     from sklearn.cluster import AgglomerativeClustering
 
     # p_val is the threshold_val (for AHC)
