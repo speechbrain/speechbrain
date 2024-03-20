@@ -46,6 +46,7 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
         self.ids = []
         self.predictions = []
         self.targets = []
+        self.scores = []
         self.summary = {}
 
     def append(self, ids, predictions, targets):
@@ -82,6 +83,7 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
         semdist_sum = 0.0
 
         for chunk_idx in range(0, len(self.predictions), self.batch_size):
+            ids = self.ids[chunk_idx : chunk_idx + self.batch_size]
             ref_text = self.targets[chunk_idx : chunk_idx + self.batch_size]
             hyp_text = self.predictions[chunk_idx : chunk_idx + self.batch_size]
 
@@ -91,9 +93,17 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
             similarity = torch.nn.functional.cosine_similarity(
                 ref_emb, hyp_emb, dim=-1
             )
-            semdist_sum += (1.0 - similarity).sum() * self.scale
+            chunk_semdist = (1.0 - similarity) * self.scale
 
-        semdist = semdist_sum / len(self.predictions)
+            for i, utt_id in enumerate(ids):
+                self.scores.append({
+                    "key": utt_id,
+                    "semdist": chunk_semdist[i].item(),
+                })
+
+            semdist_sum += chunk_semdist.sum()
+
+        semdist = (semdist_sum / len(self.predictions)).item()
         self.summary["semdist"] = semdist
 
 
