@@ -64,6 +64,10 @@ class SentencePiece:
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     eos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    pad_id : int
+        If -1 the pad_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    unk_id : int
+        The token corresponding to an unknown symbol (not in token set).
     split_by_whitespace : bool
         If False, allow the sentencepiece to extract piece crossing multiple
         words. This feature is important for : Chinese/Japanese/Korean.
@@ -79,9 +83,9 @@ class SentencePiece:
     text_file: str
         An alternate path to the text file (needed when multiple models are trained on
         the same data file)
-
     add_dummy_prefix : bool
         If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
+
     Example
     -------
     >>> import torch
@@ -317,9 +321,10 @@ class SentencePiece:
 
     def _check_coverage_from_bpe(self, list_annotation_files=[]):
         """Logging the accuracy of the BPE model to recover words from the training text.
+
         Arguments
         ---------
-        annotation_list_to_check : list,
+        list_annotation_files : list,
             List of the annotation file which is used for checking the accuracy of recovering words from the tokenizer.
         """
         for annotation_file in list_annotation_files:
@@ -529,8 +534,8 @@ def spm_decode_preserve_leading_space(
     -------
     str
         Decoded text. Leading spaces are preserved, except at the start of a
-        transcription."""
-
+        transcription.
+    """
     proto = tokenizer.decode([hyps], out_type="immutable_proto")[0]
     text = proto.text
 
