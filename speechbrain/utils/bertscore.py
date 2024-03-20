@@ -101,6 +101,7 @@ class BERTScoreStats(MetricStats):
         self.ids = []
         self.predictions = []
         self.targets = []
+        self.scores = []
         self.summary = {}
 
     def append(self, ids, predictions, targets):
@@ -165,6 +166,7 @@ class BERTScoreStats(MetricStats):
         precision_sum = precision_weight = 0.0
 
         for chunk_idx in range(0, len(self.predictions), self.batch_size):
+            ids = self.ids[chunk_idx : chunk_idx + self.batch_size]
             ref_text = self.targets[chunk_idx : chunk_idx + self.batch_size]
             hyp_text = self.predictions[chunk_idx : chunk_idx + self.batch_size]
 
@@ -209,20 +211,28 @@ class BERTScoreStats(MetricStats):
             recall_weights[~ref_mask] = 0.0
             precision_weights[~hyp_mask] = 0.0
 
-            batch_recall = (recall_values * recall_weights).sum()
-            batch_precision = (precision_values * precision_weights).sum()
+            batch_recall = recall_values * recall_weights
+            batch_precision = precision_values * precision_weights
+
+            for i, utt_id in enumerate(ids):
+                # TODO: optionally provide a token->token map
+                self.scores.append({
+                    "key": utt_id,
+                    "recall": (batch_recall[i].sum() / recall_weights[i].sum()).item(),
+                    "precision": (batch_precision[i].sum() / precision_weights[i].sum()).item(),
+                })
 
             if self.sentence_level_averaging:
-                recall_sum += batch_recall / recall_weights.sum()
+                recall_sum += batch_recall.sum() / recall_weights.sum()
                 recall_weight += 1.0
 
-                precision_sum += batch_precision / precision_weights.sum()
+                precision_sum += batch_precision.sum() / precision_weights.sum()
                 precision_weight += 1.0
             else:
-                recall_sum += batch_recall
+                recall_sum += batch_recall.sum()
                 recall_weight += recall_weights.sum()
 
-                precision_sum += batch_precision
+                precision_sum += batch_precision.sum()
                 precision_weight += precision_weights.sum()
 
         recall = recall_sum / recall_weight
@@ -329,21 +339,23 @@ def get_bertscore_token_weights(
 
     max_idx = max(tokenizer.get_vocab().values())
 
-    if corpus is not None:
-        freq_dict = defaultdict(lambda: 0)
+    if corpus is None:
+        return torch.ones((max_idx,))
+    
+    freq_dict = defaultdict(lambda: 0)
 
-        for document_idx, document in enumerate(corpus):
-            tokens = tokenizer(document)["input_ids"]
-            unique_words = set(tokens)
+    for document_idx, document in enumerate(corpus):
+        tokens = tokenizer(document)["input_ids"]
+        unique_words = set(tokens)
 
-            for unique_word in unique_words:
-                freq_dict[unique_word] += 1
+        for unique_word in unique_words:
+            freq_dict[unique_word] += 1
 
-        document_count = document_idx + 1
+    document_count = document_idx + 1
 
-        weights = [
-            math.log(document_count / (freq_dict[token_id] + 1))
-            for token_id in range(max_idx + 1)
-        ]
+    weights = [
+        math.log((document_count + 1) / (freq_dict[token_id] + 1))
+        for token_id in range(max_idx + 1)
+    ]
 
     return torch.tensor(weights)
