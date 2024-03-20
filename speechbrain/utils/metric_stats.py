@@ -444,10 +444,10 @@ class WeightedErrorRateStats(MetricStats):
         weighted_edits = (
             weighted_insertions + weighted_substitutions + weighted_deletions
         )
-        wwer_ratio = weighted_edits / total
+        weighted_wer_ratio = weighted_edits / total
 
         self.summary = {
-            f"{self.weight_name}_wer": wwer_ratio * 100.0,
+            f"{self.weight_name}_wer": weighted_wer_ratio * 100.0,
             f"{self.weight_name}_insertions": weighted_insertions,
             f"{self.weight_name}_substitutions": weighted_substitutions,
             f"{self.weight_name}_deletions": weighted_deletions,

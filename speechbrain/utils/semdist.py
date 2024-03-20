@@ -5,7 +5,7 @@ Authors
 """
 
 from speechbrain.utils.metric_stats import MetricStats
-from typing import Literal, Callable, Union, List
+from typing import Literal, Callable, List
 import torch
 
 
@@ -30,7 +30,12 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
         default is `1000`, in order to match the authors' recommendation.
     """
 
-    def __init__(self, embed_function : Callable[[List[str]], torch.Tensor], scale: float = 1000.0, batch_size: int = 64):
+    def __init__(
+        self,
+        embed_function: Callable[[List[str]], torch.Tensor],
+        scale: float = 1000.0,
+        batch_size: int = 64,
+    ):
         self.clear()
         self.embed_function = embed_function
         self.scale = scale
@@ -83,10 +88,9 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
             ref_emb = self.embed_function(ref_text)
             hyp_emb = self.embed_function(hyp_text)
 
-            print(ref_emb.shape, hyp_emb.shape)
-
-            similarity = torch.nn.functional.cosine_similarity(ref_emb, hyp_emb, dim=-1)
-            print(similarity)
+            similarity = torch.nn.functional.cosine_similarity(
+                ref_emb, hyp_emb, dim=-1
+            )
             semdist_sum += (1.0 - similarity).sum() * self.scale
 
         semdist = semdist_sum / len(self.predictions)
@@ -96,7 +100,7 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
 class SemDistStats(BaseSemDistStats):
     """Computes the SemDist metric with a provided HuggingFace Transformers
     tokenizer and LM.
-    
+
     Arguments
     ---------
     model : transformers.AutoModelForTextEncoding
@@ -114,7 +118,14 @@ class SemDistStats(BaseSemDistStats):
     **kwargs
         Extra keyword arguments passed to the base constructor."""
 
-    def __init__(self, lm, tokenizer, method : Literal["meanpool", "cls"] = "meanpool", *args, **kwargs):
+    def __init__(
+        self,
+        lm,
+        tokenizer,
+        method: Literal["meanpool", "cls"] = "meanpool",
+        *args,
+        **kwargs,
+    ):
         super().__init__(embed_function=self._embed, *args, **kwargs)
         self.lm = lm
         self.tokenizer = tokenizer
@@ -130,8 +141,10 @@ class SemDistStats(BaseSemDistStats):
         hidden = self.lm(**tokens).last_hidden_state.cpu()
 
         if self.method == "meanpool":
-            masked_hidden = (hidden * mask.unsqueeze(-1))
+            masked_hidden = hidden * mask.unsqueeze(-1)
             nonmasked_counts = torch.sum(mask, dim=-1)  # shape: [batch_size]
-            return torch.sum(masked_hidden, dim=-2) / nonmasked_counts.unsqueeze(-1)
+            return torch.sum(
+                masked_hidden, dim=-2
+            ) / nonmasked_counts.unsqueeze(-1)
         elif self.method == "cls":
             return hidden[:, 0, :]  # the first token
