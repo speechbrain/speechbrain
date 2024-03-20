@@ -2049,7 +2049,7 @@ class RescorerBuilder:
     def move_rescorers_to_device(self, device=None):
         """Moves rescorers to device.
 
-        Usefull to avoid having on GPU rescorers while being
+        Useful to avoid having on GPU rescorers while being
         on TRAIN and VALID Stages.
 
         Arguments

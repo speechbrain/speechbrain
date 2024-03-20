@@ -99,7 +99,7 @@ class WeightedSSLModel(HFTransformersInterface):
 
         Returns
         -------
-        Overridded config
+        Overridden config
         """
         config.output_hidden_states = True
         return config

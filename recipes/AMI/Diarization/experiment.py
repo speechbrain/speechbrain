@@ -267,7 +267,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
             if params["affinity"] == "nn":
-                # Num of speakers tunned on dev set (only for nn affinity).
+                # Num of speakers tuned on dev set (only for nn affinity).
                 num_spkrs = n_lambdas
             else:
                 # Num of speakers will be estimated using max eigen gap for cos based affinity.
@@ -348,7 +348,7 @@ def dev_pval_tuner(full_meta, split_type):
             # p_val is needed in oracle_n_spkr=False when using kmeans backend.
             break
 
-    # Take p_val that gave minmum DER on Dev dataset.
+    # Take p_val that gave minimum DER on Dev dataset.
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
@@ -383,7 +383,7 @@ def dev_ahc_threshold_tuner(full_meta, split_type):
         if params["oracle_n_spkrs"] is True:
             break  # no need of threshold search.
 
-    # Take p_val that gave minmum DER on Dev dataset.
+    # Take p_val that gave minimum DER on Dev dataset.
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
@@ -429,7 +429,7 @@ def dev_nn_tuner(full_meta, split_type):
 
 def dev_tuner(full_meta, split_type):
     """Tuning n_components on dev set. Used for nn based affinity matrix.
-    Note: This is a very basic tunning for nn based affinity.
+    Note: This is a very basic tuning for nn based affinity.
     This is work in progress till we find a better way.
     """
 
@@ -453,7 +453,7 @@ def dev_tuner(full_meta, split_type):
 
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER.
+    # Take n_lambdas with minimum DER.
     tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
 
     return tuned_n_lambdas

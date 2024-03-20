@@ -387,7 +387,7 @@ class StatObject_SB:
 
 
 def diff(list1, list2):
-    """Difference beteween lists."""
+    """Difference between lists."""
     c = [item for item in list1 if item not in list2]
     c.sort()
     return c

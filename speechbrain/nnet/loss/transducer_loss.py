@@ -34,7 +34,7 @@ try:
         warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
     else:
         logger.info(
-            "Numba verbose is enabled. To desactivate it, set NUMBA_VERBOSE to 0."
+            "Numba verbose is enabled. To deactivate it, set NUMBA_VERBOSE to 0."
         )
 
 except ImportError:

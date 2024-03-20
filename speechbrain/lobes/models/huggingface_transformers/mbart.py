@@ -195,7 +195,7 @@ class mBART(HFTransformersInterface):
 
         Returns
         -------
-        Overridded config
+        Overridden config
         """
         config.decoder_layerdrop = 0.05
         return config

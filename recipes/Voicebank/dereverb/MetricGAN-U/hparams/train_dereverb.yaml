@@ -24,7 +24,7 @@ historical_file: !ref <output_folder>/historical.txt
 use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 
-# FFT paremeters
+# FFT parameters
 Sample_rate: 16000
 Win_length: 32
 Hop_length: 16

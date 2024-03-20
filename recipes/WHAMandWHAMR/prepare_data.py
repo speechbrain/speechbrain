@@ -2,7 +2,7 @@
 Author
  * Cem Subakan 2020
 
-The .csv preperation functions for WSJ0-Mix.
+The .csv preparation functions for WSJ0-Mix.
 """
 
 import os

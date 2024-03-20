@@ -23,7 +23,7 @@ train_log: !ref <output_folder>/train_log.txt
 data_folder: !PLACEHOLDER  # e.g. /path/to/LibriParty
 
 # Openrir Dataset for augmentation
-data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
 noise_csv_openrir: !ref <save_folder>/noise_openrir.csv #The data manifest files are created by the data preparation script
 

@@ -13,3 +13,6 @@ exclude = '''
   )/
 )
 '''
+
+[tool.codespell]
+skip = "./tests/tmp,./**/results,./**/data,*.csv"

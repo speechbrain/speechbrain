@@ -152,6 +152,7 @@ vWeight
 wDay
 wGap
 whamr
+whats
 Wmax
 xAxis
 xHat
@@ -191,6 +192,7 @@ aiox
 alffa
 alived
 annot
+ans
 arpa
 arpack
 arxiv
@@ -222,6 +224,7 @@ cfgs
 chans
 cheby
 cheybyshev
+childs
 chkarada
 chnl
 chnls
@@ -307,6 +310,7 @@ Diarizing
 dictify
 diDataset
 didatasets
+didnt
 disambig
 discretized
 discretizes
@@ -356,8 +360,11 @@ finv
 fitzooth
 flac
 fltp
+fo
 foos
+fpr
 freqs
+fro
 fromx
 fsa's
 fsas
@@ -517,6 +524,7 @@ nbest
 nbin
 nccl
 ncor
+nd
 ndarray
 ndim
 ndims
@@ -556,6 +564,7 @@ nvvm
 nwerr
 NYU's
 oemax
+oen
 Omniglot
 onnxruntime
 onwsj
@@ -563,6 +572,7 @@ openfst
 openrir
 optim
 osama
+ot
 ovrl
 paedophiles
 parametrizations
@@ -678,6 +688,7 @@ sents
 septillionths
 seqlm
 seqs
+ser
 sers
 sess
 setu
@@ -699,6 +710,7 @@ snrlevels
 snrs
 snts
 soxi
+specif
 spectr
 sphs
 spkid
@@ -707,6 +719,7 @@ spkrdata
 spkrec
 spkrs
 spks
+splitted
 srate
 srmr
 srmrpy
@@ -741,6 +754,8 @@ tdoa
 tdoas
 tdur
 texthvc
+thats
+theyre
 tids
 timit
 tjoint
@@ -825,6 +840,7 @@ xlsr
 xmls
 xponent
 yamls
+youre
 ӿéæœâçèàûî
 
 ####### Names #######
@@ -1167,3 +1183,4 @@ Politecnica
 quelques
 Université
 Università
+vie

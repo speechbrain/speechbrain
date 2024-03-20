@@ -710,7 +710,7 @@ def remove_labels(transcription: str):
     transcription = re.sub(r"<foreign langenglishonline", "", transcription)
     transcription = re.sub(r"<foreign langenglish", "", transcription)
     transcription = re.sub(r"</foreign", "", transcription)
-    transcription = re.sub(r"<[/]?foreing\s*\w*>", "", transcription)
+    transcription = re.sub(r"<[/]?foreign\s*\w*>", "", transcription)
     transcription = re.sub(r"</b", "", transcription)
     transcription = re.sub(r"<foreign langengullís>", "", transcription)
     transcription = re.sub(r"foreign>", "", transcription)

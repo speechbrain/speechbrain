@@ -20,7 +20,7 @@ NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.z
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/aishell
-data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 skip_prep: False
 remove_compressed_wavs: False
 ckpt_interval_minutes: 15 # save checkpoint every N min

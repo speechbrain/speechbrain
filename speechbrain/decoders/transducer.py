@@ -32,7 +32,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         This module perform the joint between TN and PN.
     classifier_network : list
         List of output layers (after performing joint between TN and PN)
-        exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
+        exp: (TN,PN) => joint => classifier_network_list [DNN block, Linear..] => chars prob
     blank_id : int
         The blank symbol/index.
     beam : int
@@ -584,7 +584,7 @@ class TransducerBeamSearcher(torch.nn.Module):
             [batch, target_len, time_len, hiddens]
         classifier_network : list
             List of output layers (after performing joint between TN and PN)
-            exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
+            exp: (TN,PN) => joint => classifier_network_list [DNN block, Linear..] => chars prob
 
         Returns
         -------

@@ -570,7 +570,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             do unconditional generation if True, else do conditional generation
         scale: int
             scale to get the final output wave length
-            for conditional genration, the output wave length is scale * condition.shape[-1]
+            for conditional generation, the output wave length is scale * condition.shape[-1]
             for example, if the condition is spectrogram (bs, n_mel, time), scale should be hop length
             for unconditional generation, scale should be the desired audio length
         condition: torch.Tensor

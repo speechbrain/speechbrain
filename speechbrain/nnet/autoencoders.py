@@ -171,7 +171,7 @@ class VariationalAutoencoder(Autoencoder):
     torch.Size([4, 10, 16])
 
     .encode() will return the mean corresponding
-    to teh sample provided
+    to the sample provided
 
     >>> x_enc = vae.encode(x)
     >>> x_enc.shape

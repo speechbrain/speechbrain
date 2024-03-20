@@ -1155,7 +1155,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
     added to the general score, and each beams that share the same text are
     merged together.
 
-    The implementation suppors n-gram scoring on words and SentencePiece tokens. The input
+    The implementation supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     The main advantage of this CTCBeamSearcher over the CTCPrefixBeamSearcher is that it is
@@ -1493,7 +1493,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873).
 
     The implementation keep tracks of the blank and non-blank probabilities.
-    It also suppors n-gram scoring on words and SentencePiece tokens. The input
+    It also supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     Several heuristics are implemented to speed up the decoding process:

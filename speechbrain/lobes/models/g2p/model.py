@@ -38,7 +38,7 @@ class AttentionSeq2Seq(nn.Module):
     use_word_emb: bool
         whether or not to use word embedding
     bos_token: int
-        the index of teh Beginning-of-Sentence token
+        the index of the Beginning-of-Sentence token
     word_emb_enc: nn.Module
         a module to encode word embeddings
 

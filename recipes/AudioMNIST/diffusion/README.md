@@ -1,5 +1,5 @@
 # Denoising Diffusion Probabilistic Model
-This folder contrains scripts for running a Denoising Diffusion Probabilistic Model
+This folder contains scripts for running a Denoising Diffusion Probabilistic Model
 generative model with the [AudioMNIST](https://huggingface.co/datasets/flexthink/audiomnist) dataset, which contains recordings
 of spoken English digits in a variety of voices and accents.
 

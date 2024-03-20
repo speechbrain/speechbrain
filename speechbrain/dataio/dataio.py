@@ -192,7 +192,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
         # Additionally, certain affected versions of torchaudio fail to
         # autodetect mp3.
         # HACK: here, we check for the file extension to force mp3 detection,
-        # which prevents an error from occuring in torchaudio.
+        # which prevents an error from occurring in torchaudio.
         info = torchaudio.info(path, format="mp3")
     else:
         info = torchaudio.info(path)

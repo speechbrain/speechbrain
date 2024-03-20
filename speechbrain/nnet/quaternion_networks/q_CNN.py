@@ -569,7 +569,7 @@ class QConv2d(torch.nn.Module):
         dilation: Tuple[int, int],
         stride: Tuple[int, int],
     ):
-        """This function performs zero-padding on the time and frequency axises
+        """This function performs zero-padding on the time and frequency axes
         such that their lengths is unchanged after the convolution.
 
         Arguments
