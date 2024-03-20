@@ -1,4 +1,4 @@
-"""Provides a function to compute the BERTscore metric.
+"""Provides a metrics class for the BERTscore metric.
 
 Authors
 * Sylvain de Langen 2024
