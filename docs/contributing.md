@@ -113,7 +113,7 @@ and where the implemented algorithm needs clarification.
 - Automatically run cspell
 - NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with black), these changes are not automatically added and committed. You’ll have to add the fixed files again and run the commit again. I guess this is a safeguard: don’t blindly accept changes from git hooks.
 - NOTE2: The hooks are only run on the files you git added to the commit. This is in contrast to the CI pipeline, which always tests everything.
-- NOTE3: If a word is not present in the dictionary, you can either add the word to `.dict-speechbrain.txt` or you can ignore the word by adding a comment `# cspell: ignore <word>`
+- NOTE3: If a word is flagged as a spelling error but it should be kept, you can add the word to `.dict-speechbrain.txt`
 
 ### the git pre-push hooks
 - Black and flake8 as checks on the whole repo
