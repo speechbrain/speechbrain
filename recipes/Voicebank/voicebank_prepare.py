@@ -59,6 +59,7 @@ TRAIN_SPEAKERS = [
     "p286",
 ]
 # Lexicon missing entries
+# cspell:disable
 MISSING_LEXICON = {
     "CRUCIALLY": "K R UW SH AH L IY",
     "PAEDOPHILES": "P EH D OW F AY L S",
@@ -150,6 +151,7 @@ MISSING_LEXICON = {
     "HELPLINE": "HH EH L P L AY N",
     "CLEARCUT": "K L IY R K UH T",
 }
+# cspell:enable
 
 
 def prepare_voicebank(
@@ -180,7 +182,7 @@ def prepare_voicebank(
     """
     if skip_prep:
         return
-    # Setting ouput files
+    # Setting output files
     save_json_train = os.path.join(save_folder, TRAIN_JSON)
     save_json_valid = os.path.join(save_folder, VALID_JSON)
     save_json_test = os.path.join(save_folder, TEST_JSON)

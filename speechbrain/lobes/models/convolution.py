@@ -1,4 +1,4 @@
-"""This is a module to ensemble a convolution (depthwise) encoder with or without residule connection.
+"""This is a module to ensemble a convolution (depthwise) encoder with or without residual connection.
 
 Authors
  * Jianyuan Zhong 2020

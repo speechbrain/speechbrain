@@ -13,7 +13,7 @@ from speechbrain.dataio.batch import PaddedBatch
 
 @dataclass(order=True)
 class LengthItem:
-    """ Data class for lenghts"""
+    """ Data class for lengths"""
 
     length: int
     data: Any = field(compare=False)
@@ -64,7 +64,7 @@ def indices_around_random_pivot(
         Target of total batch length including padding, which is simply computed
         as batch size * length of longest example. This function aims to return
         the batch as soon as the gathered length exceeds this. If some limits
-        are encountered first, this may not be satisifed.
+        are encountered first, this may not be satisfied.
     max_batch_size : None, int
         Maximum number of examples to include in the batch, or None to not limit
         by number of examples.

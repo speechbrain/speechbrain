@@ -107,7 +107,7 @@ def prepare_dvoice(
         dev.to_csv(f"{data_folder}/dev.csv", index=False, sep="\t")
         test.to_csv(f"{data_folder}/test.csv", index=False, sep="\t")
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
     save_csv_test = save_folder + "/test.csv"
@@ -389,7 +389,7 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
+                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"  # cspell:disable-line
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE

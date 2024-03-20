@@ -18,7 +18,7 @@ data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augm
 data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 audio_data_folder: !ref <data_folder>/audio
 # TODO the follwing folder will contain the resampled audio files (mono channel and config SR) to train on
-#reasmpled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
+# resampled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
 output_folder: !ref ./results/urban_sound/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt

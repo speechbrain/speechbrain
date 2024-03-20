@@ -42,7 +42,7 @@ class BaseScorerInterface:
 
     def score(self, inp_tokens, memory, candidates, attn):
         """This method scores the new beams based on the
-        informations of the current timestep.
+        information of the current timestep.
 
         A score is a tensor of shape (batch_size x beam_size, vocab_size).
         It is the log probability of the next token given the current
@@ -1316,7 +1316,7 @@ class RNNLMRescorer(BaseRescorerInterface):
 
     NOTE
     ----
-    This class is intented to be used with a pretrained TransformerLM model.
+    This class is intended to be used with a pretrained TransformerLM model.
     Please see: https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech
 
     By default, this model is using SentencePiece tokenizer.
@@ -1546,7 +1546,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
     NOTE
     ----
-    This class is intented to be used with a pretrained TransformerLM model.
+    This class is intended to be used with a pretrained TransformerLM model.
     Please see: https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
 
     By default, this model is using SentencePiece tokenizer.
@@ -1857,7 +1857,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         normalized_text : str
             The normalized text.
             In this case we do not apply any normalization. However, this method
-            can be overriden to apply any normalization.
+            can be overridden to apply any normalization.
         """
         return text
 
@@ -1940,7 +1940,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
 class RescorerBuilder:
     """ Builds rescorer instance for beamsearch.
 
-    The RecorerBuilder class is responsible for building a scorer instance for
+    The RescorerBuilder class is responsible for building a scorer instance for
     beam search. It takes weights and rescorers classes. It combines the scorers based
     on the weights specified and provides methods for rescoring text.
 

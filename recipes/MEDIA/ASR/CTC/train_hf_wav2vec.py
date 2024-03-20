@@ -17,7 +17,7 @@ different encoders, decoders, training tasks (Media , PortMedia),
 and many other possible variations.
 
 Authors
- * Gaelle Laperriere 2023
+ * Gaëlle Laperrière 2023
 """
 
 import sys
@@ -91,7 +91,7 @@ class ASR(sb.core.Brain):
         )
         self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
-        # Add opitmizers to checkpoint recoverables.
+        # Add optimizers to checkpoint recoverables.
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "optimizer_wav2vec", self.optimizer_wav2vec

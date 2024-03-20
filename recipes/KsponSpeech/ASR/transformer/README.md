@@ -13,7 +13,7 @@ This is set to huggingface repository as a default. Pretrained models will be do
 pretrained_lm_tokenizer_path: /path/to/pretrained/models
 ```
 
-Also, data_foler in the YAML file should point to the results of ksponspeech_prepare.py
+Also, data_folder in the YAML file should point to the results of ksponspeech_prepare.py
 ```YAML
 data_folder: /path/to/data/prep/results
 ```

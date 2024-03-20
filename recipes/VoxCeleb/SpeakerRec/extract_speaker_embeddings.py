@@ -121,7 +121,7 @@ if __name__ == "__main__":
     params["embedding_model"].eval()
     params["embedding_model"].to(run_opts["device"])
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         params["save_folder"], os.path.basename(params["verification_file"])
     )

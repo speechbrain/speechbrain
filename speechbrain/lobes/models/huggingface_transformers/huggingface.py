@@ -332,14 +332,14 @@ class HFTransformersInterface(nn.Module):
         raise NotImplementedError
 
     def encode(self, **kwargs):
-        """Customed encoding for inference
+        """Custom encoding for inference
         Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
     def freeze_model(self, model):
         """
         Freezes parameters of a model.
-        This should be overrided too, depending on users' needs, for example, adapters use.
+        This should be overridden too, depending on users' needs, for example, adapters use.
 
         Arguments
         ---------
@@ -356,7 +356,7 @@ class HFTransformersInterface(nn.Module):
         Arguments
         ---------
         config : HuggingFace config object
-            The orginal config.
+            The original config.
 
         Returns
         ---------

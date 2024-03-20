@@ -271,7 +271,7 @@ class ASR(sb.Brain):
             )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
+        """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
@@ -474,7 +474,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # We dynamicaly add the tokenizer to our brain class.
+    # We dynamically add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = hparams["tokenizer"]
     train_dataloader_opts = hparams["train_dataloader_opts"]

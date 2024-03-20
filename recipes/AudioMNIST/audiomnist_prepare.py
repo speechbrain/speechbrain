@@ -405,13 +405,13 @@ def convert_value(key, value, conversion_map):
     value: object
         the value
     conversion_map: dict
-        a dictinary with keys corresponding to keys in the original
+        a dictionary with keys corresponding to keys in the original
         dataset and conversion function as values
 
     Returns
     -------
     value: object
-        the converted value (or the original value if no conversin
+        the converted value (or the original value if no conversion
         function is found in the map)
     """
     conv_fn = conversion_map.get(key)
@@ -560,7 +560,9 @@ def get_item_id(file_name):
     """
     _, file_name = os.path.split(file_name)
     file_base_name = os.path.basename(file_name)
-    file_base_name_noext, _ = os.path.splitext(file_base_name)
+    file_base_name_noext, _ = os.path.splitext(
+        file_base_name
+    )  # cspell:ignore noext
     return file_base_name_noext
 
 
@@ -676,7 +678,7 @@ def convert_dataset(
         and the file list for the split corresponding to the
         key as the value
     json_files: dict
-        a dictionary containing the path where to store the data mafinest files
+        a dictionary containing the path where to store the data manifest files
         for each split
     lookup: dict
         the digit look-up
@@ -717,7 +719,7 @@ def trim_sig(sig, threshold):
     sig: torch.Tensor
         raw audio
     threshold: float
-        the decibel threhold
+        the decibel threshold
     """
     threshold_amp = math.pow(DB_BASE, threshold * DB_MULTIPLIER)
     sig = sig / sig.abs().max()
@@ -783,7 +785,7 @@ def read_digit_lookup(file_name):
     Returns
     -------
     result: dict
-        a dictionary simialr the following
+        a dictionary similar the following
         {
             "2": {
                 "char": "two",

@@ -157,7 +157,7 @@ class ASR(sb.core.Brain):
         return loss
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
+        """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(

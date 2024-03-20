@@ -14,9 +14,9 @@ output_folder: !ref results/train_with_wav2vec2/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# URL for the wav2vec2 model, you can change to benchmark diffrenet models
+# URL for the wav2vec2 model, you can change to benchmark different models
 # Important: we use wav2vec2 base and not the fine-tuned one with ASR task
-# This allow you to have ~4% improvment
+# This allow you to have ~4% improvement
 wav2vec2_hub: facebook/wav2vec2-base
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 

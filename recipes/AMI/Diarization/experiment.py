@@ -109,7 +109,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
         modelset = np.array(modelset, dtype="|O")
         segset = np.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0.
+        # Initialize variables for start, stop and stat0.
         s = np.array([None] * embeddings.shape[0])
         b = np.array([[1.0]] * embeddings.shape[0])
 
@@ -397,7 +397,7 @@ def dev_nn_tuner(full_meta, split_type):
     DER_list = []
     pval = None
 
-    # Now assumming oracle num of speakers.
+    # Now assuming oracle num of speakers.
     n_lambdas = 4
 
     for nn in range(5, 15):
@@ -511,7 +511,7 @@ if __name__ == "__main__":  # noqa: C901
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Dataset prep (peparing metadata files)
+    # Dataset prep (preparing metadata files)
     from ami_prepare import prepare_ami  # noqa
 
     if not params["skip_prep"]:

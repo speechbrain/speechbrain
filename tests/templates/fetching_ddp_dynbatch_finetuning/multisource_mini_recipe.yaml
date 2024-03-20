@@ -79,7 +79,7 @@ asr_model: !apply:speechbrain.inference.ASR.EncoderDecoderASR.from_hparams
             num_decoder_layers: 0
             d_ffn: 3072
             dropout: 0.0
-            # activation: !name:torch.nn.GELU  # seems to cause issues within ruaml
+            # activation: !name:torch.nn.GELU  # seems to cause issues within ruamel
             normalize_before: False
         pretrainer:
             paths:

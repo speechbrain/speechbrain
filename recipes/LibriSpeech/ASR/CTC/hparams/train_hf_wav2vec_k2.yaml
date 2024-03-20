@@ -82,7 +82,7 @@ lm_dir: !ref <output_folder>/lm
 #    If the arpa does not exist in the lm_dir, you'll need to train it yourself.
 #    Please see LibriSpeech/LM/README.md for instructions.
 # Using one of the above name will automatically download the corresponding model.
-# You can speciy a different name, but you'll need to make sure the file exists in the lm_dir.
+# You can specify a different name, but you'll need to make sure the file exists in the lm_dir.
 # Make sure to use enough RAM and CPUs as the conversion to FST can be quite demanding.
 G_arpa: 3-gram_sb.arpa
 G_rescoring_arpa: 4-gram_sb.arpa

@@ -1,4 +1,4 @@
-"""ResNet PreActived for speaker verification
+"""ResNet PreActivated for speaker verification
 
 Authors
  * Mickael Rouvier 2022
