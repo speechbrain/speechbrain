@@ -117,7 +117,7 @@ eos_index: 2
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 valid_search_interval: 10
-valid_beam_size: 10
+valid_beam_size: 1 # We do greedy here so it's faster to decode ...
 test_beam_size: 80
 ctc_weight_decode: 0.3
 scorer_beam_scale: 0.3
