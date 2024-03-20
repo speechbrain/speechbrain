@@ -35,7 +35,7 @@ trained with dynamic chunk training but decoding is offline.
 
 | Language | Hyperparams file | Train precision | Dev-clean Greedy | Test-clean Greedy | Model link | GPUs |
 |:-------------:|:---------------------------:|:-:| :------:| :-----------:| :------------------:| :------------------:|
-| English | conformer_transducer.yaml `streaming: True` | fp | 9.80 | 10.18 | |6x A40|
+| English | conformer_transducer.yaml `streaming: True` | fp16 | 9.80 | 10.18 | [Model link](https://www.dropbox.com/scl/fo/y2if76ut4xur5rg9sszj3/h?rlkey=y8wmip8bd06cb82vm2cvmfaz3&dl=0) |6x A40|
 
 
 # VoxPopuli streaming results
