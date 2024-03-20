@@ -57,7 +57,7 @@ def prepare_common_voice(
     language: str
         Specify the language for text normalization.
     convert_to_wav: bool
-        If True, mp3 files are convertated (duplicated) to .wav. Wav are much
+        If True, mp3 files are converted (duplicated) to .wav. Wav are much
         faster to read than MP3 so use this if your filesystem is slow!
         ffmpeg MUST be installed!
     skip_prep: bool
