@@ -91,7 +91,7 @@ def prepare_voxpopuli(
     # Setting the save folder
     os.makedirs(save_folder, exist_ok=True)
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
     save_csv_test = save_folder + "/test.csv"
@@ -159,7 +159,7 @@ class VPRow:
 
 def process_line(line, data_folder, language):
     """
-    Processes each line of the CSV (most likely hapening with multiple threads)
+    Processes each line of the CSV (most likely happening with multiple threads)
 
     Arguments
     ---------
@@ -342,7 +342,7 @@ def language_specific_preprocess(language, words):
     Arguments
     ---------
     language : str
-        Corresponds to the two letters for language-specficic sets
+        Corresponds to the two letters for language-specific sets
     words : str
         The string to be cleaned.
 
