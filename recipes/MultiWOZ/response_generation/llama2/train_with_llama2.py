@@ -227,7 +227,7 @@ def dataio_prep(hparams, tokenizer):
     #  Define histoy pipeline:
     @sb.utils.data_pipeline.takes("history")
     @sb.utils.data_pipeline.provides(
-        "prompts", "propmt_tokens_lists", "prompt_ids", "prompt_bos",
+        "prompts", "prompt_tokens_lists", "prompt_ids", "prompt_bos",
     )
     def history_pipeline(history):
         # add INST tokens to the history turns for turns associated with user.
@@ -245,10 +245,10 @@ def dataio_prep(hparams, tokenizer):
         yield prompts
 
         # encode each turn of the history
-        propmt_tokens_lists = [tokenizer.encode(turn) for turn in prompts]
-        yield propmt_tokens_lists
+        prompt_tokens_lists = [tokenizer.encode(turn) for turn in prompts]
+        yield prompt_tokens_lists
 
-        prompt_ids = propmt_tokens_lists[-history_window:]
+        prompt_ids = prompt_tokens_lists[-history_window:]
         # concatenate every token into a single list
         # list(chain(*[[1, 2], [3, 4], [5]]))
         # >>> [1, 2, 3, 4, 5]
@@ -298,7 +298,7 @@ def dataio_prep(hparams, tokenizer):
 
         # create the language model label (ground truth) for the current input
         # -100 is a special tokens that is ignored during the loss computation
-        # the idea is to mask everything except the reply (withouth the speaker token)
+        # the idea is to mask everything except the reply (without the speaker token)
         # N.B. we don't have bos in the input
         lm_labels = [hparams["ignore_index"]] * prompt_ids.shape[
             0

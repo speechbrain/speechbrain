@@ -213,7 +213,7 @@ def skip(splits, save_folder, conf):
     splits : list
         A list of the splits expected in the preparation.
     save_folder : str
-        The location of the seave directory
+        The location of the save directory
     conf : dict
         The configuration options to ensure they haven't changed.
 

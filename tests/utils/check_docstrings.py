@@ -1,4 +1,4 @@
-"""This library contains functions that checks the dosctrings
+"""This library contains functions that checks the docstrings
 
 Authors
  * Mirco Ravanelli 2022
@@ -65,7 +65,7 @@ def check_docstrings(
             continue
         print("Checking %s..." % (libpath))
 
-        # Support variable initalization
+        # Support variable initialization
         fun_name = libpath
         class_name = libpath
         check_line = True

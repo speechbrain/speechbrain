@@ -29,7 +29,7 @@ tokenizer_file: speechbrain/SLU-direct-SLURP-hubert-enc
 skip_prep: False
 
 
-# URL for the wav2vec2 model, you can change to benchmark diffrenet models
+# URL for the wav2vec2 model, you can change to benchmark different models
 wav2vec2_hub: "facebook/hubert-base-ls960"
 
 ####################### Training Parameters ####################################

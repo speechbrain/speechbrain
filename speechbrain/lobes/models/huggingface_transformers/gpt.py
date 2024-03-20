@@ -78,7 +78,7 @@ class GPT(HFTransformersInterface):
 
         if self.freeze:
             logger.warning("huggingface_GPT - GPT  is frozen.")
-            self.model.train()  # we keep it to train to have dropout and LN computed adequaly
+            self.model.train()  # we keep it to train to have dropout and LN computed adequately
             for param in self.model.parameters():
                 param.requires_grad = False
 
@@ -118,7 +118,7 @@ class GPT(HFTransformersInterface):
         input_ids : torch.Tensor ()
             A batch of input-id   which are dialogue context tokens
         decoder_type : Str
-            It shows strategy for autoregressive decoding either beam seach or greedy.
+            It shows strategy for autoregressive decoding either beam search or greedy.
         attention_mask : torch.Tensor ()
             A batch of attention_mask.
         """

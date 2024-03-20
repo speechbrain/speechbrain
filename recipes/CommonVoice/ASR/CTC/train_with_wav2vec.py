@@ -7,7 +7,7 @@ To run this recipe, do the following:
 > python train_with_wav2vec2.py hparams/train_with_wav2vec2.yaml
 
 With the default hyperparameters, the system employs a pretrained wav2vec2 encoder.
-The wav2vec2 model is pretrained following the model given in the hprams file.
+The wav2vec2 model is pretrained following the model given in the hparams file.
 It may be dependent on the language.
 
 The neural network is trained with CTC on sub-word units estimated with

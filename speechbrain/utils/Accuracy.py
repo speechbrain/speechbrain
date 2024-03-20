@@ -88,5 +88,5 @@ class AccuracyStats:
         self.total += denominator
 
     def summarize(self):
-        """Computes the accuract metric."""
+        """Computes the accuracy metric."""
         return self.correct / self.total

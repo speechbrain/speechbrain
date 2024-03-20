@@ -297,7 +297,7 @@ class ProgressSampleLogger:
         raw_batch={
             "inputs": inputs,
             "spectrogram_target": spectrogram_target,
-            "spectrogram_output": spectrorgram_outputu,
+            "spectrogram_output": spectrogram_output,
             "alignments": alignments_output
         }
     )
@@ -432,7 +432,7 @@ class ProgressSampleLogger:
 
 
 def plot_spectrogram(spectrogram, ap=None, fig_size=(16, 10), output_fig=False):
-    """Returns the matplotlib sprctrogram if available
+    """Returns the matplotlib spectrogram if available
     or None if it is not - optional dependency
     """
     try:

@@ -266,7 +266,7 @@ def get_reporter(mode, *args, **kwargs):
     Arguments
     ---------
     mode: str
-        a string identifier for a registered hyperparametr
+        a string identifier for a registered hyperparameter
         optimization mode, corresponding to a specific reporter
         instance
     *args: tuple
@@ -339,7 +339,7 @@ class HyperparameterOptimizationContext:
         optimization and reporting will be enabled.
 
         If the parameter value corresponds to a filename, it will
-        be read as a hyperpyaml file, and the contents will be added
+        be read as a hyperpyyaml file, and the contents will be added
         to "overrides". This is useful for cases where the values of
         certain hyperparameters are different during hyperparameter
         optimization vs during full training (e.g. number of epochs, saving

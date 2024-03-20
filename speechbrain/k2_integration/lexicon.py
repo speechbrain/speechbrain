@@ -29,8 +29,8 @@ import torch
 
 logger = logging.getLogger(__name__)
 
-UNK = "<UNK>"  # unknow word
-UNK_t = "<unk>"  # unknow token
+UNK = "<UNK>"  # unknown word
+UNK_t = "<unk>"  # unknown token
 EOW = "<eow>"  # end of word
 EPS = "<eps>"  # epsilon
 

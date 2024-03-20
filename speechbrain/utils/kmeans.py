@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def accumulate_and_extract_features(
     batch, features_list, ssl_model, ssl_layer_num, device
 ):
-    """Extract features (output of SSL model) and acculamte them on cpu to be used for clustering.
+    """Extract features (output of SSL model) and accumulate them on cpu to be used for clustering.
 
     Arguments
     ---------
@@ -124,14 +124,14 @@ def train(
     kmeans_batch_size=1000,
     device="cpu",
 ):
-    """Train a  Kmeans model .
+    """Train a Kmeans model .
 
     Arguments
     ---------
         model : MiniBatchKMeans
             The initial kmeans model for training.
         train_set : Dataloader
-            Batches of tarining data.
+            Batches of training data.
         ssl_model
             SSL-model used to  extract features used for clustering.
         ssl_layer_num : int

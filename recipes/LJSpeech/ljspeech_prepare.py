@@ -76,7 +76,7 @@ def prepare_ljspeech(
     pitch_hop_length : int
         Hop length for pitch computation
     pitch_min_f0 : int
-        Minimum f0 for pitch compuation
+        Minimum f0 for pitch computation
     pitch_max_f0 : int
         Max f0 for pitch computation
     skip_prep : bool
@@ -117,7 +117,7 @@ def prepare_ljspeech(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
+    # Setting output files
     meta_csv = os.path.join(data_folder, METADATA_CSV)
     wavs_folder = os.path.join(data_folder, WAVS)
 
@@ -131,8 +131,8 @@ def prepare_ljspeech(
     pitch_folder = None
     # Setting up additional folders required for FastSpeech2
     if model_name is not None and "FastSpeech2" in model_name:
-        # This step requires phoneme alignements to be present in the data_folder
-        # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
+        # This step requires phoneme alignments to be present in the data_folder
+        # We automatically download the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
         alignment_URL = (
             "https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip?dl=1"
@@ -141,7 +141,7 @@ def prepare_ljspeech(
             data_folder, "TextGrid", "LJSpeech"
         )
         download_file(
-            alignment_URL, data_folder + "/alligments.zip", unpack=True
+            alignment_URL, data_folder + "/alignments.zip", unpack=True
         )
 
         duration_folder = os.path.join(data_folder, "durations")
@@ -368,7 +368,7 @@ def prepare_json(
     pitch_hop_length : int
         Hop length for pitch computation
     pitch_min_f0 : int
-        Minimum f0 for pitch compuation
+        Minimum f0 for pitch computation
     pitch_max_f0 : int
         Max f0 for pitch computation
     use_custom_cleaner : bool
@@ -681,7 +681,7 @@ def custom_clean(text, model_name):
     _abbreviations = [
         (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
-            ("mrs", "misess"),
+            ("mrs", "missus"),
             ("mr", "mister"),
             ("dr", "doctor"),
             ("st", "saint"),

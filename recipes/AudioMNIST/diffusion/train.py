@@ -310,7 +310,7 @@ class DiffusionBrain(sb.Brain):
                 (loss / self.grad_accumulation_factor).backward(
                     retain_graph=True
                 )
-        # Done loss - iffapplicable
+        # Done loss - iff applicable
         if self.use_done_detector:
             with self.no_sync(not should_step):
                 (loss_done / self.grad_accumulation_factor).backward(
@@ -1145,7 +1145,7 @@ class DiffusionBrain(sb.Brain):
             self.vocoder = self.hparams.vocoder()
         if not hasattr(self, "reference_batch"):
             self.reference_batch = None
-        self.reference_samples_neeed = False
+        self.reference_samples_needed = False
         self.is_conditioned = hasattr(self.hparams, "use_cond_emb") and any(
             self.hparams.use_cond_emb.values()
         )
@@ -1250,7 +1250,7 @@ class DiffusionBrain(sb.Brain):
         Arguments
         ---------
         data: dict
-            the data to be loged, with the following keys
+            the data to be logged, with the following keys
             samples: generated samples
             wav: generated waveform
             samples_rec: reconstruction samples (to assess autoencoder quality)

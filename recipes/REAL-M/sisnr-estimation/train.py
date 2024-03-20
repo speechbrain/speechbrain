@@ -27,17 +27,17 @@ from speechbrain.core import AMPConfig
 class Separation(sb.Brain):
     def compress_snrrange(self, inp):
         """Convert from true snr range to 0-1 range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
+        range = self.hparams.snrmax - self.hparams.snrmin
 
         inp = torch.clip(inp, min=self.hparams.snrmin, max=self.hparams.snrmax)
         inp = inp - self.hparams.snrmin
-        inp = inp / rnge
+        inp = inp / range
         return inp
 
     def gettrue_snrrange(self, inp):
         """Convert from 0-1 range to true snr range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
-        inp = inp * rnge
+        range = self.hparams.snrmax - self.hparams.snrmin
+        inp = inp * range
         inp = inp + self.hparams.snrmin
         return inp
 

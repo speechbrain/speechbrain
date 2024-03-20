@@ -47,7 +47,7 @@ class W2V2Brain(sb.core.Brain):
         )
         batch_size = wavs.size(0)
 
-        # Mormalisation already done in dataloader
+        # Normalisation already done in dataloader
         # 1. Go through features extractor
         latents = self.modules.latent_extractor(wavs, normalize_signal=False)
 
@@ -251,7 +251,7 @@ def dataio_prepare(hparams):
 
     def get_output_lengths(input_lengths):
         """ Function to get the output length of the feature extractor this is
-            necessery to compute the masks of wav2vec2.
+            necessary to compute the masks of wav2vec2.
         """
 
         def _conv_out_length(input_length, kernel_size, stride):

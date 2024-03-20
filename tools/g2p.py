@@ -77,7 +77,7 @@ def transcribe_text(g2p, text):
 
     Arguments
     ---------
-    g2p: speechbrain.inference.text.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
 
     text: str
@@ -91,7 +91,7 @@ def transcribe_file(g2p, text_file_name, output_file_name=None, batch_size=64):
     """
     Transcribes a file with one example per line
 
-    g2p: speechbrain.inference.text.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
 
     text_file_name: str
@@ -146,7 +146,7 @@ def transcribe_stream(g2p, text_file, output_file, batch_size=64, total=None):
 
     Arguments
     ---------
-    g2p: speechbrain.inference.text.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
     text_file: file
         a file object from which text samples will be read
@@ -195,7 +195,7 @@ def chunked(iterable, batch_size):
     Returns
     -------
     batched_iterable: iterable
-        an itearble of batches
+        an iterable of batches
 
     """
     iterable = iter(iterable)
@@ -208,7 +208,7 @@ class InteractiveG2P(Cmd):
 
     Arguments
     ---------
-    model: speechbrain.inference.text.GrpahemeToPhoneme
+    model: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
     """
 
@@ -296,7 +296,7 @@ def load_g2p_checkpoint(
     run_opts: dict
         the run options
     overrides: dict
-        command-line parameters to overrde the ones supplied
+        command-line parameters to override the ones supplied
         in hparams
 
     Returns

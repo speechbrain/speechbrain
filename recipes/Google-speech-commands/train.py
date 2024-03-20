@@ -58,7 +58,7 @@ class SpeakerBrain(sb.core.Brain):
         embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
 
-        # Ecapa model uses softmax outside of its classifer
+        # Ecapa model uses softmax outside of its classifier
         if "softmax" in self.modules.keys():
             outputs = self.modules.softmax(outputs)
 

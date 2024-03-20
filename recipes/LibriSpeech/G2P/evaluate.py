@@ -233,7 +233,7 @@ class G2PEvaluator:
         Returns
         -------
         result: list
-            the concatenated reuslt
+            the concatenated result
         """
         return [token for item_result in results for token in item_result]
 
@@ -249,7 +249,7 @@ class G2PEvaluator:
         Returns
         -------
         result: list
-            the concatenated reuslt
+            the concatenated result
         """
         result = []
         for item_result in results:

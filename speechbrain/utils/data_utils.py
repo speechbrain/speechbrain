@@ -331,7 +331,7 @@ def download_file(
         This option is active only when unpack=True.
     """
     try:
-        # make sure all processing reached here before main preocess create dest_dir
+        # make sure all processing reached here before main process create dest_dir
         sb.utils.distributed.ddp_barrier()
         if sb.utils.distributed.if_main_process():
 
@@ -702,9 +702,8 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
     -------
     tensor_padded: Tensor
         the tensor, with additional padding if required
-
     length: Tensor
-        the adjsted length tensor, if provided
+        the adjusted length tensor, if provided
 
     Example
     -------
@@ -730,7 +729,7 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     tensor_padded, _ = pad_right_to(tensor, new_shape, value=pad_value,)
 
-    # Adjust lengths to the new dimenson, post-padding
+    # Adjust lengths to the new dimension, post-padding
     if length is not None:
         length = length * (time_dim / desired_time_dim)
 
@@ -844,7 +843,7 @@ def concat_padded_features(
     Arguments
     ---------
     feats: list
-        a list of padded tesnors
+        a list of padded tensors
     lens: list
         a list of length tensors
     dim: int
@@ -1067,7 +1066,7 @@ def length_range(feats, len_dim):
 
 
 def non_batch_dims(sample):
-    """Returns all dimensons of the specified tensor
+    """Returns all dimensions of the specified tensor
     except the batch dimension
 
     Arguments
@@ -1214,7 +1213,7 @@ def dict_value_combinations(values):
     -------
     result: list
         a list of dictionaries in which each dictionary
-        is a possible permitations
+        is a possible permutations
     """
     return [
         item
@@ -1243,7 +1242,7 @@ def dict_value_combinations_gen(values, keys):
     -------
     result: generator
         a generator of dictionaries in which each dictionary
-        is a possible permitations
+        is a possible permutation
     """
     if not keys:
         return

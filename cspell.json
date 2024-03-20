@@ -1,0 +1,53 @@
+{
+    "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+    "version": "0.2",
+    "language": "en",
+    "dictionaryDefinitions": [
+        {
+            "name": "dict-speechbrain",
+            "path": "./.dict-speechbrain.txt",
+            "description": "Custom SpeechBrain Dictionary",
+            "addWords": true,
+            "scope": "workspace"
+        }
+    ],
+    "dictionaries": [
+        "aws",
+        "bash",
+        "css",
+        "dict-speechbrain",
+        "en_US",
+        "companies",
+        "filetypes",
+        "fonts",
+        "fullstack",
+        "html",
+        "java",
+        "loremIpsum",
+        "node",
+        "npm",
+        "powershell",
+        "python",
+        "ruby",
+        "softwareTerms",
+        "misc"
+    ],
+    "ignorePaths": [
+        ".gitignore",
+        "**/__pycache__/**",
+        "**.egg-info",
+        "**/node_modules/**",
+        "**.{gif,jpeg,jpg,mp3,mp4,png,svg,wav}",
+        "**.{cache,drawio,flac,flat,gz,idea,iml,jar,jks,keystore,lock,map,otf,pdf,pem,pkl,pro,puml,raw,RData,so,sph,tar,ttf,vcr_recording,xcf,xml,xsd,zip}",
+        "**.{doc,docx,ppt,pptx,xls,xlsx}",
+        "**.ckpt",
+        "**/(results|save|tmp)/**",
+        "**/FREESOUNDCREDITS.txt",
+        "**/unittests/tokenizer_data/dev-clean.csv",
+        "**/templates/speech_recognition/LM/data/(test|train|valid).txt",
+        "**/package*.json",
+        "package*.json",
+        "/tests/samples/annotation/(multi_annotation|dev-clean|tokenizer).(json|csv)"
+    ],
+    "allowCompoundWords": true
+}

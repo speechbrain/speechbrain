@@ -4,7 +4,7 @@ statistics produced over the course of an experiment and summarizing them.
 Authors:
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
- * Gaelle Laperriere 2021
+ * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
 """
 
@@ -218,9 +218,9 @@ class ErrorRateStats(MetricStats):
     extract_concepts_values : bool
         Process the predict and target to keep only concepts and values.
     tag_in : str
-        Start of the concept ('<' for exemple).
+        Start of the concept ('<' for example).
     tag_out : str
-        End of the concept ('>' for exemple).
+        End of the concept ('>' for example).
 
     Example
     -------
@@ -421,7 +421,7 @@ class BinaryMetricStats(MetricStats):
         threshold : float
             If no threshold is provided, equal error rate is used.
         max_samples: float
-            How many samples to keep for postive/negative scores.
+            How many samples to keep for positive/negative scores.
             If no max_samples is provided, all scores are kept.
             Only effective when threshold is None.
         beta : float
@@ -537,8 +537,8 @@ def EER(positive_scores, negative_scores):
     thresholds = torch.unique(thresholds)
 
     # Adding intermediate thresholds
-    interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
-    thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
+    intermediate_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
 
     # Variable to store the min FRR, min FAR and their corresponding index
     min_index = 0
@@ -611,8 +611,8 @@ def minDCF(
     thresholds = torch.unique(thresholds)
 
     # Adding intermediate thresholds
-    interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
-    thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
+    intermediate_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
 
     # Computing False Rejection Rate (miss detection)
     positive_scores = torch.cat(
@@ -749,7 +749,7 @@ class ClassificationStats(MetricStats):
             for each class
         keys: all available class keys, which can be either target classes
             or (category, target) tuples
-        predictions: all available predictions all predicions the model
+        predictions: all available predictions all predictions the model
             has made
 
         Arguments

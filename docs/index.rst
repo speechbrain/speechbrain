@@ -22,7 +22,7 @@ SpeechBrain can be redistributed for free, even for commercial purposes, althoug
 Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.
 
 It is a community project, which means that discussions are engaged community-wide while decisions are taken by Dr. Ravanelli and Dr. Parcollet with respect to the community views.
-There is no legal institution associated as an owner of SpeechBrain. Furthermore, and due to the Apache Licence, anyone that would disagree with the way the project is being run can fork it and start a new toolkit.
+There is no legal institution associated as an owner of SpeechBrain. Furthermore, and due to the Apache License, anyone that would disagree with the way the project is being run can fork it and start a new toolkit.
 
 Referencing SpeechBrain
 -----------------------

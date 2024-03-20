@@ -296,7 +296,7 @@ def full_path_to_audio_file(data_folder, slice_file_name, fold_num):
     """Get path to file given slice file name and fold number
     Arguments
     ---------
-    data_foder : str
+    data_folder : str
         Folder that contains the dataset.
     slice_file_name : str
         Filename.

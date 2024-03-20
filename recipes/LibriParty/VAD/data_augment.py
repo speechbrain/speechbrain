@@ -73,7 +73,7 @@ def add_chunk(
     target: torch.tensor
         The new targets corresponding to the output signal.
     lengths: torch.tensor
-        relative lenghts of each chunk.
+        relative lengths of each chunk.
     end_chunk: int
         The last sample of the appended sequence. It can be used later to add
         another source that do not overlap with the current one.
@@ -134,11 +134,11 @@ def add_chunk(
         end_speech_target = int(end_chunk / (sample_rate * time_resolution))
         target[:, beg_speech_target:end_speech_target] = 1
 
-    # Lenth computation
-    lenghts = torch.ones(
+    # Length computation
+    lengths = torch.ones(
         wav_chunk.shape[0], wav_chunk.shape[-1], device=wav.device
     )
-    return wav_chunk, target, lenghts, end_chunk
+    return wav_chunk, target, lengths, end_chunk
 
 
 def initialize_targets(wav, sample_rate, time_resolution):
@@ -317,7 +317,7 @@ def augment_data(noise_datasets, speech_datasets, wavs, targets, lens_targ):
     targets: torch.tensor
         The original targets.
     lens_targ: torch.tensor
-        The lenght of the original targets.
+        The length of the original targets.
 
 
     Returns
@@ -327,7 +327,7 @@ def augment_data(noise_datasets, speech_datasets, wavs, targets, lens_targ):
     target: torch.tensor
         The new targets corresponding to the augmented signals.
     lengths: torch.tensor
-        relative lenghts of each element in the batch.
+        relative lengths of each element in the batch.
     """
     # Sample a noise sequence
     wav_samples_noise = get_samples_from_datasets(noise_datasets, wavs)

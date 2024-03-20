@@ -27,7 +27,7 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
 
     Returns
     -------
-    float: the calculted EDER for the utterance
+    float: the calculated EDER for the utterance
 
     Example
     -------

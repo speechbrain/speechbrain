@@ -51,7 +51,7 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
     Arguments
     ---------
     recipe_folder: path
-        Path of the fodler with csv recipe files summarizing all the recipes in the repo.
+        Path of the folder with csv recipe files summarizing all the recipes in the repo.
     field: string
         Field of the csv recipe file containing the links to HF repos.
 

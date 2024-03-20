@@ -136,7 +136,7 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     attention_channels: !ref <emb_attention_channels>
     lin_neurons: !ref <emb_dim>
 
-# Classifier baseed on cosine distance
+# Classifier based on cosine distance
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: !ref <emb_dim>
     out_neurons: !ref <n_languages>

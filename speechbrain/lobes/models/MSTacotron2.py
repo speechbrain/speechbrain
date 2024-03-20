@@ -99,10 +99,10 @@ class Tacotron2(nn.Module):
     attention_rnn_dim: int
         input dimension
     attention_dim: int
-        number of hidden represetation in attention
+        number of hidden representation in attention
     # Location Layer parameters
     attention_location_n_filters: int
-        number of 1-D convulation filters in attention
+        number of 1-D convolution filters in attention
     attention_location_kernel_size: int
         length of the 1-D convolution filters
 
@@ -110,7 +110,7 @@ class Tacotron2(nn.Module):
     n_frames_per_step: int=1
         only 1 generated mel-frame per step is supported for the decoder as of now.
     decoder_rnn_dim: int
-        number of 2 unidirectionnal stacked LSTM units
+        number of 2 unidirectional stacked LSTM units
     prenet_dim: int
         dimension of linear prenet layers
     max_decoder_steps: int
@@ -121,7 +121,7 @@ class Tacotron2(nn.Module):
         decoder drop  out probability
 
     gate_threshold: int
-        cut off level any output probabilty above that is considered
+        cut off level any output probability above that is considered
         complete and stops genration so we have variable length outputs
     decoder_no_early_stopping: bool
         determines early stopping of decoder
@@ -317,7 +317,7 @@ class Tacotron2(nn.Module):
             gate outputs from the decoder
         alignments: torch.Tensor
             sequence of attention weights from the decoder
-        output_legnths: torch.Tensor
+        output_lengths: torch.Tensor
             length of the output without padding
         """
         inputs, input_lengths, targets, max_len, output_lengths = inputs
@@ -420,7 +420,7 @@ class Loss(nn.Module):
     The loss consists of an MSE loss on the spectrogram, a BCE gate loss
     and a guided attention loss (if enabled) that attempts to make the
     attention matrix diagonal
-    The output of the moduel is a LossStats tuple, which includes both the
+    The output of the module is a LossStats tuple, which includes both the
     total loss
     Arguments
     ---------
@@ -598,7 +598,7 @@ class Loss(nn.Module):
         Arguments
         ---------
         alignments: torch.Tensor
-            the aligment matrix from the model
+            the alignment matrix from the model
         input_lengths: torch.Tensor
             a (batch, length) tensor of input lengths
         target_lengths: torch.Tensor
@@ -680,7 +680,7 @@ class TextMelCollate:
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary wiht one elemnent
+        ):  # the pipline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length

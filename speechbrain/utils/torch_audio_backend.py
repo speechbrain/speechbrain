@@ -23,7 +23,7 @@ def try_parse_torchaudio_major_version() -> Optional[int]:
 
     version_split = torchaudio.__version__.split(".")
 
-    # expect in format x.y.zwhatever; we care only about x
+    # expect in format x.y.zwhatever; we care only about x # cspell:ignore zwhatever
 
     if len(version_split) <= 2:
         # not sure how to parse this

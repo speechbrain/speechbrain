@@ -37,7 +37,7 @@ class DynChunkTrainConfig:
     """Number of *chunks* (not frames) visible to the left, always `>=0`.
     If zero, then chunks can never attend to any past chunk.
     If `None`, the left context is infinite (but use
-    `.is_fininite_left_context` for such a check)."""
+    `.is_infinite_left_context` for such a check)."""
 
     def is_infinite_left_context(self) -> bool:
         """Returns true if the left context is infinite (i.e. any chunk can

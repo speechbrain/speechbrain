@@ -52,7 +52,7 @@ def create_wham_noise_metadata(wham_noise_dir, md_dir):
         dir_metadata = dir_metadata[dir_metadata["length"] >= num_samples]
         # Create save path
         save_path = os.path.join(md_dir, name + ".csv")
-        print(f"Medatada file created in {save_path}")
+        print(f"Metadata file created in {save_path}")
         dir_metadata.to_csv(save_path, index=False)
 
 
