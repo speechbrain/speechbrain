@@ -37,7 +37,11 @@ class ASR(sb.core.Brain):
         tokens_bos, _ = batch.tokens_bos
 
         # Add waveform augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "wav_augment")
+            and self.optimizer_step > self.hparams.augment_warmup
+        ):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
             tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
 
@@ -47,7 +51,11 @@ class ASR(sb.core.Brain):
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
         # Add feature augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "fea_augment")
+            and self.optimizer_step > self.hparams.augment_warmup
+        ):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
             tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
 
@@ -97,7 +105,10 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             # Labels must be extended if parallel augmentation or concatenated
             # augmentation was performed on the input (increasing the time dimension)
-            if hasattr(self.hparams, "wav_augment"):
+            if (
+                hasattr(self.hparams, "wav_augment")
+                and self.optimizer_step > self.hparams.augment_warmup
+            ):
                 (
                     tokens,
                     tokens_lens,
@@ -106,7 +117,10 @@ class ASR(sb.core.Brain):
                 ) = self.hparams.wav_augment.replicate_multiple_labels(
                     tokens, tokens_lens, tokens_eos, tokens_eos_lens
                 )
-            if hasattr(self.hparams, "fea_augment"):
+            if (
+                hasattr(self.hparams, "fea_augment")
+                and self.optimizer_step > self.hparams.augment_warmup
+            ):
                 (
                     tokens,
                     tokens_lens,

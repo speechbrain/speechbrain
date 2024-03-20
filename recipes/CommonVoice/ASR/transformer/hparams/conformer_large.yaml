@@ -47,6 +47,7 @@ precision: fp32 # bf16, fp16 or fp32
 lr_adam: 0.0008
 weight_decay: 0.01
 warmup_steps: 25000
+augment_warmup: 8000
 
 # BPE parameters
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -224,13 +225,15 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         model: !ref <model>
         noam_scheduler: !ref <noam_annealing>
+        normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
+    norm_type: global
+    update_until_epoch: 4
 
 ############################## Augmentations ###################################
 
@@ -240,15 +243,16 @@ time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
     drop_length_high: 25
     drop_count_low: 3
     drop_count_high: 3
-    replace: "mean"
+    replace: "zeros"
+    dim: 1
 
 # Frequency Drop
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-    drop_length_low: 10
-    drop_length_high: 20
-    drop_count_low: 4
-    drop_count_high: 4
-    replace: "mean"
+    drop_length_low: 25
+    drop_length_high: 35
+    drop_count_low: 2
+    drop_count_high: 2
+    replace: "zeros"
     dim: 2
 
 # Time warp
