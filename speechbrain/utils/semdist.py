@@ -97,7 +97,7 @@ Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
 
             for i, utt_id in enumerate(ids):
                 self.scores.append(
-                    {"key": utt_id, "semdist": chunk_semdist[i].item(),}
+                    {"key": utt_id, "semdist": chunk_semdist[i].item()}
                 )
 
             semdist_sum += chunk_semdist.sum()
