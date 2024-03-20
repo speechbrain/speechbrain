@@ -214,6 +214,7 @@ bmlh
 brir
 cafile
 cand
+cant
 catl
 catr
 cbak
@@ -250,6 +251,7 @@ convolutional
 convs
 convtasnet
 convtranspose
+couldnt
 covl
 covls
 cpulm
@@ -563,6 +565,7 @@ numspks
 nvvm
 nwerr
 NYU's
+oclock
 oemax
 oen
 Omniglot
