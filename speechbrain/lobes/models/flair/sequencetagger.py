@@ -9,15 +9,42 @@ from flair.models import SequenceTagger
 
 from typing import List, Union
 
+from speechbrain.utils.fetching import fetch
+
 
 class FlairSequenceTagger:
     """
     Sequence tagger using the flair toolkit, e.g. for part-of-speech (POS)
     extraction.
+
+    Arguments
+    ---------
+    model : SequenceTagger
+        The Flair sequence tagger model. If you do not have one initialized, use
+        :meth:`~FlairSequenceTagger.from_hf` instead.
     """
 
-    def __init__(self, model_path):
-        self.model = SequenceTagger.load(model_path)
+    def __init__(self, model: SequenceTagger):
+        self.model = model
+
+    def from_hf(self, source, save_path="", filename="pytorch_model.bin") -> "FlairSequenceTagger":
+        """Fetches and load a flair PyTorch model according to the
+        :func:`speechbrain.utils.fetching.fetch` semantics.
+        
+        Arguments
+        ---------
+        source : str
+            The location of the model (a directory or HF repo, for instance).
+        save_path : str, optional
+            The saving location for the model (i.e. the download or symlink
+            location).
+        filename : str, optional
+            The filename of the model. The default is the usual filename for
+            this kind of model.
+        """
+
+        local_path = fetch(filename, source, savedir=save_path)
+        return FlairSequenceTagger(SequenceTagger.load(local_path))
 
     def __call__(
         self, inputs: Union[List[str], List[List[str]]]
