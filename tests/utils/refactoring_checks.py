@@ -116,7 +116,8 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         if "foreign" in values.keys():
             os.unlink(custom)
             os.symlink(
-                f'{updates_dir}/{repo}/{values["foreign"]}', custom,
+                f'{updates_dir}/{repo}/{values["foreign"]}',
+                custom,
             )
     else:
         # re:testing on develop? => simply unlink anything before and re:link from cached HF hub
@@ -228,7 +229,7 @@ def gather_expected_results(
     updates_dir = init(
         new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
     )
-    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"),)
+    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"))
     for repo in repos:
         # skip if results are there
         if repo not in results.keys():
@@ -277,7 +278,7 @@ def gather_refactoring_results(
     updates_dir = init(
         new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
     )
-    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"),)
+    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"))
     for repo in repos:
         # skip if results are there
         if "after" not in results[repo].keys():
@@ -402,7 +403,7 @@ def test_performance(
         for metric, specs in reporting.items():
             stats[k][metric] = specs["tracker"].summarize(specs["field"])
         logger.log_stats(
-            stats_meta=stats_meta | {"set": k}, test_stats=stats[k],
+            stats_meta=stats_meta | {"set": k}, test_stats=stats[k]
         )
 
     return stats

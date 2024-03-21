@@ -4,6 +4,7 @@ Authors
  * Aku Rouhe 2020
  * Davide Borra 2021
 """
+
 from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
 from .checkpoints import mark_as_loader

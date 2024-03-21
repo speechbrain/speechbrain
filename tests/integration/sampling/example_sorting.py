@@ -156,7 +156,10 @@ def recipe(device="cpu", yaml_file="hyperparams.yaml", run_opts=None):
     run_opts["device"] = device
 
     ctc_brain = SamplingBrain(
-        hparams["modules"], hparams["opt_class"], hparams, run_opts=run_opts,
+        hparams["modules"],
+        hparams["opt_class"],
+        hparams,
+        run_opts=run_opts,
     )
 
     # Training/validation loop

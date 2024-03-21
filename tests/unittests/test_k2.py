@@ -395,7 +395,10 @@ world w o r l d"""
         # Create a graph compiler
         from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
 
-        graph_compiler = CtcGraphCompiler(lexicon, device=log_probs.device,)
+        graph_compiler = CtcGraphCompiler(
+            lexicon,
+            device=log_probs.device,
+        )
 
         # Create a random batch of texts
         texts = ["hello world", "world hello", "hello", "world"]

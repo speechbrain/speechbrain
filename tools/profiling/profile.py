@@ -11,6 +11,7 @@ Run from within this directory (yaml defines an example audio w/ relative path):
 Author:
     * Andreas Nautsch 2022
 """
+
 import sys
 import torch
 import speechbrain as sb
@@ -54,12 +55,12 @@ def get_funcs_to_unary_input_classifier(
     def prepare(batch_size, duration, sampling_rate=16000):
         """Prepares input data."""
         unary_input = {
-            batch_label: example[: duration * sampling_rate].repeat(
-                batch_size, 1
-            )
-            if example is not None
-            else torch.rand(
-                (batch_size, duration * sampling_rate), device=device
+            batch_label: (
+                example[: duration * sampling_rate].repeat(batch_size, 1)
+                if example is not None
+                else torch.rand(
+                    (batch_size, duration * sampling_rate), device=device
+                )
             ),
         }
         if lengths_label is not None:
@@ -195,10 +196,12 @@ def get_funcs_to_profile(
         def prepare(batch_size, duration, num_spks=2, sampling_rate=16000):
             """Prepares input data."""
             return {
-                "mix": example[: duration * sampling_rate].repeat(batch_size, 1)
-                if example is not None
-                else torch.rand(
-                    (batch_size, duration * sampling_rate), device=device
+                "mix": (
+                    example[: duration * sampling_rate].repeat(batch_size, 1)
+                    if example is not None
+                    else torch.rand(
+                        (batch_size, duration * sampling_rate), device=device
+                    )
                 ),
                 "predictions": torch.rand(
                     (batch_size, duration * sampling_rate, num_spks),
@@ -267,8 +270,8 @@ def profile_pretrained(
     # Prepare table to write out profiling information
     realtime_factor = []
     memory_peaks = []
-    us_in_s = 1000.0 ** 2
-    byte_in_GB = 1024.0 ** 3
+    us_in_s = 1000.0**2
+    byte_in_GB = 1024.0**3
 
     # Comprehensive benchmarking
     for d, duration in enumerate(audio_mockup_secs):

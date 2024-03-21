@@ -10,7 +10,6 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-
 import torch  # noqa: F401
 import torch.nn as nn
 import speechbrain as sb

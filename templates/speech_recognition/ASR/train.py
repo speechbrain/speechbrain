@@ -310,7 +310,8 @@ class ASR(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
 
         # We also write statistics about test data to stdout and to the logfile.
@@ -340,6 +341,7 @@ def dataio_prepare(hparams):
         Dictionary containing "train", "valid", and "test" keys that correspond
         to the DynamicItemDataset objects.
     """
+
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
     @sb.utils.data_pipeline.takes("wav")

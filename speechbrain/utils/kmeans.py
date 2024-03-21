@@ -143,7 +143,7 @@ def train(
     """
     logger.info("Start training kmeans model.")
     features_list = []
-    with tqdm(train_set, dynamic_ncols=True,) as t:
+    with tqdm(train_set, dynamic_ncols=True) as t:
         for batch in t:
             # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
             if len(features_list) >= kmeans_batch_size:

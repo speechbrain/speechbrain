@@ -31,7 +31,8 @@ class TransducerBrain(sb.Brain):
 
         # Joint the networks
         joint = self.modules.Tjoint(
-            TN_output.unsqueeze(2), PN_output.unsqueeze(1),
+            TN_output.unsqueeze(2),
+            PN_output.unsqueeze(1),
         )
         outputs = self.modules.output(joint)
         outputs = self.hparams.log_softmax(outputs)

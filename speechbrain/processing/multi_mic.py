@@ -639,7 +639,7 @@ class Gev(torch.nn.Module):
 
         # Normalize
         F_norm = 1.0 / (
-            torch.sum(F_re ** 2 + F_im ** 2, dim=3, keepdim=True) ** 0.5
+            torch.sum(F_re**2 + F_im**2, dim=3, keepdim=True) ** 0.5
         ).repeat(1, 1, 1, n_mics)
         F_re *= F_norm
         F_im *= F_norm
@@ -757,7 +757,7 @@ class GccPhat(torch.nn.Module):
         XXs_im = XXs_val[..., 1, :]
 
         # Applying the phase transform
-        XXs_abs = torch.sqrt(XXs_re ** 2 + XXs_im ** 2) + eps
+        XXs_abs = torch.sqrt(XXs_re**2 + XXs_im**2) + eps
         XXs_re_phat = XXs_re / XXs_abs
         XXs_im_phat = XXs_im / XXs_abs
         XXs_phat = torch.stack((XXs_re_phat, XXs_im_phat), 4)
@@ -1040,7 +1040,7 @@ class SrpPhat(torch.nn.Module):
         XXs_im = XXs_val[:, :, :, 1, :]
         XXs_re = XXs_re.reshape((XXs_re.shape[0], XXs_re.shape[1], -1))
         XXs_im = XXs_im.reshape((XXs_im.shape[0], XXs_im.shape[1], -1))
-        XXs_abs = torch.sqrt(XXs_re ** 2 + XXs_im ** 2) + eps
+        XXs_abs = torch.sqrt(XXs_re**2 + XXs_im**2) + eps
         XXs_re_norm = XXs_re / XXs_abs
         XXs_im_norm = XXs_im / XXs_abs
 
@@ -1252,10 +1252,10 @@ class Music(torch.nn.Module):
         As_mm_Us_re = torch.matmul(As_re, Us_re) + torch.matmul(As_im, Us_im)
         As_mm_Us_im = torch.matmul(As_re, Us_im) - torch.matmul(As_im, Us_re)
 
-        As_mm_Us_abs = torch.sqrt(As_mm_Us_re ** 2 + As_mm_Us_im ** 2)
+        As_mm_Us_abs = torch.sqrt(As_mm_Us_re**2 + As_mm_Us_im**2)
         As_mm_Us_sum = torch.sum(As_mm_Us_abs, dim=5)
 
-        As_As_abs = torch.sum(As_re ** 2, dim=5) + torch.sum(As_im ** 2, dim=5)
+        As_As_abs = torch.sum(As_re**2, dim=5) + torch.sum(As_im**2, dim=5)
 
         Ps = (As_As_abs / (As_mm_Us_sum + eps)).squeeze(4)
 
@@ -1461,8 +1461,8 @@ def sphere(levels_count=4):
     """
     # Generate points at level 0
 
-    h = (5.0 ** 0.5) / 5.0
-    r = (2.0 / 5.0) * (5.0 ** 0.5)
+    h = (5.0**0.5) / 5.0
+    r = (2.0 / 5.0) * (5.0**0.5)
     pi = 3.141592654
 
     pts = torch.zeros((12, 3), dtype=torch.float)
@@ -1580,7 +1580,7 @@ def sphere(levels_count=4):
 
         pts = pts[unique_values[:, 0], :] + pts[unique_values[:, 1], :]
         pts /= torch.repeat_interleave(
-            torch.unsqueeze(torch.sum(pts ** 2, axis=1) ** 0.5, 1), 3, 1
+            torch.unsqueeze(torch.sum(pts**2, axis=1) ** 0.5, 1), 3, 1
         )
 
     return pts

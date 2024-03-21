@@ -8,6 +8,7 @@ Authors
  * Samuele Cornell 2020
  * Sarthak Yadav 2022
 """
+
 import torch
 import math
 from packaging import version
@@ -59,7 +60,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
             out = wav_sum / lengths
     elif amp_type == "rms":
         if lengths is None:
-            out = torch.sqrt(torch.mean(waveforms ** 2, dim=1, keepdim=True))
+            out = torch.sqrt(torch.mean(waveforms**2, dim=1, keepdim=True))
         else:
             wav_sum = torch.sum(
                 input=torch.pow(waveforms, 2), dim=1, keepdim=True
@@ -588,7 +589,7 @@ def gabor_impulse_response(t, center, fwhm):
     gaussian = torch.exp(
         torch.tensordot(
             1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
-            (-(t ** 2.0)).unsqueeze(0),
+            (-(t**2.0)).unsqueeze(0),
             dims=1,
         )
     )
@@ -619,7 +620,7 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
     gaussian = torch.exp(
         torch.tensordot(
             1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
-            (-(t ** 2.0)).unsqueeze(0),
+            (-(t**2.0)).unsqueeze(0),
             dims=1,
         )
     )

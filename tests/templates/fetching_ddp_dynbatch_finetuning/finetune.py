@@ -235,8 +235,8 @@ if __name__ == "__main__":
     # * the tokenizer from URL - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/
     # * the pretrained LM from HuggingFace - HF: speechbrain/asr-crdnn-rnnlm-librispeech
     # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
-    run_on_main(hparams["pretrainer_tokenizer"].collect_files,)
-    run_on_main(hparams["pretrainer_LM"].collect_files,)
+    run_on_main(hparams["pretrainer_tokenizer"].collect_files)
+    run_on_main(hparams["pretrainer_LM"].collect_files)
     hparams["pretrainer_tokenizer"].load_collected(run_opts["device"])
     hparams["pretrainer_LM"].load_collected(run_opts["device"])
     # LOCAL fetching takes sources directly from their location

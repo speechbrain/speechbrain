@@ -22,8 +22,7 @@ ERROR_SPEAKER_TIME = re.compile(r"(?<=SPEAKER ERROR TIME =)[\d.]+")
 
 
 def rectify(arr):
-    """Corrects corner cases and converts scores into percentage.
-    """
+    """Corrects corner cases and converts scores into percentage."""
     # Numerator and denominator both 0.
     arr[np.isnan(arr)] = 0
 

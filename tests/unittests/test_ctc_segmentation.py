@@ -48,7 +48,9 @@ def test_CTCSegmentation(asr_model: EncoderDecoderASR):
         "utt_c SMOOTH PLANKS\n"
     )
     aligner = CTCSegmentation(
-        asr_model=asr_model, kaldi_style_text=True, min_window_size=10,
+        asr_model=asr_model,
+        kaldi_style_text=True,
+        min_window_size=10,
     )
     segments = aligner(speech, text)
     # check segments

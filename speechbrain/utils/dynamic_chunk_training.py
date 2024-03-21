@@ -161,7 +161,9 @@ class DynChunkTrainConfigRandomSampler:
             # frames can see anywhere in the future.
             if self._sample_bool(self.chunkwise_prob):
                 chunk_size = torch.randint(
-                    self.chunk_size_min, self.chunk_size_max + 1, (1,),
+                    self.chunk_size_min,
+                    self.chunk_size_max + 1,
+                    (1,),
                 ).item()
 
                 if self._sample_bool(self.limited_left_context_prob):

@@ -4,6 +4,7 @@
 Authors
  * Sylvain de Langen 2023
 """
+
 import functools
 from typing import Callable, Optional
 import torch

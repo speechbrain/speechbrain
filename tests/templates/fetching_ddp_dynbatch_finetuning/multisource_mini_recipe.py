@@ -16,8 +16,7 @@ from speechbrain.utils.distributed import run_on_main
 
 # Define training procedure
 class SLU(sb.Brain):
-    """see recipes/timers-and-such/decoupled/train.py
-    """
+    """see recipes/timers-and-such/decoupled/train.py"""
 
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -144,7 +143,8 @@ class SLU(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"SER": stage_stats["SER"]}, min_keys=["SER"],
+                meta={"SER": stage_stats["SER"]},
+                min_keys=["SER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -162,7 +162,8 @@ def data_io_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -193,7 +194,8 @@ def data_io_prepare(hparams):
     else:
         valid_path = hparams["csv_dev_real"]
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=valid_path, replacements={"data_root": data_folder},
+        csv_path=valid_path,
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -229,8 +231,7 @@ def data_io_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        """See original recipe
-        """
+        """See original recipe"""
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
@@ -242,8 +243,7 @@ def data_io_prepare(hparams):
         "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(semantics):
-        """See original recipe
-        """
+        """See original recipe"""
         yield semantics
         tokens_list = tokenizer.encode_as_ids(semantics)
         yield tokens_list

@@ -142,8 +142,7 @@ class StatObject_SB:
         return self.stop[self.modelset == mod_id]
 
     def get_mean_stat1(self):
-        """Return the mean of first order statistics.
-        """
+        """Return the mean of first order statistics."""
         mu = numpy.mean(self.stat1, axis=0)
         return mu
 
@@ -240,8 +239,7 @@ class StatObject_SB:
         )
 
     def norm_stat1(self):
-        """Divide all first-order statistics by their Euclidean norm.
-        """
+        """Divide all first-order statistics by their Euclidean norm."""
         vect_norm = numpy.clip(
             numpy.linalg.norm(self.stat1, axis=1), 1e-08, numpy.inf
         )
@@ -610,7 +608,13 @@ class Scores:
 
 
 def fa_model_loop(
-    batch_start, mini_batch_indices, factor_analyser, stat0, stat1, e_h, e_hh,
+    batch_start,
+    mini_batch_indices,
+    factor_analyser,
+    stat0,
+    stat1,
+    e_h,
+    e_hh,
 ):
     """A function for PLDA estimation.
 

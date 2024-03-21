@@ -3,6 +3,7 @@
 Authors
 * Jianyuan Zhong 2020
 """
+
 import torch
 from speechbrain.dataio.dataio import length_to_mask
 
@@ -35,7 +36,8 @@ def Accuracy(log_probabilities, targets, length=None):
     """
     if length is not None:
         mask = length_to_mask(
-            length * targets.shape[1], max_len=targets.shape[1],
+            length * targets.shape[1],
+            max_len=targets.shape[1],
         ).bool()
         if len(targets.shape) == 3:
             mask = mask.unsqueeze(2).repeat(1, 1, targets.shape[2])

@@ -195,7 +195,8 @@ def dataio_prepare(hparams):
     # 4. Set outputs to add into the batch. The batch variable will contain
     # all these fields (e.g, batch.id, batch.text, batch.tokens.bos,..)
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "text", "tokens_bos", "tokens_eos"],
+        datasets,
+        ["id", "text", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data
 

@@ -36,7 +36,7 @@ class LMBrain(sb.Brain):
             print("Train loss: %.2f" % self.train_loss)
         if stage != sb.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
-            perplexity = math.e ** stage_loss
+            perplexity = math.e**stage_loss
             print(stage, "perplexity: %.2f" % perplexity)
 
 

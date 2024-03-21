@@ -47,6 +47,7 @@ Example
 Authors
  * Aku Rouhe 2020
 """
+
 import torch
 import collections
 import collections.abc
@@ -903,7 +904,7 @@ class Checkpointer:
             If no Checkpoints exist/remain after filtering.
         """
         chosen_ckpt = self.find_checkpoint(
-            importance_key, max_key, min_key, ckpt_predicate,
+            importance_key, max_key, min_key, ckpt_predicate
         )
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
@@ -1063,9 +1064,7 @@ class Checkpointer:
 
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](
-                    obj, loadpath, end_of_epoch,
-                )
+                self.custom_load_hooks[name](obj, loadpath, end_of_epoch)
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)

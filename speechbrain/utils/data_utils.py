@@ -406,9 +406,7 @@ def set_writing_permissions(folder_path):
             os.chmod(file_path, 0o666)
 
 
-def pad_right_to(
-    tensor, target_shape, mode="constant", value=0,
-):
+def pad_right_to(tensor, target_shape, mode="constant", value=0):
     """
     This function takes a torch tensor of arbitrary shape and pads it to target
     shape by appending values on the right.
@@ -618,8 +616,7 @@ def split_path(path):
     """
 
     def split(src):
-        """Core function to split path.
-        """
+        """Core function to split path."""
         if "/" in src:
             return src.rsplit("/", maxsplit=1)
         else:
@@ -727,7 +724,7 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
     new_shape = list(tensor.shape)
     new_shape[len_dim] = desired_time_dim
 
-    tensor_padded, _ = pad_right_to(tensor, new_shape, value=pad_value,)
+    tensor_padded, _ = pad_right_to(tensor, new_shape, value=pad_value)
 
     # Adjust lengths to the new dimension, post-padding
     if length is not None:

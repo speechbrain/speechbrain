@@ -54,6 +54,7 @@ Example
 Authors:
     * Aku Rouhe 2020
 """
+
 import collections
 import uuid
 

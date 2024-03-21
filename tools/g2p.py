@@ -54,6 +54,7 @@ resources (RAM or GPU memory).
 Authors
 * Artem Ploujnikov 2021
 """
+
 import itertools
 import math
 import os

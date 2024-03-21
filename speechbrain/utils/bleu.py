@@ -67,9 +67,7 @@ class BLEUStats(MetricStats):
         self.predicts = []
         self.targets = None
 
-    def append(
-        self, ids, predict, targets, ind2lab=None,
-    ):
+    def append(self, ids, predict, targets, ind2lab=None):
         """Add stats to the relevant containers.
         * See MetricStats.append()
         Arguments

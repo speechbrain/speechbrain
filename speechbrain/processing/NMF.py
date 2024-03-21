@@ -3,6 +3,7 @@
 Authors
  * Cem Subakan
 """
+
 import torch
 from speechbrain.processing.features import spectral_magnitude
 import speechbrain.processing.features as spf
@@ -102,7 +103,12 @@ def NMF_separate_spectra(Whats, Xmix):
 
 
 def reconstruct_results(
-    X1hat, X2hat, X_stft, sample_rate, win_length, hop_length,
+    X1hat,
+    X2hat,
+    X_stft,
+    sample_rate,
+    win_length,
+    hop_length,
 ):
     """This function reconstructs the separated spectra into waveforms.
 

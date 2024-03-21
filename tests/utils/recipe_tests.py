@@ -4,6 +4,7 @@ Authors
  * Mirco Ravanelli 2022
  * Andreas Nautsch 2022, 2023
 """
+
 import os
 import re
 import csv
@@ -320,8 +321,10 @@ def extract_value(string, key):
     escaped_key = re.escape(key)
 
     # Create the regular expression pattern to match the argument and its corresponding value
-    pattern = r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
-        escaped_key
+    pattern = (
+        r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
+            escaped_key
+        )
     )
 
     # Search for the pattern in the input string

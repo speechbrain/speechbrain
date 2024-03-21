@@ -361,8 +361,7 @@ class ErrorRateStats(MetricStats):
 
 
 class BinaryMetricStats(MetricStats):
-    """Tracks binary metrics, such as precision, recall, F1, EER, etc.
-    """
+    """Tracks binary metrics, such as precision, recall, F1, EER, etc."""
 
     def __init__(self, positive_label=1):
         self.clear()
@@ -492,9 +491,9 @@ class BinaryMetricStats(MetricStats):
         self.summary["precision"] = TP / (TP + FP + eps)
         self.summary["recall"] = TP / (TP + FN + eps)
         self.summary["F-score"] = (
-            (1.0 + beta ** 2.0)
+            (1.0 + beta**2.0)
             * TP
-            / ((1.0 + beta ** 2.0) * TP + beta ** 2.0 * FN + FP)
+            / ((1.0 + beta**2.0) * TP + beta**2.0 * FN + FP)
         )
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
