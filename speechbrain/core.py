@@ -799,13 +799,7 @@ class Brain:
             )
 
         # List parameter count for the user
-        total_params = sum(
-            p.numel() for p in self.modules.parameters() if p.requires_grad
-        )
-        if total_params > 0:
-            clsname = self.__class__.__name__
-            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
-            logger.info(f"{fmt_num} trainable parameters in {clsname}")
+        self.print_trainable_parameters()
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
@@ -850,6 +844,29 @@ class Brain:
                 self.profile_steps,
                 self.hparams.output_folder,
             )
+
+    def print_trainable_parameters(self):
+        """Prints the number of trainable parameters in the model."""
+        total_trainable_params = 0
+        total_parameters = 0
+        for parameter in self.modules.parameters():
+            total_parameters += parameter.numel()
+            if parameter.requires_grad:
+                total_trainable_params += parameter.numel()
+        class_name = self.__class__.__name__
+        percentage_trainable = 100 * total_trainable_params / total_parameters
+        formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
+            total_trainable_params
+        )
+        formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+            total_parameters
+        )
+        logger.info(
+            f"{class_name} Model Statistics:\n"
+            f"- Trainable Parameters: {formatted_trainable_params}\n"
+            f"- Total Parameters: {formatted_total_params}\n"
+            f"- Total Trainable Parameter Percentage: {percentage_trainable:.4f}%"
+        )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
