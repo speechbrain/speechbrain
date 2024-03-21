@@ -27,10 +27,12 @@ class FlairSequenceTagger:
     def __init__(self, model: SequenceTagger):
         self.model = model
 
-    def from_hf(self, source, save_path="", filename="pytorch_model.bin") -> "FlairSequenceTagger":
+    def from_hf(
+        self, source, save_path="", filename="pytorch_model.bin"
+    ) -> "FlairSequenceTagger":
         """Fetches and load a flair PyTorch model according to the
         :func:`speechbrain.utils.fetching.fetch` semantics.
-        
+
         Arguments
         ---------
         source : str
