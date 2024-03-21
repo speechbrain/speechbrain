@@ -1,5 +1,6 @@
 import torch
 import torch.nn
+import torch.fx
 
 
 def test_SincConv(device):
@@ -13,6 +14,7 @@ def test_SincConv(device):
     assert output.shape[-1] == 8
 
     assert torch.jit.trace(convolve, input)
+    assert torch.fx.symbolic_trace(convolve)
 
     # Multichannel case
     input = torch.rand([10, 16000, 8], device=device)
@@ -23,6 +25,7 @@ def test_SincConv(device):
     assert output.shape[-1] == 16
 
     assert torch.jit.trace(convolve, input)
+    assert torch.fx.symbolic_trace(convolve)
 
 
 def test_Conv1d(device):
@@ -51,6 +54,7 @@ def test_Conv1d(device):
     assert torch.all(torch.eq(torch.ones(input.shape, device=device), output))
 
     assert torch.jit.trace(convolve, input)
+    assert torch.fx.symbolic_trace(convolve)
 
 
 def test_Conv2d(device):
@@ -86,6 +90,7 @@ def test_Conv2d(device):
     assert torch.all(torch.eq(input, output))
 
     assert torch.jit.trace(convolve, input)
+    assert torch.fx.symbolic_trace(convolve)
 
 
 def test_Leaf(device):
@@ -101,3 +106,4 @@ def test_Leaf(device):
     output = convolve(input)
     assert output.shape[-1] == 8
     assert torch.jit.trace(convolve, input)
+    # assert torch.fx.symbolic_trace(convolve) -- is in lobes

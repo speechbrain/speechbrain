@@ -1,5 +1,6 @@
 import torch
 import torch.nn
+import torch.fx
 from collections import OrderedDict
 
 
@@ -31,6 +32,10 @@ def test_RNN(device):
     ), "GRU hidden states mismatch"
     assert torch.jit.trace(net, inputs)
 
+    net.padded_sequence_eval = False
+    net.eval()
+    assert torch.fx.symbolic_trace(net)
+
     # Check GRU
     inputs = torch.randn(4, 2, 7, device=device)
     net = GRU(
@@ -55,6 +60,10 @@ def test_RNN(device):
     ), "GRU hidden states mismatch"
     assert torch.jit.trace(net, inputs)
 
+    net.padded_sequence_eval = False
+    net.eval()
+    assert torch.fx.symbolic_trace(net)
+
     # Check LSTM
     inputs = torch.randn(4, 2, 7, device=device)
     net = LSTM(
@@ -78,6 +87,10 @@ def test_RNN(device):
         torch.lt(torch.add(hn_t[1], -hn[1]), 1e-3)
     ), "LSTM hidden states mismatch"
     assert torch.jit.trace(net, inputs)
+
+    net.padded_sequence_eval = False
+    net.eval()
+    assert torch.fx.symbolic_trace(net)
 
     # Check LiGRU
     inputs = torch.randn(1, 2, 2, device=device)

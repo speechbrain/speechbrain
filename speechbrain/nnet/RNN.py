@@ -106,6 +106,7 @@ class RNN(torch.nn.Module):
     ):
         super().__init__()
         self.reshape = False
+        self.padded_sequence_eval = False
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -151,7 +152,7 @@ class RNN(torch.nn.Module):
         self.rnn.flatten_parameters()
 
         # Pack sequence for proper RNN handling of padding
-        if lengths is not None:
+        if lengths is not None and self.padded_sequence_eval:
             x = pack_padded_sequence(x, lengths)
 
         # Support custom initial state
@@ -161,7 +162,7 @@ class RNN(torch.nn.Module):
             output, hn = self.rnn(x)
 
         # Unpack the packed sequence
-        if lengths is not None:
+        if lengths is not None and self.padded_sequence_eval:
             output = pad_packed_sequence(output)
 
         return output, hn
@@ -218,6 +219,7 @@ class LSTM(torch.nn.Module):
     ):
         super().__init__()
         self.reshape = False
+        self.padded_sequence_eval = False
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -262,7 +264,7 @@ class LSTM(torch.nn.Module):
         self.rnn.flatten_parameters()
 
         # Pack sequence for proper RNN handling of padding
-        if lengths is not None:
+        if lengths is not None and self.padded_sequence_eval:
             x = pack_padded_sequence(x, lengths)
 
         # Support custom initial state
@@ -272,7 +274,7 @@ class LSTM(torch.nn.Module):
             output, hn = self.rnn(x)
 
         # Unpack the packed sequence
-        if lengths is not None:
+        if lengths is not None and self.padded_sequence_eval:
             output = pad_packed_sequence(output)
 
         return output, hn
@@ -329,6 +331,7 @@ class GRU(torch.nn.Module):
     ):
         super().__init__()
         self.reshape = False
+        self.padded_sequence_eval = False
 
         if input_shape is None and input_size is None:
             raise ValueError("Expected one of input_shape or input_size.")
@@ -373,7 +376,7 @@ class GRU(torch.nn.Module):
         self.rnn.flatten_parameters()
 
         # Pack sequence for proper RNN handling of padding
-        if lengths is not None:
+        if lengths is not None and self.padded_sequence_eval:
             x = pack_padded_sequence(x, lengths)
 
         # Support custom initial state
@@ -383,7 +386,7 @@ class GRU(torch.nn.Module):
             output, hn = self.rnn(x)
 
         # Unpack the packed sequence
-        if lengths is not None:
+        if lengths is not None and self.padded_sequence_eval:
             output = pad_packed_sequence(output)
 
         return output, hn
