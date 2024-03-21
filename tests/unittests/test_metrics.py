@@ -69,7 +69,7 @@ def test_weighted_error_rate_stats():
         wer_stats, cost_function=test_cost
     )
 
-    predict = [["d", "b", "c"], ["a'", "b", "c"]]  # noqa
+    predict = [["d", "b", "c"], ["a'", "b", "c"]]
     refs = [["a", "b", "c"]] * 2
 
     wer_stats.append(
@@ -79,6 +79,24 @@ def test_weighted_error_rate_stats():
 
     assert math.isclose(summary["weighted_wer"], 18.33333, abs_tol=1e-3)
     assert math.isclose(summary["weighted_substitutions"], 1.0 + 0.1)
+
+
+def test_synonym_dict_error_rate_stats():
+    from speechbrain.utils.metric_stats import ErrorRateStats
+    from speechbrain.utils.dictionaries import SynonymDictionary
+    
+    syn_dict = SynonymDictionary()
+    syn_dict.add_synonym_set({"a", "a'"})
+
+    wer_stats = ErrorRateStats(equality_comparator=syn_dict)
+
+    predict = [["a'", "b", "c", "e"]]
+    refs = [["a", "b", "c", "d"]]
+
+    wer_stats.append(ids=["utterance1"], predict=predict, target=refs)
+    summary = wer_stats.summarize()
+
+    assert math.isclose(summary["WER"], 25.0)
 
 
 def test_binary_metrics(device):
