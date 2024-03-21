@@ -20,10 +20,10 @@ class SynonymDictionary:
     synonym of C unless they are added in the same synonym set."""
 
     def __init__(self):
-        self.word_map = defaultdict(lambda: set())
+        self.word_map = defaultdict(set)
 
     @staticmethod
-    def from_json(file) -> "SynonymDictionary":
+    def from_json_file(file) -> "SynonymDictionary":
         """Parses an opened file as JSON, where the top level structure is a
         list of sets of synonyms (i.e. words that are all synonyms with each
         other), e.g. `[ ["hello", "hi"], ["say", "speak", "talk"] ]`.
@@ -46,6 +46,19 @@ class SynonymDictionary:
                 )
 
         return synonym_dict
+
+    @staticmethod
+    def from_json_path(path) -> "SynonymDictionary":
+        """Opens a file and parses it as JSON, with otherwise the same semantics
+        as :meth:`~SynonymDictionary.from_json_file`, which uses an opened file.
+
+        Arguments
+        ---------
+        path : str
+            Path to the JSON file
+        """
+        with open(path, "r", encoding="utf8") as f:
+            return SynonymDictionary.from_json_file(f)
 
     def add_synonym_set(self, words: Iterable[str]):
         """Add a set of words that are all synonyms with each other.

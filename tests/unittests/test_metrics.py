@@ -87,6 +87,7 @@ def test_synonym_dict_error_rate_stats():
     
     syn_dict = SynonymDictionary()
     syn_dict.add_synonym_set({"a", "a'"})
+    syn_dict.add_synonym_set({"b", "b'"})  # unused syn to check for correctness
 
     wer_stats = ErrorRateStats(equality_comparator=syn_dict)
 
