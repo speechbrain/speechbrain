@@ -15,4 +15,4 @@ exclude = '''
 '''
 
 [tool.codespell]
-skip = "./tests/tmp,./**/results,./**/data,*.csv,train.txt,test.txt"
+skip = "./tests/tmp,./**/result,*.csv,*train.txt,*test.txt"
