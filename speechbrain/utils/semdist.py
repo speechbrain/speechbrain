@@ -10,11 +10,11 @@ import torch
 
 
 class BaseSemDistStats(MetricStats):
-    """Base class to implement the SemDist metric, for the variants that
-    estimate a single cosine similarity per pair of target and predicted texts.
+    """
+    Base class to implement the SemDist metric, for the variants that estimate a
+    single cosine similarity per pair of target and predicted texts.
     The SemDist metrics are described by the paper
-    `Evaluating User Perception of Speech Recognition System Quality with
-Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
+    `Evaluating User Perception of Speech Recognition System Quality with Semantic Distance Metric <https://arxiv.org/abs/2110.05376>`_.
 
     Arguments
     ---------
