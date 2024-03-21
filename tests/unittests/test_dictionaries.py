@@ -1,5 +1,6 @@
 import os
 
+
 def test_synonym_dictionary_json(tmpdir):
     from speechbrain.utils.dictionaries import SynonymDictionary
 

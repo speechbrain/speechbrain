@@ -84,7 +84,7 @@ def test_weighted_error_rate_stats():
 def test_synonym_dict_error_rate_stats():
     from speechbrain.utils.metric_stats import ErrorRateStats
     from speechbrain.utils.dictionaries import SynonymDictionary
-    
+
     syn_dict = SynonymDictionary()
     syn_dict.add_synonym_set({"a", "a'"})
     syn_dict.add_synonym_set({"b", "b'"})  # unused syn to check for correctness
