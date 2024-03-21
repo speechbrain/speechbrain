@@ -44,7 +44,7 @@ class FasttextModel:
         model_path = fetch(filename=filename, source=source, *args, **kwargs,)
         return FasttextModel(fasttext.load_model(str(model_path)))
 
-    def get_word_vector(self, word: str) -> Optional[torch.Tensor]:
+    def __call__(self, word: str) -> Optional[torch.Tensor]:
         """Returns the (single) word embedding associated with the string
         argument.
 
