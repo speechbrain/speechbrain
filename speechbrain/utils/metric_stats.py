@@ -380,6 +380,8 @@ class WeightedErrorRateStats(MetricStats):
     (insertion/deletion/substitution) but multiplies their impact on the metric
     by a value between 0 and 1 as returned by the cost function.
 
+    Arguments
+    ---------
     base_stats : ErrorRateStats
         The base WER calculator to use.
     cost_function : Callable[[str, Optional[str], Optional[str]], float]
