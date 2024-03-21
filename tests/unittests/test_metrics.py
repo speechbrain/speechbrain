@@ -48,6 +48,39 @@ def test_error_rate_stats(device):
     assert wer_stats.scores[0]["hyp_tokens"] == ["the", "world", "hello"]
 
 
+def test_weighted_error_rate_stats():
+    from speechbrain.utils.metric_stats import (
+        ErrorRateStats,
+        WeightedErrorRateStats,
+    )
+
+    # simple example where a and a' substitution get matched as similar
+    def test_cost(edit, a, b):
+        if edit != "S":
+            return 1.0
+
+        a_syms = ["a", "a'"]
+        if a in a_syms and b in a_syms:
+            return 0.1  # high similarity
+        return 1.0  # low similarity
+
+    wer_stats = ErrorRateStats()
+    weighted_wer_stats = WeightedErrorRateStats(
+        wer_stats, cost_function=test_cost
+    )
+
+    predict = [["d", "b", "c"], ["a'", "b", "c"]]  # noqa
+    refs = [["a", "b", "c"]] * 2
+
+    wer_stats.append(
+        ids=["utterance1", "utterance2"], predict=predict, target=refs
+    )
+    summary = weighted_wer_stats.summarize()
+
+    assert math.isclose(summary["weighted_wer"], 18.33333, abs_tol=1e-3)
+    assert math.isclose(summary["weighted_substitutions"], 1.0 + 0.1)
+
+
 def test_binary_metrics(device):
     from speechbrain.utils.metric_stats import BinaryMetricStats
 
