@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interepret audio classifiers.
+"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023

@@ -58,7 +58,7 @@ This dataset is composed of speakers of 45 languages that were carefully selecte
 * Tamil
 * Tatar
 * Turkish
-* Ukranian
+* Ukrainian
 * Welsh
 
 ## Other information

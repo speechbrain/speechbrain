@@ -367,7 +367,7 @@ def normalize(text, replacements):
     # insert white space for 's
     text = insertSpace("'s", text)
 
-    # replace it's, does't, you'd ... etc
+    # replace it's, doesn't, you'd ... etc
     text = re.sub("^'", "", text)
     text = re.sub(r"'$", "", text)
     text = re.sub(r"'\s", " ", text)

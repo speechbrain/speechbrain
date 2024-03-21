@@ -1,6 +1,6 @@
 #!/usr/bin/env/python3
 """Recipe for training a BPE tokenizer with Switchboard.
-The tokenizer coverts words into sub-word units that can
+The tokenizer converts words into sub-word units that can
 be used to train a language (LM) or an acoustic model (AM).
 When doing a speech recognition experiment you have to make
 sure that the acoustic and language models are trained with

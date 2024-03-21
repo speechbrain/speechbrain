@@ -252,7 +252,7 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="Run the experiment in evaluate only mode."
-        "It skipps the training and goes directly to the evaluation."
+        "It skips the training and goes directly to the evaluation."
         "The model is expected to be already trained.",
     )
     parser.add_argument(

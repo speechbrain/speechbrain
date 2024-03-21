@@ -213,7 +213,7 @@ if __name__ == "__main__":
     )
     logger.info(f"k-means model trained in {time_taken} minutes")
     inertia = -kmeans_model.score(features_batch) / len(features_batch)
-    logger.info(f"Total intertia: {round(inertia, 2)}\n")
+    logger.info(f"Total inertia: {round(inertia, 2)}\n")
 
     logger.info(f"Saving k-means model to {hparams['out_kmeans_model_path']}")
     joblib.dump(kmeans_model, open(hparams["out_kmeans_model_path"], "wb"))

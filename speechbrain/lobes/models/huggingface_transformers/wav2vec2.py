@@ -104,7 +104,7 @@ class Wav2Vec2(HFTransformersInterface):
         self.output_norm = output_norm
         self.output_all_hiddens = output_all_hiddens
 
-    def _modify_state_dict(self, path, replacables=["wav2vec2"]):
+    def _modify_state_dict(self, path, replaceables=["wav2vec2"]):
         """A custom loading ensures SpeechBrain compatibility for Pretrain and model
         de/serialization. Here, the scope is to remove '.wav2vec2' before loading.
 
@@ -112,7 +112,7 @@ class Wav2Vec2(HFTransformersInterface):
         ---------
         path : str
             Checkpoint path, file name relative to the repo root.
-        replacables : List[str]
+        replaceables : List[str]
             State dict sub-keys that if found, shall be dropped (incl. the 'model.' parent key), elevating key structures.
 
         Returns
@@ -125,7 +125,7 @@ class Wav2Vec2(HFTransformersInterface):
 
         # We remove the .wav2vec2 in the state dict.
         for key, params in orig_state_dict.items():
-            for tag in replacables:
+            for tag in replaceables:
                 if f"{tag}." in key:
                     save_key = key.replace(f"model.{tag}.", "")
                     modified_state_dict[save_key] = params
@@ -305,7 +305,7 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
 
         Returns
         -------
-        Overridded config
+        Overridden config
         """
         config.output_hidden_states = True
         return config

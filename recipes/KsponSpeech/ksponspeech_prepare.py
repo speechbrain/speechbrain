@@ -52,7 +52,7 @@ def prepare_ksponspeech(
         If not None, only pick this many sentences.
     merge_lst : list
         List of KsponSpeech splits (e.g, eval_clean, eval_other) to
-        merge in a singe csv file.
+        merge in a single csv file.
     merge_name: str
         Name of the merged csv file.
     skip_prep: bool

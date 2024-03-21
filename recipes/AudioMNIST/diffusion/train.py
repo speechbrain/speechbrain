@@ -911,7 +911,7 @@ class DiffusionBrain(sb.Brain):
         samples: torch.Tensor
             a tensor of sample spectrograms
         path: str
-            ths path to samples for a given epoch
+            the path to samples for a given epoch
         folder: str
             the name of the folder where the spectrograms
             will be saved
@@ -1016,7 +1016,7 @@ class DiffusionBrain(sb.Brain):
             the destination directory
 
         folder: str
-            the subfolder within the destinatin directory
+            the subfolder within the destination directory
 
         labels: list
             a list of labels, for each sample. If omitted,

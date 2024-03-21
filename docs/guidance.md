@@ -207,4 +207,4 @@ The other files in this folder provide further guidance on where is what configu
 Keep in mind, the SpeechBrain community is in-flux, so is a constellation of maintainers and reviewers nothing more but a snapshot.
 
 _Note: github workflows take the definition of a PR, what is specified within its branch. We might update our procedures on the `develop` branch (e.g., to meet dependency updates).
-Consequentially, PR and `unstable` branches need to fetch from latest `develop` when testing related definitions are updated._
+Consequently, PR and `unstable` branches need to fetch from latest `develop` when testing related definitions are updated._

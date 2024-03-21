@@ -449,7 +449,7 @@ def write2csv(
         "noisy_wav_opts",
     ]
 
-    # Retreive duration of just one signal. It is assumed
+    # Retrieve duration of just one signal. It is assumed
     # that all files have the same duration in MS-DNS dataset.
 
     total_duration = 0

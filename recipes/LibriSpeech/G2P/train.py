@@ -159,7 +159,7 @@ class G2PBrain(sb.Brain):
             )
             if result is None:
                 logger.info(
-                    "No checkpoint fount for step %s, "
+                    "No checkpoint found for step %s, "
                     "attempting to recover any checkpoint",
                     step,
                 )
@@ -680,7 +680,7 @@ class G2PBrain(sb.Brain):
         self._save_text_alignments()
 
     def _save_text_alignments(self):
-        """Saves text predictions aligned with lables (a sample, for progress
+        """Saves text predictions aligned with labels (a sample, for progress
         tracking)"""
         if not self.hparams.enable_metrics:
             return

@@ -396,7 +396,7 @@ class Prenet(nn.Module):
     in_dim: int
         the input dimensions
     sizes: int
-        the dimension of the hidden layers/outout
+        the dimension of the hidden layers/output
     dropout: float
         the dropout probability
 
@@ -1256,7 +1256,7 @@ class Tacotron2(nn.Module):
     n_symbols:  int=128
         number of accepted char symbols defined in textToSequence
     symbols_embedding_dim: int
-        number of embeding dimension for symbols fed to nn.Embedding
+        number of embedding dimension for symbols fed to nn.Embedding
 
     # Encoder parameters
     encoder_kernel_size: int
@@ -1294,7 +1294,7 @@ class Tacotron2(nn.Module):
 
     gate_threshold: int
         cut off level any output probability above that is considered
-        complete and stops genration so we have variable length outputs
+        complete and stops generation so we have variable length outputs
     decoder_no_early_stopping: bool
         determines early stopping of decoder
         along with gate_threshold . The logical inverse of this is fed to the decoder
@@ -1568,7 +1568,7 @@ class Loss(nn.Module):
     Arguments
     ---------
     guided_attention_sigma: float
-        The guided attention sigma factor, controling the "width" of
+        The guided attention sigma factor, controlling the "width" of
         the mask
     gate_loss_weight: float
         The constant by which the hate loss will be multiplied
@@ -1577,7 +1577,7 @@ class Loss(nn.Module):
     guided_attention_scheduler: callable
         The scheduler class for the guided attention loss
     guided_attention_hard_stop: int
-        The number of epochs after which guided attention will be compeltely
+        The number of epochs after which guided attention will be completely
         turned off
 
     Example:
@@ -1751,7 +1751,7 @@ class TextMelCollate:
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary with one element
+        ):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length

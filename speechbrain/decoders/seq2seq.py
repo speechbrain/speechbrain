@@ -1482,7 +1482,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     See also S2SBaseSearcher(), S2SBeamSearcher().
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A Transformer model.
         seq_lin : torch.nn.Module
@@ -1665,7 +1665,7 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
 
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A TransformerASR model.
         seq_lin : torch.nn.Module
@@ -1705,7 +1705,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     https://cdn.openai.com/papers/whisper.pdf.
     Arguments
     ---------
-    module : list with the followings one:
+    module : list with the following one:
         model : torch.nn.Module
             A whisper model. It should have a decode() method.
         ctc_lin : torch.nn.Module (optional)
@@ -1828,7 +1828,7 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
 
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A Transformer model.
         seq_lin : torch.nn.Module

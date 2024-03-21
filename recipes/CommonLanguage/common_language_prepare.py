@@ -62,7 +62,7 @@ LANGUAGES = [
     "Tamil",
     "Tatar",
     "Turkish",
-    "Ukranian",
+    "Ukrainian",
     "Welsh",
 ]
 
@@ -165,8 +165,8 @@ def create_sets(data_folder, extension):
     ---------
     data_folder : str
         Path of the CommonLanguage dataset.
-    extension: list of file extentions
-        List of strings with file extentions that correspond to the audio files
+    extension: list of file extensions
+        List of strings with file extensions that correspond to the audio files
         in the CommonLanguage dataset
 
     Returns

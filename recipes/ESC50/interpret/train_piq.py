@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train PIQ to interepret audio classifiers.
+"""This recipe to train PIQ to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
