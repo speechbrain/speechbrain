@@ -100,6 +100,23 @@ def test_synonym_dict_error_rate_stats():
     assert math.isclose(summary["WER"], 25.0)
 
 
+def test_embedding_error_rate_stats(device):
+    from speechbrain.utils.metric_stats import EmbeddingErrorRateSimilarity
+
+    def test_word_embedding(sentence):
+        if sentence == "a":
+            return torch.tensor([1.0, 0.0], device=device)
+        if sentence == "b":
+            return torch.tensor([0.0, 1.0], device=device)
+        if sentence == "c":
+            return torch.tensor([0.9, 0.1], device=device)
+
+    ember = EmbeddingErrorRateSimilarity(test_word_embedding, 1.0, 0.1, 0.4)
+
+    assert ember("S", "a", "b") == 1.0  # low similarity
+    assert ember("S", "a", "c") == 0.1  # high similarity
+
+
 def test_binary_metrics(device):
     from speechbrain.utils.metric_stats import BinaryMetricStats
 
