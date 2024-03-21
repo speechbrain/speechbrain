@@ -1,35 +1,20 @@
 #!/usr/bin/env/python3
-"""Recipe for training a Transducer ASR system with librispeech.
+"""Recipe for training a streaming Transducer ASR system with VoxPopuli.
 The system employs an encoder, a decoder, and an joint network
-between them. Decoding is performed with beamsearch coupled with a neural
-language model.
+between them. Decoding is performed with Beamsearch.
 
 To run this recipe, do the following:
 > python train.py hparams/conformer_transducer.yaml
 
 With the default hyperparameters, the system employs a conformer encoder.
-The decoder is based on a standard LSTM. Beamsearch coupled with a RNN
-language model is used on the top of decoder probabilities.
+The decoder is based on a standard LSTM.
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
-
-The experiment file is flexible enough to support a large variety of
-different systems. By properly changing the parameter files, you can try
-different encoders, decoders, tokens (e.g, characters instead of BPE),
-training split (e.g, train-clean 100 rather than the full one), and many
-other possible variations.
-
+are used as basic recognition tokens.
 
 Authors
- * Sylvain de Langen 2024
  * Titouan Parcollet 2024
- * Abdel Heba 2020
- * Mirco Ravanelli 2020
- * Ju-Chieh Chou 2020
- * Peter Plantinga 2020
 """
 
 import sys
@@ -42,8 +27,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Define training procedure
-
 
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
@@ -52,18 +35,14 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
-        # Add waveform augmentation if specified.
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "wav_augment"):
-                wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
-                tokens_with_bos = self.hparams.wav_augment.replicate_labels(
-                    tokens_with_bos
-                )
-
         feats = self.hparams.compute_features(wavs)
 
         # Add feature augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "fea_augment")
+            and self.optimizer_step > self.hparams.augment_warmup_steps
+        ):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
             tokens_with_bos = self.hparams.fea_augment.replicate_labels(
                 tokens_with_bos
@@ -157,9 +136,10 @@ class ASR(sb.Brain):
             logits_transducer, wav_lens, predicted_tokens = predictions
 
         if stage == sb.Stage.TRAIN:
-            # Labels must be extended if parallel augmentation or concatenated
-            # augmentation was performed on the input (increasing the time dimension)
-            if hasattr(self.hparams, "fea_augment"):
+            if (
+                hasattr(self.hparams, "fea_augment")
+                and self.optimizer_step > self.hparams.augment_warmup_steps
+            ):
                 (
                     tokens,
                     token_lens,
@@ -207,9 +187,9 @@ class ASR(sb.Brain):
         return loss
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """At the end of the optimizer step, apply noam annealing."""
+        """At the end of the optimizer step, apply annealing."""
         if should_step:
-            self.hparams.noam_annealing(self.optimizer)
+            self.hparams.lr_annealing(self.optimizer)
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -219,6 +199,7 @@ class ASR(sb.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
+
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
@@ -230,7 +211,7 @@ class ASR(sb.Brain):
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
 
-            lr = self.hparams.noam_annealing.current_lr
+            lr = self.hparams.lr_annealing.current_lr
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
 
@@ -269,20 +250,6 @@ class ASR(sb.Brain):
                 min_keys=["WER"],
                 num_to_keep=1,
             )
-
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint average if needed"""
-        super().on_evaluate_start()
-
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key,
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model"
-        )
-
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
 
 
 def dataio_prepare(hparams):
@@ -432,20 +399,16 @@ if __name__ == "__main__":
     )
 
     # 1.  # Dataset prep (parsing Librispeech)
-    from librispeech_prepare import prepare_librispeech  # noqa
+    from voxpopuli_prepare import prepare_voxpopuli  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        prepare_librispeech,
+        prepare_voxpopuli,
         kwargs={
             "data_folder": hparams["data_folder"],
-            "tr_splits": hparams["train_splits"],
-            "dev_splits": hparams["dev_splits"],
-            "te_splits": hparams["test_splits"],
             "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
             "skip_prep": hparams["skip_prep"],
+            "remove_if_longer_than": hparams["remove_if_longer_than"],
         },
     )
 
@@ -500,9 +463,7 @@ if __name__ == "__main__":
 
     import os
 
-    # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.test_wer_file = os.path.join(

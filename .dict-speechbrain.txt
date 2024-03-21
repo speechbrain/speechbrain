@@ -1178,6 +1178,8 @@ utilises
 visualisation
 
 ####### Non-English #######
+AUJOURD
+AUJOURD'HUI
 collés
 delle
 encadre
