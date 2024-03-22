@@ -51,7 +51,7 @@ class ExtendedCSVDataset(DynamicItemDataset):
     replacements : dict
         Used for Bash-like $-prefixed substitution,
         e.g. ``{"data_folder": "/home/speechbrain/data"}``, which would
-        transform `$data_folder/utt1.wav` into `/home/speechbain/data/utt1.wav`
+        transform `$data_folder/utt1.wav` into `/home/speechbrain/data/utt1.wav`
     sorting : {"original", "ascending", "descending"}
         Keep CSV order, or sort ascending or descending by duration.
     min_duration : float, int
@@ -295,7 +295,7 @@ def read_pkl(file, data_options={}, lab2ind=None):
             tensor = torch.LongTensor(pkl_element)
             type_ok = True
 
-        if not (type_ok):
+        if not type_ok:
             err_msg = (
                 "The pkl file %s can only contain list of integers, "
                 "floats, or strings. Got %s"

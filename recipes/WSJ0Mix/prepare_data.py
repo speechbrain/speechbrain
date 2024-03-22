@@ -1,5 +1,5 @@
 """
-The .csv preperation functions for WSJ0-Mix.
+The .csv preparation functions for WSJ0-Mix.
 
 Author
  * Cem Subakan 2020

@@ -377,7 +377,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 
 @dataclasses.dataclass
 class CTCBeam:
-    """This class handle the CTC beam informations during decoding.
+    """This class handle the CTC beam information during decoding.
 
     Arguments
     ---------
@@ -1155,13 +1155,13 @@ class CTCBeamSearcher(CTCBaseSearcher):
     added to the general score, and each beams that share the same text are
     merged together.
 
-    The implementation suppors n-gram scoring on words and SentencePiece tokens. The input
+    The implementation supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     The main advantage of this CTCBeamSearcher over the CTCPrefixBeamSearcher is that it is
     relatively faster, and obtains slightly better results. However, the implementation is
-    based on the one from the PyCTCDecode toolkit, adpated for the SpeechBrain's needs and does
-    not follow a specific paper. We do recommand to use the CTCPrefixBeamSearcher if you want
+    based on the one from the PyCTCDecode toolkit, adapted for the SpeechBrain's needs and does
+    not follow a specific paper. We do recommend to use the CTCPrefixBeamSearcher if you want
     to cite the appropriate paper for the decoding method.
 
     Several heuristics are implemented to speed up the decoding process:
@@ -1175,7 +1175,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
         higher than the blank_skip_threshold
 
     Note: if the Acoustic Model is not trained, the Beam Search will
-    take a lot of time. We do recommand to use Greedy Search during validation
+    take a lot of time. We do recommend to use Greedy Search during validation
     until the model is fully trained and ready to be evaluated on test sets.
 
     Arguments
@@ -1493,7 +1493,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873).
 
     The implementation keep tracks of the blank and non-blank probabilities.
-    It also suppors n-gram scoring on words and SentencePiece tokens. The input
+    It also supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     Several heuristics are implemented to speed up the decoding process:
@@ -1511,7 +1511,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     and check the results carefully.
 
     Note: if the Acoustic Model is not trained, the Beam Search will
-    take a lot of time. We do recommand to use Greedy Search during validation
+    take a lot of time. We do recommend to use Greedy Search during validation
     until the model is fully trained and ready to be evaluated on test sets.
 
     Note: This implementation does not provide the time alignment of the
@@ -1934,7 +1934,7 @@ class TorchAudioCTCPrefixBeamSearcher:
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
     requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams).
-    Overall, we do recommand to use the CTCBeamSearcher or CTCPrefixBeamSearcher in SpeechBrain if you wants to use
+    Overall, we do recommend to use the CTCBeamSearcher or CTCPrefixBeamSearcher in SpeechBrain if you wants to use
     n-gram + beam search decoding. If you wants to have constraint search, please use the CPU version of torchaudio,
     and if you want to speedup as much as possible the decoding, please use the CUDA version.
 

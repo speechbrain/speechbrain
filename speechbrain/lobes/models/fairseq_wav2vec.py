@@ -157,7 +157,7 @@ class FairseqWav2Vec2(nn.Module):
                     param.requires_grad = False
 
         # Randomly initialized layers if pretrain is False
-        if not (pretrain):
+        if not pretrain:
             self.reset_layer(self.model)
 
         # Following the fairseq implementation of downstream training,
@@ -208,7 +208,7 @@ class FairseqWav2Vec2(nn.Module):
                 self.reset_layer(child_layer)
 
     def remove_pretraining_modules(self):
-        """ Remove uneeded modules. Inspired by the same fairseq function."""
+        """ Remove unneeded modules. Inspired by the same fairseq function."""
 
         self.model.quantizer = None
         self.model.project_q = None
@@ -293,7 +293,7 @@ class FairseqWav2Vec1(nn.Module):
             self.model.eval()
 
         # Randomly initialized layers if pretrain is False
-        if not (pretrain):
+        if not pretrain:
             self.reset_layer(self.model)
 
     def forward(self, wav):

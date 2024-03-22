@@ -635,7 +635,7 @@ class Checkpointer:
             )
             return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
-        # Explicity return None if this is not the main process
+        # Explicitly return None if this is not the main process
         return None
 
     def save_and_keep_only(

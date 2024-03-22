@@ -460,7 +460,7 @@ class NoamScheduler:
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
-        numer of warm-up steps
+        number of warm-up steps
     model_size : int
         size of transformer embed_dim. It is used to scale the maximum learning rate value reached
         by the scheduler. It is divided by model_size ** (0.5).
@@ -547,7 +547,7 @@ class NoamScheduler:
 class NoamIntervalScheduler:
     """A combination of Noam Scheduler and Interval Scheduler.
     The scheduler behaves as a Noam Scheduler, and anneals the learning rate
-    at disigned steps with designed decays.
+    at designed steps with designed decays.
 
     Note: this scheduler anneals the lr at each update of the model's weight,
     and n_steps must be saved for restarting.
@@ -557,7 +557,7 @@ class NoamIntervalScheduler:
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
-        numer of warm-up steps.
+        number of warm-up steps.
     anneal_steps: list
         Pre-designed steps where the learning rate is to be annealed.
     anneal_rates: list
@@ -756,7 +756,7 @@ class CyclicCosineScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
+        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
@@ -863,7 +863,7 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
+        """Saves the current metrics on the specified path."""
         data = {
             "losses": self.losses,
             "anchor": self.anchor,
@@ -963,7 +963,7 @@ class CyclicLRScheduler:
         scale_fn=None,
         scale_mode="cycle",
     ):
-        super(CyclicLRScheduler, self).__init__()
+        super().__init__()
 
         self.losses = []
         self.base_lr = base_lr
@@ -1007,7 +1007,7 @@ class CyclicLRScheduler:
         return old_lr, new_lr
 
     def clr(self, clr_iterations):
-        """Clears interations."""
+        """Clears iterations."""
         cycle = math.floor(1 + clr_iterations / (2 * self.step_size))
         x = abs(clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == "cycle":
@@ -1265,7 +1265,7 @@ class WarmCoolDecayLRSchedule:
         decay_factor=0.75,
         decay_every=100000,
     ):
-        super(WarmCoolDecayLRSchedule, self).__init__()
+        super().__init__()
         self.base_lr = lr
         self.warmup = warmup
         self.cooldown = cooldown
@@ -1359,7 +1359,7 @@ class ScheduledLoss(nn.Module):
         if not any(schedule):
             raise ValueError("At least one schedule item is required")
         if any(item for item in schedule if not callable(item.get("loss_fn"))):
-            raise ValueError("Each schedule item needs to have at leas ")
+            raise ValueError("Each schedule item needs to have at least ")
         self.schedule = schedule
         self.n_steps = 0
         self.find_next_switch()

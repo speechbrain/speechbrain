@@ -9,7 +9,7 @@
  to infer simply load saved model and do
  savemodel.infer(text_Sequence,len(textsequence))
 
- were text_Sequence is the ouput of the text_to_sequence function from
+ were text_Sequence is the output of the text_to_sequence function from
  textToSequence.py (from textToSequence import text_to_sequence)
 
  Authors
@@ -85,7 +85,7 @@ class Tacotron2Brain(sb.Brain):
         """
         effective_batch = self.batch_to_device(batch)
         # Hold on to the batch for the inference sample. This is needed because
-        # the infernece sample is run from on_stage_end only, where
+        # the inference sample is run from on_stage_end only, where
         # batch information is not available
         self.last_batch = effective_batch
         # Hold on to a sample (for logging)
@@ -171,7 +171,7 @@ class Tacotron2Brain(sb.Brain):
 
         Returns
         -------
-        batch: tiuple
+        batch: tuple
             the batch on the correct device
         """
         (

@@ -193,7 +193,7 @@ def dataio_prep(hparams):
         to the appropriate DynamicItemDataset object.
     """
 
-    # Initialization of the label encoder. The label encoder assignes to each
+    # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'lang01': 0, 'lang02': 1, ..)
     language_encoder = sb.dataio.encoder.CategoricalEncoder()
 
@@ -229,7 +229,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     language_encoder_file = os.path.join(
         hparams["save_folder"], "language_encoder.txt"
     )
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     # Create dataset objects "train", "dev", and "test" and language_encoder
     datasets, language_encoder = dataio_prep(hparams)
 
-    # Fetch and laod pretrained modules
+    # Fetch and load pretrained modules
     sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
 

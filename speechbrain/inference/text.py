@@ -210,7 +210,7 @@ class GPTResponseGenerator(ResponseGenerator):
         ---------
         inputs: tuple
             history_bos which is the tokenized history+input values with appropriate speaker token appended before each turn and history_token_type which determines
-            the type of each token basd on who is uttered that token (either User or Sytem).
+            the type of each token based on who is uttered that token (either User or System).
 
         Returns
         -------
@@ -233,7 +233,7 @@ class GPTResponseGenerator(ResponseGenerator):
     def prepare_input(self):
         """Convert user input and previous histories to the format acceptable for  GPT model.
             It appends all previous history and input and truncates it based on max_history value.
-            It then tokenizes the input and generates additional input that determines the type of each token (Sytem or User).
+            It then tokenizes the input and generates additional input that determines the type of each token (System or User).
 
         Arguments
         ---------
@@ -243,7 +243,7 @@ class GPTResponseGenerator(ResponseGenerator):
         history_bos:
             Tokenized history+input values with appropriate speaker token appended before each turn.
         history_token_type:
-            Type of each token basd on who is uttered that token (either User or Sytem)
+            Type of each token based on who is uttered that token (either User or System)
         """
         history_tokens_lists = [
             self.model.tokenizer.encode(turn) for turn in self.history
@@ -314,7 +314,7 @@ class Llama2ResponseGenerator(ResponseGenerator):
         Arguments
         ---------
         inputs: prompt_bos
-            prompted imputs to be passed to llama2 model for generation.
+            prompted inputs to be passed to llama2 model for generation.
 
         Returns
         -------
@@ -333,7 +333,7 @@ class Llama2ResponseGenerator(ResponseGenerator):
     def prepare_input(self):
         """Convert user input and previous histories to the format acceptable for  Llama2 model.
             It appends all previous history and input and truncates it based on max_history value.
-            It then tokenizes the input and add propmts.
+            It then tokenizes the input and add prompts.
 
         Arguments
         ---------
@@ -365,9 +365,9 @@ class Llama2ResponseGenerator(ResponseGenerator):
         prompts = list(map(generate_prompt, enumerate(self.history)))
 
         # encode each turn of the history
-        propmt_tokens_lists = [self.tokenizer.encode(turn) for turn in prompts]
+        prompt_tokens_lists = [self.tokenizer.encode(turn) for turn in prompts]
 
-        prompt_ids = propmt_tokens_lists[-self.history_window :]
+        prompt_ids = prompt_tokens_lists[-self.history_window :]
         # concatenate every token into a single list
         # list(chain(*[[1, 2], [3, 4], [5]]))
         # >>> [1, 2, 3, 4, 5]

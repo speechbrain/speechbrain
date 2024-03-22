@@ -89,7 +89,7 @@ class StatObject_SB:
         return ch
 
     def save_stat_object(self, filename):
-        """Saves stats in picke format.
+        """Saves stats in pickle format.
 
         Arguments
         ---------
@@ -387,14 +387,14 @@ class StatObject_SB:
 
 
 def diff(list1, list2):
-    """Difference beteween lists."""
+    """Difference between lists."""
     c = [item for item in list1 if item not in list2]
     c.sort()
     return c
 
 
 def ismember(list1, list2):
-    """Cheks if the elements if list1 are contained in list2."""
+    """Checks if the elements if list1 are contained in list2."""
     c = [item in list2 for item in list1]
     return c
 
@@ -482,9 +482,9 @@ class Ndx:
         Arguments
         ---------
         modlist : array
-            A cell array of strings which will be compared with the modelset of 'inndx'.
+            A cell array of strings which will be compared with the modelset of 'inNdx'.
         seglist : array
-            A cell array of strings which will be compared with the segset of 'inndx'.
+            A cell array of strings which will be compared with the segset of 'inNdx'.
         keep : bool
             Indicating whether modlist and seglist are the models to keep or discard.
         """
@@ -498,27 +498,27 @@ class Ndx:
         keepmodidx = numpy.array(ismember(self.modelset, keepmods))
         keepsegidx = numpy.array(ismember(self.segset, keepsegs))
 
-        outndx = Ndx()
-        outndx.modelset = self.modelset[keepmodidx]
-        outndx.segset = self.segset[keepsegidx]
+        outNdx = Ndx()
+        outNdx.modelset = self.modelset[keepmodidx]
+        outNdx.segset = self.segset[keepsegidx]
         tmp = self.trialmask[numpy.array(keepmodidx), :]
-        outndx.trialmask = tmp[:, numpy.array(keepsegidx)]
+        outNdx.trialmask = tmp[:, numpy.array(keepsegidx)]
 
-        assert outndx.validate, "Wrong Ndx format"
+        assert outNdx.validate, "Wrong Ndx format"
 
-        if self.modelset.shape[0] > outndx.modelset.shape[0]:
+        if self.modelset.shape[0] > outNdx.modelset.shape[0]:
             print(
                 "Number of models reduced from %d to %d"
                 % self.modelset.shape[0],
-                outndx.modelset.shape[0],
+                outNdx.modelset.shape[0],
             )
-        if self.segset.shape[0] > outndx.segset.shape[0]:
+        if self.segset.shape[0] > outNdx.segset.shape[0]:
             print(
                 "Number of test segments reduced from %d to %d",
                 self.segset.shape[0],
-                outndx.segset.shape[0],
+                outNdx.segset.shape[0],
             )
-        return outndx
+        return outNdx
 
     def validate(self):
         """Checks that an object of type Ndx obeys certain rules that

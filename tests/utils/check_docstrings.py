@@ -1,4 +1,4 @@
-"""This library contains functions that checks the dosctrings
+"""This library contains functions that checks the docstrings
 
 Authors
  * Mirco Ravanelli 2022
@@ -15,7 +15,7 @@ def extractName(s, search_class=False):
     ---------
     s: string
         Input string where to search for function or class names.
-    search_clas: bool
+    search_class: bool
         If True, searches for class names.
 
     Returns
@@ -65,7 +65,7 @@ def check_docstrings(
             continue
         print("Checking %s..." % (libpath))
 
-        # Support variable initalization
+        # Support variable initialization
         fun_name = libpath
         class_name = libpath
         check_line = True
@@ -89,7 +89,7 @@ def check_docstrings(
 
                 # Check if the docstring is written after the class/funct declaration
                 if check_line:
-                    if line[0] != '"' and not (is_class):
+                    if line[0] != '"' and not is_class:
                         if line[0:2] == 'r"':
                             check_line = False
                             continue

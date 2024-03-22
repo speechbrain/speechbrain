@@ -38,7 +38,7 @@ class Psi(nn.Module):
         """
         Computes NMF activations given classifier hidden representations
         """
-        super(Psi, self).__init__()
+        super().__init__()
         self.in_emb_dims = in_emb_dims
         self.upsamp = nn.UpsamplingBilinear2d(scale_factor=(2, 2))
         self.upsamp_time = nn.UpsamplingBilinear2d(size=(T, 1))
@@ -65,7 +65,7 @@ class Psi(nn.Module):
         """This forward function returns the NMF time activations given classifier activations
         Arguments
         ---------
-            inp: A length 3 list of classifier input representions.
+            inp: A length 3 list of classifier input representations.
         """
         error = "in PSI doesn't match. The embedding dimensions need to be consistent with the list self.in_emb_dims"
         for i, in_emb_dim in enumerate(self.in_emb_dims):
@@ -128,7 +128,7 @@ class NMFDecoderAudio(nn.Module):
     """
 
     def __init__(self, n_comp=100, n_freq=513, device="cuda"):
-        super(NMFDecoderAudio, self).__init__()
+        super().__init__()
 
         self.W = nn.Parameter(
             0.1 * torch.rand(n_freq, n_comp), requires_grad=True

@@ -252,7 +252,7 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="Run the experiment in evaluate only mode."
-        "It skipps the training and goes directly to the evaluation."
+        "It skips the training and goes directly to the evaluation."
         "The model is expected to be already trained.",
     )
     parser.add_argument(
@@ -836,7 +836,7 @@ class Brain:
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
 
-        # Force default color for tqdm progrressbar
+        # Force default color for tqdm progressbar
         if not self.tqdm_colored_bar:
             self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
 
@@ -1772,7 +1772,7 @@ class Brain:
         Arguments
         ---------
         use : bool
-            If set to `False` will still sync gradients, useful to make behaviour togglable.
+            If set to `False` will still sync gradients, useful to make behavior toggleable.
         """
         if use:
             old_values_list = []

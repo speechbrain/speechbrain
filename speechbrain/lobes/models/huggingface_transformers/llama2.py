@@ -178,7 +178,7 @@ class LLAMA2(HFTransformersInterface):
             )
         return output
 
-    def _modify_state_dict(self, path, replacables=["base_model"]):
+    def _modify_state_dict(self, path, replaceables=["base_model"]):
         """A custom loading ensures SpeechBrain compatibility for Pretrain and model
         de/serialization. Here, the scope is to remove '.wav2vec2' before loading.
 
@@ -186,7 +186,7 @@ class LLAMA2(HFTransformersInterface):
         ---------
         path : str
             Checkpoint path, file name relative to the repo root.
-        replacables : List[str]
+        replaceables : List[str]
             State dict sub-keys that if found, shall be dropped (incl. the 'model.' parent key), elevating key structures.
 
         Returns
@@ -301,7 +301,7 @@ class LLAMA2(HFTransformersInterface):
         modified_state_dict = {}
         # Matching the state_dict of the ckpt with that of the HF Llama model.
         for key, params in orig_state_dict.items():
-            for tag in replacables:
+            for tag in replaceables:
                 if f"{tag}" in key:
                     save_key = key.replace(f"model.{tag}", f"{tag}")
                     modified_state_dict[save_key] = params
@@ -338,7 +338,7 @@ class LLAMA2(HFTransformersInterface):
         input_ids : torch.Tensor ()
             A batch of input-id   which are dialogue context tokens
         # decoder_type : Str
-        #     It shows strategy for autoregressive decoding either beam seach or greedy.
+        #     It shows strategy for autoregressive decoding either beam search or greedy.
         # attention_mask : torch.Tensor ()
         #     A batch of attention_mask.
         """
@@ -376,7 +376,7 @@ class LLAMA2(HFTransformersInterface):
         Arguments
         ---------
         config : HuggingFace config object
-            The orginal config.
+            The original config.
 
         Returns
         ---------

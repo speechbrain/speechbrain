@@ -43,7 +43,7 @@ def check_row_for_test(row, filters_fields, filters, test_field):
         field_values = filters[i]
         if type(field_values) == str:
             # ... AND ... filter
-            if not (field_values == row[field]):
+            if not field_values == row[field]:
                 test = False
         elif type(field_values) == list:  # type(field) == list
             # ... AND (... OR ...) ... filter; at least one entry of the list matches
@@ -95,7 +95,7 @@ def prepare_test(
         Field of the csv recipe file containing optional messages to show before running the test.
     filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -193,7 +193,7 @@ def check_files(
 
     for file_to_check in files_to_check:
         check_path = os.path.join(output_folder, file_to_check)
-        if not (os.path.exists(check_path)):
+        if not os.path.exists(check_path):
             print(
                 "\tERROR: The recipe %s does not contain the expected file %s"
                 % (recipe_id, check_path)
@@ -243,7 +243,7 @@ def check_performance(
     threshold = performance_to_check[2].strip()
     epoch = performance_to_check[3].strip()
 
-    if not (os.path.exists(filename)):
+    if not os.path.exists(filename):
         print(
             "\tERROR: The file %s of recipe %s does not exist (needed for performance checks)"
             % (filename, recipe_id)
@@ -255,7 +255,7 @@ def check_performance(
     with open(filename) as file:
         lines = file.readlines()
 
-    # Fitler the lines
+    # Filter the lines
     lines_filt = []
     last_line = ""
     for line in lines:
@@ -291,7 +291,7 @@ def check_performance(
         var_value = float(var_value)
         check = check_threshold(threshold, var_value)
 
-        if not (check):
+        if not check:
             print(
                 "\tERROR: The variable %s of file %s (recipe %s) violated the specified threshold (%s %s)"
                 % (variable, filename, recipe_id, var_value, threshold)
@@ -440,7 +440,7 @@ def run_recipe_tests(
         Folder where the output of the tests are saved.
     filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -462,7 +462,7 @@ def run_recipe_tests(
     """
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
-    print("Test ouputs will be put in %s" % (output_folder))
+    print("Test outputs will be put in %s" % (output_folder))
 
     # Read the csv recipe file and detect which tests we have to run
     (
@@ -703,7 +703,7 @@ def load_yaml_test(
         Field of the csv recipe file containing the test flags.
     filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -725,7 +725,7 @@ def load_yaml_test(
     # Get current working directory
     cwd = os.getcwd()
 
-    # Set data_foler and output folder
+    # Set data_folder and output folder
     data_folder = os.path.join(cwd, data_folder)
     output_folder = os.path.join(cwd, output_folder)
     rir_folder = os.path.join(cwd, rir_folder)

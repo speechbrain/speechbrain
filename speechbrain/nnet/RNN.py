@@ -298,7 +298,7 @@ class GRU(torch.nn.Module):
         Number of layers to employ in the RNN architecture.
     bias : bool
         If True, the additive bias b is adopted.
-    dropou t: float
+    dropout: float
         It is the dropout factor (must be between 0 and 1).
     re_init : bool
         If True, orthogonal initialization is used for the recurrent weights.
@@ -438,7 +438,7 @@ class RNNCell(nn.Module):
         re_init=True,
         nonlinearity="tanh",
     ):
-        super(RNNCell, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
@@ -543,7 +543,7 @@ class GRUCell(nn.Module):
         dropout=0.0,
         re_init=True,
     ):
-        super(GRUCell, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
@@ -648,7 +648,7 @@ class LSTMCell(nn.Module):
         dropout=0.0,
         re_init=True,
     ):
-        super(LSTMCell, self).__init__()
+        super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
@@ -794,7 +794,7 @@ class AttentionalRNNDecoder(nn.Module):
         bias=True,
         dropout=0.0,
     ):
-        super(AttentionalRNNDecoder, self).__init__()
+        super().__init__()
 
         self.rnn_type = rnn_type.lower()
         self.attn_type = attn_type.lower()
@@ -1172,7 +1172,7 @@ class LiGRU_Layer(torch.nn.Module):
         bidirectional=False,
     ):
 
-        super(LiGRU_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
         self.batch_size = batch_size
@@ -1575,7 +1575,7 @@ class SLiGRU_Layer(torch.nn.Module):
         bidirectional=False,
     ):
 
-        super(SLiGRU_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
         self.batch_size = batch_size

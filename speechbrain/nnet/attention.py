@@ -48,7 +48,7 @@ class ContentBasedAttention(nn.Module):
     """
 
     def __init__(self, enc_dim, dec_dim, attn_dim, output_dim, scaling=1.0):
-        super(ContentBasedAttention, self).__init__()
+        super().__init__()
 
         self.mlp_enc = nn.Linear(enc_dim, attn_dim)
         self.mlp_dec = nn.Linear(dec_dim, attn_dim)
@@ -155,7 +155,7 @@ class LocationAwareAttention(nn.Module):
         kernel_size,
         scaling=1.0,
     ):
-        super(LocationAwareAttention, self).__init__()
+        super().__init__()
 
         self.mlp_enc = nn.Linear(enc_dim, attn_dim)
         self.mlp_dec = nn.Linear(dec_dim, attn_dim)
@@ -263,7 +263,7 @@ class KeyValueAttention(nn.Module):
     """
 
     def __init__(self, enc_dim, dec_dim, attn_dim, output_dim):
-        super(KeyValueAttention, self).__init__()
+        super().__init__()
 
         self.key_linear = nn.Linear(enc_dim, attn_dim)
         self.query_linear = nn.Linear(dec_dim, attn_dim)
@@ -397,7 +397,7 @@ class RelPosMHAXL(nn.Module):
         vdim=None,
         mask_pos_future=False,
     ):
-        super(RelPosMHAXL, self).__init__()
+        super().__init__()
         self.embed_dim = embed_dim
         self.vdim = vdim if vdim is not None else embed_dim
         self._qkv_same_embed_dim = self.vdim == embed_dim
@@ -476,6 +476,7 @@ class RelPosMHAXL(nn.Module):
         # need to drop the first row
         x = x[:, :, 1:].view(b, h, qlen, pos_len)  # (b, h, t1, t2)
 
+        # cspell:ignore tril
         if self.mask_pos_future:
             ones = torch.ones((x.size(2), x.size(3)), device=x.device)
             x = x * torch.tril(ones, x.size(3) - x.size(2))[None, None, :, :]
@@ -859,7 +860,7 @@ class PositionalwiseFeedForward(nn.Module):
 
     def forward(self, x):
         """Applies PositionalwiseFeedForward to the input tensor x."""
-        # give a tensor of shap (time, batch, fea)
+        # give a tensor of shape (time, batch, fea)
         x = x.permute(1, 0, 2)
         x = self.ffn(x)
 

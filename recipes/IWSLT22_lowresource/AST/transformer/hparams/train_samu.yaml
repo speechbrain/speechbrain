@@ -65,7 +65,7 @@ attn_pooling: !new:speechbrain.nnet.pooling.AttentionPooling
     input_dim: !ref <d_model>
 
 #LaBSE
-labse_path: setu4993/LaBSE
+labse_path: setu4993/LaBSE # cspell:disable
 labse_frozen: True
 LaBSE: !new:speechbrain.lobes.models.huggingface_transformers.labse.LaBSE
     source: !ref <labse_path>

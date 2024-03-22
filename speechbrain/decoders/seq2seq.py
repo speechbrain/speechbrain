@@ -69,7 +69,7 @@ class S2SBaseSearcher(torch.nn.Module):
     def __init__(
         self, bos_index, eos_index, min_decode_ratio, max_decode_ratio,
     ):
-        super(S2SBaseSearcher, self).__init__()
+        super().__init__()
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.min_decode_ratio = min_decode_ratio
@@ -317,7 +317,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
 
     def __init__(self, embedding, decoder, linear, **kwargs):
-        super(S2SRNNGreedySearcher, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
@@ -401,7 +401,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         max_attn_shift=60,
         minus_inf=-1e20,
     ):
-        super(S2SBeamSearcher, self).__init__(
+        super().__init__(
             bos_index, eos_index, min_decode_ratio, max_decode_ratio,
         )
         self.beam_size = beam_size
@@ -918,7 +918,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         memory : No limit
             The memory variables generated in this step.
         scorer_memory : No limit
@@ -1016,7 +1016,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_seq : torch.Tensor
             alived_log_probs : torch.Tensor
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         scores : torch.Tensor
             Scores at the current step.
 
@@ -1056,7 +1056,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Arguments
         ---------
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
 
         Returns
         -------
@@ -1137,7 +1137,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         memory : No limit
             The memory variables input for this step.
             (ex. RNN hidden states).
@@ -1164,7 +1164,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         memory : No limit
             The memory variables generated in this step.
         scorer_memory : No limit
@@ -1244,14 +1244,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         alived_hyps : AlivedHypotheses
             The alived hypotheses.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         scores : torch.Tensor
             The scores of the current step output.
 
         Returns
         -------
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         """
         if not self._check_full_beams(eos_hyps_and_log_probs_scores):
             # Using all eos to fill-up the hyps.
@@ -1428,7 +1428,7 @@ class S2SRNNBeamSearcher(S2SBeamSearcher):
     def __init__(
         self, embedding, decoder, linear, temperature=1.0, **kwargs,
     ):
-        super(S2SRNNBeamSearcher, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
@@ -1482,7 +1482,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     See also S2SBaseSearcher(), S2SBeamSearcher().
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A Transformer model.
         seq_lin : torch.nn.Module
@@ -1525,7 +1525,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     def __init__(
         self, modules, temperature=1.0, **kwargs,
     ):
-        super(S2STransformerBeamSearcher, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.model = modules[0]
         self.fc = modules[1]
@@ -1645,7 +1645,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         memory = _update_mem(inp_tokens, memory)
 
         # WARNING: the max_decode_ratio need to be under 448 because
-        #  of positinal encoding
+        #  of positional encoding
         dec_out, attn = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
 
@@ -1665,7 +1665,7 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
 
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A TransformerASR model.
         seq_lin : torch.nn.Module
@@ -1705,7 +1705,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     https://cdn.openai.com/papers/whisper.pdf.
     Arguments
     ---------
-    module : list with the followings one:
+    module : list with the following one:
         model : torch.nn.Module
             A whisper model. It should have a decode() method.
         ctc_lin : torch.nn.Module (optional)
@@ -1736,7 +1736,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         max_length=448,
         **kwargs,
     ):
-        super(S2SWhisperBeamSearch, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.model = module[0]
 
@@ -1828,7 +1828,7 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
 
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A Transformer model.
         seq_lin : torch.nn.Module

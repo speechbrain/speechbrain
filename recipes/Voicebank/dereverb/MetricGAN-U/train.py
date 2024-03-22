@@ -122,7 +122,7 @@ def dnsmos_eval(predict, target):
                 sigmoid(score_dict["mos"])
             )  # normalize the score to 0~1
             break
-        except Exception as e:  # sometimes, access the dnsmos server too ofen may disable the service.
+        except Exception as e:  # sometimes, access the dnsmos server too often may disable the service.
             print(e)
             time.sleep(10)  # wait for 10 secs
     return score
@@ -149,7 +149,7 @@ def dnsmos_eval_valid(predict, target):
             score_dict = resp.json()
             score = float(score_dict["mos"])
             break
-        except Exception as e:  # sometimes, access the dnsmos server too ofen may disable the service.
+        except Exception as e:  # sometimes, access the dnsmos server too often may disable the service.
             print(e)
             time.sleep(10)  # wait for 10 secs
     return score
@@ -666,14 +666,14 @@ class MetricGanBrain(sb.Brain):
         self.d_optimizer.zero_grad(set_to_none)
 
 
-# Define audio piplines for training set
+# Define audio pipelines for training set
 @sb.utils.data_pipeline.takes("noisy_wav")
 @sb.utils.data_pipeline.provides("noisy_sig")
 def audio_pipeline_train(noisy_wav):
     yield sb.dataio.dataio.read_audio(noisy_wav)
 
 
-# Define audio piplines for validation/test set
+# Define audio pipelines for validation/test set
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
 def audio_pipeline_valid(noisy_wav, clean_wav):

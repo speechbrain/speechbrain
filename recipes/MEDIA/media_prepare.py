@@ -8,7 +8,7 @@ See README.md for more info.
 
 Author
 ------
-Gaelle Laperriere 2023
+Gaëlle Laperrière 2023
 """
 
 import xml.dom.minidom as DOM
@@ -114,7 +114,7 @@ def prepare_media(
     channels, filenames = get_channels(channels_path)
 
     # Wavs.
-    if not (skip_wav):
+    if not skip_wav:
         logger.info("Processing wavs")
         for wav_path in tqdm(wav_paths):
             filename = wav_path.split("/")[-1][:-4]
@@ -229,7 +229,7 @@ def parse(
     Returns
     -------
     list
-        all informations needed to append the data in SpeechBrain csv files.
+        all information needed to append the data in SpeechBrain csv files.
     """
 
     data = []
@@ -416,7 +416,7 @@ def parse_sentences(turn, time_beg, time_end, method, task):
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     has_speech = False
@@ -534,7 +534,7 @@ def parse_sentences_test2(
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     sentences = [["", "", time_beg, time_end]]
@@ -634,7 +634,7 @@ def process_text_node(
     ---------
     node: Node
         Node of the xml file.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
@@ -650,7 +650,7 @@ def process_text_node(
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     task: str, optional
         Either 'slu' or 'asr'.
         'slu' Parse SLU data.
@@ -662,7 +662,7 @@ def process_text_node(
 
     Returns
     -------
-    dictionnary of str, bool, bool, bool
+    dictionary of str, bool, bool, bool
     """
 
     # Add a new concept, when speech following
@@ -697,7 +697,7 @@ def process_sync_node(
     ---------
     node: Node
         Node of the xml file.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
@@ -710,7 +710,7 @@ def process_sync_node(
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     task: str, optional
         Either 'slu' or 'asr'.
         'slu' Parse SLU data.
@@ -724,11 +724,11 @@ def process_sync_node(
 
     Returns
     -------
-    dictionnary of str, bool, bool, str, int
+    dictionary of str, bool, bool, str, int
     """
 
     # If the segment has no speech yet
-    if not (has_speech):
+    if not has_speech:
         # Change time_beg for the last segment
         sentences[n][2] = node.getAttribute("time")
     # If the segment has speech and sync doesn't cut a concept
@@ -759,7 +759,7 @@ def process_semfin_node(
 
     Arguments
     ---------
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
@@ -775,7 +775,7 @@ def process_semfin_node(
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     task: str, optional
         Either 'slu' or 'asr'.
         'slu' Parse SLU data.
@@ -789,7 +789,7 @@ def process_semfin_node(
 
     Returns
     -------
-    dictionnary of str, str, bool, bool, bool, int
+    dictionary of str, str, bool, bool, bool, int
     """
 
     # Prevent adding a closing concept
@@ -814,12 +814,12 @@ def clean_last_char(sentences):
 
     Arguments
     ---------
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     for n in range(len(sentences)):
@@ -827,7 +827,7 @@ def clean_last_char(sentences):
             sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
             sentences[n][1] = sentences[n][1][:-3]  # Remove last ' _ '
         else:
-            del sentences[n]  # Usefull for last appended segment
+            del sentences[n]  # Useful for last appended segment
     return sentences
 
 
@@ -845,6 +845,7 @@ def normalize_sentence(sentence):
     str
     """
 
+    # cspell:disable
     # Apostrophes
     sentence = sentence.replace(" '", "'")  # Join apostrophe to previous word
     sentence = sentence.replace("'", "' ")  # Detach apostrophe to next word
@@ -875,6 +876,7 @@ def normalize_sentence(sentence):
     # Specific
     sentence = sentence.replace("c' est", "c'est")  # Re-join this word
     return sentence
+    # cspell:enable
 
 
 def write_first_row(save_folder, corpus):
@@ -912,7 +914,7 @@ def write_first_row(save_folder, corpus):
 
 def split_audio_channels(path, filename, channel, save_folder):
     """
-    Split the stereo wav Media files from the dowloaded dataset.
+    Split the stereo wav Media files from the downloaded dataset.
     Keep only the speaker channel.
 
     Arguments:
@@ -1070,7 +1072,7 @@ def get_channels(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
+        Can be downloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------
@@ -1117,7 +1119,7 @@ def get_concepts_full_relax(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
+        Can be downloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------
@@ -1205,7 +1207,7 @@ def get_IDs(speaker_name, sentences, channel, filename):
     ---------
     speaker_name: str
         Speaker name of the turn, already normalized.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     channel: str
         "R" or "L" following the channel of the speaker in the stereo wav file.

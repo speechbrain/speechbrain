@@ -752,7 +752,7 @@ class DCT(torch.nn.Module):
                 "(n_out=%i, n_in=%i)" % (n_out, input_size)
             )
 
-        # Generate matix for DCT transformation
+        # Generate matrix for DCT transformation
         n = torch.arange(float(input_size))
         k = torch.arange(float(n_out)).unsqueeze(1)
         dct = torch.cos(math.pi / float(input_size) * (n + 0.5) * k)
@@ -1235,7 +1235,7 @@ class GlobalNorm(torch.nn.Module):
     inputs to the desired mean and standard deviation.
 
     This normalization is reversible - it is possible to use the .denormalize()
-    method to reover the original values.
+    method to recover the original values.
 
     Arguments
     ---------
@@ -1409,7 +1409,7 @@ class GlobalNorm(torch.nn.Module):
         return mask
 
     def denormalize(self, x):
-        """Reverses the normalization proces
+        """Reverses the normalization process
 
         Arguments
         ---------

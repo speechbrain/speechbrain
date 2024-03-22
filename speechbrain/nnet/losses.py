@@ -121,7 +121,7 @@ class PitWrapper(nn.Module):
     """
 
     def __init__(self, base_loss):
-        super(PitWrapper, self).__init__()
+        super().__init__()
         self.base_loss = base_loss
 
     def _fast_pit(self, loss_mat):
@@ -629,7 +629,7 @@ def distance_diff_loss(
         weight or some other value at that position
 
     targets: torch.Tensor
-        a 1-D tensor in which each elemnent is thr ground truth
+        a 1-D tensor in which each element is thr ground truth
 
     length: torch.Tensor
         lengths (for masking in padded batches)
@@ -681,7 +681,7 @@ def _distance_diff_loss(predictions, targets, beta, max_weight):
         weight or some other value at that position
 
     targets: torch.Tensor
-        a 1-D tensor in which each elemnent is thr ground truth
+        a 1-D tensor in which each element is thr ground truth
 
     max_weight: torch.Tensor
         the maximum distance weight (for numerical stability in long sequences)
@@ -1145,9 +1145,9 @@ class AngularMargin(nn.Module):
     Arguments
     ---------
     margin : float
-        The margin for cosine similiarity
+        The margin for cosine similarity
     scale : float
-        The scale for cosine similiarity
+        The scale for cosine similarity
 
     Return
     ---------
@@ -1164,7 +1164,7 @@ class AngularMargin(nn.Module):
     """
 
     def __init__(self, margin=0.0, scale=1.0):
-        super(AngularMargin, self).__init__()
+        super().__init__()
         self.margin = margin
         self.scale = scale
 
@@ -1196,9 +1196,9 @@ class AdditiveAngularMargin(AngularMargin):
     Arguments
     ---------
     margin : float
-        The margin for cosine similiarity.
+        The margin for cosine similarity.
     scale: float
-        The scale for cosine similiarity.
+        The scale for cosine similarity.
 
     Returns
     -------
@@ -1215,7 +1215,7 @@ class AdditiveAngularMargin(AngularMargin):
     """
 
     def __init__(self, margin=0.0, scale=1.0, easy_margin=False):
-        super(AdditiveAngularMargin, self).__init__(margin, scale)
+        super().__init__(margin, scale)
         self.easy_margin = easy_margin
 
         self.cos_m = math.cos(self.margin)
@@ -1281,7 +1281,7 @@ class LogSoftmaxWrapper(nn.Module):
     """
 
     def __init__(self, loss_fn):
-        super(LogSoftmaxWrapper, self).__init__()
+        super().__init__()
         self.loss_fn = loss_fn
         self.criterion = torch.nn.KLDivLoss(reduction="sum")
 
@@ -1455,7 +1455,7 @@ class ContrastiveLoss(nn.Module):
     Arguments
     ---------
     logit_temp : torch.Float
-        A temperature to devide the logits.
+        A temperature to divide the logits.
 
     """
 

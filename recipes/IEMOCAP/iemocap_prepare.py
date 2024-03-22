@@ -46,7 +46,7 @@ def prepare_data(
         Path where the test data specification file will be saved.
     split_ratio: list
         List composed of three integers that sets split ratios for train,
-        valid, and test sets, respecively.
+        valid, and test sets, respectively.
         For instance split_ratio=[80, 10, 10] will assign 80% of the sentences
         to training, 10% for validation, and 10% for test.
     test_spk_id: int
@@ -193,7 +193,7 @@ def split_sets(speaker_dict, split_ratio):
     same proportion of samples (e.g, spk01 should have 80% of samples in
     training, 10% validation, 10% test, the same for speaker2 etc.). This
     is the approach followed in some recipes such as the Voxceleb one. For
-    simplicity, we here simply split the full list without necessarly
+    simplicity, we here simply split the full list without necessarily
     respecting the split ratio within each class.
 
     Arguments
@@ -231,6 +231,7 @@ def split_sets(speaker_dict, split_ratio):
     return data_split
 
 
+# cspell:ignore ahsn
 def transform_data(path_loadSession):
     """
     Create a dictionary that maps speaker id and corresponding wavs
@@ -267,7 +268,7 @@ def load_utterInfo(inputFile):
     Load utterInfo from original IEMOCAP database
     """
 
-    # this regx allow to create a list with:
+    # this regex allow to create a list with:
     # [START_TIME - END_TIME] TURN_NAME EMOTION [V, A, D]
     # [V, A, D] means [Valence, Arousal, Dominance]
     pattern = re.compile(

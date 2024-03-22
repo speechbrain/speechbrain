@@ -37,7 +37,7 @@ TGT_AUDIO = {
     "test": "test",
 }
 
-# Number of samples for the small evalution subset
+# Number of samples for the small evaluation subset
 SMALL_EVAL_SIZE = 1000
 
 log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
