@@ -29,7 +29,7 @@ class FlairSequenceTagger:
 
     @staticmethod
     def from_hf(
-        source, save_path="", filename="pytorch_model.bin"
+        source, save_path="./model_checkpoints", filename="pytorch_model.bin"
     ) -> "FlairSequenceTagger":
         """Fetches and load a flair PyTorch model according to the
         :func:`speechbrain.utils.fetching.fetch` semantics.
@@ -46,7 +46,8 @@ class FlairSequenceTagger:
             this kind of model.
         """
 
-        local_path = fetch(filename, source, savedir=save_path)
+        target = save_path + "/flair--" + source.replace("/", "--") + "/"
+        local_path = fetch(filename, source, savedir=target)
         return FlairSequenceTagger(SequenceTagger.load(local_path))
 
     def __call__(
