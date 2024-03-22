@@ -58,6 +58,10 @@ class Whisper(HFTransformersInterface):
         For example whisper-base has 6 transformer layers and the output is of shape (7, B, T, C),
         where the output of the CNN output is added to the beginning.
         If False, the forward function outputs the hidden states only from the last transformer layer of the encoder.
+    language: str (default: "en")
+        Language token to use for the decoder.
+    task: str (default: "transcribe")
+        Task token to use for the decoder.
 
     Example
     -------
@@ -99,6 +103,9 @@ class Whisper(HFTransformersInterface):
 
         if encoder_only:
             self.tokenizer = None
+            # free the decoder from GPU
+            del self.model.decoder
+            self.model.decoder = None
         else:
             # when the model is not multilingual i.e. all Whisper
             # models ending in .en, you must not set the language
@@ -150,19 +157,14 @@ class Whisper(HFTransformersInterface):
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         decoder_input_ids : torch.Tensor
-            This is necessary if we want to use the decoder.
-
-            A batch of decoder inputs tokens.
-            The first tokens need to dictate the behavior of the decoder.
-            It needs to start with the bos_token, the language token,
-            the task token, and finally the timestamp token.
-
+            Input tokens for the decoder. This can be language, task, etc.
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
         """
 
-        def _fwd():
+        def _forward():
+            """ Forward pass of the model """
             out_encoder = self.forward_encoder(wav)
             if self.encoder_only:
                 return out_encoder
@@ -179,9 +181,9 @@ class Whisper(HFTransformersInterface):
 
         if self.freeze:
             with torch.no_grad():
-                return _fwd()
+                return _forward()
         else:
-            return _fwd()
+            return _forward()
 
     def forward_encoder(self, wav):
         """Perform one step of the whisper encoder with Mel FBANKs as Input.
@@ -194,6 +196,19 @@ class Whisper(HFTransformersInterface):
         return self._get_encoder_states(wav)
 
     def _get_mel(self, wav):
+        """
+        Compute the mel spectrogram features from the input audio waveform.
+
+        Arguments:
+        ----------
+        wav : torch.Tensor
+            A batch of audio signals to compute mel spectrogram features from.
+
+        Returns:
+        -------
+        torch.Tensor
+            Mel spectrogram features computed from the input audio waveform.
+        """
         mel = torch.from_numpy(
             np.array(
                 self.feature_extractor(
@@ -212,17 +227,25 @@ class Whisper(HFTransformersInterface):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
+
+        Returns
+        -------
+        torch.Tensor
+            The last hidden state of the encoder or all hidden states if
+            output_all_hiddens is True.
         """
         mel = self._get_mel(wav)
+        encoder_states = self.model.encoder(
+            mel, output_hidden_states=self.output_all_hiddens
+        )
         if self.output_all_hiddens:
-            states = self.model.encoder(mel, output_hidden_states=True)
-            return torch.stack(states.hidden_states)
+            return torch.stack(encoder_states.hidden_states)
         else:
-            return self.model.encoder(mel).last_hidden_state
+            return encoder_states.last_hidden_state
 
     def forward_decoder(
         self,
-        audio_features,
+        encoder_states,
         decoder_input_ids,
         use_cache=True,
         past_key_values=None,
@@ -231,46 +254,56 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        audio_features : torch.Tensor
-            A batch of audio features (mel + whisper encoding).
+        encoder_states : torch.Tensor
+            A batch of encoder_states features (mel + whisper feature extractor).
         decoder_input_ids : torch.Tensor
-            A batch of decoder inputs tokens.
-            The first tokens need to dictate the behavior of the decoder.
-            It needs to start with the bos_token, the language token,
-            the task token, and finally the timestamp token.
-
+            Input tokens for the decoder. This can be language, task, etc.
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
+        use_cache : bool
+            If True, keys and values are returned as output for KV caching.
+        past_key_values : torch.Tensor (default: None)
+            If not None, the past key values are used for KV caching and
+            avoid recomputing the attention weights.
+
+        Returns
+        -------
+        logits : torch.Tensor
+            The logits of the decoder.
+        attn : torch.Tensor
+            The attention weights of the decoder.
+        past_key_values : torch.Tensor
+            The past key values of the decoder.
         """
-        # print(decoder_input_ids)
         if past_key_values is not None:
-            # print(decoder_input_ids.shape)
+            # if KV cache we do not need to pass the whole past tokens but only t-1
             decoder_input_ids = decoder_input_ids[:, -1].unsqueeze(-1)
-            # print(decoder_input_ids.shape)
+
         output_states = self.model.decoder(
-            encoder_hidden_states=audio_features,
+            encoder_hidden_states=encoder_states,
             input_ids=decoder_input_ids,
             past_key_values=past_key_values,
             output_attentions=self.output_attentions,
             use_cache=use_cache,
         )
-        # print(len(output_states.past_key_values))
-        # exit()
-        # output_states = output_states.last_hidden_state
-        # print(output_states.last_hidden_state.shape)
-        # logits = output_states.last_hidden_state @ self.model.decoder.embed_tokens.weight.T
 
+        if self.output_attentions:
+            attn = output_states.attentions[-1]
+            attn = attn.view(attn.shape[0] * attn.shape[1], *attn.shape[2:])
+        else:
+            attn = None
+
+        x = output_states.last_hidden_state
         logits = (
-            output_states.last_hidden_state
-            @ self.model.decoder.embed_tokens.weight.T
-        )
+            x @ torch.transpose(self.token_embedding.weight.to(x.dtype), 0, 1)
+        ).float()
 
-        # print(logits.shape)
-        return logits, None, output_states.past_key_values
+        return logits, attn, output_states.past_key_values
 
     @cached_property
     def all_language_tokens(self):
+        """Returns the list of tokens corresponding to the language tokens."""
         from transformers.models.whisper.tokenization_whisper import LANGUAGES
 
         langs = list(LANGUAGES.keys())  # Convert keys to a list
@@ -284,10 +317,10 @@ class Whisper(HFTransformersInterface):
 
     @cached_property
     def all_language_codes(self):
+        """Returns the list of language codes corresponding to the language tokens."""
         from transformers.models.whisper.tokenization_whisper import LANGUAGES
 
         langs = list(LANGUAGES.keys())  # Convert keys to a list
-        # bos_token_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.bos_token)
         return tuple(langs)
 
     @cached_property
@@ -301,6 +334,8 @@ class Whisper(HFTransformersInterface):
         - [DAVID] Hey there,
 
         keeping basic punctuations like commas, periods, question marks, exclamation points, etc.
+
+        Taken from: openai/whisper GitHub
         """
         symbols = list('"#()*+/:;<=>@[\\]^_`{|}~「」『』')
         symbols += "<< >> <<< >>> -- --- -( -[ (' (\" (( )) ((( ))) [[ ]] {{ }} ♪♪ ♪♪♪".split()
@@ -329,26 +364,32 @@ class Whisper(HFTransformersInterface):
 
     @cached_property
     def transcribe(self) -> int:
+        """Returns the token id corresponding to the value of the `transcribe` field"""
         return self.tokenizer.convert_tokens_to_ids("<|transcribe|>")
 
     @cached_property
     def translate(self) -> int:
+        """Returns the token id corresponding to the value of the `translate` field"""
         return self.tokenizer.convert_tokens_to_ids("<|translate|>")
 
     @cached_property
     def bos(self) -> int:
+        """Returns the token id corresponding to the value of the `bos` field"""
         return self.tokenizer.convert_tokens_to_ids("<|startoftranscript|>")
 
     @cached_property
     def eos(self) -> int:
+        """Returns the token id corresponding to the value of the `eos` field"""
         return self.tokenizer.convert_tokens_to_ids("<|endoftext|>")
 
     @cached_property
     def bos_lm(self) -> int:
+        """Returns the token id corresponding to the value of the `bos_lm` field"""
         return self.tokenizer.convert_tokens_to_ids("<|startoflm|>")
 
     @cached_property
     def bos_prev(self) -> int:
+        """Returns the token id corresponding to the value of the `bos_prev` field"""
         return self.tokenizer.convert_tokens_to_ids("<|startofprev|>")
 
     @cached_property
@@ -358,10 +399,12 @@ class Whisper(HFTransformersInterface):
 
     @cached_property
     def no_timestamps(self) -> int:
+        """Returns the token id corresponding to the value of the `no_timestamps` field"""
         return self.tokenizer.convert_tokens_to_ids("<|notimestamps|>")
 
     @cached_property
     def timestamp_begin(self) -> int:
+        """Returns the token id corresponding to the value of the `timestamp_begin` field"""
         return self.tokenizer.convert_tokens_to_ids("<|0.00|>")
 
     @cached_property
@@ -374,6 +417,23 @@ class Whisper(HFTransformersInterface):
         return self.to_language_token(self.language)
 
     def to_language_token(self, language):
+        """Returns the token id corresponding to the given language.
+
+        Arguments
+        ---------
+        language : str
+            The language to convert to a token.
+
+        Returns
+        -------
+        token
+            The token id corresponding to the given language.
+
+        Raises
+        ------
+        KeyError
+            If the language is not found in the tokenizer.
+        """
         token = self.tokenizer.convert_tokens_to_ids.get(
             f"<|{language}|>", None
         )
@@ -383,47 +443,71 @@ class Whisper(HFTransformersInterface):
         raise KeyError(f"Language {language} not found in tokenizer.")
 
     def set_language_token(self, language):
+        """Set the language token to the given language.
+
+        Arguments
+        ---------
+        language : str
+            The language to set the token to.
+        """
         self.language = language
         self.tokenizer.set_prefix_tokens(language=self.language)
 
     def set_task(self, task):
+        """Set the task token to the given task.
+
+        Arguments
+        ---------
+        task : str
+            The task to set the token to.
+        """
         self.task = task
         self.tokenizer.set_prefix_tokens(task=self.task)
 
     @cached_property
     def is_multilingual(self):
+        """Returns True if the model is multilingual, False otherwise."""
         return len(self.tokenizer) >= 51865
 
     @torch.no_grad()
     def detect_language(self, mel):
+        """Detect the language of the given mel spectrogram features.
+
+        Arguments
+        ---------
+        mel : torch.Tensor
+            Mel spectrogram features to detect the language of.
+
+        Returns
+        -------
+        language_tokens : torch.Tensor
+            The detected language tokens.
+        language_probs : dict
+            The probabilities of the detected language tokens.
+
+        Raises
+        ------
+        ValueError
+            If the model doesn't have language tokens.
+        """
         if self.tokenizer.language is None:
             raise ValueError(
                 "This model doesn't have language tokens so it can't perform lang id"
             )
 
-        # forward pass using a single token, startoftranscript
-        n_audio = mel.shape[0]
+        batch_size = mel.shape[0]
+        enc_states = self.model.encoder(mel).last_hidden_state
 
-        audio_features = self.model.encoder(mel).last_hidden_state
-
-        decoder_input_ids = torch.tensor([[self.bos]] * n_audio).to(
+        decoder_input_ids = torch.tensor([[self.bos]] * batch_size).to(
             mel.device
-        )  # [n_audio, 1]
-        # print(decoder_input_ids)
-        logits = self.forward_decoder(audio_features, decoder_input_ids)[0][
-            :, 0
-        ]
-        # print(logits)
-        # collect detected languages; suppress all non-language tokens
+        )
+        logits = self.forward_decoder(enc_states, decoder_input_ids)[0][:, 0]
         mask = torch.ones(logits.shape[-1], dtype=torch.bool)
         mask[list(self.all_language_tokens)] = False
-        # print(mask)
         logits[:, mask] = -np.inf
         language_tokens = logits.argmax(dim=-1)
         language_token_probs = logits.softmax(dim=-1).cpu()
-        # print("tokens = ", self.all_language_tokens)
-        # print("codes = ", self.all_language_codes)
-        # exit()
+
         language_probs = [
             {
                 c: language_token_probs[i, j].item()
@@ -431,11 +515,7 @@ class Whisper(HFTransformersInterface):
                     self.all_language_tokens, self.all_language_codes
                 )
             }
-            for i in range(n_audio)
+            for i in range(batch_size)
         ]
-
-        if mel.shape[0] == 1:
-            language_tokens = language_tokens[0]
-            language_probs = language_probs[0]
 
         return language_tokens, language_probs

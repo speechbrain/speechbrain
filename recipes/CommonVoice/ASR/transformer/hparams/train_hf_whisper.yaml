@@ -144,8 +144,8 @@ test_search: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
     beam_size: !ref <test_beam_size>
 
 lr_annealing_whisper: !new:speechbrain.nnet.schedulers.NoamScheduler
-   lr_initial: !ref <lr_whisper>
-   n_warmup_steps: !ref <warmup_steps>
+    lr_initial: !ref <lr_whisper>
+    n_warmup_steps: !ref <warmup_steps>
 
 ############################## Logging and Pretrainer ##########################
 
