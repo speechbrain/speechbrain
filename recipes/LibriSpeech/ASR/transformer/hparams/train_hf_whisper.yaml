@@ -35,10 +35,6 @@ test_csv:
 
 ckpt_interval_minutes: 10 # save checkpoint every N min
 
-# We remove utterance slonger than 30s in the train/dev/test sets as
-# Whisper cannot deal with utterances superior to 30s.
-avoid_if_longer_than: 30.0
-
 ############################## Training Parameters #############################
 freeze_encoder: True
 number_of_epochs: 1
@@ -49,7 +45,7 @@ max_grad_norm: 2.0
 sorting: ascending
 precision: fp16 # bf16, fp16 or fp32
 eval_precision: fp16
-sample_rate: 16000
+sampling_rate: 16_000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
@@ -119,6 +115,7 @@ whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     save_path: !ref <whisper_folder>
     language: "english"
     task: "transcribe"
+    sampling_rate: !ref <sampling_rate>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
