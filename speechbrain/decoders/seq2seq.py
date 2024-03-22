@@ -216,7 +216,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         for step in range(min_decode_steps, max_decode_steps):
             logits, memory, _ = self.forward_step(
-                step, inp_tokens, memory, enc_states, enc_lens
+                inp_tokens, memory, enc_states, enc_lens
             )
 
             if self.temperature == 0:
@@ -410,7 +410,7 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         # the first input token
         return torch.tensor([memory_tokens] * batch_size).to(device)
 
-    def forward_step(self, step, inp_tokens, memory, enc_states, enc_lens):
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
 
