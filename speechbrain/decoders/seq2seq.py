@@ -230,10 +230,10 @@ class S2SGreedySearcher(S2SBaseSearcher):
             log_probs = F.log_softmax(logits.float(), dim=-1)
             log_probs_lst.append(log_probs)
 
-            log_probs[has_ended] = float("inf")
-            inp_tokens[memory[:, -1] == self.eos_index] = self.eos_index
-
             has_ended = has_ended | (inp_tokens == self.eos_index)
+            log_probs[has_ended] = float("inf")
+            inp_tokens[has_ended] = self.eos_index
+
             if has_ended.all() or self._check_end_condition(memory):
                 break
 
