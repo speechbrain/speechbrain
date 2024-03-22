@@ -58,7 +58,7 @@ class FlairEmbeddings:
         """
 
         target = save_path + "/flair-emb--" + source.replace("/", "--") + "/"
-        local_path = fetch(filename, source, savedir=target)
+        local_path = str(fetch(filename, source, savedir=target))
         return FlairEmbeddings(embeddings_class(local_path, *args, **kwargs))
 
     def __call__(

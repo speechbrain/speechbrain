@@ -48,7 +48,7 @@ class FlairSequenceTagger:
         """
 
         target = save_path + "/flair--" + source.replace("/", "--") + "/"
-        local_path = fetch(filename, source, savedir=target)
+        local_path = str(fetch(filename, source, savedir=target))
         return FlairSequenceTagger(SequenceTagger.load(local_path))
 
     def __call__(
