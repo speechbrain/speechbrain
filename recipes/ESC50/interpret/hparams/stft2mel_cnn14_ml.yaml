@@ -176,9 +176,11 @@ use_pretrained: True
 #embedding_model_path: 'fpaissan/r/embedding_model.ckpt'
 #classifier_model_path: 'fpaissan/r/classifier.ckpt'
 
-embedding_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-01-28+14-05-48+00/embedding_model.ckpt'
-classifier_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-01-28+14-05-48+00/classifier.ckpt'
+# embedding_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-01-28+14-05-48+00/embedding_model.ckpt'
+# classifier_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-01-28+14-05-48+00/classifier.ckpt'
 
+embedding_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-03-22+10-49-49+00/embedding_model.ckpt'
+classifier_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-03-22+10-49-49+00/classifier.ckpt'
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

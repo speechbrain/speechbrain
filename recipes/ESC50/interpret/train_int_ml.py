@@ -1029,8 +1029,8 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    train_set = ESC10MultiLabel('../classification/ESC10-MultiLabel', hparams, folds=[1, 2, 3])
-    valid_set = ESC10MultiLabel('../classification/ESC10-MultiLabel', hparams, folds=[4])
+    train_set = ESC10MultiLabel(hparams['data_folder'], hparams, folds=[1, 2, 3])
+    valid_set = ESC10MultiLabel(hparams['data_folder'], hparams, folds=[4])
 
     train_loader = DataLoader(train_set, batch_size=hparams['batch_size'], shuffle=True)
     valid_loader = DataLoader(valid_set, batch_size=hparams['batch_size'], shuffle=False)
