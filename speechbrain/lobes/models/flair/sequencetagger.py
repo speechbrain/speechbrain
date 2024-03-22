@@ -32,15 +32,16 @@ class FlairSequenceTagger:
         source, save_path="./model_checkpoints", filename="pytorch_model.bin"
     ) -> "FlairSequenceTagger":
         """Fetches and load a flair PyTorch model according to the
-        :func:`speechbrain.utils.fetching.fetch` semantics.
+        :func:`speechbrain.utils.fetching.fetch` semantics. The model will be
+        saved into a unique subdirectory in `save_path`.
 
         Arguments
         ---------
         source : str
             The location of the model (a directory or HF repo, for instance).
         save_path : str, optional
-            The saving location for the model (i.e. the download or symlink
-            location).
+            The saving location for the model (i.e. the root for the download or
+            symlink location).
         filename : str, optional
             The filename of the model. The default is the usual filename for
             this kind of model.

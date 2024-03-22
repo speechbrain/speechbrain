@@ -32,10 +32,34 @@ class FlairEmbeddings:
         source,
         save_path="./model_checkpoints",
         filename="model.bin",
+        *args,
+        **kwargs
     ) -> "FlairEmbeddings":
+        """Fetches and load flair embeddings according to the
+        :func:`speechbrain.utils.fetching.fetch` semantics. Embedding files will
+        be saved into a unique subdirectory in `save_path`.
+
+        Arguments
+        ---------
+        embeddings_class : class
+            The class to use to initialize the model, e.g. `FastTextEmbeddings`.
+        source : str
+            The location of the model (a directory or HF repo, for instance).
+        save_path : str, optional
+            The saving location for the model (i.e. the root for the download or
+            symlink location).
+        filename : str, optional
+            The filename of the model. The default is the usual filename for
+            this kind of model.
+        *args
+            Extra positional arguments to pass to the flair class constructor
+        **kwargs
+            Extra keyword arguments to pass to the flair class constructor
+        """
+
         target = save_path + "/flair-emb--" + source.replace("/", "--") + "/"
         local_path = fetch(filename, source, savedir=target)
-        return FlairEmbeddings(embeddings_class(local_path))
+        return FlairEmbeddings(embeddings_class(local_path, *args, **kwargs))
 
     def __call__(
         self,
