@@ -74,7 +74,10 @@ class FlairEmbeddings:
             Sentences to embed, in the form of batches of lists of tokens
             (list of str) or a str.
             In the case of token lists, tokens do *not* need to be already
-            tokenized for this specific sequence tagger.
+            tokenized for this specific sequence tagger. However, a token may be
+            considered as a single word.
+            Similarly, out-of-vocabulary handling depends on the underlying
+            embedding class.
         pad_tensor : torch.Tensor, optional
             What embedding tensor (of shape `[]`, living on the same device as
             the embeddings to insert as padding.
