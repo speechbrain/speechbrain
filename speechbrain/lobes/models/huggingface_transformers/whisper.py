@@ -14,6 +14,7 @@ import torch
 import logging
 from functools import cached_property
 import numpy as np
+import torch.nn as nn
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
@@ -123,8 +124,22 @@ class Whisper(HFTransformersInterface):
             source, save_path, sampling_rate=sampling_rate
         )
 
-        #################################################################
+        self._n_fft = self.feature_extractor.n_fft
+        self._hop_length = self.feature_extractor.hop_length
+        self._n_samples = self.feature_extractor.n_samples
+        # The following breaking changes were introduced in transformers>=4.29:
+        # 1) mel_filters.shape = (..., feature_extractor.feature_size) instead of (feature_extractor.feature_size, ...)
+        # 2) mel_filters.dtype = float64 instead of float32
+        # The following code fixes the issue in a backward compatible way
+        mel_filters = self.feature_extractor.mel_filters
+        if mel_filters.shape[0] != self.feature_extractor.feature_size:
+            mel_filters = mel_filters.T
+        assert mel_filters.shape[0] == self.feature_extractor.feature_size
+        self.register_buffer(
+            "_mel_filters", torch.as_tensor(mel_filters, dtype=torch.float32)
+        )
 
+        # freeze the model
         if not self.freeze and self.freeze_encoder:
             logger.warning(
                 "speechbrain.lobes.models.huggingface_transformers.whisper - whisper encoder is frozen."
@@ -165,7 +180,8 @@ class Whisper(HFTransformersInterface):
 
         def _forward():
             """ Forward pass of the model """
-            out_encoder = self.forward_encoder(wav)
+            mel = self._get_mel(wav)
+            out_encoder = self.forward_encoder(mel)
             if self.encoder_only:
                 return out_encoder
             else:
@@ -185,16 +201,6 @@ class Whisper(HFTransformersInterface):
         else:
             return _forward()
 
-    def forward_encoder(self, wav):
-        """Perform one step of the whisper encoder with Mel FBANKs as Input.
-
-        Arguments
-        ---------
-        wav : torch.Tensor (FBANKs)
-            A batch of Mel FBANK from HF to transform to features.
-        """
-        return self._get_encoder_states(wav)
-
     def _get_mel(self, wav):
         """
         Compute the mel spectrogram features from the input audio waveform.
@@ -209,24 +215,92 @@ class Whisper(HFTransformersInterface):
         torch.Tensor
             Mel spectrogram features computed from the input audio waveform.
         """
-        mel = torch.from_numpy(
-            np.array(
-                self.feature_extractor(
-                    wav.cpu().numpy(), sampling_rate=self.sampling_rate
-                ).input_features
-            ),
-        ).to(self.model.device)
-        return mel
+        mels = self._pad_or_trim(wav)
+        mels = self._log_mel_spectrogram(mels)
+        return mels
 
-    def _get_encoder_states(self, wav):
-        """Takes an input waveform and return its corresponding encoder states.
+    def _log_mel_spectrogram(self, audio):
+        """Compute the Mel spectrogram of a batch of input waveforms.
+
+        Reference: adapted from
+        https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L92
+
+        Arguments
+        ---------
+        audio : torch.Tensor
+            A batch of audio waveforms in 16 kHz.
+
+        Returns
+        -------
+        torch.Tensor
+            A tensor that contains the batch of Mel spectrograms.
+        """
+        window = torch.hann_window(self._n_fft, device=audio.device)
+        stft = torch.stft(
+            audio,
+            self._n_fft,
+            self._hop_length,
+            window=window,
+            return_complex=True,
+        )
+        magnitudes = stft[..., :-1].abs() ** 2
+
+        filters = self._mel_filters
+        mel_spec = filters @ magnitudes
+
+        log_spec = torch.clamp(mel_spec, min=1e-10).log10()
+        log_spec = torch.maximum(
+            log_spec,
+            (log_spec.flatten(start_dim=1).max(dim=-1)[0] - 8.0)[:, None, None],
+        )
+        log_spec = (log_spec + 4.0) / 4.0
+        return log_spec
+
+    def _pad_or_trim(self, array, axis=-1):
+        """Pad or trim the Mel spectrograms as expected by the encoder.
+
+        Reference: adapted from
+        https://github.com/openai/whisper/blob/eff383b27b783e280c089475852ba83f20f64998/whisper/audio.py#L52
+
+        Arguments
+        ---------
+        array : torch.Tensor
+            A tensor that contains the batch of Mel spectrograms.
+        axis : int
+            The axis along which to pad.
+
+        Returns
+        -------
+        torch.Tensor
+            The padded tensor.
+        """
+        if array.shape[axis] > self._n_samples:
+            array = array.index_select(
+                dim=axis,
+                index=torch.arange(self._n_samples, device=array.device),
+            )
+
+        if array.shape[axis] < self._n_samples:
+            pad_widths = [(0, 0)] * array.ndim
+            pad_widths[axis] = (
+                0,
+                self._n_samples - array.shape[axis],
+            )
+            array = nn.functional.pad(
+                array, [pad for sizes in pad_widths[::-1] for pad in sizes]
+            )
+
+        return array
+
+    def forward_encoder(self, mel):
+        """Takes an input mel and return its corresponding encoder states.
         Returns the last hidden state of the encoder or all hidden states if
         output_all_hiddens is True.
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
-            A batch of audio signals to transform to features.
+        mel : torch.Tensor (signal)
+            A batch of audio mel to transform to features.
 
         Returns
         -------
@@ -234,7 +308,6 @@ class Whisper(HFTransformersInterface):
             The last hidden state of the encoder or all hidden states if
             output_all_hiddens is True.
         """
-        mel = self._get_mel(wav)
         encoder_states = self.model.encoder(
             mel, output_hidden_states=self.output_all_hiddens
         )
@@ -296,7 +369,10 @@ class Whisper(HFTransformersInterface):
 
         x = output_states.last_hidden_state
         logits = (
-            x @ torch.transpose(self.token_embedding.weight.to(x.dtype), 0, 1)
+            x
+            @ torch.transpose(
+                self.model.decoder.embed_tokens.weight.to(x.dtype), 0, 1
+            )
         ).float()
 
         return logits, attn, output_states.past_key_values
@@ -480,10 +556,10 @@ class Whisper(HFTransformersInterface):
 
         Returns
         -------
-        language_tokens : torch.Tensor
-            The detected language tokens.
-        language_probs : dict
-            The probabilities of the detected language tokens.
+        language_tokens : torch.Tensor of shape (batch_size,)
+            ids of the most probable language tokens, which appears after the startoftranscript token.
+        language_probs : List[Dict[str, float]]
+            list of dictionaries containing the probability distribution over all languages.
 
         Raises
         ------

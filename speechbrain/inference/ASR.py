@@ -374,7 +374,12 @@ class WhisperASR(Pretrained):
     >>> from speechbrain.inference.ASR import WhisperASR
     >>> tmpdir = getfixture("tmpdir")
     >>> asr_model = WhisperASR.from_hparams(source="speechbrain/asr-whisper-medium-commonvoice-it", savedir=tmpdir,) # doctest: +SKIP
-    >>> asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
+    >>> hyp = asr_model.transcribe_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
+    >>> hyp  # doctest: +SKIP
+    buongiorno a tutti e benvenuti a bordo
+    >>> _, probs = asr_model.detect_language_file("speechbrain/asr-whisper-medium-commonvoice-it/example-it.wav")  # doctest: +SKIP
+    >>> print(f"Detected language: {max(probs[0], key=probs[0].get)}")  # doctest: +SKIP
+    Detected language: it
     """
 
     HPARAMS_NEEDED = ["language"]
@@ -383,12 +388,55 @@ class WhisperASR(Pretrained):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.whisper.tokenizer
-        self.tokenizer.set_prefix_tokens(
-            self.hparams.language, "transcribe", False
-        )
-        self.hparams.decoder.set_decoder_input_tokens(
-            self.tokenizer.prefix_tokens
-        )
+
+    def detect_language_batch(self, wavs):
+        """Detects the language of the given audiofile.
+
+        Arguments
+        ---------
+        wavs : torch.Tensor
+            Batch of waveforms [batch, time, channels].
+
+        Returns
+        -------
+        language_tokens : torch.Tensor
+            The detected language tokens.
+        language_probs : dict
+            The probabilities of the detected language tokens.
+
+        Raises
+        ------
+        ValueError
+            If the model doesn't have language tokens.
+        """
+        mel = self.mods.whisper._get_mel(wavs)
+        language_tokens, language_probs = self.mods.whisper.detect_language(mel)
+        return language_tokens, language_probs
+
+    def detect_language_file(self, path):
+        """Detects the language of the given audiofile.
+
+        Arguments
+        ---------
+        path : str
+            Path to audio file which to transcribe.
+
+        Returns
+        -------
+        language_tokens : torch.Tensor of shape (batch_size,)
+            ids of the most probable language tokens, which appears after the startoftranscript token.
+        language_probs : List[Dict[str, float]]
+            list of dictionaries containing the probability distribution over all languages.
+
+        Raises
+        ------
+        ValueError
+            If the model doesn't have language tokens.
+        """
+        wav = self.load_audio(path).to(self.device)
+        mel = self.mods.whisper._get_mel(wav)
+        language_tokens, language_probs = self.mods.whisper.detect_language(mel)
+        return language_tokens, language_probs
 
     def transcribe_file(self, path):
         """Transcribes the given audiofile into a sequence of words.
@@ -435,9 +483,9 @@ class WhisperASR(Pretrained):
         torch.tensor
             The encoded batch
         """
-        wavs = wavs.float()
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
-        encoder_out = self.mods.whisper.forward_encoder(wavs)
+        wavs = wavs.float().to(self.device)
+        mel = self.mods.whisper._get_mel(wavs)
+        encoder_out = self.mods.whisper.forward_encoder(mel)
         return encoder_out
 
     def transcribe_batch(self, wavs, wav_lens):
@@ -474,7 +522,7 @@ class WhisperASR(Pretrained):
             )
             if self.hparams.normalized_transcripts:
                 predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in predicted_words
                 ]
 
