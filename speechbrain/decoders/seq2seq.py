@@ -307,7 +307,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         )
 
 
-class S2STransformerGreedySearch(S2SGreedySearcher):
+class S2STransformerGreedySearcher(S2SGreedySearcher):
     """This class implements the greedy decoding
     for Transformer.
 
@@ -347,7 +347,7 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
         return logits[:, -1, :], memory, attn
 
 
-class S2SWhisperGreedySearch(S2SGreedySearcher):
+class S2SWhisperGreedySearcher(S2SGreedySearcher):
     """
     This class implements the greedy decoding
     for Whisper neural nets made by OpenAI in
@@ -1760,7 +1760,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
         return prob_dist[:, -1, :], memory, attn
 
 
-class S2SWhisperBeamSearch(S2SBeamSearcher):
+class S2SWhisperBeamSearcher(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Whisper neural nets made by OpenAI in
     https://cdn.openai.com/papers/whisper.pdf.
