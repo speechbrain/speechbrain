@@ -9,4 +9,5 @@ except ImportError as e:
         f"For more details, see https://github.com/flairNLP/flair"
     ) from e
 
+from .embeddings import *  # noqa
 from .sequencetagger import *  # noqa
