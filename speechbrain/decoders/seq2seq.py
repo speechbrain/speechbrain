@@ -214,6 +214,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
             min_decode_steps, max_decode_steps
         )
 
+        has_ended = enc_states.new_zeros(batch_size).bool()
         for step in range(min_decode_steps, max_decode_steps):
             logits, memory, _ = self.forward_step(
                 inp_tokens, memory, enc_states, enc_lens
@@ -229,11 +230,11 @@ class S2SGreedySearcher(S2SBaseSearcher):
             log_probs = F.log_softmax(logits.float(), dim=-1)
             log_probs_lst.append(log_probs)
 
+            log_probs[has_ended] = float("inf")
             inp_tokens[memory[:, -1] == self.eos_index] = self.eos_index
 
-            completed = (memory[:, -1] == self.eos_index).all()
-
-            if completed or self._check_end_condition(memory):
+            has_ended = has_ended | (inp_tokens == self.eos_index)
+            if has_ended.all() or self._check_end_condition(memory):
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)

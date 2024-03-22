@@ -4,7 +4,7 @@ The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pd
 This recipe take the whisper encoder-decoder to fine-tune on.
 
 To run this recipe, do the following:
-> python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml
+> python train_with_whisper.py hparams/train_hf_whisper.yaml
 
 Authors
  * Pooneh Mousavi 2022
@@ -273,7 +273,7 @@ if __name__ == "__main__":
             "dev_tsv_file": hparams["dev_tsv_file"],
             "test_tsv_file": hparams["test_tsv_file"],
             "accented_letters": hparams["accented_letters"],
-            "language": hparams["locale"],
+            "language": hparams["language"],
             "skip_prep": hparams["skip_prep"],
         },
     )

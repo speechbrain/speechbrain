@@ -13,7 +13,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest Fairseq english whisper model.
-whisper_hub: openai/whisper-small.en
+whisper_hub: openai/whisper-medium.en
 whisper_folder: !ref <save_folder>/whisper_checkpoint
 
 # Normalize the english inputs with
