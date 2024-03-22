@@ -54,8 +54,13 @@ class Softmax(torch.nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
             Input tensor.
+
+        Returns
+        -------
+        x_act : Tensor
+            The softmax outputs.
         """
         # Reshaping the tensors
         dims = x.shape
@@ -86,13 +91,13 @@ class GumbelSoftmax(torch.nn.Module):
     Reference: https://arxiv.org/abs/1611.00712, https://arxiv.org/abs/1611.01144
 
     Arguments
-    ----------
+    ---------
     tau: float
         non-negative scalar temperature
     hard: bool
         if True, the returned samples will be discretized as one-hot vectors, but will be differentiated as if it is the soft sample in autograd
-    dim: int
-        A dimension along which softmax will be computed (default: -1).
+    apply_log: bool
+        if True, returns the log of the softmax outputs.
 
     Example
     -------
@@ -112,8 +117,12 @@ class GumbelSoftmax(torch.nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
             Input tensor.
+
+        Returns
+        -------
+        The Gumbel softmax output.
         """
         if self.apply_log:
             return torch.log(F.gumbel_softmax(x, tau=self.tau, hard=self.hard))
@@ -121,7 +130,7 @@ class GumbelSoftmax(torch.nn.Module):
 
 
 class Swish(torch.nn.Module):
-    """ The class implements the Swish activation function from
+    """The class implements the Swish activation function from
     https://arxiv.org/pdf/2005.03191.pdf
 
     given input x. Swish(x) = x / (1 + exp(beta * x))
@@ -148,7 +157,11 @@ class Swish(torch.nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
             Input tensor.
+
+        Returns
+        -------
+        The swished output.
         """
         return x * self.sigmoid(self.beta * x)

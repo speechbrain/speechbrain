@@ -60,7 +60,7 @@ class Embedding(nn.Module):
     >>> e = emb(torch.LongTensor([[0, 1, 2], [3, 4, 2]]))
     >>> e.shape
     torch.Size([2, 3, 3])
-     """
+    """
 
     def __init__(
         self,
@@ -69,7 +69,6 @@ class Embedding(nn.Module):
         consider_as_one_hot=False,
         blank_id=0,
     ):
-
         super().__init__()
         self.num_embeddings = num_embeddings
         self.consider_as_one_hot = consider_as_one_hot
@@ -107,8 +106,12 @@ class Embedding(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
            Input to embed.
+
+        Returns
+        -------
+        The embedded outputs.
         """
         # pytorch embedding layer only accept long dtype
         return self.Embedding(x.long())

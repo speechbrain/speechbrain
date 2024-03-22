@@ -33,14 +33,14 @@ class SincConv(nn.Module):
 
     Arguments
     ---------
-    input_shape : tuple
-        The shape of the input. Alternatively use ``in_channels``.
-    in_channels : int
-        The number of input channels. Alternatively use ``input_shape``.
     out_channels : int
         It is the number of output channels.
     kernel_size: int
         Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
     stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
@@ -53,17 +53,12 @@ class SincConv(nn.Module):
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    groups : int
-        This option specifies the convolutional groups. See torch.nn
-        documentation for more information.
-    bias : bool
-        If True, the additive bias b is adopted.
-    sample_rate : int,
+    sample_rate : int
         Sampling rate of the input signals. It is only used for sinc_conv.
     min_low_hz : float
         Lowest possible frequency (in Hz) for a filter. It is only used for
         sinc_conv.
-    min_low_hz : float
+    min_band_hz : float
         Lowest possible value (in Hz) for a filter bandwidth.
 
     Example
@@ -121,9 +116,13 @@ class SincConv(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
 
+        Returns
+        -------
+        wx : Tensor
+            The convolved outputs.
         """
         x = x.transpose(1, -1)
         self.device = x.device
@@ -188,7 +187,7 @@ class SincConv(nn.Module):
             )
         return in_channels
 
-    def _get_sinc_filters(self,):
+    def _get_sinc_filters(self):
         """This functions creates the sinc-filters to used for sinc-conv."""
         # Computing the low frequencies of the filters
         low = self.min_low_hz + torch.abs(self.low_hz_)
@@ -276,15 +275,13 @@ class SincConv(nn.Module):
         """Converts frequency in the mel scale to Hz."""
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def _manage_padding(
-        self, x, kernel_size: int, dilation: int, stride: int,
-    ):
+    def _manage_padding(self, x, kernel_size: int, dilation: int, stride: int):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
             Input tensor.
         kernel_size : int
             Size of kernel.
@@ -292,6 +289,10 @@ class SincConv(nn.Module):
             Dilation used.
         stride : int
             Stride.
+
+        Returns
+        -------
+        x : Tensor
         """
 
         # Detecting input shape
@@ -328,8 +329,10 @@ class Conv1d(nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    groups: int
+    groups : int
         Number of blocked connections from input channels to output channels.
+    bias : bool
+        Whether to add a bias term to convolution operation.
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
@@ -415,8 +418,13 @@ class Conv1d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
+
+        Returns
+        -------
+        wx : Tensor
+            The convolved outputs.
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
@@ -452,15 +460,13 @@ class Conv1d(nn.Module):
 
         return wx
 
-    def _manage_padding(
-        self, x, kernel_size: int, dilation: int, stride: int,
-    ):
+    def _manage_padding(self, x, kernel_size: int, dilation: int, stride: int):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
             Input tensor.
         kernel_size : int
             Size of kernel.
@@ -468,6 +474,11 @@ class Conv1d(nn.Module):
             Dilation used.
         stride : int
             Stride.
+
+        Returns
+        -------
+        x : Tensor
+            The padded outputs.
         """
 
         # Detecting input shape
@@ -536,17 +547,17 @@ class Conv2d(nn.Module):
         If "same" and stride is 1, output shape is same as input shape.
         If "causal" then proper padding is inserted to simulate causal convolution on the first spatial dimension.
         (spatial dim 1 is dim 3 for both skip_transpose=False and skip_transpose=True)
-    padding_mode : str
-        This flag specifies the type of padding. See torch.nn documentation
-        for more information.
     groups : int
         This option specifies the convolutional groups. See torch.nn
         documentation for more information.
     bias : bool
         If True, the additive bias b is adopted.
-    max_norm: float
+    padding_mode : str
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information.
+    max_norm : float
         kernel max-norm.
-    swap: bool
+    swap : bool
         If True, the convolution is done with the format (B, C, W, H).
         If False, the convolution is dine with (B, H, W, C).
         Active only if skip_transpose is False.
@@ -641,9 +652,13 @@ class Conv2d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
 
+        Returns
+        -------
+        x : Tensor
+            The output of the convolution.
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
@@ -699,10 +714,19 @@ class Conv2d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
+            Input to be padded
         kernel_size : int
+            Size of the kernel for computing padding
         dilation : int
+            Dilation rate for computing padding
         stride: int
+            Stride for computing padding
+
+        Returns
+        -------
+        x : Tensor
+            The padded outputs.
         """
         # Detecting input shape
         L_in = self.in_channels
@@ -922,8 +946,15 @@ class ConvTranspose1d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
+        output_size : int
+            The size of the output
+
+        Returns
+        -------
+        x : Tensor
+            The convolved output
         """
 
         if not self.skip_transpose:
@@ -987,9 +1018,6 @@ class DepthwiseSeparableConv1d(nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    padding_mode : str
-        This flag specifies the type of padding. See torch.nn documentation
-        for more information.
     bias : bool
         If True, the additive bias b is adopted.
 
@@ -1030,7 +1058,9 @@ class DepthwiseSeparableConv1d(nn.Module):
         )
 
         self.pointwise = Conv1d(
-            out_channels, kernel_size=1, input_shape=input_shape,
+            out_channels,
+            kernel_size=1,
+            input_shape=input_shape,
         )
 
     def forward(self, x):
@@ -1038,8 +1068,12 @@ class DepthwiseSeparableConv1d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
+
+        Returns
+        -------
+        The convolved outputs.
         """
         return self.pointwise(self.depthwise(x))
 
@@ -1052,10 +1086,12 @@ class DepthwiseSeparableConv2d(nn.Module):
 
     Arguments
     ---------
-    ut_channels : int
+    out_channels : int
         It is the number of output channels.
     kernel_size : int
         Kernel size of the convolutional filters.
+    input_shape : tuple
+        Expected shape of the input tensors.
     stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
@@ -1065,9 +1101,6 @@ class DepthwiseSeparableConv2d(nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
         "causal" results in causal (dilated) convolutions.
-    padding_mode : str
-        This flag specifies the type of padding. See torch.nn documentation
-        for more information.
     bias : bool
         If True, the additive bias b is adopted.
 
@@ -1117,7 +1150,9 @@ class DepthwiseSeparableConv2d(nn.Module):
         )
 
         self.pointwise = Conv2d(
-            out_channels, kernel_size=(1, 1), input_shape=input_shape,
+            out_channels,
+            kernel_size=(1, 1),
+            input_shape=input_shape,
         )
 
     def forward(self, x):
@@ -1125,8 +1160,13 @@ class DepthwiseSeparableConv2d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
+
+        Returns
+        -------
+        out : Tensor
+            The convolved output.
         """
         if self.unsqueeze:
             x = x.unsqueeze(1)
@@ -1155,6 +1195,10 @@ class GaborConv1d(nn.Module):
     stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
+    input_shape : tuple
+        Expected shape of the input.
+    in_channels : int
+        Number of channels expected in the input.
     padding : str
         (same, valid). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
@@ -1239,7 +1283,7 @@ class GaborConv1d(nn.Module):
 
         self.kernel = nn.Parameter(self._initialize_kernel())
         if bias:
-            self.bias = torch.nn.Parameter(torch.ones(self.filters * 2,))
+            self.bias = torch.nn.Parameter(torch.ones(self.filters * 2))
         else:
             self.bias = None
 
@@ -1248,8 +1292,13 @@ class GaborConv1d(nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time, channel)
+        x : Tensor (batch, time, channel)
             input to convolve.
+
+        Returns
+        -------
+        x : Tensor
+            The output of the Gabor convolution
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
@@ -1430,6 +1479,11 @@ def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
     stride: int
     kernel_size : int
     dilation : int
+
+    Returns
+    -------
+    padding : int
+        The size of the padding to be added
     """
     if stride > 1:
         padding = [math.floor(kernel_size / 2), math.floor(kernel_size / 2)]
@@ -1463,6 +1517,11 @@ def get_padding_elem_transposed(
     kernel_size : int
     dilation : int
     output_padding : int
+
+    Returns
+    -------
+    padding : int
+        The size of the padding to be applied
     """
 
     padding = -0.5 * (

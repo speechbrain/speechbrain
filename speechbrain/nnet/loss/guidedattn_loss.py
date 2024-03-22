@@ -33,7 +33,7 @@ class GuidedAttentionLoss(nn.Module):
 
     Arguments
     ---------
-    sigma:
+    sigma: float
         the guided attention weight
 
     Example
@@ -69,7 +69,7 @@ class GuidedAttentionLoss(nn.Module):
     def __init__(self, sigma=0.2):
         super().__init__()
         self.sigma = sigma
-        self.weight_factor = 2 * (sigma ** 2)
+        self.weight_factor = 2 * (sigma**2)
 
     def forward(
         self,

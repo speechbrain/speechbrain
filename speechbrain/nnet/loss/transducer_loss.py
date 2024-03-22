@@ -60,21 +60,21 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    alpha : tensor
+    alpha : Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for forward computation.
-    log_p : tensor
+    log_p : Tensor
         1D Tensor of (batch) for forward cost computation.
-    T : tensor
+    T : Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
         Blank indice.
-    lock : tensor
+    lock : Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
 
@@ -136,21 +136,21 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    beta : tensor
+    beta : Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    log_p : tensor
+    log_p : Tensor
         1D Tensor of (batch) for backward cost computation.
-    T : tensor
+    T : Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
         Blank indice.
-    lock : tensor
+    lock : Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
     # parallelize the forward algorithm over batch and target length dim
@@ -208,22 +208,22 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    beta : tensor
+    alpha : Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    log_p : tensor
-        1D Tensor of (batch) for backward cost computation.
-    T : tensor
+    beta : Tensor
+        3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
+    grads : Tensor
+        Grads for backward computation.
+    T : Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
-    lock : int
-        2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
+        Blank index.
     """
     # parallelize the gradient computation over batch and timeseq length dim
     t = cuda.blockIdx.x
@@ -291,7 +291,7 @@ class Transducer(Function):
             (B,), device=log_probs.device, dtype=log_probs.dtype
         )
         cu_kernel_forward[B, maxU](
-            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
+            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock
         )
         lock = lock * 0
         cu_kernel_backward[B, maxU](
@@ -328,6 +328,13 @@ class TransducerLoss(Module):
     to compute the forward-backward loss and gradients.
 
     Input tensors must be on a cuda device.
+
+    Arguments
+    ---------
+    blank : int
+        Token to use as blank token.
+    reduction : str
+        Type of reduction to use, default "mean"
 
     Example
     -------
