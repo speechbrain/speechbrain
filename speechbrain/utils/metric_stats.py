@@ -491,7 +491,7 @@ class EmbeddingErrorRateSimilarity:
     much as a substitution with low similarity).
 
     .. note ::
-        The cited paper recommended `(1.0, 0.1, 0.4)` as defaults for Fasttext
+        The cited paper recommended `(1.0, 0.1, 0.4)` as defaults for fastTexst
         French embeddings, chosen empirically. When using different embeddings,
         you might want to test other values; thus we don't provide defaults.
 

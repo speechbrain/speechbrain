@@ -45,8 +45,6 @@ jobs:
                   pip install protobuf
                   pip install kaldilm==1.15
                   pip install spacy
-                  pip install wheel  # for fasttext
-                  pip install fasttext
                   pip install flair
             - name: Consistency tests with pytest
               run: |
