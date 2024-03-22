@@ -575,7 +575,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             #l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
             #l_in = ((torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) * (1-mask)).sum(1) * targets_sorted[:, i]).mean() + l_in
             # try the sigmoid idea here
-            l_in = -(mask * torch.log(1e-10 + torch.sigmoid(mask_in_i[2])) + (1-mask) * torch.log(1e-10 + 1-torch.sigmoid(mask_in_i[2]))).mean() + l_in
+            l_in = -(mask * torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) + (1-mask) * torch.log(1e-7 + 1-torch.sigmoid(mask_in_i[2]))).mean() + l_in
 
             # mask to pick out classes to suppress
             mask_out_i = self.classifier_forward(mask_out[:, i, :, :])
@@ -1066,7 +1066,7 @@ if __name__ == "__main__":
         Interpreter_brain.fit(
             epoch_counter=Interpreter_brain.hparams.epoch_counter,
             train_set=train_loader,
-            valid_set=valid_loader,
+            valid_set=train_loader,
             train_loader_kwargs=hparams["dataloader_options"],
             valid_loader_kwargs=hparams["dataloader_options"],
         )
