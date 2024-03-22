@@ -469,11 +469,6 @@ class Whisper(HFTransformersInterface):
         return self.tokenizer.convert_tokens_to_ids("<|startofprev|>")
 
     @cached_property
-    def no_speech(self) -> int:
-        # TODO: inspect this. for a given reason nospeech maps to eos...
-        return 50362  # self.tokenizer.convert_tokens_to_ids("<|nospeech|>")
-
-    @cached_property
     def no_timestamps(self) -> int:
         """Returns the token id corresponding to the value of the `no_timestamps` field"""
         return self.tokenizer.convert_tokens_to_ids("<|notimestamps|>")

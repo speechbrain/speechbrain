@@ -467,9 +467,6 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
             ]
         )
 
-        if self.model.no_speech is not None:
-            suppress_tokens.append(self.model.no_speech)
-
         return tuple(sorted(set(suppress_tokens)))
 
 
@@ -1908,10 +1905,6 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
                 self.model.bos_lm,
             ]
         )
-        # print("here")
-        if self.model.no_speech is not None:
-            # no-speech probability is collected separately
-            suppress_tokens.append(self.model.no_speech)
 
         return tuple(sorted(set(suppress_tokens)))
 
