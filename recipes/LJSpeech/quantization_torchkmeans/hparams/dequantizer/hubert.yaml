@@ -1,0 +1,189 @@
+# ###########################################################################################
+# Model: Encoder: HuBERT | Quantizer: K-means | Dequantizer: Conformer
+# Authors: Luca Della Libera 2024
+# ###########################################################################################
+
+experiment_name: dequantizer/hubert
+
+# Seed needs to be set at top of YAML
+seed: 0
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data preparation
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+splits: [train, valid, test]
+
+# Output folders
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+
+# Preprocessing parameters
+train_remove_if_longer: 60.0  # Seconds
+valid_remove_if_longer: 60.0  # Seconds
+test_remove_if_longer: 60.0  # Seconds
+sorting: ascending
+
+# Training parameters
+num_epochs: 20
+grad_accumulation_factor: 1
+dynamic_batching: True
+train_batch_size: 8
+valid_batch_size: 8
+test_batch_size: 8
+train_max_batch_length: 20.0  # Seconds
+valid_max_batch_length: 20.0  # Seconds
+test_max_batch_length: 20.0  # Seconds
+num_buckets: 40
+max_batch_size: 128
+dataloader_workers: 4
+nonfinite_patience: 10
+max_grad_norm: 5.0
+precision: fp16
+ckpt_interval_minutes: 600
+keep_checkpoints: 1
+augment: True
+augment_prob: 0.75
+
+# Optimizer parameters
+lr: 0.0005
+weight_decay: 0.01
+improvement_threshold: 0.0025
+annealing_factor: 0.9
+patient: 0
+
+# Encoder parameters
+source: facebook/hubert-base-ls960
+sample_rate: 16000  # NOTE: must match the encoder sample rate
+layer_ids: [6]  # NOTE: must be smaller than the number of layers in the encoder
+hidden_size: 768  # NOTE: must match the encoder hidden size for the specified layer IDs
+
+# Quantizer parameters
+num_clusters: [300]  # One for each codebook, len(num_clusters) == len(layer_ids)
+init: random
+normalize: null
+p_norm: 2.0
+quantizer_path: null
+
+# Dequantizer parameters
+embedding_dim: 256
+dropout: 0.1
+activation: !name:torch.nn.GELU
+d_model: 256
+nhead: 4
+num_layers: 6
+d_ffn: 2048
+max_length: 5000
+causal: False
+
+# Augmentation
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1  # Min number of audio chunks to drop
+    drop_length_high: 5  # Max number of audio chunks to drop
+    drop_count_low: 1000  # Min length of audio chunks to drop
+    drop_count_high: 2000  # Max length of audio chunks to drop
+
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_prob: !ref <augment_prob>
+    augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
+
+# Modules
+encoder: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
+    source: !ref <source>
+    save_path: !ref <save_folder>
+    freeze: True
+    freeze_feature_extractor: True
+    output_all_hiddens: True
+
+quantizer: !new:models.kmeans.MultiKMeans
+    num_features: !ref <hidden_size>
+    num_clusters: !ref <num_clusters>
+    init: !ref <init>
+    normalize: !ref <normalize>
+    p_norm: !ref <p_norm>
+
+dequantizer: !new:models.transformer.TransformerDecoder
+    backbone: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR
+        input_size: !ref <hidden_size>
+        tgt_vocab: 1
+        d_model: !ref <d_model>
+        nhead: !ref <nhead>
+        num_encoder_layers: !ref <num_layers>
+        num_decoder_layers: 0
+        d_ffn: !ref <d_ffn>
+        dropout: !ref <dropout>
+        activation: !ref <activation>
+        max_length: !ref <max_length>
+        encoder_module: conformer
+        normalize_before: True
+        causal: !ref <causal>
+    head: !new:torch.nn.Linear
+        in_features: !ref <d_model>
+        out_features: !ref <hidden_size>
+
+codec: !new:models.codec.Codec
+    encoder: !ref <encoder>
+    quantizer: !ref <quantizer>
+    dequantizer: !ref <dequantizer>
+    decoder: null
+    layer_ids: !ref <layer_ids>
+
+modules:
+    codec: !ref <codec>
+
+# Loss functions
+rec_loss: !name:speechbrain.nnet.losses.mse_loss
+    allowed_len_diff: 0
+    reduction: mean
+
+# Optimizers
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+    eps: 1.e-8
+    weight_decay: !ref <weight_decay>
+
+# Schedulers
+scheduler: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: !ref <improvement_threshold>
+    annealing_factor: !ref <annealing_factor>
+    patient: !ref <patient>
+
+# Pretrainer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        quantizer: !ref <quantizer>
+    paths:
+        quantizer: !ref <quantizer_path>
+    conditions:
+        quantizer: !ref <quantizer_path>
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        dequantizer: !ref <dequantizer>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_folder>/train_log.txt

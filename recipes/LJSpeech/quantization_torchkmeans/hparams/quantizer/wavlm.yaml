@@ -1,0 +1,120 @@
+# ###########################################################################################
+# Model: Encoder: WavLM | Quantizer: K-means
+# Authors: Luca Della Libera 2024
+# ###########################################################################################
+
+experiment_name: quantizer/wavlm
+
+# Seed needs to be set at top of YAML
+seed: 0
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data preparation
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+splits: [train, valid, test]
+
+# Output folders
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+
+# Preprocessing parameters
+train_remove_if_longer: 60.0  # Seconds
+valid_remove_if_longer: 60.0  # Seconds
+test_remove_if_longer: 60.0  # Seconds
+sorting: descending
+
+# Training parameters
+num_epochs: 5
+dynamic_batching: True
+train_batch_size: 8
+valid_batch_size: 8
+test_batch_size: 8
+train_max_batch_length: 20.0  # Seconds
+valid_max_batch_length: 20.0  # Seconds
+test_max_batch_length: 20.0  # Seconds
+num_buckets: 40
+max_batch_size: 128
+dataloader_workers: 4
+nonfinite_patience: 10
+precision: fp32
+ckpt_interval_minutes: 600
+keep_checkpoints: 1
+augment: True
+augment_prob: 0.75
+
+# Encoder parameters
+source: microsoft/wavlm-large
+sample_rate: 16000  # NOTE: must match the encoder sample rate
+layer_ids: [6]  # NOTE: must be smaller than the number of layers in the encoder
+hidden_size: 1024  # NOTE: must match the encoder hidden size for the specified layer IDs
+
+# Quantizer parameters
+num_clusters: [300]  # One for each codebook, len(num_clusters) == len(layer_ids)
+init: random
+normalize: null
+p_norm: 2.0
+
+# Augmentation
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1  # Min number of audio chunks to drop
+    drop_length_high: 5  # Max number of audio chunks to drop
+    drop_count_low: 1000  # Min length of audio chunks to drop
+    drop_count_high: 2000  # Max length of audio chunks to drop
+
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_prob: !ref <augment_prob>
+    augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
+
+# Modules
+encoder: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+    source: !ref <source>
+    save_path: !ref <save_folder>
+    freeze: True
+    freeze_feature_extractor: True
+    output_all_hiddens: True
+
+quantizer: !new:models.kmeans.MultiKMeans
+    num_features: !ref <hidden_size>
+    num_clusters: !ref <num_clusters>
+    init: !ref <init>
+    normalize: !ref <normalize>
+    p_norm: !ref <p_norm>
+
+codec: !new:models.codec.Codec
+    encoder: !ref <encoder>
+    quantizer: !ref <quantizer>
+    dequantizer: null
+    decoder: null
+    layer_ids: !ref <layer_ids>
+
+modules:
+    codec: !ref <codec>
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        quantizer: !ref <quantizer>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_folder>/train_log.txt

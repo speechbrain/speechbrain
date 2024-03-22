@@ -1,0 +1,254 @@
+# ###########################################################################################
+# Model: Encoder: HuBERT | Quantizer: K-means | Dequantizer: Conformer | Decoder: HiFi-GAN
+# Authors: Luca Della Libera 2024
+# ###########################################################################################
+
+experiment_name: decoder/hubert
+
+# Seed needs to be set at top of YAML
+seed: 0
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Data preparation
+data_folder: !PLACEHOLDER
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+splits: [train, valid, test]
+
+# Output folders
+output_folder: !ref results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+
+# Save options
+vocode: True
+save_audios: True
+
+# Preprocessing parameters
+train_remove_if_longer: 60.0  # Seconds
+valid_remove_if_longer: 60.0  # Seconds
+test_remove_if_longer: 60.0  # Seconds
+sorting: ascending
+
+# Training parameters
+num_epochs: 20
+dynamic_batching: True
+train_batch_size: 8
+valid_batch_size: 8
+test_batch_size: 8
+train_max_batch_length: 20.0  # Seconds
+valid_max_batch_length: 20.0  # Seconds
+test_max_batch_length: 20.0  # Seconds
+num_buckets: 40
+max_batch_size: 128
+dataloader_workers: 4
+nonfinite_patience: 10
+max_grad_norm: 5.0
+precision: fp16
+ckpt_interval_minutes: 600
+keep_checkpoints: 1
+augment: True
+augment_prob: 0.75
+
+# Optimizer parameters
+lr: 0.0002
+weight_decay: 0.01
+decay_factor: 0.9999
+
+# Encoder parameters
+source: facebook/hubert-base-ls960
+sample_rate: 16000  # NOTE: must match the encoder sample rate
+layer_ids: [6]  # NOTE: must be smaller than the number of layers in the encoder
+hidden_size: 768  # NOTE: must match the encoder hidden size for the specified layer IDs
+
+# Quantizer parameters
+num_codebooks: 1  # NOTE: must be equal to len(layer_ids)
+num_clusters: [300]  # One for each codebook, len(num_clusters) == len(layer_ids)
+init: random
+normalize: null
+p_norm: 2.0
+quantizer_path: null
+
+# Dequantizer parameters
+embedding_dim: 256
+dropout: 0.1
+activation: !name:torch.nn.GELU
+d_model: 256
+nhead: 4
+num_layers: 6
+d_ffn: 2048
+max_length: 5000
+causal: False
+dequantizer_path: null
+
+# Decoder parameters
+resblock_type: 1
+resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
+resblock_kernel_sizes: [3, 7, 11]
+upsample_kernel_sizes: [11, 8, 8, 4, 4]
+upsample_initial_channel: 512
+upsample_factors: [5, 4, 4, 2, 2]
+inference_padding: 5
+conv_post_bias: True
+
+# Loss parameters
+hop_length: 256
+win_length: 1024
+n_mel_channels: 80
+n_fft: 1024
+mel_fmin: 0.0
+mel_normalized: False
+power: 1
+norm: slaney
+dynamic_range_compression: True
+mseg_loss_weight: 1
+feat_match_loss_weight: 10
+l1_spec_loss_weight: 45
+
+# Augmentation
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1  # Min number of audio chunks to drop
+    drop_length_high: 5  # Max number of audio chunks to drop
+    drop_count_low: 1000  # Min length of audio chunks to drop
+    drop_count_high: 2000  # Max length of audio chunks to drop
+
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_prob: !ref <augment_prob>
+    augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
+
+# Modules
+encoder: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
+    source: !ref <source>
+    save_path: !ref <save_folder>
+    freeze: True
+    freeze_feature_extractor: True
+    output_all_hiddens: True
+
+quantizer: !new:models.kmeans.MultiKMeans
+    num_features: !ref <hidden_size>
+    num_clusters: !ref <num_clusters>
+    init: !ref <init>
+    normalize: !ref <normalize>
+    p_norm: !ref <p_norm>
+
+dequantizer: !new:models.transformer.TransformerDecoder
+    backbone: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR
+        input_size: !ref <hidden_size>
+        tgt_vocab: 1
+        d_model: !ref <d_model>
+        nhead: !ref <nhead>
+        num_encoder_layers: !ref <num_layers>
+        num_decoder_layers: 0
+        d_ffn: !ref <d_ffn>
+        dropout: !ref <dropout>
+        activation: !ref <activation>
+        max_length: !ref <max_length>
+        encoder_module: conformer
+        normalize_before: True
+        causal: !ref <causal>
+    head: !new:torch.nn.Linear
+        in_features: !ref <d_model>
+        out_features: !ref <hidden_size>
+
+decoder: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
+    in_channels: !ref <hidden_size> * <num_codebooks>
+    out_channels: 1
+    resblock_type: !ref <resblock_type>
+    resblock_dilation_sizes: !ref <resblock_dilation_sizes>
+    resblock_kernel_sizes: !ref <resblock_kernel_sizes>
+    upsample_kernel_sizes: !ref <upsample_kernel_sizes>
+    upsample_initial_channel: !ref <upsample_initial_channel>
+    upsample_factors: !ref <upsample_factors>
+    inference_padding: !ref <inference_padding>
+    conv_post_bias: !ref <conv_post_bias>
+
+codec: !new:models.codec.Codec
+    encoder: !ref <encoder>
+    quantizer: !ref <quantizer>
+    dequantizer: !ref <dequantizer>
+    decoder: !ref <decoder>
+    layer_ids: !ref <layer_ids>
+
+discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
+
+modules:
+    codec: !ref <codec>
+    discriminator: !ref <discriminator>
+
+# Loss functions
+generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
+    stft_loss: null
+    stft_loss_weight: 0
+    mseg_loss: !new:speechbrain.lobes.models.HifiGAN.MSEGLoss
+    mseg_loss_weight: !ref <mseg_loss_weight>
+    feat_match_loss: !new:speechbrain.lobes.models.HifiGAN.MelganFeatureLoss
+    feat_match_loss_weight: !ref <feat_match_loss_weight>
+    l1_spec_loss: !new:speechbrain.lobes.models.HifiGAN.L1SpecLoss
+        sample_rate: !ref <sample_rate>
+        hop_length: !ref <hop_length>
+        win_length: !ref <win_length>
+        n_mel_channels: !ref <n_mel_channels>
+        n_fft: !ref <n_fft>
+        n_stft: !ref <n_fft> // 2 + 1
+        mel_fmin: !ref <mel_fmin>
+        mel_fmax: null
+        mel_normalized: !ref <mel_normalized>
+        power: !ref <power>
+        dynamic_range_compression: !ref <dynamic_range_compression>
+    l1_spec_loss_weight: !ref <l1_spec_loss_weight>
+
+# Discriminator loss
+discriminator_loss: !new:speechbrain.lobes.models.HifiGAN.DiscriminatorLoss
+    msed_loss: !new:speechbrain.lobes.models.HifiGAN.MSEDLoss
+
+# Optimizers
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+    eps: 1.e-8
+    weight_decay: !ref <weight_decay>
+
+# Schedulers
+scheduler: !new:speechbrain.nnet.schedulers.StepScheduler
+    initial_value: !ref <lr>
+    decay_factor: !ref <decay_factor>
+
+# Pretrainer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        quantizer: !ref <quantizer>
+        dequantizer: !ref <dequantizer>
+    paths:
+        quantizer: !ref <quantizer_path>
+        dequantizer: !ref <dequantizer_path>
+    conditions:
+        quantizer: !ref <quantizer_path>
+        dequantizer: !ref <dequantizer_path>
+
+# Counters, checkpointers, loggers, etc.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <num_epochs>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        decoder: !ref <decoder>
+        discriminator: !ref <discriminator>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <output_folder>/train_log.txt
