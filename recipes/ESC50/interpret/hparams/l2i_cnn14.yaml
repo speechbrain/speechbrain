@@ -11,7 +11,11 @@
 seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
+sample: ""
+
 exp_method: "l2i"
+mrt: false
+mrt_layer: 6
 eval_outdir: ""
 use_stft2mel: false
 

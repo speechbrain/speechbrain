@@ -21,6 +21,7 @@ import quantus_eval
 from tqdm import tqdm
 from maskin_maskout import opt_single_mask, interpret_pretrained
 from l2i_eval import l2i_pretrained
+import math
 
 eps = 1e-10
 
@@ -55,7 +56,6 @@ def generate_overlap(sample, dataset, overlap_multiplier=1):
         samples[i]["sig"] = generate_mixture(sample["sig"], dataset[idx]["sig"])
 
     return samples
-
 
 def preprocess(wavs, hparams):
     """Pre-process wavs."""
@@ -145,6 +145,35 @@ if __name__ == "__main__":
 
     d_mosaic = quantus_eval.MosaicDataset(datasets["test"], hparams)
     evaluator = quantus_eval.Evaluator(hparams)
+
+    def init_weights(m):
+        if isinstance(m, torch.nn.Linear) or isinstance(m, torch.nn.Conv2d):
+            torch.nn.init.xavier_uniform(m.weight)
+            if hasattr(m, "bias"):
+                if m.bias is not None:
+                    m.bias.data.fill_(0.01)
+
+    if hparams["mrt"]:
+        if hparams["mrt_layer"] == -1:
+            hparams["classifier"].apply(init_weights)
+        if hparams["mrt_layer"] <= 6:
+            print("Initialized block 6.")
+            hparams["embedding_model"].conv_block6.apply(init_weights)
+            if hparams["mrt_layer"] <= 5:
+                print("Initialized block 5.")
+                hparams["embedding_model"].conv_block5.apply(init_weights)
+                if hparams["mrt_layer"] <= 4:
+                    print("Initialized block 4.")
+                    hparams["embedding_model"].conv_block4.apply(init_weights)
+                    if hparams["mrt_layer"] <= 3:
+                        print("Initialized block 3.")
+                        hparams["embedding_model"].conv_block3.apply(init_weights)
+                        if hparams["mrt_layer"] <= 2:
+                            print("Initialized block 2.")
+                            hparams["embedding_model"].conv_block2.apply(init_weights)
+                            if hparams["mrt_layer"] <= 1:
+                                print("Initialized block 1.")
+                                hparams["embedding_model"].conv_block1.apply(init_weights)
 
     model_wrap = quantus_eval.Model(
         hparams,
@@ -255,14 +284,27 @@ if __name__ == "__main__":
                 )
                 print(local)
 
+                hasNan = False
+                for k, v in metrics.items():
+                    v = v if not isinstance(v, list) else v[0]
+                    if math.isnan(v):
+                        hasNan = True
+
+                if hasNan:
+                    raise ValueError("Has nan")
+
                 for k, v in metrics.items():
                     aggregated_metrics[k] += v[0] if isinstance(v, list) else v
 
             except AssertionError as e:
                 discarded += 1
                 print("Total discarded from quantus are: ", discarded)
-
                 print("Exception was ", str(e))
+
+            except ValueError as e:
+                print("Something was NaN here!")
+                discarded += 1
+                print("Total discarded from quantus are: ", discarded)
 
         aggregate = f"Aggregated "
         aggregate += " ".join(

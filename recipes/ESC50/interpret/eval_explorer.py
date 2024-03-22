@@ -13,8 +13,8 @@ random.seed(selection_seed)
 BASE_FOLDER = "."
 EVAL_LIST = [
         "ao",
-        "l2i"
         ]
+EVAL_LIST += [f"mrt_layer{i}" for i in range(1, 7)]
 EVAL_LIST = [Path(BASE_FOLDER).joinpath(f"qualitative_{e}") for e in EVAL_LIST]  # pre-prend base folder
 
 KEPT_PATH = Path("user_study") # path for all the samples we keep
@@ -29,6 +29,7 @@ def copytree(src, dst, symlinks=False, ignore=None):
         else:
             shutil.copy2(s, d)
 
+@torch.no_grad()
 def selection(id_: str) -> str:
     choice_folder = Path("choice")
     os.makedirs(choice_folder, exist_ok=True)
@@ -43,7 +44,8 @@ def selection(id_: str) -> str:
         int_ = torch.load(p.joinpath("interpretation.pt")).cpu().squeeze().t()
         sample = torch.load(p.joinpath("x_logpower.pt"))[:, :, :int_.shape[-1], :].cpu().squeeze().t()
 
-        images.append(sample * int_)
+        # images.append(sample * int_)
+        images.append(int_)
 
         labels.append(l)
         shutil.copyfile(

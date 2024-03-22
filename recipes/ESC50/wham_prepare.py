@@ -5,6 +5,8 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import IterableDataset, DataLoader
 
+np.random.seed(1234)
+
 
 class WHAMDataset(IterableDataset):
     def __init__(self, data_dir, target_length=4, sample_rate=22050):

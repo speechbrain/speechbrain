@@ -89,8 +89,15 @@ class ESC50Brain(sb.core.Brain):
                         ).squeeze().view(-1, 1, 1, 1)
                 int_ = (int_ >= thr).float().squeeze(1)
 
+                # int_ = torch.rand_like(int_)
+
                 # basically mask out
-                net_input = (1- int_) * net_input[:, :int_.shape[1], :]
+                net_input = (1 - int_) * net_input[:, :int_.shape[1], :]
+
+                # import matplotlib.pyplot as plt
+                # plt.imshow(net_input[0].cpu().squeeze().t(), origin="lower")
+                # plt.savefig("net_inp.png")
+                # exit()
 
                 # # avg
                 # # C = images.mean((-1, -2, -3)).view(-1, 1, 1, 1)
@@ -103,8 +110,8 @@ class ESC50Brain(sb.core.Brain):
 
 
         net_input = torch.expm1(net_input)
-        net_input = self.hparams.compute_fbank(X_stft_power)
-        net_input = torch.log1p(mel)
+        net_input = self.hparams.compute_fbank(net_input)
+        net_input = torch.log1p(net_input)
         # Embeddings + sound classifier
         temp = self.modules.embedding_model(net_input)
         if isinstance(temp, tuple):
@@ -561,7 +568,7 @@ if __name__ == "__main__":
         assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
         assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
     if hparams["dataset"] == "us8k":
-        assert hparams["signal_length_s"] == 4, "Fix wham sig length!"
+        # assert hparams["signal_length_s"] == 4, "Fix wham sig length!"
         assert hparams["out_n_neurons"] == 10, "Fix number of outputs classes!"
 
     class_labels = list(label_encoder.ind2lab.values())
@@ -592,8 +599,8 @@ if __name__ == "__main__":
         run_on_main(hparams["load_pretrained"].collect_files)
         hparams["load_pretrained"].load_collected()
 
-    hparams["pretrained_c"].to(run_opts["device"])
-    hparams["psi_model"].to(run_opts["device"])
+        hparams["pretrained_c"].to(run_opts["device"])
+        hparams["psi_model"].to(run_opts["device"])
 
     if not hparams["test_only"]:
         ESC50_brain.fit(
