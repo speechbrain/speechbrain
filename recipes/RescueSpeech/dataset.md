@@ -17,7 +17,7 @@ Bernd Kiefer: bernd.kiefer@dfki.de
 
 Other contact people
 --------------------
-- Ivana Kruijf‑Korbayová: ivana.kruijff@rettungsrobotik.de
+- Ivana Kruijff‑Korbayová: ivana.kruijff@rettungsrobotik.de
 - Sangeet Sagar: sangeetsagar2020@gmail.com
 
 ## Task: ASR- Dataset details

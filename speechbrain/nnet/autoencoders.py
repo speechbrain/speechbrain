@@ -62,7 +62,7 @@ class Autoencoder(nn.Module):
         raise NotImplementedError
 
     def decode(self, latent):
-        """Decodes the sample from a latent repsresentation
+        """Decodes the sample from a latent representation
 
         Arguments
         ---------
@@ -171,7 +171,7 @@ class VariationalAutoencoder(Autoencoder):
     torch.Size([4, 10, 16])
 
     .encode() will return the mean corresponding
-    to teh sample provided
+    to the sample provided
 
     >>> x_enc = vae.encode(x)
     >>> x_enc.shape
@@ -234,7 +234,7 @@ class VariationalAutoencoder(Autoencoder):
         return self.mean(encoder_out)
 
     def decode(self, latent):
-        """Decodes the sample from a latent repsresentation
+        """Decodes the sample from a latent representation
 
         Arguments
         ---------
@@ -423,7 +423,7 @@ class NormalizingAutoencoder(Autoencoder):
         return x
 
     def decode(self, latent):
-        """Decodes the sample from a latent repsresentation
+        """Decodes the sample from a latent representation
 
         Arguments
         ---------

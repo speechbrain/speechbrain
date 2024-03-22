@@ -7,7 +7,7 @@ Authors
  * Ju-Chieh Chou 2020
  * Samuele Cornell 2020
  * Abdel HEBA 2020
- * Gaelle Laperriere 2021
+ * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
  * Sylvain de Langen 2022
 """
@@ -192,7 +192,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
         # Additionally, certain affected versions of torchaudio fail to
         # autodetect mp3.
         # HACK: here, we check for the file extension to force mp3 detection,
-        # which prevents an error from occuring in torchaudio.
+        # which prevents an error from occurring in torchaudio.
         info = torchaudio.info(path, format="mp3")
     else:
         info = torchaudio.info(path)
@@ -204,7 +204,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     # https://github.com/speechbrain/speechbrain/issues/1925
     # https://github.com/pytorch/audio/issues/2524
     #
-    # Accomodate for these cases here: if `num_frames == 0` then maybe something
+    # Accommodate for these cases here: if `num_frames == 0` then maybe something
     # has gone wrong.
     # If some file really had `num_frames == 0` then we are not doing harm
     # double-checking anyway. If I am wrong and you are reading this comment
@@ -1289,16 +1289,16 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
 
     Example
     -------
-    >>> sequences = [['<reponse>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<reponse>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
+    >>> sequences = [['<response>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<response>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
     >>> results = extract_concepts_values(sequences, True, '<', '>', '_')
     >>> results
-    [['<reponse> no', '<localisation-ville> Le Mans'], ['<reponse> si'], ['']]
+    [['<response> no', '<localisation-ville> Le Mans'], ['<response> si'], ['']]
     """
     results = []
     for sequence in sequences:
-        # ['<reponse>_no_>_<localisation-ville>_Le_Mans_>']
+        # ['<response>_no_>_<localisation-ville>_Le_Mans_>']
         sequence = "".join(sequence)
-        # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
+        # ['<response>','no','>','<localisation-ville>','Le','Mans,'>']
         sequence = sequence.split(space)
         processed_sequence = []
         value = (
@@ -1314,7 +1314,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
                         kept += " " + " ".join(value)
                     concept_open = False
                     processed_sequence.append(kept)
-                kept = word  # 1st loop: '<reponse>'
+                kept = word  # 1st loop: '<response>'
                 value = []  # Concept's value
                 concept_open = True  # Trying to catch the concept's value
                 # If we want the CER

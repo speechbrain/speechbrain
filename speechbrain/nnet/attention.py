@@ -476,6 +476,7 @@ class RelPosMHAXL(nn.Module):
         # need to drop the first row
         x = x[:, :, 1:].view(b, h, qlen, pos_len)  # (b, h, t1, t2)
 
+        # cspell:ignore tril
         if self.mask_pos_future:
             ones = torch.ones((x.size(2), x.size(3)), device=x.device)
             x = x * torch.tril(ones, x.size(3) - x.size(2))[None, None, :, :]
@@ -859,7 +860,7 @@ class PositionalwiseFeedForward(nn.Module):
 
     def forward(self, x):
         """Applies PositionalwiseFeedForward to the input tensor x."""
-        # give a tensor of shap (time, batch, fea)
+        # give a tensor of shape (time, batch, fea)
         x = x.permute(1, 0, 2)
         x = self.ffn(x)
 

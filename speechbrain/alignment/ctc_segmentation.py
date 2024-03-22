@@ -196,7 +196,7 @@ class CTCSegmentation:
     (2) ``prepare_segmentation_task``: prepare the task, and
     (3) ``get_segments``: perform CTC segmentation.
     Note that the function `get_segments` is a staticmethod and therefore
-    independent of an already initialized CTCSegmentation obj́ect.
+    independent of an already initialized CTCSegmentation object.
 
     References
     ----------

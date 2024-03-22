@@ -316,7 +316,7 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
 
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A TransformerASR model.
         seq_lin : torch.nn.Module
@@ -1122,7 +1122,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         memory : No limit
             The memory variables generated in this step.
         scorer_memory : No limit
@@ -1220,7 +1220,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
             alived_seq : torch.Tensor
             alived_log_probs : torch.Tensor
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         scores : torch.Tensor
             Scores at the current step.
 
@@ -1260,7 +1260,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         Arguments
         ---------
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
 
         Returns
         -------
@@ -1341,7 +1341,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         memory : No limit
             The memory variables input for this step.
             (ex. RNN hidden states).
@@ -1368,7 +1368,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         log_probs : torch.Tensor
             The log-probabilities of the current step output.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         memory : No limit
             The memory variables generated in this step.
         scorer_memory : No limit
@@ -1448,14 +1448,14 @@ class S2SBeamSearcher(S2SBaseSearcher):
         alived_hyps : AlivedHypotheses
             The alived hypotheses.
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         scores : torch.Tensor
             The scores of the current step output.
 
         Returns
         -------
         eos_hyps_and_log_probs_scores : list
-            Generated hypotheses (the one that haved reached eos) and log probs scores.
+            Generated hypotheses (the ones that have reached eos) and log probs scores.
         """
         if not self._check_full_beams(eos_hyps_and_log_probs_scores):
             # Using all eos to fill-up the hyps.
@@ -1697,7 +1697,7 @@ class S2STransformerBeamSearcher(S2SBeamSearcher):
     See also S2SBaseSearcher(), S2SBeamSearcher().
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A Transformer model.
         seq_lin : torch.nn.Module
@@ -1771,7 +1771,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
     https://cdn.openai.com/papers/whisper.pdf.
     Arguments
     ---------
-    module : list with the followings one:
+    module : list with the following one:
         model : torch.nn.Module
             A whisper model. It should have a decode() method.
         ctc_lin : torch.nn.Module (optional)
@@ -1926,7 +1926,7 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
 
     Arguments
     ---------
-    modules : list with the followings one:
+    modules : list with the following one:
         model : torch.nn.Module
             A Transformer model.
         seq_lin : torch.nn.Module

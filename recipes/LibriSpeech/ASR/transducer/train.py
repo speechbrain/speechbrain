@@ -5,10 +5,10 @@ between them. Decoding is performed with beamsearch coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml
+> python train.py hparams/conformer_transducer.yaml
 
-With the default hyperparameters, the system employs a CRDNN encoder.
-The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
+With the default hyperparameters, the system employs a conformer encoder.
+The decoder is based on a standard LSTM. Beamsearch coupled with a RNN
 language model is used on the top of decoder probabilities.
 
 The neural network is trained on both CTC and negative-log likelihood
@@ -24,6 +24,8 @@ other possible variations.
 
 
 Authors
+ * Sylvain de Langen 2024
+ * Titouan Parcollet 2024
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
@@ -269,7 +271,7 @@ class ASR(sb.Brain):
             )
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
+        """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
@@ -472,7 +474,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # We dynamicaly add the tokenizer to our brain class.
+    # We dynamically add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = hparams["tokenizer"]
     train_dataloader_opts = hparams["train_dataloader_opts"]

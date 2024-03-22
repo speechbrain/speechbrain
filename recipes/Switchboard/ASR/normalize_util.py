@@ -42,6 +42,7 @@ def expand_contractions(text) -> list:
     A list of tokens
     """
     # Specific contractions
+    # cspell:disable
     text = re.sub(r"won\'t", "WILL NOT", text, flags=re.IGNORECASE)
     text = re.sub(r"can\'t", "CAN NOT", text, flags=re.IGNORECASE)
     text = re.sub(r"let\'s", "LET US", text, flags=re.IGNORECASE)
@@ -71,6 +72,7 @@ def expand_contractions(text) -> list:
     text = re.sub(r"im", "I AM", text, flags=re.IGNORECASE)
     text = re.sub(r"ive", "I HAVE", text, flags=re.IGNORECASE)
     text = re.sub(r"youre", "YOU ARE", text, flags=re.IGNORECASE)
+    # cspell:enable
 
     # More general contractions
     text = re.sub(r"n\'t", " NOT", text, flags=re.IGNORECASE)

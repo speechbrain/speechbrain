@@ -69,7 +69,7 @@ def get_decoding(
         decoding_method: Callable[[k2.Fsa], k2.Fsa]
             A function to call with a decoding lattice `k2.Fsa` (obtained
             after nnet output intersect with a HL or HLG).
-            Retuns an FsaVec containing linear FSAs
+            Returns an FsaVec containing linear FSAs
 
     Example
     -------
@@ -88,7 +88,7 @@ def get_decoding(
     >>> log_probs.requires_grad = True
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
-    >>> # Create a samll lexicon containing only two words and write it to a file.
+    >>> # Create a small lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
     >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")

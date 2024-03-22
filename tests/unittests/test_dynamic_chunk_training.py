@@ -5,7 +5,7 @@ def test_dynchunktrain_sampler():
         DynChunkTrainConfigRandomSampler,
     )
 
-    # sanity check and cover for the random smapler
+    # sanity check and cover for the random sampler
 
     valid_cfg = DynChunkTrainConfig(16, 32)
     test_cfg = DynChunkTrainConfig(16, 32)

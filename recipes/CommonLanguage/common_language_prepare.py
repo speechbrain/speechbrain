@@ -62,7 +62,7 @@ LANGUAGES = [
     "Tamil",
     "Tatar",
     "Turkish",
-    "Ukranian",
+    "Ukrainian",
     "Welsh",
 ]
 
@@ -80,7 +80,7 @@ def prepare_common_language(data_folder, save_folder, skip_prep=False):
     save_folder : str
         The directory where to store the csv files.
     max_duration : int, optional
-        Max duration (in seconds) of training uterances.
+        Max duration (in seconds) of training utterances.
     skip_prep: bool
         If True, skip data preparation.
 
@@ -102,7 +102,7 @@ def prepare_common_language(data_folder, save_folder, skip_prep=False):
     # Setting the save folder
     os.makedirs(save_folder, exist_ok=True)
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = os.path.join(save_folder, "train.csv")
     save_csv_dev = os.path.join(save_folder, "dev.csv")
     save_csv_test = os.path.join(save_folder, "test.csv")
@@ -165,8 +165,8 @@ def create_sets(data_folder, extension):
     ---------
     data_folder : str
         Path of the CommonLanguage dataset.
-    extension: list of file extentions
-        List of strings with file extentions that correspond to the audio files
+    extension: list of file extensions
+        List of strings with file extensions that correspond to the audio files
         in the CommonLanguage dataset
 
     Returns
@@ -246,7 +246,7 @@ def create_csv(wav_list, csv_file):
         # Actual name of the language
         language = path_parts[-4]
 
-        # Create a row with whole utterences
+        # Create a row with whole utterances
         csv_line = [
             idx,  # ID
             wav_file,  # File name
@@ -264,7 +264,7 @@ def create_csv(wav_list, csv_file):
     # CSV column titles
     csv_header = ["ID", "wav", "wav_format", "duration", "language"]
 
-    # Add titles to the list at indexx 0
+    # Add titles to the list at index 0
     csv_lines.insert(0, csv_header)
 
     # Writing the csv lines
@@ -277,7 +277,7 @@ def create_csv(wav_list, csv_file):
             csv_writer.writerow(line)
 
     # Final prints
-    msg = f"{csv_file} sucessfully created!"
+    msg = f"{csv_file} successfully created!"
     logger.info(msg)
     msg = f"Number of samples: {len(wav_list)}."
     logger.info(msg)

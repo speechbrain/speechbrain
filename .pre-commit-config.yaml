@@ -29,3 +29,11 @@ repos:
     rev: v1.23.0
     hooks:
       - id: yamllint
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.4
+    hooks:
+      - id: codespell
+        args: [--ignore-words=.dict-speechbrain.txt]
+        additional_dependencies:
+          - tomli

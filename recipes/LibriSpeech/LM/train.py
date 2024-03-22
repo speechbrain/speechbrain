@@ -85,7 +85,7 @@ class LM(sb.core.Brain):
 
 
 def dataio_prepare(hparams):
-    """grap all the .txt files for transcripts"""
+    """grab all the .txt files for transcripts"""
     logging.info("generating datasets...")
     data_folder = hparams["data_folder"]
     train_transcripts = glob.glob(

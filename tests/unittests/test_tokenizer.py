@@ -58,7 +58,7 @@ def test_tokenizer():
         os.path.abspath("tests/tmp/tokenizer_data"),
         100,
         annotation_train=os.path.abspath(
-            "tests/sample/annotation/tokenzer.csv"
+            "tests/sample/annotation/tokenizer.csv"
         ),
         annotation_read="char",
         char_format_input=True,

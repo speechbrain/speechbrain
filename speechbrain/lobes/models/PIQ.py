@@ -293,7 +293,7 @@ class Conv2dEncoder_v2(nn.Module):
 
     Returns
     --------
-    Latent representations to feed inside classifier and/or intepreter.
+    Latent representations to feed inside classifier and/or interpreter.
 
     Example:
     --------
@@ -586,7 +586,7 @@ class VQEmbedding(nn.Module):
 
         Returns
         --------
-        Straigth through quantized representation and quantized representation : tuple
+        Straight through quantized representation and quantized representation : tuple
 
         Example:
         --------

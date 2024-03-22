@@ -52,7 +52,7 @@ class TDF:
     end: int
         end time of utterance
     transcript: str
-        transcript of utteranc
+        transcript of utterance
     """
 
     channel: int
@@ -90,7 +90,7 @@ def prepare_fisher_callhome_spanish(
     Example
     -------
     >>> data_folder = '/path/to/fisher-callhome'
-    >>> save_foler = 'data'
+    >>> save_folder = 'data'
     >>> prepare_fisher_callhome_spanish(data_folder, save_folder)
     """
 
@@ -357,11 +357,11 @@ def concate_transcriptions_by_mapping_file(
                 need_to_be_concate_lines[0] - 1
             ].channel
             channel_symbol = "B" if channel == 1 else "A"
-            uttrance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
+            utterance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
 
             utterances.append(
                 Data(
-                    uid=uttrance_id,
+                    uid=utterance_id,
                     transcription=concated_transcripts,
                     wav=f"{speech_folder}/{uid}.sph {channel} {start} {end}",
                     duration=(end - start) / 100,
@@ -513,7 +513,7 @@ def remove_punctuation(text: str) -> str:
 def normalize_punctuation(text: str) -> str:
     """remove punctuation from given string"""
 
-    # remove brachets and inside
+    # remove brackets and inside
     text = re.sub(r"\([^)]*\)", " ", text)
     text = re.sub(r"\[[^]]+\]", " ", text)
 
@@ -550,7 +550,7 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"\<players with the meaning of singers\>", "", text)
     text = re.sub(r"\<this phrase barely made any sense whatsoever\>", "", text)
     text = re.sub(
-        r"\<colorcito does not exist as a word so I have no ideea what he means about that\>",
+        r"\<colorcito does not exist as a word so I have no ideea what he means about that\>",  # cspell:ignore ideea
         "",
         text,
     )
@@ -672,7 +672,7 @@ def clean_transcription(transcription: str) -> str:
 
 
 def clean_translation(translation: str) -> str:
-    """clean a given translation and returne a cleaned translation"""
+    """clean a given translation and return a cleaned translation"""
     translation = translation.strip()
     translation = translation.lower()
 
@@ -710,7 +710,7 @@ def remove_labels(transcription: str):
     transcription = re.sub(r"<foreign langenglishonline", "", transcription)
     transcription = re.sub(r"<foreign langenglish", "", transcription)
     transcription = re.sub(r"</foreign", "", transcription)
-    transcription = re.sub(r"<[/]?foreing\s*\w*>", "", transcription)
+    transcription = re.sub(r"<[/]?foreign\s*\w*>", "", transcription)
     transcription = re.sub(r"</b", "", transcription)
     transcription = re.sub(r"<foreign langengullís>", "", transcription)
     transcription = re.sub(r"foreign>", "", transcription)

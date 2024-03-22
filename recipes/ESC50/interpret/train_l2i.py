@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interepret audio classifiers.
+"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -87,7 +87,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -177,7 +177,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, pred_cl
 
     def interpret_sample(self, wavs, batch=None):
-        """get the interpratation for a given wav file."""
+        """get the interpretation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)

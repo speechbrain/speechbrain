@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train PIQ to interepret audio classifiers.
+"""This recipe to train PIQ to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -93,7 +93,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, class_pred, X_stft_logpower, xhat
 
     def interpret_sample(self, wavs, batch=None):
-        """Get the interpratation for a given wav file."""
+        """Get the interpretation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(
@@ -655,7 +655,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
