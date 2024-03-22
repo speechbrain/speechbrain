@@ -36,13 +36,47 @@ Results are obtained with beam search and no LM (no-streaming i.e. full context)
 
 | Language | Release |  LM | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs |
 | ------------- |:-------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
-| French | 2024-02-24 | No | 4.25 | 11.81 | 5.23 | 13.64 | [model]() | [model]() | 4xA40 40GB |
+| French | 2024-03-22 | No | 3.51 | 10.30 | 4.64 | 12.47 | [model](https://www.dropbox.com/scl/fo/kue72ik3vc55xu6u8zjr7/h?rlkey=ie98ktqf9gbunn4x9i3pskedq&dl=0) | [model]() | 4xV100 32GB |
+| Italian | 2024-03-22 | No | 2.47 | 8.49 | 2.69 | 8.92 | [model](https://www.dropbox.com/scl/fo/uyqfo3kwcpkaq26au2foj/h?rlkey=gxlj7xn6bnhjfb5jds8p80fe6&dl=0) | [model]() | 4xV100 32GB |
 
 The output folders with checkpoints and logs can be found [here](https://www.dropbox.com/sh/852eq7pbt6d65ai/AACv4wAzk1pWbDo4fjVKLICYa?dl=0).
 
 ## Streaming model
 
-To be added..
+### WER vs chunk size & left context
+
+The following matrix presents the Word Error Rate (WER%) achieved on CommonVoice
+`test` with various chunk sizes (in ms).
+
+The relative difference is not trivial to interpret, because we are not testing
+against a continuous stream of speech, but rather against utterances of various
+lengths. This tends to bias results in favor of larger chunk sizes.
+
+The chunk size might not accurately represent expected latency due to slight
+padding differences in streaming contexts.
+
+The left chunk size is not representative of the receptive field of the model.
+Because the model caches the streaming context at different layers, the model
+may end up forming indirect dependencies to audio many seconds ago.
+
+|       | full | cs=32 (1280ms) | 16 (640ms) | 8 (320ms) |
+|:-----:|:----:|:-----:|:-----:|:-----:|
+| it full  | 8.92 | -     | -     |  -   |
+| it lc=32    | -    | x | x | x |
+| fr full  | 12.47 | -     | -     |  -   |
+| fr lc=32    | -    | x | x | x |
+
+### Inference
+
+Once your model is trained, you need a few manual steps in order to use it with the high-level streaming interfaces (`speechbrain.inference.ASR.StreamingASR`):
+
+1. Create a new directory where you want to store the model.
+2. Copy `results/conformer_transducer/<seed>/lm.ckpt` (optional; currently, for streaming rescoring LMs might be unsupported) and `tokenizer.ckpt` to that directory.
+3. Copy `results/conformer_transducer/<seed>/save/CKPT+????/model.ckpt` and `normalizer.ckpt` to that directory.
+4. Copy your hyperparameters file to that directory. Uncomment the streaming specific keys and remove any training-specific keys. Alternatively, grab the inference hyperparameters YAML for this model from HuggingFace and adapt it to any changes you may have done.
+5. You can now instantiate a `StreamingASR` with your model using `StreamingASR.from_hparams("/path/to/model/")`.
+
+The contents of that directory may be uploaded as a HuggingFace model, in which case the model source path can just be specified as `youruser/yourmodel`.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
