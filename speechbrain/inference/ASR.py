@@ -409,6 +409,7 @@ class WhisperASR(Pretrained):
         ValueError
             If the model doesn't have language tokens.
         """
+        wavs = wavs.float().to(self.device)
         mel = self.mods.whisper._get_mel(wavs)
         language_tokens, language_probs = self.mods.whisper.detect_language(mel)
         return language_tokens, language_probs
