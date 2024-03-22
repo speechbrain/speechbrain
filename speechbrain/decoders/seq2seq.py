@@ -88,7 +88,6 @@ class S2SBaseSearcher(torch.nn.Module):
         self.eos_index = eos_index
         self.min_decode_ratio = min_decode_ratio
         self.max_decode_ratio = max_decode_ratio
-        self.temperature = 0
 
     def forward(self, enc_states, wav_len):
         """This method should implement the forward algorithm of decoding method.
@@ -220,9 +219,6 @@ class S2SGreedySearcher(S2SBaseSearcher):
                 step, inp_tokens, memory, enc_states, enc_lens
             )
 
-            # if step < 10:
-            #     print("i = ", step, " logits = ", logits.sum().detach().item(), " dtype = ", logits.dtype)
-
             if self.temperature == 0:
                 inp_tokens = logits.argmax(dim=-1)
             else:
@@ -328,7 +324,7 @@ class S2STransformerGreedySearch(S2SGreedySearcher):
     """
 
     def __init__(
-        self, modules, temperature=1.0, **kwargs,
+        self, modules, temperature=0.0, **kwargs,
     ):
         super(S2SGreedySearcher, self).__init__(**kwargs)
 
@@ -357,34 +353,40 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
     https://cdn.openai.com/papers/whisper.pdf.
     Arguments
     ---------
-    model : HuggingFaceWhisper
+    model: HuggingFaceWhisper
         The Whisper model.
-    language_token : int
-        The language token to be used for the decoder input.
-    bos_token : int
-        The beginning of sentence token to be used for the decoder input.
-    task_token : int
-        The task token to be used for the decoder input.
-    timestamp_token : int
-        The timestamp token to be used for the decoder input.
-    max_length : int
-        The maximum decoding steps to perform.
-        The Whisper model has a maximum length of 448.
+    temperature: float
+        The temperature to use during decoding.
+    use_kv_cache: bool (default: True)
+        Whether to use key-value cache.
+    suppress_blank: bool (default: True)
+        This will suppress blank outputs.
+    suppress_tokens: str or list (default: "-1")
+        list of tokens ids (or comma-separated token ids) to suppress
+        "-1" will suppress a set of symbols as defined in `model.non_speech_tokens()`
     **kwargs
         see S2SBaseSearcher, arguments are directly passed.
     """
 
     def __init__(
-        self, model, use_kv_cache=True, **kwargs,
+        self,
+        model,
+        temperature=0.0,
+        use_kv_cache=True,
+        suppress_blank=True,
+        suppress_tokens="-1",
+        **kwargs,
     ):
         super().__init__(
             bos_index=model.bos, eos_index=model.eos, **kwargs,
         )
         self.model = model
+        self.temperature = temperature
+
         self.use_kv_cache = use_kv_cache
         self.kv_cache = None
-        self.suppress_blank = True
-        self.suppress_tokens = "-1"
+        self.suppress_blank = suppress_blank
+        self.suppress_tokens = suppress_tokens
 
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
@@ -412,10 +414,6 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
         """Performs a step in the implemented beamsearcher."""
         tokens = _update_mem(inp_tokens, memory)
 
-        # if step < 10:
-        #     print("enc_states = ", enc_states.sum().detach().item(), " dtype = ", enc_states.dtype)
-        #     print("tokens = ", tokens[:, -1], " dtype = ", tokens.dtype)
-
         logits, attn, kv = self.model.forward_decoder(
             enc_states, tokens, past_key_values=self.kv_cache
         )
@@ -432,12 +430,9 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
                     self.model.tokenizer.encode(" ", add_special_tokens=False)
                     + [self.eos_index],
                 ] = -np.inf
-                # print(self.model.tokenizer.encode(" ", add_special_tokens=False) + [self.eos_index]) -> [220, 50257]
 
         if self.suppress_tokens:
             logits[:, list(self._get_suppress_tokens)] = -np.inf
-            # print(list(self._get_suppress_tokens)) -> [1, 2, 7, 8, 9, 10, 14, 25, 26, 27, 28, 29, 31, 58, 59, 60, 61, 62, 63, 90, 91, 92, 93, 359, 503, 522, 542, 873, 893, 902, 918, 922, 931, 1350, 1853, 1982, 2460, 2627, 3246, 3253, 3268, 3536, 3846, 3961, 4183, 4667, 6585, 6647, 7273, 9061, 9383, 10428, 10929, 11938, 12033, 12331, 12562, 13793, 14157, 14635, 15265, 15618, 16553, 16604, 18362, 18956, 20075, 21675, 22520, 26130, 26161, 26435, 28279, 29464, 31650, 32302, 32470, 36865, 42863, 47425, 49870, 50254, 50258, 50358, 50359, 50360, 50361, 50362]
-            # exit()
 
         return logits, tokens, attn
 
@@ -471,9 +466,8 @@ class S2SWhisperGreedySearch(S2SGreedySearcher):
                 self.model.bos_lm,
             ]
         )
-        # print("here")
+
         if self.model.no_speech is not None:
-            # no-speech probability is collected separately
             suppress_tokens.append(self.model.no_speech)
 
         return tuple(sorted(set(suppress_tokens)))
@@ -493,6 +487,8 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
         Attentional RNN decoder.
     linear : torch.nn.Module
         A linear output layer.
+    temperature : float
+        The temperature to use during decoding.
     **kwargs
         see S2SBaseSearcher, arguments are directly passed.
 
@@ -520,11 +516,12 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     >>> top_hyps, top_lengths, _, _ = searcher(enc, wav_len)
     """
 
-    def __init__(self, embedding, decoder, linear, **kwargs):
+    def __init__(self, embedding, decoder, linear, temperature=0.0, **kwargs):
         super(S2SRNNGreedySearcher, self).__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
+        self.temperature = temperature
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
     def reset_mem(self, batch_size, device):
@@ -1776,23 +1773,27 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
             A whisper model. It should have a decode() method.
         ctc_lin : torch.nn.Module (optional)
             A linear output layer for CTC.
-    language_token : int
-        The token to use for language.
-    bos_token : int
-        The token to use for beginning of sentence.
-    task_token : int
-        The token to use for task.
-    timestamp_token : int
-        The token to use for timestamp.
-    max_length : int
-        The maximum decoding steps to perform.
-        The Whisper model has a maximum length of 448.
+    temperature: float
+        The temperature to use during decoding.
+    use_kv_cache: bool (default: True)
+        Whether to use key-value cache.
+    suppress_blank: bool (default: True)
+        This will suppress blank outputs.
+    suppress_tokens: str or list (default: "-1")
+        list of tokens ids (or comma-separated token ids) to suppress
+        "-1" will suppress a set of symbols as defined in `model.non_speech_tokens()`
     **kwargs
         Arguments to pass to S2SBeamSearcher
     """
 
     def __init__(
-        self, module, temperature=1.0, use_kv_cache=True, **kwargs,
+        self,
+        module,
+        temperature=1.0,
+        use_kv_cache=True,
+        suppress_blank=True,
+        suppress_tokens="-1",
+        **kwargs,
     ):
         super().__init__(
             bos_index=module[0].bos, eos_index=module[0].eos, **kwargs,
@@ -1802,8 +1803,8 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.temperature = temperature
         self.use_kv_cache = use_kv_cache
         self.kv_cache = None
-        self.suppress_blank = True
-        self.suppress_tokens = "-1"
+        self.suppress_blank = suppress_blank
+        self.suppress_tokens = suppress_tokens
 
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
@@ -1813,7 +1814,6 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         self.max_attn_tokens = self.model.model.decoder.config.max_length
 
     def _check_end_condition(self, alived_hyps):
-        # print(alived_hyps.alived_seq.shape[1], self.max_attn_tokens)
         return (
             alived_hyps.alived_seq.shape[1]
             >= self.max_attn_tokens - self.sample_begin
@@ -1840,6 +1840,7 @@ class S2SWhisperBeamSearch(S2SBeamSearcher):
         return memory
 
     def _reorder_cache(self, past_key_values, beam_idx):
+        """Reorder the key-value cache."""
         reordered_past = ()
         for layer_past in past_key_values:
             reordered_past += (
