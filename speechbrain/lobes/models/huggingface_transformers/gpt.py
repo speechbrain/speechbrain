@@ -39,6 +39,21 @@ class GPT(HFTransformersInterface):
     freeze : bool (default: False)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
+    max_new_tokens : int
+        Maximum count of new tokens allowed.
+    min_length : int
+        Minium count of input tokens
+    top_k : int
+        Top results count to keep
+    top_p : float
+        Proportion of top results to keep
+    num_beams : int
+        Number of decoder beams
+    eos_token_id : int
+        Index of end-of-sentence token.
+    early_stopping : int
+        Whether to stop training early.
+
     Example
     -------
     >>> model_hub = "gpt2"
@@ -83,18 +98,23 @@ class GPT(HFTransformersInterface):
                 param.requires_grad = False
 
     def forward(
-        self, input_ids: Tensor, token_type_ids: Tensor, attention_mask: Tensor,
+        self, input_ids: Tensor, token_type_ids: Tensor, attention_mask: Tensor
     ):
-        """ Takes an input a history of conversation and returns its corresponding reply.
+        """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
-        input_ids : torch.Tensor ()
+        input_ids : Tensor
             A batch of input-id to transform to features.
-        token_type_ids : torch.Tensor
+        token_type_ids : Tensor
             Token Type(Speaker) for each token in input_ids.
-        attention_mask : torch.Tensor ()
+        attention_mask : Tensor
             A batch of attention_mask.
+
+        Returns
+        -------
+        output : Tensor
+            Reply to conversation
         """
         with torch.set_grad_enabled(not self.freeze):
             output = self.model.forward(
@@ -111,16 +131,22 @@ class GPT(HFTransformersInterface):
         attention_mask: Tensor,
         decoder_type="greedy",
     ):
-        """ Takes an input a history of conversation and returns its corresponding reply.
+        """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
-        --------
-        input_ids : torch.Tensor ()
-            A batch of input-id   which are dialogue context tokens
-        decoder_type : Str
-            It shows strategy for autoregressive decoding either beam search or greedy.
-        attention_mask : torch.Tensor ()
+        ---------
+        input_ids : Tensor
+            A batch of input-id which are dialogue context tokens
+        token_type_ids : Tensor
+        attention_mask : Tensor
             A batch of attention_mask.
+        decoder_type : str
+            It shows strategy for autoregressive decoding either beam search or greedy.
+
+        Returns
+        -------
+        hyp : Tensor
+            Conversation reply.
         """
 
         with torch.no_grad():

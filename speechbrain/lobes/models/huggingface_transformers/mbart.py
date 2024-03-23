@@ -67,7 +67,10 @@ class mBART(HFTransformersInterface):
         share_input_output_embed=True,
     ):
         super().__init__(
-            source=source, save_path=save_path, freeze=freeze, seq2seqlm=True,
+            source=source,
+            save_path=save_path,
+            freeze=freeze,
+            seq2seqlm=True,
         )
 
         self.target_lang = target_lang
@@ -99,13 +102,18 @@ class mBART(HFTransformersInterface):
         (same than above, but without the encoder stack)
 
         Arguments
-        ----------
-        src (transcription): tensor
-            output features from the w2v2 encoder
-        tgt (translation): tensor
-            The sequence to the decoder (required).
+        ---------
+        src : tensor
+            output features from the w2v2 encoder (transcription)
+        tgt : tensor
+            The sequence to the decoder (translation) (required).
         pad_idx : int
             The index for <pad> token (default=0).
+
+        Returns
+        -------
+        dec_out : Tensor
+            Decoder output.
         """
 
         # should we replace 0 elements by pax_idx as pad_idx of mbart model seems to be different from 0?
@@ -139,12 +147,19 @@ class mBART(HFTransformersInterface):
 
         Arguments
         ---------
-        tgt : torch.Tensor
+        tgt : Tensor
             The sequence to the decoder.
-        encoder_out : torch.Tensor
+        encoder_out : Tensor
             Hidden output of the encoder.
         enc_len : torch.LongTensor
             The actual length of encoder states.
+
+        Returns
+        -------
+        output : Tensor
+            Output of transformer.
+        cross_attention : Tensor
+            Attention value.
         """
 
         if tgt.dtype not in [torch.long, torch.int64]:
@@ -173,12 +188,17 @@ class mBART(HFTransformersInterface):
 
         Arguments
         ---------
-        x : torch.Tensor
+        x : Tensor
           Input tensor with original pad_idx
         org_pad : int
           Original pad_idx
         custom_pad : int
           Custom pad_idx
+
+        Returns
+        -------
+        out : Tensor
+            Padded outputs.
         """
         out = x.clone()
         out[x == org_pad] = custom_pad
@@ -195,7 +215,7 @@ class mBART(HFTransformersInterface):
 
         Returns
         -------
-        Overridded config
+        Overridden config
         """
         config.decoder_layerdrop = 0.05
         return config

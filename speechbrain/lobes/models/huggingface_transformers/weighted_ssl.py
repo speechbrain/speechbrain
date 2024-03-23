@@ -61,14 +61,19 @@ class WeightedSSLModel(HFTransformersInterface):
         self.layernorm = layernorm
 
     def forward(self, wav, wav_lens=None):
-        """This method outputs a weighted sum of the layers representations of the SSL encoder
+        """This method outputs a weighted sum of the layer representations of the SSL encoder
 
         Arguments
         ---------
-        wav : tensor
+        wav : Tensor
             The wavs
-        wav_lens : tensor
+        wav_lens : Tensor
             The wav lengths
+
+        Returns
+        -------
+        weighted_feats : Tensor
+            The weighted sum of layer representations.
         """
 
         feats = self.model(wav)

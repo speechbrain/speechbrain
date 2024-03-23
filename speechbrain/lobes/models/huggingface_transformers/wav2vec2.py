@@ -136,10 +136,14 @@ class Wav2Vec2(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : Tensor
             The relative length of the wav given in SpeechBrain format.
+
+        Returns
+        -------
+        Wav2vec encoded features.
         """
 
         # If we freeze, we simply remove all grads from the graph.
@@ -154,10 +158,15 @@ class Wav2Vec2(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : Tensor
             The relative length of the wav given in SpeechBrain format.
+
+        Returns
+        -------
+        out : Tensor
+            Wav2vec encoded features.
         """
 
         padding_mask = make_padding_masks(wav, wav_len=wav_lens)
@@ -188,7 +197,7 @@ class Wav2Vec2(HFTransformersInterface):
 
 class Wav2Vec2Pretrain(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace
-     wav2vec2.0 models to be pretrained.
+    wav2vec2.0 models to be pretrained.
 
     Source paper: https://arxiv.org/abs/2006.11477
     Transformer from HuggingFace needs to be installed:
@@ -210,6 +219,8 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
     mask_length : float (default: 10)
         Length (i.e. number of consecutive masked frames). Default is taken from
         the paper.
+    normalize_wav : bool
+        Whether to normalize input before processing.
 
     Example
     -------
@@ -243,10 +254,14 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : Tensor
             The relative length of the wav given in SpeechBrain format.
+
+        Returns
+        -------
+        Wav2vec encoded outputs.
         """
         batch_size, raw_sequence_length = wav.shape
 
@@ -264,7 +279,9 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
             mask_length=self.mask_length,
         )
         torch_mask_time_indices = torch.tensor(
-            mask_time_indices, device=wav.device, dtype=torch.long,
+            mask_time_indices,
+            device=wav.device,
+            dtype=torch.long,
         )
         padding_mask = make_padding_masks(wav, wav_len=wav_lens)
 

@@ -99,7 +99,6 @@ class LLAMA2(HFTransformersInterface):
         early_stopping: bool = True,
         with_peft: bool = False,
     ) -> None:
-
         self.with_peft = with_peft
         self.max_new_tokens = max_new_tokens
         self.min_length = min_length
@@ -160,21 +159,24 @@ class LLAMA2(HFTransformersInterface):
             self.model = get_peft_model(self.model, config)
         self.print_trainable_parameters(self.model)
 
-    def forward(
-        self, input_ids: Tensor, attention_mask: Tensor,
-    ):
-        """ Takes an input a history of conversation and returns its corresponding reply.
+    def forward(self, input_ids: Tensor, attention_mask: Tensor):
+        """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
-        input_ids : torch.Tensor ()
+        input_ids : Tensor
             A batch of input-id to transform to features.
-        attention_mask : torch.Tensor ()
+        attention_mask : Tensor
             A batch of attention_mask.
+
+        Returns
+        -------
+        output : Tensor
+            Reply to conversation.
         """
         with torch.set_grad_enabled(not self.freeze):
             output = self.model.forward(
-                input_ids, attention_mask=attention_mask,
+                input_ids, attention_mask=attention_mask
             )
         return output
 
@@ -312,7 +314,7 @@ class LLAMA2(HFTransformersInterface):
 
         Arguments
         ---------
-        module : nn.nodule
+        module : nn.module
             llama2 model.
         """
         for name, child in module.named_children():
@@ -329,18 +331,23 @@ class LLAMA2(HFTransformersInterface):
                 self.replace_linear(child)
 
     def generate(
-        self, input_ids: Tensor, attention_mask: Tensor, decoder_type="greedy",
+        self, input_ids: Tensor, attention_mask: Tensor, decoder_type="greedy"
     ):
-        """ Takes an input a history of conversation and returns its corresponding reply.
+        """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
-        --------
-        input_ids : torch.Tensor ()
-            A batch of input-id   which are dialogue context tokens
-        # decoder_type : Str
-        #     It shows strategy for autoregressive decoding either beam search or greedy.
-        # attention_mask : torch.Tensor ()
-        #     A batch of attention_mask.
+        ---------
+        input_ids : Tensor
+            A batch of input-id which are dialogue context tokens
+        attention_mask : Tensor
+            A batch of attention_mask.
+        decoder_type : str
+            It shows strategy for autoregressive decoding either beam search or greedy.
+
+        Returns
+        -------
+        hyp : Tensor
+            Reply to conversation input.
         """
 
         with torch.no_grad():
@@ -379,7 +386,7 @@ class LLAMA2(HFTransformersInterface):
             The original config.
 
         Returns
-        ---------
+        -------
         config : HuggingFace config object
             Overridden config.
         """

@@ -137,12 +137,17 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        sample : torch.Tensor
+        sample : Tensor
             A (Batch x Samples) or (Batch x Channel x Samples)
             audio sample
-
-        length : torch.Tensor
+        length : Tensor
             A tensor of relative lengths
+
+        Returns
+        -------
+        emb_mean : Tensor
+        emb_std : Tensor
+            Norm stats for embeddings.
         """
         if length is None:
             length = torch.ones(len(sample), device=sample.device)
@@ -166,19 +171,19 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        sample : torch.Tensor
+        sample : Tensor
             A (Batch x Samples) or (Batch x Channel x Samples)
             audio sample
 
-        length : torch.Tensor
+        length : Tensor
             A tensor of relative lengths
 
         Returns
         -------
-        emb_mean : torch.Tensor
+        emb_mean : Tensor
             The embedding mean
 
-        emb_std : torch.Tensor
+        emb_std : Tensor
             The embedding standard deviation
         """
         if not self.renorm_embeddings:
@@ -194,15 +199,15 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        inputs : torch.Tensor
+        inputs : Tensor
             A (Batch x Samples) or (Batch x Channel x Samples)
             tensor of audio
-        length : torch.Tensor
+        length : Tensor
             A tensor of relative lengths
 
         Returns
         -------
-        tokens : torch.Tensor
+        tokens : Tensor
             A (Batch X Tokens) tensor of audio tokens
         """
         return self.encode(inputs, length)
@@ -212,17 +217,17 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        inputs : torch.Tensor
+        inputs : Tensor
             A (Batch x Samples) or (Batch x Channel x Samples)
             tensor of audio
-        length : torch.Tensor
+        length : Tensor
             A tensor of relative lengths
 
         Returns
         -------
-        tokens : torch.Tensor
+        tokens : Tensor
             A (Batch x Tokens x Heads) tensor of audio tokens
-        emb : torch.Tensor
+        emb : Tensor
             Raw vector embeddings from the model's
             quantizers
         """
@@ -236,15 +241,15 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        inputs : torch.Tensor
+        inputs : Tensor
             A (Batch x Samples) or (Batch x Channel x Samples)
             tensor of audio
-        length : torch.Tensor
+        length : Tensor
             A tensor of relative lengths
 
         Returns
         -------
-        tokens : torch.Tensor
+        tokens : Tensor
             A (Batch x Tokens x Heads) tensor of audio tokens
         """
         if inputs.dim() == 2:
@@ -263,12 +268,12 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        tokens : torch.Tensor
+        tokens : Tensor
             a (Batch x Length x Heads) tensor of token indexes
 
         Returns
         -------
-        emb : torch.Tensor
+        emb : Tensor
             a (Batch x Length x Heads x Embedding) tensor
             of raw vector embeddings from the model's
             quantizer codebooks
@@ -282,12 +287,12 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        tokens : torch.Tensor
+        tokens : Tensor
             a (Batch x Length x Heads) tensor of token indexes
 
         Returns
         -------
-        emb : torch.Tensor
+        emb : Tensor
             a (Batch x Length x Heads x Embedding) tensor
             of raw vector embeddings from the model's
             quantizer codebooks
@@ -305,14 +310,14 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        tokens : torch.Tensor
+        tokens : Tensor
             A (Batch x Length x Heads) tensor of audio tokens
-        length : torch.Tensor
+        length : Tensor
             A 1-D tensor of relative lengths
 
         Returns
         -------
-        audio : torch.Tensor
+        audio : Tensor
             the reconstructed audio
         """
         with torch.set_grad_enabled(not self.freeze):
@@ -329,15 +334,15 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        emb : torch.Tensor
+        emb : Tensor
             Raw embeddings
-        length : torch.Tensor
+        length : Tensor
             A 1-D tensor of relative lengths. If supplied,
             padded positions will be zeroed out
 
         Returns
         -------
-        tokens : torch.Tensor
+        tokens : Tensor
             A (Batch x Length) tensor of token indices"""
         with torch.set_grad_enabled(not self.freeze):
             if self.flat_embeddings:
@@ -363,13 +368,15 @@ class Encodec(HFTransformersInterface):
 
         Arguments
         ---------
-        emb : torch.Tensor
+        emb : Tensor
             A (Batch x Length x Heads x Embedding) tensor of
             raw vector embeddings
+        length : Tensor
+            The corresponding lengths of the inputs.
 
         Returns
         -------
-        audio : torch.Tensor
+        audio : Tensor
             the reconstructed audio
         """
         with torch.set_grad_enabled(not self.freeze):
