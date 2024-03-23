@@ -6,6 +6,7 @@ Authors
  * Sarthak Yadav 2020
  * Sylvain de Langen 2024
 """
+
 from dataclasses import dataclass
 import torch
 from typing import Optional
@@ -129,7 +130,8 @@ class Fbank(torch.nn.Module):
         )
         self.compute_deltas = Deltas(input_size=n_mels)
         self.context_window = ContextWindow(
-            left_frames=left_frames, right_frames=right_frames,
+            left_frames=left_frames,
+            right_frames=right_frames,
         )
 
     @fwd_default_precision(cast_inputs=torch.float32)
@@ -267,7 +269,8 @@ class MFCC(torch.nn.Module):
         self.compute_dct = DCT(input_size=n_mels, n_out=n_mfcc)
         self.compute_deltas = Deltas(input_size=n_mfcc)
         self.context_window = ContextWindow(
-            left_frames=left_frames, right_frames=right_frames,
+            left_frames=left_frames,
+            right_frames=right_frames,
         )
 
     @fwd_default_precision(cast_inputs=torch.float32)
@@ -431,14 +434,13 @@ class Leaf(torch.nn.Module):
     def _squared_modulus_activation(self, x):
         x = x.transpose(1, 2)
         output = 2 * torch.nn.functional.avg_pool1d(
-            x ** 2.0, kernel_size=2, stride=2
+            x**2.0, kernel_size=2, stride=2
         )
         output = output.transpose(1, 2)
         return output
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels.
-        """
+        """Checks the input shape and returns the number of input channels."""
 
         if len(shape) == 2:
             in_channels = 1

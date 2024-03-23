@@ -7,6 +7,7 @@ Authors
  * Titouan Parcollet 2020
  * Abdel 2020
 """
+
 import torch
 import speechbrain as sb
 
@@ -304,7 +305,9 @@ class DNN_Block(sb.nnet.containers.Sequential):
     ):
         super().__init__(input_shape=input_shape)
         self.append(
-            sb.nnet.linear.Linear, n_neurons=neurons, layer_name="linear",
+            sb.nnet.linear.Linear,
+            n_neurons=neurons,
+            layer_name="linear",
         )
         self.append(sb.nnet.normalization.BatchNorm1d, layer_name="norm")
         self.append(activation(), layer_name="act")

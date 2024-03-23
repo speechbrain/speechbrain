@@ -4,6 +4,7 @@
  * Cem Subakan 2023
  * Francesco Paissan 2023
 """
+
 import torch
 import torch.nn as nn
 from torch.autograd import Function
@@ -148,8 +149,8 @@ class VectorQuantization(Function):
                 stage="TRAIN" if training else "VALID",
             )
 
-            codebook_sqr = torch.sum(codebook ** 2, dim=1)
-            inputs_sqr = torch.sum(inputs_flatten ** 2, dim=1, keepdim=True)
+            codebook_sqr = torch.sum(codebook**2, dim=1)
+            inputs_sqr = torch.sum(inputs_flatten**2, dim=1, keepdim=True)
 
             # Compute the distances to the codebook
             distances = torch.addmm(
@@ -172,7 +173,7 @@ class VectorQuantization(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        """Handles error in case grad() is called on the VQ operation. """
+        """Handles error in case grad() is called on the VQ operation."""
         raise RuntimeError(
             "Trying to call `.grad()` on graph containing "
             "`VectorQuantization`. The function `VectorQuantization` "

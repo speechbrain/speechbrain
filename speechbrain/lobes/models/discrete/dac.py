@@ -72,11 +72,11 @@ def WNConv1d(*args, **kwargs):
     """
     Apply weight normalization to a 1D convolutional layer.
 
-    Parameters
-    ----------
-    *args
+    Arguments
+    ---------
+    *args : tuple
         Variable length argument list for nn.Conv1d.
-    **kwargs
+    **kwargs : dict
         Arbitrary keyword arguments for nn.Conv1d.
 
     Returns
@@ -91,11 +91,11 @@ def WNConvTranspose1d(*args, **kwargs):
     """
     Apply weight normalization to a 1D transposed convolutional layer.
 
-    Parameters
-    ----------
-    *args
+    Arguments
+    ---------
+    *args : tuple
         Variable length argument list for nn.ConvTranspose1d.
-    **kwargs
+    **kwargs : dict
         Arbitrary keyword arguments for nn.ConvTranspose1d.
 
     Returns
@@ -124,8 +124,8 @@ def download(
     """
     Downloads a specified model file based on model type, bitrate, and tag, saving it to a local path.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     model_type : str, optional
         The type of model to download. Can be '44khz', '24khz', or '16khz'. Default is '44khz'.
     model_bitrate : str, optional
@@ -204,16 +204,16 @@ def snake(x, alpha):
     This function reshapes the input tensor, applies a modified sine function to it, and then reshapes it back
     to its original shape.
 
-    Parameters
-    ----------
-    x : torch.Tensor
+    Arguments
+    ---------
+    x : Tensor
         The input tensor to which the snake activation function will be applied.
     alpha : float
         A scalar value that modifies the sine function within the snake activation.
 
     Returns
     -------
-    torch.Tensor
+    Tensor
         The transformed tensor after applying the snake activation function.
     """
     shape = x.shape
@@ -226,19 +226,27 @@ def snake(x, alpha):
 class VectorQuantize(nn.Module):
     """
     An implementation for Vector Quantization
+
+    Implementation of VQ similar to Karpathy's repo:
+    https://github.com/karpathy/deep-vector-quantization
+    Additionally uses following tricks from Improved VQGAN
+    (https://arxiv.org/pdf/2110.04627.pdf):
+        1. Factorized codes: Perform nearest neighbor lookup in low-dimensional space
+            for improved codebook usage
+        2. l2-normalized codes: Converts euclidean distance to cosine similarity which
+            improves training stability
+
+    Arguments
+    ---------
+    input_dim : int
+        Dimensionality of input
+    codebook_size : int
+        Size of codebook
+    codebook_dim : int
+        Dimensionality of codebook
     """
 
     def __init__(self, input_dim: int, codebook_size: int, codebook_dim: int):
-        """
-        Implementation of VQ similar to Karpathy's repo:
-        https://github.com/karpathy/deep-vector-quantization
-        Additionally uses following tricks from Improved VQGAN
-        (https://arxiv.org/pdf/2110.04627.pdf):
-            1. Factorized codes: Perform nearest neighbor lookup in low-dimensional space
-                for improved codebook usage
-            2. l2-normalized codes: Converts euclidean distance to cosine similarity which
-                improves training stability
-        """
         super().__init__()
         self.codebook_size = codebook_size
         self.codebook_dim = codebook_dim
@@ -251,8 +259,8 @@ class VectorQuantize(nn.Module):
         """Quantized the input tensor using a fixed codebook and returns
         the corresponding codebook vectors
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         z : Tensor[B x D x T]
 
         Returns
@@ -295,14 +303,14 @@ class VectorQuantize(nn.Module):
 
         This method utilizes the codebook weights to embed the given ID.
 
-        Parameters
-        ----------
-        embed_id : torch.Tensor
+        Arguments
+        ---------
+        embed_id : Tensor
             The tensor containing IDs that need to be embedded.
 
         Returns
         -------
-        torch.Tensor
+        Tensor
             The embedded output tensor after applying the codebook weights.
         """
         return F.embedding(embed_id, self.codebook.weight)
@@ -314,14 +322,14 @@ class VectorQuantize(nn.Module):
         This method decodes the embedded ID by applying a transpose operation to the dimensions of the
         output tensor from the `embed_code` method.
 
-        Parameters
-        ----------
-        embed_id : torch.Tensor
+        Arguments
+        ---------
+        embed_id : Tensor
             The tensor containing embedded IDs.
 
         Returns
         -------
-        torch.Tensor
+        Tensor
             The decoded tensor
         """
         return self.embed_code(embed_id).transpose(1, 2)
@@ -330,9 +338,9 @@ class VectorQuantize(nn.Module):
         """
         Decodes latent representations into discrete codes by comparing with the codebook.
 
-        Parameters
-        ----------
-        latents : torch.Tensor
+        Arguments
+        ---------
+        latents : Tensor
             The latent tensor representations to be decoded.
 
         Returns
@@ -369,6 +377,13 @@ class ResidualVectorQuantize(nn.Module):
     Introduced in SoundStream: An end2end neural audio codec
     https://arxiv.org/abs/2107.03312
 
+    Arguments
+    ---------
+    input_dim : int, optional, by default 512
+    n_codebooks : int, optional, by default 9
+    codebook_size : int, optional, by default 1024
+    codebook_dim : Union[int, list], optional,  by default 8
+    quantizer_dropout : float, optional, by default 0.0
 
     Example
     -------
@@ -378,7 +393,6 @@ class ResidualVectorQuantize(nn.Module):
     >>> quantizer = dac.quantizer
     >>> continuous_embeddings = torch.randn(1, 1024, 100) # Example shape: [Batch, Channels, Time]
     >>> discrete_embeddings, codes, _, _, _ = quantizer(continuous_embeddings)
-
     """
 
     def __init__(
@@ -389,17 +403,6 @@ class ResidualVectorQuantize(nn.Module):
         codebook_dim: Union[int, list] = 8,
         quantizer_dropout: float = 0.0,
     ):
-        """
-        Initializes the ResidualVectorQuantize
-
-        Parameters
-        ----------
-        input_dim : int, optional, by default 512
-        n_codebooks : int, optional, by default 9
-        codebook_size : int, optional, by default 1024
-        codebook_dim : Union[int, list], optional,  by default 8
-        quantizer_dropout : float, optional, by default 0.0
-        """
         super().__init__()
         if isinstance(codebook_dim, int):
             codebook_dim = [codebook_dim for _ in range(n_codebooks)]
@@ -419,9 +422,11 @@ class ResidualVectorQuantize(nn.Module):
     def forward(self, z, n_quantizers: int = None):
         """Quantized the input tensor using a fixed set of `n` codebooks and returns
         the corresponding codebook vectors
-        Parameters
-        ----------
-        z : Tensor[B x D x T]
+
+        Arguments
+        ---------
+        z : Tensor
+            Shape [B x D x T]
         n_quantizers : int, optional
             No. of quantizers to use
             (n_quantizers < self.n_codebooks ex: for quantizer dropout)
@@ -493,10 +498,12 @@ class ResidualVectorQuantize(nn.Module):
 
     def from_codes(self, codes: torch.Tensor):
         """Given the quantized codes, reconstruct the continuous representation
-        Parameters
-        ----------
+
+        Arguments
+        ---------
         codes : Tensor[B x N x T]
             Quantized discrete representation of input
+
         Returns
         -------
         Tensor[B x D x T]
@@ -517,8 +524,8 @@ class ResidualVectorQuantize(nn.Module):
         """Given the unquantized latents, reconstruct the
         continuous representation after quantization.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         latents : Tensor[B x N x T]
             Continuous representation of input after projection
 
@@ -555,32 +562,26 @@ class Snake1d(nn.Module):
     """
     A PyTorch module implementing the Snake activation function in 1D.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     channels : int
         The number of channels in the input tensor.
     """
 
     def __init__(self, channels):
-        """
-        Initializes Snake1d
-        Parameters
-        ----------
-        channels : int
-        """
         super().__init__()
         self.alpha = nn.Parameter(torch.ones(1, channels, 1))
 
     def forward(self, x):
         """
 
-        Parameters
-        ----------
-        x : torch.Tensor
+        Arguments
+        ---------
+        x : Tensor
 
         Returns
         -------
-        torch.Tensor
+        Tensor
         """
         return snake(x, self.alpha)
 
@@ -589,8 +590,8 @@ class ResidualUnit(nn.Module):
     """
     A residual unit module for convolutional neural networks.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     dim : int, optional
         The number of channels in the input tensor. Default is 16.
     dilation : int, optional
@@ -599,13 +600,6 @@ class ResidualUnit(nn.Module):
     """
 
     def __init__(self, dim: int = 16, dilation: int = 1):
-        """
-        Initializes the ResidualUnit
-        Parameters
-        ----------
-        dim : int, optional, by default 16
-        dilation : int, optional, by default 1
-        """
         super().__init__()
         pad = ((7 - 1) * dilation) // 2
         self.block = nn.Sequential(
@@ -615,15 +609,15 @@ class ResidualUnit(nn.Module):
             WNConv1d(dim, dim, kernel_size=1),
         )
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.tensor:
         """
-        Parameters
-        ----------
-        x : torch.tensor
+        Arguments
+        ---------
+        x : Tensor
 
         Returns
         -------
-        torch.tensor
+        Tensor
         """
         y = self.block(x)
         pad = (x.shape[-1] - y.shape[-1]) // 2
@@ -640,8 +634,8 @@ class EncoderBlock(nn.Module):
     activation followed by a weighted normalized 1D convolution. This block can be used as part of an
     encoder in architectures like autoencoders.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     dim : int, optional
         The number of output channels. Default is 16.
     stride : int, optional
@@ -649,13 +643,6 @@ class EncoderBlock(nn.Module):
     """
 
     def __init__(self, dim: int = 16, stride: int = 1):
-        """
-        Initializes the EncoderBlock
-        Parameters
-        ----------
-        dim : int, optional, by default 16
-        stride : int, optional, by default 1
-        """
         super().__init__()
         self.block = nn.Sequential(
             ResidualUnit(dim // 2, dilation=1),
@@ -671,15 +658,15 @@ class EncoderBlock(nn.Module):
             ),
         )
 
-    def forward(self, x: torch.tensor):
+    def forward(self, x: torch.Tensor):
         """
-        Parameters
-        ----------
-        x : torch.tensor
+        Arguments
+        ---------
+        x : Tensor
 
         Returns
         -------
-        torch.tensor
+        Tensor
         """
         return self.block(x)
 
@@ -688,8 +675,8 @@ class Encoder(nn.Module):
     """
     A PyTorch module for the Encoder part of DAC.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     d_model : int, optional
         The initial dimensionality of the model. Default is 64.
     strides : list, optional
@@ -718,15 +705,6 @@ class Encoder(nn.Module):
         strides: list = [2, 4, 8, 8],
         d_latent: int = 64,
     ):
-        """
-        Initializes the Encoder
-
-        Parameters
-        ----------
-        d_model : int, optional, by default 64
-        strides : list, optional, by default [2, 4, 8, 8]
-        d_latent : int, optional, by default 64
-        """
         super().__init__()
         # Create first convolution
         self.block = [WNConv1d(1, d_model, kernel_size=7, padding=3)]
@@ -748,13 +726,13 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         """
-        Parameters
-        ----------
-        x : torch.tensor
+        Arguments
+        ---------
+        x : Tensor
 
         Returns
         -------
-        torch.tensor
+        Tensor
         """
         return self.block(x)
 
@@ -763,8 +741,8 @@ class DecoderBlock(nn.Module):
     """
     A PyTorch module representing a block within the Decoder architecture.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     input_dim : int, optional
         The number of input channels. Default is 16.
     output_dim : int, optional
@@ -776,15 +754,6 @@ class DecoderBlock(nn.Module):
     def __init__(
         self, input_dim: int = 16, output_dim: int = 8, stride: int = 1
     ):
-        """
-        Initializes the DecoderBlock
-
-        Parameters
-        ----------
-        input_dim : int, optional, by default 16
-        output_dim : int, optional, by default 8
-        stride : int, optional, by default 1
-        """
         super().__init__()
         self.block = nn.Sequential(
             Snake1d(input_dim),
@@ -803,13 +772,13 @@ class DecoderBlock(nn.Module):
     def forward(self, x):
         """
 
-        Parameters
-        ----------
-        x : torch.tensor
+        Arguments
+        ---------
+        x : Tensor
 
         Returns
         -------
-        torch.tensor
+        Tensor
         """
         return self.block(x)
 
@@ -818,8 +787,8 @@ class Decoder(nn.Module):
     """
     A PyTorch module for the Decoder part of DAC.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     input_channel : int
         The number of channels in the input tensor.
     channels : int
@@ -853,15 +822,6 @@ class Decoder(nn.Module):
         rates: List[int],
         d_out: int = 1,
     ):
-        """Initializes Decoder
-
-        Parameters
-        ----------
-        input_channel : int
-        channels : int
-        rates : List[int]
-        d_out : int, optional, by default 1
-        """
         super().__init__()
 
         # Add first conv layer
@@ -869,7 +829,7 @@ class Decoder(nn.Module):
 
         # Add upsampling + MRF blocks
         for i, stride in enumerate(rates):
-            input_dim = channels // 2 ** i
+            input_dim = channels // 2**i
             output_dim = channels // 2 ** (i + 1)
             layers += [DecoderBlock(input_dim, output_dim, stride)]
 
@@ -885,13 +845,13 @@ class Decoder(nn.Module):
     def forward(self, x):
         """
 
-        Parameters
-        ----------
-        x : torch.tensor
+        Arguments
+        ---------
+        x : Tensor
 
         Returns
         -------
-        torch.tensor
+        Tensor
         """
         return self.model(x)
 
@@ -904,8 +864,8 @@ class DAC(nn.Module):
     It includes an encoder, quantizer, and decoder for transforming audio data into a compressed latent representation and reconstructing it back into audio.
     This implementation supports both initializing a new model and loading a pretrained model.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     encoder_dim : int
         Dimensionality of the encoder.
     encoder_rates : List[int]
@@ -947,7 +907,6 @@ class DAC(nn.Module):
     >>> audio_data = torch.randn(1, 1, 16000) # Example shape: [Batch, Channels, Time]
     >>> tokens, embeddings = dac(audio_data)
 
-
     Loading a pretrained DAC instance:
 
     >>> dac = DAC(load_pretrained=True, model_type="44KHz", model_bitrate="8kbps", tag="latest")
@@ -981,28 +940,6 @@ class DAC(nn.Module):
         strict: bool = False,
         load_pretrained: bool = False,
     ):
-        """ Initializes DAC
-
-        Parameters
-        ----------
-        encoder_dim : int, optional, by default 64
-        encoder_rates : List[int], optional, by default [2, 4, 8, 8]
-        latent_dim : int, optional, by default None
-        decoder_dim : int, optional, by default 1536
-        decoder_rates : List[int], optional, by default [8, 8, 4, 2]
-        n_codebooks : int, optional, by default 9
-        codebook_size : int, optional, by default 1024
-        codebook_dim : Union[int, list], optional, by default 8
-        quantizer_dropout : bool, optional, by default False
-        sample_rate : int, optional, by default 44100
-        model_type : str, optional, by default "44khz"
-        model_bitrate : str, optional, by default "8kbps"
-        tag : str, optional, by default "latest"
-        load_path : str, optional, by default None
-        strict : bool, optional, by default False
-        load_pretrained : bool, optional
-             If True, then a pretrained model is loaded, by default False
-        """
         super().__init__()
 
         self.encoder_dim = encoder_dim
@@ -1041,7 +978,9 @@ class DAC(nn.Module):
             quantizer_dropout=self.quantizer_dropout,
         )
         self.decoder = Decoder(
-            self.latent_dim, self.decoder_dim, self.decoder_rates,
+            self.latent_dim,
+            self.decoder_dim,
+            self.decoder_rates,
         )
         self.apply(init_weights)
 
@@ -1050,12 +989,14 @@ class DAC(nn.Module):
             self.metadata = metadata
 
     def encode(
-        self, audio_data: torch.Tensor, n_quantizers: int = None,
+        self,
+        audio_data: torch.Tensor,
+        n_quantizers: int = None,
     ):
         """Encode given audio data and return quantized latent codes
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         audio_data : Tensor[B x 1 x T]
             Audio data to encode
         n_quantizers : int, optional
@@ -1088,16 +1029,15 @@ class DAC(nn.Module):
     def decode(self, z: torch.Tensor):
         """Decode given latent codes and return audio data
 
-        Parameters
-        ----------
-        z : Tensor[B x D x T]
+        Arguments
+        ---------
+        z : Tensor
+            Shape [B x D x T]
             Quantized continuous representation of input
-        length : int, optional
-            Number of samples in output audio, by default None
 
         Returns
         -------
-        torch.Tensor: shape B x 1 x length
+        Tensor: shape B x 1 x length
             Decoded audio data.
         """
         return self.decoder(z)
@@ -1110,8 +1050,8 @@ class DAC(nn.Module):
     ):
         """Model forward pass
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         audio_data : Tensor[B x 1 x T]
             Audio data to encode
         sample_rate : int, optional

@@ -228,7 +228,6 @@ class DurationPredictor(nn.Module):
 
 
 class SPNPredictor(nn.Module):
-
     """
     This module for the silent phoneme predictor. It receives phoneme sequences without any silent phoneme token as
     input and predicts whether a silent phoneme should be inserted after a position. This is to avoid the issue of fast
@@ -819,13 +818,15 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
     mel_lens = [mel.shape[0] for mel in upsampled_mels]
 
     padded_upsampled_mels = torch.nn.utils.rnn.pad_sequence(
-        upsampled_mels, batch_first=True, padding_value=padding_value,
+        upsampled_mels,
+        batch_first=True,
+        padding_value=padding_value,
     )
     return padded_upsampled_mels, mel_lens
 
 
 class TextMelCollate:
-    """ Zero-pads model inputs and targets based on number of frames per step
+    """Zero-pads model inputs and targets based on number of frames per step
     result: tuple
         a tuple of tensors to be used as inputs/targets
         (
@@ -1193,8 +1194,7 @@ def mel_spectogram(
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamic range compression for audio signals
-    """
+    """Dynamic range compression for audio signals"""
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -1442,8 +1442,8 @@ class _SSIMLoss(_Loss):
         coords = torch.arange(kernel_size, dtype=torch.float32)
         coords -= (kernel_size - 1) / 2.0
 
-        g = coords ** 2
-        g = (-(g.unsqueeze(0) + g.unsqueeze(1)) / (2 * sigma ** 2)).exp()
+        g = coords**2
+        g = (-(g.unsqueeze(0) + g.unsqueeze(1)) / (2 * sigma**2)).exp()
 
         g /= g.sum()
         return g.unsqueeze(0)
@@ -1473,8 +1473,8 @@ class _SSIMLoss(_Loss):
                 f"Kernel size: {kernel.size()}"
             )
 
-        c1 = k1 ** 2
-        c2 = k2 ** 2
+        c1 = k1**2
+        c2 = k2**2
         n_channels = x.size(1)
         mu_x = F.conv2d(
             x, weight=kernel, stride=1, padding=0, groups=n_channels
@@ -1483,19 +1483,19 @@ class _SSIMLoss(_Loss):
             y, weight=kernel, stride=1, padding=0, groups=n_channels
         )
 
-        mu_xx = mu_x ** 2
-        mu_yy = mu_y ** 2
+        mu_xx = mu_x**2
+        mu_yy = mu_y**2
         mu_xy = mu_x * mu_y
 
         sigma_xx = (
             F.conv2d(
-                x ** 2, weight=kernel, stride=1, padding=0, groups=n_channels
+                x**2, weight=kernel, stride=1, padding=0, groups=n_channels
             )
             - mu_xx
         )
         sigma_yy = (
             F.conv2d(
-                y ** 2, weight=kernel, stride=1, padding=0, groups=n_channels
+                y**2, weight=kernel, stride=1, padding=0, groups=n_channels
             )
             - mu_yy
         )
@@ -1541,8 +1541,8 @@ class _SSIMLoss(_Loss):
                 f"Kernel size: {kernel.size()}"
             )
 
-        c1 = k1 ** 2
-        c2 = k2 ** 2
+        c1 = k1**2
+        c2 = k2**2
 
         x_real = x[..., 0]
         x_imag = x[..., 1]
@@ -1731,7 +1731,7 @@ class _SSIMLoss(_Loss):
 
 
 class TextMelCollateWithAlignment:
-    """ Zero-pads model inputs and targets based on number of frames per step
+    """Zero-pads model inputs and targets based on number of frames per step
     result: tuple
         a tuple of tensors to be used as inputs/targets
         (
@@ -2443,9 +2443,11 @@ class FastSpeech2WithAlignment(nn.Module):
         # upsampling
         spec_feats, mel_lens = upsample(
             token_feats,
-            alignment_durations
-            if alignment_durations is not None
-            else predict_durations_reverse_log,
+            (
+                alignment_durations
+                if alignment_durations is not None
+                else predict_durations_reverse_log
+            ),
             pace=pace,
         )
         srcmask = get_mask_from_lengths(torch.tensor(mel_lens))

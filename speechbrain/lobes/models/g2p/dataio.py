@@ -45,23 +45,21 @@ def grapheme_pipeline(char, grapheme_encoder=None, uppercase=True):
 
     Arguments
     ---------
-    graphemes: list
-        a list of available graphemes
+    char: str
+        A list of characters to encode.
     grapheme_encoder: speechbrain.dataio.encoder.TextEncoder
         a text encoder for graphemes. If not provided,
-    takes: str
-        the name of the input
     uppercase: bool
         whether or not to convert items to uppercase
 
-    Returns
-    -------
+    Yields
+    ------
     grapheme_list: list
         a raw list of graphemes, excluding any non-matching
         labels
     grapheme_encoded_list: list
         a list of graphemes encoded as integers
-    grapheme_encoded: torch.Tensor
+    grapheme_encoded: Tensor
     """
     if uppercase:
         char = char.upper()
@@ -88,18 +86,18 @@ def tokenizer_encode_pipeline(
 
     Arguments
     ---------
+    seq: list
+        List of tokens to encode.
     tokenizer: speechbrain.tokenizer.SentencePiece
         a tokenizer instance
     tokens: str
         available tokens
-    takes: str
-        the name of the pipeline input providing raw text
-    provides_prefix: str
-        the prefix used for outputs
     wordwise: str
         whether tokenization is performed on the whole sequence
         or one word at a time. Tokenization can produce token
         sequences in which a token may span multiple words
+    word_separator: str
+        The substring to use as a separator between words.
     token_space_index: int
         the index of the space token
     char_map: dict
@@ -110,13 +108,13 @@ def tokenizer_encode_pipeline(
         "N", "D"]). The character map makes it possible to map these
         to arbitrarily selected characters
 
-    Returns
-    -------
+    Yields
+    ------
     token_list: list
         a list of raw tokens
     encoded_list: list
         a list of tokens, encoded as a list of integers
-    encoded: torch.Tensor
+    encoded: Tensor
         a list of tokens, encoded as a tensor
     """
     token_list = [token for token in seq if token in tokens]
@@ -186,9 +184,8 @@ def _wordwise_detokenize(
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         the result
-
     """
     if isinstance(sequence, str) and sequence == "":
         return ""
@@ -212,11 +209,12 @@ def _split_list(items, separator):
     ---------
     items: sequence
         any sequence that supports indexing
-
-    Results
-    -------
     separator: str
         the separator token
+
+    Yields
+    ------
+    item
     """
     if items is not None:
         last_idx = -1
@@ -249,7 +247,6 @@ def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     -------
     encoder: speechbrain.dataio.encoder.TextEncoder
         an encoder
-
     """
     if encoder is None:
         encoder = sb.dataio.encoder.TextEncoder()
@@ -280,17 +277,19 @@ def phoneme_pipeline(phn, phoneme_encoder=None):
 
     Arguments
     ---------
+    phn: list
+        List of phonemes
     phoneme_encoder: speechbrain.datio.encoder.TextEncoder
         a text encoder instance (optional, if not provided, a new one
         will be created)
 
-    Returns
-    -------
+    Yields
+    ------
     phn: list
         the original list of phonemes
     phn_encoded_list: list
         encoded phonemes, as a list
-    phn_encoded: torch.Tensor
+    phn_encoded: Tensor
         encoded phonemes, as a tensor
     """
 
@@ -306,17 +305,16 @@ def add_bos_eos(seq=None, encoder=None):
 
     Arguments
     ---------
-    seq: torch.Tensor
+    seq: Tensor
         the source sequence
     encoder: speechbrain.dataio.encoder.TextEncoder
         an encoder instance
 
-
-    Returns
-    -------
-    seq_eos: torch.Tensor
+    Yields
+    ------
+    seq_eos: Tensor
         the sequence, with the EOS token added
-    seq_bos: torch.Tensor
+    seq_bos: Tensor
         the sequence, with the BOS token added
     """
     seq_bos = encoder.prepend_bos_index(seq)
@@ -337,9 +335,9 @@ def beam_search_pipeline(char_lens, encoder_out, beam_searcher):
 
     Arguments
     ---------
-    char_lens: torch.Tensor
+    char_lens: Tensor
         the length of character inputs
-    encoder_out: torch.Tensor
+    encoder_out: Tensor
         Raw encoder outputs
     beam_searcher: speechbrain.decoders.seq2seq.S2SBeamSearcher
         a SpeechBrain beam searcher instance
@@ -434,7 +432,7 @@ def text_decode(seq, encoder):
 
     Arguments
     ---------
-    seq: torch.Tensor
+    seq: Tensor
         token indexes
     encoder: sb.dataio.encoder.TextEncoder
         a text encoder instance
@@ -461,12 +459,13 @@ def char_map_detokenize(
         a tokenizer instance
     token_space_index: int
         the index of the "space" token
+    wordwise: bool
+        Whether to apply detokenize per word.
 
     Returns
     -------
     f: callable
         the tokenizer function
-
     """
 
     def detokenize_wordwise(item):
@@ -520,7 +519,6 @@ def _map_tokens_item(tokens, char_map):
     -------
     result: list
         a list of tokens
-
     """
     return [char_map[char] for char in tokens]
 
@@ -531,7 +529,8 @@ class LazyInit(nn.Module):
     Arguments
     ---------
     init : callable
-        The function to initialize the underlying object"""
+        The function to initialize the underlying object
+    """
 
     def __init__(self, init):
         super().__init__()
@@ -553,6 +552,10 @@ class LazyInit(nn.Module):
         ---------
         device : str | torch.device
             the device
+
+        Returns
+        -------
+        self
         """
         super().to(device)
         if self.instance is None:
@@ -588,8 +591,12 @@ def get_sequence_key(key, mode):
     ---------
     key: str
         the key (e.g. "graphemes", "phonemes")
-    mode:
+    mode: str
         the mode/suffix (raw, eos/bos)
+
+    Returns
+    -------
+    key if ``mode=="raw"`` else ``f"{key}_{mode}"``
     """
     return key if mode == "raw" else f"{key}_{mode}"
 
@@ -601,13 +608,16 @@ def phonemes_to_label(phns, decoder):
 
     Arguments
     ---------
-    phn: sequence
+    phns: Tensor
         a batch of phoneme sequences
+    decoder: Callable
+        Converts tensor to phoneme label strings.
 
     Returns
     -------
     result: list
-        a list of strings corresponding to the phonemes provided"""
+        a list of strings corresponding to the phonemes provided
+    """
 
     phn_decoded = decoder(phns)
     return [" ".join(remove_special(item)) for item in phn_decoded]
@@ -645,9 +655,9 @@ def word_emb_pipeline(
     ---------
     txt: str
         the raw text
-    grapheme_encoded: torch.tensor
+    grapheme_encoded: Tensor
         the encoded graphemes
-    grapheme_encoded_len: torch.tensor
+    grapheme_encoded_len: Tensor
         encoded grapheme lengths
     grapheme_encoder: speechbrain.dataio.encoder.TextEncoder
         the text encoder used for graphemes
@@ -658,7 +668,7 @@ def word_emb_pipeline(
 
     Returns
     -------
-    char_word_emb: torch.tensor
+    char_word_emb: Tensor
         Word embeddings, expanded to the character dimension
     """
     char_word_emb = None

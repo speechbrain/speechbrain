@@ -3,6 +3,7 @@
 Authors
  * Mickael Rouvier 2022
 """
+
 import math
 
 import torch
@@ -409,9 +410,7 @@ class ResNet(nn.Module):
         w = self.attention(x)
 
         mu = torch.sum(x * w, dim=2)
-        sg = torch.sqrt(
-            (torch.sum((x ** 2) * w, dim=2) - mu ** 2).clamp(min=1e-5)
-        )
+        sg = torch.sqrt((torch.sum((x**2) * w, dim=2) - mu**2).clamp(min=1e-5))
         x = torch.cat([mu, sg], dim=1)
         x = self.norm_stats(x)
 

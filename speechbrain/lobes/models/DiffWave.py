@@ -44,8 +44,7 @@ ConvTranspose2d = nn.ConvTranspose2d
 
 @torch.jit.script
 def silu(x):
-    """sigmoid linear unit activation function
-    """
+    """sigmoid linear unit activation function"""
     return x * torch.sigmoid(x)
 
 
@@ -633,7 +632,9 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             ):  # Expand rank 2 tensors by adding a batch dimension.
                 condition = condition.unsqueeze(0)
             audio = torch.randn(
-                condition.shape[0], scale * condition.shape[-1], device=device,
+                condition.shape[0],
+                scale * condition.shape[-1],
+                device=device,
             )
         else:
             audio = torch.randn(1, scale, device=device)

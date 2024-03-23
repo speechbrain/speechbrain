@@ -4,6 +4,7 @@ https://arxiv.org/pdf/2005.03191.pdf
 Authors
  * Jianyuan Zhong 2020
 """
+
 import torch
 from torch.nn import Dropout
 from speechbrain.nnet.CNN import DepthwiseSeparableConv1d, Conv1d
@@ -170,7 +171,10 @@ class SEmodule(torch.nn.Module):
         bz, t, chn = input_shape
         self.conv = Sequential(input_shape=input_shape)
         self.conv.append(
-            DepthwiseSeparableConv1d, out_channels=chn, kernel_size=1, stride=1,
+            DepthwiseSeparableConv1d,
+            out_channels=chn,
+            kernel_size=1,
+            stride=1,
         )
         self.conv.append(self.norm)
         self.conv.append(self.activation())
@@ -184,7 +188,7 @@ class SEmodule(torch.nn.Module):
         )
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         bz, t, chn = x.shape
 
         x = self.conv(x)
@@ -270,7 +274,10 @@ class ContextNetBlock(torch.nn.Module):
         if residual:
             self.reduced_cov = Sequential(input_shape=input_shape)
             self.reduced_cov.append(
-                Conv1d, out_channels, kernel_size=3, stride=stride,
+                Conv1d,
+                out_channels,
+                kernel_size=3,
+                stride=stride,
             )
             self.reduced_cov.append(norm)
 
@@ -282,7 +289,7 @@ class ContextNetBlock(torch.nn.Module):
         self._reset_params()
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         out = self.Convs(x)
         out = self.SE(out)
         if self.reduced_cov:

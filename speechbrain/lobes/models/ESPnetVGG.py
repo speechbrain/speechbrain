@@ -5,6 +5,7 @@ source: https://github.com/espnet/espnet/blob/master/espnet/nets/pytorch_backend
 Authors
  * Titouan Parcollet 2020
 """
+
 import torch
 import speechbrain as sb
 
@@ -76,7 +77,9 @@ class ESPnetVGG(sb.nnet.containers.Sequential):
         self.append(activation(), layer_name="act_1_2")
         self.append(
             sb.nnet.pooling.Pooling2d(
-                pool_type="max", kernel_size=(2, 2), pool_axis=(1, 2),
+                pool_type="max",
+                kernel_size=(2, 2),
+                pool_axis=(1, 2),
             ),
             layer_name="pooling_1",
         )
@@ -97,7 +100,9 @@ class ESPnetVGG(sb.nnet.containers.Sequential):
         self.append(activation(), layer_name="act_2_2")
         self.append(
             sb.nnet.pooling.Pooling2d(
-                pool_type="max", kernel_size=(2, 2), pool_axis=(1, 2),
+                pool_type="max",
+                kernel_size=(2, 2),
+                pool_axis=(1, 2),
             ),
             layer_name="pooling_2",
         )

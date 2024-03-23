@@ -7,6 +7,7 @@ Authors
  * Titouan Parcollet 2020
  * Abdel 2020
 """
+
 import torch
 from torch import nn
 import speechbrain as sb
@@ -99,7 +100,7 @@ class RNNLM(nn.Module):
         )
 
     def forward(self, x, hx=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         x = self.embedding(x)
         x = self.dropout(x)
 

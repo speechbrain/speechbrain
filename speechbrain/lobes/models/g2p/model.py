@@ -35,19 +35,12 @@ class AttentionSeq2Seq(nn.Module):
         the linear module
     out: torch.nn.Module
         the output layer (typically log_softmax)
-    use_word_emb: bool
-        whether or not to use word embedding
     bos_token: int
         the index of teh Beginning-of-Sentence token
+    use_word_emb: bool
+        whether or not to use word embedding
     word_emb_enc: nn.Module
         a module to encode word embeddings
-
-
-    Returns
-    -------
-    result: tuple
-        a (p_seq, char_lens) tuple
-
     """
 
     def __init__(
@@ -73,28 +66,24 @@ class AttentionSeq2Seq(nn.Module):
         self.use_word_emb = use_word_emb
         self.word_emb_enc = word_emb_enc if use_word_emb else None
 
-    def forward(
-        self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs
-    ):
+    def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None):
         """Computes the forward pass
 
         Arguments
         ---------
-        grapheme_encoded: torch.Tensor
+        grapheme_encoded: Tensor
             graphemes encoded as a Torch tensor
-
-        phn_encoded: torch.Tensor
+        phn_encoded: Tensor
             the encoded phonemes
-
-        word_emb: torch.Tensor
+        word_emb: Tensor
             word embeddings (optional)
 
         Returns
         -------
-        p_seq: torch.Tensor
+        p_seq: Tensor
             a (batch x position x token) tensor of token probabilities in each
             position
-        char_lens: torch.Tensor
+        char_lens: Tensor
             a tensor of character sequence lengths
         encoder_out:
             the raw output of the encoder
@@ -125,14 +114,14 @@ class AttentionSeq2Seq(nn.Module):
 
         Arguments
         ---------
-        emb_char: torch.Tensor
+        emb_char: Tensor
             the character embedding tensor
-        word_emb: torch.Tensor
+        word_emb: Tensor
             the word embedding tensor
 
         Returns
         -------
-        result: torch.Tensor
+        result: Tensor
             the concatenation of the tensor"""
         word_emb_enc = (
             self.word_emb_enc(word_emb)
@@ -181,6 +170,10 @@ class WordEmbeddingEncoder(nn.Module):
             the normalization type: "batch", "layer" or "instance
         dim: int
             the dimensionality of the inputs
+
+        Returns
+        -------
+        The normalized outputs.
         """
         norm_cls = self.NORMS.get(norm)
         if not norm_cls:
@@ -192,12 +185,12 @@ class WordEmbeddingEncoder(nn.Module):
 
         Arguments
         ---------
-        emb: torch.Tensor
+        emb: Tensor
             the original word embeddings
 
         Returns
         -------
-        emb_enc: torch.Tensor
+        emb_enc: Tensor
             encoded word embeddings
         """
         if self.norm is not None:
@@ -284,8 +277,6 @@ class TransformerG2P(TransformerInterface):
         Dimension of the key for the decoder.
     decoder_vdim: int, optional
         Dimension of the value for the decoder.
-
-
     """
 
     def __init__(
@@ -356,31 +347,27 @@ class TransformerG2P(TransformerInterface):
         self.word_emb_enc = word_emb_enc
         self._reset_params()
 
-    def forward(
-        self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs
-    ):
+    def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None):
         """Computes the forward pass
 
         Arguments
         ---------
-        grapheme_encoded: torch.Tensor
+        grapheme_encoded: Tensor
             graphemes encoded as a Torch tensor
-
-        phn_encoded: torch.Tensor
+        phn_encoded: Tensor
             the encoded phonemes
-
-        word_emb: torch.Tensor
+        word_emb: Tensor
             word embeddings (if applicable)
 
         Returns
         -------
-        p_seq: torch.Tensor
+        p_seq: Tensor
             the log-probabilities of individual tokens i a sequence
-        char_lens: torch.Tensor
+        char_lens: Tensor
             the character length syntax
-        encoder_out: torch.Tensor
+        encoder_out: Tensor
             the encoder state
-        attention: torch.Tensor
+        attention: Tensor
             the attention state
         """
 
@@ -456,23 +443,24 @@ class TransformerG2P(TransformerInterface):
 
         Arguments
         ---------
-        src : tensor
+        src : Tensor
             The sequence to the encoder (required).
-        tgt : tensor
+        tgt : Tensor
             The sequence to the decoder (required).
+        src_len : Tensor
+            Lengths corresponding to the src tensor.
         pad_idx : int
             The index for <pad> token (default=0).
 
-
         Returns
         -------
-        src_key_padding_mask: torch.Tensor
+        src_key_padding_mask: Tensor
             the source key padding mask
-        tgt_key_padding_mask: torch.Tensor
+        tgt_key_padding_mask: Tensor
             the target key padding masks
-        src_mask: torch.Tensor
+        src_mask: Tensor
             the source mask
-        tgt_mask: torch.Tensor
+        tgt_mask: Tensor
             the target mask
         """
         if src_len is not None:
@@ -493,16 +481,18 @@ class TransformerG2P(TransformerInterface):
 
         Arguments
         ---------
-        tgt : torch.Tensor
+        tgt : Tensor
             The sequence to the decoder.
-        encoder_out : torch.Tensor
+        encoder_out : Tensor
             Hidden output of the encoder.
+        enc_lens : Tensor
+            The corresponding lengths of the encoder inputs.
 
         Returns
         -------
-        prediction: torch.Tensor
+        prediction: Tensor
             the predicted sequence
-        attention: torch.Tensor
+        attention: Tensor
             the attention matrix corresponding to the last attention head
             (useful for plotting attention)
         """
@@ -535,10 +525,8 @@ def input_dim(use_word_emb, embedding_dim, word_emb_enc_dim):
     ---------
     use_word_emb: bool
         whether to use word embeddings
-
     embedding_dim: int
         the embedding dimension
-
     word_emb_enc_dim: int
         the dimension of encoded word embeddings
 
@@ -559,14 +547,14 @@ def _apply_word_emb(word_emb_enc, emb_char, word_emb):
     ---------
     word_emb_enc: callable
         an encoder to apply (typically, speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder)
-    emb_char: torch.Tensor
+    emb_char: Tensor
         character embeddings
     word_emb: char
         word embeddings
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
         the resulting (concatenated) tensor
     """
     word_emb_enc = (
@@ -590,6 +578,6 @@ def get_dummy_phonemes(batch_size, device):
 
     Returns
     -------
-    result: torch.Tensor
+    result: Tensor
     """
     return torch.tensor([0], device=device).expand(batch_size, 1)

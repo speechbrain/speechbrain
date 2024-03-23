@@ -636,7 +636,7 @@ class Loss(nn.Module):
 
 
 class TextMelCollate:
-    """ Zero-pads model inputs and targets based on number of frames per step
+    """Zero-pads model inputs and targets based on number of frames per step
     Arguments
     ---------
     speaker_embeddings_pickle : str
@@ -662,7 +662,9 @@ class TextMelCollate:
     """
 
     def __init__(
-        self, speaker_embeddings_pickle, n_frames_per_step=1,
+        self,
+        speaker_embeddings_pickle,
+        n_frames_per_step=1,
     ):
         self.n_frames_per_step = n_frames_per_step
         self.speaker_embeddings_pickle = speaker_embeddings_pickle

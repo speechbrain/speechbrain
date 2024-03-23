@@ -287,10 +287,10 @@ class ResBlock1(torch.nn.Module):
 
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
-        for l in self.convs1:
-            l.remove_weight_norm()
-        for l in self.convs2:
-            l.remove_weight_norm()
+        for layer in self.convs1:
+            layer.remove_weight_norm()
+        for layer in self.convs2:
+            layer.remove_weight_norm()
 
 
 class ResBlock2(torch.nn.Module):
@@ -351,8 +351,8 @@ class ResBlock2(torch.nn.Module):
 
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
-        for l in self.convs:
-            l.remove_weight_norm()
+        for layer in self.convs:
+            layer.remove_weight_norm()
 
 
 class HifiganGenerator(torch.nn.Module):
@@ -434,7 +434,7 @@ class HifiganGenerator(torch.nn.Module):
         ):
             self.ups.append(
                 ConvTranspose1d(
-                    in_channels=upsample_initial_channel // (2 ** i),
+                    in_channels=upsample_initial_channel // (2**i),
                     out_channels=upsample_initial_channel // (2 ** (i + 1)),
                     kernel_size=k,
                     stride=u,
@@ -500,10 +500,10 @@ class HifiganGenerator(torch.nn.Module):
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
 
-        for l in self.ups:
-            l.remove_weight_norm()
-        for l in self.resblocks:
-            l.remove_weight_norm()
+        for layer in self.ups:
+            layer.remove_weight_norm()
+        for layer in self.resblocks:
+            layer.remove_weight_norm()
         self.conv_pre.remove_weight_norm()
         self.conv_post.remove_weight_norm()
 
@@ -851,8 +851,8 @@ class DiscriminatorP(torch.nn.Module):
             t = t + n_pad
         x = x.view(b, c, t // self.period, self.period)
 
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
@@ -938,8 +938,8 @@ class DiscriminatorS(torch.nn.Module):
         """
 
         feat = []
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
@@ -1026,10 +1026,15 @@ class HifiganDiscriminator(nn.Module):
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
     """computes the Fourier transform of short overlapping windows of the input"""
-    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
+    o = torch.stft(
+        x.squeeze(1),
+        n_fft,
+        hop_length,
+        win_length,
+    )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
-    S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
+    S = torch.sqrt(torch.clamp(M**2 + P**2, min=1e-8))
     return S
 
 
@@ -1255,7 +1260,9 @@ class MelganFeatureLoss(nn.Module):
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
 
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -1292,7 +1299,9 @@ class MSEDLoss(nn.Module):
     and the samples synthesized from the generator to 0.
     """
 
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.loss_func = nn.MSELoss()
 
