@@ -119,7 +119,7 @@ class DiscreteWavLM(WavLM):
         Arguments
         ---------
         repo_id : str
-           The hugingface repo id that contains the model.
+           The huggingface repo id that contains the model.
         filename : str
             The name of the checkpoints in the repo that need to be downloaded.
         cache_dir: str

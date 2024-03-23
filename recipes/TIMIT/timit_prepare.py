@@ -28,7 +28,7 @@ def prepare_timit(
     skip_prep=False,
 ):
     """
-    repares the json files for the TIMIT dataset.
+    prepares the json files for the TIMIT dataset.
 
     Arguments
     ---------

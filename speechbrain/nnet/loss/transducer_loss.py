@@ -73,7 +73,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     U : tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
+        Blank index.
     lock : tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
@@ -149,7 +149,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     U : tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
+        Blank index.
     lock : tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
@@ -221,7 +221,7 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     U : tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
+        Blank index.
     lock : int
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
