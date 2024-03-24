@@ -863,9 +863,9 @@ class Brain:
         )
         logger.info(
             f"{class_name} Model Statistics:\n"
-            f"- Trainable Parameters: {formatted_trainable_params}\n"
-            f"- Total Parameters: {formatted_total_params}\n"
-            f"- Total Trainable Parameter Percentage: {percentage_trainable:.4f}%"
+            f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
+            f"* Total Number of Parameters: {formatted_total_params}\n"
+            f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
         )
 
     def compute_forward(self, batch, stage):
