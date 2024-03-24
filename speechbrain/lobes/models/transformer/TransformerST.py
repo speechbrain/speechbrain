@@ -208,20 +208,20 @@ class TransformerST(TransformerASR):
 
         Arguments
         ---------
-        encoder_out : Tensor
+        encoder_out : torch.Tensor
             The representation of the encoder (required).
-        src : Tensor
+        src : torch.Tensor
             Input sequence (required).
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder (transcription) (required).
-        wav_len : Tensor
+        wav_len : torch.Tensor
             Length of input tensors (required).
         pad_idx : int
             The index for <pad> token (default=0).
 
         Returns
         -------
-        asr_decoder_out : Tensor
+        asr_decoder_out : torch.Tensor
             One step of asr decoder.
         """
         # reshape the src vector to [Batch, Time, Fea] is a 4d vector is given
@@ -263,18 +263,18 @@ class TransformerST(TransformerASR):
 
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder (transcription) (required).
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder (translation) (required).
         pad_idx : int
             The index for <pad> token (default=0).
 
         Returns
         -------
-        encoder_out : Tensor
+        encoder_out : torch.Tensor
             Output of encoder
-        decoder_out : Tensor
+        decoder_out : torch.Tensor
             Output of decoder
         """
 
@@ -326,9 +326,9 @@ class TransformerST(TransformerASR):
 
         Arguments
         ----------
-        src (transcription): Tensor
+        src (transcription): torch.Tensor
             output features from the w2v2 encoder
-        tgt (translation): Tensor
+        tgt (translation): torch.Tensor
             The sequence to the decoder (required).
         pad_idx : int
             The index for <pad> token (default=0).
@@ -365,16 +365,16 @@ class TransformerST(TransformerASR):
 
         Arguments
         ---------
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder.
-        encoder_out : Tensor
+        encoder_out : torch.Tensor
             Hidden output of the encoder.
 
         Returns
         -------
-        prediction : Tensor
+        prediction : torch.Tensor
             The predicted outputs.
-        multihead_attns : Tensor
+        multihead_attns : torch.Tensor
             The last step of attention.
         """
         tgt_mask = get_lookahead_mask(tgt)
@@ -399,22 +399,22 @@ class TransformerST(TransformerASR):
 
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder (required).
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder (required).
         pad_idx : int
             The index for <pad> token (default=0).
 
         Returns
         -------
-        src_key_padding_mask : Tensor
+        src_key_padding_mask : torch.Tensor
             Timesteps to mask due to padding
-        tgt_key_padding_mask : Tensor
+        tgt_key_padding_mask : torch.Tensor
             Timesteps to mask due to padding
-        src_mask : Tensor
+        src_mask : torch.Tensor
             Timesteps to mask for causality
-        tgt_mask : Tensor
+        tgt_mask : torch.Tensor
             Timesteps to mask for causality
         """
         src_key_padding_mask = None

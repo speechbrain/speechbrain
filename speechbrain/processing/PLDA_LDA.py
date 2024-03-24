@@ -44,10 +44,10 @@ class StatObject_SB:
         Index of the first frame of the segment.
     stop : int
         Index of the last frame of the segment.
-    stat0 : Tensor
+    stat0 : torch.Tensor
         An ndarray of float64. Each line contains 0-th order statistics
         from the corresponding session.
-    stat1 : Tensor
+    stat1 : torch.Tensor
         An ndarray of float64. Each line contains 1-st order statistics
         from the corresponding session.
     """
@@ -626,13 +626,13 @@ def fa_model_loop(
         Indices of the elements in the list (should start at zero).
     factor_analyser : instance of PLDA class
         PLDA class object.
-    stat0 : Tensor
+    stat0 : torch.Tensor
         Matrix of zero-order statistics.
-    stat1: Tensor
+    stat1: torch.Tensor
         Matrix of first-order statistics.
-    e_h : Tensor
+    e_h : torch.Tensor
         An accumulator matrix.
-    e_hh: Tensor
+    e_hh: torch.Tensor
         An accumulator matrix.
     """
     rank = factor_analyser.F.shape[1]
@@ -701,9 +701,9 @@ def fast_PLDA_scoring(
         An Ndx object defining the list of trials to perform.
     mu : double
         The mean vector of the PLDA gaussian.
-    F : Tensor
+    F : torch.Tensor
         The between-class co-variance matrix of the PLDA.
-    Sigma : Tensor
+    Sigma : torch.Tensor
         The residual covariance matrix.
     p_known : float
         Probability of having a known speaker for open-set
@@ -845,11 +845,11 @@ class PLDA:
 
     Arguments
     ---------
-    mean : Tensor
+    mean : torch.Tensor
         Mean of the vectors.
-    F : Tensor
+    F : torch.Tensor
         Eigenvoice matrix.
-    Sigma : Tensor
+    Sigma : torch.Tensor
         Residual matrix.
     rank_f : int
         Rank (default 100).

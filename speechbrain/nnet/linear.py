@@ -69,12 +69,12 @@ class Linear(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input to transform linearly.
 
         Returns
         -------
-        wx : Tensor
+        wx : torch.Tensor
             The linearly transformed outputs.
         """
         if x.ndim == 4 and self.combine_dims:

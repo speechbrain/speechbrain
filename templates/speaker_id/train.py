@@ -48,8 +48,8 @@ class SpkIdBrain(sb.Brain):
 
         Returns
         -------
-        predictions : Tensor
-            Tensor that contains the posterior probabilities over the N classes.
+        predictions : torch.Tensor
+            torch.Tensor that contains the posterior probabilities over the N classes.
         """
         # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
@@ -73,9 +73,9 @@ class SpkIdBrain(sb.Brain):
 
         Returns
         -------
-        feats : Tensor
+        feats : torch.Tensor
             The prepared features.
-        lens : Tensor
+        lens : torch.Tensor
             The lengths of the corresponding prepared features.
         """
         wavs, lens = wavs
@@ -95,7 +95,7 @@ class SpkIdBrain(sb.Brain):
 
         Arguments
         ---------
-        predictions : Tensor
+        predictions : torch.Tensor
             The output tensor from `compute_forward`.
         batch : PaddedBatch
             This batch object contains all the relevant tensors for computation.
@@ -104,7 +104,7 @@ class SpkIdBrain(sb.Brain):
 
         Returns
         -------
-        loss : Tensor
+        loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
         _, lens = batch.sig

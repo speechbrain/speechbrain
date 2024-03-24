@@ -30,7 +30,7 @@ def check_complex_input(input_shape):
 
     if nb_hidden % 1 != 0:
         raise Exception(
-            "Complex Tensors must have an even number of hidden dimensions."
+            "Complex torch.Tensors must have an even number of hidden dimensions."
             " input.size()[1] = " + str(nb_hidden)
         )
 
@@ -40,7 +40,7 @@ def get_real(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input : Tensor
+    input : torch.Tensor
         Input tensor.
     input_type : str,
         (convolution, linear) (default "linear")
@@ -72,7 +72,7 @@ def get_imag(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input : Tensor
+    input : torch.Tensor
         Input tensor.
     input_type : str
         (convolution, linear) (default "linear")
@@ -104,7 +104,7 @@ def get_conjugate(input, input_type="linear", channels_axis=1):
 
     Arguments
     ---------
-    input : Tensor
+    input : torch.Tensor
         Input tensor
     input_type : str,
         (convolution, linear) (default "linear")
@@ -129,7 +129,7 @@ def complex_linear_op(input, real_weight, imag_weight, bias):
 
     Arguments
     ---------
-    input : Tensor
+    input : torch.Tensor
         Complex input tensor to be transformed.
     real_weight : torch.Parameter
         Real part of the quaternion weight matrix of this layer.
@@ -167,7 +167,7 @@ def complex_conv_op(
 
     Arguments
     ---------
-    input : Tensor
+    input : torch.Tensor
         Complex input tensor to be transformed.
     real_weight : torch.Parameter
         Real part of the quaternion weight matrix of this layer.

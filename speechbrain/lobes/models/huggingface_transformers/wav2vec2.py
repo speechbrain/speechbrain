@@ -136,9 +136,9 @@ class Wav2Vec2(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor (signal)
+        wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_lens : Tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
 
         Returns
@@ -158,14 +158,14 @@ class Wav2Vec2(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor (signal)
+        wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_lens : Tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             Wav2vec encoded features.
         """
 
@@ -254,9 +254,9 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor (signal)
+        wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_lens : Tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
 
         Returns

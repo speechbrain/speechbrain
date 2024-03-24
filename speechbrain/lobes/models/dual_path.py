@@ -70,12 +70,12 @@ class GlobalLayerNorm(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor of size [N, C, K, S] or [N, C, L].
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The normalized outputs.
         """
         # x = N x C x K x S or N x C x L
@@ -133,12 +133,12 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
         Arguments
         ---------
-        x : Tensor
-            Tensor size [N, C, K, S] or [N, C, L]
+        x : torch.Tensor
+            torch.Tensor size [N, C, K, S] or [N, C, L]
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The normalized outputs.
         """
         # x: N x C x K x S or N x C x L
@@ -209,12 +209,12 @@ class Encoder(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor with dimensionality [B, L].
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Encoded tensor with dimensionality [B, N, T_out].
             where B = Batchsize
                   L = Number of timepoints
@@ -257,7 +257,7 @@ class Decoder(nn.ConvTranspose1d):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor with dimensionality [B, N, L].
                 where, B = Batchsize,
                        N = number of filters
@@ -265,7 +265,7 @@ class Decoder(nn.ConvTranspose1d):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The decoded outputs.
         """
 
@@ -373,7 +373,7 @@ class FastTransformerBlock(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shaper [B, L, N].
             where, B = Batchsize,
                    N = number of filters
@@ -381,7 +381,7 @@ class FastTransformerBlock(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The transformed outputs.
         """
         if self.attention_type == "reformer":
@@ -442,7 +442,7 @@ class PyTorchPositionalEncoding(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape [B, L, N],
             where, B = Batchsize,
                    N = number of filters
@@ -450,7 +450,7 @@ class PyTorchPositionalEncoding(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The encoded output.
         """
         x = x + self.pe[: x.size(0), :]
@@ -518,7 +518,7 @@ class PytorchTransformerBlock(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape [B, L, N]
             where, B = Batchsize,
                    N = number of filters
@@ -526,7 +526,7 @@ class PytorchTransformerBlock(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The transformed output.
         """
         if self.pos_encoder is not None:
@@ -620,7 +620,7 @@ class SBTransformerBlock(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape [B, L, N],
             where, B = Batchsize,
                    L = time points
@@ -628,7 +628,7 @@ class SBTransformerBlock(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The transformed output.
         """
         if self.use_positional_encoding:
@@ -689,7 +689,7 @@ class SBRNNBlock(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             [B, L, N]
             where, B = Batchsize,
                    N = number of filters
@@ -697,7 +697,7 @@ class SBRNNBlock(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The transformed output.
         """
 
@@ -764,7 +764,7 @@ class DPTNetBlock(nn.Module):
 
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             Tensor shape [B, L, N]
             where, B = Batchsize,
                    N = number of filters
@@ -874,12 +874,12 @@ class Dual_Computation_Block(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor of dimension [B, N, K, S].
 
         Returns
         -------
-        out: Tensor
+        out: torch.Tensor
             Output tensor of dimension [B, N, K, S].
             where, B = Batchsize,
                N = number of filters
@@ -1032,12 +1032,12 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor of dimension [B, N, L].
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             Output tensor of dimension [spks, B, N, L]
             where, spks = Number of speakers
                B = Batchsize,
@@ -1094,7 +1094,7 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-        input : Tensor
+        input : torch.Tensor
             Tensor of size [B, N, L].
             where, B = Batchsize,
                    N = number of filters
@@ -1104,7 +1104,7 @@ class Dual_Path_Model(nn.Module):
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             Padded inputs
         gap : int
             Size of padding
@@ -1134,14 +1134,14 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-        input : Tensor
+        input : torch.Tensor
             Tensor with dim [B, N, L].
         K : int
             Length of the chunks.
 
         Return
         ------
-        output : Tensor
+        output : torch.Tensor
             Tensor with dim [B, N, K, S].
             where, B = Batchsize,
                N = number of filters
@@ -1168,14 +1168,14 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-        input : Tensor
+        input : torch.Tensor
             Tensor with dim [B, N, K, S].
         gap : int
             Padding length.
 
         Return
         ------
-        output : Tensor
+        output : torch.Tensor
             Tensor with dim [B, N, L].
             where, B = Batchsize,
                N = number of filters
@@ -1463,7 +1463,7 @@ class SBConformerEncoderBlock(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape [B, L, N],
             where, B = Batchsize,
                    L = time points

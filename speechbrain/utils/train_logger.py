@@ -375,7 +375,7 @@ class ProgressSampleLogger:
 
         Arguments
         ---------
-        value: dict|Tensor|list
+        value: dict|torch.Tensor|list
             the raw values from the batch
 
         Returns
@@ -413,7 +413,7 @@ class ProgressSampleLogger:
         ---------
         key: str
             the key/identifier of the item
-        data: Tensor
+        data: torch.Tensor
             the  data to save
         epoch: int
             the epoch number (used in file path calculations)
@@ -463,12 +463,12 @@ def detach(value):
 
     Arguments
     ---------
-    value: Tensor|dict
+    value: torch.Tensor|dict
         a tensor or a dictionary of tensors
 
     Returns
     -------
-    result: Tensor|dict
+    result: torch.Tensor|dict
         a tensor of dictionary of tensors
     """
     if isinstance(value, torch.Tensor):

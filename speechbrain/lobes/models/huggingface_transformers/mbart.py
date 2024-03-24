@@ -112,7 +112,7 @@ class mBART(HFTransformersInterface):
 
         Returns
         -------
-        dec_out : Tensor
+        dec_out : torch.Tensor
             Decoder output.
         """
 
@@ -147,18 +147,18 @@ class mBART(HFTransformersInterface):
 
         Arguments
         ---------
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder.
-        encoder_out : Tensor
+        encoder_out : torch.Tensor
             Hidden output of the encoder.
         enc_len : torch.LongTensor
             The actual length of encoder states.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             Output of transformer.
-        cross_attention : Tensor
+        cross_attention : torch.Tensor
             Attention value.
         """
 
@@ -188,7 +188,7 @@ class mBART(HFTransformersInterface):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
           Input tensor with original pad_idx
         org_pad : int
           Original pad_idx
@@ -197,7 +197,7 @@ class mBART(HFTransformersInterface):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             Padded outputs.
         """
         out = x.clone()

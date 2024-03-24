@@ -408,7 +408,7 @@ class Leaf(torch.nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor of shape (batch, time, 1) or (batch, time)
+        x : Tensor of shape (batch, time, 1) or (batch, time)
             batch of input signals. 2d or 3d tensors are expected.
         """
 

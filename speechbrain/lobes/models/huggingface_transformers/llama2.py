@@ -9,7 +9,6 @@ Authors
 """
 
 import logging
-from torch import Tensor
 import torch
 
 import torch.nn as nn
@@ -159,19 +158,19 @@ class LLAMA2(HFTransformersInterface):
             self.model = get_peft_model(self.model, config)
         self.print_trainable_parameters(self.model)
 
-    def forward(self, input_ids: Tensor, attention_mask: Tensor):
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor):
         """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
-        input_ids : Tensor
+        input_ids : torch.Tensor
             A batch of input-id to transform to features.
-        attention_mask : Tensor
+        attention_mask : torch.Tensor
             A batch of attention_mask.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             Reply to conversation.
         """
         with torch.set_grad_enabled(not self.freeze):
@@ -331,22 +330,25 @@ class LLAMA2(HFTransformersInterface):
                 self.replace_linear(child)
 
     def generate(
-        self, input_ids: Tensor, attention_mask: Tensor, decoder_type="greedy"
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        decoder_type="greedy",
     ):
         """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
-        input_ids : Tensor
+        input_ids : torch.Tensor
             A batch of input-id which are dialogue context tokens
-        attention_mask : Tensor
+        attention_mask : torch.Tensor
             A batch of attention_mask.
         decoder_type : str
             It shows strategy for autoregressive decoding either beam search or greedy.
 
         Returns
         -------
-        hyp : Tensor
+        hyp : torch.Tensor
             Reply to conversation input.
         """
 

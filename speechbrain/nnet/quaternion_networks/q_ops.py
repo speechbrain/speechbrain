@@ -100,7 +100,7 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         ---------
         ctx : Pytorch context object
             Contains saved weights and bias
-        grad_output : Tensor
+        grad_output : torch.Tensor
             The output of the forward part
 
         Returns
@@ -849,6 +849,6 @@ def check_quaternion_input(input_shape):
 
     if nb_hidden % 4 != 0:
         raise Exception(
-            "Quaternion Tensors must have dimensions divisible by 4."
+            "Quaternion torch.Tensors must have dimensions divisible by 4."
             " input.size()[1] = " + str(nb_hidden)
         )

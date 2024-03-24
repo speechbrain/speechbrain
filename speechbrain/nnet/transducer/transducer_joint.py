@@ -60,9 +60,9 @@ class Transducer_joint(nn.Module):
 
         Arguments
         ---------
-        input_TN : Tensor
+        input_TN : torch.Tensor
            Input from Transcription Network.
-        input_PN : Tensor
+        input_PN : torch.Tensor
            Input from Prediction Network.
 
         Returns

@@ -26,6 +26,7 @@ import numpy as np
 
 class EncoderPreNet(nn.Module):
     """Embedding layer for tokens
+
     Arguments
     ---------
     n_vocab: int
@@ -34,6 +35,7 @@ class EncoderPreNet(nn.Module):
         padding index
     out_channels: int
         the size of each embedding vector
+
     Example
     -------
     >>> from speechbrain.nnet.embedding import Embedding
@@ -818,9 +820,7 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
     mel_lens = [mel.shape[0] for mel in upsampled_mels]
 
     padded_upsampled_mels = torch.nn.utils.rnn.pad_sequence(
-        upsampled_mels,
-        batch_first=True,
-        padding_value=padding_value,
+        upsampled_mels, batch_first=True, padding_value=padding_value
     )
     return padded_upsampled_mels, mel_lens
 
@@ -1379,7 +1379,7 @@ class _SSIMLoss(_Loss):
         Arguments
         ---------
         tensors: torch.Tensor
-            Tensors to check
+            torch.Tensors to check
         dim_range: Tuple[int, int]
             Allowed number of dimensions. (min, max)
         data_range: Tuple[float, float]

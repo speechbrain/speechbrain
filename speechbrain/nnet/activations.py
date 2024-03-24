@@ -54,12 +54,12 @@ class Softmax(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
 
         Returns
         -------
-        x_act : Tensor
+        x_act : torch.Tensor
             The softmax outputs.
         """
         # Reshaping the tensors
@@ -117,7 +117,7 @@ class GumbelSoftmax(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
 
         Returns
@@ -157,7 +157,7 @@ class Swish(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
 
         Returns

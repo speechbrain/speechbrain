@@ -116,12 +116,12 @@ class SincConv(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
 
         Returns
         -------
-        wx : Tensor
+        wx : torch.Tensor
             The convolved outputs.
         """
         x = x.transpose(1, -1)
@@ -281,7 +281,7 @@ class SincConv(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
         kernel_size : int
             Size of kernel.
@@ -292,7 +292,7 @@ class SincConv(nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
         """
 
         # Detecting input shape
@@ -418,12 +418,12 @@ class Conv1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
 
         Returns
         -------
-        wx : Tensor
+        wx : torch.Tensor
             The convolved outputs.
         """
         if not self.skip_transpose:
@@ -466,7 +466,7 @@ class Conv1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
         kernel_size : int
             Size of kernel.
@@ -477,7 +477,7 @@ class Conv1d(nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The padded outputs.
         """
 
@@ -652,12 +652,12 @@ class Conv2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output of the convolution.
         """
         if not self.skip_transpose:
@@ -714,7 +714,7 @@ class Conv2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input to be padded
         kernel_size : int
             Size of the kernel for computing padding
@@ -725,7 +725,7 @@ class Conv2d(nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The padded outputs.
         """
         # Detecting input shape
@@ -946,14 +946,14 @@ class ConvTranspose1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
         output_size : int
             The size of the output
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The convolved output
         """
 
@@ -1068,7 +1068,7 @@ class DepthwiseSeparableConv1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
 
         Returns
@@ -1160,12 +1160,12 @@ class DepthwiseSeparableConv2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             input to convolve. 3d tensors are expected.
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The convolved output.
         """
         if self.unsqueeze:
@@ -1292,12 +1292,12 @@ class GaborConv1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             input to convolve.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output of the Gabor convolution
         """
         if not self.skip_transpose:

@@ -146,9 +146,9 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
-        decoder_input_ids : Tensor
+        decoder_input_ids : torch.Tensor
             This is necessary if we want to use the decoder.
 
             A batch of decoder inputs tokens.
@@ -162,11 +162,11 @@ class Whisper(HFTransformersInterface):
 
         Returns
         -------
-        out_encoder : Tensor
+        out_encoder : torch.Tensor
             Output of encoder
-        logits : Tensor
+        logits : torch.Tensor
             Output of decoder
-        attn : Tensor
+        attn : torch.Tensor
             The attention values
         """
         if self.freeze:
@@ -204,7 +204,7 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor
+        wav : torch.Tensor
             A batch of Mel FBANK from HF to transform to features.
 
         Returns
@@ -225,7 +225,7 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor (signal)
+        wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
 
         Returns
@@ -246,12 +246,12 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor (signal)
+        wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
 
         Returns
         -------
-        mels : Tensor
+        mels : torch.Tensor
             Mel outputs.
         """
         mels = self._pad_or_trim(wav)
@@ -266,12 +266,12 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        audio : Tensor
+        audio : torch.Tensor
             A batch of audio waveforms in 16 kHz.
 
         Returns
         -------
-        log_spec : Tensor
+        log_spec : torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
         """
         window = torch.hann_window(self._n_fft, device=audio.device)
@@ -303,14 +303,14 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        array : Tensor
+        array : torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
         axis : int
             The axis along which to pad.
 
         Returns
         -------
-        array : Tensor
+        array : torch.Tensor
             The padded tensor.
         """
         if array.shape[axis] > self._n_samples:
@@ -336,9 +336,9 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        audio_features : Tensor
+        audio_features : torch.Tensor
             A batch of audio features (mel + whisper encoding).
-        decoder_input_ids : Tensor
+        decoder_input_ids : torch.Tensor
             A batch of decoder inputs tokens.
             The first tokens need to dictate the behavior of the decoder.
             It needs to start with the bos_token, the language token,
@@ -350,9 +350,9 @@ class Whisper(HFTransformersInterface):
 
         Returns
         -------
-        logits : Tensor
+        logits : torch.Tensor
             Outputs of decoder
-        attn : Tensor
+        attn : torch.Tensor
             Attention values.
         """
         output_states = self.model.decoder(

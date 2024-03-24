@@ -109,7 +109,7 @@ def timestep_embedding(timesteps, dim, max_period=10000):
 
     Arguments
     ---------
-    timesteps: Tensor
+    timesteps: torch.Tensor
         a 1-D Tensor of N indices, one per batch element. These may be fractional.
     dim: int
         the dimension of the output.
@@ -118,7 +118,7 @@ def timestep_embedding(timesteps, dim, max_period=10000):
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
          an [N x dim] Tensor of positional embeddings.
     """
     half = dim // 2
@@ -187,12 +187,12 @@ class AttentionPool2d(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the tensor to be attended to
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the attention output
         """
         b, c, *_spatial = x.shape
@@ -217,9 +217,9 @@ class TimestepBlock(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the data tensor
-        emb: Tensor
+        emb: torch.Tensor
             the embedding tensor
         """
 
@@ -263,9 +263,9 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the data tensor
-        emb: Tensor
+        emb: torch.Tensor
             timestep embeddings
 
         Returns
@@ -286,7 +286,7 @@ class Upsample(nn.Module):
 
     Arguments
     ---------
-    channels: Tensor
+    channels: torch.Tensor
         channels in the inputs and outputs.
     use_conv: bool
         a bool determining if a convolution is applied.
@@ -321,12 +321,12 @@ class Upsample(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             layer inputs
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             upsampled outputs"""
         assert x.shape[1] == self.channels
         if self.dims == 3:
@@ -390,12 +390,12 @@ class Downsample(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             layer inputs
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             downsampled outputs
         """
         assert x.shape[1] == self.channels
@@ -517,18 +517,18 @@ class ResBlock(TimestepBlock):
 
     def forward(self, x, emb=None):
         """
-        Apply the block to a Tensor, conditioned on a timestep embedding.
+        Apply the block to a torch.Tensor, conditioned on a timestep embedding.
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             an [N x C x ...] Tensor of features.
-        emb: Tensor
+        emb: torch.Tensor
             an [N x emb_channels] Tensor of timestep embeddings.
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             an [N x C x ...] Tensor of outputs.
         """
         if self.updown:
@@ -613,12 +613,12 @@ class AttentionBlock(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the data to be attended to
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             The data, with attention applied
         """
         b, c, *spatial = x.shape
@@ -660,12 +660,12 @@ class QKVAttention(nn.Module):
 
         Arguments
         ---------
-        qkv: Tensor
+        qkv: torch.Tensor
             an [N x (3 * H * C) x T] tensor of Qs, Ks, and Vs.
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             an [N x (H * C) x T] tensor after attention.
         """
         bs, width, length = qkv.shape
@@ -724,11 +724,11 @@ class UNetModel(nn.Module):
     Arguments
     ---------
     in_channels: int
-        channels in the input Tensor.
+        channels in the input torch.Tensor.
     model_channels: int
         base channel count for the model.
     out_channels: int
-        channels in the output Tensor.
+        channels in the output torch.Tensor.
     num_res_blocks: int
         number of residual blocks per downsample.
     attention_resolutions: int
@@ -999,9 +999,9 @@ class UNetModel(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             an [N x C x ...] Tensor of inputs.
-        timesteps: Tensor
+        timesteps: torch.Tensor
             a 1-D batch of timesteps.
         cond_emb: dict
             a string -> tensor dictionary of conditional
@@ -1009,7 +1009,7 @@ class UNetModel(nn.Module):
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             an [N x C x ...] Tensor of outputs.
         """
 
@@ -1043,11 +1043,11 @@ class EncoderUNetModel(nn.Module):
     Arguments
     ---------
     in_channels: int
-        channels in the input Tensor.
+        channels in the input torch.Tensor.
     model_channels: int
         base channel count for the model.
     out_channels: int
-        channels in the output Tensor.
+        channels in the output torch.Tensor.
     num_res_blocks: int
         number of residual blocks per downsample.
     attention_resolutions: int
@@ -1303,12 +1303,12 @@ class EncoderUNetModel(nn.Module):
         ---------
         x:  torch.Tensor
             an [N x C x ...] Tensor of inputs.
-        timesteps: Tensor
+        timesteps: torch.Tensor
             a 1-D batch of timesteps.
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             an [N x K] Tensor of outputs.
         """
         emb = None
@@ -1368,12 +1368,12 @@ class EmbeddingProjection(nn.Module):
 
         Arguments
         ---------
-        emb: Tensor
+        emb: torch.Tensor
             the original embedding tensor
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the target embedding space
         """
         x = self.input(emb)
@@ -1390,11 +1390,11 @@ class DecoderUNetModel(nn.Module):
     Arguments
     ---------
     in_channels: int
-        channels in the input Tensor.
+        channels in the input torch.Tensor.
     model_channels: int
         base channel count for the model.
     out_channels: int
-        channels in the output Tensor.
+        channels in the output torch.Tensor.
     num_res_blocks: int
         number of residual blocks per downsample.
     attention_resolutions: int
@@ -1595,12 +1595,12 @@ class DecoderUNetModel(nn.Module):
         ---------
         x:  torch.Tensor
             an [N x C x ...] Tensor of inputs.
-        timesteps: Tensor
+        timesteps: torch.Tensor
             a 1-D batch of timesteps.
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             an [N x K] Tensor of outputs.
         """
         emb = None
@@ -1659,16 +1659,16 @@ class DownsamplingPadding(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the sample
-        length: Tensor
+        length: torch.Tensor
             the length tensor
 
         Returns
         -------
-        x_pad: Tensor
+        x_pad: torch.Tensor
             the padded tensor
-        lens: Tensor
+        lens: torch.Tensor
             the new, adjusted lengths, if applicable
         """
         updated_length = length

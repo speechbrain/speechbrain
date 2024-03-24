@@ -106,9 +106,9 @@ class Xvector(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             The input features for computation.
-        lens : Tensor
+        lens : torch.Tensor
             The length of the corresponding inputs.
 
         Returns

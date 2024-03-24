@@ -1395,7 +1395,7 @@ class ScheduledLoss(nn.Module):
 
         Returns
         -------
-        result : Tensor
+        result : torch.Tensor
             the loss value
         """
         if self.n_steps >= self.next_switch:

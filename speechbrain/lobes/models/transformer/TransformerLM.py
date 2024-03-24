@@ -128,12 +128,12 @@ class TransformerLM(TransformerInterface):
         """
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder (required).
 
         Returns
         -------
-        pred : Tensor
+        pred : torch.Tensor
             Output of the transformer.
         """
         src_mask, src_key_padding_mask = self.make_masks(src)

@@ -49,7 +49,7 @@ def make_transformer_src_mask(
 
     Arguments
     ---------
-    src: Tensor
+    src: torch.Tensor
         The source tensor to build a mask from. The contents of the tensor are
         not actually used currently; only its shape and other metadata (e.g.
         device).
@@ -111,11 +111,11 @@ def make_transformer_src_tgt_masks(
 
     Arguments
     ---------
-    src : Tensor
+    src : torch.Tensor
         The sequence to the encoder (required).
-    tgt : Tensor
+    tgt : torch.Tensor
         The sequence to the decoder.
-    wav_len : Tensor
+    wav_len : torch.Tensor
         The lengths of the inputs.
     pad_idx : int
         The index for <pad> token (default=0).
@@ -126,13 +126,13 @@ def make_transformer_src_tgt_masks(
 
     Returns
     -------
-    src_key_padding_mask : Tensor
+    src_key_padding_mask : torch.Tensor
         Key padding mask for ignoring padding
-    tgt_key_padding_mask : Tensor
+    tgt_key_padding_mask : torch.Tensor
         Key padding mask for ignoring padding
-    src_mask : Tensor
+    src_mask : torch.Tensor
         Mask for ignoring invalid (e.g. future) timesteps
-    tgt_mask : Tensor
+    tgt_mask : torch.Tensor
         Mask for ignoring invalid (e.g. future) timesteps
     """
     src_key_padding_mask = None
@@ -304,9 +304,9 @@ class TransformerASR(TransformerInterface):
         """
         Arguments
         ----------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder.
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder.
         wav_len: torch.Tensor, optional
             Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
@@ -378,9 +378,9 @@ class TransformerASR(TransformerInterface):
 
         Arguments
         ---------
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder.
-        encoder_out : Tensor
+        encoder_out : torch.Tensor
             Hidden output of the encoder.
         enc_len : torch.LongTensor
             The actual length of encoder states.
@@ -429,9 +429,9 @@ class TransformerASR(TransformerInterface):
 
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder.
-        wav_len : Tensor, optional
+        wav_len : torch.Tensor, optional
             Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
         pad_idx : int
             The index used for padding.
@@ -440,7 +440,7 @@ class TransformerASR(TransformerInterface):
 
         Returns
         -------
-        encoder_out : Tensor
+        encoder_out : torch.Tensor
         """
         # reshape the src vector to [Batch, Time, Fea] if a 4d vector is given
         if src.dim() == 4:
@@ -486,7 +486,7 @@ class TransformerASR(TransformerInterface):
 
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence (chunk) to the encoder.
         context : TransformerASRStreamingContext
             Mutable reference to the streaming context. This holds the state

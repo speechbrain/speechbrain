@@ -8,7 +8,6 @@ import torch
 import logging
 from speechbrain.nnet.quaternion_networks.q_linear import QLinear
 from speechbrain.nnet.quaternion_networks.q_normalization import QBatchNorm
-from torch import Tensor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -131,21 +130,21 @@ class QLSTM(torch.nn.Module):
 
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             Output of Quaternion RNN
-        hh : Tensor
+        hh : torch.Tensor
             Hidden states
         """
 
@@ -158,21 +157,21 @@ class QLSTM(torch.nn.Module):
 
         return output, hh
 
-    def _forward_rnn(self, x, hx: Optional[Tensor]):
+    def _forward_rnn(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output of the Quaternion RNN layer.
-        h : Tensor
+        h : torch.Tensor
             The hiddens states.
         """
 
@@ -292,20 +291,20 @@ class QLSTM_Layer(torch.nn.Module):
 
         self.drop_mask_te = torch.tensor([1.0]).float()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the QuaternionRNN_layer.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The output of the Quaternion RNN layer.
         """
         if self.bidirectional:
@@ -336,14 +335,14 @@ class QLSTM_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        w : Tensor
+        w : torch.Tensor
             Linearly transformed input.
-        ht : Tensor
+        ht : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The hidden states for all steps.
         """
 
@@ -571,20 +570,20 @@ class QRNN(torch.nn.Module):
 
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        output : Tensor
-        hh : Tensor
+        output : torch.Tensor
+        hh : torch.Tensor
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -595,21 +594,21 @@ class QRNN(torch.nn.Module):
 
         return output, hh
 
-    def _forward_rnn(self, x, hx: Optional[Tensor]):
+    def _forward_rnn(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Outputs
-        h : Tensor
+        h : torch.Tensor
             Hidden states.
         """
         h = []
@@ -737,20 +736,20 @@ class QRNN_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the QuaternionRNN_layer.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             Output of the Quaternion RNN
         """
         if self.bidirectional:
@@ -781,14 +780,14 @@ class QRNN_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        w : Tensor
+        w : torch.Tensor
             Linearly transformed input.
-        ht : Tensor
+        ht : torch.Tensor
             The hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             Hidden states for each step.
         """
         hiddens = []
@@ -991,20 +990,20 @@ class QLiGRU(torch.nn.Module):
                 current_dim = self.hidden_size
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the QuaternionliGRU.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        output : Tensor
-        hh : Tensor
+        output : torch.Tensor
+        hh : torch.Tensor
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -1016,21 +1015,21 @@ class QLiGRU(torch.nn.Module):
 
         return output, hh
 
-    def _forward_ligru(self, x, hx: Optional[Tensor]):
+    def _forward_ligru(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the quaternionliGRU.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Output
-        h : Tensor
+        h : torch.Tensor
             Hidden states
         """
         h = []
@@ -1175,15 +1174,15 @@ class QLiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the quaternion liGRU layer.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
 
         Returns
         -------
@@ -1223,13 +1222,13 @@ class QLiGRU_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        w : Tensor
+        w : torch.Tensor
             Linearly transformed input.
-        ht : Tensor
+        ht : torch.Tensor
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             Hidden states for all steps.
         """
 

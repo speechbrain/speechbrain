@@ -162,9 +162,9 @@ class ConvolutionModule(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             Input tensor to the convolution module.
-        mask: Tensor, optional
+        mask: torch.Tensor, optional
             Mask to be applied over the output of the convolution using
             `masked_fill_`, if specified.
         dynchunktrain_config: DynChunkTrainConfig, optional
@@ -179,7 +179,7 @@ class ConvolutionModule(nn.Module):
 
         Returns
         -------
-        out: Tensor
+        out: torch.Tensor
             The output tensor.
         """
 
@@ -447,11 +447,11 @@ class ConformerEncoderLayer(nn.Module):
         """
         Arguments
         ----------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder layer.
-        src_mask : Tensor, optional
+        src_mask : torch.Tensor, optional
             The mask for the src sequence.
-        src_key_padding_mask : Tensor, optional
+        src_key_padding_mask : torch.Tensor, optional
             The mask for the src keys per batch.
         pos_embs: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the input sequence positional embeddings
@@ -500,18 +500,18 @@ class ConformerEncoderLayer(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor for this layer. Batching is supported as long as you
             keep the context consistent.
         context : ConformerEncoderStreamingContext
             Mutable streaming context; the same object should be passed across
             calls.
-        pos_embs : Tensor, optional
+        pos_embs : torch.Tensor, optional
             Positional embeddings, if used.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Output tensor.
         self_attn : list
             List of self attention values.
@@ -682,11 +682,11 @@ class ConformerEncoder(nn.Module):
         """
         Arguments
         ----------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder layer.
-        src_mask : Tensor, optional
+        src_mask : torch.Tensor, optional
             The mask for the src sequence.
-        src_key_padding_mask : Tensor, optional
+        src_key_padding_mask : torch.Tensor, optional
             The mask for the src keys per batch.
         pos_embs: torch.Tensor, torch.nn.Module,
             Module or tensor containing the input sequence positional embeddings
@@ -731,18 +731,18 @@ class ConformerEncoder(nn.Module):
 
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             Input tensor. Batching is supported as long as you keep the context
             consistent.
         context : ConformerEncoderStreamingContext
             Mutable streaming context; the same object should be passed across
             calls.
-        pos_embs : Tensor, optional
+        pos_embs : torch.Tensor, optional
             Positional embeddings, if used.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The output of the streaming conformer.
         attention_lst : list
             The attention values.
@@ -909,29 +909,29 @@ class ConformerDecoderLayer(nn.Module):
         """
         Arguments
         ---------
-        tgt: Tensor
+        tgt: torch.Tensor
             The sequence to the decoder layer.
-        memory: Tensor
+        memory: torch.Tensor
             The sequence from the last layer of the encoder.
-        tgt_mask: Tensor, optional, optional
+        tgt_mask: torch.Tensor, optional, optional
             The mask for the tgt sequence.
-        memory_mask: Tensor, optional
+        memory_mask: torch.Tensor, optional
             The mask for the memory sequence.
-        tgt_key_padding_mask: Tensor, optional
+        tgt_key_padding_mask: torch.Tensor, optional
             The mask for the tgt keys per batch.
-        memory_key_padding_mask: Tensor, optional
+        memory_key_padding_mask: torch.Tensor, optional
             The mask for the memory keys per batch.
-        pos_embs_tgt: Tensor, torch.nn.Module, optional
+        pos_embs_tgt: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the target sequence positional embeddings for each attention layer.
-        pos_embs_src: Tensor, torch.nn.Module, optional
+        pos_embs_src: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the source sequence positional embeddings for each attention layer.
 
         Returns
         -------
-        x: Tensor
+        x: torch.Tensor
             The output tensor
-        self_attn : Tensor
-        self_attn : Tensor
+        self_attn : torch.Tensor
+        self_attn : torch.Tensor
             The self attention tensor
         """
         # ffn module
@@ -1046,26 +1046,26 @@ class ConformerDecoder(nn.Module):
         """
         Arguments
         ---------
-        tgt: Tensor
+        tgt: torch.Tensor
             The sequence to the decoder layer.
-        memory: Tensor
+        memory: torch.Tensor
             The sequence from the last layer of the encoder.
-        tgt_mask: Tensor, optional, optional
+        tgt_mask: torch.Tensor, optional, optional
             The mask for the tgt sequence.
-        memory_mask: Tensor, optional
+        memory_mask: torch.Tensor, optional
             The mask for the memory sequence.
-        tgt_key_padding_mask : Tensor, optional
+        tgt_key_padding_mask : torch.Tensor, optional
             The mask for the tgt keys per batch.
-        memory_key_padding_mask : Tensor, optional
+        memory_key_padding_mask : torch.Tensor, optional
             The mask for the memory keys per batch.
-        pos_embs_tgt: Tensor, torch.nn.Module, optional
+        pos_embs_tgt: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the target sequence positional embeddings for each attention layer.
-        pos_embs_src: Tensor, torch.nn.Module, optional
+        pos_embs_src: torch.Tensor, torch.nn.Module, optional
             Module or tensor containing the source sequence positional embeddings for each attention layer.
 
         Returns
         -------
-        output: Tensor
+        output: torch.Tensor
             Conformer decoder output.
         self_attns : list
             Location of self attentions.

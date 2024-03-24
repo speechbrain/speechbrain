@@ -42,12 +42,12 @@ class Dropout2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel1, channel2)
+        x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
 
         Returns
         -------
-        x_drop : Tensor
+        x_drop : torch.Tensor
             The tensor with channels zeroed out.
         """
 

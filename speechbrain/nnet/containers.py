@@ -144,12 +144,12 @@ class Sequential(torch.nn.ModuleDict):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             The input tensor to run through the network.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Output after all layers are applied.
         """
         for layer in self.values():
@@ -190,14 +190,14 @@ class LengthsCapableSequential(Sequential):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             The input tensor to run through the network.
-        lengths : Tensor
+        lengths : torch.Tensor
             The relative lengths of each signal in the tensor.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The outputs after all layers are applied.
         """
         for layer, give_lengths in zip(self.values(), self.takes_lengths):
@@ -370,12 +370,12 @@ class ConnectBlocks(torch.nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             The inputs to the replicated modules.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output processed by all blocks.
         """
         shortcut = x

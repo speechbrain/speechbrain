@@ -71,19 +71,19 @@ class AttentionSeq2Seq(nn.Module):
 
         Arguments
         ---------
-        grapheme_encoded: Tensor
+        grapheme_encoded: torch.Tensor
             graphemes encoded as a Torch tensor
-        phn_encoded: Tensor
+        phn_encoded: torch.Tensor
             the encoded phonemes
-        word_emb: Tensor
+        word_emb: torch.Tensor
             word embeddings (optional)
 
         Returns
         -------
-        p_seq: Tensor
+        p_seq: torch.Tensor
             a (batch x position x token) tensor of token probabilities in each
             position
-        char_lens: Tensor
+        char_lens: torch.Tensor
             a tensor of character sequence lengths
         encoder_out:
             the raw output of the encoder
@@ -114,14 +114,14 @@ class AttentionSeq2Seq(nn.Module):
 
         Arguments
         ---------
-        emb_char: Tensor
+        emb_char: torch.Tensor
             the character embedding tensor
-        word_emb: Tensor
+        word_emb: torch.Tensor
             the word embedding tensor
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the concatenation of the tensor"""
         word_emb_enc = (
             self.word_emb_enc(word_emb)
@@ -185,12 +185,12 @@ class WordEmbeddingEncoder(nn.Module):
 
         Arguments
         ---------
-        emb: Tensor
+        emb: torch.Tensor
             the original word embeddings
 
         Returns
         -------
-        emb_enc: Tensor
+        emb_enc: torch.Tensor
             encoded word embeddings
         """
         if self.norm is not None:
@@ -352,22 +352,22 @@ class TransformerG2P(TransformerInterface):
 
         Arguments
         ---------
-        grapheme_encoded: Tensor
+        grapheme_encoded: torch.Tensor
             graphemes encoded as a Torch tensor
-        phn_encoded: Tensor
+        phn_encoded: torch.Tensor
             the encoded phonemes
-        word_emb: Tensor
+        word_emb: torch.Tensor
             word embeddings (if applicable)
 
         Returns
         -------
-        p_seq: Tensor
+        p_seq: torch.Tensor
             the log-probabilities of individual tokens i a sequence
-        char_lens: Tensor
+        char_lens: torch.Tensor
             the character length syntax
-        encoder_out: Tensor
+        encoder_out: torch.Tensor
             the encoder state
-        attention: Tensor
+        attention: torch.Tensor
             the attention state
         """
 
@@ -443,24 +443,24 @@ class TransformerG2P(TransformerInterface):
 
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder (required).
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder (required).
-        src_len : Tensor
+        src_len : torch.Tensor
             Lengths corresponding to the src tensor.
         pad_idx : int
             The index for <pad> token (default=0).
 
         Returns
         -------
-        src_key_padding_mask: Tensor
+        src_key_padding_mask: torch.Tensor
             the source key padding mask
-        tgt_key_padding_mask: Tensor
+        tgt_key_padding_mask: torch.Tensor
             the target key padding masks
-        src_mask: Tensor
+        src_mask: torch.Tensor
             the source mask
-        tgt_mask: Tensor
+        tgt_mask: torch.Tensor
             the target mask
         """
         if src_len is not None:
@@ -481,18 +481,18 @@ class TransformerG2P(TransformerInterface):
 
         Arguments
         ---------
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder.
-        encoder_out : Tensor
+        encoder_out : torch.Tensor
             Hidden output of the encoder.
-        enc_lens : Tensor
+        enc_lens : torch.Tensor
             The corresponding lengths of the encoder inputs.
 
         Returns
         -------
-        prediction: Tensor
+        prediction: torch.Tensor
             the predicted sequence
-        attention: Tensor
+        attention: torch.Tensor
             the attention matrix corresponding to the last attention head
             (useful for plotting attention)
         """
@@ -547,14 +547,14 @@ def _apply_word_emb(word_emb_enc, emb_char, word_emb):
     ---------
     word_emb_enc: callable
         an encoder to apply (typically, speechbrain.lobes.models.g2p.model.WordEmbeddingEncoder)
-    emb_char: Tensor
+    emb_char: torch.Tensor
         character embeddings
     word_emb: char
         word embeddings
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         the resulting (concatenated) tensor
     """
     word_emb_enc = (
@@ -578,6 +578,6 @@ def get_dummy_phonemes(batch_size, device):
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
     """
     return torch.tensor([0], device=device).expand(batch_size, 1)

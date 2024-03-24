@@ -206,14 +206,14 @@ def snake(x, alpha):
 
     Arguments
     ---------
-    x : Tensor
+    x : torch.Tensor
         The input tensor to which the snake activation function will be applied.
     alpha : float
         A scalar value that modifies the sine function within the snake activation.
 
     Returns
     -------
-    Tensor
+    torch.Tensor
         The transformed tensor after applying the snake activation function.
     """
     shape = x.shape
@@ -261,20 +261,20 @@ class VectorQuantize(nn.Module):
 
         Arguments
         ---------
-        z : Tensor[B x D x T]
+        z : torch.Tensor[B x D x T]
 
         Returns
         -------
-        Tensor[B x D x T]
+        torch.Tensor[B x D x T]
             Quantized continuous representation of input
-        Tensor[1]
+        torch.Tensor[1]
             Commitment loss to train encoder to predict vectors closer to codebook
             entries
-        Tensor[1]
+        torch.Tensor[1]
             Codebook loss to update the codebook
-        Tensor[B x T]
+        torch.Tensor[B x T]
             Codebook indices (quantized discrete representation of input)
-        Tensor[B x D x T]
+        torch.Tensor[B x D x T]
             Projected latents (continuous representation of input before quantization)
         """
 
@@ -305,12 +305,12 @@ class VectorQuantize(nn.Module):
 
         Arguments
         ---------
-        embed_id : Tensor
+        embed_id : torch.Tensor
             The tensor containing IDs that need to be embedded.
 
         Returns
         -------
-        Tensor
+        torch.Tensor
             The embedded output tensor after applying the codebook weights.
         """
         return F.embedding(embed_id, self.codebook.weight)
@@ -324,12 +324,12 @@ class VectorQuantize(nn.Module):
 
         Arguments
         ---------
-        embed_id : Tensor
+        embed_id : torch.Tensor
             The tensor containing embedded IDs.
 
         Returns
         -------
-        Tensor
+        torch.Tensor
             The decoded tensor
         """
         return self.embed_code(embed_id).transpose(1, 2)
@@ -340,7 +340,7 @@ class VectorQuantize(nn.Module):
 
         Arguments
         ---------
-        latents : Tensor
+        latents : torch.Tensor
             The latent tensor representations to be decoded.
 
         Returns
@@ -425,7 +425,7 @@ class ResidualVectorQuantize(nn.Module):
 
         Arguments
         ---------
-        z : Tensor
+        z : torch.Tensor
             Shape [B x D x T]
         n_quantizers : int, optional
             No. of quantizers to use
@@ -434,17 +434,17 @@ class ResidualVectorQuantize(nn.Module):
                 when in training mode, and a random number of quantizers is used.
         Returns
         -------
-        z : Tensor[B x D x T]
+        z : torch.Tensor[B x D x T]
             Quantized continuous representation of input
-        codes : Tensor[B x N x T]
+        codes : torch.Tensor[B x N x T]
             Codebook indices for each codebook
             (quantized discrete representation of input)
-        latents : Tensor[B x N*D x T]
+        latents : torch.Tensor[B x N*D x T]
             Projected latents (continuous representation of input before quantization)
-        vq/commitment_loss : Tensor[1]
+        vq/commitment_loss : torch.Tensor[1]
             Commitment loss to train encoder to predict vectors closer to codebook
             entries
-        vq/codebook_loss : Tensor[1]
+        vq/codebook_loss : torch.Tensor[1]
             Codebook loss to update the codebook
         """
         z_q = 0
@@ -501,12 +501,12 @@ class ResidualVectorQuantize(nn.Module):
 
         Arguments
         ---------
-        codes : Tensor[B x N x T]
+        codes : torch.Tensor[B x N x T]
             Quantized discrete representation of input
 
         Returns
         -------
-        Tensor[B x D x T]
+        torch.Tensor[B x D x T]
             Quantized continuous representation of input
         """
         z_q = 0.0
@@ -526,14 +526,14 @@ class ResidualVectorQuantize(nn.Module):
 
         Arguments
         ---------
-        latents : Tensor[B x N x T]
+        latents : torch.Tensor[B x N x T]
             Continuous representation of input after projection
 
         Returns
         -------
-        Tensor[B x D x T]
+        torch.Tensor[B x D x T]
             Quantized representation of full-projected space
-        Tensor[B x D x T]
+        torch.Tensor[B x D x T]
             Quantized representation of latent space
         """
         z_q = 0
@@ -577,11 +577,11 @@ class Snake1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
 
         Returns
         -------
-        Tensor
+        torch.Tensor
         """
         return snake(x, self.alpha)
 
@@ -613,11 +613,11 @@ class ResidualUnit(nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
 
         Returns
         -------
-        Tensor
+        torch.Tensor
         """
         y = self.block(x)
         pad = (x.shape[-1] - y.shape[-1]) // 2
@@ -662,11 +662,11 @@ class EncoderBlock(nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
 
         Returns
         -------
-        Tensor
+        torch.Tensor
         """
         return self.block(x)
 
@@ -728,11 +728,11 @@ class Encoder(nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
 
         Returns
         -------
-        Tensor
+        torch.Tensor
         """
         return self.block(x)
 
@@ -774,11 +774,11 @@ class DecoderBlock(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
 
         Returns
         -------
-        Tensor
+        torch.Tensor
         """
         return self.block(x)
 
@@ -847,11 +847,11 @@ class Decoder(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
 
         Returns
         -------
-        Tensor
+        torch.Tensor
         """
         return self.model(x)
 
@@ -997,7 +997,7 @@ class DAC(nn.Module):
 
         Arguments
         ---------
-        audio_data : Tensor[B x 1 x T]
+        audio_data : torch.Tensor[B x 1 x T]
             Audio data to encode
         n_quantizers : int, optional
             Number of quantizers to use, by default None
@@ -1005,17 +1005,17 @@ class DAC(nn.Module):
 
         Returns
         -------
-        "z" : Tensor[B x D x T]
+        "z" : torch.Tensor[B x D x T]
             Quantized continuous representation of input
-        "codes" : Tensor[B x N x T]
+        "codes" : torch.Tensor[B x N x T]
             Codebook indices for each codebook
             (quantized discrete representation of input)
-        "latents" : Tensor[B x N*D x T]
+        "latents" : torch.Tensor[B x N*D x T]
             Projected latents (continuous representation of input before quantization)
-        "vq/commitment_loss" : Tensor[1]
+        "vq/commitment_loss" : torch.Tensor[1]
             Commitment loss to train encoder to predict vectors closer to codebook
             entries
-        "vq/codebook_loss" : Tensor[1]
+        "vq/codebook_loss" : torch.Tensor[1]
             Codebook loss to update the codebook
         "length" : int
             Number of samples in input audio
@@ -1031,13 +1031,13 @@ class DAC(nn.Module):
 
         Arguments
         ---------
-        z : Tensor
+        z : torch.Tensor
             Shape [B x D x T]
             Quantized continuous representation of input
 
         Returns
         -------
-        Tensor: shape B x 1 x length
+        torch.Tensor: shape B x 1 x length
             Decoded audio data.
         """
         return self.decoder(z)
@@ -1052,7 +1052,7 @@ class DAC(nn.Module):
 
         Arguments
         ---------
-        audio_data : Tensor[B x 1 x T]
+        audio_data : torch.Tensor[B x 1 x T]
             Audio data to encode
         sample_rate : int, optional
             Sample rate of audio data in Hz, by default None
@@ -1063,10 +1063,10 @@ class DAC(nn.Module):
 
         Returns
         -------
-        "tokens" : Tensor[B x N x T]
+        "tokens" : torch.Tensor[B x N x T]
             Codebook indices for each codebook
             (quantized discrete representation of input)
-        "embeddings" : Tensor[B x D x T]
+        "embeddings" : torch.Tensor[B x D x T]
             Quantized continuous representation of input
         """
         # Preprocess the audio data to have the right padded lengths

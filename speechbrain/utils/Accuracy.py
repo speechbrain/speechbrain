@@ -13,11 +13,11 @@ def Accuracy(log_probabilities, targets, length=None):
 
     Arguments
     ---------
-    log_probabilities : Tensor
+    log_probabilities : torch.Tensor
         Predicted log probabilities (batch_size, time, feature).
-    targets : Tensor
+    targets : torch.Tensor
         Target (batch_size, time).
-    length : Tensor
+    length : torch.Tensor
         Length of target (batch_size,).
 
     Returns
@@ -78,11 +78,11 @@ class AccuracyStats:
 
         Arguments
         ---------
-        log_probabilities : Tensor
+        log_probabilities : torch.Tensor
             Predicted log probabilities (batch_size, time, feature).
-        targets : Tensor
+        targets : torch.Tensor
             Target (batch_size, time).
-        length : Tensor
+        length : torch.Tensor
             Length of target (batch_size,).
         """
         numerator, denominator = Accuracy(log_probabilities, targets, length)

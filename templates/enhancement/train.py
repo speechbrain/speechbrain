@@ -74,12 +74,12 @@ class SEBrain(sb.Brain):
 
         Arguments
         ---------
-        wavs : Tensor
+        wavs : torch.Tensor
             The batch of waveforms to convert to log-spectral features.
 
         Returns
         -------
-        feats : Tensor
+        feats : torch.Tensor
             The computed features.
         """
         # Log-spectral features
@@ -105,7 +105,7 @@ class SEBrain(sb.Brain):
 
         Returns
         -------
-        loss : Tensor
+        loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
         # Prepare clean targets for comparison

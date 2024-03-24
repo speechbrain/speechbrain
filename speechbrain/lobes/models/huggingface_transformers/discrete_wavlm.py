@@ -143,16 +143,16 @@ class DiscreteWavLM(WavLM):
 
         Arguments
         ---------
-        wav : Tensor
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
-        wav_lens : Tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
 
         Returns
         -------
-        tokens : Tensor
+        tokens : torch.Tensor
             A (Batch x Seq) tensor of audio tokens
-        emb : Tensor
+        emb : torch.Tensor
             A (Batch x Seq x embedding_dim ) cluster_centers embeddings for each tokens
         """
 

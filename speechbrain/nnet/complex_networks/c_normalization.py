@@ -155,7 +155,7 @@ class CBatchNorm(torch.nn.Module):
 
         Arguments
         ---------
-        input : Tensor (batch, time, [channels])
+        input : torch.Tensor (batch, time, [channels])
             Input to normalize. It can be 2d, 3d, 4d.
 
         Returns
@@ -515,27 +515,27 @@ def c_norm(
 
     Arguments
     ---------
-    input_centred : Tensor
+    input_centred : torch.Tensor
         It is the tensor to be normalized. The features
         dimension is divided by 2 with the first half
         corresponding to the real-parts and the second half
         to the imaginary parts.
-    Vrr : Tensor
+    Vrr : torch.Tensor
         It is a tensor that contains the covariance between real-parts.
-    Vii : Tensor
+    Vii : torch.Tensor
         It is a tensor that contains the covariance between imaginary-parts.
-    Vri : Tensor
+    Vri : torch.Tensor
         It is a tensor that contains the covariance between real-parts and
         imaginary-parts.
-    beta : Tensor
+    beta : torch.Tensor
         It is a tensor corresponding to the beta parameter on the real-valued
         batch-normalization, but in the complex-valued space.
-    gamma_rr : Tensor
+    gamma_rr : torch.Tensor
         It is a tensor that contains the gamma between real-parts.
-    gamma_ri : Tensor
+    gamma_ri : torch.Tensor
         It is a tensor that contains the gamma between real-parts and
         imaginary-parts.
-    gamma_ii : Tensor
+    gamma_ii : torch.Tensor
         It is a tensor that contains the gamma between imaginary-parts.
     scale : bool, optional
         It defines if scaling should be used or not. It is
@@ -636,16 +636,16 @@ def c_standardization(input_centred, Vrr, Vii, Vri, layernorm=False, dim=-1):
 
     Arguments
     ---------
-    input_centred : Tensor
+    input_centred : torch.Tensor
         It is the tensor to be normalized. The features
         dimension is divided by 2 with the first half
         corresponding to the real-parts and the second half
         to the imaginary parts.
-    Vrr : Tensor
+    Vrr : torch.Tensor
         It is a tensor that contains the covariance between real-parts.
-    Vii : Tensor
+    Vii : torch.Tensor
         It is a tensor that contains the covariance between imaginary-parts.
-    Vri : Tensor
+    Vri : torch.Tensor
         It is a tensor that contains the covariance between real-parts and
         imaginary-parts.
     layernorm : bool, optional

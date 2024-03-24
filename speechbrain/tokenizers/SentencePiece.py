@@ -201,8 +201,7 @@ class SentencePiece:
             )
 
     def _csv2text(self):
-        """Read CSV file and convert specific data entries into text file.
-        """
+        """Read CSV file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train
@@ -242,8 +241,7 @@ class SentencePiece:
         logger.info("Text file created at: " + self.text_file)
 
     def _json2text(self):
-        """Read JSON file and convert specific data entries into text file.
-        """
+        """Read JSON file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train
@@ -399,9 +397,7 @@ class SentencePiece:
                     "No accuracy recover checking for" + annotation_file
                 )
 
-    def __call__(
-        self, batch, batch_lens=None, ind2lab=None, task="encode",
-    ):
+    def __call__(self, batch, batch_lens=None, ind2lab=None, task="encode"):
         """This __call__ function implements the tokenizer encoder and decoder
         (restoring the string of word) for BPE, Regularized BPE (with unigram),
         and char (speechbrain/nnet/RNN.py).
@@ -495,8 +491,7 @@ def get_spm_tokens(model_path):
 
 @dataclass
 class SentencePieceDecoderStreamingContext:
-    """Mutable streaming context for a single SentencePiece streaming session.
-    """
+    """Mutable streaming context for a single SentencePiece streaming session."""
 
     emitted_symbol_count: int = 0
     """The number of symbols that have been emitted for this transcription."""

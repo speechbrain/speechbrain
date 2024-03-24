@@ -60,21 +60,21 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : Tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : Tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    alpha : Tensor
+    alpha : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for forward computation.
-    log_p : Tensor
+    log_p : torch.Tensor
         1D Tensor of (batch) for forward cost computation.
-    T : Tensor
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : Tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
         Blank indice.
-    lock : Tensor
+    lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
 
@@ -136,21 +136,21 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : Tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : Tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    beta : Tensor
+    beta : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    log_p : Tensor
+    log_p : torch.Tensor
         1D Tensor of (batch) for backward cost computation.
-    T : Tensor
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : Tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
         Blank indice.
-    lock : Tensor
+    lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
     # parallelize the forward algorithm over batch and target length dim
@@ -208,19 +208,19 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
 
     Arguments
     ---------
-    log_probs : Tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : Tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    alpha : Tensor
+    alpha : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    beta : Tensor
+    beta : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    grads : Tensor
+    grads : torch.Tensor
         Grads for backward computation.
-    T : Tensor
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : Tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
         Blank index.

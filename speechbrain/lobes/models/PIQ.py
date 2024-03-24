@@ -393,7 +393,7 @@ class ResBlockAudio(nn.Module):
         Arguments
         --------
         x : torch.Tensor
-            Tensor to process. Expected shape is `torch.Size([B, C, H, W])`.
+            torch.Tensor to process. Expected shape is `torch.Size([B, C, H, W])`.
 
         Returns
         --------

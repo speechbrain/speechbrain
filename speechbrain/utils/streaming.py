@@ -19,7 +19,7 @@ def split_fixed_chunks(x, chunk_size, dim=-1):
 
     Arguments
     ---------
-    x : Tensor
+    x : torch.Tensor
         The tensor to split into chunks, typically a sequence or audio signal.
 
     chunk_size : int
@@ -68,7 +68,7 @@ def split_wav_lens(chunk_lens, wav_lens):
         returned from `split_fixed_chunks(x, chunk_size, dim=1)`, then this
         should be `[chk.size(1) for chk in chunks]`.
 
-    wav_lens : Tensor
+    wav_lens : torch.Tensor
         Relative lengths of audio within a batch. For example, for an input
         signal of 100 frames and a batch of 3 elements, `(1.0, 0.5, 0.25)`
         would mean the batch holds audio of 100 frames, 50 frames and 25 frames

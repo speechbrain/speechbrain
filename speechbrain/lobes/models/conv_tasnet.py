@@ -46,12 +46,12 @@ class Encoder(nn.Module):
         """
         Arguments
         ---------
-        mixture : Tensor
+        mixture : torch.Tensor
             Tensor shape is [M, T]. M is batch size. T is #samples
 
         Returns
         -------
-        mixture_w : Tensor
+        mixture_w : torch.Tensor
             Tensor shape is [M, K, N], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
         mixture = torch.unsqueeze(mixture, -1)  # [M, T, 1]
@@ -99,14 +99,14 @@ class Decoder(nn.Module):
         """
         Arguments
         ---------
-        mixture_w : Tensor
+        mixture_w : torch.Tensor
             Tensor shape is [M, K, N].
-        est_mask : Tensor
+        est_mask : torch.Tensor
             Tensor shape is [M, K, C, N].
 
         Returns
         -------
-        est_source : Tensor
+        est_source : torch.Tensor
             Tensor shape is [M, T, C].
         """
         # D = W * M
@@ -255,12 +255,12 @@ class MaskNet(nn.Module):
 
         Arguments
         ---------
-        mixture_w : Tensor
+        mixture_w : torch.Tensor
             Tensor shape is [M, K, N], M is batch size.
 
         Returns
         -------
-        est_mask : Tensor
+        est_mask : torch.Tensor
             Tensor shape is [M, K, C, N].
         """
         mixture_w = mixture_w.permute(0, 2, 1)
@@ -365,12 +365,12 @@ class TemporalBlock(torch.nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape is [M, K, B].
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape is [M, K, B].
         """
         residual = x
@@ -491,12 +491,12 @@ class Chomp1d(nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape is [M, Kpad, H].
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape is [M, K, H].
         """
         return x[:, : -self.chomp_size, :].contiguous()
@@ -603,12 +603,12 @@ class GlobalLayerNorm(nn.Module):
         """
         Arguments
         ---------
-        y : Tensor
+        y : torch.Tensor
             Tensor shape [M, K, N]. M is batch size, N is channel size, and K is length.
 
         Returns
         -------
-        gLN_y : Tensor
+        gLN_y : torch.Tensor
             Tensor shape [M, K. N]
         """
         mean = y.mean(dim=1, keepdim=True).mean(

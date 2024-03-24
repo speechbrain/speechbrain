@@ -215,13 +215,13 @@ class EncoderWrapper(nn.Module):
         """
         Arguments
         ---------
-        latents : Tensor, shape (B, T, C)
+        latents : torch.Tensor, shape (B, T, C)
             Batch of latent representations (AKA frames) output from latent extractor.
-        wav_lens : Tensor, shape (B,)
+        wav_lens : torch.Tensor, shape (B,)
             The actual (unpadded) relative lengths for each sample of the batch (0<wav_lens<1).
-        padding_mask : Tensor, shape (B, T,)
+        padding_mask : torch.Tensor, shape (B, T,)
             Can be provided instead of wav_lens.
-        mask : Tensor, shape (B, T)
+        mask : torch.Tensor, shape (B, T)
             Boolean mask which decides which latent frames will be masked.
 
         Returns
@@ -328,14 +328,14 @@ def sample_negatives(y, num_neg):
 
     Arguments
     ---------
-    y : Tensor
+    y : torch.Tensor
         Tensor of shape (B, T, C)
     num_neg : int
         Number of negatives to sample.
 
     Returns
     -------
-    negs : Tensor
+    negs : torch.Tensor
         Negatives in shape (N, B, T, C)
     """
     B, T, C = y.shape
@@ -376,11 +376,11 @@ def w2v_mask_collate_fn(samples_lst, get_out_len_fn, mask_prob, mask_length):
 
     Returns
     -------
-    wavs_padded : Tensor, shape (B, T)
+    wavs_padded : torch.Tensor, shape (B, T)
         Audio arrays with right-sided padding.
-    wav_lens : Tensor, shape (B,)
+    wav_lens : torch.Tensor, shape (B,)
         For each sample the percentage of the array that is not padding.
-    mask : Tensor, shape (B, T)
+    mask : torch.Tensor, shape (B, T)
         Boolean mask to mask frames.
     """
     wav_lst, latent_length_lst = [], []

@@ -22,11 +22,11 @@ def si_snr_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
 
     Arguments
     ---------
-    y_pred_batch : Tensor
+    y_pred_batch : torch.Tensor
         The degraded (enhanced) waveforms.
-    y_true_batch : Tensor
+    y_true_batch : torch.Tensor
         The clean (reference) waveforms.
-    lens : Tensor
+    lens : torch.Tensor
         The relative lengths of the waveforms within the batch.
     reduction : str
         The type of reduction ("mean" or "batch") to use.

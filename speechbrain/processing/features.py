@@ -138,12 +138,12 @@ class STFT(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of audio signals to transform.
 
         Returns
         -------
-        stft : Tensor
+        stft : torch.Tensor
         """
         # Managing multi-channel stft
         or_shape = x.shape
@@ -283,7 +283,7 @@ class ISTFT(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of audio signals in the frequency domain to transform.
         sig_length : int
             The length of the output signal in number of samples. If not
@@ -291,7 +291,7 @@ class ISTFT(torch.nn.Module):
 
         Returns
         -------
-        istft : Tensor
+        istft : torch.Tensor
         """
         or_shape = x.shape
 
@@ -355,7 +355,7 @@ def spectral_magnitude(
 
     Returns
     -------
-    spectr : Tensor
+    spectr : torch.Tensor
 
     Example
     -------
@@ -511,12 +511,12 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        spectrogram : Tensor
+        spectrogram : torch.Tensor
             A batch of spectrogram tensors.
 
         Returns
         -------
-        fbanks : Tensor
+        fbanks : torch.Tensor
         """
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
@@ -619,16 +619,16 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        all_freqs : Tensor
-            Tensor gathering all the frequency points.
-        f_central : Tensor
-            Tensor gathering central frequencies of each filter.
-        band : Tensor
-            Tensor gathering the bands of each filter.
+        all_freqs : torch.Tensor
+            torch.Tensor gathering all the frequency points.
+        f_central : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
 
         Returns
         -------
-        fbank_matrix : Tensor
+        fbank_matrix : torch.Tensor
         """
         # Computing the slops of the filters
         slope = (all_freqs - f_central) / band
@@ -648,16 +648,16 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        all_freqs : Tensor
-            Tensor gathering all the frequency points.
-        f_central : Tensor
-            Tensor gathering central frequencies of each filter.
-        band : Tensor
-            Tensor gathering the bands of each filter.
+        all_freqs : torch.Tensor
+            torch.Tensor gathering all the frequency points.
+        f_central : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
 
         Returns
         -------
-        fbank_matrix : Tensor
+        fbank_matrix : torch.Tensor
         """
         # cut-off frequencies of the filters
         low_hz = f_central - band
@@ -678,19 +678,19 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        all_freqs : Tensor
-            Tensor gathering all the frequency points.
-        f_central : Tensor
-            Tensor gathering central frequencies of each filter.
-        band : Tensor
-            Tensor gathering the bands of each filter.
-        smooth_factor: Tensor
+        all_freqs : torch.Tensor
+            torch.Tensor gathering all the frequency points.
+        f_central : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
+        smooth_factor: torch.Tensor
             Smoothing factor of the gaussian filter. It can be used to employ
             sharper or flatter filters.
 
         Returns
         -------
-        fbank_matrix : Tensor
+        fbank_matrix : torch.Tensor
         """
         fbank_matrix = torch.exp(
             -0.5 * ((all_freqs - f_central) / (band / smooth_factor)) ** 2
@@ -704,14 +704,14 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        f_central_mat : Tensor
-            Tensor gathering central frequencies of each filter.
-        band_mat : Tensor
-            Tensor gathering the bands of each filter.
+        f_central_mat : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band_mat : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
 
         Returns
         -------
-        fbank_matrix : Tensor
+        fbank_matrix : torch.Tensor
         """
         if self.filter_shape == "triangular":
             fbank_matrix = self._triangular_filters(
@@ -735,12 +735,12 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of linear FBANK tensors.
 
         Returns
         -------
-        x_db : Tensor
+        x_db : torch.Tensor
         """
         x_db = self.multiplier * torch.log10(torch.clamp(x, min=self.amin))
         x_db -= self.multiplier * self.db_multiplier
@@ -808,12 +808,12 @@ class DCT(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of tensors to transform, usually fbank features.
 
         Returns
         -------
-        dct : Tensor
+        dct : torch.Tensor
         """
         # Managing multi-channels case
         input_shape = x.shape
@@ -870,12 +870,12 @@ class Deltas(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of tensors.
 
         Returns
         -------
-        delta_coeff : Tensor
+        delta_coeff : torch.Tensor
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
@@ -949,12 +949,12 @@ class ContextWindow(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of tensors.
 
         Returns
         -------
-        cw_x : Tensor
+        cw_x : torch.Tensor
             The context-enriched tensor
         """
         x = x.transpose(1, 2)
@@ -1060,13 +1060,13 @@ class InputNormalization(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of tensors.
-        lengths : Tensor
+        lengths : torch.Tensor
             A batch of tensors containing the relative length of each
             sentence (e.g, [0.7, 0.9, 1.0]). It is used to avoid
             computing stats on zero-padded steps.
-        spk_ids : Tensor containing the ids of each speaker (e.g, [0 10 6]).
+        spk_ids : torch.Tensor containing the ids of each speaker (e.g, [0 10 6]).
             It is used to perform per-speaker normalization when
             norm_type='speaker'.
         epoch : int
@@ -1074,7 +1074,7 @@ class InputNormalization(torch.nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The normalized tensor.
         """
         N_batches = x.shape[0]
@@ -1184,14 +1184,14 @@ class InputNormalization(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of tensors.
 
         Returns
         -------
-        current_mean : Tensor
+        current_mean : torch.Tensor
             The average of x along dimension 0
-        current_std : Tensor
+        current_std : torch.Tensor
             The standard deviation of x along dimension 0
         """
         # Compute current mean

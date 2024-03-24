@@ -6,7 +6,6 @@ Authors
 * Artem Ploujnikov 2021
 """
 
-
 import torch
 import numpy as np
 from torch import nn

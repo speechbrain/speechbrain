@@ -133,16 +133,16 @@ class CLSTM(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             The hidden layer.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The output tensor.
-        hh : Tensor
+        hh : torch.Tensor
             If return_hidden, the second tensor is hidden states.
         """
 
@@ -163,16 +163,16 @@ class CLSTM(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             The hidden layer.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output tensor.
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
         h = []
@@ -283,19 +283,19 @@ class CLSTM_Layer(torch.nn.Module):
         self.drop_mask_te = torch.tensor([1.0]).float()
 
     def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+        # type: (Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the CRNN_layer.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Linearly transformed input.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
         if self.bidirectional:
@@ -326,14 +326,14 @@ class CLSTM_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        w : Tensor
+        w : torch.Tensor
             Linearly transformed input.
-        ht : Tensor
+        ht : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
 
@@ -544,16 +544,16 @@ class CRNN(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layers.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The outputs of the CliGRU.
-        hh : Tensor
+        hh : torch.Tensor
             If return_hidden, also returns the hidden states for each step.
         """
 
@@ -574,16 +574,16 @@ class CRNN(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             The hidden layer.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output tensor.
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
 
@@ -703,19 +703,19 @@ class CRNN_Layer(torch.nn.Module):
             self.act = torch.nn.ReLU()
 
     def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+        # type: (Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the CRNN_layer.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             The hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
 
@@ -747,14 +747,14 @@ class CRNN_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        w : Tensor
+        w : torch.Tensor
             Linearly transformed input.
-        ht : Tensor
+        ht : torch.Tensor
             The hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
 
@@ -967,16 +967,16 @@ class CLiGRU(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layers.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The outputs of the CliGRU.
-        hh : Tensor
+        hh : torch.Tensor
             If return_hidden, also returns the hidden states for each step.
         """
 
@@ -998,16 +998,16 @@ class CLiGRU(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             The hidden layer.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output tensor.
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
 
@@ -1152,19 +1152,19 @@ class CLiGRU_Layer(torch.nn.Module):
             self.act = torch.nn.ReLU()
 
     def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor], Optional[Bool]) -> Tensor # noqa F821
+        # type: (Tensor, Optional[Tensor], Optional[Bool]) -> torch.Tensor # noqa F821
         """Returns the output of the Complex liGRU layer.
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
-        hx : Tensor
+        hx : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
 
@@ -1201,14 +1201,14 @@ class CLiGRU_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        w : Tensor
+        w : torch.Tensor
             Linearly transformed input.
-        ht : Tensor
+        ht : torch.Tensor
             Hidden layer.
 
         Returns
         -------
-        h : Tensor
+        h : torch.Tensor
             The hidden states for each step.
         """
 

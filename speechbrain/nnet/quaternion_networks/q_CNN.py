@@ -183,12 +183,12 @@ class QConv1d(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             Input to convolve. 3d or 4d tensors are expected.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The convolved outputs.
         """
         # (batch, channel, time)
@@ -257,7 +257,7 @@ class QConv1d(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
         kernel_size : int
             Kernel size.
@@ -268,7 +268,7 @@ class QConv1d(torch.nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The padded input.
         """
 
@@ -303,7 +303,7 @@ class QConv1d(torch.nn.Module):
         # Check quaternion format
         if in_channels % 4 != 0:
             raise ValueError(
-                "Quaternion Tensors must have dimensions divisible by 4."
+                "Quaternion torch.Tensors must have dimensions divisible by 4."
                 " input.size()[3] = " + str(in_channels)
             )
 
@@ -477,12 +477,12 @@ class QConv2d(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel)
+        x : torch.Tensor (batch, time, channel)
             Input to convolve. 3d or 4d tensors are expected.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The convolved outputs.
         """
 
@@ -557,7 +557,7 @@ class QConv2d(torch.nn.Module):
         # Check quaternion format
         if in_channels % 4 != 0:
             raise ValueError(
-                "Quaternion Tensors must have dimensions divisible by 4."
+                "Quaternion torch.Tensors must have dimensions divisible by 4."
                 " input.size()[" + str(-1) + "] = " + str(in_channels)
             )
 
@@ -582,7 +582,7 @@ class QConv2d(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
         kernel_size : int
             Kernel size.
@@ -593,7 +593,7 @@ class QConv2d(torch.nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The padded inputs.
         """
 

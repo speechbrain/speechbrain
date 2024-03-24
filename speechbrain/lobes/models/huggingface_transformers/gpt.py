@@ -9,7 +9,6 @@ Authors
 """
 
 import logging
-from torch import Tensor
 import torch
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
@@ -98,22 +97,25 @@ class GPT(HFTransformersInterface):
                 param.requires_grad = False
 
     def forward(
-        self, input_ids: Tensor, token_type_ids: Tensor, attention_mask: Tensor
+        self,
+        input_ids: torch.Tensor,
+        token_type_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
     ):
         """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
-        input_ids : Tensor
+        input_ids : torch.Tensor
             A batch of input-id to transform to features.
-        token_type_ids : Tensor
+        token_type_ids : torch.Tensor
             Token Type(Speaker) for each token in input_ids.
-        attention_mask : Tensor
+        attention_mask : torch.Tensor
             A batch of attention_mask.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             Reply to conversation
         """
         with torch.set_grad_enabled(not self.freeze):
@@ -126,26 +128,26 @@ class GPT(HFTransformersInterface):
 
     def generate(
         self,
-        input_ids: Tensor,
+        input_ids: torch.Tensor,
         token_type_ids,
-        attention_mask: Tensor,
+        attention_mask: torch.Tensor,
         decoder_type="greedy",
     ):
         """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
-        input_ids : Tensor
+        input_ids : torch.Tensor
             A batch of input-id which are dialogue context tokens
-        token_type_ids : Tensor
-        attention_mask : Tensor
+        token_type_ids : torch.Tensor
+        attention_mask : torch.Tensor
             A batch of attention_mask.
         decoder_type : str
             It shows strategy for autoregressive decoding either beam search or greedy.
 
         Returns
         -------
-        hyp : Tensor
+        hyp : torch.Tensor
             Conversation reply.
         """
 

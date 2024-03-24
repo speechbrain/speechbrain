@@ -112,12 +112,12 @@ class Pooling1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             It represents a tensor for a mini-batch.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The pooled outputs.
         """
         # Put the pooling axes as the last dimension for torch.nn.pool
@@ -206,12 +206,12 @@ class Pooling2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             It represents a tensor for a mini-batch.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The pooled outputs.
         """
         # Add extra two dimension at the last two, and then swap the pool_axis to them
@@ -290,14 +290,14 @@ class StatisticsPooling(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             It represents a tensor for a mini-batch.
-        lengths : Tensor
+        lengths : torch.Tensor
             The lengths of the samples in the input.
 
         Returns
         -------
-        pooled_stats : Tensor
+        pooled_stats : torch.Tensor
             The mean and std for the input.
         """
         if lengths is None:
@@ -347,14 +347,14 @@ class StatisticsPooling(nn.Module):
 
         Arguments
         ---------
-        shape_of_tensor : Tensor
+        shape_of_tensor : torch.Tensor
             It represents the size of tensor for generating Gaussian noise.
         device : str
             Device on which to perform computations.
 
         Returns
         -------
-        gnoise : Tensor
+        gnoise : torch.Tensor
             The Gaussian noise.
         """
         gnoise = torch.randn(shape_of_tensor, device=device)
@@ -407,12 +407,12 @@ class AdaptivePool(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             It represents a tensor for a mini-batch.
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The pooled outputs.
         """
         if x.ndim == 3:
@@ -505,12 +505,12 @@ class GaussianLowpassPooling(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             3D tensor in input [batch,time,channels].
 
         Returns
         -------
-        outputs : Tensor
+        outputs : torch.Tensor
             The pooled outputs.
         """
         if not self.skip_transpose:
@@ -570,7 +570,7 @@ class AttentionPooling(nn.Module):
     Arguments
     ---------
     input_dim: int
-        The dimension of the input Tensor
+        The dimension of the input torch.Tensor
 
     Example
     -------
@@ -592,12 +592,12 @@ class AttentionPooling(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The pooled outputs.
         """
         out = self.attn_pooling_w(x).squeeze(-1).float()

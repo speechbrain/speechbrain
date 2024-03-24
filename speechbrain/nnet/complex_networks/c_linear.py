@@ -111,7 +111,7 @@ class CLinear(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input to transform linearly.
 
         Returns

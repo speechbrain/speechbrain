@@ -77,13 +77,13 @@ class BatchNorm1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, [channels])
+        x : torch.Tensor (batch, time, [channels])
             input to normalize. 2d or 3d tensors are expected in input
             4d tensors can be used when combine_dims=True.
 
         Returns
         -------
-        x_n : Tensor
+        x_n : torch.Tensor
             The normalized outputs.
         """
         shape_or = x.shape
@@ -167,12 +167,12 @@ class BatchNorm2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel1, channel2)
+        x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
 
         Returns
         -------
-        x_n : Tensor
+        x_n : torch.Tensor
             The normalized outputs.
         """
         x = x.transpose(-1, 1)
@@ -232,7 +232,7 @@ class LayerNorm(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channels)
+        x : torch.Tensor (batch, time, channels)
             input to normalize. 3d or 4d tensors are expected.
 
         Returns
@@ -303,12 +303,12 @@ class InstanceNorm1d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channels)
+        x : torch.Tensor (batch, time, channels)
             input to normalize. 3d tensors are expected.
 
         Returns
         -------
-        x_n : Tensor
+        x_n : torch.Tensor
             The normalized outputs.
         """
         x = x.transpose(-1, 1)
@@ -379,12 +379,12 @@ class InstanceNorm2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channel1, channel2)
+        x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
 
         Returns
         -------
-        x_n : Tensor
+        x_n : torch.Tensor
             The normalized outputs.
         """
         x = x.transpose(-1, 1)
@@ -454,12 +454,12 @@ class GroupNorm(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channels)
+        x : torch.Tensor (batch, time, channels)
             input to normalize. 3d or 4d tensors are expected.
 
         Returns
         -------
-        x_n : Tensor
+        x_n : torch.Tensor
             The normalized outputs.
         """
         x = x.transpose(-1, 1)
@@ -528,7 +528,7 @@ class ExponentialMovingAverage(nn.Module):
 
         Arguments
          ---------
-         x : Tensor (batch, time, channels)
+         x : torch.Tensor (batch, time, channels)
              input to normalize.
         """
         if not self.skip_transpose:
@@ -639,12 +639,12 @@ class PCEN(nn.Module):
 
         Arguments
         ---------
-        x : Tensor (batch, time, channels)
+        x : torch.Tensor (batch, time, channels)
             input to normalize.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The normalized outputs.
         """
         if not self.skip_transpose:

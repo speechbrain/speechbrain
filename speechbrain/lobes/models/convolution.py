@@ -89,12 +89,12 @@ class ConvolutionalSpatialGatingUnit(torch.nn.Module):
         """
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             Input tensor, shape (B, T, D)
 
         Returns
         -------
-        out: Tensor
+        out: torch.Tensor
             The processed outputs.
         """
 

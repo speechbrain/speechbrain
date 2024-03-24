@@ -267,7 +267,7 @@ class PositionalEncoding(nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input feature shape (batch, time, fea)
 
         Returns
@@ -402,18 +402,18 @@ class TransformerEncoderLayer(nn.Module):
         """
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder layer.
-        src_mask : Tensor
+        src_mask : torch.Tensor
             The mask for the src query for each example in the batch.
-        src_key_padding_mask : Tensor, optional
+        src_key_padding_mask : torch.Tensor, optional
             The mask for the src keys for each example in the batch.
-        pos_embs: Tensor, optional
+        pos_embs: torch.Tensor, optional
             The positional embeddings tensor.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The output of the transformer encoder layer.
         """
 
@@ -553,20 +553,20 @@ class TransformerEncoder(nn.Module):
         """
         Arguments
         ---------
-        src : Tensor
+        src : torch.Tensor
             The sequence to the encoder layer (required).
-        src_mask : Tensor
+        src_mask : torch.Tensor
             The mask for the src sequence (optional).
-        src_key_padding_mask : Tensor
+        src_key_padding_mask : torch.Tensor
             The mask for the src keys per batch (optional).
-        pos_embs : Tensor
+        pos_embs : torch.Tensor
             The positional embedding tensor
         dynchunktrain_config : config
             Not supported for this encoder.
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The output of the transformer.
         attention_lst : list
             The attention values.
@@ -706,21 +706,21 @@ class TransformerDecoderLayer(nn.Module):
         """
         Arguments
         ----------
-        tgt: Tensor
+        tgt: torch.Tensor
             The sequence to the decoder layer (required).
-        memory: Tensor
+        memory: torch.Tensor
             The sequence from the last layer of the encoder (required).
-        tgt_mask: Tensor
+        tgt_mask: torch.Tensor
             The mask for the tgt sequence (optional).
-        memory_mask: Tensor
+        memory_mask: torch.Tensor
             The mask for the memory sequence (optional).
-        tgt_key_padding_mask: Tensor
+        tgt_key_padding_mask: torch.Tensor
             The mask for the tgt keys per batch (optional).
-        memory_key_padding_mask: Tensor
+        memory_key_padding_mask: torch.Tensor
             The mask for the memory keys per batch (optional).
-        pos_embs_tgt: Tensor
+        pos_embs_tgt: torch.Tensor
             The positional embeddings for the target (optional).
-        pos_embs_src: Tensor
+        pos_embs_src: torch.Tensor
             The positional embeddings for the source (optional).
         """
         if self.normalize_before:
@@ -865,21 +865,21 @@ class TransformerDecoder(nn.Module):
         """
         Arguments
         ----------
-        tgt : Tensor
+        tgt : torch.Tensor
             The sequence to the decoder layer (required).
-        memory : Tensor
+        memory : torch.Tensor
             The sequence from the last layer of the encoder (required).
-        tgt_mask : Tensor
+        tgt_mask : torch.Tensor
             The mask for the tgt sequence (optional).
-        memory_mask : Tensor
+        memory_mask : torch.Tensor
             The mask for the memory sequence (optional).
-        tgt_key_padding_mask : Tensor
+        tgt_key_padding_mask : torch.Tensor
             The mask for the tgt keys per batch (optional).
-        memory_key_padding_mask : Tensor
+        memory_key_padding_mask : torch.Tensor
             The mask for the memory keys per batch (optional).
-        pos_embs_tgt : Tensor
+        pos_embs_tgt : torch.Tensor
             The positional embeddings for the target (optional).
-        pos_embs_src : Tensor
+        pos_embs_src : torch.Tensor
             The positional embeddings for the source (optional).
         """
         output = tgt
@@ -940,14 +940,14 @@ def get_key_padding_mask(padded_input, pad_idx):
 
     Arguments
     ---------
-    padded_input: Tensor
+    padded_input: torch.Tensor
         Padded input.
     pad_idx: int
         idx for padding element.
 
     Returns
     -------
-    key_padded_mask: Tensor
+    key_padded_mask: torch.Tensor
         Binary mask to prevent attention to padding.
 
     Example
@@ -978,12 +978,12 @@ def get_lookahead_mask(padded_input):
 
     Arguments
     ---------
-    padded_input: Tensor
+    padded_input: torch.Tensor
         Padded input tensor.
 
     Returns
     -------
-    mask : Tensor
+    mask : torch.Tensor
         Binary mask for masking future frames.
 
     Example
@@ -1012,14 +1012,14 @@ def get_mask_from_lengths(lengths, max_len=None):
 
     Arguments
     ---------
-    lengths: Tensor
+    lengths: torch.Tensor
         A tensor of sequence lengths
     max_len: int (Optional)
         Maximum sequence length, defaults to None.
 
     Returns
     -------
-    mask: Tensor
+    mask: torch.Tensor
         the mask where padded elements are set to True.
         Then one can use tensor.masked_fill_(mask, 0) for the masking.
 

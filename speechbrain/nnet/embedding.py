@@ -106,7 +106,7 @@ class Embedding(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
            Input to embed.
 
         Returns

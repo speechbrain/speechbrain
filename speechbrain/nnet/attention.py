@@ -77,11 +77,11 @@ class ContentBasedAttention(nn.Module):
 
         Arguments
         ---------
-        enc_states : Tensor
+        enc_states : torch.Tensor
             The tensor to be attended.
-        enc_len : Tensor
+        enc_len : torch.Tensor
             The real length (without padding) of enc_states for each sentence.
-        dec_states : Tensor
+        dec_states : torch.Tensor
             The query tensor.
 
         Returns
@@ -199,11 +199,11 @@ class LocationAwareAttention(nn.Module):
 
         Arguments
         ---------
-        enc_states : Tensor
+        enc_states : torch.Tensor
             The tensor to be attended.
-        enc_len : Tensor
+        enc_len : torch.Tensor
             The real length (without padding) of enc_states for each sentence.
-        dec_states : Tensor
+        dec_states : torch.Tensor
             The query tensor.
 
         Returns
@@ -295,11 +295,11 @@ class KeyValueAttention(nn.Module):
 
         Arguments
         ---------
-        enc_states : Tensor
+        enc_states : torch.Tensor
             The tensor to be attended.
-        enc_len : Tensor
+        enc_len : torch.Tensor
             The real length (without padding) of enc_states for each sentence.
-        dec_states : Tensor
+        dec_states : torch.Tensor
             The query tensor.
 
         Returns
@@ -339,12 +339,12 @@ class RelPosEncXL(nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             input tensor with shape batch_size, seq_len, embed_dim
 
         Returns
         -------
-        pos_emb : Tensor
+        pos_emb : torch.Tensor
         """
         seq_len = x.size(1)
         with torch.no_grad():
@@ -510,26 +510,26 @@ class RelPosMHAXL(nn.Module):
 
         Arguments
         ---------
-        query : Tensor
+        query : torch.Tensor
             (B, L, E) where L is the target sequence length,
             B is the batch size, E is the embedding dimension.
-        key : Tensor
+        key : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        value : Tensor
+        value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        pos_embs : Tensor
+        pos_embs : torch.Tensor
             bidirectional sinusoidal positional embedding tensor (1, 2*S-1, E) where S is the max length between source and target sequence lengths,
             and E is the embedding dimension.
-        key_padding_mask : Tensor
+        key_padding_mask : torch.Tensor
             (B, S) where B is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
             be ignored while the position with the zero positions will be
             unchanged. If a BoolTensor is provided, the positions with the
             value of True will be ignored while the position with the value
             of False will be unchanged.
-        attn_mask : Tensor
+        attn_mask : torch.Tensor
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
             3D mask (N*num_heads, L, S) where N is the batch
@@ -545,10 +545,10 @@ class RelPosMHAXL(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             (B, L, E) where L is the target sequence length, B is the
             batch size, E is the embedding dimension.
-        attn_score : Tensor
+        attn_score : torch.Tensor
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
@@ -757,16 +757,16 @@ class MultiheadAttention(nn.Module):
 
         Arguments
         ---------
-        query : Tensor
+        query : torch.Tensor
             (B, L, E) where L is the target sequence length,
             B is the batch size, E is the embedding dimension.
-        key : Tensor
+        key : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        value : Tensor
+        value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        attn_mask : Tensor, optional
+        attn_mask : torch.Tensor, optional
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
             3D mask (N*num_heads, L, S) where N is the batch
@@ -777,7 +777,7 @@ class MultiheadAttention(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
-        key_padding_mask : Tensor, optional
+        key_padding_mask : torch.Tensor, optional
             (B, S) where B is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
             be ignored while the position with the zero positions will be
@@ -786,15 +786,15 @@ class MultiheadAttention(nn.Module):
             of False will be unchanged.
         return_attn_weights : bool, optional
             True to additionally return the attention weights, False otherwise.
-        pos_embs : Tensor, optional
+        pos_embs : torch.Tensor, optional
             Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
 
         Returns
         -------
-        attn_output : Tensor
+        attn_output : torch.Tensor
             (B, L, E) where L is the target sequence length, B is the
             batch size, E is the embedding dimension.
-        attn_output_weights : Tensor
+        attn_output_weights : torch.Tensor
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
             This is returned only if `return_attn_weights=True` (True by default).

@@ -14,12 +14,12 @@ def spectral_phase(stft):
 
     Arguments
     ---------
-    stft : Tensor
+    stft : torch.Tensor
         A tensor, output from the stft function.
 
     Returns
     -------
-    phase : Tensor
+    phase : torch.Tensor
 
     Example
     -------
@@ -42,7 +42,7 @@ def NMF_separate_spectra(Whats, Xmix):
         the NMF template matrices that correspond to source1 and source2.
         W1, W2 are of size [nfft/2 + 1, K], where nfft is the fft size for STFT,
         and K is the number of vectors (templates) in W.
-    Xmix : Tensor
+    Xmix : torch.Tensor
         This is the magnitude spectra for the mixtures.
         The size is [BS x T x nfft//2 + 1] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.
@@ -114,13 +114,13 @@ def reconstruct_results(
 
     Arguments
     ---------
-    X1hat : Tensor
+    X1hat : torch.Tensor
         The separated spectrum for source 1 of size [BS, nfft/2 + 1, T],
         where,  BS = batch size, nfft = fft size, T = length of the spectra.
-    X2hat : Tensor
+    X2hat : torch.Tensor
         The separated spectrum for source 2 of size [BS, nfft/2 + 1, T].
         The size definitions are the same as Xhat1.
-    X_stft : Tensor
+    X_stft : torch.Tensor
         This is the magnitude spectra for the mixtures.
         The size is [BS x nfft//2 + 1 x T x 2] where,
         BS = batch size, nfft = fft size, T = number of time steps in the spectra.

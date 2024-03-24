@@ -133,13 +133,13 @@ class CConv1d(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             (batch, time, channel).
             Input to convolve. 3d or 4d tensors are expected.
 
         Returns
         -------
-        wx : Tensor
+        wx : torch.Tensor
             The convolved outputs.
         """
         # (batch, channel, time)
@@ -182,7 +182,7 @@ class CConv1d(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
         kernel_size : int
             Kernel size.
@@ -193,7 +193,7 @@ class CConv1d(torch.nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The padded outputs.
         """
 
@@ -228,7 +228,7 @@ class CConv1d(torch.nn.Module):
         # Check complex format
         if in_channels % 2 != 0:
             raise ValueError(
-                "Complex Tensors must have dimensions divisible by 2."
+                "Complex torch.Tensors must have dimensions divisible by 2."
                 " input.size()["
                 + str(self.channels_axis)
                 + "] = "
@@ -369,7 +369,7 @@ class CConv2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             (batch, time, feature, channels).
             Input to convolve. 3d or 4d tensors are expected.
         init_params : bool
@@ -377,7 +377,7 @@ class CConv2d(nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The output of the convolution.
         """
 
@@ -433,7 +433,7 @@ class CConv2d(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Input tensor.
         kernel_size : int
             Kernel size.
@@ -444,7 +444,7 @@ class CConv2d(nn.Module):
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             The padded tensor.
         """
         # Detecting input shape
@@ -487,7 +487,7 @@ class CConv2d(nn.Module):
         # Check complex format
         if in_channels % 2 != 0:
             raise ValueError(
-                "Complex Tensors must have dimensions divisible by 2."
+                "Complex torch.Tensors must have dimensions divisible by 2."
                 " input.size()["
                 + str(self.channels_axis)
                 + "] = "

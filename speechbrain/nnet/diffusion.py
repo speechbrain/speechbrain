@@ -53,9 +53,9 @@ class Diffuser(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the original data sample
-        timesteps: Tensor
+        timesteps: torch.Tensor
             a 1-D integer tensor of a length equal to the number of
             batches in x, where each entry corresponds to the timestep
             number for the batch. If omitted, timesteps will be randomly
@@ -69,14 +69,14 @@ class Diffuser(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the original data sample
-        timesteps: Tensor
+        timesteps: torch.Tensor
             a 1-D integer tensor of a length equal to the number of
             batches in x, where each entry corresponds to the timestep
             number for the batch. If omitted, timesteps will be randomly
             sampled
-        condition: Tensor
+        condition: torch.Tensor
             the condition used for conditional generation
             Should be omitted during unconditional generation
         **kwargs: dict
@@ -84,11 +84,11 @@ class Diffuser(nn.Module):
 
         Returns
         -------
-        pred: Tensor
+        pred: torch.Tensor
             the model output 0 predicted noise
-        noise: Tensor
+        noise: torch.Tensor
             the noise being applied
-        noisy_sample: Tensor
+        noisy_sample: torch.Tensor
             the sample with the noise applied
         """
         if timesteps is None:
@@ -252,12 +252,12 @@ class DenoisingDiffusion(Diffuser):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             a data sample of 2 or more dimensions, with the
             first dimension representing the batch
-        noise: Tensor
+        noise: torch.Tensor
             the noise to add
-        timesteps: Tensor
+        timesteps: torch.Tensor
             a 1-D integer tensor of a length equal to the number of
             batches in x, where each entry corresponds to the timestep
             number for the batch. If omitted, timesteps will be randomly
@@ -267,7 +267,7 @@ class DenoisingDiffusion(Diffuser):
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             a tensor of the same dimension as x
         """
         if timesteps is None:
@@ -296,7 +296,7 @@ class DenoisingDiffusion(Diffuser):
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the generated sample(s)
         """
         sample = self.noise(torch.zeros(*shape, device=self.alphas.device))
@@ -320,7 +320,7 @@ class DenoisingDiffusion(Diffuser):
 
         Arguments
         ---------
-        sample: Tensor
+        sample: torch.Tensor
             the sample for the following timestep
         timestep: int
             the timestep number
@@ -329,7 +329,7 @@ class DenoisingDiffusion(Diffuser):
 
         Returns
         -------
-        predicted_sample: Tensor
+        predicted_sample: torch.Tensor
             the predicted sample (denoised by one step`)
         """
         model_out = self.model(sample, timestep, **kwargs)
@@ -469,16 +469,16 @@ class LatentDiffusion(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the original data sample
         **kwargs: dict
             Arguments to forward to the underlying model.
 
         Returns
         -------
-        pred: Tensor
+        pred: torch.Tensor
             the model output 0 predicted noise
-        noise: Tensor
+        noise: torch.Tensor
             the noise being applied
         noisy_sample
             the sample with the noise applied
@@ -493,12 +493,12 @@ class LatentDiffusion(nn.Module):
 
         Arguments
         ---------
-        latent: Tensor
+        latent: torch.Tensor
             the latent representation
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the latent representation, with padding
         """
 
@@ -519,7 +519,7 @@ class LatentDiffusion(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the original data sample
         **kwargs: dict
             Arguments to forward to the underlying model.
@@ -550,13 +550,13 @@ class LatentDiffusion(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             a data sample of 2 or more dimensions, with the
             first dimension representing the batch
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             a tensor of the same dimension as x
         """
 
@@ -568,11 +568,11 @@ class LatentDiffusion(nn.Module):
 
         Arguments
         ---------
-        shape: Tensor
+        shape: torch.Tensor
 
         Returns
         -------
-        sample: Tensor
+        sample: torch.Tensor
             the sample of the specified shape
         """
         # TODO: Auto-compute the latent shape
@@ -587,7 +587,7 @@ def sample_timesteps(x, num_timesteps):
 
     Arguments
     ---------
-    x: Tensor
+    x: torch.Tensor
         a tensor of samples of any dimension
     num_timesteps: int
         the total number of timesteps
@@ -638,9 +638,9 @@ class LengthMaskedGaussianNoise(nn.Module):
 
         Arguments
         ---------
-        sample: Tensor
+        sample: torch.Tensor
             a batch of data
-        length: Tensor
+        length: torch.Tensor
             relative lengths
         **kwargs: dict
             Arguments to forward to the underlying model.

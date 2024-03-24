@@ -120,7 +120,7 @@ class MemLSTM(nn.Module):
 
         Returns
         -------
-        ret_val : Tensor
+        ret_val : torch.Tensor
             The output of memory RNN
         """
         if self.mem_type == "id":
@@ -229,7 +229,7 @@ class SegLSTM(nn.Module):
 
         Arguments
         ---------
-        input : Tensor
+        input : torch.Tensor
             shape [B*S, T, H]
             where B is the batchsize
                   S is the number of chunks
@@ -245,7 +245,7 @@ class SegLSTM(nn.Module):
 
         Returns
         -------
-        output: Tensor
+        output: torch.Tensor
             Output of Segment LSTM
         (h, c): tuple
             Same as hc input
@@ -327,7 +327,7 @@ class SBRNNBlock(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             [B, L, N]
             where, B = Batchsize,
                    N = number of filters
@@ -335,7 +335,7 @@ class SBRNNBlock(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The transformed output.
         """
         rnn_out = self.mdl(x)[0]
@@ -454,7 +454,7 @@ class SBTransformerBlock_wnormandskip(nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape [B, L, N],
             where, B = Batchsize,
                    L = time points
@@ -462,7 +462,7 @@ class SBTransformerBlock_wnormandskip(nn.Module):
 
         Returns
         -------
-        out : Tensor
+        out : torch.Tensor
             The transformed output.
         """
         src_mask = get_lookahead_mask(x) if self.causal else None
@@ -582,7 +582,7 @@ class ResourceEfficientSeparationPipeline(nn.Module):
 
         Arguments
         ---------
-        input : Tensor
+        input : torch.Tensor
                 Tensor shape [B, (S*K), D],
                 where, B = Batchsize,
                        S = Number of chunks
@@ -591,7 +591,7 @@ class ResourceEfficientSeparationPipeline(nn.Module):
 
         Returns
         -------
-        output : Tensor
+        output : torch.Tensor
             The separated tensor.
         """
         B, T, D = input.shape
@@ -643,9 +643,9 @@ class ResourceEfficientSeparationPipeline(nn.Module):
 
         Returns
         -------
-        input : Tensor
+        input : torch.Tensor
             Padded input
-        rest : Tensor
+        rest : torch.Tensor
             Amount of padding
         """
         B, T, D = input.shape
@@ -753,12 +753,12 @@ class ResourceEfficientSeparator(nn.Module):
 
         Arguments
         ---------
-        inpt : Tensor
+        inpt : torch.Tensor
             Encoded feature [B, T, N]
 
         Returns
         -------
-        mask_tensor : Tensor
+        mask_tensor : torch.Tensor
         """
 
         inpt = inpt.permute(0, 2, 1)

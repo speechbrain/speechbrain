@@ -48,9 +48,9 @@ class Autoencoder(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the original data representation
-        length: Tensor
+        length: torch.Tensor
             a tensor of relative lengths
         """
         raise NotImplementedError
@@ -60,7 +60,7 @@ class Autoencoder(nn.Module):
 
         Arguments
         ---------
-        latent: Tensor
+        latent: torch.Tensor
             the latent representation
         """
         raise NotImplementedError
@@ -70,12 +70,12 @@ class Autoencoder(nn.Module):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the input tensor
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the result
         """
         return self.encode(x)
@@ -200,14 +200,14 @@ class VariationalAutoencoder(Autoencoder):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the original data representation
-        length: Tensor
+        length: torch.Tensor
             the length of the corresponding input samples (optional)
 
         Returns
         -------
-        latent: Tensor
+        latent: torch.Tensor
             the latent representation
         """
         encoder_out = self.encoder(x)
@@ -218,12 +218,12 @@ class VariationalAutoencoder(Autoencoder):
 
         Arguments
         ---------
-        latent: Tensor
+        latent: torch.Tensor
             the latent representation
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the decoded sample
         """
         return self.decoder(latent)
@@ -234,14 +234,14 @@ class VariationalAutoencoder(Autoencoder):
 
         Arguments
         ---------
-        mean: Tensor
+        mean: torch.Tensor
             the latent representation mean
-        log_var: Tensor
+        log_var: torch.Tensor
             the logarithm of the latent representation variance
 
         Returns
         -------
-        sample: Tensor
+        sample: torch.Tensor
             a latent space sample
         """
         epsilon = torch.randn_like(log_var)
@@ -254,7 +254,7 @@ class VariationalAutoencoder(Autoencoder):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the source data (in the sample space)
         length: None
             the length (optional). If provided, latents and
@@ -269,13 +269,13 @@ class VariationalAutoencoder(Autoencoder):
         -------
         result: VariationalAutoencoderOutput
             a named tuple with the following values
-            rec: Tensor
+            rec: torch.Tensor
                 the reconstruction
-            latent: Tensor
+            latent: torch.Tensor
                 the latent space sample
-            mean: Tensor
+            mean: torch.Tensor
                 the mean of the latent representation
-            log_var: Tensor
+            log_var: torch.Tensor
                 the logarithm of the variance of the latent representation
 
         """
@@ -401,14 +401,14 @@ class NormalizingAutoencoder(Autoencoder):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the original data representation
-        length: Tensor
+        length: torch.Tensor
             The length of each sample in the input tensor.
 
         Returns
         -------
-        latent: Tensor
+        latent: torch.Tensor
             the latent representation
         """
         x = self.encoder(x)
@@ -420,12 +420,12 @@ class NormalizingAutoencoder(Autoencoder):
 
         Arguments
         ---------
-        latent: Tensor
+        latent: torch.Tensor
             the latent representation
 
         Returns
         -------
-        result: Tensor
+        result: torch.Tensor
             the decoded sample
         """
         return self.decoder(latent)
@@ -437,9 +437,9 @@ class NormalizingAutoencoder(Autoencoder):
 
         Arguments
         ---------
-        x: Tensor
+        x: torch.Tensor
             the source data (in the sample space)
-        length: Tensor
+        length: torch.Tensor
             the length (optional). If provided, latents and
             outputs will be masked
         out_mask_value: float
@@ -451,9 +451,9 @@ class NormalizingAutoencoder(Autoencoder):
         -------
         result: AutoencoderOutput
             a named tuple with the following values
-            rec: Tensor
+            rec: torch.Tensor
                 the reconstruction
-            latent: Tensor
+            latent: torch.Tensor
                 the latent space sample
         """
         if out_mask_value is None:

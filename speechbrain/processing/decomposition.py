@@ -27,12 +27,12 @@ def gevd(a, b=None):
 
     Arguments
     ---------
-    a : Tensor
+    a : torch.Tensor
         A first input matrix. It is equivalent to the matrix A in the
         equation in the description above. The tensor must have the
         following format: (*,2,C+P).
 
-    b : Tensor
+    b : torch.Tensor
         A second input matrix. It is equivalent tot the matrix B in the
         equation in the description above. The tensor must have the
         following format: (*,2,C+P).
@@ -42,8 +42,8 @@ def gevd(a, b=None):
 
     Returns
     -------
-    vs : Tensor
-    ds : Tensor
+    vs : torch.Tensor
+    ds : torch.Tensor
 
     Example
     -------
@@ -131,7 +131,7 @@ def svdl(a):
 
     Arguments:
     ----------
-    a : Tensor
+    a : torch.Tensor
         A complex input matrix to work with. The tensor must have
         the following format: (*,2,C+P).
 
@@ -194,13 +194,13 @@ def f(ws):
 
     Arguments
     ---------
-    ws : Tensor
+    ws : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2,C+P)
 
     Returns
     -------
-    wsh : Tensor
+    wsh : torch.Tensor
     """
     # Dimensions
     D = ws.dim()
@@ -237,13 +237,13 @@ def finv(wsh):
 
     Arguments
     ---------
-    wsh : Tensor
+    wsh : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2C,2C)
 
     Returns
     -------
-    ws : Tensor
+    ws : torch.Tensor
     """
     # Dimensions
     D = wsh.dim()
@@ -270,13 +270,13 @@ def g(ws):
 
     Arguments
     ---------
-    ws : Tensor
+    ws : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,C,C,2)
 
     Returns
     -------
-    wsh : Tensor
+    wsh : torch.Tensor
     """
     # Dimensions
     D = ws.dim()
@@ -306,13 +306,13 @@ def ginv(wsh):
 
     Arguments
     ---------
-    wsh : Tensor
+    wsh : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2C,2C)
 
     Returns
     -------
-    ws : Tensor
+    ws : torch.Tensor
     """
     # Extracting data
     D = wsh.dim()
@@ -338,7 +338,7 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
 
     Arguments
     ---------
-    ws : Tensor
+    ws : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2,C+P)
     alpha : float
@@ -349,7 +349,7 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
 
     Returns
     -------
-    ws_pf : Tensor
+    ws_pf : torch.Tensor
     """
     # Extracting data
     D = ws.dim()
@@ -381,13 +381,13 @@ def inv(x):
 
     Arguments
     ---------
-    x : Tensor
+    x : torch.Tensor
         An input matrix to work with. The tensor must have the
         following format: (*, 2, C+P)
 
     Returns
     -------
-    x_inv : Tensor
+    x_inv : torch.Tensor
 
     Example
     -------

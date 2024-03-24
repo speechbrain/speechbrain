@@ -59,7 +59,7 @@ def grapheme_pipeline(char, grapheme_encoder=None, uppercase=True):
         labels
     grapheme_encoded_list: list
         a list of graphemes encoded as integers
-    grapheme_encoded: Tensor
+    grapheme_encoded: torch.Tensor
     """
     if uppercase:
         char = char.upper()
@@ -114,7 +114,7 @@ def tokenizer_encode_pipeline(
         a list of raw tokens
     encoded_list: list
         a list of tokens, encoded as a list of integers
-    encoded: Tensor
+    encoded: torch.Tensor
         a list of tokens, encoded as a tensor
     """
     token_list = [token for token in seq if token in tokens]
@@ -184,7 +184,7 @@ def _wordwise_detokenize(
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         the result
     """
     if isinstance(sequence, str) and sequence == "":
@@ -289,7 +289,7 @@ def phoneme_pipeline(phn, phoneme_encoder=None):
         the original list of phonemes
     phn_encoded_list: list
         encoded phonemes, as a list
-    phn_encoded: Tensor
+    phn_encoded: torch.Tensor
         encoded phonemes, as a tensor
     """
 
@@ -305,16 +305,16 @@ def add_bos_eos(seq=None, encoder=None):
 
     Arguments
     ---------
-    seq: Tensor
+    seq: torch.Tensor
         the source sequence
     encoder: speechbrain.dataio.encoder.TextEncoder
         an encoder instance
 
     Yields
     ------
-    seq_eos: Tensor
+    seq_eos: torch.Tensor
         the sequence, with the EOS token added
-    seq_bos: Tensor
+    seq_bos: torch.Tensor
         the sequence, with the BOS token added
     """
     seq_bos = encoder.prepend_bos_index(seq)
@@ -335,9 +335,9 @@ def beam_search_pipeline(char_lens, encoder_out, beam_searcher):
 
     Arguments
     ---------
-    char_lens: Tensor
+    char_lens: torch.Tensor
         the length of character inputs
-    encoder_out: Tensor
+    encoder_out: torch.Tensor
         Raw encoder outputs
     beam_searcher: speechbrain.decoders.seq2seq.S2SBeamSearcher
         a SpeechBrain beam searcher instance
@@ -432,7 +432,7 @@ def text_decode(seq, encoder):
 
     Arguments
     ---------
-    seq: Tensor
+    seq: torch.Tensor
         token indexes
     encoder: sb.dataio.encoder.TextEncoder
         a text encoder instance
@@ -608,7 +608,7 @@ def phonemes_to_label(phns, decoder):
 
     Arguments
     ---------
-    phns: Tensor
+    phns: torch.Tensor
         a batch of phoneme sequences
     decoder: Callable
         Converts tensor to phoneme label strings.
@@ -655,9 +655,9 @@ def word_emb_pipeline(
     ---------
     txt: str
         the raw text
-    grapheme_encoded: Tensor
+    grapheme_encoded: torch.Tensor
         the encoded graphemes
-    grapheme_encoded_len: Tensor
+    grapheme_encoded_len: torch.Tensor
         encoded grapheme lengths
     grapheme_encoder: speechbrain.dataio.encoder.TextEncoder
         the text encoder used for graphemes
@@ -668,7 +668,7 @@ def word_emb_pipeline(
 
     Returns
     -------
-    char_word_emb: Tensor
+    char_word_emb: torch.Tensor
         Word embeddings, expanded to the character dimension
     """
     char_word_emb = None

@@ -65,14 +65,14 @@ class WeightedSSLModel(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : Tensor
+        wav : torch.Tensor
             The wavs
-        wav_lens : Tensor
+        wav_lens : torch.Tensor
             The wav lengths
 
         Returns
         -------
-        weighted_feats : Tensor
+        weighted_feats : torch.Tensor
             The weighted sum of layer representations.
         """
 

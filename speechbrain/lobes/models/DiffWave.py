@@ -632,9 +632,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             ):  # Expand rank 2 tensors by adding a batch dimension.
                 condition = condition.unsqueeze(0)
             audio = torch.randn(
-                condition.shape[0],
-                scale * condition.shape[-1],
-                device=device,
+                condition.shape[0], scale * condition.shape[-1], device=device
             )
         else:
             audio = torch.randn(1, scale, device=device)

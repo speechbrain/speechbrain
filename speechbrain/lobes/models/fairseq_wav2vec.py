@@ -171,9 +171,9 @@ class FairseqWav2Vec2(nn.Module):
 
         Arguments
         ---------
-        wav : Tensor
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
-        wav_lens : Tensor
+        wav_lens : torch.Tensor
             The lengths corresponding to the input wavs.
 
         Returns
@@ -237,7 +237,7 @@ class FairseqWav2Vec2(nn.Module):
 
         Returns
         -------
-        src_key_padding_mask : Tensor
+        src_key_padding_mask : torch.Tensor
             The mask for removing pad tokens.
         """
         src_key_padding_mask = None
@@ -315,7 +315,7 @@ class FairseqWav2Vec1(nn.Module):
 
         Arguments
         ---------
-        wav : Tensor
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
 
         Returns

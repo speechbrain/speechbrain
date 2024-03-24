@@ -29,9 +29,9 @@ def undo_padding(batch, lengths):
 
     Arguments
     ---------
-    batch : Tensor
+    batch : torch.Tensor
         Batch of sentences gathered in a batch.
-    lengths : Tensor
+    lengths : torch.Tensor
         Relative length of each sentence in the batch.
 
     Returns
@@ -413,7 +413,7 @@ def pad_right_to(tensor, target_shape, mode="constant", value=0):
 
     Parameters
     ----------
-    tensor : Tensor
+    tensor : torch.Tensor
         Input tensor whose dimension we need to pad.
     target_shape : (list, tuple)
         Target shape we want for the target tensor its len must be equal to tensor.ndim
@@ -424,7 +424,7 @@ def pad_right_to(tensor, target_shape, mode="constant", value=0):
 
     Returns
     -------
-    tensor : Tensor
+    tensor : torch.Tensor
         Padded tensor.
     valid_vals : list
         List containing proportion for each dimension of original, non-padded values.
@@ -463,7 +463,7 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
 
     Returns
     -------
-    tensor : Tensor
+    tensor : torch.Tensor
         Padded tensor.
     valid_vals : list
         List containing proportion for each dimension of original, non-padded values.
@@ -658,14 +658,14 @@ def unsqueeze_as(x, target):
 
     Arguments
     ---------
-    x: Tensor
+    x: torch.Tensor
         the original tensor
-    target: Tensor
+    target: torch.Tensor
         the tensor whose shape
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a view of tensor x reshaped to a shape compatible with y
     """
     return x.view(x.shape + (1,) * (target.dim() - x.dim()))
@@ -680,10 +680,10 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     Arguments
     ---------
-    tensor: Tensor
+    tensor: torch.Tensor
         the tensor to be padded, of arbitrary dimension
 
-    length: Tensor
+    length: torch.Tensor
         a 1-D tensor of relative lengths
 
     factor: int
@@ -697,9 +697,9 @@ def pad_divisible(tensor, length=None, factor=2, len_dim=1, pad_value=0):
 
     Returns
     -------
-    tensor_padded: Tensor
+    tensor_padded: torch.Tensor
         the tensor, with additional padding if required
-    length: Tensor
+    length: torch.Tensor
         the adjusted length tensor, if provided
 
     Example
@@ -738,14 +738,14 @@ def trim_to_shape(tensor, shape):
 
     Arguments
     ---------
-    tensor: Tensor
+    tensor: torch.Tensor
         a tensor
     shape: enumerable
         the desired shape
 
     Returns
     -------
-    tensor: Tensor
+    tensor: torch.Tensor
         the trimmed tensor
     """
     for dim, size in enumerate(shape):
@@ -759,14 +759,14 @@ def trim_as(tensor, other):
 
     Arguments
     ---------
-    tensor: Tensor:
+    tensor: torch.Tensor:
         a tensor
-    other: Tensor
+    other: torch.Tensor
         the tensor whose shape to match
 
     Returns
     -------
-    tensor: Tensor
+    tensor: torch.Tensor
         the trimmed tensor
     """
     return trim_to_shape(tensor, other.shape)
@@ -778,14 +778,14 @@ def match_shape(tensor, other):
 
     Arguments
     ---------
-    tensor: Tensor:
+    tensor: torch.Tensor:
         a tensor
-    other: Tensor
+    other: torch.Tensor
         the tensor whose shape to match
 
     Returns
     -------
-    tensor: Tensor
+    tensor: torch.Tensor
         the tensor with matching shape
     """
     result = unsqueeze_as(tensor, other)
@@ -856,7 +856,7 @@ def concat_padded_features(
 
     Returns
     -------
-    out: Tensor
+    out: torch.Tensor
         a concatenated tensor
     """
     first_item = feats[0]
@@ -902,12 +902,12 @@ def _offset_to_tensor(offset, lengths):
     ---------
     offset: list|Tensor
         a list or tensor of offsets
-    lengths: Tensor
+    lengths: torch.Tensor
         a length tensor
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a tensor of offsets
     """
     if offset is None:
@@ -936,11 +936,11 @@ def _lens_to_boundaries(
 
     Arguments
     ---------
-    lengths: Tensor
+    lengths: torch.Tensor
         a (component x batch) tensor of absolute lengths
-    slice_start: Tensor
+    slice_start: torch.Tensor
         a (component x batch) tensor of relative start offsets
-    slice_end: Tensor
+    slice_end: torch.Tensor
         a (component x batch) tensor of relative end offsets
     cumulative: True
         if true, the start of a given component is assumed to
@@ -950,9 +950,9 @@ def _lens_to_boundaries(
 
     Returns
     -------
-    start: Tensor
+    start: torch.Tensor
         the starting boundary
-    end: Tensor
+    end: torch.Tensor
         the ending boundary
     """
     batch_size = lengths.size(-1)
@@ -988,19 +988,19 @@ def _boundaries_to_mask(target, start, end, len_dim=1):
 
     Arguments
     ---------
-    target: Tensor
+    target: torch.Tensor
         the target tensor
-    start: Tensor
+    start: torch.Tensor
         the tensor indicating the starting positions along the length
         dimension within each batch
-    end: Tensor
+    end: torch.Tensor
         the tensor indicating the final positions within each batch
     len_dim: int
         the dimension used as the length
 
     Returns
     -------
-    mask: Tensor
+    mask: torch.Tensor
         a Boolean mask of the same shape as target
     """
     out_range = length_range(target, len_dim)
@@ -1018,7 +1018,7 @@ def unsqueeze_1d(value, dim, value_dim):
 
     Arguments
     ---------
-    value: Tensor
+    value: torch.Tensor
         A 1-D tensor
     dim: int
         the number of dimension
@@ -1027,7 +1027,7 @@ def unsqueeze_1d(value, dim, value_dim):
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a dim-dimensional tensor
     """
     unsqueeze_dim = [None] * dim
@@ -1041,14 +1041,14 @@ def length_range(feats, len_dim):
 
     Arguments
     ---------
-    feats: Tensor
+    feats: torch.Tensor
         a features tensor of arbitrary shape
-    len_dim: Tensor
+    len_dim: torch.Tensor
         the dimension used as length
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a tensor matching the shape of feats with an 0 to max-length range along
         the length dimension repeated across other dimensions
     """
@@ -1068,7 +1068,7 @@ def non_batch_dims(sample):
 
     Arguments
     ---------
-    sample: Tensor
+    sample: torch.Tensor
         an arbitrary tensor
 
     Returns
@@ -1085,14 +1085,14 @@ def masked_mean(sample, mask=None):
 
     Arguments
     ---------
-    sample: Tensor
+    sample: torch.Tensor
         a tensor of spectrograms
-    mask: Tensor
+    mask: torch.Tensor
         a length mask
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1107,14 +1107,14 @@ def masked_std(sample, mask=None):
 
     Arguments
     ---------
-    sample: Tensor
+    sample: torch.Tensor
         a tensor of spectrograms
-    mask: Tensor
+    mask: torch.Tensor
         a length mask
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1132,14 +1132,14 @@ def masked_min(sample, mask=None):
 
     Arguments
     ---------
-    sample: Tensor
+    sample: torch.Tensor
         a tensor of spectrograms
-    mask: Tensor
+    mask: torch.Tensor
         a length mask
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1153,14 +1153,14 @@ def masked_max(sample, mask=None):
 
     Arguments
     ---------
-    sample: Tensor
+    sample: torch.Tensor
         a tensor of spectrograms
-    mask: Tensor
+    mask: torch.Tensor
         a length mask
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a tensor fo means
     """
     if mask is None:
@@ -1174,14 +1174,14 @@ def dist_stats(sample, mask=None):
 
     Arguments
     ---------
-    sample: Tensor
+    sample: torch.Tensor
         a tensor of spectrograms
-    mask: Tensor
+    mask: torch.Tensor
         a length mask
 
     Returns
     -------
-    result: Tensor
+    result: torch.Tensor
         a tensor fo means
     """
     return {

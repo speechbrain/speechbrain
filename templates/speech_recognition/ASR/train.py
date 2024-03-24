@@ -143,9 +143,9 @@ class ASR(sb.Brain):
 
         Returns
         -------
-        feats : Tensor
+        feats : torch.Tensor
             The prepared features.
-        fea_lens : Tensor
+        fea_lens : torch.Tensor
             The lengths of the corresponding features.
         """
         wavs, wav_lens = wavs
@@ -178,9 +178,9 @@ class ASR(sb.Brain):
 
         Returns
         -------
-        tokens : Tensor
+        tokens : torch.Tensor
             Augmented tokens.
-        token_lens : Tensor
+        token_lens : torch.Tensor
             and their lengths.
         """
         tokens, token_lens = tokens
@@ -213,7 +213,7 @@ class ASR(sb.Brain):
 
         Returns
         -------
-        loss : Tensor
+        loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
         # Compute sequence loss against targets with EOS
