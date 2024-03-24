@@ -36,7 +36,7 @@ class RNNLM(nn.Module):
         Number of neurons in each layer of the RNN.
     rnn_re_init : bool
         Whether to initialize rnn with orthogonal initialization.
-    rnn_return_hidden : bool
+    return_hidden : bool
         Whether to return hidden states (default True).
     dnn_blocks : int
         The number of linear neural blocks to include.

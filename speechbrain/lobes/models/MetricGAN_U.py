@@ -117,11 +117,12 @@ class MetricDiscriminator(nn.Module):
         The dimensions of the 2-d kernel used for convolution.
     base_channels : int
         Number of channels used in each conv layer.
+    activation : Callable
+        Function to apply between layers.
     lin_dim1: int
         Dimensionality of the first linear layer.
     lin_dim2: int
         Dimensionality of the second linear layer.
-
 
     Example
     -------

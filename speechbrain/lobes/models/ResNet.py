@@ -44,6 +44,8 @@ class SEBlock(nn.Module):
         The number of channels.
     reduction : int
         The reduction factor of channels.
+    activation : Callable
+        The function to apply between layers.
 
     Example
     -------
@@ -80,7 +82,7 @@ class BasicBlock(nn.Module):
     """An implementation of ResNet Block.
 
     Arguments
-    ----------
+    ---------
     in_channels : int
         Number of input channels.
     out_channels : int
@@ -153,11 +155,13 @@ class SEBasicBlock(nn.Module):
     """An implementation of Squeeze-and-Excitation ResNet Block.
 
     Arguments
-    ----------
+    ---------
     in_channels : int
         Number of input channels.
     out_channels : int
         The number of output channels.
+    reduction : int
+        The reduction factor of channels.
     stride : int
         Factor that reduce the spatial dimensionality
     downsample : torch function
@@ -233,6 +237,8 @@ class ResNet(nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        Expected size of the input dimension.
     device : str
         Device used, e.g., "cpu" or "cuda".
     activation : torch class
@@ -327,6 +333,11 @@ class ResNet(nn.Module):
             Number of ResNet blocks for the network.
         stride : int
             Factor that reduce the spatial dimensionality. Default is 1
+
+        Returns
+        -------
+        se_block : nn.Sequential
+            Squeeze-and-excitation block
         """
         downsample = None
         if stride != 1 or in_channels != out_channels:
@@ -364,6 +375,11 @@ class ResNet(nn.Module):
             Number of ResNet blocks for the network.
         stride : int
             Factor that reduce the spatial dimensionality. Default is 1
+
+        Returns
+        -------
+        block : nn.Sequential
+            ResNet block
         """
         downsample = None
         if stride != 1 or in_channels != out_channels:
@@ -392,6 +408,13 @@ class ResNet(nn.Module):
         ---------
         x : torch.Tensor
             Tensor of shape (batch, time, channel).
+        lengths : torch.Tensor
+            Corresponding relative lengths of the inputs.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The embedding vector.
         """
         x = x.unsqueeze(1)
 
@@ -425,6 +448,8 @@ class Classifier(torch.nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        Expected size of the inputs.
     device : str
         Device used, e.g., "cpu" or "cuda".
     lin_blocks : int
@@ -479,6 +504,11 @@ class Classifier(torch.nn.Module):
         ---------
         x : torch.Tensor
             Torch tensor.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output probabilities over speakers.
         """
         for layer in self.blocks:
             x = layer(x)

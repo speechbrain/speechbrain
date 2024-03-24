@@ -32,6 +32,7 @@ class ESPnetVGG(sb.nnet.containers.Sequential):
         Number of neurons in each layer of the RNN.
     rnn_bidirectional : bool
         Whether this model will process just forward or both directions.
+    rnn_re_init : bool
     projection_neurons : int
         The number of neurons in the last linear layer.
 

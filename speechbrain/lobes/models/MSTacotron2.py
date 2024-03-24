@@ -72,21 +72,14 @@ class Tacotron2(nn.Module):
     ---------
     spk_emb_size: int
         Speaker embedding size
-
     mask_padding: bool
         whether or not to mask pad-outputs of tacotron
-
-    #mel generation parameter in data io
     n_mel_channels: int
         number of mel channels for constructing spectrogram
-
-    #symbols
     n_symbols:  int=128
         number of accepted char symbols defined in textToSequence
     symbols_embedding_dim: int
         number of embeding dimension for symbols fed to nn.Embedding
-
-    # Encoder parameters
     encoder_kernel_size: int
         size of kernel processing the embeddings
     encoder_n_convolutions: int
@@ -94,19 +87,14 @@ class Tacotron2(nn.Module):
     encoder_embedding_dim: int
         number of kernels in encoder, this is also the dimension
         of the bidirectional LSTM in the encoder
-
-    # Attention parameters
     attention_rnn_dim: int
         input dimension
     attention_dim: int
         number of hidden representation in attention
-    # Location Layer parameters
     attention_location_n_filters: int
         number of 1-D convolution filters in attention
     attention_location_kernel_size: int
         length of the 1-D convolution filters
-
-    # Decoder parameters
     n_frames_per_step: int=1
         only 1 generated mel-frame per step is supported for the decoder as of now.
     decoder_rnn_dim: int
@@ -115,26 +103,22 @@ class Tacotron2(nn.Module):
         dimension of linear prenet layers
     max_decoder_steps: int
         maximum number of steps/frames the decoder generates before stopping
+    gate_threshold: int
+        cut off level any output probability above that is considered
+        complete and stops genration so we have variable length outputs
     p_attention_dropout: float
         attention drop out probability
     p_decoder_dropout: float
         decoder drop  out probability
-
-    gate_threshold: int
-        cut off level any output probability above that is considered
-        complete and stops genration so we have variable length outputs
-    decoder_no_early_stopping: bool
-        determines early stopping of decoder
-        along with gate_threshold . The logical inverse of this is fed to the decoder
-
-
-    #Mel-post processing network parameters
     postnet_embedding_dim: int
         number os postnet dfilters
     postnet_kernel_size: int
         1d size of posnet kernel
     postnet_n_convolutions: int
         number of convolution layers in postnet
+    decoder_no_early_stopping: bool
+        determines early stopping of decoder
+        along with gate_threshold . The logical inverse of this is fed to the decoder
 
     Example
     -------
@@ -180,16 +164,22 @@ class Tacotron2(nn.Module):
         self,
         spk_emb_size,
         mask_padding=True,
+        # mel generation parameter in data io
         n_mel_channels=80,
+        # Symbols
         n_symbols=148,
         symbols_embedding_dim=512,
+        # Encoder parameters
         encoder_kernel_size=5,
         encoder_n_convolutions=3,
         encoder_embedding_dim=512,
+        # Attention parameters
         attention_rnn_dim=1024,
         attention_dim=128,
+        # Location Layer parameters
         attention_location_n_filters=32,
         attention_location_kernel_size=31,
+        # Decoder parameters
         n_frames_per_step=1,
         decoder_rnn_dim=1024,
         prenet_dim=256,
@@ -197,6 +187,7 @@ class Tacotron2(nn.Module):
         gate_threshold=0.5,
         p_attention_dropout=0.1,
         p_decoder_dropout=0.1,
+        # Mel-post processing network parameters
         postnet_embedding_dim=512,
         postnet_kernel_size=5,
         postnet_n_convolutions=5,
@@ -263,11 +254,13 @@ class Tacotron2(nn.Module):
             the desired dimension of the alignments along the last axis
             Optional but needed for data-parallel training
 
-
         Returns
         -------
-        result: tuple
-            a (mel_outputs, mel_outputs_postnet, gate_outputs, alignments) tuple with
+        mel_outputs: torch.Tensor
+        mel_outputs_postnet: torch.Tensor
+        gate_outputs: torch.Tensor
+        alignments: torch.Tensor
+        output_lengths: torch.Tensor
             the original outputs - with the mask applied
         """
         mel_outputs, mel_outputs_postnet, gate_outputs, alignments = outputs
@@ -308,7 +301,7 @@ class Tacotron2(nn.Module):
             Optional but needed for data-parallel training
 
         Returns
-        ---------
+        -------
         mel_outputs: torch.Tensor
             mel outputs from the decoder
         mel_outputs_postnet: torch.Tensor
@@ -357,7 +350,6 @@ class Tacotron2(nn.Module):
 
     def infer(self, inputs, spk_embs, input_lengths):
         """Produces outputs
-
 
         Arguments
         ---------
@@ -422,6 +414,7 @@ class Loss(nn.Module):
     attention matrix diagonal
     The output of the module is a LossStats tuple, which includes both the
     total loss
+
     Arguments
     ---------
     guided_attention_sigma: float
@@ -442,7 +435,9 @@ class Loss(nn.Module):
     guided_attention_hard_stop: int
         The number of epochs after which guided attention will be compeltely
         turned off
-    Example:
+
+    Example
+    -------
     >>> import torch
     >>> _ = torch.manual_seed(42)
     >>> from speechbrain.lobes.models.MSTacotron2 import Loss
@@ -637,28 +632,13 @@ class Loss(nn.Module):
 
 class TextMelCollate:
     """Zero-pads model inputs and targets based on number of frames per step
+
     Arguments
     ---------
     speaker_embeddings_pickle : str
         Path to the file containing speaker embeddings
     n_frames_per_step: int
         The number of output frames per step
-    Returns
-    -------
-    result: tuple
-        a tuple inputs/targets
-        (
-            text_padded,
-            input_lengths,
-            mel_padded,
-            gate_padded,
-            output_lengths,
-            len_x,
-            labels,
-            wavs,
-            spk_embs,
-            spk_ids
-        )
     """
 
     def __init__(
@@ -672,10 +652,24 @@ class TextMelCollate:
     # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
+
         Arguments
         ---------
         batch: list
             [text_normalized, mel_normalized]
+
+        Returns
+        -------
+        text_padded: torch.Tensor
+        input_lengths: torch.Tensor
+        mel_padded: torch.Tensor
+        gate_padded: torch.Tensor
+        output_lengths: torch.Tensor
+        len_x: torch.Tensor
+        labels: torch.Tensor
+        wavs: torch.Tensor
+        spk_embs: torch.Tensor
+        spk_ids: torch.Tensor
         """
 
         # TODO: Remove for loops and this dirty hack

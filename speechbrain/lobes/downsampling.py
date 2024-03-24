@@ -16,10 +16,15 @@ class Downsampler(torch.nn.Module):
 
     def forward(self, x):
         """Downsampling function
+
         Arguments
         ---------
         x : tensor
             Speech samples of shape [B,n_samples] with B the batch size
+
+        Returns
+        -------
+        Downsampled outputs.
         """
 
         return self.downsampler(x)

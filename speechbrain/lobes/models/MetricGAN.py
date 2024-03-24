@@ -132,6 +132,8 @@ class MetricDiscriminator(nn.Module):
         The dimensions of the 2-d kernel used for convolution.
     base_channels : int
         Number of channels used in each conv layer.
+    activation : Callable
+        Function to apply between layers.
     """
 
     def __init__(

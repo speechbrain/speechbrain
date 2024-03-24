@@ -19,9 +19,9 @@ class Psi(nn.Module):
     ---------
     n_comp : int
         Number of NMF components (or equivalently number of neurons at the output per timestep)
-    T: int
+    T : int
         The targeted length along the time dimension
-    in_emb_dims: List with int elements
+    in_emb_dims : List with int elements
         A list with length 3 that contains the dimensionality of the input dimensions
         The list needs to match the number of channels in the input classifier representations
         The last entry should be the smallest entry
@@ -36,9 +36,6 @@ class Psi(nn.Module):
     """
 
     def __init__(self, n_comp=100, T=431, in_emb_dims=[2048, 1024, 512]):
-        """
-        Computes NMF activations given classifier hidden representations
-        """
         super().__init__()
         self.in_emb_dims = in_emb_dims
         self.upsamp = nn.UpsamplingBilinear2d(scale_factor=(2, 2))
@@ -64,9 +61,15 @@ class Psi(nn.Module):
 
     def forward(self, inp):
         """This forward function returns the NMF time activations given classifier activations
+
         Arguments
         ---------
-            inp: A length 3 list of classifier input representions.
+        inp: list
+            A length 3 list of classifier input representions.
+
+        Returns
+        -------
+        NMF time activations
         """
         error = "in PSI doesn't match. The embedding dimensions need to be consistent with the list self.in_emb_dims"
         for i, in_emb_dim in enumerate(self.in_emb_dims):
@@ -119,8 +122,8 @@ class NMFDecoderAudio(nn.Module):
     device : str
         The device to run the model
 
-    Example:
-    --------
+    Example
+    -------
     >>> NMF_dec = NMFDecoderAudio(20, 210, device='cpu')
     >>> H = torch.rand(1, 20, 150)
     >>> Xhat = NMF_dec.forward(H)
@@ -139,14 +142,18 @@ class NMFDecoderAudio(nn.Module):
     def forward(self, H):
         """The forward pass for NMF given the activations H
 
-        Arguments:
+        Arguments
         ---------
         H : torch.Tensor
             The activations Tensor with shape B x n_comp x T
+            where B = Batchsize
+                  n_comp = number of NMF components
+                  T = number of timepoints
 
-        where B = Batchsize
-              n_comp = number of NMF components
-              T = number of timepoints
+        Returns
+        -------
+        output : torch.Tensor
+            The NMF outputs
         """
         # Assume input of shape n_batch x n_comp x T
 
@@ -185,11 +192,11 @@ class PsiOptimized(nn.Module):
 
     Arguments
     ---------
-    dim: int
+    dim : int
         Dimension of the hidden representations (input to the classifier).
     K : int
         Number of NMF components (or equivalently number of neurons at the output per timestep)
-    num_classes : int
+    numclasses : int
         Number of possible classes.
     use_adapter : bool
         `True` if you wish to learn an adapter for the latent representations.
@@ -213,9 +220,6 @@ class PsiOptimized(nn.Module):
         use_adapter=False,
         adapter_reduce_dim=True,
     ):
-        """
-        Computes NMF activations from hidden state.
-        """
         super().__init__()
 
         self.use_adapter = use_adapter
@@ -250,8 +254,9 @@ class PsiOptimized(nn.Module):
     def forward(self, hs):
         """
         Computes forward step.
+
         Arguments
-        -------
+        ---------
         hs : torch.Tensor
             Latent representations (input to the classifier). Expected shape `torch.Size([B, C, H, W])`.
 
@@ -286,8 +291,8 @@ class Theta(nn.Module):
     num_classes : int
         Number of classes that the classifier works with
 
-    Example:
-    --------
+    Example
+    -------
     >>> theta = Theta(30, 120, 50)
     >>> H = torch.rand(1, 30, 120)
     >>> c_hat = theta.forward(H)
@@ -309,14 +314,18 @@ class Theta(nn.Module):
     def forward(self, H):
         """We first collapse the time axis, and then pass through the linear layer
 
-        Arguments:
+        Arguments
         ---------
         H : torch.Tensor
             The activations Tensor with shape B x n_comp x T
+            where B = Batchsize
+                  n_comp = number of NMF components
+                  T = number of timepoints
 
-        where B = Batchsize
-              n_comp = number of NMF components
-              T = number of timepoints
+        Returns
+        -------
+        theta_out : torch.Tensor
+            Classifier output
         """
         theta_out = self.hard_att(H).squeeze(2)
         theta_out = self.classifier(theta_out)
@@ -333,8 +342,8 @@ class NMFEncoder(nn.Module):
     n_comp : int
         Number of NMF components
 
-    Example:
-    --------
+    Example
+    -------
     >>> nmfencoder = NMFEncoder(513, 100)
     >>> X = torch.rand(1, 513, 240)
     >>> Hhat = nmfencoder(X)
@@ -355,13 +364,16 @@ class NMFEncoder(nn.Module):
 
     def forward(self, X):
         """
-        Arguments:
+        Arguments
         ---------
         X : torch.Tensor
             The input spectrogram Tensor with shape B x n_freq x T
+            where B = Batchsize
+                  n_freq = nfft for the input spectrogram
+                  T = number of timepoints
 
-        where B = Batchsize
-              n_freq = nfft for the input spectrogram
-              T = number of timepoints
+        Returns
+        -------
+        NMF encoded outputs.
         """
         return self.convenc(X)

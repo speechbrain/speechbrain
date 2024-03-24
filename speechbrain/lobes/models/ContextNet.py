@@ -21,7 +21,9 @@ class ContextNet(Sequential):
     Reference paper: https://arxiv.org/pdf/2005.03191.pdf
 
     Arguments
-    ----------
+    ---------
+    input_shape : tuple
+        Expected shape of the inputs.
     out_channels : int
         Number of output channels of this model (default 640).
     conv_channels : Optional (list[int])
@@ -140,6 +142,8 @@ class SEmodule(torch.nn.Module):
 
     Arguments
     ---------
+    input_shape : tuple
+        Expected shape of the inputs.
     inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).
     activation : torch class
@@ -204,12 +208,14 @@ class ContextNetBlock(torch.nn.Module):
         Number of output channels of this model (default 640).
     kernel_size : int
         Kernel size of convolution layers (default 3).
-    strides : int
-        Striding factor for this context block (default 1).
     num_layers : int
         Number of depthwise convolution layers for this context block (default 5).
     inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).
+    input_shape : tuple
+        Expected shape of the inputs.
+    stride : int
+        Striding factor for this context block (default 1).
     beta : float
         Beta to scale the Swish activation (default 1).
     dropout : float
@@ -220,7 +226,7 @@ class ContextNetBlock(torch.nn.Module):
         Activation function for SE Module (default torch.nn.Sigmoid).
     norm : torch class
         Normalization to regularize the model (default BatchNorm1d).
-    residuals : bool
+    residual : bool
         Whether to apply residual connection at this context block (default None).
 
     Example
