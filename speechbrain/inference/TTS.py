@@ -13,6 +13,7 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import re
 import logging
 import torch
@@ -36,8 +37,9 @@ class Tacotron2(Pretrained):
 
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -127,6 +129,11 @@ class MSTacotron2(Pretrained):
     For voice cloning: (text, reference_audio) -> (mel_spec).
     For generating a random speaker voice: (text) -> (mel_spec).
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -174,8 +181,7 @@ class MSTacotron2(Pretrained):
             )
 
     def __text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-sequence function
-        """
+        """Encodes raw text into a tensor with a customer text-to-sequence function"""
         sequence = text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
@@ -345,10 +351,13 @@ class MSTacotron2(Pretrained):
 class FastSpeech2(Pretrained):
     """
     A ready-to-use wrapper for Fastspeech2 (text -> mel_spec).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
@@ -547,6 +556,7 @@ class FastSpeech2(Pretrained):
         self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0
     ):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         tokens_padded : torch.Tensor
@@ -557,6 +567,13 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        post_mel_outputs : torch.Tensor
+        durations : torch.Tensor
+        pitch : torch.Tensor
+        energy : torch.Tensor
         """
         with torch.no_grad():
             (
@@ -582,6 +599,7 @@ class FastSpeech2(Pretrained):
 
     def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         text : str
@@ -592,6 +610,10 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        Encoded text
         """
         return self.encode_text(
             [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
@@ -601,10 +623,13 @@ class FastSpeech2(Pretrained):
 class FastSpeech2InternalAlignment(Pretrained):
     """
     A ready-to-use wrapper for Fastspeech2 with internal alignment(text -> mel_spec).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
@@ -793,6 +818,7 @@ class FastSpeech2InternalAlignment(Pretrained):
         self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0
     ):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         tokens_padded : torch.Tensor
@@ -803,6 +829,13 @@ class FastSpeech2InternalAlignment(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        post_mel_outputs : torch.Tensor
+        durations : torch.Tensor
+        pitch : torch.Tensor
+        energy : torch.Tensor
         """
         with torch.no_grad():
             (
@@ -832,6 +865,7 @@ class FastSpeech2InternalAlignment(Pretrained):
 
     def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         text : str
@@ -842,6 +876,10 @@ class FastSpeech2InternalAlignment(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        Encoded text
         """
         return self.encode_text(
             [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate

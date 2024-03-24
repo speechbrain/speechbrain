@@ -8,7 +8,6 @@ Intended loading manner:
 
 """
 
-
 __all__ = [
     "k2",
     "utils",

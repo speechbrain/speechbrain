@@ -13,6 +13,7 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
 from itertools import chain
 from speechbrain.inference.interfaces import (
@@ -25,6 +26,12 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     """
     A pretrained model implementation for Grapheme-to-Phoneme (G2P) models
     that take raw natural language text as an input and
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -126,6 +133,12 @@ class ResponseGenerator(Pretrained):
     The class can be used to generate and continue dialogue given the user input.
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
     It needs to be used with custom.py to load the expanded  model with added tokens like bos,eos, and speaker's tokens.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
     """
 
     MODULES_NEEDED = ["model"]
@@ -180,6 +193,12 @@ class GPTResponseGenerator(ResponseGenerator):
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
     It needs to be used with custom.py to load the expanded GPT model with added tokens like bos,eos, and speaker's tokens.
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> from speechbrain.inference.text import GPTResponseGenerator
@@ -206,6 +225,7 @@ class GPTResponseGenerator(ResponseGenerator):
     def generate(self, inputs):
         """
         Complete a dialogue given the user's input.
+
         Arguments
         ---------
         inputs: tuple
@@ -235,14 +255,11 @@ class GPTResponseGenerator(ResponseGenerator):
             It appends all previous history and input and truncates it based on max_history value.
             It then tokenizes the input and generates additional input that determines the type of each token (System or User).
 
-        Arguments
-        ---------
-
         Returns
         -------
-        history_bos:
+        history_bos: torch.Tensor
             Tokenized history+input values with appropriate speaker token appended before each turn.
-        history_token_type:
+        history_token_type: torch.LongTensor
             Type of each token based on who is uttered that token (either User or System)
         """
         history_tokens_lists = [
@@ -292,6 +309,12 @@ class Llama2ResponseGenerator(ResponseGenerator):
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
     It needs to be used with custom.py to load the expanded Llama2 model with added tokens like bos,eos, and speaker's tokens.
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> from speechbrain.inference.text import Llama2ResponseGenerator
@@ -326,7 +349,9 @@ class Llama2ResponseGenerator(ResponseGenerator):
             prompt_bos, pad_idx=self.tokenizer.pad_token_id
         )
         hyps = self.model.generate(
-            prompt_bos.detach(), padding_mask.detach(), "beam",
+            prompt_bos.detach(),
+            padding_mask.detach(),
+            "beam",
         )
         return hyps
 
@@ -335,12 +360,9 @@ class Llama2ResponseGenerator(ResponseGenerator):
             It appends all previous history and input and truncates it based on max_history value.
             It then tokenizes the input and add prompts.
 
-        Arguments
-        ---------
-
         Returns
         -------
-        prompt_bos:
+        prompt_bos: torch.Tensor
             Tokenized history+input values with appropriate prompt.
         """
 
@@ -349,12 +371,13 @@ class Llama2ResponseGenerator(ResponseGenerator):
 
             Arguments
             ---------
-            idx_and_item:
+            idx_and_item: tuple
                 id and its corresponding text. If the id is even, it is user turn and [ INST] is added.
+
             Returns
             -------
-            prompt_bos:
-                prompted text  for one item.
+            prompt_bos: torch.LongTensor
+                prompted text for one item.
             """
             index, item = idx_and_item
             if index % 2 == 0:

@@ -60,6 +60,7 @@ Authors
  * Aku Rouhe 2020
  * Pierre Champion 2023
 """
+
 import collections
 import logging
 from pathlib import Path
@@ -201,6 +202,11 @@ def _find_data_section(fstream):
 
 def _next_section_or_end(fstream):
     """
+    Arguments
+    ---------
+    fstream : stream
+        Stream from which to read lines
+
     Returns
     -------
     bool
@@ -265,8 +271,12 @@ def arpa_to_fst(
         Whether or not to re-create the fst.txt file if it already exist.
 
     Raises
-    ---------
-        ImportError: If kaldilm is not installed.
+    ------
+    ImportError: If kaldilm is not installed.
+
+    Returns
+    -------
+    None
 
     Example
     -------
