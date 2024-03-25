@@ -1,4 +1,5 @@
 """SpeechBrain Extended CSV Compatibility."""
+
 from speechbrain.dataio.dataset import DynamicItemDataset
 import collections
 import csv
@@ -129,7 +130,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
     have loading specified by the CSV.
 
     Arguments
-    ----------
+    ---------
     csv_path : str
         Path to the CSV file.
     replacements : dict

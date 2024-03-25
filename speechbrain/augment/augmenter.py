@@ -3,6 +3,7 @@
 Authors
  * Mirco Ravanelli 2022
 """
+
 import random
 import logging
 import torch
@@ -215,6 +216,13 @@ class Augmenter(torch.nn.Module):
             The length of each sequence in the batch.
         selected_augmentations: dict
             Dictionary containing the selected augmentation to apply.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Augmented outputs.
+        output_lengths : torch.Tensor
+            The corresponding length of each output.
         """
         next_input = x
         next_lengths = lengths
@@ -279,6 +287,13 @@ class Augmenter(torch.nn.Module):
             input to augment.
         lengths : torch.Tensor
             The length of each sequence in the batch.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Augmented outputs.
+        output_lengths : torch.Tensor
+            The corresponding length of each output.
         """
 
         # Determine whether to apply data augmentation
@@ -394,17 +409,15 @@ class Augmenter(torch.nn.Module):
 
         Arguments
         ---------
-        augmentations : List of torch.Tensor
+        augment_lst : List of torch.Tensor
             List of augmented signals to be concatenated.
-
-        augmentation_lengths : List of torch.Tensor
+        augment_len_lst : List of torch.Tensor
             List of lengths corresponding to the augmented signals.
 
         Returns
         -------
         concatenated_signals : torch.Tensor
             A tensor containing the concatenated signals.
-
         concatenated_lengths : torch.Tensor
             A tensor containing the concatenated signal lengths.
 
@@ -446,14 +459,14 @@ class Augmenter(torch.nn.Module):
 
         Arguments
         ---------
-        args : torch.Tensor
+        *args : tuple
             Input label tensors to be replicated. Can be a uniq or a list of
-            Tensors.
+            torch.Tensors.
 
         Returns
         -------
         augmented_labels: torch.Tensor
-            Labels corresponding to the augmented input. Returns as many Tensor
+            Labels corresponding to the augmented input. Returns as many torch.Tensor
             as given in input.
         """
 
@@ -482,7 +495,7 @@ class Augmenter(torch.nn.Module):
         Returns
         -------
         augmented_labels: torch.Tensor
-            Labels corresponding to the augmented input. Returns as many Tensor
+            Labels corresponding to the augmented input. Returns as many torch.Tensor
             as given in input.
         """
 
@@ -513,8 +526,7 @@ class Augmenter(torch.nn.Module):
         return augmented_labels
 
     def check_min_max_augmentations(self):
-        """Checks the min_augmentations and max_augmentations arguments.
-        """
+        """Checks the min_augmentations and max_augmentations arguments."""
         if self.min_augmentations is None:
             self.min_augmentations = 1
         if self.max_augmentations is None:
