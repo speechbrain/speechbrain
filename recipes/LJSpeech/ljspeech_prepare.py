@@ -335,7 +335,7 @@ def split_sets(data_folder, splits, split_ratio, frozen_split_path):
             return data_split, meta_csv
         else:
             logger.info(
-                "Frozen split %s does not exst, spllitting", frozen_split_path
+                "Frozen split %s does not exst, splliting", frozen_split_path
             )
 
     index_for_sessions = []

@@ -734,7 +734,7 @@ class UTMOSSpeechEvaluator(BulkSpeechEvaluator):
         Set this by default if a custom script is needed (e.g. to set up the
         environment)
     batch_size : int
-        Teh batch size
+        The batch size
 
     """
 

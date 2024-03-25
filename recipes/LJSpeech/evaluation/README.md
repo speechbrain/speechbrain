@@ -1,7 +1,7 @@
 # Text-to-Speech (with LJSpeech)
 This folder contains the recipes for evaluation of existing pretrained text-to-speech systems using ASR-based evaluators and MOS estimation
 
-By default, MOS evaluation is peformed using a pretrained Transformer model, as defined in `recipes/SOMOS/ttseval/hparams/train.yaml` and available in pre-trained form on HuggingFace in
+By default, MOS evaluation is performed using a pretrained Transformer model, as defined in `recipes/SOMOS/ttseval/hparams/train.yaml` and available in pre-trained form on HuggingFace in
 https://huggingface.co/flexthink/ttseval-wavlm-transformer
 
 ASR evaluation is performed using the bundled Transformer ASR : https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech

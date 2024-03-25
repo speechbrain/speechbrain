@@ -1120,7 +1120,7 @@ KEY_DIFF_SQ = "diff_sq"
 
 class LinearRegressionStats(MetricStats):
     """Computes a simple linear correlation between two metrics - useful
-    for regresison tasks, such as quality assessment. It provides an optional
+    for regression tasks, such as quality assessment. It provides an optional
     grouping option, in which case the correlation is computed between means
     of groups rather than individual samples. The original use case for grouping
     is producing system-level correlation for the MOS estimation task
