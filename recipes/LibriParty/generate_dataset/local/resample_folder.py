@@ -29,10 +29,8 @@ parser.add_argument("--regex", type=str, default="*.wav")
 
 
 def resample_folder(input_folder, output_folder, fs, regex):
-
     files = get_all_files(input_folder, match_and=[regex])
     for f in tqdm.tqdm(files):
-
         # we use sox because torchaudio.Resample uses too much RAM.
         audio, fs = torchaudio.sox_effects.apply_effects_file(
             f, [["rate", str(fs)]]
@@ -59,6 +57,5 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
 
 if __name__ == "__main__":
-
     args = parser.parse_args()
     resample_folder(args.input_folder, args.output_folder, args.fs, args.regex)

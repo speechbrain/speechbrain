@@ -28,9 +28,8 @@ MULTIWOZ_21_DATASET_URL = (
 
 
 def prepare_mwoz_21(
-    data_folder: str, save_folder: str, replacements_path: str, skip_prep=False,
+    data_folder: str, save_folder: str, replacements_path: str, skip_prep=False
 ) -> None:
-
     """
     This class prepares the JSON files for the MultiWOZ dataset.
     Data will be automatically downloaded in the data_folder.
@@ -70,7 +69,6 @@ def prepare_mwoz_21(
 
     # If csv already exists, we skip the data preparation
     if skip(save_train, save_dev, save_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_train)
         logger.info(msg)
 
@@ -93,12 +91,16 @@ def prepare_mwoz_21(
     train_split, dev_split, test_split = get_splits(data_folder)
     # Creating json files for {train, dev, test} data
     file_pairs = zip(
-        [train_split, dev_split, test_split], [save_train, save_dev, save_test],
+        [train_split, dev_split, test_split],
+        [save_train, save_dev, save_test],
     )
 
     for split, save_file in file_pairs:
         build_dialogue_dataset(
-            data_path, split, save_file, replacements_path,
+            data_path,
+            split,
+            save_file,
+            replacements_path,
         )
 
 
@@ -106,9 +108,12 @@ def check_multiwoz_folders(data_folder):
     """
     Check if the data folder actually contains the MultiWOZ dataset.
     If not, raises an error.
-    Returns
-    -------
-    None
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to the directory containing the data.
+
     Raises
     ------
     FileNotFoundError
@@ -125,7 +130,7 @@ def check_multiwoz_folders(data_folder):
 
 
 def download_mwoz_21(destination):
-    """ Download the dataset repo, unpack it, and remove unnecessary elements.
+    """Download the dataset repo, unpack it, and remove unnecessary elements.
     Arguments
     ---------
     destination: str
@@ -153,6 +158,16 @@ def skip(save_train, save_dev, save_test):
     """
     Detects if the MultiWOZ data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_train : str
+        Path to train file.
+    save_dev : str
+        Path to dev file.
+    save_test : str
+        Path to test file.
+
     Returns
     -------
     bool
@@ -220,7 +235,10 @@ def build_dialogue_dataset(
     """
     logger.info(f"Prepare {save_file}")
     encode_dialogue_dataset(
-        save_file, data_path, data_split, replacements_path,
+        save_file,
+        data_path,
+        data_split,
+        replacements_path,
     )
 
 
@@ -284,7 +302,7 @@ def get_replacements(
 
 
 def load_dialogues(
-    data_path: str, data_split: List[str], replacements: List[Tuple[str, str]],
+    data_path: str, data_split: List[str], replacements: List[Tuple[str, str]]
 ) -> List[List[Dict[str, Any]]]:
     """
     Load dialogues from data_path, apply trade pre-processing, revert the
@@ -298,7 +316,7 @@ def load_dialogues(
     data_split: list of str
         List of string containing MultiWOZ 2.1 keys of the dialogues
         associated to a certain split (train, dev, test).
-    replacements_path: str
+    replacements: str
         File containing (from, to) pairs, one per line.
 
     Returns
@@ -568,8 +586,6 @@ def create_dialogue_dataset(
     dialogues: list of list of dict, keys are str, values could be anything
         List of dialogues. Each dialogue is a list of turns. Each turn is a
         dict containing dialogue_idx, turn_idx, and the corrected sequence.
-    kwargs: any
-        Additional arguments for the current function.
 
     Returns
     -------
@@ -591,10 +607,8 @@ def create_dialogue_dataset(
         turn: dict, keys are str, values could be anything
             A dict containing, the dialogue id, the turn id, the sequence,
             and the mean length.
-        replacements_path: str
-            Path to TRADE file containing (from, to) pairs, one per line.
-        kwargs: any
-            Additional arguments for the current function.
+        history: list of str
+            list of past turns.
 
         Returns
         -------
@@ -645,8 +659,6 @@ def create_entry_key(turn: Dict[str, Any]) -> str:
     turn: dict, keys are str, values could be anything
         A dict containing, the dialogue id, the turn id, the sequence,
         and the mean length.
-    kwargs: any
-        Additional arguments for the current function.
 
     Returns
     -------

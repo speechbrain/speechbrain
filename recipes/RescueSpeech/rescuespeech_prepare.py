@@ -68,6 +68,9 @@ def prepare_RescueSpeech(
         States the task for which data prepration is being done.
         It can either be 'asr' or 'enhance'
 
+    Returns
+    -------
+    None
     """
 
     if skip_prep:
@@ -100,7 +103,6 @@ def prepare_RescueSpeech(
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
         logger.info(msg)
 
@@ -135,6 +137,15 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     Detects if the RescueSpeech data preparation has been already done.
 
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_csv_train : str
+        Path to train csv
+    save_csv_dev : str
+        Path to dev csv
+    save_csv_test : str
+        Path to test csv
 
     Returns
     -------
@@ -173,10 +184,6 @@ def create_asr_csv(
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-
-    Returns
-    -------
-    None
     """
 
     # Check if the given files exists
@@ -225,7 +232,6 @@ def create_asr_csv(
     # Start processing lines
     total_duration = 0.0
     for line in tzip(loaded_csv):
-
         line = line[0]
 
         clean_data_fp = os.path.join(data_folder, "audio_files/clean")
@@ -362,9 +368,9 @@ def create_enhance_csv(data_folder, csv_file, split, fs=16000):
     """
     Create CSV files for train, valid and test set.
 
-    Arguments:
-    ----------
-    data_folder :str
+    Arguments
+    ---------
+    data_folder : str
         Path to synthesized RescuSpeech data for task enhancement
     csv_file : str
         Save csv_file path for prepared data.
@@ -457,7 +463,7 @@ def write2csv(
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
         writer.writeheader()
 
-        for (i, (lang, clean_fp, noise_fp, noisy_fp),) in enumerate(
+        for i, (lang, clean_fp, noise_fp, noisy_fp) in enumerate(
             tqdm(
                 zip(language, clean_fullpaths, noise_fullpaths, noisy_fullpaths)
             )
@@ -497,9 +503,10 @@ def check_RescueSpeech_data_folders(data_folder):
 
     If not, raises an error.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        Path to folder containing data.
 
     Raises
     ------
@@ -509,7 +516,6 @@ def check_RescueSpeech_data_folders(data_folder):
 
     # Checking clips
     if not os.path.exists(data_folder):
-
         err_msg = (
             "the folder %s does not exist (it is expected in "
             "the RescueSpeech dataset)" % (data_folder)
@@ -544,8 +550,8 @@ def data_cleaning(words):
 
     Arguments
     ---------
-        word : str
-            Text that needs to be cleaned
+    words : str
+        Text that needs to be cleaned
 
     Returns
     -------
@@ -571,8 +577,8 @@ def strip_accents(text):
     """
     Strips accents from a given text string.
 
-    Arguments:
-    ----------
+    Arguments
+    ---------
     text : str
         The text from which accents are to be stripped.
 
@@ -596,9 +602,9 @@ def extract_files(datapath, type=None):
     Given a dir-path, it extracts full path of all wav files
     and sorts them.
 
-    Arguments:
-    ----------
-    datapath :str
+    Arguments
+    ---------
+    datapath : str
         Path to synthesized SAR data
     type : str
         Type of split: clean, noisy, noise.

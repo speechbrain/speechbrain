@@ -66,6 +66,10 @@ def prepare_media(
         If True, skip data preparation.
     process_test2: bool, optional
         It True, process test2 corpus
+
+    Returns
+    -------
+    None
     """
 
     if skip_prep:
@@ -130,10 +134,11 @@ def prepare_media(
             + str(len(xmls))
         )
         root = get_root(
-            data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml, 0,
+            data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml,
+            0,
         )
         data = parse(
-            root, channels, filenames, save_folder, method, task, xmls[xml],
+            root, channels, filenames, save_folder, method, task, xmls[xml]
         )
         if xmls[xml] == "train":
             train_data.extend(data)
@@ -181,6 +186,15 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     Detects if the MEDIA data preparation has been already done.
     If the preparation has been done, we can skip it.
 
+    Arguments
+    ---------
+    save_csv_train : str
+        Path to train csv
+    save_csv_dev : str
+        Path to dev csv
+    save_csv_test : str
+        Path to test csv
+
     Returns
     -------
     bool
@@ -201,9 +215,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     return skip
 
 
-def parse(
-    root, channels, filenames, save_folder, method, task, corpus,
-):
+def parse(root, channels, filenames, save_folder, method, task, corpus):
     """
     Parse data for the train, dev and test csv files of the Media dataset.
     Files are stored in MEDIA1FR_00/MEDIA1FR/DATA/.
@@ -235,14 +247,12 @@ def parse(
     data = []
 
     for dialogue in root.getElementsByTagName("dialogue"):
-
         speaker_name = get_speaker(dialogue)
         filename = dialogue.getAttribute("id")
         channel = get_channel(filename, channels, filenames)
 
         for turn in dialogue.getElementsByTagName("turn"):
             if turn.getAttribute("speaker") == "spk":
-
                 time_beg = turn.getAttribute("startTime")
                 time_end = turn.getAttribute("endTime")
 
@@ -294,6 +304,10 @@ def parse_test2(
         Concepts in method full.
     concepts_relax: list of str
         Concepts equivalent in method relax.
+
+    Returns
+    -------
+    data : list
     """
 
     speaker_id, speaker_name = get_speaker_test2(root)
@@ -303,7 +317,6 @@ def parse_test2(
 
     for turn in root.getElementsByTagName("Turn"):
         if turn.getAttribute("speaker") == speaker_id:
-
             time_beg = turn.getAttribute("startTime")
             time_end = turn.getAttribute("endTime")
 
@@ -401,8 +414,8 @@ def parse_sentences(turn, time_beg, time_end, method, task):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
 
-    Arguments:
-    -------
+    Arguments
+    ---------
     turn: list of Document
         The current turn node.
     time_beg: str
@@ -416,7 +429,7 @@ def parse_sentences(turn, time_beg, time_end, method, task):
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     has_speech = False
@@ -442,7 +455,6 @@ def parse_sentences(turn, time_beg, time_end, method, task):
                 for transcription in sem.getElementsByTagName("transcription"):
                     # Check for sync or text
                     for node in transcription.childNodes:
-
                         # Check transcription
                         if (
                             node.nodeType == node.TEXT_NODE
@@ -510,13 +522,13 @@ def parse_sentences(turn, time_beg, time_end, method, task):
 
 
 def parse_sentences_test2(
-    turn, time_beg, time_end, method, concepts_full, concepts_relax, task,
+    turn, time_beg, time_end, method, concepts_full, concepts_relax, task
 ):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
 
-    Arguments:
-    -------
+    Arguments
+    ---------
     turn: list of Document
         All the xml following nodes present in the turn.
     time_beg: str
@@ -534,7 +546,7 @@ def parse_sentences_test2(
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     sentences = [["", "", time_beg, time_end]]
@@ -547,7 +559,6 @@ def parse_sentences_test2(
 
     # For each node in the Turn
     for node in turn.childNodes:
-
         # Check concept
         if task == "slu" and node.nodeName == "SemDebut":
             concept = node.getAttribute("concept")
@@ -776,10 +787,6 @@ def process_semfin_node(
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
         False if clossing tag put or concept not used.
-    task: str, optional
-        Either 'slu' or 'asr'.
-        'slu' Parse SLU data.
-        'asr' Parse ASR data.
     n: int
         Used to keep track of the number of sentences in the turn.
     time: str
@@ -789,7 +796,7 @@ def process_semfin_node(
 
     Returns
     -------
-    dictionnary of str, str, bool, bool, bool, int
+    dictionary of str, str, bool, bool, bool, int
     """
 
     # Prevent adding a closing concept

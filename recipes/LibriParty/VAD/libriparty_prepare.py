@@ -237,15 +237,19 @@ def prepare_libriparty(
     ---------
     data_folder : str
         Path to the folder where the original LibriSpeech dataset is stored.
-    data_folder : str
+    save_json_folder : str
         The path where to store the training json file.
-    save_json_valid : str
-        The path where to store the valid json file.
-    save_json_test : str
-        The path where to store the test json file.
+    sample_rate : int
+        Sampling rate for the audio.
+    window_size : int
+        Size of window for creating splits.
     skip_prep: bool
         Default: False
         If True, the data preparation is skipped.
+
+    Returns
+    -------
+    None
 
     Example
     -------

@@ -8,7 +8,6 @@ Authors
  * Jarod Duret 2023
 """
 
-
 import sys
 import logging
 import time
@@ -59,7 +58,8 @@ def fetch_data(splits, sample_pct, seed=1234):
     for split in splits:
         key = f"{split.parent}_{split.stem}"
         ds_splits[key] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=split, output_keys=["id", "wav"],
+            json_path=split,
+            output_keys=["id", "wav"],
         )
 
     data = list(itertools.chain(*ds_splits.values()))
@@ -83,7 +83,8 @@ def extract_features(
             info = torchaudio.info(wav)
             audio = sb.dataio.dataio.read_audio(wav)
             audio = torchaudio.transforms.Resample(
-                info.sample_rate, sample_rate,
+                info.sample_rate,
+                sample_rate,
             )(audio)
             audio = audio.unsqueeze(0).to(device)
             feats = model.extract_features(audio)
