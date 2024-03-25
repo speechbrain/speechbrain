@@ -405,6 +405,23 @@ class WeightedErrorRateStats(MetricStats):
         self.cost_function = cost_function
         self.weight_name = weight_name
 
+    def append(self, *args, **kwargs):
+        """Append function, which should **NOT** be used for the weighted error
+        rate stats. Please append to the specified `base_stats` instead.
+
+        Arguments
+        ---------
+        *args
+            Ignored.
+        **kwargs
+            Ignored.
+        """
+
+        raise ValueError(
+            "Cannot append to a WeightedErrorRateStats. "
+            "You should only append to the base ErrorRateStats."
+        )
+
     def summarize(self, field=None):
         """Returns a dict containing some detailed WER statistics after weighting
         every edit with a weight determined by `cost_function` (returning `0.0`
@@ -529,9 +546,11 @@ class EmbeddingErrorRateSimilarity:
             return 1.0
 
         if edit_symbol == EDIT_SYMBOLS["sub"]:
-            # shouldn't ever be true for sub
-            assert a is not None
-            assert b is not None
+            if a is None or a == "":
+                return self.low_similarity_weight
+
+            if b is None or b == "":
+                return self.low_similarity_weight
 
             a_emb = self.embedding_function(a)
             if a_emb is None:
