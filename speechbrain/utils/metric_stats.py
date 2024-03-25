@@ -466,17 +466,21 @@ class WeightedErrorRateStats(MetricStats):
                 utt_total += 1.0
 
             utt_weighted_edits = (
-                utt_weighted_insertions + utt_weighted_substitutions + utt_weighted_deletions
+                utt_weighted_insertions
+                + utt_weighted_substitutions
+                + utt_weighted_deletions
             )
             utt_weighted_wer_ratio = utt_weighted_edits / utt_total
-            self.scores.append({
-                "key": self.base_stats.ids[i],
-                "WER": utt_weighted_wer_ratio * 100.0,
-                "insertions": utt_weighted_insertions,
-                "substitutions": utt_weighted_substitutions,
-                "deletions": utt_weighted_deletions,
-                "num_edits": utt_weighted_edits,
-            })
+            self.scores.append(
+                {
+                    "key": self.base_stats.ids[i],
+                    "WER": utt_weighted_wer_ratio * 100.0,
+                    "insertions": utt_weighted_insertions,
+                    "substitutions": utt_weighted_substitutions,
+                    "deletions": utt_weighted_deletions,
+                    "num_edits": utt_weighted_edits,
+                }
+            )
 
             weighted_insertions += utt_weighted_insertions
             weighted_substitutions += utt_weighted_substitutions
