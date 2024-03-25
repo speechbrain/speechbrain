@@ -589,6 +589,7 @@ puml
 punc
 pval
 pyctcdecode
+pydoclint
 pydub
 pygtrie
 pyin

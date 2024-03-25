@@ -44,12 +44,14 @@ def prepare_data(
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
-    split_ratio: list
+    split_ratio : list
         List composed of three integers that sets split ratios for train,
         valid, and test sets, respectively.
         For instance split_ratio=[80, 10, 10] will assign 80% of the sentences
         to training, 10% for validation, and 10% for test.
-    test_spk_id: int
+    different_speakers : bool
+        If True, splits data so speakers are NOT shared among splits.
+    test_spk_id : int
         Id of speaker used for test set, 10 speakers in total.
         Here a leave-two-speaker strategy is used for the split,
         if one test_spk_id is selected for test, the other spk_id in the same
@@ -58,6 +60,10 @@ def prepare_data(
         10 experiments with test_spk_id from 1 to 10 should be done.
     seed : int
         Seed for reproducibility
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -137,6 +143,11 @@ def skip(*filenames):
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
 
+    Arguments
+    ---------
+    *filenames : tuple
+        A list of paths to check for existence.
+
     Returns
     -------
     bool
@@ -166,7 +177,7 @@ def split_different_speakers(speaker_dict, test_spk_id):
         Session1 contains speaker 1&2, Session2 contains speaker 3&4, ...
 
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
     data_split = {k: [] for k in ["train", "valid", "test"]}
@@ -200,14 +211,14 @@ def split_sets(speaker_dict, split_ratio):
     ---------
     speaker_dict : list
         a dictionary of speaker id and its corresponding audio information
-    split_ratio: list
+    split_ratio : list
         List composed of three integers that sets split ratios for train,
         valid, and test sets, respectively.
         For instance split_ratio=[80, 10, 10] will assign 80% of the sentences
         to training, 10% for validation, and 10% for test.
 
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
 
@@ -241,6 +252,11 @@ def transform_data(path_loadSession):
     path_loadSession : str
         Path to the folder where the original IEMOCAP dataset is stored.
 
+    Returns
+    -------
+    speaker_dict : dict
+        Map from speaker id to wav.
+
     Example
     -------
     >>> data_original = '/path/to/iemocap/IEMOCAP_full_release/Session'
@@ -272,7 +288,7 @@ def load_utterInfo(inputFile):
     # [START_TIME - END_TIME] TURN_NAME EMOTION [V, A, D]
     # [V, A, D] means [Valence, Arousal, Dominance]
     pattern = re.compile(
-        "[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
+        r"[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
         re.IGNORECASE,
     )  # noqa
     with open(inputFile, "r") as myfile:

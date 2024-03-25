@@ -78,15 +78,22 @@ class Data:
 def prepare_fisher_callhome_spanish(
     data_folder: str, save_folder: str, device: str = "cpu"
 ):
-
     """
     Prepares the json files for the Mini Fisher-Callhome-Spanish dataset.
+
     Arguments
     ---------
     data_folder : str
         Path to the folder where the Fisher-Callhome-Spanish dataset is stored.
-    save_folder: str:
+    save_folder : str
         Path of train/valid/test specification file will be saved.
+    device : str
+        The device on which to perform computation, e.g. "cpu", "cuda"
+
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/fisher-callhome'
@@ -418,7 +425,7 @@ def get_transcription_files_by_dataset(
 
 
 def get_translations_from_path(translation_path: str) -> List[str]:
-    """"return translations from the given path"""
+    """ "return translations from the given path"""
     extracted_translations = []
     with open(translation_path, "rb") as translations_file:
         original_translations = translations_file.readlines()

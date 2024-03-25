@@ -66,10 +66,14 @@ def prepare_cvss(
         The directory where to store the csv files.
     splits : list
         List of splits to prepare.
-    skip_prep: Bool
-        If True, skip preparation.
     seed : int
         Random seed
+    skip_prep: Bool
+        If True, skip preparation.
+
+    Returns
+    -------
+    None
     """
     # setting seeds for reproducible code.
     random.seed(seed)
@@ -140,7 +144,11 @@ def prepare_cvss(
         )
     if "test" in splits:
         prepare_json(
-            save_json_test, src_audio, tgt_audio_test, src_validated, tgt_test,
+            save_json_test,
+            src_audio,
+            tgt_audio_test,
+            src_validated,
+            tgt_test,
         )
 
     save_pkl(conf, save_opt)
@@ -150,6 +158,15 @@ def skip(splits, save_folder, conf):
     """
     Detects if the cvss data_preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits: list
+        The dataset portions to check.
+    save_folder: str
+        The path to the location of generated files.
+    conf: dict
+        The configuration to check against the saved config.
 
     Returns
     -------

@@ -1,4 +1,4 @@
-black==19.10b0
+black==24.3.0
 click==8.0.4
 flake8==7.0.0
 pycodestyle==2.5.0

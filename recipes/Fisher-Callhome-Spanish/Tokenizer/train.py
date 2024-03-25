@@ -20,7 +20,6 @@ from hyperpyyaml import load_hyperpyyaml
 from fisher_callhome_prepare import prepare_fisher_callhome_spanish
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
