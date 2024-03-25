@@ -34,7 +34,7 @@ class FlairEmbeddings:
         save_path="./model_checkpoints",
         filename="model.bin",
         *args,
-        **kwargs
+        **kwargs,
     ) -> "FlairEmbeddings":
         """Fetches and load flair embeddings according to the
         :func:`speechbrain.utils.fetching.fetch` semantics. Embedding files will
@@ -97,7 +97,9 @@ class FlairEmbeddings:
 
         # migrate pad to device & broadcast if it's just a scalar
         pad_tensor = pad_tensor.to(flair.device)
-        pad_tensor = pad_tensor.broadcast_to(self.embeddings.embedding_length).unsqueeze(0)
+        pad_tensor = pad_tensor.broadcast_to(
+            self.embeddings.embedding_length
+        ).unsqueeze(0)
 
         sentence_embs = [
             torch.stack([token.embedding for token in sentence])
