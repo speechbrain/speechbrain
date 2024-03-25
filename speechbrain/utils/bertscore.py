@@ -6,6 +6,7 @@ Authors
 
 from collections import defaultdict
 from typing import Iterable, Optional
+import itertools
 import torch
 import logging
 import math
@@ -104,7 +105,7 @@ class BERTScoreStats(MetricStats):
         self.scores = []
         self.summary = {}
 
-    def append(self, ids, predictions, targets):
+    def append(self, ids, predict, target):
         """
         Appends inputs, predictions and targets to internal
         lists
@@ -119,8 +120,8 @@ class BERTScoreStats(MetricStats):
             the ground truths in tokenizable format
         """
         self.ids.extend(ids)
-        self.predictions.extend(predictions)
-        self.targets.extend(targets)
+        self.predictions.extend(predict)
+        self.targets.extend(target)
 
     def summarize(self, field=None):
         """Summarize the classification metric scores. Performs the actual LM
@@ -169,6 +170,9 @@ class BERTScoreStats(MetricStats):
             ids = self.ids[chunk_idx : chunk_idx + self.batch_size]
             ref_text = self.targets[chunk_idx : chunk_idx + self.batch_size]
             hyp_text = self.predictions[chunk_idx : chunk_idx + self.batch_size]
+
+            ref_text = [" ".join(ref) for ref in ref_text]
+            hyp_text = [" ".join(hyp) for hyp in hyp_text]
 
             refs = self.tokenizer(
                 ref_text, return_tensors="pt", padding=True
@@ -352,7 +356,7 @@ def get_bertscore_token_weights(
     freq_dict = defaultdict(lambda: 0)
 
     for document_idx, document in enumerate(corpus):
-        tokens = tokenizer(document)["input_ids"]
+        tokens = tokenizer(" ".join(document))["input_ids"]
         unique_words = set(tokens)
 
         for unique_word in unique_words:
