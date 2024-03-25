@@ -49,7 +49,7 @@ class BaseSemDistStats(MetricStats):
         self.scores = []
         self.summary = {}
 
-    def append(self, ids, predictions, targets):
+    def append(self, ids, predict, target):
         """
         Appends inputs, predictions and targets to internal
         lists
@@ -64,8 +64,8 @@ class BaseSemDistStats(MetricStats):
             the ground truths in tokenizable format
         """
         self.ids.extend(ids)
-        self.predictions.extend(predictions)
-        self.targets.extend(targets)
+        self.predictions.extend(predict)
+        self.targets.extend(target)
 
     def summarize(self, field=None):
         """Summarize the SemDist metric scores. Performs the actual embedding
@@ -87,8 +87,8 @@ class BaseSemDistStats(MetricStats):
             ref_text = self.targets[chunk_idx : chunk_idx + self.batch_size]
             hyp_text = self.predictions[chunk_idx : chunk_idx + self.batch_size]
 
-            ref_emb = self.embed_function(ref_text)
-            hyp_emb = self.embed_function(hyp_text)
+            ref_emb = self.embed_function(ref_text).cpu()
+            hyp_emb = self.embed_function(hyp_text).cpu()
 
             similarity = torch.nn.functional.cosine_similarity(
                 ref_emb, hyp_emb, dim=-1
@@ -141,12 +141,12 @@ class SemDistStats(BaseSemDistStats):
         self.method = method
 
     def _embed(self, sentences: List[str]) -> torch.Tensor:
+        sentences = [" ".join(sent) for sent in sentences]
         tokens = self.tokenizer(
             sentences, return_tensors="pt", padding=True
         ).to(self.lm.device)
 
-        mask = tokens["attention_mask"]
-
+        mask = tokens["attention_mask"].cpu()
         hidden = self.lm(**tokens).last_hidden_state.cpu()
 
         if self.method == "meanpool":
