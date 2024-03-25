@@ -4,6 +4,7 @@ Authors
 * Sylvain de Langen 2024
 """
 
+import flair
 from flair.data import Sentence
 from flair.embeddings import Embeddings
 from typing import List, Union
@@ -95,9 +96,8 @@ class FlairEmbeddings:
         self.embeddings.embed(sentences)
 
         # migrate pad to device & broadcast if it's just a scalar
-        sample_emb = sentences[0][0].embedding
-        pad_tensor = pad_tensor.to(sample_emb.device)
-        pad_tensor = pad_tensor.broadcast_to(sample_emb.shape).unsqueeze(0)
+        pad_tensor = pad_tensor.to(flair.device)
+        pad_tensor = pad_tensor.broadcast_to(self.embeddings.embedding_length).unsqueeze(0)
 
         sentence_embs = [
             torch.stack([token.embedding for token in sentence])
@@ -111,3 +111,15 @@ class FlairEmbeddings:
             for emb in sentence_embs
         ]
         return torch.stack(sentence_embs)
+
+    def embed_word(self, word: str) -> torch.Tensor:
+        """Embeds a single word.
+
+        Arguments
+        ---------
+        word : str
+            Word to embed. Out-of-vocabulary handling depends on the underlying
+            embedding class.
+        """
+
+        return self([word])[0, 0, :]
