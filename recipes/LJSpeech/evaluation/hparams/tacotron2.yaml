@@ -1,3 +1,11 @@
+############################################################################
+# Model: Tacotron2
+# Evaluation recipe
+# Tokens: Raw characters (English text)
+# losses: Transducer
+# Training: LJSpeech
+# Authors: Artem Ploujnikov
+# ############################################################################
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/tacotron2/<seed>

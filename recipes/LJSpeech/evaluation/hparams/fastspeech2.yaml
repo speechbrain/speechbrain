@@ -1,3 +1,11 @@
+############################################################################
+# Model: FastSpeech2
+# Evaluation recipe
+# Tokens: Raw characters (English text)
+# Training: LJSpeech
+# Authors: Artem Ploujnikov
+# ############################################################################
+
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/fastspeech2/<seed>
@@ -18,7 +26,6 @@ batch_size: 8
 train_json: !ref <prepare_save_folder>/train.json
 valid_json: !ref <prepare_save_folder>/valid.json
 test_json: !ref <prepare_save_folder>/test.json
-
 
 
 asr_source: speechbrain/asr-transformer-transformerlm-librispeech
