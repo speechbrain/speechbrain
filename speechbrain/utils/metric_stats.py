@@ -9,6 +9,9 @@ Authors:
 """
 
 import torch
+import numpy as np
+import csv
+import logging
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
@@ -18,6 +21,8 @@ from speechbrain.dataio.dataio import (
     extract_concepts_values,
 )
 from speechbrain.dataio.wer import print_wer_summary, print_alignments
+
+logger = logging.getLogger(__name__)
 
 
 class MetricStats:
@@ -1106,3 +1111,300 @@ def _dictify(f):
         return result._asdict() if has_asdict else result
 
     return wrapper
+
+
+KEY_ID = "id"
+KEY_DIFF = "diff"
+KEY_DIFF_SQ = "diff_sq"
+
+
+class LinearRegressionStats(MetricStats):
+    """Computes a simple linear correlation between two metrics - useful
+    for regression tasks, such as quality assessment. It provides an optional
+    grouping option, in which case the correlation is computed between means
+    of groups rather than individual samples. The original use case for grouping
+    is producing system-level correlation for the MOS estimation task
+    (as opposed to utterance-level).
+
+    Arguments
+    ---------
+    grouped: bool, Optional
+        If set to true, statistics will be grouped
+    scores_label : str, optional
+        The user-facing label for scores, to be shown on plots
+    targets_label : str, optional
+        The user-facing label for targets, to be shown on plots
+    scores_key : str, optional
+        The field name for scores, to be used for raw data output
+    targets_key : str, optional
+        The field name for targets, to be used for raw data output
+    plot_pad_left : float
+        The amount of padding on the left
+    plot_pad_bottom : float
+        The amount of padding on the bottom
+
+    Example
+    -------
+    >>> import torch
+    >>> from speechbrain.utils.metric_stats import LinearRegressionStats
+    >>> reg_stats = LinearRegressionStats()
+    >>> reg_stats.append(
+    ...     ids=["ID1", "ID2"],
+    ...     predict=torch.tensor([1.25, 2.75]),
+    ...     target=torch.tensor([1.00, 3.00]),
+    ... )
+    >>> reg_stats.append(
+    ...     ids=["ID3", "ID4"],
+    ...     predict=torch.tensor([5.5, 3.5]),
+    ...     target=torch.tensor([5.0, 3.0]),
+    ... )
+    >>> summary = reg_stats.summarize()
+    >>> summary = {key: round(value, 2) for key, value in summary.items()}
+    >>> summary["scores_mean"]
+    3.25
+    >>> summary["scores_std"]
+    1.77
+    >>> summary["targets_mean"]
+    3.0
+    >>> summary["targets_std"]
+    1.63
+    >>> summary["slope"]
+    0.91
+    >>> summary["intercept"]
+    0.05
+    >>> summary["pearson_r"]
+    0.98
+    >>> reg_stats = LinearRegressionStats(grouped=True)
+    >>> reg_stats.append(
+    ...    ids=["ID1", "ID2", "ID3", "ID4"],
+    ...    predict=torch.tensor([1.25, 2.75]),
+    ...    target=torch.tensor([1.00, 3.00]),
+    ...    groups=["G1", "G2", "G3", "G2"],
+    ... )
+    >>> reg_stats.append(
+    ...    ids=["ID5", "ID6", "ID7", "ID8"],
+    ...    predict=torch.tensor([5.5, 3.5, 2.2, 1.0]),
+    ...    target=torch.tensor([5.0, 3.0, 2.0, 1.2]),
+    ...    groups=["G1", "G2", "G3", "G1"],
+    ... )
+    >>> summary = reg_stats.summarize()
+    >>> summary = {key: round(value, 2) for key, value in summary.items()}
+    >>> summary["scores_mean"]
+    3.21
+    >>> summary["scores_std"]
+    2.01
+    >>> summary["targets_mean"]
+    2.97
+    >>> summary["targets_std"]
+    1.82
+    >>> summary["slope"]
+    0.9
+    >>> summary["intercept"]
+    0.07
+    >>> summary["pearson_r"]
+    1.0
+    """
+
+    def __init__(
+        self,
+        grouped=False,
+        scores_label="y",
+        targets_label="x",
+        scores_key="y",
+        targets_key="x",
+        plot_pad_left=0.2,
+        plot_pad_bottom=0.1,
+    ):
+        self.clear()
+        self.targets = []
+        self.groups = []
+        self.grouped = grouped
+        self.scores_label = scores_label
+        self.targets_label = targets_label
+        self.scores_key = scores_key
+        self.targets_key = targets_key
+        self.plot_pad_left = plot_pad_left
+        self.plot_pad_bottom = plot_pad_bottom
+
+    def append(
+        self, ids, predict, target, groups=None,
+    ):
+        """Appends a measurement
+
+        Arguments
+        ---------
+        ids : list
+            a list of item IDs
+        predict : torch.Tensor
+            the prediction tensor
+        target : torch.Tensor
+            the target tensor
+        groups : list, optional
+            the group indicator for each item, ignored
+            if grouped is set to false
+        """
+        self.ids.extend(ids)
+        self.scores.extend(_flatten(predict))
+        self.targets.extend(_flatten(target))
+        if self.grouped:
+            self.groups.extend(groups)
+
+    def group_data(self):
+        """Returns the group means of scores and targets"""
+        grouped_scores = _group(self.scores, self.groups)
+        grouped_targets = _group(self.targets, self.groups)
+        groups = sorted(grouped_scores.keys())
+        scores = np.array([grouped_scores[group].mean() for group in groups])
+        targets = np.array([grouped_targets[group].mean() for group in groups])
+        return scores, targets
+
+    def get_regression_data(self):
+        """Prepares data for regression. If grouping is disabled, collected
+        scores and targets are converted to arrays. If it is enabled, grouped
+        data will be aggregated first
+
+        Returns
+        -------
+        scores : numpy.array
+            Estimated scores / metric values
+        targets : numpy.array
+            Ground truths"""
+        if self.grouped:
+            scores, targets = self.group_data()
+        else:
+            scores = np.array(self.scores)
+            targets = np.array(self.targets)
+        return scores, targets
+
+    def summarize(self, field=None):
+        """Summarizes linear regression statistics
+
+        Full set of fields:
+        - scores_mean - the mean of scores
+        - scores_std - the standard deviation of scores
+        - targets_mean - the mean of targets
+        - targets_std - the standard deviation of targets
+        - slope - the slope of the regression line
+        - intercept - the intercept of the regression line
+        - pearson_r - the Pearson correlation coefficient
+        """
+        scores, targets = self.get_regression_data()
+        has_data = len(scores) > 0
+        if has_data:
+            x = np.stack([scores, np.ones_like(scores)], axis=1)
+            solution, _, _, _ = np.linalg.lstsq(x, targets, rcond=None)
+            slope, intercept = solution.squeeze()
+            corr_mat = np.corrcoef(scores, targets)
+            pearson_r = corr_mat[0][1]
+        self.summary = {
+            "scores_mean": scores.mean() if has_data else 0.0,
+            "scores_std": scores.std(ddof=1) if has_data else 0.0,
+            "targets_mean": targets.mean() if has_data else 0.0,
+            "targets_std": targets.std(ddof=1) if has_data else 0.0,
+            "slope": slope if has_data else 0.0,
+            "intercept": intercept if has_data else 0.0,
+            "pearson_r": pearson_r if has_data else 0.0,
+        }
+        if field:
+            return self.summary[field]
+        else:
+            return self.summary
+
+    def plot(self, output=None):
+        """Outputs a regression plot, optionally saving it to a file or a
+        stream, returning a Matplotlib figure. Requires Seaborn.
+
+        Arguments
+        ---------
+        output : str | path-like | BytesIO
+            The path to which the diagram will be saved
+
+        Returns
+        -------
+        fig : figure
+            A Matplotlib figure"""
+        try:
+            import seaborn as sns
+            import matplotlib
+        except ImportError:
+            raise ImportError("Regression plots require Seaborn")
+        matplotlib.use("Agg")
+        if self.summary is None:
+            self.summarize()
+        scores, targets = self.get_regression_data()
+        if len(scores) == 0:
+            logger.warning("Cannot produce a plot - no data found")
+            return None
+        h = sns.jointplot(x=targets, y=scores, kind="reg")
+
+        r = self.summary["pearson_r"]
+        h.figure.suptitle(f"r = {r:.3f}", x=self.plot_pad_left)
+
+        h.ax_joint.set_xlabel(self.targets_label)
+        h.ax_joint.set_ylabel(self.scores_label)
+        h.figure.subplots_adjust(
+            left=self.plot_pad_left, bottom=self.plot_pad_bottom
+        )
+        if output is not None:
+            h.figure.savefig(output)
+        return h.figure
+
+    def write_csv(self, file_name):
+        """Outputs raw data, as CSV
+
+        Arguments
+        ---------
+        file_name : str, path-like
+            The path to which raw statistics will be written"""
+        scores = np.array(self.scores)
+        targets = np.array(self.targets)
+        diff = scores - targets
+        diff_sq = diff ** 2
+        with open(file_name, "w") as csv_file:
+            writer = csv.writer(csv_file)
+            header = [
+                KEY_ID,
+                self.scores_key,
+                self.targets_key,
+                KEY_DIFF,
+                KEY_DIFF_SQ,
+            ]
+            writer.writerow(header)
+            rows = zip(self.ids, scores, targets, diff, diff_sq)
+            writer.writerows(rows)
+
+
+def _flatten(x):
+    """Removes size-1 dimensions from the end but does not remove the
+    batch dimension"""
+    while x.dim() > 1 and x.size(-1) == 1:
+        x = x.squeeze(-1)
+    return x.tolist()
+
+
+def _group(data, groups):
+    """Collects raw data into groups (naive implementation using a simple in-memory
+    dictionary)
+
+    Arguments
+    ---------
+    data : list
+        a list of numeric data
+    groups : list
+        a list of group indicators
+
+    Returns
+    -------
+    results : dict
+        a dictionary with group labels as keys and the corresponding
+        data as values"""
+    grouped_data = {}
+    for item, group in zip(data, groups):
+        if group not in grouped_data:
+            grouped_data[group] = []
+        grouped_data[group].append(item)
+
+    return {
+        group: np.array(group_data)
+        for group, group_data in grouped_data.items()
+    }

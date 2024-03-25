@@ -1,0 +1,112 @@
+# ############################################################################
+# Model: SSL with Wav2Vec (training from scratch)
+# Authors:  Artem Ploujnikov, Yingzhi Wang
+# # ############################################################################
+
+
+# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+seed: 42
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+data_folder: !PLACEHOLDER
+output_folder: !ref results/ssl_wavlm/<seed>
+save_folder: !ref <output_folder>/save
+details_folder: !ref <output_folder>/details
+train_log: !ref <output_folder>/train_log.txt
+train_regression_metric: True
+batch_size: 4
+num_workers: 4
+use_transcripts: False
+src_sample_rate: 24000
+tgt_sample_rate: 16000
+contrastive: False
+contrastive_loss_weight: 0.8
+contrastive_min_delta: 0.5
+classification_epochs: 3
+classification_threshold: 3.5
+
+lr: 0.00001
+
+dataloader_options:
+  batch_size: !ref <batch_size>
+  num_workers: !ref <num_workers>
+  shuffle: True
+
+number_of_epochs: 10
+ckpt_interval_minutes: 15
+
+wavlm_source: microsoft/wavlm-large
+wavlm_folder: !ref <save_folder>/wavlm_checkpoint
+
+#freeze all wavlm
+wavlm_freeze: False
+#set to true to freeze the CONV part of the wavlm model
+wavlm_freeze_feature_extractor: True
+activation: !name:torch.nn.LeakyReLU
+
+d_model: 512
+d_ffn: 2048
+num_layers: 3
+nhead: 4
+dropout: 0.5
+
+splits: ["train", "valid", "test"]
+subset: "full"
+skip_prep: False
+
+train_annotation: !ref <data_folder>/train.csv
+valid_annotation: !ref <data_folder>/valid.csv
+test_annotation: !ref <data_folder>/test.csv
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+  save_file: !ref <train_log>
+
+compute_cost: !name:speechbrain.nnet.losses.l1_loss
+compute_cost_contrastive: !name:speechbrain.nnet.losses.mse_loss
+compute_cost_classification: !name:speechbrain.nnet.losses.bce_loss
+
+
+wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+  source: !ref <wavlm_source>
+  output_norm: True
+  freeze: !ref <wavlm_freeze>
+  freeze_feature_extractor: !ref <wavlm_freeze_feature_extractor>
+  save_path: !ref <wavlm_folder>
+
+model: !new:speechbrain.lobes.models.eval.ssl.TransformerRegression
+  base_model: !ref <wavlm>
+  d_model: !ref <d_model>
+  d_ffn: !ref <d_ffn>
+  num_layers: !ref <num_layers>
+  nhead: !ref <nhead>
+  dropout: !ref <dropout>
+  activation: !ref <activation>
+
+classifier: !new:speechbrain.lobes.models.eval.ssl.BaselineSSLFinetune
+  base_model: !ref <wavlm>
+
+modules:
+  model: !ref <model>
+  classifier: !ref <classifier>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+  limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+  lr: !ref <lr>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+  checkpoints_dir: !ref <save_folder>
+  recoverables:
+    model: !ref <model>
+    classifier: !ref <classifier>
+    lr_annealing_output: !ref <lr_annealing>
+    counter: !ref <epoch_counter>
+  allow_partial_load: True
+
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+  initial_value: !ref <lr>
+  improvement_threshold: 0.0025
+  annealing_factor: 0.9
+  patient: 0

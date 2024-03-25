@@ -1,0 +1,1 @@
+../ljspeech_prepare.py
