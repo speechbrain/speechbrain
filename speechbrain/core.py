@@ -252,7 +252,7 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="Run the experiment in evaluate only mode."
-        "It skipps the training and goes directly to the evaluation."
+        "It skips the training and goes directly to the evaluation."
         "The model is expected to be already trained.",
     )
     parser.add_argument(
@@ -799,13 +799,7 @@ class Brain:
             )
 
         # List parameter count for the user
-        total_params = sum(
-            p.numel() for p in self.modules.parameters() if p.requires_grad
-        )
-        if total_params > 0:
-            clsname = self.__class__.__name__
-            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
-            logger.info(f"{fmt_num} trainable parameters in {clsname}")
+        self.print_trainable_parameters()
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
@@ -836,7 +830,7 @@ class Brain:
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
 
-        # Force default color for tqdm progrressbar
+        # Force default color for tqdm progressbar
         if not self.tqdm_colored_bar:
             self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
 
@@ -850,6 +844,29 @@ class Brain:
                 self.profile_steps,
                 self.hparams.output_folder,
             )
+
+    def print_trainable_parameters(self):
+        """Prints the number of trainable parameters in the model."""
+        total_trainable_params = 0
+        total_parameters = 0
+        for parameter in self.modules.parameters():
+            total_parameters += parameter.numel()
+            if parameter.requires_grad:
+                total_trainable_params += parameter.numel()
+        class_name = self.__class__.__name__
+        percentage_trainable = 100 * total_trainable_params / total_parameters
+        formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
+            total_trainable_params
+        )
+        formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+            total_parameters
+        )
+        logger.info(
+            f"{class_name} Model Statistics:\n"
+            f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
+            f"* Total Number of Parameters: {formatted_total_params}\n"
+            f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
+        )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -1772,7 +1789,7 @@ class Brain:
         Arguments
         ---------
         use : bool
-            If set to `False` will still sync gradients, useful to make behaviour togglable.
+            If set to `False` will still sync gradients, useful to make behavior toggleable.
         """
         if use:
             old_values_list = []

@@ -144,7 +144,7 @@ class ASR(sb.Brain):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         # Feature computation and normalization
-        fea_lens = wav_lens  # Relative lenghs are preserved
+        fea_lens = wav_lens  # Relative lengths are preserved
 
         # Add feature augmentation if specified.
         feats = self.hparams.compute_features(wavs)

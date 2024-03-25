@@ -1,5 +1,5 @@
 """
-The .csv preperation functions for Binaural-WSJ0Mix.
+The .csv preparation functions for Binaural-WSJ0Mix.
 
 Author
  * Cem Subakan 2020

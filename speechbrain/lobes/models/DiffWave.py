@@ -119,7 +119,7 @@ class DiffusionEmbedding(nn.Module):
     Arguments
     ---------
     max_steps: int
-        total difussion steps
+        total diffusion steps
 
     Example
     -------
@@ -191,8 +191,8 @@ class DiffusionEmbedding(nn.Module):
 
 class SpectrogramUpsampler(nn.Module):
     """Upsampler for spectrograms with Transposed Conv
-    Only the upsamling is done here, the layer-specific Conv can be found
-    in residual bloack to map the mel bands into 2× residual channels
+    Only the upsampling is done here, the layer-specific Conv can be found
+    in residual block to map the mel bands into 2× residual channels
 
     Example
     -------
@@ -570,7 +570,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             do unconditional generation if True, else do conditional generation
         scale: int
             scale to get the final output wave length
-            for conditional genration, the output wave length is scale * condition.shape[-1]
+            for conditional generation, the output wave length is scale * condition.shape[-1]
             for example, if the condition is spectrogram (bs, n_mel, time), scale should be hop length
             for unconditional generation, scale should be the desired audio length
         condition: torch.Tensor

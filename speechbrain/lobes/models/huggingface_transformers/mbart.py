@@ -176,7 +176,7 @@ class mBART(HFTransformersInterface):
         x : torch.Tensor
           Input tensor with original pad_idx
         org_pad : int
-          Orginal pad_idx
+          Original pad_idx
         custom_pad : int
           Custom pad_idx
         """
@@ -186,16 +186,16 @@ class mBART(HFTransformersInterface):
         return out
 
     def override_config(self, config):
-        """If the config needs to be overrided, here is the place.
+        """If the config needs to be overridden, here is the place.
 
         Arguments
         ---------
         config : MBartConfig
-            The original config needs to be overrided.
+            The original config needs to be overridden.
 
         Returns
         -------
-        Overridded config
+        Overridden config
         """
         config.decoder_layerdrop = 0.05
         return config

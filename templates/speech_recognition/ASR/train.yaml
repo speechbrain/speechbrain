@@ -23,7 +23,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # It allows you to read the data much faster without slowing down the shared filesystem.
 
 data_folder: ../data # In this case, data will be automatically downloaded here.
-data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 
 # Data for augmentation
@@ -391,8 +391,8 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
     shuffle_augmentations: !ref <fea_shuffle_augmentations>
     min_augmentations: !ref <fea_min_augmentations>
     max_augmentations: !ref <fea_max_augmentations>
-    augment_start_index: !ref <batch_size> # This leaves unchanges original inputs
-    concat_end_index: !ref <batch_size> # This leaves unchanges original inputs
+    augment_start_index: !ref <batch_size> # This leaves original inputs unchanged
+    concat_end_index: !ref <batch_size> # This leaves original inputs unchanged
     augment_prob: !ref <fea_augment_prob>
     augmentations: [
         !ref <time_shift>,

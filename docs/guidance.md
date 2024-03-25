@@ -200,11 +200,11 @@ The core challenge—to testing SpeechBrain's community-driven development in it
 
 1. _Contributor, if your change touches upon standing interfaces, then your PR to `develop` or to `unstable` benefits from a companion PR to the `testing-refactoring` branch._<br/>=> Then, reviewers of your main PR is accompanied by provision to also change repos that provide pretrained models.
 2. _Contributor, if your idea for change will change function signatures, then your PR strategy needs planning._
-   1. _Can the change be split into one legacy-preserving (to `develop`) & anoether legacy-breaking PR (to `unstable`)?_<br/> => Then, reviewers of your legacy-preserving PR can help you with facilitating a smooth transition.
+   1. _Can the change be split into one legacy-preserving (to `develop`) & another legacy-breaking PR (to `unstable`)?_<br/> => Then, reviewers of your legacy-preserving PR can help you with facilitating a smooth transition.
    2. _Can the legacy-breaking PR be tested for its effectiveness with tools available on the `develop` branch?_ <br/> => Then, reviewers will have their time free to discuss with you on improving your change; provide them tools and assistance to engage with your ideas in a way their mind is open to accept your contribution to the SpeechBrain community.
 
 The other files in this folder provide further guidance on where is what configured, and which tools are there to be used.
 Keep in mind, the SpeechBrain community is in-flux, so is a constellation of maintainers and reviewers nothing more but a snapshot.
 
 _Note: github workflows take the definition of a PR, what is specified within its branch. We might update our procedures on the `develop` branch (e.g., to meet dependency updates).
-Consequentially, PR and `unstable` branches need to fetch from latest `develop` when testing related definitions are updated._
+Consequently, PR and `unstable` branches need to fetch from latest `develop` when testing related definitions are updated._

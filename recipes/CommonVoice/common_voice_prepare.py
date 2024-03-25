@@ -101,7 +101,7 @@ def prepare_common_voice(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
     save_csv_test = save_folder + "/test.csv"
@@ -374,13 +374,15 @@ def language_specific_preprocess(language, words):
         words = words.replace("Z'", "Z")
         words = words.replace("O'", "O")
         words = words.replace("X'", "X")
-        words = words.replace("AUJOURD' HUI", "AUJOURD'HUI")
+        words = words.replace(
+            "AUJOURD' HUI", "AUJOURD'HUI"  # cspell:disable-line
+        )
     elif language == "ar":
         HAMZA = "\u0621"
         ALEF_MADDA = "\u0622"
         ALEF_HAMZA_ABOVE = "\u0623"
         letters = (
-            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"
+            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"  # cspell:disable-line
             + HAMZA
             + ALEF_MADDA
             + ALEF_HAMZA_ABOVE
@@ -391,7 +393,7 @@ def language_specific_preprocess(language, words):
         ALEF_MADDA = "\u0622"
         ALEF_HAMZA_ABOVE = "\u0623"
         letters = (
-            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
+            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"  # cspell:disable-line
             + HAMZA
             + ALEF_MADDA
             + ALEF_HAMZA_ABOVE
@@ -410,6 +412,7 @@ def language_specific_preprocess(language, words):
     elif language == "es":
         # Fix the following error in dataset large:
         # KeyError: 'The item En noviembre lanzaron Queen Elizabeth , coproducida por Foreign Noi$e . requires replacements which were not supplied.'
+        # cspell:ignore noviembre lanzaron coproducida
         words = words.replace("$", "s")
     return words
 

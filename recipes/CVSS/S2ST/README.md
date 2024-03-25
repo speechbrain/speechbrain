@@ -1,6 +1,6 @@
 # Speech-to-Speech Translation (with CVSS)
 This folder contains the recipe for training a speech-to-unit translation (S2UT) model using a pre-trained Wav2Vec 2.0 encoder and a transformer decoder on the CVSS dataset.
-The implementation is based on [Textless Speech-to-Speech Translation](https://arxiv.org/abs/2112.08352) and [Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentatio](https://arxiv.org/abs/2204.02967) papers.
+The implementation is based on [Textless Speech-to-Speech Translation](https://arxiv.org/abs/2112.08352) and [Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation](https://arxiv.org/abs/2204.02967) papers.
 
 ## Dataset
 [CVSS](https://github.com/google-research-datasets/cvss) is a massively multilingual-to-English speech-to-speech translation corpus. It covers pairs from 21 languages into English. CVSS is derived from the Common Voice speech corpus and the CoVoST 2 speech-to-text translation corpus.

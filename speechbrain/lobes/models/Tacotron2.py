@@ -262,7 +262,7 @@ class Attention(nn.Module):
         the embedding dimension
     attention_dim: int
         the dimension of the memory cell
-    attenion_location_n_filters: int
+    attention_location_n_filters: int
         the number of location filters
     attention_location_kernel_size: int
         the kernel size of the location layer
@@ -365,7 +365,7 @@ class Attention(nn.Module):
         processed_memory: torch.Tensor
             processed encoder outputs
         attention_weights_cat: torch.Tensor
-            previous and cummulative attention weights
+            previous and cumulative attention weights
         mask: torch.Tensor
             binary mask for padded data
 
@@ -396,7 +396,7 @@ class Prenet(nn.Module):
     in_dim: int
         the input dimensions
     sizes: int
-        the dimension of the hidden layers/outout
+        the dimension of the hidden layers/output
     dropout: float
         the dropout probability
 
@@ -648,7 +648,7 @@ class Encoder(nn.Module):
 
     @torch.jit.export
     def infer(self, x, input_lengths):
-        """Performs a forward stap in the inference context
+        """Performs a forward step in the inference context
 
         Arguments
         ---------
@@ -686,7 +686,7 @@ class Decoder(nn.Module):
     Arguments
     ---------
     n_mel_channels: int
-        the number of channels in the MEL sepctrogram
+        the number of channels in the MEL spectrogram
     n_frames_per_step:
         the number of frames in the spectrogram for each
         time step of the decoder
@@ -1256,7 +1256,7 @@ class Tacotron2(nn.Module):
     n_symbols:  int=128
         number of accepted char symbols defined in textToSequence
     symbols_embedding_dim: int
-        number of embeding dimension for symbols fed to nn.Embedding
+        number of embedding dimension for symbols fed to nn.Embedding
 
     # Encoder parameters
     encoder_kernel_size: int
@@ -1271,10 +1271,10 @@ class Tacotron2(nn.Module):
     attention_rnn_dim: int
         input dimension
     attention_dim: int
-        number of hidden represetation in attention
+        number of hidden representation in attention
     # Location Layer parameters
     attention_location_n_filters: int
-        number of 1-D convulation filters in attention
+        number of 1-D convolution filters in attention
     attention_location_kernel_size: int
         length of the 1-D convolution filters
 
@@ -1282,7 +1282,7 @@ class Tacotron2(nn.Module):
     n_frames_per_step: int=1
         only 1 generated mel-frame per step is supported for the decoder as of now.
     decoder_rnn_dim: int
-        number of 2 unidirectionnal stacked LSTM units
+        number of 2 unidirectional stacked LSTM units
     prenet_dim: int
         dimension of linear prenet layers
     max_decoder_steps: int
@@ -1293,8 +1293,8 @@ class Tacotron2(nn.Module):
         decoder drop  out probability
 
     gate_threshold: int
-        cut off level any output probabilty above that is considered
-        complete and stops genration so we have variable length outputs
+        cut off level any output probability above that is considered
+        complete and stops generation so we have variable length outputs
     decoder_no_early_stopping: bool
         determines early stopping of decoder
         along with gate_threshold . The logical inverse of this is fed to the decoder
@@ -1467,7 +1467,7 @@ class Tacotron2(nn.Module):
             gate outputs from the decoder
         alignments: torch.Tensor
             sequence of attention weights from the decoder
-        output_legnths: torch.Tensor
+        output_lengths: torch.Tensor
             length of the output without padding
         """
 
@@ -1562,13 +1562,13 @@ class Loss(nn.Module):
     and a guided attention loss (if enabled) that attempts to make the
     attention matrix diagonal
 
-    The output of the moduel is a LossStats tuple, which includes both the
+    The output of the module is a LossStats tuple, which includes both the
     total loss
 
     Arguments
     ---------
     guided_attention_sigma: float
-        The guided attention sigma factor, controling the "width" of
+        The guided attention sigma factor, controlling the "width" of
         the mask
     gate_loss_weight: float
         The constant by which the hate loss will be multiplied
@@ -1577,7 +1577,7 @@ class Loss(nn.Module):
     guided_attention_scheduler: callable
         The scheduler class for the guided attention loss
     guided_attention_hard_stop: int
-        The number of epochs after which guided attention will be compeltely
+        The number of epochs after which guided attention will be completely
         turned off
 
     Example:
@@ -1675,7 +1675,7 @@ class Loss(nn.Module):
         Arguments
         ---------
         alignments: torch.Tensor
-            the aligment matrix from the model
+            the alignment matrix from the model
         input_lengths: torch.Tensor
             a (batch, length) tensor of input lengths
         target_lengths: torch.Tensor
@@ -1751,7 +1751,7 @@ class TextMelCollate:
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary wiht one elemnent
+        ):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length

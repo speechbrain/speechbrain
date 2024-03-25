@@ -52,7 +52,7 @@ def prepare_ksponspeech(
         If not None, only pick this many sentences.
     merge_lst : list
         List of KsponSpeech splits (e.g, eval_clean, eval_other) to
-        merge in a singe csv file.
+        merge in a single csv file.
     merge_name: str
         Name of the merged csv file.
     skip_prep: bool
@@ -213,7 +213,7 @@ def skip(splits, save_folder, conf):
     splits : list
         A list of the splits expected in the preparation.
     save_folder : str
-        The location of the seave directory
+        The location of the save directory
     conf : dict
         The configuration options to ensure they haven't changed.
 

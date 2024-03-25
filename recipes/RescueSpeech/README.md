@@ -33,7 +33,7 @@ python train.py hparams/robust_asr_16k.yaml --data_folder=<data_folder_path> --t
 Please note that running this recipe can be computationally demanding due to the Whisper ASR (`whisper-large-v2`) model with 906.5M parameters (compared to 1.5B parameters in the original model but feature encoder is frozen in our case). When fine-tuning both the Whisper and SepFormer models together, we used an Nvidia A100-80 GB GPU, which took approximately 15 minutes per epoch.
 
 ## Results
-During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR and ehnance loss are backpropagated and weights are updated.
+During training, both speech enhancement and ASR is kept unfrozen- i.e. both ASR and enhance loss are backpropagated and weights are updated.
 
 | Model | SISNRi | SDRi | PESQ   | STOI  | *WER*   |
 |------ |--------|-------|-------|-------|----   |

@@ -208,7 +208,7 @@ class FairseqWav2Vec2(nn.Module):
                 self.reset_layer(child_layer)
 
     def remove_pretraining_modules(self):
-        """ Remove uneeded modules. Inspired by the same fairseq function."""
+        """ Remove unneeded modules. Inspired by the same fairseq function."""
 
         self.model.quantizer = None
         self.model.project_q = None

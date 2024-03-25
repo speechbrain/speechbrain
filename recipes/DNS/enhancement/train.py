@@ -374,7 +374,7 @@ class Enhancement(sb.Brain):
         return noisy, clean
 
     def cut_signals(self, noisy, clean):
-        """This function selects a random segment of a given length withing the noisy.
+        """This function selects a random segment of a given length within the noisy.
         The corresponding clean are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -830,7 +830,7 @@ if __name__ == "__main__":
     ## Save enhanced sources of baseline noisy testclips
     def save_baseline_audio(snt_id, predictions):
         "saves the  estimated sources on disk"
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(
             hparams["save_folder"], "baseline_audio_results"
         )
@@ -852,7 +852,7 @@ if __name__ == "__main__":
         baseline_data, **hparams["dataloader_opts_test"]
     )
 
-    # Loop over all noisy baseline shards and save the enahanced clips
+    # Loop over all noisy baseline shards and save the enhanced clips
     print("Saving enhanced sources (baseline set)")
     with tqdm(test_loader, dynamic_ncols=True) as t:
         for i, batch in enumerate(t):

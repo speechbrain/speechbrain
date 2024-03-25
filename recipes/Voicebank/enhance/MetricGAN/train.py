@@ -511,7 +511,7 @@ class MetricGanBrain(sb.Brain):
         self.d_optimizer.zero_grad(set_to_none)
 
 
-# Define audio piplines
+# Define audio pipelines
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
 def audio_pipeline(noisy_wav, clean_wav):

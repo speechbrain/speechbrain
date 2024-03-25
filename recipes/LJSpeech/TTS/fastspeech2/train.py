@@ -247,7 +247,7 @@ class FastSpeech2Brain(sb.Brain):
             self.checkpointer.save_and_keep_only(
                 meta=self.last_loss_stats[stage], min_keys=["total_loss"],
             )
-        # We also write statistics about test data spectogramto stdout and to the logfile.
+        # We also write statistics about test data spectogram to stdout and to the logfile.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},

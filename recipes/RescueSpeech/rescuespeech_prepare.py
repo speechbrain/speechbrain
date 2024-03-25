@@ -93,7 +93,7 @@ def prepare_RescueSpeech(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
     save_csv_test = save_folder + "/test.csv"
@@ -136,7 +136,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 
     If the preparation has been done, we can skip it.
 
-    Returnsw
+    Returns
     -------
     bool
         if True, the preparation phase can be skipped.
@@ -237,7 +237,7 @@ def create_asr_csv(
         spk_id = line.split("\t")[0]
         snt_id = file_name
 
-        # Retrieive the corresponding noisy file from noisy data file path
+        # Retrieve the corresponding noisy file from noisy data file path
         clean_wav_bname = os.path.splitext(file_name)[0] + "_"
         noisy_file = [
             filename
@@ -449,7 +449,7 @@ def write2csv(
         "noisy_wav_opts",
     ]
 
-    # Retreive duration of just one signal. It is assumed
+    # Retrieve duration of just one signal. It is assumed
     # that all files have the same duration in MS-DNS dataset.
 
     total_duration = 0

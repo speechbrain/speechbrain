@@ -51,7 +51,7 @@ G2PPredictions = namedtuple(
 
 
 class TrainMode(Enum):
-    """An enumeration that represents the trainining mode
+    """An enumeration that represents the training mode
 
     NORMAL: trains the sequence-to-sequence model
     HOMOGRAPH: fine-tunes a trained model on homographs"""
@@ -159,7 +159,7 @@ class G2PBrain(sb.Brain):
             )
             if result is None:
                 logger.info(
-                    "No checkpoint fount for step %s, "
+                    "No checkpoint found for step %s, "
                     "attempting to recover any checkpoint",
                     step,
                 )
@@ -680,7 +680,7 @@ class G2PBrain(sb.Brain):
         self._save_text_alignments()
 
     def _save_text_alignments(self):
-        """Saves text predictions aligned with lables (a sample, for progress
+        """Saves text predictions aligned with labels (a sample, for progress
         tracking)"""
         if not self.hparams.enable_metrics:
             return
@@ -1016,7 +1016,7 @@ def dataio_prep(hparams, train_step=None):
             "takes": ["char"],
             "provides": [
                 "grapheme_list",
-                "grpaheme_encoded_list",
+                "grapheme_encoded_list",
                 "grapheme_encoded",
             ],
         },
@@ -1218,7 +1218,7 @@ if __name__ == "__main__":
             g2p_brain.phoneme_encoder = phoneme_encoder
 
             # NOTE: This gets modified after the first run and causes a double
-            # agument issue
+            # argument issue
             dataloader_opts = train_step.get(
                 "dataloader_opts", hparams.get("dataloader_opts", {})
             )

@@ -2852,7 +2852,7 @@ sub weighted_bipartite_graph_match {
 		if ($slack[$l]) {
 		    $slack[$l] -= $s;
 		    if ($slack[$l]==0) {
-			# look at a new zero and update matching with col_inc uptodate if there's a breakthrough
+			# look at a new zero and update matching with col_inc up-to-date if there's a breakthrough
 			$k = $slack_row[$l];
 			unless (defined $row_mate[$l]) {
 			    for (my $j=$l+1; $j<$nmax; $j++) {

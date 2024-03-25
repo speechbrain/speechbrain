@@ -139,7 +139,7 @@ class ST(sb.core.Brain):
                 valid_stats=stage_stats,
             )
 
-            # create checkpoing
+            # create checkpoint
             meta = {"loss": stage_stats["loss"], "epoch": current_epoch}
             name = "checkpoint_epoch" + str(current_epoch)
 

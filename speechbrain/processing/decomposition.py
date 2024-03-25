@@ -94,6 +94,7 @@ def gevd(a, b=None):
     csh = torch.matmul(lsh_inv, torch.matmul(ash, lsh_inv_T))
 
     # Performing the eigenvalue decomposition
+    # cspell:ignore UPLO
     es, ysh = torch.linalg.eigh(csh, UPLO="U")
 
     # Collecting the eigenvalues

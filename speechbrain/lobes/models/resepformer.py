@@ -1,4 +1,4 @@
-"""Library for the Reseource-Efficient Sepformer.
+"""Library for the Resource-Efficient Sepformer.
 
 Authors
  * Cem Subakan 2022
@@ -21,7 +21,7 @@ EPS = torch.finfo(torch.get_default_dtype()).eps
 
 class MemLSTM(nn.Module):
     """the Mem-LSTM of SkiM --
-    Note: This is taken from the SkiM implementation in ESPNet toolkit and modified for compability with SpeechBrain.
+    Note: This is taken from the SkiM implementation in ESPNet toolkit and modified for compatibility with SpeechBrain.
 
     Arguments:
     ---------
@@ -39,7 +39,7 @@ class MemLSTM(nn.Module):
         be identically returned.
     norm_type: 'gln', 'cln'
         This selects the type of normalization
-        cln is for causal implemention
+        cln is for causal implementation
 
     Example
     ---------
@@ -454,7 +454,7 @@ class ResourceEfficientSeparationPipeline(nn.Module):
     ----------
     input_size: int,
         Dimension of the input feature.
-        Input shape shoud be (batch, length, input_size)
+        Input shape should be (batch, length, input_size)
     hidden_size: int,
         Dimension of the hidden state.
     output_size: int,
@@ -538,7 +538,7 @@ class ResourceEfficientSeparationPipeline(nn.Module):
         )
 
     def forward(self, input):
-        """The forward function of the ResourceEfficientSeparatioPipeline
+        """The forward function of the ResourceEfficientSeparationPipeline
 
         This takes in a tensor of size [B, (S*K), D]
 

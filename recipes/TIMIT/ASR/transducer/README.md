@@ -15,7 +15,7 @@ pip install numba
 # How to run
 Update the path to the dataset in the yaml config file and run the following.
 ```
-python train.py hparams/train.yaml --data_folde=your/data/folder/TIMIT --jit
+python train.py hparams/train.yaml --data_folder=your/data/folder/TIMIT --jit
 ```
 
 **Note on Compilation**:

@@ -326,6 +326,7 @@ def filter_text(
     return transcription.strip()
 
 
+# cspell:ignore WOLMANIZED
 def match_swbd1(text):
     """
     Clean transcripts in the Switchboard-1 training data.
@@ -348,6 +349,7 @@ def match_swbd1(text):
     """
     tokens = text.split()
     parsed_tokens = []
+    # cspell:disable
     for token in tokens:
         # e.g. [LAUGHTER-STORY] -> STORY; elem 1 and 3 relate to preserving trailing "-"
         m = re.match(r"(|-)^\[LAUGHTER-(.+)\](|-)$", token, flags=re.IGNORECASE)
@@ -383,6 +385,7 @@ def match_swbd1(text):
         token = re.sub(r"_\d+$", "", token)
         parsed_tokens.append(token)
     return " ".join(parsed_tokens)
+    # cspell:enable
 
 
 def match_eval2000(text):
@@ -635,7 +638,7 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
                         + "\n"
                     )
 
-            # find if words in the form of xxxs is acronym
+            # find if words in the form of xxxs is acronym # cspell:ignore xxxs
             elif word[-1] == "s" and (lexicon[-1] == "s" or lexicon[-1] == "z"):
                 actual_word = word[:-1]
                 actual_lexicon = lexicon[:-2]
@@ -813,7 +816,7 @@ def swbd1_data_prep(
     split_ratio : list
         List containing the portions you want to allocate to each of your data splits e.g. [90, 10]
     add_fisher_corpus : bool
-        If True, a separate csv file called "train_lm.csv" will be createdm which contains
+        If True, a separate csv file called "train_lm.csv" will be created which contains
         the Switchboard training data and the Fisher corpus transcripts.
     max_utt
         Exclude utterances once they appear more than a specified number of times

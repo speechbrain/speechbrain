@@ -277,14 +277,14 @@ def wss(ref_wav, deg_wav, srate):
     distortion = []
 
     for frame_count in range(num_frames):
-        # (1) Get the Frames for the test and reference speeech.
+        # (1) Get the Frames for the test and reference speech.
         # Multiply by Hanning window.
         clean_frame = clean_speech[start : start + winlength]
         processed_frame = processed_speech[start : start + winlength]
         clean_frame = clean_frame * window
         processed_frame = processed_frame * window
 
-        # (2) Compuet Power Spectrum of clean and processed
+        # (2) Compute Power Spectrum of clean and processed
         clean_spec = np.abs(np.fft.fft(clean_frame, n_fft)) ** 2
         processed_spec = np.abs(np.fft.fft(processed_frame, n_fft)) ** 2
         clean_energy = [None] * num_crit
@@ -340,8 +340,8 @@ def wss(ref_wav, deg_wav, srate):
                     n -= 1
                 processed_loc_peak.append(processed_energy[n + 1])
 
-        # (6) Compuet the WSS Measure for this frame. This includes
-        # determination of the weighting functino
+        # (6) Compute the WSS Measure for this frame. This includes
+        # determination of the weighting function
         dBMax_clean = max(clean_energy)
         dBMax_processed = max(processed_energy)
 
@@ -379,7 +379,7 @@ def wss(ref_wav, deg_wav, srate):
         )
 
         # this normalization is not part of Klatt's paper, but helps
-        # to normalize the meaasure. Here we scale the measure by the sum of the
+        # to normalize the measure. Here we scale the measure by the sum of the
         # weights
         distortion[frame_count] = distortion[frame_count] / np.sum(W)
         start += int(skiprate)
@@ -415,7 +415,7 @@ def llr(ref_wav, deg_wav, srate):
     distortion = []
 
     for frame_count in range(num_frames):
-        # (1) Get the Frames for the test and reference speeech.
+        # (1) Get the Frames for the test and reference speech.
         # Multiply by Hanning window.
         clean_frame = clean_speech[start : start + winlength]
         processed_frame = processed_speech[start : start + winlength]

@@ -65,7 +65,7 @@ class Psi(nn.Module):
         """This forward function returns the NMF time activations given classifier activations
         Arguments
         ---------
-            inp: A length 3 list of classifier input representions.
+            inp: A length 3 list of classifier input representations.
         """
         error = "in PSI doesn't match. The embedding dimensions need to be consistent with the list self.in_emb_dims"
         for i, in_emb_dim in enumerate(self.in_emb_dims):
