@@ -1,5 +1,5 @@
-def pytest_add_option(parser):
-    parser.add_option("--device", action="store", default="cpu")
+def pytest_addoption(parser):
+    parser.addoption("--device", action="store", default="cpu")
 
 
 def pytest_generate_tests(metafunc):
