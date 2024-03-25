@@ -136,14 +136,18 @@ class QBatchNorm(torch.nn.Module):
 
             # Update the running stats
             if self.track_running_stats:
-                self.running_mean = (
-                    1 - exponential_average_factor
-                ) * self.running_mean + exponential_average_factor * mu
+                if self.num_batches_tracked == 1:
+                    self.running_mean = mu
+                    self.running_var = quat_variance
+                else:
+                    self.running_mean = (
+                        1 - exponential_average_factor
+                    ) * self.running_mean + exponential_average_factor * mu
 
-                self.running_var = (
-                    (1 - exponential_average_factor) * self.running_var
-                    + exponential_average_factor * quat_variance
-                )
+                    self.running_var = (
+                        (1 - exponential_average_factor) * self.running_var
+                        + exponential_average_factor * quat_variance
+                    )
         else:
             q_var = torch.cat(
                 [
@@ -154,7 +158,8 @@ class QBatchNorm(torch.nn.Module):
                 ],
                 dim=self.dim,
             )
-            out = (input - self.running_mean) / q_var
+            denominator = torch.rsqrt(q_var + self.eps)
+            out = (input - self.running_mean) * denominator
 
         # lambda * (x - mu / sqrt(var + e)) + beta
 

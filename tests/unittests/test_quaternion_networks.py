@@ -97,6 +97,10 @@ def test_QBatchNorm(device):
     average_magnitude = output_magnitude.mean(dim=0)
     assert torch.all(torch.abs(1.0 - average_magnitude) < 0.10)
 
+    norm.eval()
+    output_2 = norm(input)
+    assert torch.all(torch.eq(output, output_2))
+
     assert torch.jit.trace(norm, input)
 
 
