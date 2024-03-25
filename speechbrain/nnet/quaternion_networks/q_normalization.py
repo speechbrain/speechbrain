@@ -149,16 +149,11 @@ class QBatchNorm(torch.nn.Module):
                         + exponential_average_factor * quat_variance
                     )
         else:
-            q_var = torch.cat(
-                [
-                    self.running_var,
-                    self.running_var,
-                    self.running_var,
-                    self.running_var,
-                ],
+            denominator = torch.rsqrt(self.running_var + self.eps)
+            denominator = torch.cat(
+                [denominator, denominator, denominator, denominator],
                 dim=self.dim,
             )
-            denominator = torch.rsqrt(q_var + self.eps)
             out = (input - self.running_mean) * denominator
 
         # lambda * (x - mu / sqrt(var + e)) + beta
