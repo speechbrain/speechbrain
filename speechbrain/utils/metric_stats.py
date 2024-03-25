@@ -435,7 +435,12 @@ class WeightedErrorRateStats(MetricStats):
         weighted_deletions = 0.0
         total = 0.0
 
-        for utterance in self.base_stats.scores:
+        for i, utterance in enumerate(self.base_stats.scores):
+            utt_weighted_insertions = 0.0
+            utt_weighted_substitutions = 0.0
+            utt_weighted_deletions = 0.0
+            utt_total = 0.0
+
             for edit_symbol, a_idx, b_idx in utterance["alignment"]:
                 a = (
                     utterance["ref_tokens"][a_idx]
@@ -452,13 +457,31 @@ class WeightedErrorRateStats(MetricStats):
                     pair_score = self.cost_function(edit_symbol, a, b)
 
                     if edit_symbol == EDIT_SYMBOLS["ins"]:
-                        weighted_insertions += pair_score
+                        utt_weighted_insertions += pair_score
                     elif edit_symbol == EDIT_SYMBOLS["del"]:
-                        weighted_deletions += pair_score
+                        utt_weighted_deletions += pair_score
                     elif edit_symbol == EDIT_SYMBOLS["sub"]:
-                        weighted_substitutions += pair_score
+                        utt_weighted_substitutions += pair_score
 
-                total += 1.0
+                utt_total += 1.0
+
+            utt_weighted_edits = (
+                utt_weighted_insertions + utt_weighted_substitutions + utt_weighted_deletions
+            )
+            utt_weighted_wer_ratio = utt_weighted_edits / utt_total
+            self.scores.append({
+                "key": self.base_stats.ids[i],
+                "WER": utt_weighted_wer_ratio * 100.0,
+                "insertions": utt_weighted_insertions,
+                "substitutions": utt_weighted_substitutions,
+                "deletions": utt_weighted_deletions,
+                "num_edits": utt_weighted_edits,
+            })
+
+            weighted_insertions += utt_weighted_insertions
+            weighted_substitutions += utt_weighted_substitutions
+            weighted_deletions += utt_weighted_deletions
+            total += utt_total
 
         weighted_edits = (
             weighted_insertions + weighted_substitutions + weighted_deletions
