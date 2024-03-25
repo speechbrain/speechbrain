@@ -520,7 +520,7 @@ def wer_details_by_utterance(
         )
         ops = count_ops(table)
         # Take into account "" outputs as empty
-        if ref_tokens[0] == "" and hyp_tokens[0] == "":
+        if len(ref_tokens) == 0 or ref_tokens[0] == "":
             num_ref_tokens = 0
         else:
             num_ref_tokens = len(ref_tokens)
