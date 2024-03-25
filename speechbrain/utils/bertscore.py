@@ -6,7 +6,6 @@ Authors
 
 from collections import defaultdict
 from typing import Iterable, Optional
-import itertools
 import torch
 import logging
 import math
