@@ -14,7 +14,7 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 from dataclasses import dataclass
-from typing import Any, Optional, List, Tuple
+from typing import Any, Optional, List, Tuple, Union
 import itertools
 import torch
 import torchaudio
@@ -26,6 +26,7 @@ from speechbrain.utils.fetching import fetch
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 from speechbrain.utils.streaming import split_fixed_chunks
+from tqdm import tqdm
 
 
 class EncoderDecoderASR(Pretrained):
@@ -382,20 +383,21 @@ class WhisperASR(Pretrained):
     Detected language: it
     """
 
-    HPARAMS_NEEDED = ["language"]
+    HPARAMS_NEEDED = ["language", "sample_rate"]
     MODULES_NEEDED = ["whisper", "decoder"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.whisper.tokenizer
+        self.TASKS = ["transcribe", "translate", "lang_id"]
 
-    def detect_language_batch(self, wavs):
+    def detect_language_file(self, input_file: str):
         """Detects the language of the given audiofile.
 
         Arguments
         ---------
-        wavs : torch.Tensor
-            Batch of waveforms [batch, time, channels].
+        input_file : str
+            Path to audio file which to transcribe.
 
         Returns
         -------
@@ -409,18 +411,18 @@ class WhisperASR(Pretrained):
         ValueError
             If the model doesn't have language tokens.
         """
-        wavs = wavs.float().to(self.device)
+        wavs = self.load_audio(input_file).float().to(self.device).unsqueeze(0)
         mel = self.mods.whisper._get_mel(wavs)
         language_tokens, language_probs = self.mods.whisper.detect_language(mel)
         return language_tokens, language_probs
 
-    def detect_language_file(self, path):
+    def detect_language_batch(self, wav: torch.Tensor):
         """Detects the language of the given audiofile.
 
         Arguments
         ---------
-        path : str
-            Path to audio file which to transcribe.
+        wavs : torch.tensor
+            Batch of waveforms [batch, time, channels].
 
         Returns
         -------
@@ -433,33 +435,196 @@ class WhisperASR(Pretrained):
         ------
         ValueError
             If the model doesn't have language tokens.
+
+        Example
+        -------
+        >>> from speechbrain.inference.ASR import WhisperASR
+        >>> import torchaudio
+        >>> tmpdir = getfixture("tmpdir")
+        >>> asr_model = WhisperASR.from_hparams(
+        ...     source="speechbrain/asr-whisper-medium-commonvoice-it",
+        ...     savedir=tmpdir,
+        ... ) # doctest: +SKIP
+        >>> wav, _ = torchaudio.load("your_audio") # doctest: +SKIP
+        >>> language_tokens, language_probs = asr_model.detect_language(wav) # doctest: +SKIP
         """
-        wav = self.load_audio(path).to(self.device)
         mel = self.mods.whisper._get_mel(wav)
         language_tokens, language_probs = self.mods.whisper.detect_language(mel)
         return language_tokens, language_probs
 
-    def transcribe_file(self, path):
+    def _detect_language(self, mel: torch.Tensor, task: str):
+        """Detects the language of the given audiofile.
+
+        Arguments
+        ---------
+        mel : torch.tensor
+            Batch of mel spectrograms [batch, time, channels].
+        task : str
+            The task to perform.
+
+        Returns
+        -------
+        language_tokens : Tensor, shape = (n_audio,)
+            ids of the most probable language tokens, which appears after the startoftranscript token.
+        language_probs : List[Dict[str, float]], length = n_audio
+            list of dictionaries containing the probability distribution over all languages.
+        """
+        languages = [self.mods.whisper.language] * mel.shape[0]
+        lang_probs = None
+
+        if self.mods.whisper.language is None or task == "lang_id":
+            lang_tokens, lang_probs = self.mods.whisper.detect_language(mel)
+            languages = [max(probs, key=probs.get) for probs in lang_probs]
+            self.mods.decoder.set_lang_tokens(lang_tokens)
+        return languages, lang_probs
+
+    @torch.no_grad()
+    def transcribe_file(
+        self,
+        input: Union[str, torch.Tensor],
+        task: Optional[str] = None,
+        initial_prompt: Optional[str] = None,
+        logprob_threshold: Optional[float] = -1.0,
+        no_speech_threshold=0.6,
+        condition_on_previous_text: bool = False,
+        verbose: bool = False,
+    ):
         """Transcribes the given audiofile into a sequence of words.
 
         Arguments
         ---------
-        path : str
-            Path to audio file which to transcribe.
+        input : Union[str, torch.Tensor]
+            Path to audio file which to transcribe or torch tensor of audio.
+        task : Optional[str]
+            The task to perform. If None, the default task is the one passed in the Whisper model.
+        initial_prompt : Optional[str]
+            The initial prompt to condition the model on.
+        logprob_threshold : Optional[float]
+            The log probability threshold to continue decoding the current segment.
+        no_speech_threshold : float
+            The threshold to skip decoding segment if the no_speech_prob is higher than this value.
+        condition_on_previous_text : bool
+            If True, the model will be condition on the last 224 tokens.
+        verbose : bool
+            If True, print the transcription of each segment.
 
         Returns
         -------
         str
             The audiofile transcription produced by this ASR system.
+        results
+            The results containing transcription, tokens, prompt, avg_log_probs, and no_speech_prob for each segment.
         """
-        waveform = self.load_audio(path)
-        # Fake a batch:
-        batch = waveform.unsqueeze(0)
+        if task is not None:
+            if task in self.TASKS:
+                if task != "lang_id":
+                    self.mods.decoder.set_task(task)
+            else:
+                raise ValueError(
+                    f"Task {task} not supported. Supported tasks are {self.TASKS}"
+                )
+
+        if type(input) == str:
+            audio = self.load_audio(input).float().to(self.device).unsqueeze(0)
+        else:
+            audio = input.float().to(self.device)
+
+        # create chunks of 30 seconds, if the audio is longer than 30 seconds
+        N_FRAMES = 30 * self.hparams.sample_rate
+        segments = split_fixed_chunks(audio, N_FRAMES, dim=-1)
+
         rel_length = torch.tensor([1.0])
-        predicted_words, predicted_tokens = self.transcribe_batch(
-            batch, rel_length
-        )
-        return " ".join(predicted_words[0])
+
+        all_tokens = []
+        results = []
+        prompt_reset_since = 0
+        if initial_prompt is not None:
+            initial_prompt_tokens = self.whisper.tokenizer.encode(
+                " " + initial_prompt.strip()
+            )
+            all_tokens.extend(initial_prompt_tokens)
+        else:
+            initial_prompt_tokens = []
+
+        for i, segment in enumerate(tqdm(segments)):
+
+            # extract mel spectrogram
+            mel_segment = self.mods.whisper._get_mel(segment).squeeze(0)
+
+            results.append({})
+
+            start = i * self.mods.whisper._N_FRAMES
+            end = (i + 1) * self.mods.whisper._N_FRAMES
+            mel_segment = mel_segment.unsqueeze(0)
+            mel_segment = self.mods.whisper.pad_or_trim(
+                mel_segment, self.mods.whisper._N_FRAMES
+            )
+
+            encoder_out = self.mods.whisper.forward_encoder(mel_segment)
+            languages, _ = self._detect_language(mel_segment, task)
+
+            results[-1]["start"] = start
+            results[-1]["end"] = end
+            results[-1]["lang_id"] = languages[0]
+
+            if task == "lang_id":
+                continue
+
+            prompt = all_tokens[prompt_reset_since:]
+            self.mods.decoder.set_prompt(prompt)
+
+            predicted_tokens, _, scores, _ = self.mods.decoder(
+                encoder_out, rel_length
+            )
+            avg_log_probs = scores.sum() / (len(predicted_tokens[0]) + 1)
+
+            if no_speech_threshold is not None:
+                should_skip = (
+                    self.mods.decoder.no_speech_probs[0] > no_speech_threshold
+                )
+                if (
+                    logprob_threshold is not None
+                    and avg_log_probs > logprob_threshold
+                ):
+                    # don't skip if the logprob is high enough, despite the no_speech_prob
+                    should_skip = False
+
+                if should_skip:
+                    results[-1]["words"] = ""
+                    results[-1]["tokens"] = []
+                    results[-1]["prompt"] = prompt
+                    results[-1]["avg_log_probs"] = avg_log_probs.item()
+                    results[-1][
+                        "no_speech_prob"
+                    ] = self.mods.decoder.no_speech_probs[0]
+                    continue
+
+            predicted_words = [
+                self.tokenizer.decode(t, skip_special_tokens=True).strip()
+                for t in predicted_tokens
+            ]
+
+            results[-1]["words"] = predicted_words[0]
+            results[-1]["tokens"] = predicted_tokens[0]
+            results[-1]["prompt"] = prompt
+            results[-1]["avg_log_probs"] = avg_log_probs.item()
+            results[-1]["no_speech_prob"] = self.mods.decoder.no_speech_probs[0]
+
+            all_tokens.extend(predicted_tokens[0])
+
+            if (
+                not condition_on_previous_text
+                or self.mods.decoder.temperature > 0.5
+            ):
+                prompt_reset_since = len(all_tokens)
+
+            if verbose:
+                print(f"[{30 * i}s --> {30 * (i + 1)}s] {predicted_words[0]}")
+
+        if task == "lang_id":
+            return "", results
+        else:
+            return " ".join([r["words"] for r in results]), results
 
     def encode_batch(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states
@@ -489,6 +654,7 @@ class WhisperASR(Pretrained):
         encoder_out = self.mods.whisper.forward_encoder(mel)
         return encoder_out
 
+    @torch.no_grad()
     def transcribe_batch(self, wavs, wav_lens):
         """Transcribes the input audio into a sequence of words
 
@@ -514,18 +680,18 @@ class WhisperASR(Pretrained):
         tensor
             Each predicted token id.
         """
-        with torch.no_grad():
-            wav_lens = wav_lens.to(self.device)
-            encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, _, _, _ = self.mods.decoder(encoder_out, wav_lens)
-            predicted_words = self.tokenizer.batch_decode(
-                predicted_tokens, skip_special_tokens=True
-            )
-            if self.hparams.normalized_transcripts:
-                predicted_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in predicted_words
-                ]
+        wav_lens = wav_lens.float().to(self.device)
+        encoder_out = self.encode_batch(wavs, wav_lens)
+        predicted_tokens, _, _, _ = self.mods.decoder(encoder_out, wav_lens)
+        predicted_words = [
+            self.tokenizer.decode(t, skip_special_tokens=True).strip()
+            for t in predicted_tokens
+        ]
+        if self.hparams.normalized_transcripts:
+            predicted_words = [
+                self.tokenizer.normalize(text).split(" ")
+                for text in predicted_words
+            ]
 
         return predicted_words, predicted_tokens
 
