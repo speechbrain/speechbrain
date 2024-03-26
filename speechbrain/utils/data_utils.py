@@ -394,8 +394,8 @@ def set_writing_permissions(folder_path):
     """
     This function sets user writing permissions to all the files in the given folder.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     folder_path : folder
         Folder whose files will be granted write permissions.
     """
@@ -411,8 +411,8 @@ def pad_right_to(tensor, target_shape, mode="constant", value=0):
     This function takes a torch tensor of arbitrary shape and pads it to target
     shape by appending values on the right.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     tensor : torch.Tensor
         Input tensor whose dimension we need to pad.
     target_shape : (list, tuple)
@@ -452,8 +452,8 @@ def batch_pad_right(tensors: list, mode="constant", value=0):
     """Given a list of torch tensors it batches them together by padding to the right
     on each dimension in order to get same length for all.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     tensors : list
         List of tensor we wish to pad together.
     mode : str
