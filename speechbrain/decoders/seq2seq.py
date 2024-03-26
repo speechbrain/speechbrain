@@ -174,6 +174,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
     greedy decoding approach. See also S2SBaseSearcher().
     """
 
+    @torch.no_grad()
     def forward(self, enc_states, wav_len):
         """This method performs a greedy search.
 
@@ -187,11 +188,12 @@ class S2SGreedySearcher(S2SBaseSearcher):
 
         Returns
         -------
-        hyps : List containing hypotheses.
+        hyps : List[List[int]]
+            List containing the hypotheses.
         top_lengths : torch.Tensor (batch)
-            This tensor contains the final scores of hypotheses.
+            This tensor contains the length of each hypothesis.
         top_scores : torch.Tensor (batch)
-            The length of each topk sequence in the batch.
+            The score of each hypotheses.
         top_log_probs : torch.Tensor (batch, max length of token_id sequences)
             The log probabilities of each hypotheses.
         """
@@ -226,20 +228,20 @@ class S2SGreedySearcher(S2SBaseSearcher):
                 inp_tokens = Categorical(
                     logits=logits / self.temperature
                 ).sample()
-
             log_probs = F.log_softmax(logits.float(), dim=-1)
             log_probs_lst.append(log_probs)
 
             has_ended = has_ended | (inp_tokens == self.eos_index)
-            log_probs[has_ended] = float("inf")
+            log_probs[has_ended] = -torch.inf
             inp_tokens[has_ended] = self.eos_index
 
             if has_ended.all() or self._check_end_condition(memory):
                 break
 
         log_probs = torch.stack(log_probs_lst, dim=1)
+
         scores, predictions = log_probs.max(dim=-1)
-        mask = scores == float("inf")
+        mask = scores == -torch.inf
         scores[mask] = 0
         predictions[mask] = self.eos_index
 
@@ -270,11 +272,11 @@ class S2SGreedySearcher(S2SBaseSearcher):
         Returns
         -------
         top_hyps : torch.Tensor (batch, max length of token_id sequences)
-            This tensor stores the topk predicted hypothesis.
+            This tensor stores the best predicted hypothesis.
         top_lengths : torch.Tensor (batch)
-            This tensor contains the final scores of hypotheses.
+            This tensor contains the length of each hypothesis.
         top_scores : torch.Tensor (batch)
-            The length of each topk sequence in the batch.
+            The score of each hypotheses.
         top_log_probs : torch.Tensor (batch, max length of token_id sequences)
             The log probabilities of each hypotheses.
         """
@@ -365,6 +367,14 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
     suppress_tokens: str or list (default: "-1")
         list of tokens ids (or comma-separated token ids) to suppress
         "-1" will suppress a set of symbols as defined in `model.non_speech_tokens()`
+    sample_len: int (default: None)
+        Maximum number of tokens to sample.
+    prefix: str or list (default: None)
+        Prefix to add to the input tokens.
+        See: https://github.com/openai/whisper/discussions/117#discussioncomment-3727051
+    prompt: str or list (default: None)
+        Prompt to add to the input tokens.
+        See: https://github.com/openai/whisper/discussions/117#discussioncomment-3727051
     **kwargs
         see S2SBaseSearcher, arguments are directly passed.
     """
@@ -376,6 +386,9 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         use_kv_cache=True,
         suppress_blank=True,
         suppress_tokens="-1",
+        sample_len=None,
+        prefix=None,
+        prompt=None,
         **kwargs,
     ):
         super().__init__(
@@ -389,60 +402,27 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         self.suppress_blank = suppress_blank
         self.suppress_tokens = suppress_tokens
 
+        self.prefix = prefix
+        self.prompt = prompt
+
+        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        self.sample_len = sample_len or self.max_attn_tokens // 2
+
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
         self.eos_index: int = self.model.eos
         self.bos_index: int = self.initial_tokens[-1]
-        self.initial_token_length = len(self.initial_tokens)
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
 
-    def _get_initial_tokens(self):
-        return tuple(self.model.tokenizer.prefix_tokens)
+        self.no_speech_probs = None
+        self.lang_tokens = None
 
-    def reset_mem(self, batch_size, device):
-        """This method set the first tokens to be decoder_input_tokens during search."""
-        # reset KV cache
-        if self.use_kv_cache:
-            self.kv_cache = None
-
-        memory_tokens = self.initial_tokens[
-            :-1
-        ]  # the last token will be used as
-        # the first input token
-        return torch.tensor([memory_tokens] * batch_size).to(device)
-
-    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
-        """Performs a step in the implemented beamsearcher."""
-        tokens = _update_mem(inp_tokens, memory)
-
-        logits, attn, kv = self.model.forward_decoder(
-            enc_states, tokens, past_key_values=self.kv_cache
-        )
-
-        logits = logits[:, -1]
-
-        if self.use_kv_cache:
-            self.kv_cache = kv
-
-        if self.suppress_blank:
-            if tokens.shape[1] == self.sample_begin:
-                logits[
-                    :,
-                    self.model.tokenizer.encode(" ", add_special_tokens=False)
-                    + [self.eos_index],
-                ] = -np.inf
-
-        if self.suppress_tokens:
-            logits[:, list(self._get_suppress_tokens)] = -np.inf
-
-        return logits, tokens, attn
-
-    def _check_end_condition(self, memory):
-        """This method checks if the max length is reached."""
-        return memory.shape[1] >= self.max_attn_tokens - self.sample_begin
+    def set_lang_tokens(self, lang_tokens):
+        """Set the language to be used during decoding."""
+        self.lang_tokens = lang_tokens
 
     @cached_property
-    def _get_suppress_tokens(self):
+    def get_tokens_to_suppress(self):
+        """Get the tokens to suppress during decoding if self.config.suppress_tokens is None."""
         suppress_tokens = self.suppress_tokens
 
         if isinstance(suppress_tokens, str):
@@ -469,6 +449,117 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
         )
 
         return tuple(sorted(set(suppress_tokens)))
+
+    def set_task(self, task):
+        """Set the task to be used during decoding."""
+        self.model.set_task(task)
+        self.initial_tokens = self._get_initial_tokens()
+        self.sample_begin: int = len(self.initial_tokens)
+        self.bos_index: int = self.initial_tokens[-1]
+
+    def set_prompt(self, prompt):
+        """Set the prompt to be used during decoding."""
+        self.prompt = prompt
+        self.initial_tokens = self._get_initial_tokens()
+        self.sample_begin: int = len(self.initial_tokens)
+        self.bos_index: int = self.initial_tokens[-1]
+
+    def _get_initial_tokens(self):
+        """Get the initial tokens to be used during decoding."""
+        tokens = self.model.tokenizer.prefix_tokens
+        prefix = self.prefix
+        prompt = self.prompt
+        if prefix:
+            prefix_tokens = (
+                self.model.tokenizer.encode(
+                    " " + prefix.strip(), add_special_tokens=False
+                )
+                if isinstance(prefix, str)
+                else prefix
+            )
+            if self.sample_len is not None:
+                max_prefix_len = self.max_attn_tokens // 2 - self.sample_len
+                prefix_tokens = prefix_tokens[-max_prefix_len:]
+            tokens = tokens + prefix_tokens
+
+        if prompt:
+            prompt_tokens = (
+                self.model.tokenizer.encode(
+                    " " + prompt.strip(), add_special_tokens=False
+                )
+                if isinstance(prompt, str)
+                else prompt
+            )
+            tokens = (
+                [self.model.bos_prev]
+                + prompt_tokens[-(self.max_attn_tokens // 2 - 1) :]
+                + tokens
+            )
+        return tuple(tokens)
+
+    def reset_mem(self, batch_size, device):
+        """This method set the first tokens to be decoder_input_tokens during search."""
+        # reset KV cache
+        if self.use_kv_cache:
+            self.kv_cache = None
+
+        self.no_speech_probs = [torch.nan] * batch_size
+        memory_tokens = self.initial_tokens[
+            :-1
+        ]  # the last token will be used as
+        # the first input token
+        mem = torch.tensor([memory_tokens] * batch_size).to(device)
+        if self.lang_tokens is not None:
+            mem[
+                :, self.initial_tokens.index(self.model.bos) + 1
+            ] = self.lang_tokens
+            # after using it, reset it.
+            self.lang_token = None
+        return mem
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        tokens = _update_mem(inp_tokens, memory)
+
+        logits, attn, kv = self.model.forward_decoder(
+            enc_states, tokens, past_key_values=self.kv_cache
+        )
+
+        if tokens.shape[1] == self.sample_begin:
+            probs_at_bos = (
+                logits[:, self.initial_tokens.index(self.model.bos)]
+                .float()
+                .softmax(dim=-1)
+            )
+            self.no_speech_probs = probs_at_bos[
+                :, self.model.no_speech
+            ].tolist()
+
+        logits = logits[:, -1]
+
+        if self.use_kv_cache:
+            self.kv_cache = kv
+
+        if self.suppress_blank:
+            if tokens.shape[1] == self.sample_begin:
+                logits[
+                    :,
+                    self.model.tokenizer.encode(" ", add_special_tokens=False)
+                    + [self.eos_index],
+                ] = -np.inf
+
+        if self.suppress_tokens:
+            if self.model.config.suppress_tokens is None:
+                tokens_to_suppress = self.get_tokens_to_suppress
+            else:
+                tokens_to_suppress = self.model.get_suppress_tokens
+            logits[:, list(tokens_to_suppress)] = -np.inf
+
+        return logits, tokens, attn
+
+    def _check_end_condition(self, memory):
+        """This method checks if the max length is reached."""
+        return memory.shape[1] >= self.max_attn_tokens - self.sample_begin
 
 
 class S2SRNNGreedySearcher(S2SGreedySearcher):
@@ -1791,6 +1882,9 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         use_kv_cache=True,
         suppress_blank=True,
         suppress_tokens="-1",
+        sample_len=None,
+        prefix=None,
+        prompt=None,
         **kwargs,
     ):
         super().__init__(
@@ -1804,12 +1898,17 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         self.suppress_blank = suppress_blank
         self.suppress_tokens = suppress_tokens
 
+        self.prefix = prefix
+        self.prompt = prompt
+
+        self.max_attn_tokens = self.model.model.decoder.config.max_length
+        self.sample_len = sample_len or self.max_attn_tokens // 2
+
         self.initial_tokens = self._get_initial_tokens()
         self.sample_begin: int = len(self.initial_tokens)
         self.eos_index: int = self.model.eos
         self.bos_index: int = self.initial_tokens[-1]
         self.initial_token_length = len(self.initial_tokens)
-        self.max_attn_tokens = self.model.model.decoder.config.max_length
 
     def _check_end_condition(self, alived_hyps):
         return (
@@ -1818,7 +1917,37 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         )
 
     def _get_initial_tokens(self):
-        return tuple(self.model.tokenizer.prefix_tokens)
+        """Get the initial tokens to be used during decoding."""
+        tokens = self.model.tokenizer.prefix_tokens
+        prefix = self.prefix
+        prompt = self.prompt
+        if prefix:
+            prefix_tokens = (
+                self.model.tokenizer.encode(
+                    " " + prefix.strip(), add_special_tokens=False
+                )
+                if isinstance(prefix, str)
+                else prefix
+            )
+            if self.sample_len is not None:
+                max_prefix_len = self.max_attn_tokens // 2 - self.sample_len
+                prefix_tokens = prefix_tokens[-max_prefix_len:]
+            tokens = tokens + prefix_tokens
+
+        if prompt:
+            prompt_tokens = (
+                self.model.tokenizer.encode(
+                    " " + prompt.strip(), add_special_tokens=False
+                )
+                if isinstance(prompt, str)
+                else prompt
+            )
+            tokens = (
+                [self.model.bos_prev]
+                + prompt_tokens[-(self.max_attn_tokens // 2 - 1) :]
+                + tokens
+            )
+        return tuple(tokens)
 
     def reset_mem(self, batch_size, device):
         """This method set the first tokens to be decoder_input_tokens during search."""
@@ -1874,40 +2003,11 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
                 ] = -np.inf
 
         if self.suppress_tokens:
-            logits[:, list(self._get_suppress_tokens)] = -np.inf
+            logits[:, list(self.model.get_suppress_tokens)] = -np.inf
 
         log_probs = F.log_softmax(logits.float(), dim=-1) / self.temperature
 
         return log_probs, tokens, attn
-
-    @cached_property
-    def _get_suppress_tokens(self):
-        suppress_tokens = self.suppress_tokens
-
-        if isinstance(suppress_tokens, str):
-            suppress_tokens = [int(t) for t in suppress_tokens.split(",")]
-
-        if -1 in suppress_tokens:
-            suppress_tokens = [t for t in suppress_tokens if t >= 0]
-            suppress_tokens.extend(self.model.non_speech_tokens)
-        elif suppress_tokens is None or len(suppress_tokens) == 0:
-            suppress_tokens = []  # interpret empty string as an empty list
-        else:
-            assert isinstance(
-                suppress_tokens, list
-            ), "suppress_tokens must be a list"
-
-        suppress_tokens.extend(
-            [
-                self.model.transcribe,
-                self.model.translate,
-                self.model.bos,
-                self.model.bos_prev,
-                self.model.bos_lm,
-            ]
-        )
-
-        return tuple(sorted(set(suppress_tokens)))
 
 
 class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
