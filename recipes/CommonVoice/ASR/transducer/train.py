@@ -346,7 +346,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
 
     # 5. If Dynamic Batching is used, we instantiate the needed samplers.
