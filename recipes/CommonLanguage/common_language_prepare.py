@@ -1,5 +1,5 @@
 """
-Data preparation of CommonLangauge dataset for LID.
+Data preparation of CommonLanguage dataset for LID.
 
 Download: https://zenodo.org/record/5036977#.YNo1mHVKg5k
 

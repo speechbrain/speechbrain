@@ -371,7 +371,7 @@ class LatentDiffusion(nn.Module):
     autoencoder: speechbrain.nnet.autoencoders.Autoencoder
         An autoencoder converting the original space to a latent space
 
-    diffusion: speechbrian.nnet.diffusion.Diffuser
+    diffusion: speechbrain.nnet.diffusion.Diffuser
         A diffusion wrapper
 
     latent_downsample_factor: int

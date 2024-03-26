@@ -183,7 +183,7 @@ def complex_conv_op(
 def unitary_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
-    """ Returns a matrice of unitary complex numbers.
+    """ Returns a matrix of unitary complex numbers.
 
     Arguments
     ---------

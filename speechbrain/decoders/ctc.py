@@ -993,7 +993,7 @@ class CTCBaseSearcher(torch.nn.Module):
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
-        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
+        Each tensors is converted to numpy and CPU as it is faster and consumes less memory.
 
         Arguments
         ---------
@@ -1930,7 +1930,7 @@ class TorchAudioCTCPrefixBeamSearcher:
     If you want to use the language model, or the lexicon search, please make sure that your
     tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail.
 
-    The implementation is compatible with Sentenpiece Tokens.
+    The implementation is compatible with SentencePiece Tokens.
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
     requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams).

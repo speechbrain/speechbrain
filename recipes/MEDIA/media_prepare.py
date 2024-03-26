@@ -641,7 +641,7 @@ def process_text_node(
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept: str
@@ -704,7 +704,7 @@ def process_sync_node(
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept_open: bool
@@ -766,7 +766,7 @@ def process_semfin_node(
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept: str

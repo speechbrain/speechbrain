@@ -233,7 +233,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """interpration test with overlapped audio"""
+        """interpretation test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
