@@ -394,7 +394,7 @@ class DynamicBatchSampler(Sampler):
     batch_ordering : string
         If ``random``, batches are randomly permuted; otherwise ``ascending`` or ``descending`` sorted by length.
     max_batch_ex: int
-        If set, it limits the maximum number of examples that can be in a batch superseeding max_batch_length
+        If set, it limits the maximum number of examples that can be in a batch superseding max_batch_length
         in instances where the amount of examples will exceed the value specified here.
         E.g. you have a lot of short examples and the batch size for those will be too high, you can use this argument
         to limit the batch size for these short examples.

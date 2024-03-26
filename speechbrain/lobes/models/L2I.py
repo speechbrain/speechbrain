@@ -65,7 +65,7 @@ class Psi(nn.Module):
         Arguments
         ---------
         inp: list
-            A length 3 list of classifier input representions.
+            A length 3 list of classifier input representations.
 
         Returns
         -------

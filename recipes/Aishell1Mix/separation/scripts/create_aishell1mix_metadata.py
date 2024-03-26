@@ -197,7 +197,7 @@ def create_aishell1mix_df(
         # Do the mixture
         mixture_max = mix(sources_list_norm)
         # Check the mixture for clipping and renormalize if necessary
-        renormalize_loudness, did_clip = check_for_cliping(
+        renormalize_loudness, did_clip = check_for_clipping(
             mixture_max, sources_list_norm
         )
         clip_counter += int(did_clip)
@@ -432,7 +432,7 @@ def mix(sources_list_norm):
     return mixture_max
 
 
-def check_for_cliping(mixture_max, sources_list_norm):
+def check_for_clipping(mixture_max, sources_list_norm):
     """Check the mixture (mode max) for clipping and re normalize if needed."""
     # Initialize renormalized sources and loudness
     renormalize_loudness = []

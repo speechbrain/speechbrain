@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interepret audio classifiers.
+"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -234,7 +234,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """interpration test with overlapped audio"""
+        """interpretation test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 

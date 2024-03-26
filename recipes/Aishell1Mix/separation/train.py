@@ -310,7 +310,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length withing the mixture.
+        """This function selects a random segment of a given length within the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -432,7 +432,7 @@ class Separation(sb.Brain):
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
 
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
         if not os.path.exists(save_path):
             os.mkdir(save_path)
@@ -639,7 +639,7 @@ if __name__ == "__main__":
                     os.path.normpath(hparams["base_folder_dm"]) + "_processed"
                 )
 
-        # Colleting the hparams for dynamic batching
+        # Collecting the hparams for dynamic batching
         dm_hparams = {
             "train_data": hparams["train_data"],
             "data_folder": hparams["data_folder_nspks"],

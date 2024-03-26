@@ -993,7 +993,7 @@ class CTCBaseSearcher(torch.nn.Module):
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
-        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
+        Each tensors is converted to numpy and CPU as it is faster and consumes less memory.
 
         Arguments
         ---------
@@ -1155,7 +1155,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
     added to the general score, and each beams that share the same text are
     merged together.
 
-    The implementation suppors n-gram scoring on words and SentencePiece tokens. The input
+    The implementation supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     The main advantage of this CTCBeamSearcher over the CTCPrefixBeamSearcher is that it is
@@ -1487,7 +1487,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873).
 
     The implementation keep tracks of the blank and non-blank probabilities.
-    It also suppors n-gram scoring on words and SentencePiece tokens. The input
+    It also supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     Several heuristics are implemented to speed up the decoding process:
@@ -1919,7 +1919,7 @@ class TorchAudioCTCPrefixBeamSearcher:
     If you want to use the language model, or the lexicon search, please make sure that your
     tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail.
 
-    The implementation is compatible with Sentenpiece Tokens.
+    The implementation is compatible with SentencePiece Tokens.
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
     requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams).

@@ -36,7 +36,7 @@ class AttentionSeq2Seq(nn.Module):
     out: torch.nn.Module
         the output layer (typically log_softmax)
     bos_token: int
-        the index of teh Beginning-of-Sentence token
+        the index of the Beginning-of-Sentence token
     use_word_emb: bool
         whether or not to use word embedding
     word_emb_enc: nn.Module

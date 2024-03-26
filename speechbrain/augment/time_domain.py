@@ -61,7 +61,7 @@ class AddNoise(torch.nn.Module):
         containing the noisy sequences are not provided. By default,
         torch.randn_like is used (to sample white noise). In general, it must
         be a function that takes in input the original waveform and returns
-        a tensor with the corresponsing noise to add (e.g., see pink_noise_like).
+        a tensor with the corresponding noise to add (e.g., see pink_noise_like).
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced

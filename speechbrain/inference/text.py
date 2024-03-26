@@ -337,7 +337,7 @@ class Llama2ResponseGenerator(ResponseGenerator):
         Arguments
         ---------
         inputs: prompt_bos
-            prompted imputs to be passed to llama2 model for generation.
+            prompted inputs to be passed to llama2 model for generation.
 
         Returns
         -------

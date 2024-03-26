@@ -23,7 +23,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # It allows you to read the data much faster without slowing down the shared filesystem.
 
 data_folder: ../data # In this case, data will be automatically downloaded here.
-data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 
 # Data for augmentation

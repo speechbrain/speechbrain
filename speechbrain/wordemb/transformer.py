@@ -285,7 +285,7 @@ def _get_model(identifier):
 
 
 def _get_tokenizer(identifier):
-    """Tries to retreive a pretrained tokenizer from HuggingFace"""
+    """Tries to retrieve a pretrained tokenizer from HuggingFace"""
     try:
         from transformers import AutoTokenizer  # noqa
 

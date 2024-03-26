@@ -1017,7 +1017,7 @@ class CyclicLRScheduler:
         return old_lr, new_lr
 
     def clr(self, clr_iterations):
-        """Clears interations."""
+        """Clears iterations."""
         cycle = math.floor(1 + clr_iterations / (2 * self.step_size))
         x = abs(clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == "cycle":
@@ -1378,7 +1378,7 @@ class ScheduledLoss(nn.Module):
         if not any(schedule):
             raise ValueError("At least one schedule item is required")
         if any(item for item in schedule if not callable(item.get("loss_fn"))):
-            raise ValueError("Each schedule item needs to have at leas ")
+            raise ValueError("Each schedule item needs to have at least ")
         self.schedule = schedule
         self.n_steps = 0
         self.find_next_switch()

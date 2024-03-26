@@ -189,7 +189,7 @@ def ddp_init_group(run_opts):
     else:
         raise ValueError(
             run_opts["distributed_backend"]
-            + " communcation protocol doesn't exist."
+            + " communication protocol doesn't exist."
         )
 
     # rank arg is used to set the right rank of the current process for ddp.

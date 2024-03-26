@@ -30,7 +30,10 @@ repos:
     hooks:
       - id: yamllint
 
-  - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v8.6.0
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.4
     hooks:
-      - id: cspell
+      - id: codespell
+        args: [--ignore-words=.dict-speechbrain.txt]
+        additional_dependencies:
+          - tomli

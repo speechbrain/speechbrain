@@ -22,7 +22,7 @@ EPS = torch.finfo(torch.get_default_dtype()).eps
 class MemLSTM(nn.Module):
     """the Mem-LSTM of SkiM --
 
-    Note: This is taken from the SkiM implementation in ESPNet toolkit and modified for compability with SpeechBrain.
+    Note: This is taken from the SkiM implementation in ESPNet toolkit and modified for compatibility with SpeechBrain.
 
     Arguments
     ---------
@@ -42,7 +42,7 @@ class MemLSTM(nn.Module):
     norm_type: str
         'gln', 'cln'
         This selects the type of normalization
-        cln is for causal implemention
+        cln is for causal implementation
 
     Example
     -------

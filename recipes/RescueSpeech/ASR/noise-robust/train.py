@@ -441,7 +441,7 @@ class ASR(sb.core.Brain):
         saves the test audio (noisy, clean, and estimated sources) on disk
         (Only for enhance Model)
         """
-        # Create outout folder
+        # Create output folder
         f_name = batch.noisy_wav[0].split("/")[-1].replace(".wav", "")
         save_path = os.path.join(
             self.hparams.output_folder, "enhanced_wavs", f_name

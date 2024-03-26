@@ -6,7 +6,7 @@ As such, this test case is supposed to be run offline and serves more as a tool 
 (outside of GitHub workflows).
 
 Since one can modify this recipe for further use cases, it also serves as a template.
-Eventually, code snippets provided here might find proper re-use in recipes and testing of pretrained models,
+Eventually, code snippets provided here might find proper reuse in recipes and testing of pretrained models,
 e.g. when re-running evaluations on int'l research challenges,
 (where one needs to obtain scores for fusion &/or calibration of classifiers for submission).
 

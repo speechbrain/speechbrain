@@ -179,7 +179,7 @@ class CVRow:
 
 
 def process_line(line, data_folder, language, accented_letters):
-    # Path is at indice 1 in Common Voice tsv files. And .mp3 files
+    # Path is at index 1 in Common Voice tsv files. And .mp3 files
     # are located in datasets/lang/clips/
     mp3_path = data_folder + "/clips/" + line.split("\t")[1]
 

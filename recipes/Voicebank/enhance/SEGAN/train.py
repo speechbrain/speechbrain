@@ -404,7 +404,7 @@ def dataio_prep(hparams):
     It also defines the data processing pipeline through user-defined functions.
     """
 
-    # Define audio piplines
+    # Define audio pipelines
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_sig")
     def noisy_pipeline(noisy_wav):

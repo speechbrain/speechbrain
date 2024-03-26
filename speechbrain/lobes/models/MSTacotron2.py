@@ -66,7 +66,7 @@ class Tacotron2(nn.Module):
     ->decoder(+prenet) -> postnet ->output
 
     prenet(input is decoder previous time step) output is input to decoder
-    concatenanted with the attention output
+    concatenated with the attention output
 
     Arguments
     ---------
@@ -79,7 +79,7 @@ class Tacotron2(nn.Module):
     n_symbols:  int=128
         number of accepted char symbols defined in textToSequence
     symbols_embedding_dim: int
-        number of embeding dimension for symbols fed to nn.Embedding
+        number of embedding dimension for symbols fed to nn.Embedding
     encoder_kernel_size: int
         size of kernel processing the embeddings
     encoder_n_convolutions: int
@@ -418,7 +418,7 @@ class Loss(nn.Module):
     Arguments
     ---------
     guided_attention_sigma: float
-        The guided attention sigma factor, controling the "width" of
+        The guided attention sigma factor, controlling the "width" of
         the mask
     gate_loss_weight: float
         The constant by which the gate loss will be multiplied
@@ -433,7 +433,7 @@ class Loss(nn.Module):
     guided_attention_scheduler: callable
         The scheduler class for the guided attention loss
     guided_attention_hard_stop: int
-        The number of epochs after which guided attention will be compeltely
+        The number of epochs after which guided attention will be completely
         turned off
 
     Example
@@ -676,7 +676,7 @@ class TextMelCollate:
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary with one element
+        ):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length

@@ -87,7 +87,7 @@ class PostNet(nn.Module):
     postnet_n_convolutions: int
        number of convolution layers
     postnet_dropout: float
-        dropout probability fot postnet
+        dropout probability for postnet
     """
 
     def __init__(
@@ -263,7 +263,7 @@ class SPNPredictor(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer
+        whether to use convolutional layers instead of feed forward network inside transformer layer
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     n_char: int
@@ -424,7 +424,7 @@ class FastSpeech2(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer.
+        whether to use convolutional layers instead of feed forward network inside transformer layer.
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     n_char: int
@@ -438,7 +438,7 @@ class FastSpeech2(nn.Module):
     postnet_n_convolutions: int
        number of convolution layers
     postnet_dropout: float
-        dropout probability fot postnet
+        dropout probability for postnet
     padding_idx: int
         the index for padding
     dur_pred_kernel_size: int
@@ -870,7 +870,7 @@ class TextMelCollate:
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary with one element
+        ):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
@@ -1837,7 +1837,7 @@ class TextMelCollateWithAlignment:
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary with one element
+        ):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
@@ -2135,7 +2135,7 @@ class FastSpeech2WithAlignment(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer.
+        whether to use convolutional layers instead of feed forward network inside transformer layer.
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     n_char: int
@@ -2149,7 +2149,7 @@ class FastSpeech2WithAlignment(nn.Module):
     postnet_n_convolutions: int
         number of convolution layers
     postnet_dropout: float
-        dropout probability fot postnet
+        dropout probability for postnet
     padding_idx: int
         the index for padding
     dur_pred_kernel_size: int

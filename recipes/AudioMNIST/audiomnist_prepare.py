@@ -451,7 +451,7 @@ def convert_speaker_meta_values(speaker_meta):
 
 
 def convert_speaker_meta(speaker_meta):
-    """Converts speaker metdata to the target format
+    """Converts speaker metadata to the target format
 
     Arguments
     ---------

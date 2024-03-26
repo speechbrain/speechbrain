@@ -152,6 +152,7 @@ vWeight
 wDay
 wGap
 whamr
+whats
 Wmax
 xAxis
 xHat
@@ -191,6 +192,7 @@ aiox
 alffa
 alived
 annot
+ans
 arpa
 arpack
 arxiv
@@ -212,6 +214,7 @@ bmlh
 brir
 cafile
 cand
+cant
 catl
 catr
 cbak
@@ -222,6 +225,7 @@ cfgs
 chans
 cheby
 cheybyshev
+childs
 chkarada
 chnl
 chnls
@@ -247,6 +251,7 @@ convolutional
 convs
 convtasnet
 convtranspose
+couldnt
 covl
 covls
 cpulm
@@ -307,6 +312,7 @@ Diarizing
 dictify
 diDataset
 didatasets
+didnt
 disambig
 discretized
 discretizes
@@ -356,8 +362,11 @@ finv
 fitzooth
 flac
 fltp
+fo
 foos
+fpr
 freqs
+fro
 fromx
 fsa's
 fsas
@@ -517,6 +526,7 @@ nbest
 nbin
 nccl
 ncor
+nd
 ndarray
 ndim
 ndims
@@ -555,7 +565,9 @@ numspks
 nvvm
 nwerr
 NYU's
+oclock
 oemax
+oen
 Omniglot
 onnxruntime
 onwsj
@@ -563,6 +575,7 @@ openfst
 openrir
 optim
 osama
+ot
 ovrl
 paedophiles
 parametrizations
@@ -679,6 +692,7 @@ sents
 septillionths
 seqlm
 seqs
+ser
 sers
 sess
 setu
@@ -700,6 +714,7 @@ snrlevels
 snrs
 snts
 soxi
+specif
 spectr
 sphs
 spkid
@@ -708,6 +723,7 @@ spkrdata
 spkrec
 spkrs
 spks
+splitted
 srate
 srmr
 srmrpy
@@ -742,6 +758,8 @@ tdoa
 tdoas
 tdur
 texthvc
+thats
+theyre
 tids
 timit
 tjoint
@@ -826,6 +844,7 @@ xlsr
 xmls
 xponent
 yamls
+youre
 ӿéæœâçèàûî
 
 ####### Names #######
@@ -1160,6 +1179,8 @@ utilises
 visualisation
 
 ####### Non-English #######
+AUJOURD
+AUJOURD'HUI
 collés
 delle
 encadre
@@ -1168,3 +1189,4 @@ Politecnica
 quelques
 Université
 Università
+vie

@@ -36,7 +36,7 @@ python g2p.py --model /path/to/model --text "This is a line of text"
 ```
 
 The tool will transcribe the single sample and output the transcribed
-text to standard outout.
+text to standard output.
 
 Transcribe a file:
 python g2p.py --model /path/to/model --text-file text.txt \

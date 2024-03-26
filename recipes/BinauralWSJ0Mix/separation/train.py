@@ -562,7 +562,7 @@ class Separation(sb.Brain):
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
 
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
         if not os.path.exists(save_path):
             os.mkdir(save_path)

@@ -34,7 +34,7 @@ try:
         warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
     else:
         logger.info(
-            "Numba verbose is enabled. To desactivate it, set NUMBA_VERBOSE to 0."
+            "Numba verbose is enabled. To deactivate it, set NUMBA_VERBOSE to 0."
         )
 
 except ImportError:
@@ -73,7 +73,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
+        Blank index.
     lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
@@ -149,7 +149,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
+        Blank index.
     lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """

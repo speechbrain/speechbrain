@@ -77,7 +77,7 @@ def prepare_librispeech(
         If not None, only pick this many sentences.
     merge_lst : list
         List of librispeech splits (e.g, train-clean, train-clean-360,..) to
-        merge in a singe csv file.
+        merge in a single csv file.
     merge_name: str
         Name of the merged csv file.
     create_lexicon: bool

@@ -212,7 +212,7 @@ class DependencyGraph:
         seen_ever = set()
 
         def toposort(root_ind, visited):
-            """Implementation of topsort."""
+            """Implementation of toposort."""
             nonlocal seen_ever
             here = visited + [root_ind]
             if root_ind in visited:

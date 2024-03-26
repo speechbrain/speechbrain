@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train PIQ to interepret audio classifiers.
+"""This recipe to train PIQ to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -141,7 +141,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """Interpration test with overlapped audio"""
+        """Interpretation test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 

@@ -645,14 +645,14 @@ def process_text_node(
     ---------
     node: Node
         Node of the xml file.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept: str
@@ -661,7 +661,7 @@ def process_text_node(
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     task: str, optional
         Either 'slu' or 'asr'.
         'slu' Parse SLU data.
@@ -673,7 +673,7 @@ def process_text_node(
 
     Returns
     -------
-    dictionnary of str, bool, bool, bool
+    dictionary of str, bool, bool, bool
     """
 
     # Add a new concept, when speech following
@@ -708,20 +708,20 @@ def process_sync_node(
     ---------
     node: Node
         Node of the xml file.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     task: str, optional
         Either 'slu' or 'asr'.
         'slu' Parse SLU data.
@@ -735,7 +735,7 @@ def process_sync_node(
 
     Returns
     -------
-    dictionnary of str, bool, bool, str, int
+    dictionary of str, bool, bool, str, int
     """
 
     # If the segment has no speech yet
@@ -770,14 +770,14 @@ def process_semfin_node(
 
     Arguments
     ---------
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept: str
@@ -786,7 +786,7 @@ def process_semfin_node(
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     n: int
         Used to keep track of the number of sentences in the turn.
     time: str
@@ -821,12 +821,12 @@ def clean_last_char(sentences):
 
     Arguments
     ---------
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     for n in range(len(sentences)):
@@ -834,7 +834,7 @@ def clean_last_char(sentences):
             sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
             sentences[n][1] = sentences[n][1][:-3]  # Remove last ' _ '
         else:
-            del sentences[n]  # Usefull for last appended segment
+            del sentences[n]  # Useful for last appended segment
     return sentences
 
 
@@ -921,7 +921,7 @@ def write_first_row(save_folder, corpus):
 
 def split_audio_channels(path, filename, channel, save_folder):
     """
-    Split the stereo wav Media files from the dowloaded dataset.
+    Split the stereo wav Media files from the downloaded dataset.
     Keep only the speaker channel.
 
     Arguments:
@@ -1079,7 +1079,7 @@ def get_channels(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
+        Can be downloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------
@@ -1126,7 +1126,7 @@ def get_concepts_full_relax(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
+        Can be downloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------
@@ -1214,7 +1214,7 @@ def get_IDs(speaker_name, sentences, channel, filename):
     ---------
     speaker_name: str
         Speaker name of the turn, already normalized.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     channel: str
         "R" or "L" following the channel of the speaker in the stereo wav file.

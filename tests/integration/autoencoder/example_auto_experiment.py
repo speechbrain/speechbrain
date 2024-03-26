@@ -13,7 +13,8 @@ from hyperpyyaml import load_hyperpyyaml
 
 class AutoBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Appling encoder and decoder to the input features"""
+        """Applying encoder and decoder to the input features"""
+
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)

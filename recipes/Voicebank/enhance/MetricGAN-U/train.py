@@ -662,14 +662,14 @@ class MetricGanBrain(sb.Brain):
         self.d_optimizer.zero_grad(set_to_none)
 
 
-# Define audio piplines for training set
+# Define audio pipelines for training set
 @sb.utils.data_pipeline.takes("noisy_wav")
 @sb.utils.data_pipeline.provides("noisy_sig")
 def audio_pipeline_train(noisy_wav):
     yield sb.dataio.dataio.read_audio(noisy_wav)
 
 
-# Define audio piplines for validation/test set
+# Define audio pipelines for validation/test set
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
 def audio_pipeline_valid(noisy_wav, clean_wav):
