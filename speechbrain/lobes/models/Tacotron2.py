@@ -1241,7 +1241,7 @@ class Tacotron2(nn.Module):
     ->decoder(+prenet) -> postnet ->output
 
     prenet(input is decoder previous time step) output is input to decoder
-    concatenanted with the attention output
+    concatenated with the attention output
 
     Arguments
     ---------

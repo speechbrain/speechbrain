@@ -82,7 +82,7 @@ Hyperparameter Optimization
 This recipe supports hyperparameter optimization via Oríon or other similar tools.
 For details on how to set up hyperparameter optimization, refer to the
 "Hyperparameter Optimization" tutorial in the Advanced Tutorials section
-on the SpeechBrian website:
+on the SpeechBrain website:
 
 https://speechbrain.github.io/tutorial_advanced.html
 

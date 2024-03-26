@@ -86,7 +86,7 @@ def foreign_class(
         Where to put the pretraining material. If not given, will use
         ./pretrained_models/<class-name>-hash(source).
     use_auth_token : bool (default: False)
-        If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+        If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because the majority of models are public.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
@@ -429,7 +429,7 @@ class Pretrained(torch.nn.Module):
             Where to put the pretraining material. If not given, will use
             ./pretrained_models/<class-name>-hash(source).
         use_auth_token : bool (default: False)
-            If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+            If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
             default is False because the majority of models are public.
         revision : str
             The model revision corresponding to the HuggingFace Hub model revision.

@@ -565,7 +565,7 @@ if __name__ == "__main__":  # noqa: C901
     full_meta = meta_dev
 
     # Processing starts from here
-    # Following few lines selects option for different backend and affinity matrices. Finds best values for hyperameters using dev set.
+    # Following few lines selects option for different backend and affinity matrices. Finds best values for hyperparameters using dev set.
     best_nn = None
     if params["affinity"] == "nn":
         logger.info("Tuning for nn (Multiple iterations over AMI Dev set)")
