@@ -469,7 +469,7 @@ if __name__ == "__main__":
         valid_loader_kwargs=valid_dataloader_opts,
     )
 
-    # Test
+    # Testing
     asr_brain.evaluate(
         test_data,
         min_key="WER",
