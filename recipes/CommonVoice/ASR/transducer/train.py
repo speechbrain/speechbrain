@@ -53,7 +53,7 @@ class ASR(sb.Brain):
         if (
             stage == sb.Stage.TRAIN
             and hasattr(self.hparams, "fea_augment")
-            and self.optimizer_step > self.augment_warmup
+            and self.optimizer_step > self.hparams.augment_warmup
         ):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
             tokens_with_bos = self.hparams.fea_augment.replicate_labels(
@@ -142,7 +142,7 @@ class ASR(sb.Brain):
         if stage == sb.Stage.TRAIN:
             if (
                 hasattr(self.hparams, "fea_augment")
-                and self.optimizer_step > self.augment_warmup
+                and self.optimizer_step > self.hparams.augment_warmup
             ):
                 tokens = self.hparams.fea_augment.replicate_labels(tokens)
                 token_lens = self.hparams.fea_augment.replicate_labels(
