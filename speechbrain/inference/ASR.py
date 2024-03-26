@@ -553,12 +553,10 @@ class WhisperASR(Pretrained):
 
             results.append({})
 
-            start = i * self.mods.whisper._N_FRAMES
-            end = (i + 1) * self.mods.whisper._N_FRAMES
+            start = i * N_FRAMES
+            end = (i + 1) * N_FRAMES
             mel_segment = mel_segment.unsqueeze(0)
-            mel_segment = self.mods.whisper.pad_or_trim(
-                mel_segment, self.mods.whisper._N_FRAMES
-            )
+            mel_segment = self.mods.whisper.pad_or_trim(mel_segment, N_FRAMES)
 
             encoder_out = self.mods.whisper.forward_encoder(mel_segment)
             languages, _ = self._detect_language(mel_segment, task)
