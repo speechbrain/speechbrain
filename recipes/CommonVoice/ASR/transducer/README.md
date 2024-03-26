@@ -62,7 +62,7 @@ may end up forming indirect dependencies to audio many seconds ago.
 |       | full | cs=32 (1280ms) | 16 (640ms) | 8 (320ms) |
 |:-----:|:----:|:-----:|:-----:|:-----:|
 | it full  | 8.92 | -     | -     |  -   |
-| it lc=32    | -    | x | 10.82 | 12.01 |
+| it lc=32    | -    | 10.04 | 10.82 | 12.01 |
 | fr full  | 12.47 | -     | -     |  -   |
 | fr lc=32    | -    | 13.92 | 14.88 | 16.22 |
 
