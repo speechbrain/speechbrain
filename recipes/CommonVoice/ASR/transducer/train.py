@@ -270,11 +270,27 @@ def dataio_prepare(hparams, tokenizer):
         csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
-    train_data = train_data.filtered_sorted(
-        sort_key="duration",
-        key_max_value={"duration": hparams["avoid_if_longer_than"]},
-    )
+    if hparams["sorting"] == "ascending":
+        # we sort training data to speed up training and get better results.
+        train_data = train_data.filtered_sorted(
+            sort_key="duration",
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
+    elif hparams["sorting"] == "descending":
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", reverse=True
+        )
+        # when sorting do not shuffle in dataloader ! otherwise is pointless
+        hparams["train_dataloader_opts"]["shuffle"] = False
 
+    elif hparams["sorting"] == "random":
+        pass
+    else:
+        raise NotImplementedError(
+            "sorting must be random, ascending or descending"
+        )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
     )
