@@ -105,7 +105,7 @@ class Tacotron2(nn.Module):
         maximum number of steps/frames the decoder generates before stopping
     gate_threshold: int
         cut off level any output probability above that is considered
-        complete and stops genration so we have variable length outputs
+        complete and stops generation so we have variable length outputs
     p_attention_dropout: float
         attention drop out probability
     p_decoder_dropout: float

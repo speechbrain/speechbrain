@@ -41,7 +41,7 @@ class GPT(HFTransformersInterface):
     max_new_tokens : int
         Maximum count of new tokens allowed.
     min_length : int
-        Minium count of input tokens
+        Minimum count of input tokens
     top_k : int
         Top results count to keep
     top_p : float
