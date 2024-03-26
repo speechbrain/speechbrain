@@ -483,12 +483,12 @@ class FastSpeech2(nn.Module):
     ...    pitch_pred_kernel_size=3,
     ...    energy_pred_kernel_size=3,
     ...    variance_predictor_dropout=0.5)
-    >>> inputs = torch.Tensor([
+    >>> inputs = torch.tensor([
     ...     [13, 12, 31, 14, 19],
     ...     [31, 16, 30, 31, 0],
     ... ])
-    >>> input_lengths = torch.Tensor([5, 4])
-    >>> durations = torch.Tensor([
+    >>> input_lengths = torch.tensor([5, 4])
+    >>> durations = torch.tensor([
     ...     [2, 4, 1, 5, 3],
     ...     [1, 2, 4, 3, 0],
     ... ])
@@ -730,7 +730,7 @@ class FastSpeech2(nn.Module):
             durations if durations is not None else dur_pred_reverse_log,
             pace=pace,
         )
-        srcmask = get_mask_from_lengths(torch.Tensor(mel_lens))
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
         srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
@@ -759,7 +759,7 @@ class FastSpeech2(nn.Module):
             avg_pitch,
             predict_energy,
             avg_energy,
-            torch.Tensor(mel_lens),
+            torch.tensor(mel_lens),
         )
 
 
@@ -1315,13 +1315,13 @@ class SSIMLoss(torch.nn.Module):
             print(
                 f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 1.0"
             )
-            ssim_loss = torch.Tensor(1.0, device=ssim_loss.device)
+            ssim_loss = torch.tensor(1.0, device=ssim_loss.device)
 
         if ssim_loss.item() < 0.0:
             print(
                 f" > SSIM loss is out-of-range {ssim_loss.item()}, setting it 0.0"
             )
-            ssim_loss = torch.Tensor(0.0, device=ssim_loss.device)
+            ssim_loss = torch.tensor(0.0, device=ssim_loss.device)
 
         return ssim_loss
 
@@ -2198,7 +2198,7 @@ class FastSpeech2WithAlignment(nn.Module):
     ...    pitch_pred_kernel_size=3,
     ...    energy_pred_kernel_size=3,
     ...    variance_predictor_dropout=0.5)
-    >>> inputs = torch.Tensor([
+    >>> inputs = torch.tensor([
     ...     [13, 12, 31, 14, 19],
     ...     [31, 16, 30, 31, 0],
     ... ])
@@ -2535,7 +2535,7 @@ class FastSpeech2WithAlignment(nn.Module):
             ),
             pace=pace,
         )
-        srcmask = get_mask_from_lengths(torch.Tensor(mel_lens))
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
         srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
@@ -2565,7 +2565,7 @@ class FastSpeech2WithAlignment(nn.Module):
             avg_pitch,
             predict_energy,
             avg_energy,
-            torch.Tensor(mel_lens),
+            torch.tensor(mel_lens),
             alignment_durations,
             alignment_soft,
             alignment_logprob,
@@ -2804,8 +2804,8 @@ class ForwardSumLoss(nn.Module):
     >>> from speechbrain.lobes.models.FastSpeech2 import ForwardSumLoss
     >>> loss_func = ForwardSumLoss()
     >>> attn_logprob = torch.rand(2, 1, 100, 5)
-    >>> key_lens = torch.Tensor([5, 5])
-    >>> query_lens = torch.Tensor([100, 100])
+    >>> key_lens = torch.tensor([5, 5])
+    >>> query_lens = torch.tensor([100, 100])
     >>> loss = loss_func(attn_logprob, key_lens, query_lens)
     """
 
