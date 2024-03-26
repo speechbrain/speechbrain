@@ -179,8 +179,12 @@ use_pretrained: True
 # embedding_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-01-28+14-05-48+00/embedding_model.ckpt'
 # classifier_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-01-28+14-05-48+00/classifier.ckpt'
 
-embedding_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-03-22+10-49-49+00/embedding_model.ckpt'
-classifier_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-03-22+10-49-49+00/classifier.ckpt'
+#embedding_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-03-22+10-49-49+00/embedding_model.ckpt'
+#classifier_model_path: '../classification/results/cnn14-cnn14-esc10-ml/1234/save/CKPT+2024-03-22+10-49-49+00/classifier.ckpt'
+#
+
+embedding_model_path: '../classification/results/classifier_ml2/1234/save/CKPT+2024-03-23+12-03-36+00/embedding_model.ckpt'
+classifier_model_path: '../classification/results/classifier_ml2/1234/save/CKPT+2024-03-23+12-03-36+00/classifier.ckpt'
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
@@ -226,7 +230,7 @@ psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI_stft
     activate_class_partitioning: True
     adapter_reduce_dim: True
     stft2mel: True
-    outdim: 3
+    outdim: 10
 
 modules:
     compute_stft: !ref <compute_stft>

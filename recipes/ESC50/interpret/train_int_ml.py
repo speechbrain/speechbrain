@@ -336,7 +336,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.savefig(os.path.join(out_folder, "specs.png"))
         plt.close()
 
-    def debug_files(self, X_stft, xhat, X_stft_logpower, batch, wavs, idn=0):
+    def debug_files(self, X_stft, xhat, X_stft_logpower, batch, wavs, predictions, idn=0):
         """The helper function to create debugging images"""
         X_stft_phase = spectral_phase(X_stft)
         temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
@@ -353,24 +353,25 @@ class InterpreterESC50Brain(sb.core.Brain):
                 X_est_masked, X_stft_phase[0:1]
             )
 
-        plt.figure(figsize=(11, 6), dpi=100)
+        plt.figure(figsize=(11, 4), dpi=100)
+        aspect = 0.1
 
         plt.subplot(311)
         X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
-        plt.imshow(X_target, origin="lower")
+        plt.imshow(X_target, origin="lower", aspect=aspect)
         plt.title("input")
-        plt.colorbar()
+        # plt.colorbar()
 
         plt.subplot(312)
         mask = xhat[0]
         X_masked = mask * X_stft_logpower[0, :Tmax, :]
-        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
+        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower", aspect=aspect)
+        # plt.colorbar()
         plt.title("masked")
 
         plt.subplot(313)
-        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
+        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower", aspect=aspect)
+        # plt.colorbar()
         plt.title("mask")
 
         out_folder = os.path.join(
@@ -400,6 +401,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             wavs[0:1].data.cpu(),
             self.hparams.sample_rate,
         )
+
+        with open(os.path.join(out_folder, "predicted_classes.text"), 'w') as f:
+            f.write(f'predictions = {predictions[0]}')
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -449,9 +453,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             ) == 0 and self.hparams.save_interpretations:
                 # self.interpret_sample(wavs, batch)
                 # self.overlap_test(batch)
-                self.debug_files(X_stft, xhat[:, 0, :, :], X_stft_logpower, batch, wavs[0:1], idn=0)
-                self.debug_files(X_stft, xhat[:, 1, :, :], X_stft_logpower, batch, wavs[0:1], idn=1)
-                self.debug_files(X_stft, xhat[:, 2, :, :], X_stft_logpower, batch, wavs[0:1], idn=2)
+                for i in range(10):
+                    self.debug_files(X_stft, xhat[:, i, :, :], X_stft_logpower, batch, wavs[0:1], predictions, idn=i)
 
         return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
 
@@ -520,9 +523,6 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         X_stft_logpower = X_stft_logpower[:, :Tmax, :]
 
-        mask_in = xhat * X_stft_logpower.unsqueeze(1)
-        mask_out = (1 - xhat) * X_stft_logpower.unsqueeze(1)
-
         if self.hparams.finetuning:
             crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
             crosscor_mask = (crosscor >= self.hparams.crosscor_th).float()
@@ -553,40 +553,61 @@ class InterpreterESC50Brain(sb.core.Brain):
             rec_loss = 0
             crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
 
-        mask_in_preds_all = []
-        mask_out_preds_all = []
-        preds_all = []
-        l_in = 0
-        l_out = 0
-        top_preds = predictions.sort(dim=1, descending=True)
-        targets_sorted = targets.sort(dim=1, descending=True)[0]
-        for i in range(3):
-            mask_in_i = self.classifier_forward(mask_in[:, i, :, :])
-            cls_to_keep = top_preds[1][:, i]
-            #mask_in_preds = torch.gather(mask_in[2], 1, cls_to_keep)
-            # mask to pick out classes to keep
-            mask = torch.eye(predictions.shape[1], device=self.device)
-            mask = mask[cls_to_keep, :]
-            mask_in_preds = mask_in_i[2][mask.bool()]
-            mask_in_preds_all.append(mask_in_preds)
-            preds_all.append(top_preds[0][:, i])
-            
-            #l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
-            #l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
-            #l_in = ((torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) * (1-mask)).sum(1) * targets_sorted[:, i]).mean() + l_in
-            # try the sigmoid idea here
-            l_in = -(mask * torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) + (1-mask) * torch.log(1e-7 + 1-torch.sigmoid(mask_in_i[2]))).mean() + l_in
+        mask_in = xhat * X_stft_logpower.unsqueeze(1)
+        mask_out = (1 - xhat) * X_stft_logpower.unsqueeze(1)
 
-            # mask to pick out classes to suppress
-            mask_out_i = self.classifier_forward(mask_out[:, i, :, :])
-            mask_out_preds = mask_out_i[2][(mask).bool()]
-            mask_out_preds_all.append(mask_out_i[2][(mask).bool()])
-            l_out = +(torch.log(1e-7 + torch.sigmoid(mask_out_preds)) * targets_sorted[:, i]).mean() + l_out
+        mask_in_flattened = mask_in.reshape(-1, mask_in.shape[-2], mask_in.shape[-1])
+        mask_out_flattened = mask_out.reshape(-1, mask_in.shape[-2], mask_in.shape[-1])
 
-        # class_pred = predictions.argmax(1)
-        #l_in = F.nll_loss(mask_in_preds.log_softmax(1), class_pred)
-        #l_out = -F.nll_loss(mask_out_preds.log_softmax(1), class_pred)
-        ao_loss = l_in * self.hparams.l_in_w + self.hparams.l_out_w * l_out
+        mask_in_i = self.classifier_forward(mask_in_flattened)[2]
+        mask_out_i = self.classifier_forward(mask_out_flattened)[2]
+
+        mask_in_preds = mask_in_i.reshape(-1, 10, 10)
+        mask_out_preds = mask_out_i.reshape(-1, 10, 10)
+
+        predictions_diag = predictions.unsqueeze(-1).sigmoid() * torch.eye(10, device=self.device)
+        predictions_offdiag = predictions.unsqueeze(-1).sigmoid() * (1-torch.eye(10, device=self.device))
+
+        l_in = - predictions_diag * torch.log(1e-10 + mask_in_preds.sigmoid()) \
+               - (1 - predictions_diag) * torch.log(1 - mask_in_preds.sigmoid() + 1e-10)
+        l_out = - predictions_offdiag * torch.log(1e-10 + mask_out_preds.sigmoid()) \
+                - (1-predictions_offdiag) * torch.log(1 - mask_out_preds.sigmoid() + 1e-10)
+        ao_loss = self.hparams.l_in_w * l_in.mean() + self.hparams.l_out_w * l_out.mean()
+
+        # mask_in_preds_all = []
+        # mask_out_preds_all = []
+        # preds_all = []
+        # l_in = 0
+        # l_out = 0
+        # top_preds = predictions.sort(dim=1, descending=True)
+        # targets_sorted = targets.sort(dim=1, descending=True)[0]
+        # for i in range(3):
+        #     mask_in_i = self.classifier_forward(mask_in[:, i, :, :])
+        #     cls_to_keep = top_preds[1][:, i]
+        #     #mask_in_preds = torch.gather(mask_in[2], 1, cls_to_keep)
+        #     # mask to pick out classes to keep
+        #     mask = torch.eye(predictions.shape[1], device=self.device)
+        #     mask = mask[cls_to_keep, :]
+        #     mask_in_preds = mask_in_i[2][mask.bool()]
+        #     mask_in_preds_all.append(mask_in_preds)
+        #     preds_all.append(top_preds[0][:, i])
+        #     
+        #     #l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
+        #     #l_in = - (torch.log(1e-7 + torch.sigmoid(mask_in_preds)) * targets_sorted[:, i]).mean() + l_in
+        #     #l_in = ((torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) * (1-mask)).sum(1) * targets_sorted[:, i]).mean() + l_in
+        #     # try the sigmoid idea here
+        #     l_in = -(mask * torch.log(1e-7 + torch.sigmoid(mask_in_i[2])) + (1-mask) * torch.log(1e-7 + 1-torch.sigmoid(mask_in_i[2]))).mean() + l_in
+
+        #     # mask to pick out classes to suppress
+        #     mask_out_i = self.classifier_forward(mask_out[:, i, :, :])
+        #     mask_out_preds = mask_out_i[2][(mask).bool()]
+        #     mask_out_preds_all.append(mask_out_i[2][(mask).bool()])
+        #     l_out = +(torch.log(1e-7 + torch.sigmoid(mask_out_preds)) * targets_sorted[:, i]).mean() + l_out
+
+        # # class_pred = predictions.argmax(1)
+        # #l_in = F.nll_loss(mask_in_preds.log_softmax(1), class_pred)
+        # #l_out = -F.nll_loss(mask_out_preds.log_softmax(1), class_pred)
+        # ao_loss = l_in * self.hparams.l_in_w + self.hparams.l_out_w * l_out
 
         r_m = 0
         # r_m = (
@@ -599,37 +620,42 @@ class InterpreterESC50Brain(sb.core.Brain):
         #     * self.hparams.reg_w_tv
         #     * torch.logical_not(crosscor_mask)
         # ).sum()
+        r_m = xhat.abs().mean() * self.hparams.reg_w_l1
 
         
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            mask_in_preds = torch.concatenate(mask_in_preds_all).sigmoid()
-            mask_out_preds = torch.concatenate(mask_out_preds_all).sigmoid()
-            predictions_ = torch.concatenate(preds_all).sigmoid()
+            #mask_in_preds = torch.concatenate(mask_in_preds_all).sigmoid()
+            #mask_out_preds = torch.concatenate(mask_out_preds_all).sigmoid()
+            #predictions_ = torch.concatenate(preds_all).sigmoid()
 
-            uttid = torch.ones(predictions_.shape[0])
+            uttid = torch.ones(predictions.shape[0])
             #self.inp_fid.append(
             #    uttid,
             #    mask_in_preds,
             #    predictions,
             #)
+            
+            mask_in_preds = mask_in_preds.diagonal(dim1=1, dim2=2).sigmoid()
+            mask_out_preds = mask_out_preds.diagonal(dim1=1, dim2=2).sigmoid()
+            predictions = predictions.sigmoid()
             self.AD.append(
                 uttid,
                 mask_in_preds,
-                predictions_,
+                predictions,
             )
             self.AI.append(
                 uttid,
                 mask_in_preds,
-                predictions_,
+                predictions,
             )
             self.AG.append(
                 uttid,
                 mask_in_preds,
-                predictions_,
+                predictions,
             )
             self.faithfulness.append(
                 uttid,
-                predictions_,
+                predictions,
                 mask_out_preds,
             )
 
@@ -680,8 +706,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         #    predictions_selected - predictions_masked_selected
         #).squeeze()
 
-        faithfulness = predictions - predictions_masked
-        return faithfulness
+        faithfulness = (predictions - predictions_masked)
+        return faithfulness.mean(1)
 
     @torch.no_grad()
     def compute_AD(self, theta_out, predictions):
@@ -702,7 +728,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         # 1 element for each sample in batch, is 0 if pred_cl is in top k
         temp = (F.relu(pc - oc) / (pc + eps)) * 100
 
-        return temp
+        return temp.mean(1)
 
     @torch.no_grad()
     def compute_AI(self, theta_out, predictions):
@@ -722,7 +748,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         # 1 element for each sample in batch, is 0 if pred_cl is in top k
         temp = (pc < oc).float() * 100
 
-        return temp
+        return temp.mean(1)
 
     @torch.no_grad()
     def compute_AG(self, theta_out, predictions):
@@ -742,7 +768,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         # 1 element for each sample in batch, is 0 if pred_cl is in top k
         temp = (F.relu(oc - pc) / (1 - pc + eps)) * 100
 
-        return temp
+        return temp.mean(1)
 
     def on_stage_start(self, stage, epoch=None):
         """Steps taken before stage start"""
@@ -1066,7 +1092,7 @@ if __name__ == "__main__":
         Interpreter_brain.fit(
             epoch_counter=Interpreter_brain.hparams.epoch_counter,
             train_set=train_loader,
-            valid_set=train_loader,
+            valid_set=valid_loader,
             train_loader_kwargs=hparams["dataloader_options"],
             valid_loader_kwargs=hparams["dataloader_options"],
         )
