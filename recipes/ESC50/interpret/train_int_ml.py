@@ -404,6 +404,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         with open(os.path.join(out_folder, "predicted_classes.text"), 'w') as f:
             f.write(f'predictions = {predictions[0]}')
+        f.close()
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -566,13 +567,15 @@ class InterpreterESC50Brain(sb.core.Brain):
         mask_out_preds = mask_out_i.reshape(-1, 10, 10)
 
         predictions_diag = predictions.unsqueeze(-1).sigmoid() * torch.eye(10, device=self.device)
-        predictions_offdiag = predictions.unsqueeze(-1).sigmoid() * (1-torch.eye(10, device=self.device))
+        # predictions_offdiag = predictions.unsqueeze(-1).sigmoid() * (1-torch.eye(10, device=self.device))
 
         l_in = - predictions_diag * torch.log(1e-10 + mask_in_preds.sigmoid()) \
                - (1 - predictions_diag) * torch.log(1 - mask_in_preds.sigmoid() + 1e-10)
-        l_out = - predictions_offdiag * torch.log(1e-10 + mask_out_preds.sigmoid()) \
-                - (1-predictions_offdiag) * torch.log(1 - mask_out_preds.sigmoid() + 1e-10)
-        ao_loss = self.hparams.l_in_w * l_in.mean() + self.hparams.l_out_w * l_out.mean()
+        #l_out = - predictions_offdiag * torch.log(1e-10 + mask_out_preds.sigmoid()) \
+        #        - (1-predictions_offdiag) * torch.log(1 - mask_out_preds.sigmoid() + 1e-10)
+        l_out = - predictions_diag * torch.log(1e-10 + mask_out_preds.sigmoid()) \
+                - (1-predictions_diag) * torch.log(1 - mask_out_preds.sigmoid() + 1e-10)
+        ao_loss = self.hparams.l_in_w * l_in.mean() - self.hparams.l_out_w * l_out.mean()
 
         # mask_in_preds_all = []
         # mask_out_preds_all = []
