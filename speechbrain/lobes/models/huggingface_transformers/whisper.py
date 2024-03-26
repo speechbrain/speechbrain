@@ -20,6 +20,12 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
 
+SAMPLE_RATE = 16000
+N_FFT = 400
+HOP_LENGTH = 160
+CHUNK_LENGTH = 30
+N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
+
 logger = logging.getLogger(__name__)
 
 
@@ -85,7 +91,7 @@ class Whisper(HFTransformersInterface):
         freeze_encoder=False,
         output_attentions=False,
         output_all_hiddens=False,
-        language="en",
+        language=None,
         task="transcribe",
     ):
         super().__init__(
@@ -116,8 +122,9 @@ class Whisper(HFTransformersInterface):
             )
 
             if self.is_multilingual:
+                language = self.language or "en"
                 self.tokenizer.set_prefix_tokens(
-                    language=self.language, task=self.task
+                    language=language, task=self.task
                 )
 
         self.load_feature_extractor(
@@ -215,11 +222,13 @@ class Whisper(HFTransformersInterface):
         torch.Tensor
             Mel spectrogram features computed from the input audio waveform.
         """
-        mels = self._pad_or_trim(wav)
-        mels = self._log_mel_spectrogram(mels)
+        mels = self.pad_or_trim(wav)
+        mels = self.log_mel_spectrogram(mels)
         return mels
 
-    def _log_mel_spectrogram(self, audio):
+    def log_mel_spectrogram(
+        self, audio, padding: int = 0,
+    ):
         """Compute the Mel spectrogram of a batch of input waveforms.
 
         Reference: adapted from
@@ -235,6 +244,8 @@ class Whisper(HFTransformersInterface):
         torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
         """
+        if padding > 0:
+            audio = nn.functional.pad(audio, (0, padding))
         window = torch.hann_window(self._n_fft, device=audio.device)
         stft = torch.stft(
             audio,
@@ -249,14 +260,11 @@ class Whisper(HFTransformersInterface):
         mel_spec = filters @ magnitudes
 
         log_spec = torch.clamp(mel_spec, min=1e-10).log10()
-        log_spec = torch.maximum(
-            log_spec,
-            (log_spec.flatten(start_dim=1).max(dim=-1)[0] - 8.0)[:, None, None],
-        )
+        log_spec = torch.maximum(log_spec, log_spec.max() - 8.0)
         log_spec = (log_spec + 4.0) / 4.0
         return log_spec
 
-    def _pad_or_trim(self, array, axis=-1):
+    def pad_or_trim(self, array, length: int = N_SAMPLES, axis=-1):
         """Pad or trim the Mel spectrograms as expected by the encoder.
 
         Reference: adapted from
@@ -274,17 +282,16 @@ class Whisper(HFTransformersInterface):
         torch.Tensor
             The padded tensor.
         """
-        if array.shape[axis] > self._n_samples:
+        if array.shape[axis] > length:
             array = array.index_select(
-                dim=axis,
-                index=torch.arange(self._n_samples, device=array.device),
+                dim=axis, index=torch.arange(length, device=array.device),
             )
 
-        if array.shape[axis] < self._n_samples:
+        if array.shape[axis] < length:
             pad_widths = [(0, 0)] * array.ndim
             pad_widths[axis] = (
                 0,
-                self._n_samples - array.shape[axis],
+                length - array.shape[axis],
             )
             array = nn.functional.pad(
                 array, [pad for sizes in pad_widths[::-1] for pad in sizes]
@@ -479,6 +486,11 @@ class Whisper(HFTransformersInterface):
         return self.tokenizer.convert_tokens_to_ids("<|0.00|>")
 
     @cached_property
+    def no_speech(self) -> int:
+        """Returns the token id corresponding to the value of the `no_speech` field"""
+        return self.no_timestamps - 1
+
+    @cached_property
     def language_token(self) -> int:
         """Returns the token id corresponding to the value of the `language` field"""
         if self.language is None:
@@ -538,7 +550,12 @@ class Whisper(HFTransformersInterface):
     @cached_property
     def is_multilingual(self):
         """Returns True if the model is multilingual, False otherwise."""
-        return len(self.tokenizer) >= 51865
+        return self.config.vocab_size >= 51865
+
+    @cached_property
+    def get_suppress_tokens(self):
+        """Returns the list of tokens to suppress"""
+        return tuple(sorted(self.config.suppress_tokens))
 
     @torch.no_grad()
     def detect_language(self, mel):
