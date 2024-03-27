@@ -54,7 +54,11 @@ class LaBSE(HFTransformersInterface):
     """
 
     def __init__(
-        self, source, save_path, freeze=True, output_norm=True,
+        self,
+        source,
+        save_path,
+        freeze=True,
+        output_norm=True,
     ):
         super().__init__(source=source, save_path=save_path, freeze=freeze)
 

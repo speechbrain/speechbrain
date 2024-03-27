@@ -148,7 +148,8 @@ class Enhancement(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
                 ):
                     predictions, clean = self.compute_forward(
                         noisy, clean, sb.Stage.TRAIN, noise
@@ -284,7 +285,7 @@ class Enhancement(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            # Save valid logs in TensorBoard
+            # Save valid logs in torch.TensorBoard
             valid_stats = {
                 "Epochs": epoch,
                 "Valid SI-SNR": stage_loss,
@@ -317,7 +318,8 @@ class Enhancement(sb.Brain):
                 self.checkpointer.save_checkpoint(meta={"pesq": stats["pesq"]})
             else:
                 self.checkpointer.save_and_keep_only(
-                    meta={"pesq": stats["pesq"]}, max_keys=["pesq"],
+                    meta={"pesq": stats["pesq"]},
+                    max_keys=["pesq"],
                 )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -692,7 +694,11 @@ def dataio_prep(hparams):
         ]
 
         combined_dataset = (
-            wds.WebDataset(urls, shardshuffle=True, cache_dir=cache_dir,)
+            wds.WebDataset(
+                urls,
+                shardshuffle=True,
+                cache_dir=cache_dir,
+            )
             .repeat()
             .shuffle(1000)
             .decode("pil")
@@ -721,7 +727,8 @@ def dataio_prep(hparams):
 
     baseline_data = (
         wds.WebDataset(
-            hparams["baseline_shards"], cache_dir=hparams["shard_cache_dir"],
+            hparams["baseline_shards"],
+            cache_dir=hparams["shard_cache_dir"],
         )
         .repeat()
         .shuffle(1000)

@@ -68,7 +68,6 @@ def run_shell(cmd):
     >>> out, err, code = run_shell("echo 'hello world'")
     >>> _ = out.decode(errors="ignore")
     """
-
     # Executing the command
     p = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True

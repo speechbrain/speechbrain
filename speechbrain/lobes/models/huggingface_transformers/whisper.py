@@ -80,12 +80,7 @@ class Whisper(HFTransformersInterface):
         output_attentions=True,
         output_all_hiddens=False,
     ):
-        super().__init__(
-            source=source,
-            save_path=save_path,
-            freeze=freeze,
-            sampling_rate=sampling_rate,
-        )
+        super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.sampling_rate = sampling_rate
         self.encoder_only = encoder_only
         self.freeze_encoder = freeze_encoder
@@ -146,7 +141,7 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
         decoder_input_ids : torch.Tensor
             This is necessary if we want to use the decoder.
@@ -159,6 +154,15 @@ class Whisper(HFTransformersInterface):
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
+
+        Returns
+        -------
+        out_encoder : torch.Tensor
+            Output of encoder
+        logits : torch.Tensor
+            Output of decoder
+        attn : torch.Tensor
+            The attention values
         """
         if self.freeze:
             with torch.no_grad():
@@ -195,8 +199,12 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : torch.Tensor (FBANKs)
+        wav : torch.Tensor
             A batch of Mel FBANK from HF to transform to features.
+
+        Returns
+        -------
+        Whisper encoded step.
         """
 
         if self.freeze_encoder:
@@ -214,6 +222,10 @@ class Whisper(HFTransformersInterface):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
+
+        Returns
+        -------
+        Corresponding encoder states.
         """
         mel = self._get_mel(wav)
         if self.output_all_hiddens:
@@ -231,6 +243,11 @@ class Whisper(HFTransformersInterface):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
+
+        Returns
+        -------
+        mels : torch.Tensor
+            Mel outputs.
         """
         mels = self._pad_or_trim(wav)
         mels = self._log_mel_spectrogram(mels)
@@ -249,7 +266,7 @@ class Whisper(HFTransformersInterface):
 
         Returns
         -------
-        torch.Tensor
+        log_spec : torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
         """
         window = torch.hann_window(self._n_fft, device=audio.device)
@@ -288,7 +305,7 @@ class Whisper(HFTransformersInterface):
 
         Returns
         -------
-        torch.Tensor
+        array : torch.Tensor
             The padded tensor.
         """
         if array.shape[axis] > self._n_samples:
@@ -325,6 +342,13 @@ class Whisper(HFTransformersInterface):
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
+
+        Returns
+        -------
+        logits : torch.Tensor
+            Outputs of decoder
+        attn : torch.Tensor
+            Attention values.
         """
         output_states = self.model.decoder(
             encoder_hidden_states=audio_features,

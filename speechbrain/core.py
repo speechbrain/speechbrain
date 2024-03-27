@@ -447,7 +447,7 @@ def parse_arguments(arg_list=None):
         action="store_true",
         help=(
             "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
-            "Please ensure you have installed the TensorBoard profiler with 'pip install torch_tb_profiler'."
+            "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'."
         ),
     )
     parser.add_argument(
@@ -880,18 +880,19 @@ class Brain:
 
         Returns
         -------
-        torch.Tensor or Tensors
+        torch.Tensor or torch.Tensors
             The outputs after all processing is complete.
             Directly passed to ``compute_objectives()``.
         """
         raise NotImplementedError
+        return
 
     def compute_objectives(self, predictions, batch, stage):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
         ---------
-        predictions : torch.Tensor or Tensors
+        predictions : torch.Tensor or torch.Tensors
             The output tensor or tensors to evaluate.
             Comes directly from ``compute_forward()``.
         batch : torch.Tensor or tensors
@@ -905,6 +906,7 @@ class Brain:
             A tensor with the computed loss.
         """
         raise NotImplementedError
+        return
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called when a stage starts.
@@ -980,6 +982,10 @@ class Brain:
         **loader_kwargs : dict
             Additional keyword arguments to the DataLoader.
             E.g., batch_size, num_workers, pin_memory.
+
+        Returns
+        -------
+        DataLoader for the input dataset
         """
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
@@ -1154,7 +1160,7 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key, min_key=min_key,
+                max_key=max_key, min_key=min_key
             )
 
     def fit_batch(self, batch):
@@ -1185,7 +1191,7 @@ class Brain:
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                     loss = self.compute_objectives(
@@ -1239,7 +1245,7 @@ class Brain:
                 logger.warning("Patience not yet exhausted.")
 
     def check_gradients(self):
-        """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
+        """Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
         for param in self.modules.parameters():
             if param.requires_grad and param.grad is not None:
                 if not torch.isfinite(param.grad).all():
@@ -1357,7 +1363,7 @@ class Brain:
         amp = AMPConfig.from_name(self.eval_precision)
         if self.use_amp:
             with torch.autocast(
-                dtype=amp.dtype, device_type=torch.device(self.device).type,
+                dtype=amp.dtype, device_type=torch.device(self.device).type
             ):
                 out = self.compute_forward(batch, stage=stage)
                 loss = self.compute_objectives(out, batch, stage=stage)
@@ -1522,6 +1528,8 @@ class Brain:
             A set of data to use for validation. If a Dataset is given, a
             DataLoader is automatically created. If a DataLoader is given, it is
             used directly.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
         train_loader_kwargs : dict
             Kwargs passed to `make_dataloader()` for making the train_loader
             (if train_set is a Dataset, not DataLoader).
@@ -1532,8 +1540,10 @@ class Brain:
             (if valid_set is a Dataset, not DataLoader).
             E.g., batch_size, num_workers.
             DataLoader kwargs are all valid.
-        progressbar : bool
-            Whether to display the progress of each epoch in a progressbar.
+
+        Returns
+        -------
+        None
         """
         if self.test_only:
             logger.info(
@@ -1790,6 +1800,10 @@ class Brain:
         ---------
         use : bool
             If set to `False` will still sync gradients, useful to make behavior toggleable.
+
+        Yields
+        ------
+        None
         """
         if use:
             old_values_list = []

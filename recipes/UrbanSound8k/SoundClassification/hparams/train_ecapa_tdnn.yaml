@@ -28,7 +28,7 @@ NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.z
 RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?rlkey=pg9cu8vrpn2u173vhiqyu743u&dl=1
 
 
-# Tensorboard logs
+# torch.Tensorboard logs
 use_tensorboard: True
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 

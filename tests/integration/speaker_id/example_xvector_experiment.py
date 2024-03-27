@@ -11,7 +11,7 @@ from hyperpyyaml import load_hyperpyyaml
 # Trains xvector model
 class XvectorBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the speaker probabilities."
+        """Given an input batch it computes the speaker probabilities."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
@@ -22,7 +22,7 @@ class XvectorBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the CE loss."
+        """Given the network predictions and targets computed the CE loss."""
         predictions, lens = predictions
         spkid, spkid_lens = batch.spk_id_encoded
         loss = self.hparams.compute_cost(predictions, spkid, lens)
@@ -33,7 +33,7 @@ class XvectorBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage != sb.Stage.TRAIN:
             self.error_metrics = self.hparams.error_stats()
 
@@ -52,8 +52,7 @@ class XvectorBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

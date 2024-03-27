@@ -250,6 +250,7 @@ def check_module_vars(
         String that denoted the start of the module in the hparam file.
     module_var: string
         String that denoted the start of the module in the script file.
+
     Returns
     -------
     Bool

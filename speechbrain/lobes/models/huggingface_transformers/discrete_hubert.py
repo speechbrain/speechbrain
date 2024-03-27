@@ -10,6 +10,7 @@ Author
  * Pooneh Mousavi 2023
 
 """
+
 import logging
 import torch
 from huggingface_hub import hf_hub_download
@@ -40,12 +41,12 @@ class DiscreteHuBERT(HuBERT):
         HuggingFace hub name: e.g "facebook/hubert-base-ls960"
     save_path : str
         Path (dir) of the downloaded model.
-    kmeans_repo_id : str
-        Huggingface repository if that contains the pretrained kmean model
     kmeans_filename : str
         Name of the file in HF repo that need to be downloaded.
     kmeans_cache_dir: str
         Path (dir) of the downloaded kmeans model.
+    kmeans_repo_id : str
+        Huggingface repository if that contains the pretrained kmean model
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the HuBERT model.
@@ -66,7 +67,6 @@ class DiscreteHuBERT(HuBERT):
         If False, the forward function outputs the hidden states only from the last transformer layer.
     ssl_layer_num : (int) (default: -1)
         determine the output of which layer of the SSL model should be used for clustering.
-
 
     Example
     -------
@@ -127,8 +127,9 @@ class DiscreteHuBERT(HuBERT):
             The name of the checkpoints in the repo that need to be downloaded.
         cache_dir: str
             Path (dir) of the downloaded model.
-        Returns:
-        ---------
+
+        Returns
+        -------
         kmeans_model : MiniBatchKMeans:
             pretrained Kmeans  model loaded from the HF.
         """
@@ -146,10 +147,11 @@ class DiscreteHuBERT(HuBERT):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
-        Returns:
-        ---------
+
+        Returns
+        -------
         tokens : torch.Tensor
             A (Batch x Seq) tensor of audio tokens
         emb : torch.Tensor

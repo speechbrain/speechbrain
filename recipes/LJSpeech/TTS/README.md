@@ -98,7 +98,7 @@ python train.py hparams/train.yaml --data_folder /path/to/LJspeech
 
 The scripts will output a synthesized audio to `<output_folder>/samples` for a certain interval of training epoch.
 
-We suggest using tensorboard_logger by setting `use_tensorboard: True` in the yaml file, thus Tensorboard should be installed.
+We suggest using tensorboard_logger by setting `use_tensorboard: True` in the yaml file, thus torch.Tensorboard should be installed.
 
 Training takes about 6 minutes/epoch on 1 * V100 32G.
 

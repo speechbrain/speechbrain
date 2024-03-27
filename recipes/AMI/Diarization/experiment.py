@@ -276,7 +276,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
         if params["backend"] == "kmeans":
             diar.do_kmeans_clustering(
-                diary_obj, out_rttm_file, rec_id, num_spkrs, pval,
+                diary_obj, out_rttm_file, rec_id, num_spkrs, pval
             )
 
         if params["backend"] == "SC":
@@ -401,7 +401,6 @@ def dev_nn_tuner(full_meta, split_type):
     n_lambdas = 4
 
     for nn in range(5, 15):
-
         # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_meta, split_type, n_lambdas, pval, nn
@@ -436,7 +435,6 @@ def dev_tuner(full_meta, split_type):
     DER_list = []
     pval = None
     for n_lambdas in range(1, params["max_num_spkrs"] + 1):
-
         # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_meta, split_type, n_lambdas, pval
@@ -467,7 +465,8 @@ def dataio_prep(hparams, json_file):
     # 1. Datasets
     data_folder = hparams["data_folder"]
     dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=json_file, replacements={"data_root": data_folder},
+        json_path=json_file,
+        replacements={"data_root": data_folder},
     )
 
     # 2. Define audio pipeline.
@@ -504,7 +503,6 @@ def dataio_prep(hparams, json_file):
 
 # Begin experiment!
 if __name__ == "__main__":  # noqa: C901
-
     # Load hyperparameters file with command-line overrides.
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 

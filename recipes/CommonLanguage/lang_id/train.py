@@ -32,6 +32,13 @@ class LID(sb.Brain):
             Input signals (tensor) and their relative lengths (tensor).
         stage : sb.Stage
             The current stage of training.
+
+        Returns
+        -------
+        feats : torch.Tensor
+            Computed features.
+        lens : torch.Tensor
+            The length of the corresponding features.
         """
         wavs, lens = wavs
 
@@ -58,8 +65,8 @@ class LID(sb.Brain):
 
         Returns
         -------
-        predictions : Tensor
-            Tensor that contains the posterior probabilities over the N classes.
+        predictions : torch.Tensor
+            torch.Tensor that contains the posterior probabilities over the N classes.
         """
 
         # We first move the batch to the appropriate device.
@@ -151,7 +158,6 @@ class LID(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -174,7 +180,7 @@ class LID(sb.Brain):
 
 
 def dataio_prep(hparams):
-    """ This function prepares the datasets to be used in the brain class.
+    """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
     We expect `prepare_common_language` to have been called before this,
     so that the `train.csv`, `dev.csv`,  and `test.csv` manifest files
@@ -244,7 +250,6 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

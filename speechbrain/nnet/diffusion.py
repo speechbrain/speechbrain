@@ -60,17 +60,13 @@ class Diffuser(nn.Module):
             batches in x, where each entry corresponds to the timestep
             number for the batch. If omitted, timesteps will be randomly
             sampled
-
-        Returns
-        -------
-        result: torch.Tensor
-            a tensor of the same dimension as x
         """
         raise NotImplementedError
 
     def train_sample(self, x, timesteps=None, condition=None, **kwargs):
         """Creates a sample for the training loop with a
         corresponding target
+
         Arguments
         ---------
         x: torch.Tensor
@@ -80,16 +76,19 @@ class Diffuser(nn.Module):
             batches in x, where each entry corresponds to the timestep
             number for the batch. If omitted, timesteps will be randomly
             sampled
-        condition: torch.tensor
+        condition: torch.Tensor
             the condition used for conditional generation
             Should be omitted during unconditional generation
+        **kwargs: dict
+            Arguments to forward to the underlying model.
+
         Returns
         -------
         pred: torch.Tensor
             the model output 0 predicted noise
         noise: torch.Tensor
             the noise being applied
-        noisy_sample
+        noisy_sample: torch.Tensor
             the sample with the noise applied
         """
         if timesteps is None:
@@ -111,18 +110,13 @@ class Diffuser(nn.Module):
         ---------
         shape: enumerable
             the shape of the sample to generate
-
-
-        Returns
-        -------
-        result: torch.Tensor
-            the generated sample(s)
+        **kwargs: dict
+            Arguments to forward to the underlying model.
         """
         raise NotImplementedError
 
     def forward(self, x, timesteps=None):
-        """Computes the forward pass, calls distort()
-        """
+        """Computes the forward pass, calls distort()"""
         return self.distort(x, timesteps)
 
 
@@ -139,22 +133,19 @@ class DenoisingDiffusion(Diffuser):
     ---------
     model: nn.Module
         the underlying model
-
     timesteps: int
         the number of timesteps
-
     noise: str|nn.Module
         the type of noise being used
         "gaussian" will produce standard Gaussian noise
-
-
     beta_start: float
         the value of the "beta" parameter at the beginning at the end of the process
         (see the paper)
-
     beta_end: float
         the value of the "beta" parameter at the end of the process
-
+    sample_min: float
+    sample_max: float
+        Used to clip the output.
     show_progress: bool
         whether to show progress during inference
 
@@ -271,6 +262,8 @@ class DenoisingDiffusion(Diffuser):
             batches in x, where each entry corresponds to the timestep
             number for the batch. If omitted, timesteps will be randomly
             sampled
+        **kwargs: dict
+            Arguments to forward to the underlying model.
 
         Returns
         -------
@@ -298,7 +291,8 @@ class DenoisingDiffusion(Diffuser):
         ---------
         shape: enumerable
             the shape of the sample to generate
-
+        **kwargs: dict
+            Arguments to forward to the underlying model.
 
         Returns
         -------
@@ -330,9 +324,11 @@ class DenoisingDiffusion(Diffuser):
             the sample for the following timestep
         timestep: int
             the timestep number
+        **kwargs: dict
+            Arguments to forward to the underlying model.
 
-        Arguments
-        ---------
+        Returns
+        -------
         predicted_sample: torch.Tensor
             the predicted sample (denoised by one step`)
         """
@@ -370,17 +366,14 @@ class LatentDiffusion(nn.Module):
     ---------
     autoencoder: speechbrain.nnet.autoencoders.Autoencoder
         An autoencoder converting the original space to a latent space
-
     diffusion: speechbrain.nnet.diffusion.Diffuser
         A diffusion wrapper
-
     latent_downsample_factor: int
         The factor that latent space dimensions need to be divisible
         by. This is useful if the underlying model for the diffusion
         wrapper is based on a UNet-like architecture where the inputs
         are progressively downsampled and upsampled by factors of two
-
-    latent_pad_dims: int|list[int]
+    latent_pad_dim: int|list[int]
         the dimension(s) along which the latent space will be
         padded
 
@@ -478,11 +471,8 @@ class LatentDiffusion(nn.Module):
         ---------
         x: torch.Tensor
             the original data sample
-        timesteps: torch.Tensor
-            a 1-D integer tensor of a length equal to the number of
-            batches in x, where each entry corresponds to the timestep
-            number for the batch. If omitted, timesteps will be randomly
-            sampled
+        **kwargs: dict
+            Arguments to forward to the underlying model.
 
         Returns
         -------
@@ -509,7 +499,8 @@ class LatentDiffusion(nn.Module):
         Returns
         -------
         result: torch.Tensor
-            the latent representation, with padding"""
+            the latent representation, with padding
+        """
 
         # TODO: Check whether masking will need to be adjusted
         if (
@@ -530,6 +521,13 @@ class LatentDiffusion(nn.Module):
         ---------
         x: torch.Tensor
             the original data sample
+        **kwargs: dict
+            Arguments to forward to the underlying model.
+
+        Returns
+        -------
+        LatentDiffusionTrainSample
+            Training sample.
         """
         # TODO: Make this generic
         length = kwargs.get("length")
@@ -555,13 +553,6 @@ class LatentDiffusion(nn.Module):
         x: torch.Tensor
             a data sample of 2 or more dimensions, with the
             first dimension representing the batch
-        noise: torch.Tensor
-            the noise to add
-        timesteps: torch.Tensor
-            a 1-D integer tensor of a length equal to the number of
-            batches in x, where each entry corresponds to the timestep
-            number for the batch. If omitted, timesteps will be randomly
-            sampled
 
         Returns
         -------
@@ -599,7 +590,12 @@ def sample_timesteps(x, num_timesteps):
     x: torch.Tensor
         a tensor of samples of any dimension
     num_timesteps: int
-        the total number of timesteps"""
+        the total number of timesteps
+
+    Returns
+    -------
+    Random sample of timestamps.
+    """
     return torch.randint(num_timesteps, (x.size(0),), device=x.device)
 
 
@@ -612,6 +608,12 @@ class GaussianNoise(nn.Module):
         Arguments
         ---------
         sample: the original sample
+        **kwargs: dict
+            Arguments to forward to the underlying model.
+
+        Returns
+        -------
+        Noise in shape of sample.
         """
         return torch.randn_like(sample)
 
@@ -623,7 +625,7 @@ class LengthMaskedGaussianNoise(nn.Module):
     Arguments
     ---------
     length_dim: int
-        the
+        The time dimension for which lengths apply.
     """
 
     def __init__(self, length_dim=1):
@@ -634,10 +636,18 @@ class LengthMaskedGaussianNoise(nn.Module):
         """Creates Gaussian noise. If a tensor of lengths is
         provided, no noise is added to the padding positions.
 
+        Arguments
+        ---------
         sample: torch.Tensor
             a batch of data
         length: torch.Tensor
             relative lengths
+        **kwargs: dict
+            Arguments to forward to the underlying model.
+
+        Returns
+        -------
+        Gaussian noise in shape of sample.
         """
         noise = torch.randn_like(sample)
         if length is not None:

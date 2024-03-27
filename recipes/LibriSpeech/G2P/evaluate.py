@@ -8,7 +8,6 @@ Authors
  * Artem Ploujnikov 2022
 """
 
-
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
@@ -125,7 +124,7 @@ class G2PEvaluator:
         phns, phn_lens = batch.phn_encoded
 
         self.per_metrics.append(
-            ids, hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder,
+            ids, hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder
         )
 
     def _get_phonemes(self, grapheme_encoded, phn_encoded=None, char=None):
@@ -136,10 +135,8 @@ class G2PEvaluator:
         ---------
         grapheme_encoded: speechbrain.dataio.batch.PaddedData
             An encoded grapheme sequence
-
-        phn_encoded_bos: speechbrain.dataio.batch.PaddedData
+        phn_encoded: speechbrain.dataio.batch.PaddedData
             An encoded phoneme sequence (optional)
-
         char: str
             Raw character input (needed for word embeddings)
 
@@ -152,9 +149,9 @@ class G2PEvaluator:
         """
         _, char_word_emb = None, None
         if self._grapheme_word_separator_idx is None:
-            self._grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
-                " "
-            ]
+            self._grapheme_word_separator_idx = (
+                self.hparams.grapheme_encoder.lab2ind[" "]
+            )
         if not phn_encoded:
             grapheme_encoded_data, grapheme_lens = grapheme_encoded
             phn_encoded = (
@@ -271,7 +268,7 @@ class G2PEvaluator:
         scores: list
             the scores corresponding to the hypotheses
 
-        Results
+        Returns
         -------
         scores: list
             the scores corresponding to the hypotheses,
@@ -301,9 +298,11 @@ class G2PEvaluator:
         ---------
         graphemes: torch.Tensor
             an encoded sequence of phonemes
+        length: torch.Tensor
+            The length of the corresponding inputs.
 
-        Returns
-        -------
+        Yields
+        ------
         graphemes: generator
             a generator representing a sequence of words
         """
@@ -328,6 +327,11 @@ class G2PEvaluator:
         ---------
         word: torch.Tensor
             a tensor representing a word
+
+        Returns
+        -------
+        word: torch.Tensor
+            word with delimiters added.
         """
         if self.grapheme_sequence_mode == "bos":
             word = torch.cat([self._bos, word])
@@ -343,6 +347,8 @@ class G2PEvaluator:
         ---------
         dataset: DynamicItemDataset
             a G2P dataset (same as the ones used for training)
+        dataloader_opts: dict
+            Additional options to pass to dataloader.
 
         Returns
         -------

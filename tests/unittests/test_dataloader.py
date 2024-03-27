@@ -47,9 +47,7 @@ def test_saveable_dataloader_multiprocess(tmpdir):
         new_dataloader = SaveableDataLoader(
             dataset, num_workers=num_parallel, collate_fn=None
         )
-        new_dataloader._speechbrain_load(
-            save_file, end_of_epoch=False,
-        )
+        new_dataloader._speechbrain_load(save_file, end_of_epoch=False)
         new_data_iterator = iter(new_dataloader)
         second_second_item = next(new_data_iterator)
         assert second_second_item == second_item

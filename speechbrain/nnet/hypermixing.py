@@ -7,6 +7,7 @@ Authors
  * Florian Mai 2023
  * Juan Pablo Zuluaga 2023
 """
+
 from typing import Optional
 
 import math
@@ -16,7 +17,7 @@ from torch import nn
 
 
 class HyperMixing(nn.Module):
-    """ This class implements multi-head HyperMixing.
+    """This class implements multi-head HyperMixing.
     It is an implementation of the token-mixing component in HyperMixer, a linear
     time drop-in replacement for self-attention. In contrast to the original HyperMixer,
     this module supports multiple heads, which improves the expressiveness of the model
@@ -25,7 +26,7 @@ class HyperMixing(nn.Module):
     Reference: https://arxiv.org/abs/2203.03691
 
     Arguments
-    ----------
+    ---------
     input_output_dim : int
         number of features in keys, queries, and values
     hypernet_size : int
@@ -55,8 +56,8 @@ class HyperMixing(nn.Module):
         hypernet_size: int,
         tied: bool = False,
         num_heads: int = 1,
-        fix_tm_hidden_size=False,
-        max_length=3000,
+        fix_tm_hidden_size: bool = False,
+        max_length: int = 3000,
     ) -> None:
         super().__init__()
         self.input_output_dim = input_output_dim
@@ -247,7 +248,7 @@ class HyperNetwork(nn.Module):
             )
 
     def forward(self, input_tensor: torch.Tensor):
-        """ Forward computation for a HyperNetwork.
+        """Forward computation for a HyperNetwork.
 
         Arguments
         ----------
