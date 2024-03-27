@@ -1,0 +1,28 @@
+#########
+# Recipe for Training kenLM on stm formated Data.
+#
+# Author:
+#  - Pierre Champion 2024
+################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+output_folder: !ref results/n_gram_lm/
+# for_token_type: phone
+for_token_type: char # new_word_on_apostrophe
+# Data files
+data_folder: !PLACEHOLDER # e.g, /path/to/corpus (**/*.stm)
+stm_directory: !ref <data_folder>/**/[^\.ne_e2\.|\.ne\.|\.spk\.|part\.]*.stm
+wav_directory: !ref <data_folder>/**/*.wav
+train_splits: {"train_ESTER2":["/ESTER2/train_trans_rapide/*", "/ESTER2/train/*"], "train_ESTER1":["/ESTER1/train/*"], "train_EPAC":["/EPAC/train/*"], "train_ETAPE":["/ETAPE/train/*"], "train_REPERE":["/REPERE/train/*"]}
+dev_splits: []
+test_splits: []
+merge_train_csv: "train_ESTER2, train_ESTER1, train_EPAC, train_ETAPE, train_REPERE"
+train_csv: !ref <output_folder>/train.csv
+lang_dir: !ref <output_folder>/lang
+vocab_file: !ref <output_folder>/vocab.txt
+add_word_boundary: True
+sil_prob: 0.
+caching: False
+skip_prep: False
+arpa_order: 4
+prune_level: [0, 1, 2]
+output_arpa: !ref <output_folder>/<arpa_order>-for-<for_token_type>-gram.arpa
