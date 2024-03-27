@@ -76,7 +76,7 @@ class LocalStrategy(Enum):
     COPY_SKIP_CACHE = 3
     """If the file is remote and not in cache, fetch it, preferably directly to
     the destination directory.
-    
+
     Then, create a copy in the destination folder to the local file, if
     necessary."""
 
@@ -211,7 +211,7 @@ def fetch(
         version of a model hosted at HuggingFace.
     huggingface_cache_dir: str
         Path to HuggingFace cache; if `None`, the default cache directory is
-        used: `~/.cache/huggingface` unless overriden by environment variables.
+        used: `~/.cache/huggingface` unless overridden by environment variables.
         See `huggingface_hub documentation <https://huggingface.co/docs/huggingface_hub/guides/manage-cache#manage-huggingfacehub-cache-system>`_
         Ignored if the local strategy is `LocalStrategy.COPY_NO_CACHE`.
         (default: None)
