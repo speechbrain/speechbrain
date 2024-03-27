@@ -26,10 +26,10 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     the output back to the function in the call for the next batch.
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
     stats : collections.Counter
         The running statistics.
@@ -84,10 +84,10 @@ def _batch_stats(refs, hyps):
     Used by accumulatable_wer_stats
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
 
     Returns
@@ -220,7 +220,7 @@ def alignment(table):
     alignment is monotonic, one-to-zero-or-one.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 
@@ -283,7 +283,7 @@ def count_ops(table):
     recognition to report the number of different error types separately.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 
@@ -488,9 +488,9 @@ def wer_details_by_utterance(
         utterance_details.update(
             {
                 "scored": True,
-                "hyp_empty": True
-                if len(hyp_tokens) == 0
-                else False,  # This also works for e.g. torch tensors
+                "hyp_empty": (
+                    True if len(hyp_tokens) == 0 else False
+                ),  # This also works for e.g. torch tensors
                 "num_edits": sum(ops.values()),
                 "num_ref_tokens": num_ref_tokens,
                 "WER": 100.0 * sum(ops.values()) / len(ref_tokens),
@@ -529,7 +529,7 @@ def wer_summary(details_by_utterance):
         * "num_scored_tokens": (int) Total number of tokens in scored
           reference utterances (a missing hypothesis might still
           have been scored with 'all' scoring mode).
-        * "num_erraneous_sents": (int) Total number of utterances
+        * "num_erroneous_sents": (int) Total number of utterances
           which had at least one error.
         * "num_scored_sents": (int) Total number of utterances
           which were scored.
@@ -545,9 +545,9 @@ def wer_summary(details_by_utterance):
     """
     # Build the summary details:
     ins = dels = subs = 0
-    num_scored_tokens = (
-        num_scored_sents
-    ) = num_edits = num_erraneous_sents = num_absent_sents = num_ref_sents = 0
+    num_scored_tokens = num_scored_sents = num_edits = num_erroneous_sents = (
+        num_absent_sents
+    ) = num_ref_sents = 0
     for dets in details_by_utterance:
         num_ref_sents += 1
         if dets["scored"]:
@@ -558,7 +558,7 @@ def wer_summary(details_by_utterance):
             subs += dets["substitutions"]
             num_edits += dets["num_edits"]
             if dets["num_edits"] > 0:
-                num_erraneous_sents += 1
+                num_erroneous_sents += 1
         if dets["hyp_absent"]:
             num_absent_sents += 1
     if num_scored_tokens != 0:
@@ -567,10 +567,10 @@ def wer_summary(details_by_utterance):
         WER = 0.0
     wer_details = {
         "WER": WER,
-        "SER": 100.0 * num_erraneous_sents / num_scored_sents,
+        "SER": 100.0 * num_erroneous_sents / num_scored_sents,
         "num_edits": num_edits,
         "num_scored_tokens": num_scored_tokens,
-        "num_erraneous_sents": num_erraneous_sents,
+        "num_erroneous_sents": num_erroneous_sents,
         "num_scored_sents": num_scored_sents,
         "num_absent_sents": num_absent_sents,
         "num_ref_sents": num_ref_sents,
@@ -607,7 +607,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
           have been scored with 'all' scoring mode).
         * "num_scored_sents": (int) number of scored utterances
           by this speaker.
-        * "num_erraneous_sents": (int) number of utterance with at least
+        * "num_erroneous_sents": (int) number of utterance with at least
           one error, by this speaker.
         * "num_absent_sents": (int) number of utterances for which no
           hypotheses was found, by this speaker.
@@ -629,7 +629,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
                     "num_scored_tokens": 0,
                     "num_scored_sents": 0,
                     "num_edits": 0,
-                    "num_erraneous_sents": 0,
+                    "num_erroneous_sents": 0,
                     "num_absent_sents": 0,
                     "num_ref_sents": 0,
                 }
@@ -650,7 +650,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
                 }
             )
             if dets["num_edits"] > 0:
-                utt_stats.update({"num_erraneous_sents": 1})
+                utt_stats.update({"num_erroneous_sents": 1})
         spk_dets.update(utt_stats)
     # We will in the end return a list of normal dicts
     # We want the output to be sortable
@@ -664,7 +664,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
             )
             spk_dets["SER"] = (
                 100.0
-                * spk_dets["num_erraneous_sents"]
+                * spk_dets["num_erroneous_sents"]
                 / spk_dets["num_scored_sents"]
             )
         else:
@@ -728,7 +728,7 @@ def top_wer_spks(details_by_speaker, top_k=10):
     details_by_speaker : list
         See output of wer_details_by_speaker.
     top_k : int
-        Number of seakers to return.
+        Number of speakers to return.
 
     Returns
     -------

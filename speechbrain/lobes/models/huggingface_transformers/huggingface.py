@@ -21,6 +21,7 @@ Authors
  * Heitor Guimarães 2022
  * Ha Nguyen 2023
 """
+
 import os
 import torch
 import logging
@@ -98,13 +99,14 @@ class HFTransformersInterface(nn.Module):
         quantization_config=None,
         freeze=False,
         cache_dir="pretrained_models",
-        **kwarg,
     ):
         super().__init__()
 
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
-            source, cache_dir=save_path, return_unused_kwargs=True,
+            source,
+            cache_dir=save_path,
+            return_unused_kwargs=True,
         )
 
         self.config = self.override_config(self.config)
@@ -125,7 +127,9 @@ class HFTransformersInterface(nn.Module):
 
         # Download model
         self._from_pretrained(
-            source, save_path=save_path, cache_dir=cache_dir,
+            source,
+            save_path=save_path,
+            cache_dir=cache_dir,
         )
 
         # Prepare for training, fine-tuning, or inference
@@ -140,7 +144,10 @@ class HFTransformersInterface(nn.Module):
             self.model.train()
 
     def _from_pretrained(
-        self, source, save_path, cache_dir,
+        self,
+        source,
+        save_path,
+        cache_dir,
     ):
         """This function manages the source checking and loading of the params.
 
@@ -166,7 +173,9 @@ class HFTransformersInterface(nn.Module):
             self.model.gradient_checkpointing_disable()  # Required by DDP
             # fetch the checkpoint file
             ckpt_full_path = fetch(
-                filename=ckpt_file, source=source, savedir=save_path,
+                filename=ckpt_file,
+                source=source,
+                savedir=save_path,
             )
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_parameters(ckpt_full_path)
@@ -276,8 +285,10 @@ class HFTransformersInterface(nn.Module):
         ---------
         path : str
             Checkpoint path, file name relative to the repo root.
+        **kwargs : dict
+            Args to forward
         """
-        return None
+        pass
 
     def _load_sb_pretrained_parameters(self, path):
         """Loads the parameter of a HuggingFace model pretrained with SpeechBrain
@@ -332,14 +343,14 @@ class HFTransformersInterface(nn.Module):
         raise NotImplementedError
 
     def encode(self, **kwargs):
-        """Customed encoding for inference
+        """Custom encoding for inference
         Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
     def freeze_model(self, model):
         """
         Freezes parameters of a model.
-        This should be overrided too, depending on users' needs, for example, adapters use.
+        This should be overridden too, depending on users' needs, for example, adapters use.
 
         Arguments
         ---------
@@ -356,10 +367,10 @@ class HFTransformersInterface(nn.Module):
         Arguments
         ---------
         config : HuggingFace config object
-            The orginal config.
+            The original config.
 
         Returns
-        ---------
+        -------
         config : HuggingFace config object
             Overridden config.
         """
@@ -407,7 +418,7 @@ def make_padding_masks(src, wav_len=None, pad_idx=0):
         The index for <pad> token (default=0).
 
     Returns
-    ---------
+    -------
     src_key_padding_mask : tensor
         The padding mask.
     """

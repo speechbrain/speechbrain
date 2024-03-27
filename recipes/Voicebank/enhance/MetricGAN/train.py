@@ -181,8 +181,12 @@ class MetricGanBrain(sb.Brain):
             The degraded waveform to score
         ref_wav : torch.Tensor
             The reference waveform to use for scoring
-        length : torch.Tensor
+        lens : torch.Tensor
             The relative lengths of the utterances
+
+        Returns
+        -------
+        score : torch.Tensor
         """
         new_ids = [
             i
@@ -200,7 +204,7 @@ class MetricGanBrain(sb.Brain):
                 lengths=lens[new_ids],
             )
             score = torch.tensor(
-                [[s] for s in self.target_metric.scores], device=self.device,
+                [[s] for s in self.target_metric.scores], device=self.device
             )
         elif self.hparams.target_metric == "stoi":
             self.target_metric.append(
@@ -211,7 +215,8 @@ class MetricGanBrain(sb.Brain):
                 reduction="batch",
             )
             score = torch.tensor(
-                [[-s] for s in self.target_metric.scores], device=self.device,
+                [[-s] for s in self.target_metric.scores],
+                device=self.device,
             )
         else:
             raise ValueError("Expected 'pesq' or 'stoi' for target_metric")
@@ -240,6 +245,10 @@ class MetricGanBrain(sb.Brain):
             The spectral features of the degraded utterance
         ref_spec : torch.Tensor
             The spectral features of the reference utterance
+
+        Returns
+        -------
+        est_score : torch.Tensor
         """
         combined_spec = torch.cat(
             [deg_spec.unsqueeze(1), ref_spec.unsqueeze(1)], 1
@@ -446,7 +455,6 @@ class MetricGanBrain(sb.Brain):
     ):
         "Override dataloader to insert custom sampler/dataset"
         if stage == sb.Stage.TRAIN:
-
             # Create a new dataset each time, this set grows
             if self.sub_stage == SubStage.HISTORICAL:
                 dataset = sb.dataio.dataset.DynamicItemDataset(
@@ -511,7 +519,7 @@ class MetricGanBrain(sb.Brain):
         self.d_optimizer.zero_grad(set_to_none)
 
 
-# Define audio piplines
+# Define audio pipelines
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
 def audio_pipeline(noisy_wav, clean_wav):
@@ -555,7 +563,6 @@ def create_folder(folder):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

@@ -25,7 +25,7 @@ def main():
     dataloader = sb.dataio.dataloader.make_dataloader(
         dataset=hyperparams["sample_data"], batch_size=hyperparams["batch_size"]
     )
-    for (id, (wav, wav_len),) in iter(dataloader):
+    for id, (wav, wav_len) in iter(dataloader):
         wav_perturb = hyperparams["speed_perturb"](wav)
         # save results on file
         for i, snt_id in enumerate(id):
@@ -35,7 +35,7 @@ def main():
             write_audio(filepath, wav_perturb[i], 16000)
 
 
-def test_peturb():
+def test_perturb():
     from glob import glob
 
     for filename in glob(os.path.join(output_folder, "save", "*.flac")):

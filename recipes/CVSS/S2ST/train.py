@@ -38,7 +38,7 @@ class S2UT(sb.core.Brain):
 
         Returns
         -------
-        (torch.Tensor or Tensors, list of float or None, list of str or None)
+        (torch.Tensor or torch.Tensors, list of float or None, list of str or None)
             The outputs after all processing is complete.
         """
         batch = batch.to(self.device)
@@ -240,6 +240,10 @@ class S2UT(sb.core.Brain):
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
         epoch : int
             The current epoch count.
+
+        Returns
+        -------
+        None
         """
         if stage != sb.Stage.TRAIN:
             if (
@@ -308,7 +312,7 @@ class S2UT(sb.core.Brain):
             lr_wav2vec = 0.0
 
             if not self.hparams.wav2vec2_frozen:
-                (lr_wav2vec, new_lr_wav2vec,) = self.hparams.wav2vec_annealing(
+                (lr_wav2vec, new_lr_wav2vec) = self.hparams.wav2vec_annealing(
                     stage_stats["ACC"]
                 )
                 sb.nnet.schedulers.update_learning_rate(
@@ -354,11 +358,16 @@ class S2UT(sb.core.Brain):
 
     def _save_progress_sample(self, epoch):
         """Save samples and BLEU score from last batch for current epoch.
+
         Arguments
         ---------
         epoch : int
             The currently-starting epoch. This is passed
             `None` during the test stage.
+
+        Returns
+        -------
+        None
         """
         if self.last_batch is None:
             return
@@ -428,7 +437,7 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate, hparams["sample_rate"]
         )(sig)
         return sig
 
@@ -441,7 +450,8 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(sig)
         return sig
 

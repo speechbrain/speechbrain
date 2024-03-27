@@ -3,6 +3,7 @@
 Authors
 * Chien-Feng Liao 2020
 """
+
 import torch  # noqa E402
 from torch import nn
 from speechbrain.nnet.linear import Linear
@@ -37,6 +38,8 @@ class CNNTransformerSE(TransformerInterface):
         True for causal setting, the model is forbidden to see future frames (default=True).
     custom_emb_module : torch class
         Module that processes the input features before the transformer model.
+    normalize_before : bool
+        Whether to normalize before each layer.
 
     Example
     -------
@@ -79,7 +82,7 @@ class CNNTransformerSE(TransformerInterface):
         self.output_activation = output_activation()
 
     def forward(self, x, src_key_padding_mask=None):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         if self.causal:
             self.attn_mask = get_lookahead_mask(x)
         else:

@@ -83,7 +83,7 @@ class CodecAugment(torch.nn.Module):
             Input waveform of shape `[batch, time]`.
 
         Returns
-        ---------
+        -------
         torch.Tensor
             Coded version of the input waveform of shape `[batch, time]`.
         """

@@ -6,7 +6,7 @@
 This is the recipe for the best system from the IWSLT 2022 low-resource task, as described in the original paper.
 The speech translation model comprises a wav2vec 2.0 encoder and a Transformer decoder. It is trained end-to-end without any auxiliary loss. The recipe allows for removing the last layers of the Transformer Encoder inside the wav2vec 2.0 in order to reduce the number of training parameters.
 
-This recipe also provides a flexible use of text-based sequence-to-sequence models, such as [mBART](https://huggingface.co/facebook/mbart-large-50-many-to-many-mmt) or [NLLB](https://huggingface.co/facebook/nllb-200-1.3B) model, to initialize the decoder of the speech translation model. This pratice has been proven more effective in a wide range of settings in comparison with the randomly initialized decoder.
+This recipe also provides a flexible use of text-based sequence-to-sequence models, such as [mBART](https://huggingface.co/facebook/mbart-large-50-many-to-many-mmt) or [NLLB](https://huggingface.co/facebook/nllb-200-1.3B) model, to initialize the decoder of the speech translation model. This practice has been proven more effective in a wide range of settings in comparison with the randomly initialized decoder.
 
 ## Data Downloading
 

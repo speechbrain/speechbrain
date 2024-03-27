@@ -57,6 +57,15 @@ def skip(splits, save_folder, conf):
     Detects if the ljspeech data_extraction has been already done.
     If the extraction has been done, we can skip it.
 
+    Arguments
+    ---------
+    splits : list
+        List of splits to check.
+    save_folder : str
+        The path to the directory with generated files.
+    conf : dict
+        Configuration to check against saved configuration.
+
     Returns
     -------
     bool
@@ -121,6 +130,10 @@ def extract_ljspeech(
         LjSpeech dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -190,7 +203,8 @@ def extract_ljspeech(
                 info = torchaudio.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
-                    info.sample_rate, sample_rate,
+                    info.sample_rate,
+                    sample_rate,
                 )(audio)
                 audio = audio.unsqueeze(0).to(device)
                 feats = encoder.extract_features(audio)

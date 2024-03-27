@@ -1,6 +1,7 @@
 """A script to prepare annotations for tokenizers
 
 """
+
 import json
 import os
 import re
@@ -18,7 +19,7 @@ def phn2txt(phn, phoneme_map):
     ---------
     phn: list
         a list of original phonemes (ARPABET)
-    phoneme_map
+    phoneme_map: dict
         the phoneme-to-character map
 
     Returns
@@ -63,14 +64,14 @@ def prepare_tokenizer(data_folder, save_folder, phonemes, dataset_name):
 
     Arguments
     ---------
-    dataset_name: str
-        the name of the HuggingFace dataset
     data_folder: str
         the path to the dataset
     save_folder: str
         the path to the folder where annotations will be saved
     phonemes: list
         the list of phonemes
+    dataset_name: str
+        the name of the HuggingFace dataset
     """
     dataset = datasets.load_dataset(dataset_name) if dataset_name else None
     for data_split in DATA_SPLITS:

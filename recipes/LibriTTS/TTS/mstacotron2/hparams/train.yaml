@@ -18,7 +18,7 @@ epochs: 700
 keep_checkpoint_interval: 50
 use_tensorboard: False
 
-# Vocoder is used to covert the intermediate mel-spectrogram into the final waveform
+# Vocoder is used to convert the intermediate mel-spectrogram into the final waveform
 log_audio_samples: True
 vocoder: speechbrain/tts-hifigan-libritts-16kHz
 vocoder_savedir: tmpdir_vocoder_16k

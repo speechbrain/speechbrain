@@ -14,6 +14,7 @@ def merge_words(sequences):
     ---------
     sequences : list
         Each item contains a list, and this list contains a word sequence.
+
     Returns
     -------
     The list contains phrase sequences.
@@ -27,10 +28,14 @@ def merge_words(sequences):
 
 class BLEUStats(MetricStats):
     """A class for tracking BLEU (https://www.aclweb.org/anthology/P02-1040.pdf).
+
     Arguments
     ---------
     merge_words: bool
         Whether to merge the successive words to create sentences.
+    max_ngram_order: int
+        The maximum length of the ngrams to use for scoring.
+
     Example
     -------
     >>> bleu = BLEUStats()
@@ -46,7 +51,7 @@ class BLEUStats(MetricStats):
     0.0
     """
 
-    def __init__(self, lang="en", merge_words=True, max_ngram_order=4):
+    def __init__(self, merge_words=True, max_ngram_order=4):
         # Check extra-dependency for computing the bleu score
         try:
             from sacrebleu.metrics import BLEU
@@ -62,9 +67,7 @@ class BLEUStats(MetricStats):
         self.predicts = []
         self.targets = None
 
-    def append(
-        self, ids, predict, targets, ind2lab=None,
-    ):
+    def append(self, ids, predict, targets, ind2lab=None):
         """Add stats to the relevant containers.
         * See MetricStats.append()
         Arguments
@@ -102,7 +105,6 @@ class BLEUStats(MetricStats):
         """Summarize the BLEU and return relevant statistics.
         * See MetricStats.summarize()
         """
-
         scores = self.bleu.corpus_score(self.predicts, self.targets)
         details = {}
         details["BLEU"] = scores.score

@@ -50,7 +50,8 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         info = torchaudio.info(wav)
         resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(sig)
         return resampled
 
@@ -69,7 +70,7 @@ def dataio_prepare(hparams):
         )
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
 
     return datasets["train"]
 

@@ -15,12 +15,17 @@ def _update_mem(inp_tokens, memory):
     """This function is for updating the memory for transformer searches.
     it is called at each decoding step. When being called, it appends the
     predicted token of the previous step to existing memory.
-    Arguments:
-    -----------
-    inp_tokens : tensor
+
+    Arguments
+    ---------
+    inp_tokens : torch.Tensor
         Predicted token of the previous decoding step.
-    memory : tensor
+    memory : torch.Tensor
         Contains all the predicted tokens.
+
+    Returns
+    -------
+    Updated memory
     """
     if memory is None:
         memory = torch.empty(inp_tokens.size(0), 0, device=inp_tokens.device)
@@ -88,16 +93,19 @@ def mask_by_condition(tensor, cond, fill_value):
 
 def batch_filter_seq2seq_output(prediction, eos_id=-1):
     """Calling batch_size times of filter_seq2seq_output.
+
     Arguments
     ---------
     prediction : list of torch.Tensor
         A list containing the output ints predicted by the seq2seq system.
     eos_id : int, string
         The id of the eos.
+
     Returns
-    ------
+    -------
     list
         The output predicted by seq2seq model.
+
     Example
     -------
     >>> predictions = [torch.IntTensor([1,2,3,4]), torch.IntTensor([2,3,4,5,6])]
@@ -114,16 +122,19 @@ def batch_filter_seq2seq_output(prediction, eos_id=-1):
 
 def filter_seq2seq_output(string_pred, eos_id=-1):
     """Filter the output until the first eos occurs (exclusive).
+
     Arguments
     ---------
     string_pred : list
         A list containing the output strings/ints predicted by the seq2seq system.
     eos_id : int, string
         The id of the eos.
+
     Returns
-    ------
+    -------
     list
         The output predicted by seq2seq model.
+
     Example
     -------
     >>> string_pred = ['a','b','c','d','eos','e']

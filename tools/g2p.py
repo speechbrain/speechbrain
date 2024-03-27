@@ -36,7 +36,7 @@ python g2p.py --model /path/to/model --text "This is a line of text"
 ```
 
 The tool will transcribe the single sample and output the transcribed
-text to standard outout.
+text to standard output.
 
 Transcribe a file:
 python g2p.py --model /path/to/model --text-file text.txt \
@@ -54,6 +54,7 @@ resources (RAM or GPU memory).
 Authors
 * Artem Ploujnikov 2021
 """
+
 import itertools
 import math
 import os
@@ -77,7 +78,7 @@ def transcribe_text(g2p, text):
 
     Arguments
     ---------
-    g2p: speechbrain.inference.text.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
 
     text: str
@@ -91,7 +92,7 @@ def transcribe_file(g2p, text_file_name, output_file_name=None, batch_size=64):
     """
     Transcribes a file with one example per line
 
-    g2p: speechbrain.inference.text.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
 
     text_file_name: str
@@ -125,7 +126,7 @@ def get_line_count(text_file_name):
 
     Arguments
     ---------
-    file_name: str
+    text_file_name: str
         the file name
 
     Returns
@@ -146,7 +147,7 @@ def transcribe_stream(g2p, text_file, output_file, batch_size=64, total=None):
 
     Arguments
     ---------
-    g2p: speechbrain.inference.text.GrpahemeToPhoneme
+    g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
     text_file: file
         a file object from which text samples will be read
@@ -195,7 +196,7 @@ def chunked(iterable, batch_size):
     Returns
     -------
     batched_iterable: iterable
-        an itearble of batches
+        an iterable of batches
 
     """
     iterable = iter(iterable)
@@ -208,7 +209,7 @@ class InteractiveG2P(Cmd):
 
     Arguments
     ---------
-    model: speechbrain.inference.text.GrpahemeToPhoneme
+    model: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
     """
 
@@ -261,6 +262,10 @@ Example: g2p A quick brown fox jumped over the lazy dog"""
         ---------
         inp: str
             the user input
+
+        Returns
+        -------
+        True if quitting, else None
         """
         if inp.strip() in self.QUIT_COMMANDS:
             return True
@@ -282,8 +287,6 @@ def load_g2p_checkpoint(
     ---------
     hparams_file_name: str
         the path to the hyperparameters file
-    run_opts: dict
-        the run options
     path: str
         the path to the specified checkpoint
     best: bool
@@ -294,7 +297,7 @@ def load_g2p_checkpoint(
     run_opts: dict
         the run options
     overrides: dict
-        command-line parameters to overrde the ones supplied
+        command-line parameters to override the ones supplied
         in hparams
 
     Returns

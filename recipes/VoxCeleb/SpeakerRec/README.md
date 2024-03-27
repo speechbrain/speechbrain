@@ -19,7 +19,9 @@ Note that for the speaker verification experiments with Voxceleb2 the official s
 Voxceleb2 stores files with the m4a audio format. To use them within SpeechBrain you have to convert all the m4a files into wav files.
 You can do the conversion using ffmpeg(https://gist.github.com/seungwonpark/4f273739beef2691cd53b5c39629d830). This operation might take several hours and should be only once.
 
+<!-- cspell:disable -->
 2. Put all the wav files in a folder called wav. You should have something like `voxceleb2/wav/id*/*.wav` (e.g, `voxceleb2/wav/id00012/21Uxsk56VDQ/00001.wav`)
+<!-- cspell:enable -->
 
 3. copy the `voxceleb1/vox1_test_wav.zip` file into the voxceleb2 folder.
 
