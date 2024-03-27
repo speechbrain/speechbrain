@@ -59,7 +59,8 @@ def generate_overlap(sample, dataset, overlap_multiplier=1, overlap_type='mixtur
             smp = sample["sig"] / sample["sig"].pow(2).sum().sqrt()
             noise = torch.randn(sample["sig"].shape)
             noise = noise / noise.pow(2).sum().sqrt()
-            samples[i]["sig"] = smp + 1.0*noise
+            samples[i]["sig"] = smp + 0.5*noise
+            samples[i]["sig"] = samples[i]["sig"] / samples[i]["sig"].max()
     return samples
 
 def preprocess(wavs, hparams):
@@ -273,6 +274,7 @@ if __name__ == "__main__":
         for o_idx, (X_, X_stft_, X_mosaic_, y_mosaic_, y_batch_) in enumerate(zip(
             X, X_stft, X_mosaic, y_mosaic, y_batch
         )):
+
             try:
                 metrics = evaluator(
                     model_wrap,
