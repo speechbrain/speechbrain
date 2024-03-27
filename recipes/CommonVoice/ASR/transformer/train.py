@@ -455,7 +455,7 @@ if __name__ == "__main__":
         os.makedirs(hparams["output_wer_folder"])
 
     asr_brain.hparams.test_wer_file = os.path.join(
-        hparams["output_wer_folder"], f"wer_valid.txt"
+        hparams["output_wer_folder"], "wer_valid.txt"
     )
     asr_brain.evaluate(
         valid_data,
@@ -464,7 +464,7 @@ if __name__ == "__main__":
     )
 
     asr_brain.hparams.test_wer_file = os.path.join(
-        hparams["output_wer_folder"], f"wer_test.txt"
+        hparams["output_wer_folder"], "wer_test.txt"
     )
     asr_brain.evaluate(
         test_data,
