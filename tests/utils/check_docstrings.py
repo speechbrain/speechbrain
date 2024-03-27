@@ -13,14 +13,14 @@ def extractName(s, search_class=False):
 
     Arguments
     ---------
-    s: string
+    s: str
         Input string where to search for function or class names.
     search_class: bool
         If True, searches for class names.
 
     Returns
     -------
-    string: string
+    string: str
         Name of the function or class detected.
     """
     string = ""

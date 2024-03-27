@@ -162,7 +162,7 @@ class Separation(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     predictions, targets = self.compute_forward(
                         mixture, targets, sb.Stage.TRAIN, noise
@@ -296,7 +296,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -321,7 +320,7 @@ class Separation(sb.Brain):
                 self.checkpointer.save_checkpoint(meta={"pesq": stats["pesq"]})
             else:
                 self.checkpointer.save_and_keep_only(
-                    meta={"pesq": stats["pesq"]}, max_keys=["pesq"],
+                    meta={"pesq": stats["pesq"]}, max_keys=["pesq"]
                 )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -430,7 +429,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture, mix_len = batch.mix_sig
                     snt_id = batch.id
@@ -612,7 +610,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

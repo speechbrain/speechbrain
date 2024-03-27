@@ -33,6 +33,13 @@ class HifiGanBrain(sb.Brain):
         stage: speechbrain.Stage
             the training stage
 
+        Returns
+        -------
+        y_g_hat : torch.Tensor
+        scores_fake : torch.Tensor
+        feats_fake : torch.Tensor
+        scores_real : torch.Tensor
+        feats_real : torch.Tensor
         """
         batch = batch.to(self.device)
         x, _ = batch.mel
@@ -200,19 +207,21 @@ class HifiGanBrain(sb.Brain):
                 end_of_epoch=True,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
 
             self.run_inference_sample("Valid")
 
-        # We also write statistics about test data to stdout and to the TensorboardLogger.
+        # We also write statistics about test data to stdout and to the torch.TensorboardLogger.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(  # 1#2#
                 {"Epoch loaded": self.hparams.epoch_counter.current},
@@ -396,8 +405,10 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
-            save_dir=hparams["output_folder"] + "/tensorboard"
+        hifi_gan_brain.tensorboard_logger = (
+            sb.utils.train_logger.TensorboardLogger(
+                save_dir=hparams["output_folder"] + "/tensorboard"
+            )
         )
 
     # Training

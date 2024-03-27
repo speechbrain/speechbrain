@@ -287,7 +287,7 @@ def test_average_ckpts(tmpdir):
 
     recoverer.recover_if_possible()
 
-    checkpoints = recoverer.find_checkpoints(max_num_checkpoints=N_avg,)
+    checkpoints = recoverer.find_checkpoints(max_num_checkpoints=N_avg)
 
     model_state_dict = average_checkpoints(checkpoints, "recoverable")
 

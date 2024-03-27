@@ -79,10 +79,12 @@ def prepare_common_language(data_folder, save_folder, skip_prep=False):
         This path should include the multi: /datasets/CommonLanguage
     save_folder : str
         The directory where to store the csv files.
-    max_duration : int, optional
-        Max duration (in seconds) of training utterances.
     skip_prep: bool
         If True, skip data preparation.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -139,6 +141,15 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     Detects if the CommonLanguage data preparation for LID has been already done.
 
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_csv_train : str
+        The train csv file
+    save_csv_dev : str
+        The dev csv file
+    save_csv_test : str
+        The test csv file
 
     Returns
     -------
@@ -291,9 +302,10 @@ def check_common_language_folder(data_folder):
 
     If not, raises an error.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        The path to the folder containing the data.
 
     Raises
     ------

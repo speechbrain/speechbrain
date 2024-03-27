@@ -32,15 +32,15 @@ class MetricStats:
         at least two arguments (predictions and targets) and can
         optionally take the relative lengths of either or both arguments.
         Not usually used in sub-classes.
-    batch_eval: bool
-        When True it feeds the evaluation metric with the batched input.
-        When False and n_jobs=1, it performs metric evaluation one-by-one
-        in a sequential way. When False and n_jobs>1, the evaluation
-        runs in parallel over the different inputs using joblib.
     n_jobs : int
         The number of jobs to use for computing the metric. If this is
         more than one, every sample is processed individually, otherwise
         the whole batch is passed at once.
+    batch_eval : bool
+        When True it feeds the evaluation metric with the batched input.
+        When False and n_jobs=1, it performs metric evaluation one-by-one
+        in a sequential way. When False and n_jobs>1, the evaluation
+        runs in parallel over the different inputs using joblib.
 
     Example
     -------
@@ -80,7 +80,9 @@ class MetricStats:
         ---------
         ids : list
             List of ids corresponding to utterances.
-        *args, **kwargs
+        *args : tuple
+            Arguments to pass to the metric function.
+        **kwargs : dict
             Arguments to pass to the metric function.
         """
         self.ids.extend(ids)
@@ -359,8 +361,7 @@ class ErrorRateStats(MetricStats):
 
 
 class BinaryMetricStats(MetricStats):
-    """Tracks binary metrics, such as precision, recall, F1, EER, etc.
-    """
+    """Tracks binary metrics, such as precision, recall, F1, EER, etc."""
 
     def __init__(self, positive_label=1):
         self.clear()
@@ -382,8 +383,11 @@ class BinaryMetricStats(MetricStats):
         Arguments
         ---------
         ids : list
-            The string ids for the samples
-
+            The string ids for the samples.
+        scores : list
+            The scores corresponding to the ids.
+        labels : list
+            The labels corresponding to the ids.
         """
         self.ids.extend(ids)
         self.scores.extend(scores.detach())
@@ -425,8 +429,13 @@ class BinaryMetricStats(MetricStats):
             higher, and lower values weight precision higher.
         eps : float
             A small value to avoid dividing by zero.
-        """
 
+        Returns
+        -------
+        summary
+            if field is specified, only returns the score for that field.
+            if field is None, returns the full set of fields.
+        """
         if isinstance(self.scores, list):
             self.scores = torch.stack(self.scores)
             self.labels = torch.stack(self.labels)
@@ -482,9 +491,9 @@ class BinaryMetricStats(MetricStats):
         self.summary["precision"] = TP / (TP + FP + eps)
         self.summary["recall"] = TP / (TP + FN + eps)
         self.summary["F-score"] = (
-            (1.0 + beta ** 2.0)
+            (1.0 + beta**2.0)
             * TP
-            / ((1.0 + beta ** 2.0) * TP + beta ** 2.0 * FN + FP)
+            / ((1.0 + beta**2.0) * TP + beta**2.0 * FN + FP)
         )
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
@@ -507,6 +516,13 @@ def EER(positive_scores, negative_scores):
     negative_scores : torch.tensor
         The scores from entries of different classes.
 
+    Returns
+    -------
+    EER : float
+        The EER score.
+    threshold : float
+        The corresponding threshold for the EER score.
+
     Example
     -------
     >>> positive_scores = torch.tensor([0.6, 0.7, 0.8, 0.5])
@@ -515,7 +531,6 @@ def EER(positive_scores, negative_scores):
     >>> val_eer
     0.0
     """
-
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
@@ -575,6 +590,12 @@ def minDCF(
     p_target: float
         Prior probability of having a target (default 0.01).
 
+    Returns
+    -------
+    minDCF : float
+        The minDCF score.
+    threshold : float
+        The corresponding threshold for the minDCF score.
 
     Example
     -------
@@ -584,7 +605,6 @@ def minDCF(
     >>> val_minDCF
     0.0
     """
-
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
@@ -618,9 +638,8 @@ def minDCF(
 
 
 class ClassificationStats(MetricStats):
-    """Computes statistics pertaining to multi-label
-    classification tasks, as well as tasks that can be loosely interpreted as such for the purpose of
-    evaluations
+    """Computes statistics pertaining to multi-label classification tasks, as
+    well as tasks that can be loosely interpreted as such for the purpose of evaluations.
 
     Example
     -------
@@ -744,7 +763,6 @@ class ClassificationStats(MetricStats):
             Returns a float if ``field`` is provided, otherwise
             returns a dictionary containing all computed stats.
         """
-
         self._build_lookups()
         confusion_matrix = self._compute_confusion_matrix()
         self.summary = {
@@ -940,16 +958,15 @@ class MultiMetricStats:
         at least two arguments (predictions and targets) and can
         optionally take the relative lengths of either or both arguments.
         The function should return a dict or a namedtuple
-
-    batch_eval: bool
-        When True it feeds the evaluation metric with the batched input.
-        When False and n_jobs=1, it performs metric evaluation one-by-one
-        in a sequential way. When False and n_jobs>1, the evaluation
-        runs in parallel over the different inputs using joblib.
     n_jobs : int
         The number of jobs to use for computing the metric. If this is
         more than one, every sample is processed individually, otherwise
         the whole batch is passed at once.
+    batch_eval : bool
+        When True it feeds the evaluation metric with the batched input.
+        When False and n_jobs=1, it performs metric evaluation one-by-one
+        in a sequential way. When False and n_jobs>1, the evaluation
+        runs in parallel over the different inputs using joblib.
 
     Example
     -------
@@ -1012,7 +1029,9 @@ class MultiMetricStats:
         ---------
         ids : list
             List of ids corresponding to utterances.
-        *args, **kwargs
+        *args : tuple
+            Arguments to pass to the metric function.
+        **kwargs : dict
             Arguments to pass to the metric function.
         """
         self.ids.extend(ids)
@@ -1047,8 +1066,7 @@ class MultiMetricStats:
             self.metrics[key].append(ids, metric_scores)
 
     def eval_simple(self, *args, **kwargs):
-        """Evaluates the metric in a simple, sequential
-        manner"""
+        """Evaluates the metric in a simple, sequential manner"""
         scores = self.metric(*args, **kwargs)
         return {key: score.detach() for key, score in scores.items()}
 
@@ -1060,15 +1078,14 @@ class MultiMetricStats:
         field : str
             If provided, only returns selected statistic. If not,
             returns all computed statistics.
-        flat: bool
+        flat : bool
             whether to flatten the dictionary
 
         Returns
         -------
-         dict
+        dict
             Returns a dictionary of all computed stats
         """
-
         result = {
             key: metric.summarize(field) for key, metric in self.metrics.items()
         }
@@ -1088,13 +1105,14 @@ def _dictify(f):
 
     Arguments
     ---------
-    f: callable
+    f : callable
         a function
 
     Returns
     -------
-    result: callable
-        a wrapped function"""
+    result : callable
+        a wrapped function
+    """
     has_asdict = None
 
     def wrapper(*args, **kwargs):

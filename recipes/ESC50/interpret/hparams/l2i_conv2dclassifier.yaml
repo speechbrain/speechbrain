@@ -23,7 +23,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
 
-# Tensorboard logs
+# torch.Tensorboard logs
 use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 

@@ -10,7 +10,6 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
-
 import os
 from typing import List, Optional, Tuple
 import abc
@@ -217,7 +216,7 @@ class CtcGraphCompiler(GraphCompiler):
 
     Arguments
     ---------
-    lexicon: Lexicon
+    _lexicon: Lexicon
         It is built from `data/lang/lexicon.txt`.
     device: torch.device
         The device to use for operations compiling transcripts to FSAs.

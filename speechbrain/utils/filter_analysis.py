@@ -7,13 +7,13 @@ Authors:
 """
 
 from dataclasses import dataclass
-from typing import Any, Iterable
 
 
 @dataclass
 class FilterProperties:
     """Models the properties of something that behaves like a filter (e.g.
-    convolutions, fbanks, etc.) over time."""
+    convolutions, fbanks, etc.) over time.
+    """
 
     window_size: int
     """Size of the filter, i.e. the number of input frames on which a single
@@ -101,19 +101,20 @@ class FilterProperties:
     @staticmethod
     def pointwise_filter() -> "FilterProperties":
         """Returns filter properties for a trivial filter whose output frames
-        only ever depend on their respective input frame."""
-
+        only ever depend on their respective input frame.
+        """
         return FilterProperties(window_size=1, stride=1)
 
     def get_effective_size(self):
         """The number of input frames that span the window, including those
-        ignored by dilation."""
+        ignored by dilation.
+        """
         return 1 + ((self.window_size - 1) * self.dilation)
 
     def get_convolution_padding(self):
         """The number of frames that need to be inserted on each end for a
-        typical convolution."""
-
+        typical convolution.
+        """
         if self.window_size % 2 == 0:
             raise ValueError("Cannot determine padding with even window size")
 
@@ -125,8 +126,8 @@ class FilterProperties:
     def get_noncausal_equivalent(self):
         """From a causal filter definition, gets a compatible non-causal filter
         definition for which each output frame depends on the same input frames,
-        plus some false dependencies."""
-
+        plus some false dependencies.
+        """
         if not self.causal:
             return self
 
@@ -138,15 +139,13 @@ class FilterProperties:
             causal=False,
         )
 
-    def with_on_top(
-        self, other: "FilterProperties", allow_approximate: bool = True
-    ) -> "FilterProperties":
-        """Considering the chain of filters `other_filter(self(x))`, returns
+    def with_on_top(self, other, allow_approximate=True):
+        """Considering the chain of filters `other(self(x))`, returns
         recalculated properties of the resulting filter.
 
         Arguments
         ---------
-        other_filter: FilterProperties
+        other: FilterProperties
             The filter to combine `self` with.
 
         allow_approximate: bool, optional
@@ -156,8 +155,12 @@ class FilterProperties:
             This might be the case when stacking non-causal and causal filters.
             Depending on the usecase, this might be fine, but functions like
             `has_overlap` may erroneously start returning `True`.
-        """
 
+        Returns
+        -------
+        FilterProperties
+            The properties of the combined filters.
+        """
         self_size = self.window_size
 
         if other.window_size % 2 == 0:
@@ -193,9 +196,7 @@ class FilterProperties:
         return FilterProperties(out_size, stride, dilation, causal)
 
 
-def stack_filter_properties(
-    filters: Iterable[Any], allow_approximate: bool = True
-) -> FilterProperties:
+def stack_filter_properties(filters, allow_approximate=True):
     """Returns the filter properties of a sequence of stacked filters.
     If the sequence is empty, then a no-op filter is returned (with a size and
     stride of 1).
@@ -206,10 +207,14 @@ def stack_filter_properties(
         The filters to combine, e.g. `[a, b, c]` modelling `c(b(a(x)))`.
         If an item is not an instance of :class:`FilterProperties`, then this
         attempts to call `.get_filter_properties()` over it.
-
     allow_approximate: bool, optional
-        See `FilterProperties.with_on_top`."""
+        See `FilterProperties.with_on_top`.
 
+    Returns
+    -------
+    ret: FilterProperties
+        The properties of the sequence of filters
+    """
     ret = FilterProperties.pointwise_filter()
 
     for prop in filters:

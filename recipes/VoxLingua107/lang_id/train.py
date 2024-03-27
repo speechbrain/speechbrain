@@ -35,8 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class LanguageBrain(sb.core.Brain):
-    """Class for language ID training"
-    """
+    """Class for language ID training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.
@@ -61,8 +60,7 @@ class LanguageBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         langid = batch.lang_id_encoded
@@ -115,7 +113,6 @@ class LanguageBrain(sb.core.Brain):
 
 
 def dataio_prep_shards(hparams):
-
     # load the meta info json file
     with wds.gopen(hparams["train_meta"], "rb") as f:
         train_meta = json.load(f)
@@ -167,7 +164,7 @@ def dataio_prep_shards(hparams):
 
     train_data = (
         wds.WebDataset(
-            hparams["train_shards"], cache_dir=hparams["shard_cache_dir"],
+            hparams["train_shards"], cache_dir=hparams["shard_cache_dir"]
         )
         .repeat()
         .shuffle(1000)
@@ -180,7 +177,7 @@ def dataio_prep_shards(hparams):
 
     valid_data = (
         wds.WebDataset(
-            hparams["val_shards"], cache_dir=hparams["shard_cache_dir"],
+            hparams["val_shards"], cache_dir=hparams["shard_cache_dir"]
         )
         .decode("pil")
         .map(partial(audio_pipeline, random_chunk=False))
@@ -198,7 +195,6 @@ def dataio_prep_shards(hparams):
 
 
 if __name__ == "__main__":
-
     logger.info("Starting training...")
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True

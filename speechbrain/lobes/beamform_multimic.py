@@ -3,6 +3,7 @@
 Authors
  * Nauman Dawalatabad
 """
+
 import torch
 from speechbrain.processing.features import (
     STFT,
@@ -39,8 +40,12 @@ class DelaySum_Beamformer(torch.nn.Module):
 
         Arguments
         ---------
-        mics_signal : tensor
+        mics_signals : torch.Tensor
             Set of audio signals to be transformed.
+
+        Returns
+        -------
+        sig : torch.Tensor
         """
         with torch.no_grad():
 

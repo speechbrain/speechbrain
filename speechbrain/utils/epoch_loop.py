@@ -4,6 +4,7 @@ Authors
  * Aku Rouhe 2020
  * Davide Borra 2021
 """
+
 from .checkpoints import register_checkpoint_hooks
 from .checkpoints import mark_as_saver
 from .checkpoints import mark_as_loader
@@ -20,6 +21,11 @@ class EpochCounter:
     Use this as the iterator for epochs.
     Note that this iterator gives you the numbers from [1 ... limit] not
     [0 ... limit-1] as range(limit) would.
+
+    Arguments
+    ---------
+    limit: int
+        maximum number of epochs
 
     Example
     -------

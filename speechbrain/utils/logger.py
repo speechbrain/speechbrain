@@ -81,7 +81,9 @@ class TqdmCompatibleStreamHandler(logging.StreamHandler):
 
 
 def setup_logging(
-    config_path="log-config.yaml", overrides={}, default_level=logging.INFO,
+    config_path="log-config.yaml",
+    overrides={},
+    default_level=logging.INFO,
 ):
     """Setup logging configuration.
 
@@ -89,11 +91,11 @@ def setup_logging(
     ---------
     config_path : str
         The path to a logging config file.
-    default_level : int
-        The level to use if the config file is not found.
     overrides : dict
         A dictionary of the same structure as the config dict
         with any updated values that need to be applied.
+    default_level : int
+        The level to use if the config file is not found.
     """
     if os.path.exists(config_path):
         with open(config_path, "rt") as f:
@@ -138,7 +140,7 @@ def format_order_of_magnitude(number, abbreviate=True):
         order = order - math.copysign(3, order)  # Bring 3 units towards 0
     order_token = style[order]
     if order != 0:
-        formatted_number = precision.format(num=number / 10 ** order)
+        formatted_number = precision.format(num=number / 10**order)
     else:
         if isinstance(number, int):
             formatted_number = str(number)

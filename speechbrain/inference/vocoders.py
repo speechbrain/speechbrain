@@ -13,6 +13,7 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import logging
 import torch
 from speechbrain.dataio.dataio import length_to_mask
@@ -24,10 +25,13 @@ logger = logging.getLogger(__name__)
 class HIFIGAN(Pretrained):
     """
     A ready-to-use wrapper for HiFiGAN (mel_spec -> waveform).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
@@ -54,6 +58,7 @@ class HIFIGAN(Pretrained):
 
     def decode_batch(self, spectrogram, mel_lens=None, hop_len=None):
         """Computes waveforms from a batch of mel-spectrograms
+
         Arguments
         ---------
         spectrogram: torch.Tensor
@@ -64,6 +69,7 @@ class HIFIGAN(Pretrained):
         hop_len: int
             hop length used for mel-spectrogram extraction
             should be the same value as in the .yaml file
+
         Returns
         -------
         waveforms: torch.Tensor
@@ -84,9 +90,10 @@ class HIFIGAN(Pretrained):
 
     def mask_noise(self, waveform, mel_lens, hop_len):
         """Mask the noise caused by padding during batch inference
+
         Arguments
         ---------
-        wavform: torch.tensor
+        waveform: torch.tensor
             Batch of generated waveforms [batch, 1, time]
         mel_lens: torch.tensor
             A list of lengths of mel-spectrograms for the batch
@@ -94,6 +101,7 @@ class HIFIGAN(Pretrained):
         hop_len: int
             hop length used for mel-spectrogram extraction
             same value as in the .yaml file
+
         Returns
         -------
         waveform: torch.tensor
@@ -109,10 +117,12 @@ class HIFIGAN(Pretrained):
 
     def decode_spectrogram(self, spectrogram):
         """Computes waveforms from a single mel-spectrogram
+
         Arguments
         ---------
         spectrogram: torch.Tensor
             mel-spectrogram [mels, time]
+
         Returns
         -------
         waveform: torch.Tensor
@@ -140,10 +150,12 @@ class DiffWaveVocoder(Pretrained):
     A ready-to-use inference wrapper for DiffWave as vocoder.
     The wrapper allows to perform generative tasks:
         locally-conditional generation: mel_spec -> waveform
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
     """
 
     HPARAMS_NEEDED = ["diffusion"]
@@ -164,6 +176,7 @@ class DiffWaveVocoder(Pretrained):
         fast_sampling_noise_schedule=None,
     ):
         """Generate waveforms from spectrograms
+
         Arguments
         ---------
         mel: torch.tensor
@@ -203,9 +216,10 @@ class DiffWaveVocoder(Pretrained):
 
     def mask_noise(self, waveform, mel_lens, hop_len):
         """Mask the noise caused by padding during batch inference
+
         Arguments
         ---------
-        wavform: torch.tensor
+        waveform: torch.tensor
             Batch of generated waveforms [batch, 1, time]
         mel_lens: torch.tensor
             A list of lengths of mel-spectrograms for the batch
@@ -213,6 +227,7 @@ class DiffWaveVocoder(Pretrained):
         hop_len: int
             hop length used for mel-spectrogram extraction
             same value as in the .yaml file
+
         Returns
         -------
         waveform: torch.tensor
@@ -234,6 +249,7 @@ class DiffWaveVocoder(Pretrained):
         fast_sampling_noise_schedule=None,
     ):
         """Computes waveforms from a single mel-spectrogram
+
         Arguments
         ---------
         spectrogram: torch.tensor
@@ -245,6 +261,7 @@ class DiffWaveVocoder(Pretrained):
             whether to do fast sampling
         fast_sampling_noise_schedule: list
             the noise schedules used for fast sampling
+
         Returns
         -------
         waveform: torch.tensor
@@ -274,10 +291,13 @@ class DiffWaveVocoder(Pretrained):
 class UnitHIFIGAN(Pretrained):
     """
     A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
@@ -297,10 +317,12 @@ class UnitHIFIGAN(Pretrained):
 
     def decode_batch(self, units):
         """Computes waveforms from a batch of discrete units
+
         Arguments
         ---------
         units: torch.tensor
             Batch of discrete units [batch, codes]
+
         Returns
         -------
         waveforms: torch.tensor
@@ -327,10 +349,12 @@ class UnitHIFIGAN(Pretrained):
 
     def decode_unit(self, units):
         """Computes waveforms from a single sequence of discrete units
+
         Arguments
         ---------
         units: torch.tensor
             codes: [time]
+
         Returns
         -------
         waveform: torch.tensor

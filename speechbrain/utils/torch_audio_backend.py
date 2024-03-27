@@ -3,6 +3,7 @@
 Authors
  * Mirco Ravanelli 2021
 """
+
 import platform
 import logging
 import torchaudio
@@ -16,8 +17,8 @@ def try_parse_torchaudio_major_version() -> Optional[int]:
 
     Returns
     -------
-    The parsed major version, otherwise ``None``."""
-
+    The parsed major version, otherwise ``None``.
+    """
     if not hasattr(torchaudio, "__version__"):
         return None
 
@@ -41,7 +42,6 @@ def check_torchaudio_backend():
     """Checks the torchaudio backend and sets it to soundfile if
     windows is detected.
     """
-
     torchaudio_major = try_parse_torchaudio_major_version()
 
     if torchaudio_major is None:

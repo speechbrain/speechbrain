@@ -62,14 +62,14 @@ class WarmAndExpDecayLRSchedule:
 
     Arguments
     ---------
-        lr : float
-            The max learning rate to reach after warmup.
-        warmup : int
-            Number of warmup steps (following a linear increase).
-        total_steps : int
-            Total number of steps (used to decay).
-        decay_factor : float
-            Decay factor applied every decay_every steps. (default: 0.01)
+    lr : float
+        The max learning rate to reach after warmup.
+    n_warmup_steps : int
+        Number of warmup steps (following a linear increase).
+    total_steps : int
+        Total number of steps (used to decay).
+    decay_factor : float
+        Decay factor applied every decay_every steps. (default: 0.01)
 
     Example
     -------
@@ -93,9 +93,7 @@ class WarmAndExpDecayLRSchedule:
     0.31622776601683794
     """
 
-    def __init__(
-        self, lr, n_warmup_steps, total_steps, decay_factor=0.1,
-    ):
+    def __init__(self, lr, n_warmup_steps, total_steps, decay_factor=0.1):
         super(WarmAndExpDecayLRSchedule, self).__init__()
         self.base_lr = lr
         self.current_lr = 0
@@ -198,6 +196,9 @@ class NewBobScheduler:
         ---------
         metric_value : int
             A number for determining whether to change the hyperparameter value.
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         old_value = new_value = self.hyperparam_value
         if len(self.metric_values) > 0:
@@ -279,6 +280,10 @@ class LinearScheduler:
         ---------
         current_epoch : int
             Number of times the dataset has been iterated.
+
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         old_index = max(0, current_epoch - 1)
         index = min(current_epoch, len(self.value_at_epoch) - 1)
@@ -300,7 +305,7 @@ class LinearWarmupScheduler:
     num_warmup_steps : int
         Number of warmup steps. The learning rate reaches lr0 at
         ``num_warmup_steps + 1`` step.
-    num_training_steps: int
+    num_training_steps : int
         The total number of training steps.
 
     Example
@@ -331,6 +336,10 @@ class LinearWarmupScheduler:
         ---------
         current_step : int
             Number of steps the model has been updated.
+
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         if current_step < self.num_warmup_steps:
             return (
@@ -345,8 +354,7 @@ class LinearWarmupScheduler:
         )
 
     def get_next_value(self):
-        """Returns the next learning rate value for the hyperparameter.
-        """
+        """Returns the next learning rate value for the hyperparameter."""
         new_value = self.calculate_lr(self.current_step)
         self.current_step += 1
         return new_value
@@ -390,7 +398,7 @@ class StepScheduler:
     decay_drop : float
         Annealing factor (the decay of the hyperparameter value is faster
         with higher ``decay_drop`` values).
-    half_life: int
+    half_life : int
         A convenience parameter to set decay_factor such that the parameter
         will drop to half its value at the specified epoch. May not
         be used together with decay_factor or decay_drop
@@ -434,6 +442,10 @@ class StepScheduler:
         ---------
         current_epoch : int
             Number of times the dataset has been iterated.
+
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         current_value = self._compute_value(current_epoch - 1)
         next_value = self._compute_value(current_epoch)
@@ -491,7 +503,7 @@ class NoamScheduler:
         self.current_lr = lr_initial
         self.losses = []
         self.n_steps = 0
-        self.normalize = n_warmup_steps ** 0.5
+        self.normalize = n_warmup_steps**0.5
         if model_size is not None:
             self.normalize = model_size ** (-0.5)
 
@@ -608,7 +620,7 @@ class NoamIntervalScheduler:
         self.current_lr = lr_initial
         self.losses = []
         self.n_steps = 0
-        self.normalize = n_warmup_steps ** 0.5
+        self.normalize = n_warmup_steps**0.5
         self.anneal_steps = anneal_steps
         self.anneal_rates = anneal_rates
         if model_size is not None:
@@ -678,10 +690,10 @@ class CyclicCosineScheduler:
 
     Arguments
     ---------
-    lr_initial : float
-        Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
         Number of warm up steps.
+    lr_initial : float
+        Initial learning rate (i.e. the lr used at epoch 0).
     total_steps : int
         Total number of updating steps.
 
@@ -712,7 +724,7 @@ class CyclicCosineScheduler:
         self.total = total_steps
 
         self.n_steps = 0
-        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        self.normalize = 1 / (n_warmup_steps * n_warmup_steps**-1.5)
 
     def __call__(self, opt):
         """
@@ -720,10 +732,6 @@ class CyclicCosineScheduler:
         ---------
         opt : list of optimizers
             The optimizers to update using this scheduler.
-        current_epoch : int
-            Number of times the dataset has been iterated.
-        current_loss : int
-            A number for determining whether to change the learning rate.
 
         Returns
         -------
@@ -785,6 +793,8 @@ class ReduceLROnPlateau:
         Factor with which to reduce the learning rate.
     patience : int
         How many epochs to wait before reducing the learning rate.
+    dont_halve_until_epoch : int
+        Number of epochs to wait until halving.
 
     Example
     -------
@@ -1056,12 +1066,14 @@ class CyclicLRScheduler:
 class IntervalScheduler:
     """A simple scheduler implementation that sets the learning rate to
     specific values after a specific number of steps has been reached.
+
     Arguments
     ---------
-    intervals: list
+    intervals : list
         a list of dictionaries: {"steps": <number of steps>, "lr": the learning rate}
         'steps' indicates the global step count at which a given
         rate will apply
+
     Example
     -------
     >>> import torch
@@ -1105,6 +1117,7 @@ class IntervalScheduler:
         ---------
         opt : optimizer
             The optimizer to update using this scheduler.
+
         Returns
         -------
         current_lr : float
@@ -1161,6 +1174,7 @@ class IntervalScheduler:
 class InverseSquareRootScheduler:
     """The Inverse Square Root Scheduler, as defined in the T5 paper
     https://arxiv.org/pdf/1910.10683.pdf
+
     Arguments
     ---------
     warmup_steps : int
@@ -1173,10 +1187,15 @@ class InverseSquareRootScheduler:
 
     def __call__(self, opt):
         """Returns current and new hyperparameter value.
+
         Arguments
         ---------
-        current_epoch : int
-            Number of times the dataset has been iterated.
+        opt : optimizer
+            The optimizer to update using this scheduler.
+
+        Returns
+        -------
+        current and new hyperparam value
         """
         self.n_steps += 1
 
@@ -1213,18 +1232,18 @@ class WarmCoolDecayLRSchedule:
 
     Arguments
     ---------
-        lr : float
-            The max learning rate to reach after warmup.
-        warmup : int
-            Number of warmup steps (following a linear increase).
-        cooldown : int
-            Number of cooldown steps (following a linear decrease).
-        total_steps : int
-            Total number of steps (used to decay).
-        decay_factor : float
-            Decay factor applied every decay_every steps.
-        decay_every : int
-            Apply the decay factor to the learning rate every decay_every steps.
+    lr : float
+        The max learning rate to reach after warmup.
+    warmup : int
+        Number of warmup steps (following a linear increase).
+    cooldown : int
+        Number of cooldown steps (following a linear decrease).
+    total_steps : int
+        Total number of steps (used to decay).
+    decay_factor : float
+        Decay factor applied every decay_every steps.
+    decay_every : int
+        Apply the decay factor to the learning rate every decay_every steps.
 
     Example
     -------
@@ -1322,7 +1341,7 @@ class ScheduledLoss(nn.Module):
 
     Arguments
     ---------
-    schedule: list
+    schedule : list
         a list of dictionaries with the following keys
             loss_fn: the loss function to use
             steps: the number of steps to apply before switching
@@ -1366,12 +1385,17 @@ class ScheduledLoss(nn.Module):
 
     def forward(self, *args, **kwargs):
         """Computes the loss at the specified step number.
-        Any arguments passed to this will be passed on to the specified
-        loss_fn
+
+        Arguments
+        ---------
+        *args : tuple
+        **kwargs : dict
+            Any arguments passed to this will be passed on to the specified
+            loss_fn
 
         Returns
         -------
-        result: torch.Tensor
+        result : torch.Tensor
             the loss value
         """
         if self.n_steps >= self.next_switch:
@@ -1414,18 +1438,20 @@ class TriStageLRSchedule:
 
     Arguments
     ---------
-        lr : float
-            The max learning rate to reach after warmup.
-        warmup_steps : int
-            Number of warmup steps (following a linear increase).
-        hold_steps : int
-            Number of holding steps (lr remains unchanged).
-        total_steps : int
-            Total number of steps (used to decay).
-        init_lr_scale : float
-            The initial learning rate scale during warmup phase.
-        final_lr_scale : float
-            The final learning rate scale.
+    lr : float
+        The max learning rate to reach after warmup.
+    warmup_steps : int
+        Number of warmup steps (following a linear increase).
+    hold_steps : int
+        Number of holding steps (lr remains unchanged).
+    decay_steps : int
+        Number of decay steps.
+    total_steps : int
+        Total number of steps (used to decay).
+    init_lr_scale : float
+        The initial learning rate scale during warmup phase.
+    final_lr_scale : float
+        The final learning rate scale.
 
     Example
     -------

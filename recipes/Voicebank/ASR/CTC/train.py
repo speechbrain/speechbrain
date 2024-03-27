@@ -85,7 +85,7 @@ class ASR_Brain(sb.Brain):
                 valid_stats={"loss": stage_loss, "PER": per},
             )
             self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"],
+                meta={"PER": per}, min_keys=["PER"]
             )
 
         elif stage == sb.Stage.TEST:
@@ -140,7 +140,7 @@ def dataio_prep(hparams):
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="length", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending"
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
@@ -164,7 +164,6 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

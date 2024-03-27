@@ -40,12 +40,18 @@ def write_shards(
     min_dur: float,
 ):
     """
-    Parameters
-    ----------
-    dns_folder_path: folder where extracted DNS data is located
-    shards_path: folder to write shards of data to
-    seed: random seed used to initially shuffle data into shards
-    samples_per_shard: number of data samples to store in each shards.
+    Arguments
+    ---------
+    dns_folder_path: pathlib.Path
+        folder where extracted DNS data is located
+    shards_path: pathlib.Path
+        folder to write shards of data to
+    seed: int
+        random seed used to initially shuffle data into shards
+    samples_per_shard: int
+        number of data samples to store in each shards.
+    min_dur: float
+        Smallest possible duration.
     """
     # make sure output folder exist
     shards_path.mkdir(parents=True, exist_ok=True)

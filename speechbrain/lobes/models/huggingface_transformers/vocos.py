@@ -76,7 +76,12 @@ class Vocos(nn.Module):
     """
 
     def __init__(
-        self, source, save_path, revision=None, bandwidth=1.5, freeze=True,
+        self,
+        source,
+        save_path,
+        revision=None,
+        bandwidth=1.5,
+        freeze=True,
     ):
         super().__init__()
         self.source = source

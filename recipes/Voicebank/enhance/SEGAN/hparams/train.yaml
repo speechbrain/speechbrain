@@ -22,7 +22,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced
 
-# Tensorboar (optional)
+# torch.Tensorboar (optional)
 use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 

@@ -3,6 +3,7 @@
 Authors
  * Mirco Ravanelli 2022
 """
+
 import os
 import csv
 from tests.consistency.test_recipe import __skip_list
@@ -19,7 +20,6 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
         Path of the folder with csv files containing the training scripts with their coupled
         yaml files (with columns called 'Hparam_file', 'Script_file', 'Data_prep_file')
     """
-
     # Use this list to itemize special yaml for which we do not have to test
     avoid_check = []
     check = True

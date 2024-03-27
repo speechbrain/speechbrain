@@ -26,10 +26,10 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     the output back to the function in the call for the next batch.
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
     stats : collections.Counter
         The running statistics.
@@ -84,10 +84,10 @@ def _batch_stats(refs, hyps):
     Used by accumulatable_wer_stats
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
 
     Returns
@@ -220,7 +220,7 @@ def alignment(table):
     alignment is monotonic, one-to-zero-or-one.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 
@@ -283,7 +283,7 @@ def count_ops(table):
     recognition to report the number of different error types separately.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 
@@ -488,9 +488,9 @@ def wer_details_by_utterance(
         utterance_details.update(
             {
                 "scored": True,
-                "hyp_empty": True
-                if len(hyp_tokens) == 0
-                else False,  # This also works for e.g. torch tensors
+                "hyp_empty": (
+                    True if len(hyp_tokens) == 0 else False
+                ),  # This also works for e.g. torch tensors
                 "num_edits": sum(ops.values()),
                 "num_ref_tokens": num_ref_tokens,
                 "WER": 100.0 * sum(ops.values()) / len(ref_tokens),
@@ -545,9 +545,9 @@ def wer_summary(details_by_utterance):
     """
     # Build the summary details:
     ins = dels = subs = 0
-    num_scored_tokens = (
-        num_scored_sents
-    ) = num_edits = num_erroneous_sents = num_absent_sents = num_ref_sents = 0
+    num_scored_tokens = num_scored_sents = num_edits = num_erroneous_sents = (
+        num_absent_sents
+    ) = num_ref_sents = 0
     for dets in details_by_utterance:
         num_ref_sents += 1
         if dets["scored"]:
