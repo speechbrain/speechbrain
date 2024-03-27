@@ -441,15 +441,11 @@ class Evaluator:
             "device": device,
             "explain_func": wrap_explain_fn,
         }
-
         metrics["max_sensitivity"] = self.max_sensitivity(**quantus_inp)
-
         metrics["avg_sensitivity"] = self.avg_sensitivity(**quantus_inp)
-
         metrics["sparseness"] = self.sparseness(**quantus_inp)
-
         metrics["complexity"] = self.complexity(**quantus_inp)
-
+        metrics["accuracy"] = (y.item() == y_pred.item())*100
         if method != "l2i" and False:
             quantus_inp[
                 "x_batch"

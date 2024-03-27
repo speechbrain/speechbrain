@@ -44,7 +44,7 @@ def fetch_model(url):
     
     return hf_hub_download(repo_id=REPO_ID, filename=url)
 
-def generate_overlap(sample, dataset, overlap_multiplier=1):
+def generate_overlap(sample, dataset, overlap_multiplier=1, overlap_type='mixtures'):
     pool = [i for i in range(len(dataset))]
     indices = random.sample(pool, overlap_multiplier)
     # print("\n\n Generate overlap called!", indices, " \n\n")
@@ -53,8 +53,13 @@ def generate_overlap(sample, dataset, overlap_multiplier=1):
         {k: v for k, v in sample.items()} for _ in range(overlap_multiplier)
     ]
     for i, idx in enumerate(indices):
-        samples[i]["sig"] = generate_mixture(sample["sig"], dataset[idx]["sig"])
-
+        if overlap_type == 'mixtures':
+            samples[i]["sig"] = generate_mixture(sample["sig"], dataset[idx]["sig"])
+        else:
+            smp = sample["sig"] / sample["sig"].pow(2).sum().sqrt()
+            noise = torch.randn(sample["sig"].shape)
+            noise = noise / noise.pow(2).sum().sqrt()
+            samples[i]["sig"] = smp + 1.0*noise
     return samples
 
 def preprocess(wavs, hparams):
@@ -215,18 +220,18 @@ if __name__ == "__main__":
         "AG",
         "faithfulness_l2i",
         "inp_fid",
+        "accuracy"
     ]
     aggregated_metrics = {k: 0.0 for k in computed_metrics}
     samples_interval = hparams["interpret_period"]
     overlap_multiplier = 2
 
+    overlap_type = 'white_noise'
     discarded = 0
     for idx, base_sample in enumerate(datasets["valid"]):
-
-        import pdb; pdb.set_trace()
         if not hparams["add_wham_noise"]:
             overlap_batch = generate_overlap(
-                base_sample, datasets["test"], overlap_multiplier
+                base_sample, datasets["test"], overlap_multiplier, overlap_type=overlap_type
             )
             y_batch = torch.Tensor(
                 [
@@ -255,6 +260,7 @@ if __name__ == "__main__":
             wavs = combine_batches(
                 wavs, iter(hparams["wham_dataset"])
             )
+            # wavs = wavs + 0.1*torch.randn(wavs.shape, device=hparams['device'])
 
             X, X_stft, _ = preprocess(wavs, hparams)
 
