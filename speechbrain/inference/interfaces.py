@@ -32,7 +32,7 @@ from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import fetch
+from speechbrain.utils.fetching import fetch, LocalStrategy
 from speechbrain.utils.superpowers import import_from_path
 
 logger = logging.getLogger(__name__)
@@ -283,7 +283,12 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
+        path = fetch(
+            fl,
+            source=source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.NO_LINK,
+        )
         signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
