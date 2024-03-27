@@ -92,20 +92,17 @@ def transcribe_file(g2p, text_file_name, output_file_name=None, batch_size=64):
     """
     Transcribes a file with one example per line
 
+    Arguments
+    ---------
     g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model instance
-
     text_file_name: str
         the name of the source text file
-
     output_file_name: str
         the name of the output file. If omitted, the phonemes will
         be output to stdout
-
     batch_size: str
         the number of examples per batch
-
-
     """
     line_count = get_line_count(text_file_name)
     with open(text_file_name) as text_file:
