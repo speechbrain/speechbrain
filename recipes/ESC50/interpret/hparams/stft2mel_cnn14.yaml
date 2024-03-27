@@ -179,8 +179,11 @@ use_pretrained: True
 #embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel/1234/save/CKPT+2024-01-15+12-09-28+00/embedding_model.ckpt'
 #classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel/1234/save/CKPT+2024-01-15+12-09-28+00/classifier.ckpt'
 
-embedding_model_path: 'fpaissan/r/embedding_model.ckpt'
-classifier_model_path: 'fpaissan/r/classifier.ckpt'
+# embedding_model_path: 'fpaissan/r/embedding_model.ckpt'
+# classifier_model_path: 'fpaissan/r/classifier.ckpt'
+
+embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-esc-wwham/1234/save/CKPT+2024-03-26+21-09-10+00/embedding_model.ckpt'
+classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-esc-wwham/1234/save/CKPT+2024-03-26+21-09-10+00/classifier.ckpt'
 
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer

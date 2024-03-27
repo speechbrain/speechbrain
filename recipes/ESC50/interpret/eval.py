@@ -34,8 +34,8 @@ def generate_mixture(s1, s2):
     # create the mixture with s2 being the noise (lower gain)
     mix = s1 * 0.8 + (s2 * 0.2)
     mix = mix / mix.max()
-
     return mix
+
 
 def fetch_model(url):
     from huggingface_hub import hf_hub_download
@@ -113,11 +113,14 @@ if __name__ == "__main__":
         "Loading embedding_model state dict from ",
         hparams["embedding_model_path"],
     )
-    f_emb.load_state_dict(torch.load(fetch_model("embedding_model.ckpt")))
+    #f_emb.load_state_dict(torch.load(fetch_model("embedding_model.ckpt")))
+    f_emb.load_state_dict(torch.load(hparams["embedding_model_path"]))
+
     print(
         "Loading classifier state dict from ", hparams["classifier_model_path"]
     )
-    f_cls.load_state_dict(torch.load(fetch_model("classifier.ckpt")))
+    f_cls.load_state_dict(torch.load(hparams["classifier_model_path"]))
+    #f_cls.load_state_dict(torch.load(fetch_model("classifier.ckpt")))
     f_emb.eval()
     f_cls.eval()
 
@@ -219,6 +222,8 @@ if __name__ == "__main__":
 
     discarded = 0
     for idx, base_sample in enumerate(datasets["valid"]):
+
+        import pdb; pdb.set_trace()
         if not hparams["add_wham_noise"]:
             overlap_batch = generate_overlap(
                 base_sample, datasets["test"], overlap_multiplier
