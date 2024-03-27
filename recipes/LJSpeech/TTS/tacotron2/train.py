@@ -101,8 +101,10 @@ class Tacotron2Brain(sb.Brain):
         ---------
         predictions: tuple
             model predictions
-        targets: tuple
-            ground truth data
+        batch: PaddedBatch
+            Inputs for this training iteration.
+        stage: sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
 
         Returns
         -------
@@ -252,14 +254,16 @@ class Tacotron2Brain(sb.Brain):
                 meta=epoch_metadata,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
             output_progress_sample = (
                 self.hparams.progress_samples

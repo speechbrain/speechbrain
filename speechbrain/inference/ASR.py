@@ -13,6 +13,7 @@ Authors:
  * Adel Moumen 2023, 2024
  * Pradnya Kandarkar 2023
 """
+
 from dataclasses import dataclass
 from typing import Any, Optional, List, Tuple, Union
 import itertools
@@ -36,6 +37,12 @@ class EncoderDecoderASR(Pretrained):
     features or to run the entire encoder-decoder model
     (transcribe()) to transcribe speech. The given YAML must contain the fields
     specified in the *_NEEDED[] lists.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -69,6 +76,8 @@ class EncoderDecoderASR(Pretrained):
         ---------
         path : str
             Path to audio file which to transcribe.
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``.
 
         Returns
         -------
@@ -168,6 +177,12 @@ class EncoderASR(Pretrained):
     (transcribe()) to transcribe speech. The given YAML must contain the fields
     specified in the *_NEEDED[] lists.
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> from speechbrain.inference.ASR import EncoderASR
@@ -245,9 +260,9 @@ class EncoderASR(Pretrained):
                             fetch(fl, source=source, savedir=".")
                         )
                         # we need to update the kenlm_model_path in the opt_beam_search_params
-                        opt_beam_search_params[
-                            "kenlm_model_path"
-                        ] = kenlm_model_path
+                        opt_beam_search_params["kenlm_model_path"] = (
+                            kenlm_model_path
+                        )
                 else:
                     opt_beam_search_params = {}
                 self.decoding_function = self.hparams.decoding_function(
@@ -265,6 +280,8 @@ class EncoderASR(Pretrained):
         ---------
         path : str
             Path to audio file which to transcribe.
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``.
 
         Returns
         -------
@@ -369,6 +386,12 @@ class WhisperASR(Pretrained):
     The class can be used  to  run the entire encoder-decoder whisper model
     (transcribe()) to transcribe speech. The given YAML must contains the fields
     specified in the *_NEEDED[] lists.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -524,7 +547,7 @@ class WhisperASR(Pretrained):
                     f"Task {task} not supported. Supported tasks are {self.TASKS}"
                 )
 
-        if type(input) == str:
+        if isinstance(input, str):
             audio = self.load_audio(input).float().to(self.device).unsqueeze(0)
         else:
             audio = input.float().to(self.device)
@@ -592,9 +615,9 @@ class WhisperASR(Pretrained):
                     results[-1]["tokens"] = []
                     results[-1]["prompt"] = prompt
                     results[-1]["avg_log_probs"] = avg_log_probs.item()
-                    results[-1][
-                        "no_speech_prob"
-                    ] = self.mods.decoder.no_speech_probs[0]
+                    results[-1]["no_speech_prob"] = (
+                        self.mods.decoder.no_speech_probs[0]
+                    )
                     continue
 
             predicted_words = [
@@ -732,6 +755,12 @@ class ASRStreamingContext:
 class StreamingASR(Pretrained):
     """A ready-to-use, streaming-capable ASR model.
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> from speechbrain.inference.ASR import StreamingASR
@@ -770,6 +799,10 @@ class StreamingASR(Pretrained):
         frames_per_chunk : int
             The number of frames per chunk. For a streaming model, this should
             be determined from the DynChunkTrain configuration.
+
+        Yields
+        ------
+        chunks from streamer
         """
 
         stream_infos = [
@@ -833,9 +866,11 @@ class StreamingASR(Pretrained):
             entire audio file is fetched and loaded at once.
             This skips the usual fetching method and instead resolves the URI
             using torchaudio (via ffmpeg).
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``
 
-        Returns
-        -------
+        Yields
+        ------
         generator of str
             An iterator yielding transcribed chunks (strings). There is a yield
             for every chunk, even if the transcribed string for that chunk is an
@@ -914,7 +949,12 @@ class StreamingASR(Pretrained):
         ---------
         dynchunktrain_config : DynChunkTrainConfig
             Streaming configuration. Sane values and how much time chunks
-            actually represent is model-dependent."""
+            actually represent is model-dependent.
+
+        Returns
+        -------
+        ASRStreamingContext
+        """
 
         return ASRStreamingContext(
             config=dynchunktrain_config,
@@ -938,6 +978,10 @@ class StreamingASR(Pretrained):
         ---------
         dynchunktrain_config : DynChunkTrainConfig
             The streaming configuration to determine the chunk frame count of.
+
+        Returns
+        -------
+        chunk size
         """
 
         return (self.filter_props.stride - 1) * dynchunktrain_config.chunk_size
@@ -1059,14 +1103,12 @@ class StreamingASR(Pretrained):
             across calls when streaming.
             You can obtain an initial context by calling
             `asr.make_streaming_context(config)`.
-
         chunk : torch.Tensor
             The tensor for an audio chunk of shape `[batch size, time]`.
             The time dimension must strictly match
             `asr.get_chunk_size_frames(config)`.
             The waveform is expected to be in the model's expected format (i.e.
             the sampling rate must be correct).
-
         chunk_len : torch.Tensor, optional
             The relative chunk length tensor of shape `[batch size]`. This is to
             be used when the audio in one of the chunks of the batch is ending

@@ -356,9 +356,7 @@ def language_specific_preprocess(language, words):
     # corresponding to your alphabet.
 
     if language in ["en", "fr", "it"]:
-        words = re.sub(
-            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
-        )
+        words = re.sub("[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words)
 
     if language == "de":
         # this replacement helps preserve the case of ß
@@ -373,9 +371,7 @@ def language_specific_preprocess(language, words):
         )  # replace 0000SS0000 back to ß as its initial presence in the corpus
 
     elif language == "fr":  # SM
-        words = re.sub(
-            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
-        )
+        words = re.sub("[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words)
         words = words.replace("’", "'")
         words = words.replace("é", "é")
         words = words.replace("æ", "ae")

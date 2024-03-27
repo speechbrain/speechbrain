@@ -40,7 +40,7 @@ def extract_and_cleanup_wav_files(
         logger.info(f"Extracting wav files in {wav_dir}...")
 
         decompress_processor = functools.partial(
-            shutil.unpack_archive, extract_dir=wav_dir,
+            shutil.unpack_archive, extract_dir=wav_dir
         )
 
         for split in splits:
@@ -82,7 +82,7 @@ def process_line(wav, filename2transcript):
 
 
 def skip(splits, save_folder):
-    """ Detect when the AiSHELL-1 data preparation can be skipped.
+    """Detect when the AiSHELL-1 data preparation can be skipped.
 
     Arguments
     ---------
@@ -122,6 +122,10 @@ def prepare_aishell(
         If True, skip data preparation.
     remove_compressed_wavs: bool
         If True, remove compressed wav files after extraction.
+
+    Returns
+    -------
+    None
     """
 
     if skip_prep:
@@ -130,11 +134,7 @@ def prepare_aishell(
     wav_dir = os.path.join(data_folder, "wav")
     tgz_list = glob.glob(wav_dir + "/*.tar.gz")
 
-    splits = [
-        "train",
-        "dev",
-        "test",
-    ]
+    splits = ["train", "dev", "test"]
 
     if skip(splits, save_folder):
         return
@@ -149,7 +149,7 @@ def prepare_aishell(
         data_folder, "transcript/aishell_transcript_v0.8.txt"
     )
 
-    with open(path_to_transcript, "r",) as f:
+    with open(path_to_transcript, "r") as f:
         lines = f.readlines()
         for line in lines:
             key = line.split()[0]
@@ -157,11 +157,10 @@ def prepare_aishell(
             filename2transcript[key] = value
 
     line_processor = functools.partial(
-        process_line, filename2transcript=filename2transcript,
+        process_line, filename2transcript=filename2transcript
     )
 
     for split in splits:
-
         final_csv = os.path.join(save_folder, split) + ".csv"
         tmp_csv = os.path.join(save_folder, split) + ".tmp"
 
@@ -188,7 +187,6 @@ def prepare_aishell(
             for row in parallel_map(
                 line_processor, transcript_wavs, chunk_size=4092
             ):
-
                 if row is None:
                     continue
 

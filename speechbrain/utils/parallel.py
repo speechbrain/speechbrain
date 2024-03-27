@@ -100,6 +100,10 @@ class _ParallelMapper:
         ---------
         future: concurrent.futures.Future
             A future holding a processed chunk (of type `list`).
+
+        Returns
+        -------
+        None
         """
         if future.cancelled():
             # the scheduler wants us to stop or something else happened, give up
@@ -148,11 +152,9 @@ class _ParallelMapper:
     def _map_all(self):
         """Performs all the parallel mapping logic.
 
-        Arguments
-        ---------
-        executor: concurrent.futures.Executor
-            The executor to `.invoke` all jobs on. The executor is NOT shut down
-            at the end of processing.
+        Yields
+        ------
+        The items from source processed by fn
         """
 
         # initial queue fill
@@ -215,7 +217,7 @@ def parallel_map(
 
     Arguments
     ---------
-    fn
+    fn: Callable
         The function that is called for every element in the source list.
         The output is an iterator over the source list after fn(elem) is called.
 
@@ -254,6 +256,10 @@ def parallel_map(
         A dict of keyword arguments that is forwarded to tqdm when
         `progress_bar == True`. Allows overriding the defaults or e.g.
         specifying `total` when it cannot be inferred from the source iterable.
+
+    Yields
+    ------
+    The items from source processed by fn
     """
     mapper = _ParallelMapper(
         fn,

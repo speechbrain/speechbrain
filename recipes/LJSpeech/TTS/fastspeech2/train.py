@@ -245,7 +245,8 @@ class FastSpeech2Brain(sb.Brain):
             # Save the current checkpoint and delete previous checkpoints.
             # UNCOMMENT THIS
             self.checkpointer.save_and_keep_only(
-                meta=self.last_loss_stats[stage], min_keys=["total_loss"],
+                meta=self.last_loss_stats[stage],
+                min_keys=["total_loss"],
             )
         # We also write statistics about test data spectogram to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -370,6 +371,7 @@ class FastSpeech2Brain(sb.Brain):
     def run_vocoder(self, inference_mel, mel_lens, sample_type=""):
         """Uses a pretrained vocoder to generate audio from predicted mel
         spectogram. By default, uses speechbrain hifigan.
+
         Arguments
         ---------
         inference_mel: torch.Tensor
@@ -379,6 +381,10 @@ class FastSpeech2Brain(sb.Brain):
             used to mask the noise from padding
         sample_type: str
             used for logging the type of the inference sample being generated
+
+        Returns
+        -------
+        None
         """
         if self.last_batch is None:
             return

@@ -65,7 +65,7 @@ class ASR(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss NLL given predictions and targets."""
 
-        log_probs, hyps, wav_lens, = predictions
+        (log_probs, hyps, wav_lens) = predictions
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -78,7 +78,7 @@ class ASR(sb.Brain):
             )
 
         loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens,
+            log_probs, tokens_eos, length=tokens_eos_lens
         )
 
         if stage != sb.Stage.TRAIN:
@@ -140,7 +140,8 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -154,11 +155,13 @@ class ASR(sb.Brain):
 
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -188,13 +191,15 @@ def dataio_prepare(hparams, tokenizer):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     # test is separate
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"],
+        replacements={"data_root": data_folder},
     )
 
     datasets = [train_data, valid_data, test_data]

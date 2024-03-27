@@ -9,6 +9,7 @@ Author
 ------
 Dominik Wagner 2022
 """
+
 import re
 import os
 import csv
@@ -32,8 +33,8 @@ def expand_contractions(text) -> list:
     """
     Some regular expressions for expanding common contractions and for splitting linked words.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     text : str
         Text to process
 
@@ -129,20 +130,18 @@ def normalize_words(
 
     The procedure is adapted from Kaldi's local/score.sh script.
 
-    Parameters
-    ----------
-    glm_alternatives : dict
-        Dictionary containing valid word alternatives
+    Arguments
+    ---------
     target_words_batch : list
         List of length <batch_size> containing lists of target words for each utterance
     predicted_words_batch : list of list
         List of length <batch_size> containing lists of predicted words for each utterance
+    glm_alternatives : dict
+        Dictionary containing valid word alternatives
 
     Returns
     -------
-
     A new list containing the filtered predicted words.
-
     """
     excluded_words = [
         "<UNK>",

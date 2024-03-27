@@ -16,7 +16,6 @@ class WhamRoom(pra.room.ShoeBox):
     def __init__(
         self, p, mics, s1, s2, T60, fs=16000, t0=0.0, sigma2_awgn=None
     ):
-
         self.T60 = T60
         self.max_rir_len = np.ceil(T60 * fs).astype(int)
 
@@ -53,7 +52,6 @@ class WhamRoom(pra.room.ShoeBox):
         self.sources[1].add_signal(s2)
 
     def compute_rir(self):
-
         self.rir = []
         self.visibility = None
 
@@ -70,7 +68,6 @@ class WhamRoom(pra.room.ShoeBox):
             self.rir.append(h)
 
     def generate_rirs(self):
-
         original_max_order = self.max_order
         self.max_order = 0
 
@@ -85,7 +82,6 @@ class WhamRoom(pra.room.ShoeBox):
         self.rir_reverberant = self.rir
 
     def generate_audio(self, anechoic=False, fs=16000):
-
         if not self.rir:
             self.generate_rirs()
         if anechoic:

@@ -427,6 +427,12 @@ def decompress_file(file, decompress_path, split_name):
         Path to the compressed downloaded file
     decompress_path : str
         Path to store the decompressed audio files
+    split_name : str
+        The portion of the data to decompress
+
+    Returns
+    -------
+    True if decompression skipped.
     """
     for _, dirs, _ in os.walk(decompress_path):
         if split_name in dirs:

@@ -85,13 +85,15 @@ class DynamicItem:
     def provided_in_order(self):
         """Assuming that this may need to be called multiple times; which keys
         does it provide at that call. Returns a list, with len equal to the
-        number of times that this may be called."""
+        number of times that this may be called.
+        """
         # Regular function DynamicItems are only called once:
         return [self.provides]
 
     def reset(self):
         """Signals that this will not be called any more times on this pipeline
-        call."""
+        call.
+        """
         # Regular function DynamicItems don't need special resets.
         pass
 
@@ -112,6 +114,13 @@ class GeneratorDynamicItem(DynamicItem):
 
     The main benefit is to be able to define the pipeline in a clear function,
     even if parts of the pipeline depend on others for their initialization.
+
+    Arguments
+    ---------
+    *args : tuple
+        Forwarded to parent class
+    **kwargs : tuple
+        Forwarded to parent class
 
     Example
     -------
@@ -175,7 +184,8 @@ class GeneratorDynamicItem(DynamicItem):
     def provided_in_order(self):
         """Assuming that this may need to be called multiple times; which keys
         does it provide at that call. Returns a list, with len equal to the
-        number of times that this may be called."""
+        number of times that this may be called.
+        """
         in_order = []
         for keys in self.provides:
             # Support multiple yielded values like:
@@ -188,7 +198,8 @@ class GeneratorDynamicItem(DynamicItem):
 
     def reset(self):
         """Signals that this will not be called any more times on this pipeline
-        call."""
+        call.
+        """
         if self.current_generator is not None:
             self.current_generator.close()
         self.current_generator = None
@@ -208,6 +219,15 @@ def takes(*argkeys):
     dynamic item. The GeneratorDynamicItem class is meant for pipelines which
     take in an input and transform it in multiple ways, where the intermediate
     representations may be needed for e.g. fitting a BPE segmenter.
+
+    Arguments
+    ---------
+    *argkeys : tuple
+        The data keys expected as input
+
+    Returns
+    -------
+    The decorated function, with input argkeys specified
 
     Example
     -------
@@ -244,6 +264,15 @@ def provides(*output_keys):
     Creates a GeneratorDynamicItem. If the object is already a DynamicItem,
     just specifies the provided keys for that. Otherwise creates a new regular
     DynamicItem, with provided keys specified.
+
+    Arguments
+    ---------
+    *output_keys : tuple
+        The data keys to be produced by this function
+
+    Returns
+    -------
+    The decorated function, with output keys specified
 
     NOTE
     ----
@@ -294,6 +323,15 @@ provides_decorator = provides  # Just for DataPipeline.add_dynamic_item
 
 class DataPipeline:
     """Organises data transformations into a pipeline.
+
+    Arguments
+    ---------
+    static_data_keys: list
+        The keys which are provided as data
+    dynamic_items: list
+        A list of mappings with "func", "takes", and "provides"
+    output_keys: list
+        The keys to use as outputs
 
     Example
     -------
@@ -363,6 +401,10 @@ class DataPipeline:
             If you give a generator function, key or list of keys that it
             yields, in order. Also see the provides decorator.
             A single key can be given as a bare string.
+
+        Returns
+        -------
+        None
         """
         if isinstance(func, DynamicItem):
             if takes is not None or provides is not None:

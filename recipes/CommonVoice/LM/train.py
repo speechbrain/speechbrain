@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def csv2text():
-    """Read CSV file and convert specific data entries into text file.
-    """
+    """Read CSV file and convert specific data entries into text file."""
     annotation_file = open(hparams["train_csv"], "r")
     reader = csv.reader(annotation_file)
     headers = next(reader, None)

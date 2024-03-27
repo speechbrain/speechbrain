@@ -6,6 +6,7 @@ Authors
  * Sung-Lin Yeh 2020
  * Adel Moumen 2023, 2024
 """
+
 from itertools import groupby
 from speechbrain.dataio.dataio import length_to_mask
 import math
@@ -31,10 +32,6 @@ class CTCPrefixScore:
         The encoder states.
     enc_lens : torch.Tensor
         The actual length of each enc_states sequence.
-    batch_size : int
-        The size of the batch.
-    beam_size : int
-        The width of beam.
     blank_index : int
         The index of the blank token.
     eos_index : int
@@ -44,9 +41,7 @@ class CTCPrefixScore:
         If 0, no windowing applied.
     """
 
-    def __init__(
-        self, x, enc_lens, blank_index, eos_index, ctc_window_size=0,
-    ):
+    def __init__(self, x, enc_lens, blank_index, eos_index, ctc_window_size=0):
         self.blank_index = blank_index
         self.eos_index = eos_index
         self.batch_size = x.size(0)
@@ -94,6 +89,11 @@ class CTCPrefixScore:
             If given, performing partial ctc scoring.
         attn : torch.Tensor
             (batch_size * beam_size, max_enc_len), The attention weights.
+
+        Returns
+        -------
+        new_psi : torch.Tensor
+        (r, psi, scoring_table) : tuple
         """
 
         n_bh = inp_tokens.size(0)
@@ -117,7 +117,7 @@ class CTCPrefixScore:
             ).unsqueeze(2)
             r_prev = r_prev.view(-1, 2, n_bh)
             psi_prev = torch.full(
-                (n_bh, self.vocab_size), 0.0, device=self.device,
+                (n_bh, self.vocab_size), 0.0, device=self.device
             )
         else:
             r_prev, psi_prev = states
@@ -160,7 +160,7 @@ class CTCPrefixScore:
 
         # Prepare forward probs
         r = torch.full(
-            (self.max_enc_len, 2, n_bh, self.num_candidates,),
+            (self.max_enc_len, 2, n_bh, self.num_candidates),
             self.minus_inf,
             device=self.device,
         )
@@ -213,7 +213,7 @@ class CTCPrefixScore:
         # (Alg.2-13): psi = psi + phi * p(c)
         if candidates is not None:
             psi = torch.full(
-                (n_bh, self.vocab_size), self.minus_inf, device=self.device,
+                (n_bh, self.vocab_size), self.minus_inf, device=self.device
             )
             psi_ = torch.logsumexp(
                 torch.cat((phix[start:end], psi_init), dim=0), dim=0
@@ -286,7 +286,7 @@ class CTCPrefixScore:
             cand_index = score_index + hyp_index * self.num_candidates
 
         r = torch.index_select(
-            r.view(-1, 2, n_bh * self.num_candidates), dim=-1, index=cand_index,
+            r.view(-1, 2, n_bh * self.num_candidates), dim=-1, index=cand_index
         )
         r = r.view(-1, 2, n_bh)
 
@@ -917,7 +917,7 @@ class CTCBaseSearcher(torch.nn.Module):
             new_beams = list(beams)
 
         scored_beams = self.get_lm_beams(
-            new_beams, cached_lm_scores, cached_p_lm_scores,
+            new_beams, cached_lm_scores, cached_p_lm_scores
         )
         # remove beam outliers
         max_score = max([b.lm_score for b in scored_beams])
@@ -1022,7 +1022,7 @@ class CTCBaseSearcher(torch.nn.Module):
         force_next_word=False,
         is_end=False,
     ) -> List[CTCBeam]:
-        """ Perform a single step of decoding.
+        """Perform a single step of decoding.
 
         Arguments
         ---------
@@ -1117,7 +1117,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
         # loop over the frames and perform the decoding
         beams = self.partial_decoding(
-            log_probs, wav_len, beams, cached_lm_scores, cached_p_lm_scores,
+            log_probs, wav_len, beams, cached_lm_scores, cached_p_lm_scores
         )
 
         # finalize decoding by adding and scoring the last partial word
@@ -1180,8 +1180,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
 
     Arguments
     ---------
-    **kwargs
-        see CTCBaseSearcher, arguments are directly passed.
+    see CTCBaseSearcher, arguments are directly passed.
 
     Example
     -------
@@ -1196,9 +1195,6 @@ class CTCBeamSearcher(CTCBaseSearcher):
     >>> searcher = CTCBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
     >>> hyps = searcher(probs, lens)
     """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
 
     def get_lm_beams(
         self,
@@ -1274,10 +1270,9 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 word_part = beam.partial_word
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
-
-                        cached_partial_token_scores[
-                            word_part
-                        ] = self.lm.score_partial_token(word_part)
+                        cached_partial_token_scores[word_part] = (
+                            self.lm.score_partial_token(word_part)
+                        )
                     lm_score += cached_partial_token_scores[word_part]
 
                 new_beams.append(
@@ -1358,7 +1353,6 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 token = self.vocab_list[token_index]
 
                 for beam in beams:
-
                     if (
                         token_index == self.blank_index
                         or beam.last_token == token
@@ -1465,7 +1459,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
 
             # kenlm scoring
             scored_beams = self.get_lm_beams(
-                new_beams, cached_lm_scores, cached_p_lm_scores,
+                new_beams, cached_lm_scores, cached_p_lm_scores
             )
 
             # remove beam outliers
@@ -1519,8 +1513,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
     Arguments
     ---------
-    **kwargs
-        see CTCBaseSearcher, arguments are directly passed.
+    see CTCBaseSearcher, arguments are directly passed.
 
     Example
     -------
@@ -1535,9 +1528,6 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     >>> searcher = CTCPrefixBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
     >>> hyps = searcher(probs, lens)
     """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
 
     def get_lm_beams(
         self,
@@ -1620,10 +1610,9 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 # we score the partial word
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
-
-                        cached_partial_token_scores[
-                            word_part
-                        ] = self.lm.score_partial_token(word_part)
+                        cached_partial_token_scores[word_part] = (
+                            self.lm.score_partial_token(word_part)
+                        )
                     lm_score += cached_partial_token_scores[word_part]
 
                 new_beams.append(
@@ -1888,7 +1877,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
             # kenLM scores
             scored_beams = self.get_lm_beams(
-                beams, cached_lm_scores, cached_p_lm_scores,
+                beams, cached_lm_scores, cached_p_lm_scores
             )
 
             # remove beams outliers
@@ -2149,9 +2138,7 @@ class TorchAudioCTCPrefixBeamSearcher:
 
         # over batch dim
         for i in range(len(results)):
-
             if self.using_cpu_decoder:
-
                 preds = [
                     results[i][j].tokens.tolist()
                     for j in range(len(results[i]))

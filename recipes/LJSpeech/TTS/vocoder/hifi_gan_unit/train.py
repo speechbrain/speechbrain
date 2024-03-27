@@ -37,6 +37,15 @@ class HifiGanBrain(sb.Brain):
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
+        Returns
+        -------
+        y_g_hat : torch.Tensor
+        scores_fake : torch.Tensor
+        feats_fake : torch.Tensor
+        scores_real : torch.Tensor
+        feats_real : torch.Tensor
+        log_dur_pred : torch.Tensor
+        log_dur : torch.Tensor
         """
         batch = batch.to(self.device)
 
@@ -277,19 +286,21 @@ class HifiGanBrain(sb.Brain):
                     end_of_epoch=True,
                     min_keys=["loss"],
                     ckpt_predicate=(
-                        lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
-                            != 0
+                        (
+                            lambda ckpt: (
+                                ckpt.meta["epoch"]
+                                % self.hparams.keep_checkpoint_interval
+                                != 0
+                            )
                         )
-                    )
-                    if self.hparams.keep_checkpoint_interval is not None
-                    else None,
+                        if self.hparams.keep_checkpoint_interval is not None
+                        else None
+                    ),
                 )
 
             self.run_inference_sample("Valid", epoch)
 
-        # We also write statistics about test data to stdout and to the TensorboardLogger.
+        # We also write statistics about test data to stdout and to the torch.TensorboardLogger.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(  # 1#2#
                 {"Epoch loaded": self.hparams.epoch_counter.current},
@@ -313,6 +324,10 @@ class HifiGanBrain(sb.Brain):
         epoch: int or str
             the epoch number (used in file path calculations)
             or "test" for test stage
+
+        Returns
+        -------
+        None
         """
         with torch.no_grad():
             if self.last_batch is None:
@@ -402,7 +417,8 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         audio = sb.dataio.dataio.read_audio(wav)
         audio = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(audio)
 
         code = np.load(code_folder / f"{utt_id}.npy")
@@ -508,8 +524,10 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
-            save_dir=hparams["output_folder"] + "/tensorboard"
+        hifi_gan_brain.tensorboard_logger = (
+            sb.utils.train_logger.TensorboardLogger(
+                save_dir=hparams["output_folder"] + "/tensorboard"
+            )
         )
 
     # Training

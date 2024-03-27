@@ -35,19 +35,12 @@ class AttentionSeq2Seq(nn.Module):
         the linear module
     out: torch.nn.Module
         the output layer (typically log_softmax)
-    use_word_emb: bool
-        whether or not to use word embedding
     bos_token: int
         the index of the Beginning-of-Sentence token
+    use_word_emb: bool
+        whether or not to use word embedding
     word_emb_enc: nn.Module
         a module to encode word embeddings
-
-
-    Returns
-    -------
-    result: tuple
-        a (p_seq, char_lens) tuple
-
     """
 
     def __init__(
@@ -73,19 +66,15 @@ class AttentionSeq2Seq(nn.Module):
         self.use_word_emb = use_word_emb
         self.word_emb_enc = word_emb_enc if use_word_emb else None
 
-    def forward(
-        self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs
-    ):
+    def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None):
         """Computes the forward pass
 
         Arguments
         ---------
         grapheme_encoded: torch.Tensor
             graphemes encoded as a Torch tensor
-
         phn_encoded: torch.Tensor
             the encoded phonemes
-
         word_emb: torch.Tensor
             word embeddings (optional)
 
@@ -181,6 +170,10 @@ class WordEmbeddingEncoder(nn.Module):
             the normalization type: "batch", "layer" or "instance
         dim: int
             the dimensionality of the inputs
+
+        Returns
+        -------
+        The normalized outputs.
         """
         norm_cls = self.NORMS.get(norm)
         if not norm_cls:
@@ -284,8 +277,6 @@ class TransformerG2P(TransformerInterface):
         Dimension of the key for the decoder.
     decoder_vdim: int, optional
         Dimension of the value for the decoder.
-
-
     """
 
     def __init__(
@@ -356,19 +347,15 @@ class TransformerG2P(TransformerInterface):
         self.word_emb_enc = word_emb_enc
         self._reset_params()
 
-    def forward(
-        self, grapheme_encoded, phn_encoded=None, word_emb=None, **kwargs
-    ):
+    def forward(self, grapheme_encoded, phn_encoded=None, word_emb=None):
         """Computes the forward pass
 
         Arguments
         ---------
         grapheme_encoded: torch.Tensor
             graphemes encoded as a Torch tensor
-
         phn_encoded: torch.Tensor
             the encoded phonemes
-
         word_emb: torch.Tensor
             word embeddings (if applicable)
 
@@ -456,13 +443,14 @@ class TransformerG2P(TransformerInterface):
 
         Arguments
         ---------
-        src : tensor
+        src : torch.Tensor
             The sequence to the encoder (required).
-        tgt : tensor
+        tgt : torch.Tensor
             The sequence to the decoder (required).
+        src_len : torch.Tensor
+            Lengths corresponding to the src tensor.
         pad_idx : int
             The index for <pad> token (default=0).
-
 
         Returns
         -------
@@ -497,6 +485,8 @@ class TransformerG2P(TransformerInterface):
             The sequence to the decoder.
         encoder_out : torch.Tensor
             Hidden output of the encoder.
+        enc_lens : torch.Tensor
+            The corresponding lengths of the encoder inputs.
 
         Returns
         -------
@@ -535,10 +525,8 @@ def input_dim(use_word_emb, embedding_dim, word_emb_enc_dim):
     ---------
     use_word_emb: bool
         whether to use word embeddings
-
     embedding_dim: int
         the embedding dimension
-
     word_emb_enc_dim: int
         the dimension of encoded word embeddings
 

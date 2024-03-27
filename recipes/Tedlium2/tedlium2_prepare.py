@@ -16,9 +16,7 @@ from speechbrain.utils.parallel import parallel_map
 logger = logging.getLogger(__name__)
 
 
-def make_splits(
-    sph_file, stm_file, utt_save_folder, avoid_if_shorter_than,
-):
+def make_splits(sph_file, stm_file, utt_save_folder, avoid_if_shorter_than):
     """
     This function splits the .sph Ted-talk recording into utterances based on the .stm annotation.
 
@@ -32,6 +30,11 @@ def make_splits(
         The folder stores the clipped individual utterances.
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
+
+    Returns
+    -------
+    entry : list
+        Loaded entries from file.
     """
     # the annotation for JillSobuleMANHATTANINJANUARY_2006.sph is not useful
     if "JillSobuleMANHATTANINJANUARY_2006" in sph_file:
@@ -108,7 +111,7 @@ def make_splits(
 def process_line(
     talk_sph, avoid_if_shorter_than, utt_save_folder_split, data_folder, split
 ):
-    """ This function processes a single Ted-talk recording.
+    """This function processes a single Ted-talk recording.
 
     Arguments
     ---------
@@ -122,6 +125,10 @@ def process_line(
         The folder stores the original Ted-talk recordings.
     split: str
         The split of the dataset, e.g., train, dev, test.
+
+    Returns
+    -------
+    See ``make_splits``
     """
     talk_name = talk_sph[:-4]
     talk_sph_path = os.path.join(data_folder, split, "sph", talk_sph)
@@ -142,7 +149,7 @@ def prepare_tedlium2(
     skip_prep=False,
     avoid_if_shorter_than=1,
 ):
-    """ This function prepares the Tedlium2 dataset.
+    """This function prepares the Tedlium2 dataset.
     Download link: https://lium.univ-lemans.fr/ted-lium2/
 
     Arguments
@@ -157,6 +164,10 @@ def prepare_tedlium2(
         If True, data preparation is skipped.
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
+
+    Returns
+    -------
+    None
 
     Example
     -------

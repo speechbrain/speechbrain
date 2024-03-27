@@ -94,12 +94,7 @@ class Whisper(HFTransformersInterface):
         language=None,
         task="transcribe",
     ):
-        super().__init__(
-            source=source,
-            save_path=save_path,
-            freeze=freeze,
-            sampling_rate=sampling_rate,
-        )
+        super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.sampling_rate = sampling_rate
         self.encoder_only = encoder_only
         self.freeze_encoder = freeze_encoder
@@ -118,7 +113,8 @@ class Whisper(HFTransformersInterface):
             # models ending in .en, you must not set the language
             # and task tokens.
             self.load_tokenizer(
-                source, bos_token="<|startoftranscript|>",
+                source,
+                bos_token="<|startoftranscript|>",
             )
 
             if self.is_multilingual:
@@ -176,7 +172,7 @@ class Whisper(HFTransformersInterface):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
         decoder_input_ids : torch.Tensor
             Input tokens for the decoder. This can be language, task, etc.
@@ -186,7 +182,7 @@ class Whisper(HFTransformersInterface):
         """
 
         def _forward():
-            """ Forward pass of the model """
+            """Forward pass of the model"""
             mel = self._get_mel(wav)
             out_encoder = self.forward_encoder(mel)
             if self.encoder_only:
@@ -227,7 +223,9 @@ class Whisper(HFTransformersInterface):
         return mels
 
     def log_mel_spectrogram(
-        self, audio, padding: int = 0,
+        self,
+        audio,
+        padding: int = 0,
     ):
         """Compute the Mel spectrogram of a batch of input waveforms.
 
@@ -241,7 +239,7 @@ class Whisper(HFTransformersInterface):
 
         Returns
         -------
-        torch.Tensor
+        log_spec : torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
         """
         if padding > 0:
@@ -279,12 +277,13 @@ class Whisper(HFTransformersInterface):
 
         Returns
         -------
-        torch.Tensor
+        array : torch.Tensor
             The padded tensor.
         """
         if array.shape[axis] > length:
             array = array.index_select(
-                dim=axis, index=torch.arange(length, device=array.device),
+                dim=axis,
+                index=torch.arange(length, device=array.device),
             )
 
         if array.shape[axis] < length:

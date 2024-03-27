@@ -14,16 +14,16 @@ class GumbelVectorQuantizer(nn.Module):
     """Vector quantization using gumbel softmax. Copied from fairseq implementation.
     Arguments
     ---------
-        input_dim: int
-            Input dimension (channels).
-        num_vars: int
-            Number of quantized vectors per group.
-        temp_tuple: float
-            Temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor).
-        groups: int
-            Number of groups for vector quantization.
-        vq_dim: int
-            Dimensionality of the resulting quantized vector.
+    input_dim: int
+        Input dimension (channels).
+    num_vars: int
+        Number of quantized vectors per group.
+    temp_tuple: float
+        Temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor).
+    groups: int
+        Number of groups for vector quantization.
+    vq_dim: int
+        Dimensionality of the resulting quantized vector.
 
     Example
     -------
@@ -67,13 +67,13 @@ class GumbelVectorQuantizer(nn.Module):
         )
 
     def update_temp(self, steps):
-        """ Update the temperature given the current step """
+        """Update the temperature given the current step"""
         self.curr_temp = max(
-            self.max_temp * self.temp_decay ** steps, self.min_temp
+            self.max_temp * self.temp_decay**steps, self.min_temp
         )
 
     def forward(self, x):
-        """ Forward the latent vector to obtain a quantised output """
+        """Forward the latent vector to obtain a quantised output"""
 
         result = {
             "num_vars": self.num_vars * self.groups,

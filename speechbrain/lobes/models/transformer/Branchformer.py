@@ -27,7 +27,7 @@ class ConvolutionBranch(nn.Module):
     LN -> Channel Proj -> GeLU -> (CNN Spatial Gating) -> Channel Proj -> Dropout
 
     Arguments
-    ----------
+    ---------
     input_size : int
         The expected size of the feature (channel) dimension.
     linear_units: int, optional
@@ -93,7 +93,7 @@ class BranchformerEncoderLayer(nn.Module):
     """This is an implementation of Branchformer encoder layer.
 
     Arguments
-    ----------
+    ---------
     d_model : int
         The expected size of the input embedding.
     nhead : int

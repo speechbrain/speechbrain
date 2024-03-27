@@ -31,12 +31,16 @@ def compute_embedding(wavs, wav_lens):
 
     Arguments
     ---------
-    wavs : Torch.Tensor
-        Tensor containing the speech waveform (batch, time).
+    wavs : torch.Tensor
+        torch.Tensor containing the speech waveform (batch, time).
         Make sure the sample rate is fs=16000 Hz.
-    wav_lens: Torch.Tensor
-        Tensor containing the relative length for each sentence
+    wav_lens : torch.Tensor
+        torch.Tensor containing the relative length for each sentence
         in the length (e.g., [0.8 0.6 1.0])
+
+    Returns
+    -------
+    embeddings : torch.Tensor
     """
     with torch.no_grad():
         feats = params["compute_features"](wavs)
@@ -156,7 +160,8 @@ def dataio_prep(params):
 
     # Train data (used for normalization)
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["train_data"], replacements={"data_root": data_folder},
+        csv_path=params["train_data"],
+        replacements={"data_root": data_folder},
     )
     train_data = train_data.filtered_sorted(
         sort_key="duration", select_n=params["n_train_snts"]
@@ -164,13 +169,15 @@ def dataio_prep(params):
 
     # Enrol data
     enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
+        csv_path=params["enrol_data"],
+        replacements={"data_root": data_folder},
     )
     enrol_data = enrol_data.filtered_sorted(sort_key="duration")
 
     # Test data
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["test_data"], replacements={"data_root": data_folder},
+        csv_path=params["test_data"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -243,9 +250,9 @@ if __name__ == "__main__":
         split_ratio=params["split_ratio"],
         seg_dur=3.0,
         skip_prep=params["skip_prep"],
-        source=params["voxceleb_source"]
-        if "voxceleb_source" in params
-        else None,
+        source=(
+            params["voxceleb_source"] if "voxceleb_source" in params else None
+        ),
     )
 
     # here we create the datasets objects as well as tokenization and encoding

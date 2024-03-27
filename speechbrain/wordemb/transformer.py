@@ -6,7 +6,6 @@ Authors
 * Artem Ploujnikov 2021
 """
 
-
 import torch
 import numpy as np
 from torch import nn
@@ -33,7 +32,7 @@ class TransformerWordEmbeddings(nn.Module):
     layers: int|list
         a list of layer indexes from which to construct an embedding or the number of layers
 
-    device:
+    device: str
         a torch device identifier. If provided, the model
         will be transferred onto that device
 

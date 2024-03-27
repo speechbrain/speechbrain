@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
+# Copyright 2020 The torch.TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,12 +48,13 @@ _DL_URL = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
 
 
 class LibrispeechLmConfig(datasets.BuilderConfig):
-    """builder config for LibriSpeech LM
-    """
+    """builder config for LibriSpeech LM"""
 
     def __init__(self, **kwargs):
         self.lm_corpus_path = kwargs.pop("lm_corpus_path", None)
-        super().__init__(**kwargs,)
+        super().__init__(
+            **kwargs,
+        )
 
     def __post_init__(self):
         if self.lm_corpus_path is None:

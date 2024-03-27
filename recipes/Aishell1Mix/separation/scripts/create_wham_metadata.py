@@ -30,7 +30,7 @@ def main(args):
 
 
 def create_wham_noise_metadata(wham_noise_dir, md_dir):
-    """ Generate metadata corresponding to downloaded data in wham_noise """
+    """Generate metadata corresponding to downloaded data in wham_noise"""
 
     # Check already generated files
     not_already_processed_dir = check_already_generated(md_dir)
@@ -57,7 +57,7 @@ def create_wham_noise_metadata(wham_noise_dir, md_dir):
 
 
 def check_already_generated(md_dir):
-    """ Check if files have already been generated """
+    """Check if files have already been generated"""
     # Get the already generated files
     already_generated_csv = os.listdir(md_dir)
     # Data directories in wham_noise
@@ -78,8 +78,8 @@ def check_already_generated(md_dir):
 
 
 def create_wham_noise_dataframe(wham_noise_dir, subdir):
-    """ Generate a dataframe that gather infos about the sound files in a
-    wham_noise subdirectory """
+    """Generate a dataframe that gather infos about the sound files in a
+    wham_noise subdirectory"""
 
     print(f"Processing files from {subdir} dir")
     # Get the current directory path

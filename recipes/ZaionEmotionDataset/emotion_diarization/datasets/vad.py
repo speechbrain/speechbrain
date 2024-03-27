@@ -69,8 +69,7 @@ def frame_generator(frame_duration_ms, audio, sample_rate):
 def vad_collector(
     sample_rate, frame_duration_ms, padding_duration_ms, vad, frames
 ):
-    """generate vad segments
-    """
+    """generate vad segments"""
     num_padding_frames = int(padding_duration_ms / frame_duration_ms)
     # We use a deque for our sliding window/ring buffer.
     ring_buffer = collections.deque(maxlen=num_padding_frames)
@@ -126,8 +125,7 @@ def vad_collector(
 
 
 def vad_for_folder(input_path, out_path):
-    """do vad for a folder
-    """
+    """do vad for a folder"""
     files = os.listdir(input_path)
     for file in files:
         try:
@@ -151,8 +149,7 @@ def vad_for_folder(input_path, out_path):
 
 
 def write_audio(input_path, out_path):
-    """do vad and save the audio after vad
-    """
+    """do vad and save the audio after vad"""
     try:
         audio, sample_rate = read_wave(input_path)
     except Exception as e:

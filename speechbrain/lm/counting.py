@@ -4,6 +4,7 @@ N-gram counting, discounting, interpolation, and backoff
 Authors
  * Aku Rouhe 2020
 """
+
 import itertools
 
 
@@ -76,6 +77,10 @@ def ngrams(sequence, n):
     ------
     tuple
         Yields each ngram as a tuple.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -159,4 +164,3 @@ def ngrams_for_evaluation(sequence, max_n, predict_first=False):
             del history[0]
         yield token, tuple(history)
         history.append(token)
-    return

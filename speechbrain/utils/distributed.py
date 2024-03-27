@@ -5,6 +5,7 @@ Authors:
  * Aku Rouhe 2020
  * Peter Plantinga 2023
 """
+
 import datetime
 import os
 import torch
@@ -158,6 +159,10 @@ def ddp_init_group(run_opts):
     ---------
     run_opts: list
         A list of arguments to parse, most often from `sys.argv[1:]`.
+
+    Returns
+    -------
+    None
     """
     rank = os.environ.get("RANK")
     local_rank = os.environ.get("LOCAL_RANK")
