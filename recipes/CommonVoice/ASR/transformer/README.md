@@ -21,9 +21,7 @@ It is important to note that CommonVoice initially offers mp3 audio files at 42H
 # Languages
 Here is a list of the different languages that we tested within the CommonVoice dataset
 with our transformers:
-- French
-- Italian
-- German
+TODO
 
 For Whisper-large-v2 and medium finetuning, here is list of the different language that we tested  within the CommonVoice.14_0 dataset:
 - Hindi
@@ -37,6 +35,7 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 
 # Results
 
+TODO UPDATE RES
 | Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|:-----------:| :-----------:| :-----------:|
 | French | 2023-08-15 | train_fr.yaml | No | 5.41 | 16.00 | 5.41 | 17.61 | - | [model](https://www.dropbox.com/sh/zvu9h9pctksnuvp/AAD1kyS3-N0YtmcoMgjM-_Tba?dl=0) | 1xV100 32GB |
