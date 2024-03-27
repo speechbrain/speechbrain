@@ -23,7 +23,7 @@ Run following script to unzip the downloaded file
 pcm files need to be converted to wav for training. Run following script for the conversion.
 
 ```bash
-python conert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
+python convert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
 ```
 
 ## Installing Extra Dependencies

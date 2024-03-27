@@ -35,7 +35,7 @@ def main():
             write_audio(filepath, wav_perturb[i], 16000)
 
 
-def test_peturb():
+def test_perturb():
     from glob import glob
 
     for filename in glob(os.path.join(output_folder, "save", "*.flac")):
