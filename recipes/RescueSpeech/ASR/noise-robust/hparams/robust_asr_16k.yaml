@@ -69,16 +69,6 @@ checkpoint_avg: 5
 batch_size: 2
 test_batch_size: 2
 
-
-# These values are only used for the searchers.
-# They needs to be hardcoded and should not be changed with Whisper.
-# They are used as part of the searching process.
-# The bos token of the searcher will be timestamp_index
-# and will be concatenated with the bos, language and task tokens.
-timestamp_index: 50363
-eos_index: 50257
-bos_index: 50258
-
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
@@ -118,6 +108,8 @@ whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     save_path: !ref <whisper_folder>
     encoder_only: !ref <freeze_encoder_only>
     freeze_encoder: !ref <freeze_encoder>
+    language: !ref <language>
+    task: transcribe
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
@@ -128,17 +120,13 @@ whisper_opt_class: !name:torch.optim.AdamW
     lr: !ref <lr_whisper>
     weight_decay: 0.01
 
-valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearch
+valid_greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperGreedySearcher
     model: !ref <whisper>
-    bos_index: !ref <timestamp_index>
-    eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
-test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearch
+test_beam_searcher: !new:speechbrain.decoders.seq2seq.S2SWhisperBeamSearcher
     module: [!ref <whisper>]
-    bos_index: !ref <timestamp_index>
-    eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
