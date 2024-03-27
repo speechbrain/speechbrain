@@ -11,7 +11,6 @@ import pathlib
 import shutil
 import logging
 from enum import Enum
-from typing import Optional
 import huggingface_hub
 from collections import namedtuple
 from requests.exceptions import HTTPError
