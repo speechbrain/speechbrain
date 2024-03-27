@@ -23,7 +23,7 @@ from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
 from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.fetching import fetch
+from speechbrain.utils.fetching import fetch, LocalStrategy
 from speechbrain.dataio.preprocess import AudioNormalizer
 from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
@@ -278,7 +278,12 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
+        path = fetch(
+            fl,
+            source=source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.NO_LINK,
+        )
         signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
