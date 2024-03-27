@@ -451,8 +451,7 @@ if __name__ == "__main__":
     )
 
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     asr_brain.hparams.test_wer_file = os.path.join(
         hparams["output_wer_folder"], "wer_valid.txt"
