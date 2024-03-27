@@ -42,6 +42,6 @@ setup(
         "tqdm",
         "huggingface_hub",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     url="https://speechbrain.github.io/",
 )

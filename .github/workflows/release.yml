@@ -17,7 +17,7 @@ jobs:
           ref: main
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.9
+          python-version: 3.8
       - name: Install pypa/build
         run: python -m pip install build --user
       - name: Build binary wheel and source tarball
