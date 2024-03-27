@@ -273,51 +273,49 @@ def fetch(
 
         return destination
 
-    if fetch_from is FetchFrom.HUGGING_FACE:
-        # Interpret source as huggingface hub ID
-        try:
-            kwargs = {
-                "repo_id": source,
-                "filename": filename,
-                "use_auth_token": use_auth_token,
-                "revision": revision,
-            }
+    # Assume we are fetching from HF at this point
+    # Interpret source as huggingface hub ID
+    try:
+        kwargs = {
+            "repo_id": source,
+            "filename": filename,
+            "use_auth_token": use_auth_token,
+            "revision": revision,
+        }
 
-            # COPY strategy? Directly attempt saving to destination
-            if local_strategy == LocalStrategy.COPY_SKIP_CACHE:
-                logger.info(
-                    "Fetch %s: Fetching from HuggingFace Hub '%s' to '%s'",
-                    filename,
-                    str(source),
-                    str(destination),
-                )
-                fetched_file = huggingface_hub.hf_hub_download(
-                    **kwargs,
-                    local_dir=savedir,
-                    local_dir_use_symlinks=False,
-                    force_filename=save_filename,
-                )
-
-                fetched_file = pathlib.Path(fetched_file).absolute()
-                assert fetched_file == destination, (
-                    "Downloaded file unexpectedly in wrong location "
-                    "because of the COPY strategy, this is a bug"
-                )
-
-                return pathlib.Path(fetched_file).absolute()
-
-            # Otherwise, normal fetch to cache
-            logger.info("Fetch %s: Fetching from HuggingFace Hub '%s'")
+        # COPY strategy? Directly attempt saving to destination
+        if local_strategy == LocalStrategy.COPY_SKIP_CACHE:
+            logger.info(
+                "Fetch %s: Fetching from HuggingFace Hub '%s' to '%s'",
+                filename,
+                str(source),
+                str(destination),
+            )
             fetched_file = huggingface_hub.hf_hub_download(
                 **kwargs,
-                cache_dir=huggingface_cache_dir,
+                local_dir=savedir,
+                local_dir_use_symlinks=False,
+                force_filename=save_filename,
             )
+
             fetched_file = pathlib.Path(fetched_file).absolute()
-        except HTTPError as e:
-            if "404 Client Error" in str(e):
-                raise ValueError("File not found on HF hub") from e
-            raise
+            assert fetched_file == destination, (
+                "Downloaded file unexpectedly in wrong location "
+                "because of the COPY strategy, this is a bug"
+            )
 
-        return link_with_strategy(fetched_file, destination, local_strategy)
+            return pathlib.Path(fetched_file).absolute()
 
-    raise ValueError(f"Illegal FetchFrom value specified: {fetch_from}")
+        # Otherwise, normal fetch to cache
+        logger.info("Fetch %s: Fetching from HuggingFace Hub '%s'")
+        fetched_file = huggingface_hub.hf_hub_download(
+            **kwargs,
+            cache_dir=huggingface_cache_dir,
+        )
+        fetched_file = pathlib.Path(fetched_file).absolute()
+    except HTTPError as e:
+        if "404 Client Error" in str(e):
+            raise ValueError("File not found on HF hub") from e
+        raise
+
+    return link_with_strategy(fetched_file, destination, local_strategy)
