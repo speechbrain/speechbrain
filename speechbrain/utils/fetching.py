@@ -309,7 +309,8 @@ def fetch(
             # Otherwise, normal fetch to cache
             logger.info("Fetch %s: Fetching from HuggingFace Hub '%s'")
             fetched_file = huggingface_hub.hf_hub_download(
-                **kwargs, cache_dir=huggingface_cache_dir,
+                **kwargs,
+                cache_dir=huggingface_cache_dir,
             )
             fetched_file = pathlib.Path(fetched_file).absolute()
         except HTTPError as e:
