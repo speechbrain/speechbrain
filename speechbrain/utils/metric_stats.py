@@ -411,6 +411,9 @@ class WeightedErrorRateStats(MetricStats):
         """Append function, which should **NOT** be used for the weighted error
         rate stats. Please append to the specified `base_stats` instead.
 
+        `WeightedErrorRateStats` reuses the scores from the base
+        :class:`~ErrorRateStats` class.
+
         Arguments
         ---------
         *args
@@ -425,12 +428,41 @@ class WeightedErrorRateStats(MetricStats):
         )
 
     def summarize(self, field=None):
-        """Returns a dict containing some detailed WER statistics after weighting
-        every edit with a weight determined by `cost_function` (returning `0.0`
-        for no error, `1.0` for the default error behavior, and anything in
-        between).
+        """Returns a dict containing some detailed WER statistics after
+        weighting every edit with a weight determined by `cost_function`
+        (returning `0.0` for no error, `1.0` for the default error behavior, and
+        anything in between).
 
-        See :meth:`~ErrorRateStats.summarize`."""
+        Does not require :meth:`~ErrorRateStats.summarize` to have been called.
+
+        Full set of fields, **each of which are prepended with
+        `<weight_name_specified_at_init>_`**:
+        - `wer`: Weighted WER (ratio `*100`)
+        - `insertions`: Weighted insertions
+        - `substitutions`: Weighted substitutions
+        - `deletions`: Weighted deletions
+        - `num_edits`: Sum of weighted insertions/substitutions/deletions
+
+        Additionally, a `scores` list is populated by this function for each
+        pair of sentences. Each entry of that list is a dict, with the fields:
+        - `key`: the ID of the utterance.
+        - `WER`, `insertions`, `substitutions`, `deletions`, `num_edits` with
+          the same semantics as described above, but at sentence level rather
+          than global.
+
+        Arguments
+        ---------
+        field : str, optional
+            The field to return, if you are only interested in one of them.
+            If specified, a single `float` is returned, otherwise, a dict is.
+
+        Returns
+        -------
+        dict from str to float, if `field is None`
+            A dictionary of the fields documented above.
+        float, if `field is not None`
+            The single field selected by `field`.
+        """
 
         weighted_insertions = 0.0
         weighted_substitutions = 0.0
