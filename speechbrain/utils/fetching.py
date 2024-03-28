@@ -94,7 +94,28 @@ class LocalStrategy(Enum):
 
 def link_with_strategy(
     src: pathlib.Path, dst: pathlib.Path, local_strategy: LocalStrategy
-):
+) -> pathlib.Path:
+    """If `src == dst` **or** if using `LocalStrategy.NO_LINK`, returns `src`
+    with no change to the files.
+
+    If using `LocalStrategy.COPY` or `LocalStrategy.COPY_SKIP_CACHE`, destroy
+    the file or symlink at `dst` if present and creates a copy from `src` to
+    `dst`.
+
+    If using `LocalStrategy.SYMLINK`, destroy the file or symlink at `dst` if
+    present and creates a symlink from `src` to `dst`.
+
+    Arguments
+    ---------
+    src : pathlib.Path
+        Path to the source file to link to. Must be a valid path.
+    dst : pathlib.Path
+        Path of the final destination file. The file might not already exist,
+        but the directory leading up to it must exist.
+    local_strategy : LocalStrategy
+        Strategy to adopt for linking.
+    """
+
     src = src.absolute()
     dst = dst.absolute()
 
