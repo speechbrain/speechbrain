@@ -12,6 +12,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 sample: ""
+overlap_type: LJSpeech
 
 exp_method: "l2i"
 mrt: false

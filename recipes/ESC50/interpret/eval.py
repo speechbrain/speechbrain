@@ -124,11 +124,11 @@ if __name__ == "__main__":
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
 
-    root = '/data2/cloned_repos/interpretable_fakereal'
+    root = '/work/interpretable_fakereal'
     ljspeech_tr = LJSPEECH_split(root=root,
                            url='https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2',
                            folder_in_archive='wavs',
-                           download=False, train=True)
+                           download=True, train=True)
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -166,14 +166,14 @@ if __name__ == "__main__":
         "Loading embedding_model state dict from ",
         hparams["embedding_model_path"],
     )
-    #f_emb.load_state_dict(torch.load(fetch_model("embedding_model.ckpt")))
-    f_emb.load_state_dict(torch.load(hparams["embedding_model_path"]))
+    f_emb.load_state_dict(torch.load(fetch_model("embedding_model.ckpt")))
+    # f_emb.load_state_dict(torch.load(hparams["embedding_model_path"]))
 
     print(
         "Loading classifier state dict from ", hparams["classifier_model_path"]
     )
-    f_cls.load_state_dict(torch.load(hparams["classifier_model_path"]))
-    #f_cls.load_state_dict(torch.load(fetch_model("classifier.ckpt")))
+    # f_cls.load_state_dict(torch.load(hparams["classifier_model_path"]))
+    f_cls.load_state_dict(torch.load(fetch_model("classifier.ckpt")))
     f_emb.eval()
     f_cls.eval()
 
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     overlap_multiplier = 2
 
     # cem: this is the stuff I am adding to deal with different noise types
-    overlap_type = 'LJSpeech'
+    overlap_type = hparams["overlap_type"]
     if overlap_type == 'white_noise':
         dt = datasets["test"]
     elif overlap_type == 'mixtures':
