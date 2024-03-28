@@ -97,9 +97,10 @@ class TextEncoder(HFTransformersInterface):
 
         Returns
         -------
-        (torch.Tensor, torch.Tensor) if `return_tokens == True`
+        (any, torch.Tensor) if `return_tokens == True`
             Respectively:
-            - Tokenized sentence in the form of a padded batch tensor
+            - Tokenized sentence in the form of a padded batch tensor. In the HF
+              format, as returned by the tokenizer.
             - Output embeddings of the model (i.e. the last hidden state)
 
         torch.Tensor if `return_tokens` == False
@@ -114,6 +115,6 @@ class TextEncoder(HFTransformersInterface):
             embeddings = self.model(**input_texts).last_hidden_state
 
             if return_tokens:
-                return input_texts["input_ids"], embeddings
+                return input_texts, embeddings
 
             return embeddings

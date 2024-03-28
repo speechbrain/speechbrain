@@ -132,15 +132,13 @@ class BaseSemDistStats(MetricStats):
 
 
 class SemDistStats(BaseSemDistStats):
-    """Computes the SemDist metric with a provided HuggingFace Transformers
-    tokenizer and LM.
+    """Computes the SemDist metric with a provided HuggingFace Transformers text
+    encoder.
 
     Arguments
     ---------
-    lm : transformers.AutoModelForTextEncoding
-        Transformers text encoder. May live on a non-CPU device.
-    tokenizer : transformers.AutoTokenizer
-        Transformers tokenizer.
+    lm : speechbrain.lobes.models.huggingface_transformers.TextEncoder
+        HF Transformers tokenizer and text encoder wrapper to use as a LM.
     method : "meanpool" or "cls"
         - `"meanpool"` (default): Computes the mean of all contextualized
           embeddings, excluding padding tokens.
@@ -155,14 +153,12 @@ class SemDistStats(BaseSemDistStats):
     def __init__(
         self,
         lm,
-        tokenizer,
         method: Literal["meanpool", "cls"] = "meanpool",
         *args,
         **kwargs,
     ):
         super().__init__(embed_function=self._embed, *args, **kwargs)
         self.lm = lm
-        self.tokenizer = tokenizer
         self.method = method
 
     def _embed(self, sentences: List[str]) -> torch.Tensor:
@@ -181,21 +177,18 @@ class SemDistStats(BaseSemDistStats):
         """
 
         sentences = [" ".join(sent) for sent in sentences]
-        tokens = self.tokenizer(
-            sentences, return_tensors="pt", padding=True
-        ).to(self.lm.device)
 
+        tokens, hidden = self.lm(sentences, return_tokens=True)
         mask = tokens["attention_mask"].cpu()
-        hidden = self.lm(**tokens).last_hidden_state.cpu()
 
         if self.method == "meanpool":
-            masked_hidden = hidden * mask.unsqueeze(-1)
+            masked_hidden = hidden.cpu() * mask.unsqueeze(-1)
             nonmasked_counts = torch.sum(mask, dim=-1)  # shape: [batch_size]
             return torch.sum(
                 masked_hidden, dim=-2
             ) / nonmasked_counts.unsqueeze(-1)
         elif self.method == "cls":
-            return hidden[:, 0, :]  # the first token
+            return hidden[:, 0, :].cpu()  # the first token
         else:
             raise ValueError(
                 f"Specified SemDist method {self.method} is invalid"
