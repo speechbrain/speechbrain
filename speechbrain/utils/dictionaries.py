@@ -32,6 +32,12 @@ class SynonymDictionary:
         ---------
         file
             File object that supports reading (e.g. an `open`ed file)
+
+        Returns
+        -------
+        SynonymDictionary
+            Synonym dictionary frm the parsed JSON file with all synonym sets
+            added.
         """
         d = json.load(file)
 
@@ -56,11 +62,17 @@ class SynonymDictionary:
         ---------
         path : str
             Path to the JSON file
+
+        Returns
+        -------
+        SynonymDictionary
+            Synonym dictionary frm the parsed JSON file with all synonym sets
+            added.
         """
         with open(path, "r", encoding="utf8") as f:
             return SynonymDictionary.from_json_file(f)
 
-    def add_synonym_set(self, words: Iterable[str]):
+    def add_synonym_set(self, words: Iterable[str]) -> None:
         """Add a set of words that are all synonyms with each other.
 
         Arguments
@@ -82,7 +94,13 @@ class SynonymDictionary:
             First word to compare. May be outside of the known dictionary.
         b : str
             Second word to compare. May be outside of the known dictionary.
-            The order of arguments does not matter."""
+            The order of arguments does not matter.
+
+        Returns
+        -------
+        bool
+            Whether `a` and `b` should be considered synonyms. Not transitive,
+            see the main class documentation."""
 
         return (a == b) or (b in self.word_map[a])
 
