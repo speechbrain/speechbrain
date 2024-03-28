@@ -155,7 +155,7 @@ class BERTScoreStats(MetricStats):
     def _update_summary(self):
         """Performs the actual LM inference and BERTscore estimation, updating
         the `summary` field. Automatically called by `summarize`."""
-        
+
         if self.allow_matching_special_tokens:
             assert self.batch_size == 1, (
                 "Batch size must be 1 when passing "
