@@ -139,7 +139,7 @@ def link_with_strategy(
         logging.info("Fetch: Local file found, copying '%s' -> '%s'", src, dst)
 
         dst.unlink(missing_ok=True)  # remove link or delete file
-        shutil.copy(src, dst)
+        shutil.copy(str(src), str(dst))
         return dst
 
     if local_strategy == LocalStrategy.NO_LINK:
