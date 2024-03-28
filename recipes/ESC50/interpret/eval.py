@@ -19,13 +19,42 @@ import random
 import gradient_based
 import quantus_eval
 from tqdm import tqdm
-from maskin_maskout import opt_single_mask, interpret_pretrained
+from maskin_maskout import opt_single_mask, interpret_pretrained, all_onesmask
 from l2i_eval import l2i_pretrained
 import math
+from torch.utils.data import Dataset
+import torchaudio.transforms as T
+
+import torchaudio.datasets as dts
 
 eps = 1e-10
 
 random.seed(10)
+
+
+class LJSPEECH_split(dts.LJSPEECH):
+    """Create a Dataset for *LJSpeech-1.1* [:footcite:`ljspeech17`].
+
+    Args:
+        root (str or Path): Path to the directory where the dataset is found or downloaded.
+        url (str, optional): The URL to download the dataset from.
+            (default: ``"https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2"``)
+        folder_in_archive (str, optional):
+            The top-level directory of the dataset. (default: ``"wavs"``)
+        download (bool, optional):
+            Whether to download the dataset if it is not found at root path. (default: ``False``).
+    """
+
+    def __init__(self, root, url, folder_in_archive, download, train=True):
+        #super(LJSPEECH_train, self).__init__()
+        super().__init__(root, url, folder_in_archive, download)
+        #path = os.path.join('LJSpeech-1.1', folder_in_archive)
+        #self._flist = glob.glob(path + '/*.wav')
+        if train:
+            self._flist = self._flist[:10000]
+        else:
+            self._flist = self._flist[-3000:]
+        print('dataset size = ', len(self._flist))
 
 def generate_mixture(s1, s2):
     s1 = s1 / torch.norm(s1)
@@ -45,8 +74,9 @@ def fetch_model(url):
     return hf_hub_download(repo_id=REPO_ID, filename=url)
 
 def generate_overlap(sample, dataset, overlap_multiplier=1, overlap_type='mixtures'):
-    pool = [i for i in range(len(dataset))]
-    indices = random.sample(pool, overlap_multiplier)
+    if overlap_type in ['mixtures', 'LJSpeech']:
+        pool = [i for i in range(len(dataset))]
+        indices = random.sample(pool, overlap_multiplier)
     # print("\n\n Generate overlap called!", indices, " \n\n")
 
     samples = [
@@ -55,6 +85,17 @@ def generate_overlap(sample, dataset, overlap_multiplier=1, overlap_type='mixtur
     for i, idx in enumerate(indices):
         if overlap_type == 'mixtures':
             samples[i]["sig"] = generate_mixture(sample["sig"], dataset[idx]["sig"])
+        elif overlap_type == 'LJSpeech':
+            noise = dataset[idx][0][0]
+            tfm = T.Resample(22050, 16000)
+            noise = tfm(noise)
+            smpl = sample["sig"]
+
+            if noise.shape[0] > smpl.shape[0]:
+                noise = noise[:smpl.shape[0]]
+            else:
+                noise = torch.nn.functional.pad(noise, (0, smpl.shape[0] - noise.shape[0]))
+            samples[i]["sig"] = generate_mixture(smpl, noise)
         else:
             smp = sample["sig"] / sample["sig"].pow(2).sum().sqrt()
             noise = torch.randn(sample["sig"].shape)
@@ -82,6 +123,12 @@ def preprocess(wavs, hparams):
 if __name__ == "__main__":
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
+
+    root = '/data2/cloned_repos/interpretable_fakereal'
+    ljspeech_tr = LJSPEECH_split(root=root,
+                           url='https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2',
+                           folder_in_archive='wavs',
+                           download=False, train=True)
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -203,6 +250,7 @@ if __name__ == "__main__":
         "guided_IG": gradient_based.guided_IG,
         "single_maskinout": opt_single_mask,
         "l2i": l2i_pretrained(hparams, run_opts),
+        "allones": all_onesmask
     }
 
     if hparams["exp_method"] == "ao":
@@ -221,18 +269,29 @@ if __name__ == "__main__":
         "AG",
         "faithfulness_l2i",
         "inp_fid",
-        "accuracy"
+        "accuracy",
+        "average"
     ]
     aggregated_metrics = {k: 0.0 for k in computed_metrics}
     samples_interval = hparams["interpret_period"]
     overlap_multiplier = 2
 
+    # cem: this is the stuff I am adding to deal with different noise types
     overlap_type = 'white_noise'
+    if overlap_type == 'white_noise':
+        dt = None
+    elif overlap_type == 'mixtures':
+        dt = datasets["test"]
+    elif overlap_type == 'LJSpeech':
+        dt = ljspeech_tr
+    else:
+        raise ValueError('Not a valid overlap type')
+
     discarded = 0
     for idx, base_sample in enumerate(datasets["valid"]):
         if not hparams["add_wham_noise"]:
             overlap_batch = generate_overlap(
-                base_sample, datasets["test"], overlap_multiplier, overlap_type=overlap_type
+                base_sample, dt, overlap_multiplier, overlap_type=overlap_type
             )
             y_batch = torch.Tensor(
                 [
@@ -252,7 +311,8 @@ if __name__ == "__main__":
             wavs = base_sample["sig"].to(run_opts["device"]).unsqueeze(0)
 
         # preprocess
-        if wavs.ndim == 3: wavs = wavs.squeeze(1)
+        if wavs.ndim == 3:
+            wavs = wavs.squeeze(1)
         X_oracle, X_stft, X_stft_power = preprocess(wavs, hparams)
         X_stft_phase = spectral_phase(X_stft)
 
@@ -264,7 +324,6 @@ if __name__ == "__main__":
             # wavs = wavs + 0.1*torch.randn(wavs.shape, device=hparams['device'])
 
             X, X_stft, _ = preprocess(wavs, hparams)
-
         else:
             X = X_oracle.squeeze(1)
 

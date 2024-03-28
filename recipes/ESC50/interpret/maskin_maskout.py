@@ -67,3 +67,9 @@ def interpret_pretrained(interpreter):
         return temp
 
     return interpret_ao
+
+
+def all_onesmask(x, _, model):
+    return torch.ones(x.shape, device=x.device)
+
+
