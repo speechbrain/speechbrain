@@ -12,13 +12,14 @@ import math
 
 from speechbrain.utils.distances import cosine_similarity_matrix
 from speechbrain.utils.metric_stats import MetricStats
+from speechbrain.lobes.models.huggingface_transformers import TextEncoder
 
 logger = logging.getLogger(__name__)
 
 
 class BERTScoreStats(MetricStats):
-    """Computes BERTScore with a provided HuggingFace Transformers tokenizer and
-    LM, using the method described in the paper
+    """Computes BERTScore with a provided HuggingFace Transformers text encoder,
+    using the method described in the paper
     `BERTScore: Evaluating Text Generation with BERT <https://arxiv.org/abs/1904.09675>`_.
 
     BERTScore operates over contextualized tokens (e.g. the output of BERT, but
@@ -40,10 +41,8 @@ class BERTScoreStats(MetricStats):
 
     Arguments
     ---------
-    lm : transformers.AutoModelForTextEncoding
-        Transformers text encoder. May live on a non-CPU device.
-    tokenizer : transformers.AutoTokenizer
-        Transformers tokenizer.
+    lm : speechbrain.lobes.models.huggingface_transformers.TextEncoder
+        HF Transformers tokenizer and text encoder wrapper to use as a LM.
     batch_size : int, optional
         How many pairs of utterances should be considered at once. Higher is
         faster but may result in OOM.
@@ -58,14 +57,6 @@ class BERTScoreStats(MetricStats):
         e.g. a very long sentence will weigh as much as a very short sentence in
         the final metrics. The default is `True`, which matches the reference
         implementation.
-    num_layers : int, optional
-        When specified, and assuming the passed LM can be truncated that way,
-        the encoder for the passed model will be truncated to the specified
-        layer (mutating it). This means that the embeddings will be those of the
-        Nth layer rather than the last layer. The last layer is not necessarily
-        the best when it comes to the quality of the metric. Note that the
-        reference implementation automatically selects a default hardcoded layer
-        for certain models.
     allow_matching_special_tokens : bool, optional
         When `True`, non-special tokens may match against special tokens during
         greedy matching (e.g. `[CLS]`/`[SEP]`). Batch size must be 1 due to
@@ -77,24 +68,18 @@ class BERTScoreStats(MetricStats):
 
     def __init__(
         self,
-        lm,
-        tokenizer,
+        lm: TextEncoder,
         batch_size: int = 64,
         use_idf: bool = True,
         sentence_level_averaging: bool = True,
-        num_layers: Optional[int] = None,
         allow_matching_special_tokens: bool = False,
     ):
         self.clear()
         self.lm = lm
-        self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.use_idf = use_idf
         self.sentence_level_averaging = sentence_level_averaging
         self.allow_matching_special_tokens = allow_matching_special_tokens
-
-        if num_layers is not None:
-            self._truncate_lm(num_layers)
 
     def clear(self):
         """Clears the collected statistics"""
@@ -162,7 +147,7 @@ class BERTScoreStats(MetricStats):
                 "`allow_matching_special_tokens` due to padding handling."
             )
 
-        token_masks = get_bert_token_mask(self.tokenizer)
+        token_masks = get_bert_token_mask(self.lm.tokenizer)
         token_weights = self._make_weights(self.targets)
 
         recall_sum = recall_weight = 0.0
@@ -176,24 +161,19 @@ class BERTScoreStats(MetricStats):
             ref_text = [" ".join(ref) for ref in ref_text]
             hyp_text = [" ".join(hyp) for hyp in hyp_text]
 
-            refs = self.tokenizer(
-                ref_text, return_tensors="pt", padding=True
-            ).to(self.lm.device)
-            hyps = self.tokenizer(
-                hyp_text, return_tensors="pt", padding=True
-            ).to(self.lm.device)
+            ref_toks, ref_hidden = self.lm(ref_text, return_tokens=True)
+            hyp_toks, hyp_hidden = self.lm(hyp_text, return_tokens=True)
 
-            ref_tokens = refs["input_ids"].cpu()
-            hyp_tokens = hyps["input_ids"].cpu()
-
-            ref_hidden = self.lm(**refs).last_hidden_state.cpu()
-            hyp_hidden = self.lm(**hyps).last_hidden_state.cpu()
+            ref_hidden = ref_hidden.cpu()
+            hyp_hidden = hyp_hidden.cpu()
+            ref_toks = ref_toks.cpu()
+            hyp_toks = hyp_toks.cpu()
 
             # shape [batch, ref dim, hyp dim]
             similarity_matrix = cosine_similarity_matrix(ref_hidden, hyp_hidden)
 
-            ref_mask = self._select_by_tokens(token_masks, ref_tokens)
-            hyp_mask = self._select_by_tokens(token_masks, hyp_tokens)
+            ref_mask = self._select_by_tokens(token_masks, ref_toks)
+            hyp_mask = self._select_by_tokens(token_masks, hyp_toks)
 
             # mask rows according to ref_mask and columns according to hyp_mask
             if not self.allow_matching_special_tokens:
@@ -208,9 +188,11 @@ class BERTScoreStats(MetricStats):
 
             # for each token, load the matching token weight
             # the result is a weight tensor with the same shape as the inputs
-            recall_weights = self._select_by_tokens(token_weights, ref_tokens)
+            recall_weights = self._select_by_tokens(
+                token_weights, ref_toks.cpu()
+            )
             precision_weights = self._select_by_tokens(
-                token_weights, hyp_tokens
+                token_weights, hyp_toks.cpu()
             )
 
             # mask off weights
@@ -260,24 +242,6 @@ class BERTScoreStats(MetricStats):
             }
         )
 
-    def _truncate_lm(self, keep_layers: int):
-        """Truncates the encoder to a specific layer so that output embeddings
-        are the hidden state of the n-th layer.
-
-        Arguments
-        ---------
-        keep_layers : int
-            Number of layers to keep, e.g. 4 would keep layers `[0, 1, 2, 3]`.
-        """
-
-        assert (
-            keep_layers > 0
-        ), "Invalid requested layer count: Must keep at least one LM layer (negative values are not allowed)"
-        assert keep_layers <= len(
-            self.lm.encoder.layer
-        ), "Too few layers in LM: kept layer count requested is too high"
-        self.lm.encoder.layer = self.lm.encoder.layer[:keep_layers]
-
     def _make_weights(self, corpus):
         """Makes a token weight tensor, optionally including IDF. If not using
         IDF, currently simply returns a tensor full of ones."""
@@ -289,9 +253,9 @@ class BERTScoreStats(MetricStats):
                     "IDF weighting."
                 )
 
-            return get_bertscore_token_weights(self.tokenizer, corpus)
+            return get_bertscore_token_weights(self.lm.tokenizer, corpus)
 
-        return get_bertscore_token_weights(self.tokenizer)
+        return get_bertscore_token_weights(self.lm.tokenizer)
 
     def _select_by_tokens(self, token_weight, input_tokens):
         """From a batch of tokenized texts `input_tokens`, returns an
