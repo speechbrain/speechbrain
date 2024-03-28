@@ -164,10 +164,10 @@ class BERTScoreStats(MetricStats):
             ref_toks, ref_hidden = self.lm(ref_text, return_tokens=True)
             hyp_toks, hyp_hidden = self.lm(hyp_text, return_tokens=True)
 
-            ref_hidden = ref_hidden["input_ids"].cpu()
-            hyp_hidden = hyp_hidden["input_ids"].cpu()
-            ref_toks = ref_toks.cpu()
-            hyp_toks = hyp_toks.cpu()
+            ref_hidden = ref_hidden.cpu()
+            hyp_hidden = hyp_hidden.cpu()
+            ref_toks = ref_toks["input_ids"].cpu()
+            hyp_toks = hyp_toks["input_ids"].cpu()
 
             # shape [batch, ref dim, hyp dim]
             similarity_matrix = cosine_similarity_matrix(ref_hidden, hyp_hidden)
