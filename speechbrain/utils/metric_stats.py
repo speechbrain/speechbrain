@@ -603,6 +603,30 @@ class EmbeddingErrorRateSimilarity:
     def __call__(
         self, edit_symbol: str, a: Optional[str], b: Optional[str]
     ) -> float:
+        """Returns the weight that should be associated with a specific edit
+        in the WER calculation.
+
+        Compatible candidate for the cost function of
+        :class:`~WeightedErrorRateStats` so an instance of this class can be
+        passed as a `cost_function`.
+
+        Arguments
+        ---------
+        edit_symbol: str
+            Edit symbol as assigned by the WER functions, see `EDIT_SYMBOLS`.
+        a: str, optional
+            First word to compare (if present)
+        b: str, optional
+            Second word to compare (if present)
+
+        Returns
+        -------
+        float
+            Weight to assign to the edit.
+            For actual edits, either `low_similarity_weight` or
+            `high_similarity_weight` depending on the embedding distance and
+            threshold.
+        """
         if edit_symbol in (EDIT_SYMBOLS["ins"], EDIT_SYMBOLS["del"]):
             return 1.0
 
