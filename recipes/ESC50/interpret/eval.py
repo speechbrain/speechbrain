@@ -74,9 +74,9 @@ def fetch_model(url):
     return hf_hub_download(repo_id=REPO_ID, filename=url)
 
 def generate_overlap(sample, dataset, overlap_multiplier=1, overlap_type='mixtures'):
-    if overlap_type in ['mixtures', 'LJSpeech']:
-        pool = [i for i in range(len(dataset))]
-        indices = random.sample(pool, overlap_multiplier)
+    #if overlap_type in ['mixtures', 'LJSpeech']:
+    pool = [i for i in range(len(dataset))]
+    indices = random.sample(pool, overlap_multiplier)
     # print("\n\n Generate overlap called!", indices, " \n\n")
 
     samples = [
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     # cem: this is the stuff I am adding to deal with different noise types
     overlap_type = 'white_noise'
     if overlap_type == 'white_noise':
-        dt = None
+        dt = datasets["test"]
     elif overlap_type == 'mixtures':
         dt = datasets["test"]
     elif overlap_type == 'LJSpeech':
