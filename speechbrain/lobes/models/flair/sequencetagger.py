@@ -47,6 +47,7 @@ class FlairSequenceTagger:
             this kind of model.
         """
 
+        # figure out a unique name for this source
         target = save_path + "/flair--" + source.replace("/", "--") + "/"
         local_path = str(fetch(filename, source, savedir=target))
         return FlairSequenceTagger(SequenceTagger.load(local_path))

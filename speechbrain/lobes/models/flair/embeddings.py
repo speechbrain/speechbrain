@@ -58,6 +58,7 @@ class FlairEmbeddings:
             Extra keyword arguments to pass to the flair class constructor
         """
 
+        # figure out a unique name for this source
         target = save_path + "/flair-emb--" + source.replace("/", "--") + "/"
         local_path = str(fetch(filename, source, savedir=target))
         return FlairEmbeddings(embeddings_class(local_path, *args, **kwargs))
