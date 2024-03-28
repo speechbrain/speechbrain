@@ -348,6 +348,13 @@ def get_bertscore_token_weights(
         Iterable corpus to compute the IDF from. Each iterated value is
         considered a document in the corpus in the IDF calculation.
         If omitted, no IDF weighting is done.
+
+    Returns
+    -------
+    torch.Tensor
+        A floating-point tensor that can be indexed by token ID, of shape
+        `[vocab_size]`, where each entry is by how much the impact of a given
+        token should be multiplied.
     """
 
     max_idx = max(tokenizer.get_vocab().values())
