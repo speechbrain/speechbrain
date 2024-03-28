@@ -11,10 +11,6 @@ With the default hyperparameters, the system employs a convolutional frontend an
 Training is performed on the full LibriSpeech dataset (960 h).
 
 Authors
- * Jianyuan Zhong 2020
- * Mirco Ravanelli 2020
- * Peter Plantinga 2020
- * Samuele Cornell 2020, 2021, 2022
  * Titouan Parcollet 2021, 2022
  * Shucong Zhang 2023
  * Adel Moumen 2024
@@ -28,6 +24,7 @@ from pathlib import Path
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main, if_main_process
+from speechbrain.tokenizers.SentencePiece import SentencePiece
 
 logger = logging.getLogger(__name__)
 
@@ -59,14 +56,13 @@ class ASR(sb.core.Brain):
         logits = self.modules.ctc_lin(enc_out)
         p_ctc = self.hparams.log_softmax(logits)
 
+        p_tokens = None
         if stage == sb.Stage.VALID:
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
         elif stage == sb.Stage.TEST:
             p_tokens = test_searcher(p_ctc, wav_lens)
-        else:
-            p_tokens = None
 
         return p_ctc, wav_lens, p_tokens
 
@@ -87,10 +83,9 @@ class ASR(sb.core.Brain):
 
         if stage == sb.Stage.VALID:
             # Decode token terms to words
-            predicted_words = [
-                self.tokenizer.decode_ids(hyp).split(" ")
-                for hyp in predicted_tokens
-            ]
+            predicted_words = self.tokenizer(
+                predicted_tokens, task="decode_from_list"
+            )
         elif stage == sb.Stage.TEST:
             predicted_words = [
                 hyp[0].text.split(" ") for hyp in predicted_tokens
@@ -111,7 +106,8 @@ class ASR(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model",
+            ckpts,
+            recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -174,15 +170,6 @@ class ASR(sb.core.Brain):
                 with open(self.hparams.wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
-            # save the averaged checkpoint at the end of the evaluation stage
-            # delete the rest of the intermediate checkpoints
-            # ACC is set to 0 so checkpointer only keeps the averaged checkpoint
-            # self.checkpointer.save_and_keep_only(
-            #    meta={"WER": 0, "epoch": epoch},
-            #    max_keys=["WER"],
-            #    num_to_keep=1,
-            # )
-
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         if should_step:
             self.hparams.noam_annealing(self.optimizer)
@@ -190,11 +177,13 @@ class ASR(sb.core.Brain):
 
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -218,7 +207,8 @@ def dataio_prepare(hparams, tokenizer):
             "sorting must be random, ascending or descending"
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -269,7 +259,7 @@ def dataio_prepare(hparams, tokenizer):
         yield wrd
         char_list = list(wrd)
         yield char_list
-        tokens_list = tokenizer.encode_as_ids(wrd)
+        tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -278,7 +268,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "char_list", "tokens"],
+        datasets,
+        ["id", "sig", "wrd", "char_list", "tokens"],
     )
 
     # 5. If Dynamic Batching is used, we instantiate the needed samplers.
@@ -340,9 +331,16 @@ if __name__ == "__main__":
     )
 
     # Defining tokenizer and loading it
-    tokenizer = hparams["tokenizer"]
-    run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected()
+    tokenizer = SentencePiece(
+        model_dir=hparams["save_folder"],
+        vocab_size=hparams["output_neurons"],
+        annotation_train=hparams["train_csv"],
+        annotation_read="wrd",
+        model_type=hparams["token_type"],
+        character_coverage=hparams["character_coverage"],
+        bos_id=hparams["bos_index"],
+        eos_id=hparams["eos_index"],
+    )
 
     # here we create the datasets objects as well as tokenization and encoding
     (
@@ -365,13 +363,14 @@ if __name__ == "__main__":
     # Adding objects to trainer.
     asr_brain.tokenizer = tokenizer
     vocab_list = [
-        tokenizer.id_to_piece(i) for i in range(tokenizer.vocab_size())
+        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
     ]
 
     from speechbrain.decoders.ctc import CTCBeamSearcher
 
     test_searcher = CTCBeamSearcher(
-        **hparams["test_beam_search"], vocab_list=vocab_list,
+        **hparams["test_beam_search"],
+        vocab_list=vocab_list,
     )
 
     train_dataloader_opts = hparams["train_dataloader_opts"]
@@ -398,7 +397,7 @@ if __name__ == "__main__":
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.wer_file = os.path.join(
-            hparams["output_folder"], "wer_{}.txt".format(k)
+            hparams["output_folder"], f"wer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k],

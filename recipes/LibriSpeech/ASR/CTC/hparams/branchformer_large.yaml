@@ -1,11 +1,10 @@
 # ############################################################################
 # Model: E2E ASR with CTC
 # Encoder: Branchformer Encoder
-# Decoder: CTC Only character level!
-# Tokens: BPE
+# Decoder: CTC beam searcher and greedy searcher
+# Tokens: character
 # Training: Librispeech 960h
-# Authors: Titouan Parcollet
-#        Shucong Zhang
+# Authors: Titouan Parcollet, Shucong Zhang, Adel Moumen
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
@@ -24,16 +23,16 @@ data_folder: !PLACEHOLDER  # e.g., /path/to/LibriSpeech
 # data_folder_rirs: !ref <data_folder>
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["test-clean", "test-other"]
-skip_prep: True
-train_csv: ../../Tokenizer/results/128_bpe/train.csv
-valid_csv: ../../Tokenizer/results/128_bpe/dev-clean.csv
+test_splits: ["dev-clean", "test-clean", "test-other"]
+skip_prep: False
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-   - ../../Tokenizer/results/128_bpe/test-clean.csv
-   - ../../Tokenizer/results/128_bpe/test-other.csv
+   - !ref <output_folder>/dev-clean.csv
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
 
-pretrained_tokenizer_path: ../../Tokenizer/results/128_bpe
-tokenizer: !new:sentencepiece.SentencePieceProcessor
+####################### Training Parameters ####################################
 
 number_of_epochs: 500
 batch_size: 16 # This works for 2x GPUs with 32GB
@@ -86,6 +85,7 @@ test_dataloader_opts:
    batch_size: 1
 
 ####################### Model parameters ###########################
+
 # Transformer
 attention_type: RelPosMHAXL
 d_model: 256
@@ -96,25 +96,20 @@ num_encoder_layers: 18
 num_decoder_layers: 0
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
-output_neurons: 128
+output_neurons: 31
 
-
-# Decoding parameters
-# Be sure that the bos and eos index match with the BPEs ones
+# BPE parameters
+token_type: char  # ["unigram", "bpe", "char"]
+character_coverage: 1.0
 blank_index: 0
+bos_index: 1
+eos_index: 2
 
 # Decoding parameters
-test_beam_search:
-   blank_index: !ref <blank_index>
-   beam_size: 100
-   beam_prune_logp: -12.0
-   token_prune_min_logp: -1.2
-   prune_history: True
-   topk: 1
-   alpha: 1.0
-   beta: 0.5
-   # To use n-gram LM for decoding, follow steps in README.md.
-   # kenlm_model_path: none
+beam_size: 100
+beam_prune_logp: -12.0
+token_prune_min_logp: -1.2
+prune_history: False
 
 ############################## models ################################
 
@@ -143,11 +138,9 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
    csgu_linear_units: !ref <csgu_linear_units>
    kernel_size: !ref <csgu_kernel_size>
 
-
 ctc_lin: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <d_model>
    n_neurons: !ref <output_neurons>
-
 
 normalize: !new:speechbrain.processing.features.InputNormalization
    norm_type: global
@@ -162,14 +155,15 @@ modules:
 model: !new:torch.nn.ModuleList
    - [!ref <CNN>, !ref <Transformer>, !ref <ctc_lin>]
 
-Adam: !name:torch.optim.AdamW
-   lr: !ref <lr_adam>
-   betas: (0.9, 0.98)
-   eps: 0.000000001
-   weight_decay: !ref <weight_decay>
+####################### Decoding & optimiser ###########################
 
-log_softmax: !new:torch.nn.LogSoftmax
-   dim: -1
+# Decoding parameters
+test_beam_search:
+   blank_index: !ref <blank_index>
+   beam_size: !ref <beam_size>
+   beam_prune_logp: !ref <beam_prune_logp>
+   token_prune_min_logp: !ref <token_prune_min_logp>
+   prune_history: !ref <prune_history>
 
 ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
    blank_index: !ref <blank_index>
@@ -180,17 +174,14 @@ noam_annealing: !new:speechbrain.nnet.schedulers.LinearNoamScheduler
    n_warmup_steps: 7500
    n_keep_steps: 36000
 
+Adam: !name:torch.optim.AdamW
+   lr: !ref <lr_adam>
+   weight_decay: !ref <weight_decay>
 
-checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-   checkpoints_dir: !ref <save_folder>
-   recoverables:
-      model: !ref <model>
-      noam_scheduler: !ref <noam_annealing>
-      normalizer: !ref <normalize>
-      counter: !ref <epoch_counter>
+log_softmax: !new:torch.nn.LogSoftmax
+   dim: -1
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-   limit: !ref <number_of_epochs>
+############################## Augmentations ###################################
 
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
    orig_freq: !ref <sample_rate>
@@ -224,12 +215,24 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
       !ref <drop_chunk>
    ]
 
-
 compute_features: !new:speechbrain.lobes.features.Fbank
    sample_rate: !ref <sample_rate>
    n_fft: !ref <n_fft>
    win_length: !ref <win_length>
    n_mels: !ref <n_mels>
+
+############################## Logging and Pretrainer ##########################
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      model: !ref <model>
+      noam_scheduler: !ref <noam_annealing>
+      normalizer: !ref <normalize>
+      counter: !ref <epoch_counter>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <train_log>
@@ -237,10 +240,3 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
    split_tokens: True
 wer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
-
-pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
-   collect_in: !ref <save_folder>
-   loadables:
-      tokenizer: !ref <tokenizer>
-   paths:
-      tokenizer: !ref <pretrained_tokenizer_path>/128_bpe.model
