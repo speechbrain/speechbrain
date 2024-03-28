@@ -18,16 +18,15 @@ class BaseSemDistStats(MetricStats):
 
     Arguments
     ---------
-    model : transformers.AutoModelForTextEncoding
-        Transformers text encoder. May live on a non-CPU device.
-    tokenizer : transformers.AutoTokenizer
-        Transformers tokenizer.
     embed_function : Callable[[List[str]], torch.Tensor]
         Given a list of sentences, return their summarized embedding using the
         method of your choice (e.g. mean pooling)
     scale : float, optional
         The `α` scale applied to the cosine similarity result for clarity. The
         default is `1000`, in order to match the authors' recommendation.
+    batch_size : int, optional
+        How many pairs of utterances should be considered at once. Higher is
+        faster but may result in OOM.
     """
 
     def __init__(
@@ -80,6 +79,9 @@ class BaseSemDistStats(MetricStats):
         return self.summary
 
     def _update_summary(self):
+        """Performs the actual inference and SemDist estimation, updating the
+        `summary` field. Automatically called by `summarize`."""
+
         semdist_sum = 0.0
 
         for chunk_idx in range(0, len(self.predictions), self.batch_size):
@@ -112,7 +114,7 @@ class SemDistStats(BaseSemDistStats):
 
     Arguments
     ---------
-    model : transformers.AutoModelForTextEncoding
+    lm : transformers.AutoModelForTextEncoding
         Transformers text encoder. May live on a non-CPU device.
     tokenizer : transformers.AutoTokenizer
         Transformers tokenizer.
