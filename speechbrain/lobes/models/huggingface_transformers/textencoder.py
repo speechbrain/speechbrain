@@ -62,7 +62,9 @@ class TextEncoder(HFTransformersInterface):
         num_layers: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(source=source, save_path=save_path, freeze=freeze, **kwargs)
+        super().__init__(
+            source=source, save_path=save_path, freeze=freeze, **kwargs
+        )
 
         self.load_tokenizer(source=source)
 
