@@ -43,6 +43,8 @@ class TextEncoder(HFTransformersInterface):
         layer (mutating it). This means that the embeddings will be those of the
         Nth layer rather than the last layer. The last layer is not necessarily
         the best for certain tasks.
+    **kwargs
+        Extra keyword arguments passed to the `from_pretrained` function.
     Example
     -------
     >>> inputs = ["La vie est belle"]
@@ -58,8 +60,9 @@ class TextEncoder(HFTransformersInterface):
         save_path,
         freeze=True,
         num_layers: Optional[int] = None,
+        **kwargs,
     ):
-        super().__init__(source=source, save_path=save_path, freeze=freeze)
+        super().__init__(source=source, save_path=save_path, freeze=freeze, **kwargs)
 
         self.load_tokenizer(source=source)
 
