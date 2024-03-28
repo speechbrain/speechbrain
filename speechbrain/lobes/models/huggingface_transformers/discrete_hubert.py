@@ -10,6 +10,7 @@ Author
  * Pooneh Mousavi 2023
 
 """
+
 import logging
 import torch
 from huggingface_hub import hf_hub_download
@@ -40,12 +41,12 @@ class DiscreteHuBERT(HuBERT):
         HuggingFace hub name: e.g "facebook/hubert-base-ls960"
     save_path : str
         Path (dir) of the downloaded model.
-    kmeans_repo_id : str
-        Huggingface repository if that contains the pretrained kmean model
     kmeans_filename : str
         Name of the file in HF repo that need to be downloaded.
     kmeans_cache_dir: str
         Path (dir) of the downloaded kmeans model.
+    kmeans_repo_id : str
+        Huggingface repository if that contains the pretrained kmean model
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the HuBERT model.
@@ -53,8 +54,8 @@ class DiscreteHuBERT(HuBERT):
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     freeze_feature_extractor :  bool (default: False)
-        When freeze = False and freeze_feature_extractor True, the featue_extractor module of the model is Frozen. If False
-        all the HuBERT model will be trained including featue_extractor module.
+        When freeze = False and freeze_feature_extractor True, the feature_extractor module of the model is Frozen. If False
+        all the HuBERT model will be trained including feature_extractor module.
     apply_spec_augment : bool (default: False)
         If True, the model will apply spec augment on the output of feature extractor
         (inside huggingface Hubert Model() class).
@@ -66,7 +67,6 @@ class DiscreteHuBERT(HuBERT):
         If False, the forward function outputs the hidden states only from the last transformer layer.
     ssl_layer_num : (int) (default: -1)
         determine the output of which layer of the SSL model should be used for clustering.
-
 
     Example
     -------
@@ -122,13 +122,14 @@ class DiscreteHuBERT(HuBERT):
         Arguments
         ---------
         repo_id : str
-           The hugingface repo id that contains the model.
+           The huggingface repo id that contains the model.
         filename : str
             The name of the checkpoints in the repo that need to be downloaded.
         cache_dir: str
             Path (dir) of the downloaded model.
-        Returns:
-        ---------
+
+        Returns
+        -------
         kmeans_model : MiniBatchKMeans:
             pretrained Kmeans  model loaded from the HF.
         """
@@ -146,10 +147,11 @@ class DiscreteHuBERT(HuBERT):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
-        Returns:
-        ---------
+
+        Returns
+        -------
         tokens : torch.Tensor
             A (Batch x Seq) tensor of audio tokens
         emb : torch.Tensor

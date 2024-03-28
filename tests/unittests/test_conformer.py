@@ -4,8 +4,8 @@ import torch
 @torch.no_grad
 def test_streaming_conformer_layer(device):
     """Test whether the Conformer encoder layer masking code path (used at train
-    time) is equivalent to a real streaming scenario."""
-
+    time) is equivalent to a real streaming scenario.
+    """
     from speechbrain.lobes.models.transformer.Conformer import (
         ConformerEncoderLayer,
     )

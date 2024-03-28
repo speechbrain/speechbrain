@@ -7,19 +7,27 @@ Authors
 
 
 def EDER(prediction, id, duration, emotion, window_length, stride):
-    """ Calculates the EDER value
+    """Calculates the EDER value
 
-    Args:
-        prediction (list): a list of frame-wise predictions of the utterance
-        id (str): id of the utterance
-        duration (float): duration of the utterance
-        emotion (list of dicts): the ground truth emotion and its duration,
-            e.g. [{'emo': 'angry', 'start': 1.016, 'end': 6.336}]
-        window_length (float): the frame length used for frame-wise prediction
-        stride (float): the frame length used for frame-wise prediction
+    Arguments
+    ---------
+    prediction: list
+        a list of frame-wise predictions of the utterance
+    id: str
+        id of the utterance
+    duration: float
+        duration of the utterance
+    emotion: list of dicts
+        the ground truth emotion and its duration,
+        e.g. [{'emo': 'angry', 'start': 1.016, 'end': 6.336}]
+    window_length: float
+        the frame length used for frame-wise prediction
+    stride: float
+        the frame length used for frame-wise prediction
 
-    Returns:
-        float: the calculted EDER for the utterance
+    Returns
+    -------
+    float: the calculated EDER for the utterance
 
     Example
     -------
@@ -33,7 +41,6 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
     >>> EDER(prediction, id, duration, emotion, window_length, stride)
     0.2704918032786885
     """
-
     duration = float(duration)  # for recipe tests
     lol = []
     for i in range(len(prediction)):
@@ -59,15 +66,16 @@ def EDER(prediction, id, duration, emotion, window_length, stride):
 
 
 def getOverlap(a, b):
-    """ get the overlapped length of two intervals
+    """Get the overlapped length of two intervals
 
     Arguments
     ---------
     a : list
     b : list
 
-    Returns:
-        float: overlapped length
+    Returns
+    -------
+    float: overlapped length
 
     Example
     -------
@@ -103,7 +111,6 @@ def is_overlapped(end1, start2):
     >>> diar.is_overlapped(5.5, 6.4)
     False
     """
-
     if start2 > end1:
         return False
     else:
@@ -112,10 +119,12 @@ def is_overlapped(end1, start2):
 
 def merge_ssegs_same_emotion_adjacent(lol):
     """Merge adjacent sub-segs if they are the same emotion.
+
     Arguments
     ---------
     lol : list of list
         Each list contains [utt_id, sseg_start, sseg_end, emo_label].
+
     Returns
     -------
     new_lol : list of list
@@ -158,12 +167,16 @@ def merge_ssegs_same_emotion_adjacent(lol):
 
 
 def reference_to_lol(id, duration, emotion):
-    """change reference to a list of list
+    """Change reference to a list of list
+
     Arguments
     ---------
-    id (str): id of the utterance
-    duration (float): duration of the utterance
-    emotion (list of dicts): the ground truth emotion and its duration,
+    id: str
+        id of the utterance
+    duration: float
+        duration of the utterance
+    emotion: list of dicts
+        the ground truth emotion and its duration,
         e.g. [{'emo': 'angry', 'start': 1.016, 'end': 6.336}]
 
     Returns
@@ -222,7 +235,6 @@ def distribute_overlap(lol):
     >>> diar.distribute_overlap(lol)
     [['r1', 5.5, 8.5, 's1'], ['r1', 8.5, 11.0, 's2'], ['r1', 11.5, 12.5, 's2'], ['r1', 12.5, 15.0, 's1']]
     """
-
     new_lol = []
     sseg = lol[0]
 

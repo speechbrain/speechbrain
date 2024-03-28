@@ -28,7 +28,8 @@ test_data: !ref <output_folder>/test.csv
 wav2vec2_hub: TencentGameMate/chinese-wav2vec2-large
 wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
-# Training parameters
+####################### Training Parameters ####################################
+
 number_of_epochs: 80
 lr: 1.0
 lr_wav2vec: 0.0001
@@ -76,7 +77,8 @@ tokenizer: !apply:transformers.BertTokenizer.from_pretrained
 # bert-base-chinese tokens length
 output_neurons: 21128
 
-# Decoding parameters
+############################## Decoding ########################################
+
 # Be sure that the bos and eos index match with the BPEs ones
 # Decoding parameters
 test_searcher: !name:speechbrain.decoders.CTCBeamSearcher
@@ -98,64 +100,37 @@ beta: 0.5
 # which Chinese writing normally does not do.
 # If remove_spaces, spaces are removed
 # from the transcript before computing CER.
-# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
    limit: !ref <number_of_epochs>
 
-# Speed perturbation
-speed_changes: [90, 100, 110]  # List of speed changes for time-stretching
+############################## Augmentations ###################################
 
+# Speed perturbation
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
    orig_freq: !ref <sample_rate>
-   speeds: !ref <speed_changes>
 
 # Time Drop
-time_drop_length_low: 35  # Min length for temporal chunk to drop in spectrogram
-time_drop_length_high: 45  # Max length for temporal chunk to drop in spectrogram
-time_drop_count_low: 2  # Min number of chunks to drop in time in the spectrogram
-time_drop_count_high: 2  # Max number of chunks to drop in time in the spectrogram
-time_drop_replace: "zeros"  # Method of dropping chunks
-
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-   drop_length_low: !ref <time_drop_length_low>
-   drop_length_high: !ref <time_drop_length_high>
-   drop_count_low: !ref <time_drop_count_low>
-   drop_count_high: !ref <time_drop_count_high>
-   replace: !ref <time_drop_replace>
-   dim: 1
+   drop_length_low: 35
+   drop_length_high: 45
+   drop_count_low: 2
+   drop_count_high: 2
 
 # Frequency Drop
-freq_drop_length_low: 25  # Min length for chunks to drop in frequency in the spectrogram
-freq_drop_length_high: 35  # Max length for chunks to drop in frequency in the spectrogram
-freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
-freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
-freq_drop_replace: "zeros"  # Method of dropping chunks
-
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-   drop_length_low: !ref <freq_drop_length_low>
-   drop_length_high: !ref <freq_drop_length_high>
-   drop_count_low: !ref <freq_drop_count_low>
-   drop_count_high: !ref <freq_drop_count_high>
-   replace: !ref <freq_drop_replace>
+   drop_length_low: 25
+   drop_length_high: 35
+   drop_count_low: 2
+   drop_count_high: 2
    dim: 2
 
 # Time warp
-time_warp_window: 5  # Length of time warping window
-time_warp_mode: "bicubic"  # Time warping method
-
 time_warp: !new:speechbrain.augment.freq_domain.Warping
-   warp_window: !ref <time_warp_window>
-   warp_mode: !ref <time_warp_mode>
-   dim: 1
 
 fea_augment: !new:speechbrain.augment.augmenter.Augmenter
-   parallel_augment: False
-   concat_original: False
-   repeat_augment: 1
-   shuffle_augmentations: False
    min_augmentations: 3
    max_augmentations: 3
    augment_prob: 1.0
@@ -163,6 +138,8 @@ fea_augment: !new:speechbrain.augment.augmenter.Augmenter
       !ref <time_drop>,
       !ref <freq_drop>,
       !ref <time_warp>]
+
+############################## Models ##########################################
 
 enc: !new:speechbrain.nnet.containers.Sequential
    input_shape: [null, null, !ref <wav2vec_output_dim>]
@@ -229,6 +206,8 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
    improvement_threshold: 0.0025
    annealing_factor: 0.9
    patient: 0
+
+############################## Logging and Pretrainer ##########################
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>

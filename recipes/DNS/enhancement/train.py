@@ -148,7 +148,8 @@ class Enhancement(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
                 ):
                     predictions, clean = self.compute_forward(
                         noisy, clean, sb.Stage.TRAIN, noise
@@ -284,7 +285,7 @@ class Enhancement(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            # Save valid logs in TensorBoard
+            # Save valid logs in torch.TensorBoard
             valid_stats = {
                 "Epochs": epoch,
                 "Valid SI-SNR": stage_loss,
@@ -317,7 +318,8 @@ class Enhancement(sb.Brain):
                 self.checkpointer.save_checkpoint(meta={"pesq": stats["pesq"]})
             else:
                 self.checkpointer.save_and_keep_only(
-                    meta={"pesq": stats["pesq"]}, max_keys=["pesq"],
+                    meta={"pesq": stats["pesq"]},
+                    max_keys=["pesq"],
                 )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -374,7 +376,7 @@ class Enhancement(sb.Brain):
         return noisy, clean
 
     def cut_signals(self, noisy, clean):
-        """This function selects a random segment of a given length withing the noisy.
+        """This function selects a random segment of a given length within the noisy.
         The corresponding clean are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -692,7 +694,11 @@ def dataio_prep(hparams):
         ]
 
         combined_dataset = (
-            wds.WebDataset(urls, shardshuffle=True, cache_dir=cache_dir,)
+            wds.WebDataset(
+                urls,
+                shardshuffle=True,
+                cache_dir=cache_dir,
+            )
             .repeat()
             .shuffle(1000)
             .decode("pil")
@@ -721,7 +727,8 @@ def dataio_prep(hparams):
 
     baseline_data = (
         wds.WebDataset(
-            hparams["baseline_shards"], cache_dir=hparams["shard_cache_dir"],
+            hparams["baseline_shards"],
+            cache_dir=hparams["shard_cache_dir"],
         )
         .repeat()
         .shuffle(1000)
@@ -830,7 +837,7 @@ if __name__ == "__main__":
     ## Save enhanced sources of baseline noisy testclips
     def save_baseline_audio(snt_id, predictions):
         "saves the  estimated sources on disk"
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(
             hparams["save_folder"], "baseline_audio_results"
         )
@@ -852,7 +859,7 @@ if __name__ == "__main__":
         baseline_data, **hparams["dataloader_opts_test"]
     )
 
-    # Loop over all noisy baseline shards and save the enahanced clips
+    # Loop over all noisy baseline shards and save the enhanced clips
     print("Saving enhanced sources (baseline set)")
     with tqdm(test_loader, dynamic_ncols=True) as t:
         for i, batch in enumerate(t):

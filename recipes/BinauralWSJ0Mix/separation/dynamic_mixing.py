@@ -81,7 +81,6 @@ def dynamic_mix_data_prep(hparams):
         )
 
         for i, spk_file in enumerate(spk_files):
-
             # select random offset
             length = torchaudio.info(spk_file).num_frames
             start = 0
@@ -91,7 +90,9 @@ def dynamic_mix_data_prep(hparams):
                 stop = start + minlen
 
             tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
+                spk_file,
+                frame_offset=start,
+                num_frames=stop - start,
             )
 
             tmp = tmp[0]  # * peak  # remove channel dim and normalize
@@ -136,7 +137,6 @@ def dynamic_mix_data_prep(hparams):
                 azimuth = np.random.choice(azimuth_list)
 
                 for i, loc in enumerate(["left", "right"]):
-
                     hrtf_file = os.path.join(
                         subject_path,
                         "{}az{}.wav".format(
@@ -152,7 +152,7 @@ def dynamic_mix_data_prep(hparams):
 
             # Make relative source energy same with original
             spatial_scaling = torch.sqrt(
-                torch.sum(tmp ** 2) * 2 / torch.sum(tmp_bi ** 2)
+                torch.sum(tmp**2) * 2 / torch.sum(tmp_bi**2)
             )
             sources.append(tmp_bi * spatial_scaling)
 

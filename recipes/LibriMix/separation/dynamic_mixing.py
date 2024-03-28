@@ -35,7 +35,6 @@ def build_spk_hashtable_librimix(hparams):
         == hparams["sample_rate"]
     )
     for utt in tqdm(libri_utterances):
-
         path = os.path.normpath(utt)
         path_list = path.split(os.sep)
         spk_id = path_list[-3]
@@ -174,7 +173,9 @@ def dynamic_mix_data_prep_librimix(hparams):
                 stop = start + minlen
 
             tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
+                spk_file,
+                frame_offset=start,
+                num_frames=stop - start,
             )
             tmp = tmp[0].numpy()
             tmp = normalize(tmp)

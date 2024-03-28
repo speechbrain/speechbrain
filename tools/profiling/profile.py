@@ -11,6 +11,7 @@ Run from within this directory (yaml defines an example audio w/ relative path):
 Author:
     * Andreas Nautsch 2022
 """
+
 import sys
 import torch
 import speechbrain as sb
@@ -21,18 +22,16 @@ from speechbrain.utils.profiling import (
     report_time,
     report_memory,
 )
-from speechbrain.inference import (
-    Pretrained,
-    EncoderDecoderASR,
-    EncoderASR,
-    EndToEndSLU,
-    EncoderClassifier,
-    SpeakerRecognition,
-    VAD,
-    SepformerSeparation,
-    SpectralMaskEnhancement,
-    SNREstimator,
-)
+
+from speechbrain.inference.interfaces import Pretrained
+from speechbrain.inference.ASR import EncoderDecoderASR, EncoderASR
+from speechbrain.inference.SLU import EndToEndSLU
+from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.speaker import SpeakerRecognition
+from speechbrain.inference.VAD import VAD
+from speechbrain.inference.separation import SepformerSeparation
+from speechbrain.inference.enhancement import SpectralMaskEnhancement
+from speechbrain.inference.metrics import SNREstimator
 from typing import Optional, List
 
 
@@ -56,12 +55,12 @@ def get_funcs_to_unary_input_classifier(
     def prepare(batch_size, duration, sampling_rate=16000):
         """Prepares input data."""
         unary_input = {
-            batch_label: example[: duration * sampling_rate].repeat(
-                batch_size, 1
-            )
-            if example is not None
-            else torch.rand(
-                (batch_size, duration * sampling_rate), device=device
+            batch_label: (
+                example[: duration * sampling_rate].repeat(batch_size, 1)
+                if example is not None
+                else torch.rand(
+                    (batch_size, duration * sampling_rate), device=device
+                )
             ),
         }
         if lengths_label is not None:
@@ -69,7 +68,7 @@ def get_funcs_to_unary_input_classifier(
         return unary_input
 
     def call(model, **kwargs):
-        """Calls the specified funnction."""
+        """Calls the specified function."""
         getattr(model, call_func)(**kwargs)
 
     return prepare, call, pretrained
@@ -84,7 +83,6 @@ def get_funcs_to_profile(
     prepare(batch_size, duration, sampling_rate=16000) - function handle to create dimensioned batch input
     call(model, **kwargs) - function handle to the inference function to be profiled
     """
-
     # Put all data directly to cpu/cuda
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -198,10 +196,12 @@ def get_funcs_to_profile(
         def prepare(batch_size, duration, num_spks=2, sampling_rate=16000):
             """Prepares input data."""
             return {
-                "mix": example[: duration * sampling_rate].repeat(batch_size, 1)
-                if example is not None
-                else torch.rand(
-                    (batch_size, duration * sampling_rate), device=device
+                "mix": (
+                    example[: duration * sampling_rate].repeat(batch_size, 1)
+                    if example is not None
+                    else torch.rand(
+                        (batch_size, duration * sampling_rate), device=device
+                    )
                 ),
                 "predictions": torch.rand(
                     (batch_size, duration * sampling_rate, num_spks),
@@ -270,8 +270,8 @@ def profile_pretrained(
     # Prepare table to write out profiling information
     realtime_factor = []
     memory_peaks = []
-    us_in_s = 1000.0 ** 2
-    byte_in_GB = 1024.0 ** 3
+    us_in_s = 1000.0**2
+    byte_in_GB = 1024.0**3
 
     # Comprehensive benchmarking
     for d, duration in enumerate(audio_mockup_secs):
@@ -337,7 +337,7 @@ def profile_pretrained(
 
     # Store tables
     print("\n\tReal-time factor")
-    with open("bechmark_realtime_factors.md", "w") as f:
+    with open("benchmark_realtime_factors.md", "w") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=realtime_factor,
@@ -347,7 +347,7 @@ def profile_pretrained(
         )
 
     print("\n\tPeak memory")
-    with open("bechmark_memory_peaks.md", "w") as f:
+    with open("benchmark_memory_peaks.md", "w") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=memory_peaks,

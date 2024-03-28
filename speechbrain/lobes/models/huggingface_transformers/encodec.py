@@ -140,9 +140,14 @@ class Encodec(HFTransformersInterface):
         sample : torch.Tensor
             A (Batch x Samples) or (Batch x Channel x Samples)
             audio sample
-
         length : torch.Tensor
             A tensor of relative lengths
+
+        Returns
+        -------
+        emb_mean : torch.Tensor
+        emb_std : torch.Tensor
+            Norm stats for embeddings.
         """
         if length is None:
             length = torch.ones(len(sample), device=sample.device)
@@ -366,6 +371,8 @@ class Encodec(HFTransformersInterface):
         emb : torch.Tensor
             A (Batch x Length x Heads x Embedding) tensor of
             raw vector embeddings
+        length : torch.Tensor
+            The corresponding lengths of the inputs.
 
         Returns
         -------

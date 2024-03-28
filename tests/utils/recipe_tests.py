@@ -4,6 +4,7 @@ Authors
  * Mirco Ravanelli 2022
  * Andreas Nautsch 2022, 2023
 """
+
 import os
 import re
 import csv
@@ -30,22 +31,22 @@ def check_row_for_test(row, filters_fields, filters, test_field):
         will only run tests for ASR recipes.
     filters: list
         See above.
-    test_field: string
+    test_field: str
         Key of the input dictionary that contains the test flags.
 
     Returns
-    ---------
+    -------
     test: bool
         True if the line must be tested, False otherwise.
     """
     test = True
     for i, field in enumerate(filters_fields):
         field_values = filters[i]
-        if type(field_values) == str:
+        if isinstance(field_values, str):
             # ... AND ... filter
-            if not (field_values == row[field]):
+            if not field_values == row[field]:
                 test = False
-        elif type(field_values) == list:  # type(field) == list
+        elif isinstance(field_values, list):
             # ... AND (... OR ...) ... filter; at least one entry of the list matches
             test_flag = False
             for filt in field_values:
@@ -95,13 +96,13 @@ def prepare_test(
         Field of the csv recipe file containing optional messages to show before running the test.
     filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
 
     Returns
-    ---------
+    -------
     test_script: dict
         A Dictionary containing recipe IDs as keys and test_scripts as values.
     test_hparam: dict
@@ -115,7 +116,6 @@ def prepare_test(
     test_message: dict
         A dictionary containing recipe IDs as keys and the checks as values.
     """
-
     # Dictionary initialization
     test_script = {}
     test_hparam = {}
@@ -182,18 +182,17 @@ def check_files(
         The pattern used to extract the list of files to check from check_str.
 
     Returns
-    ---------
+    -------
     check: bool
         True if all the files are found, False otherwise.
     """
-
     check = True
     files_to_check = re.search(pattern, check_str)
     files_to_check = files_to_check.group(1).split(",")
 
     for file_to_check in files_to_check:
         check_path = os.path.join(output_folder, file_to_check)
-        if not (os.path.exists(check_path)):
+        if not os.path.exists(check_path):
             print(
                 "\tERROR: The recipe %s does not contain the expected file %s"
                 % (recipe_id, check_path)
@@ -225,11 +224,10 @@ def check_performance(
         The pattern used to extract the list of files to check from check_str.
 
     Returns
-    ---------
+    -------
     check: bool
         True if all the files are found, False otherwise.
     """
-
     check = True
     performance_to_check = re.search(pattern, check_str)
     if performance_to_check is None:
@@ -243,7 +241,7 @@ def check_performance(
     threshold = performance_to_check[2].strip()
     epoch = performance_to_check[3].strip()
 
-    if not (os.path.exists(filename)):
+    if not os.path.exists(filename):
         print(
             "\tERROR: The file %s of recipe %s does not exist (needed for performance checks)"
             % (filename, recipe_id)
@@ -255,7 +253,7 @@ def check_performance(
     with open(filename) as file:
         lines = file.readlines()
 
-    # Fitler the lines
+    # Filter the lines
     lines_filt = []
     last_line = ""
     for line in lines:
@@ -291,7 +289,7 @@ def check_performance(
         var_value = float(var_value)
         check = check_threshold(threshold, var_value)
 
-        if not (check):
+        if not check:
             print(
                 "\tERROR: The variable %s of file %s (recipe %s) violated the specified threshold (%s %s)"
                 % (variable, filename, recipe_id, var_value, threshold)
@@ -316,15 +314,17 @@ def extract_value(string, key):
         The key argument to extract.
 
     Returns
-    ---------
+    -------
     value: float or str
         The value corresponding to the specified key.
     """
     escaped_key = re.escape(key)
 
     # Create the regular expression pattern to match the argument and its corresponding value
-    pattern = r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
-        escaped_key
+    pattern = (
+        r"(?P<key>{})\s*:\s*(?P<value>[-+]?\d*\.\d+([eE][-+]?\d+)?)".format(
+            escaped_key
+        )
     )
 
     # Search for the pattern in the input string
@@ -348,11 +348,10 @@ def check_threshold(threshold, value):
         Float corresponding to the value to test
 
     Returns
-    ---------
+    -------
     bool
         True if the constraint is satisfied, False otherwise.
     """
-
     # Get threshold value:
     th_value = float(
         threshold.strip().replace("=", "").replace(">", "").replace("<", "")
@@ -391,7 +390,7 @@ def run_test_cmd(cmd, stdout_file, stderr_file):
         File where standard error is stored.
 
     Returns
-    ---------
+    -------
     rc: bool
         The return code obtained after running the command. If 0, the test is
         run without errors. If >0 the execution failed.
@@ -440,7 +439,7 @@ def run_recipe_tests(
         Folder where the output of the tests are saved.
     filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
@@ -462,7 +461,7 @@ def run_recipe_tests(
     """
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
-    print("Test ouputs will be put in %s" % (output_folder))
+    print("Test outputs will be put in %s" % (output_folder))
 
     # Read the csv recipe file and detect which tests we have to run
     (
@@ -623,14 +622,11 @@ def download_only_test(
         A dictionary containing recipe IDs as keys and the checks as values.
     run_opts: str
         Running options to append to each test.
-    run_tests_with_checks_only: str
-            Running options to append to each test.
     run_tests_with_checks_only: bool
         If True skips all tests that do not have performance check criteria defined.
     output_folder: path
         The output folder where to store all the test outputs.
     """
-
     for i, recipe_id in enumerate(test_script.keys()):
         # If we are interested in performance checks only, skip
         check_str = test_check[recipe_id].strip()
@@ -699,33 +695,32 @@ def load_yaml_test(
         Field of the csv recipe file containing the path of the script to run.
     hparam_field: str
         Field of the csv recipe file containing the path of the hparam file.
-    test_field: string
+    test_field: str
         Field of the csv recipe file containing the test flags.
     filters_fields: list
         This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fileds=['Task'] and filters=['ASR'])
+        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
         will only run tests for ASR recipes.
     filters: list
         See above.
     avoid_list: list
         List of hparam file not to check.
-    rir_folder:
+    rir_folder: str
         This overrides the rir_folder; rir_path, and openrir_folder usually specified in the hparam files.
-    data_folder:
+    data_folder: str
         This overrides the data_folder usually specified in the hparam files.
-    output_folder:
+    output_folder: str
         This overrides the output_folder usually specified in the hparam files.
 
     Returns
-    ---------
+    -------
     check: True
         True if all the hparam files are loaded correctly, False otherwise.
     """
-
     # Get current working directory
     cwd = os.getcwd()
 
-    # Set data_foler and output folder
+    # Set data_folder and output folder
     data_folder = os.path.join(cwd, data_folder)
     output_folder = os.path.join(cwd, output_folder)
     rir_folder = os.path.join(cwd, rir_folder)

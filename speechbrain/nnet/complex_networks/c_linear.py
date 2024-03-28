@@ -113,6 +113,10 @@ class CLinear(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input to transform linearly.
+
+        Returns
+        -------
+        The complex linear transformation of the inputs.
         """
         wx = complex_linear_op(x, self.real_weight, self.imag_weight, self.b)
 

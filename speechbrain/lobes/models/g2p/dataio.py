@@ -9,6 +9,7 @@ Authors
 
 from functools import reduce
 from speechbrain.wordemb.util import expand_to_chars
+from torch import nn
 import speechbrain as sb
 import torch
 import re
@@ -44,17 +45,15 @@ def grapheme_pipeline(char, grapheme_encoder=None, uppercase=True):
 
     Arguments
     ---------
-    graphemes: list
-        a list of available graphemes
+    char: str
+        A list of characters to encode.
     grapheme_encoder: speechbrain.dataio.encoder.TextEncoder
         a text encoder for graphemes. If not provided,
-    takes: str
-        the name of the input
     uppercase: bool
         whether or not to convert items to uppercase
 
-    Returns
-    -------
+    Yields
+    ------
     grapheme_list: list
         a raw list of graphemes, excluding any non-matching
         labels
@@ -87,18 +86,18 @@ def tokenizer_encode_pipeline(
 
     Arguments
     ---------
+    seq: list
+        List of tokens to encode.
     tokenizer: speechbrain.tokenizer.SentencePiece
         a tokenizer instance
     tokens: str
         available tokens
-    takes: str
-        the name of the pipeline input providing raw text
-    provides_prefix: str
-        the prefix used for outputs
     wordwise: str
-        whether tokenization is peformed on the whole sequence
+        whether tokenization is performed on the whole sequence
         or one word at a time. Tokenization can produce token
         sequences in which a token may span multiple words
+    word_separator: str
+        The substring to use as a separator between words.
     token_space_index: int
         the index of the space token
     char_map: dict
@@ -109,8 +108,8 @@ def tokenizer_encode_pipeline(
         "N", "D"]). The character map makes it possible to map these
         to arbitrarily selected characters
 
-    Returns
-    -------
+    Yields
+    ------
     token_list: list
         a list of raw tokens
     encoded_list: list
@@ -147,7 +146,7 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     sequence: iterable
         the original sequence
     input_separator: str
-        the separator used in the input seauence
+        the separator used in the input sequence
     token_separator: str
         the token separator used in the output sequence
 
@@ -167,7 +166,9 @@ def _wordwise_tokenize(tokenizer, sequence, input_separator, token_separator):
     return reduce((lambda left, right: left + sep_list + right), encoded_words)
 
 
-def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
+def _wordwise_detokenize(
+    tokenizer, sequence, output_separator, token_separator
+):
     """Detokenizes a sequence wordwise
 
     Arguments
@@ -177,7 +178,7 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
     sequence: iterable
         the original sequence
     output_separator: str
-        the separator used in the output seauence
+        the separator used in the output sequence
     token_separator: str
         the token separator used in the output sequence
 
@@ -185,7 +186,6 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
     -------
     result: torch.Tensor
         the result
-
     """
     if isinstance(sequence, str) and sequence == "":
         return ""
@@ -198,7 +198,7 @@ def _wordwise_detokenize(tokenizer, sequence, output_separtor, token_separator):
     encoded_words = [
         tokenizer.sp.decode_ids(word_tokens) for word_tokens in words
     ]
-    return output_separtor.join(encoded_words)
+    return output_separator.join(encoded_words)
 
 
 def _split_list(items, separator):
@@ -209,11 +209,12 @@ def _split_list(items, separator):
     ---------
     items: sequence
         any sequence that supports indexing
-
-    Results
-    -------
     separator: str
         the separator token
+
+    Yields
+    ------
+    item
     """
     if items is not None:
         last_idx = -1
@@ -227,7 +228,7 @@ def _split_list(items, separator):
 
 def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     """
-    Initializs the phoneme encoder with EOS/BOS sequences
+    Initializes the phoneme encoder with EOS/BOS sequences
 
     Arguments
     ---------
@@ -246,7 +247,6 @@ def enable_eos_bos(tokens, encoder, bos_index, eos_index):
     -------
     encoder: speechbrain.dataio.encoder.TextEncoder
         an encoder
-
     """
     if encoder is None:
         encoder = sb.dataio.encoder.TextEncoder()
@@ -277,12 +277,14 @@ def phoneme_pipeline(phn, phoneme_encoder=None):
 
     Arguments
     ---------
+    phn: list
+        List of phonemes
     phoneme_encoder: speechbrain.datio.encoder.TextEncoder
         a text encoder instance (optional, if not provided, a new one
         will be created)
 
-    Returns
-    -------
+    Yields
+    ------
     phn: list
         the original list of phonemes
     phn_encoded_list: list
@@ -308,9 +310,8 @@ def add_bos_eos(seq=None, encoder=None):
     encoder: speechbrain.dataio.encoder.TextEncoder
         an encoder instance
 
-
-    Returns
-    -------
+    Yields
+    ------
     seq_eos: torch.Tensor
         the sequence, with the EOS token added
     seq_bos: torch.Tensor
@@ -370,7 +371,7 @@ def phoneme_decoder_pipeline(hyps, phoneme_encoder):
 
 
 def char_range(start_char, end_char):
-    """Produces a list of consequtive characters
+    """Produces a list of consecutive characters
 
     Arguments
     ---------
@@ -420,7 +421,7 @@ def flip_map(map_dict):
     Returns
     -------
     reverse_map_dict: dict
-        a dictioanry with keys and values flipped
+        a dictionary with keys and values flipped
     """
     return {value: key for key, value in map_dict.items()}
 
@@ -458,12 +459,13 @@ def char_map_detokenize(
         a tokenizer instance
     token_space_index: int
         the index of the "space" token
+    wordwise: bool
+        Whether to apply detokenize per word.
 
     Returns
     -------
     f: callable
         the tokenizer function
-
     """
 
     def detokenize_wordwise(item):
@@ -517,13 +519,54 @@ def _map_tokens_item(tokens, char_map):
     -------
     result: list
         a list of tokens
-
     """
     return [char_map[char] for char in tokens]
 
 
+class LazyInit(nn.Module):
+    """A lazy initialization wrapper
+
+    Arguments
+    ---------
+    init : callable
+        The function to initialize the underlying object
+    """
+
+    def __init__(self, init):
+        super().__init__()
+        self.instance = None
+        self.init = init
+        self.device = None
+
+    def __call__(self):
+        """Initializes the object instance, if necessary
+        and returns it."""
+        if self.instance is None:
+            self.instance = self.init()
+        return self.instance
+
+    def to(self, device):
+        """Moves the underlying object to the specified device
+
+        Arguments
+        ---------
+        device : str | torch.device
+            the device
+
+        Returns
+        -------
+        self
+        """
+        super().to(device)
+        if self.instance is None:
+            self.instance = self.init()
+        if hasattr(self.instance, "to"):
+            self.instance = self.instance.to(device)
+        return self
+
+
 def lazy_init(init):
-    """A wrapper to ensure that the specified object is initialzied
+    """A wrapper to ensure that the specified object is initialized
     only once (used mainly for tokenizers that train when the
     constructor is called
 
@@ -537,16 +580,7 @@ def lazy_init(init):
     instance: object
         the object instance
     """
-    instance = None
-
-    def f():
-        """The initializer function"""
-        nonlocal instance
-        if instance is None:
-            instance = init()
-        return instance
-
-    return f
+    return LazyInit(init)
 
 
 def get_sequence_key(key, mode):
@@ -557,8 +591,12 @@ def get_sequence_key(key, mode):
     ---------
     key: str
         the key (e.g. "graphemes", "phonemes")
-    mode:
-        the mode/sufix (raw, eos/bos)
+    mode: str
+        the mode/suffix (raw, eos/bos)
+
+    Returns
+    -------
+    key if ``mode=="raw"`` else ``f"{key}_{mode}"``
     """
     return key if mode == "raw" else f"{key}_{mode}"
 
@@ -570,13 +608,16 @@ def phonemes_to_label(phns, decoder):
 
     Arguments
     ---------
-    phn: sequence
+    phns: torch.Tensor
         a batch of phoneme sequences
+    decoder: Callable
+        Converts tensor to phoneme label strings.
 
     Returns
     -------
     result: list
-        a list of strings corresponding to the phonemes provided"""
+        a list of strings corresponding to the phonemes provided
+    """
 
     phn_decoded = decoder(phns)
     return [" ".join(remove_special(item)) for item in phn_decoded]
@@ -614,9 +655,9 @@ def word_emb_pipeline(
     ---------
     txt: str
         the raw text
-    grapheme_encoded: torch.tensor
+    grapheme_encoded: torch.Tensor
         the encoded graphemes
-    grapheme_encoded_len: torch.tensor
+    grapheme_encoded_len: torch.Tensor
         encoded grapheme lengths
     grapheme_encoder: speechbrain.dataio.encoder.TextEncoder
         the text encoder used for graphemes
@@ -627,7 +668,7 @@ def word_emb_pipeline(
 
     Returns
     -------
-    char_word_emb: torch.tensor
+    char_word_emb: torch.Tensor
         Word embeddings, expanded to the character dimension
     """
     char_word_emb = None

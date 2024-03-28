@@ -287,7 +287,7 @@ def test_average_ckpts(tmpdir):
 
     recoverer.recover_if_possible()
 
-    checkpoints = recoverer.find_checkpoints(max_num_checkpoints=N_avg,)
+    checkpoints = recoverer.find_checkpoints(max_num_checkpoints=N_avg)
 
     model_state_dict = average_checkpoints(checkpoints, "recoverable")
 
@@ -455,11 +455,11 @@ def parallel_checkpoint(rank, world_size, tmpdir):
         assert torch.allclose(model(inp), prev_output)
 
 
-# def test_parallel_checkpoint(tmpdir):
-#    world_size = 2
-#    torch.multiprocessing.spawn(
-#        parallel_checkpoint,
-#        args=(world_size, tmpdir),
-#        nprocs=world_size,
-#        join=True,
-#    )
+def test_parallel_checkpoint(tmpdir):
+    world_size = 2
+    torch.multiprocessing.spawn(
+        parallel_checkpoint,
+        args=(world_size, tmpdir),
+        nprocs=world_size,
+        join=True,
+    )

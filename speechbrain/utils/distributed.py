@@ -5,6 +5,7 @@ Authors:
  * Aku Rouhe 2020
  * Peter Plantinga 2023
 """
+
 import datetime
 import os
 import torch
@@ -120,6 +121,32 @@ def ddp_barrier():
         torch.distributed.barrier()
 
 
+def ddp_broadcast(communication_object, src=0):
+    """In DDP mode, this function will broadcast an object to all
+    processes.
+
+    Arguments
+    ---------
+    communication_object: Any
+        The object to be communicated to all processes. Must be picklable.
+        See docs for ``torch.distributed.broadcast_object_list()``
+    src: int
+        The rank which holds the object to be communicated.
+
+    Returns
+    -------
+    The communication_object passed on rank src.
+    """
+    if MAIN_PROC_ONLY >= 1 or not torch.distributed.is_initialized():
+        return communication_object
+
+    # Wrapping object in a list is required for preventing
+    # a copy of the object, maintaining a pointer instead
+    communication_list = [communication_object]
+    torch.distributed.broadcast_object_list(communication_list, src=src)
+    return communication_list[0]
+
+
 def ddp_init_group(run_opts):
     """This function will initialize the ddp group if
     distributed_launch bool is given in the python command line.
@@ -132,6 +159,10 @@ def ddp_init_group(run_opts):
     ---------
     run_opts: list
         A list of arguments to parse, most often from `sys.argv[1:]`.
+
+    Returns
+    -------
+    None
     """
     rank = os.environ.get("RANK")
     local_rank = os.environ.get("LOCAL_RANK")
@@ -158,7 +189,7 @@ def ddp_init_group(run_opts):
     else:
         raise ValueError(
             run_opts["distributed_backend"]
-            + " communcation protocol doesn't exist."
+            + " communication protocol doesn't exist."
         )
 
     # rank arg is used to set the right rank of the current process for ddp.

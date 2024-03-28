@@ -23,7 +23,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
 
-# Tensorboard logs
+# torch.Tensorboard logs
 use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 
@@ -39,7 +39,7 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 200
 batch_size: 16
 lr: 0.0002

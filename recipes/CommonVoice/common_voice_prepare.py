@@ -14,7 +14,6 @@ import os
 import csv
 import re
 import logging
-import torchaudio
 import unicodedata
 import functools
 
@@ -36,7 +35,8 @@ def prepare_common_voice(
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
-    Download: https://voice.mozilla.org/en/datasets
+    Download: https://commonvoice.mozilla.org/en
+
     Arguments
     ---------
     data_folder : str
@@ -57,6 +57,11 @@ def prepare_common_voice(
         Specify the language for text normalization.
     skip_prep: bool
         If True, skip data preparation.
+
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> from recipes.CommonVoice.common_voice_prepare import prepare_common_voice
@@ -101,14 +106,13 @@ def prepare_common_voice(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
     save_csv_test = save_folder + "/test.csv"
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
         logger.info(msg)
 
@@ -128,15 +132,23 @@ def prepare_common_voice(
         [save_csv_train, save_csv_dev, save_csv_test],
     )
     for tsv_file, save_csv in file_pairs:
-        create_csv(
-            tsv_file, save_csv, data_folder, accented_letters, language,
-        )
+        create_csv(tsv_file, save_csv, data_folder, accented_letters, language)
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
     Detects if the Common Voice data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_csv_train : str
+        The train csv file
+    save_csv_dev : str
+        The dev csv file
+    save_csv_test : str
+        The test csv file
+
     Returns
     -------
     bool
@@ -167,19 +179,13 @@ class CVRow:
 
 
 def process_line(line, data_folder, language, accented_letters):
-    # Path is at indice 1 in Common Voice tsv files. And .mp3 files
+    # Path is at index 1 in Common Voice tsv files. And .mp3 files
     # are located in datasets/lang/clips/
     mp3_path = data_folder + "/clips/" + line.split("\t")[1]
 
     file_name = mp3_path.split(".")[-2].split("/")[-1]
     spk_id = line.split("\t")[0]
     snt_id = file_name
-
-    # Setting torchaudio backend to sox-io (needed to read mp3 files)
-    if torchaudio.get_audio_backend() != "sox_io":
-        logger.warning("This recipe needs the sox-io backend of torchaudio")
-        logger.warning("The torchaudio backend is changed to sox_io")
-        torchaudio.set_audio_backend("sox_io")
 
     # Reading the signal (to retrieve duration in seconds)
     if os.path.isfile(mp3_path):
@@ -233,18 +239,20 @@ def create_csv(
 ):
     """
     Creates the csv file given a list of wav files.
+
     Arguments
     ---------
     orig_tsv_file : str
         Path to the Common Voice tsv file (standard file).
+    csv_file : str
+        New csv file.
     data_folder : str
         Path of the CommonVoice dataset.
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-    Returns
-    -------
-    None
+    language : str
+        Language code, e.g. "en"
     """
 
     # Check if the given files exists
@@ -333,9 +341,7 @@ def language_specific_preprocess(language, words):
         )  # replace 0000SS0000 back to ß as its initial presence in the corpus
 
     elif language == "fr":  # SM
-        words = re.sub(
-            "[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words
-        )
+        words = re.sub("[^’'A-Za-z0-9À-ÖØ-öø-ÿЀ-ӿéæœâçèàûî]+", " ", words)
         words = words.replace("’", "'")
         words = words.replace("é", "é")
         words = words.replace("æ", "ae")
@@ -380,13 +386,15 @@ def language_specific_preprocess(language, words):
         words = words.replace("Z'", "Z")
         words = words.replace("O'", "O")
         words = words.replace("X'", "X")
-        words = words.replace("AUJOURD' HUI", "AUJOURD'HUI")
+        words = words.replace(
+            "AUJOURD' HUI", "AUJOURD'HUI"  # cspell:disable-line
+        )
     elif language == "ar":
         HAMZA = "\u0621"
         ALEF_MADDA = "\u0622"
         ALEF_HAMZA_ABOVE = "\u0623"
         letters = (
-            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"
+            "ابتةثجحخدذرزژشسصضطظعغفقكلمنهويىءآأؤإئ"  # cspell:disable-line
             + HAMZA
             + ALEF_MADDA
             + ALEF_HAMZA_ABOVE
@@ -397,7 +405,7 @@ def language_specific_preprocess(language, words):
         ALEF_MADDA = "\u0622"
         ALEF_HAMZA_ABOVE = "\u0623"
         letters = (
-            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"
+            "ابپتةثجحخچدذرزژسشصضطظعغفقگکلمنهویىءآأؤإئ"  # cspell:disable-line
             + HAMZA
             + ALEF_MADDA
             + ALEF_HAMZA_ABOVE
@@ -416,6 +424,7 @@ def language_specific_preprocess(language, words):
     elif language == "es":
         # Fix the following error in dataset large:
         # KeyError: 'The item En noviembre lanzaron Queen Elizabeth , coproducida por Foreign Noi$e . requires replacements which were not supplied.'
+        # cspell:ignore noviembre lanzaron coproducida
         words = words.replace("$", "s")
     return words
 
@@ -424,9 +433,12 @@ def check_commonvoice_folders(data_folder):
     """
     Check if the data folder actually contains the Common Voice dataset.
     If not, raises an error.
-    Returns
-    -------
-    None
+
+    Arguments
+    ---------
+    data_folder : str
+        The folder containing the data to check
+
     Raises
     ------
     FileNotFoundError

@@ -38,7 +38,7 @@ def run_hf_repo_single_node(run_options):
 
     # Instantiate pretrained HF model
     pretrained_hf_asr = EncoderDecoderASR.from_hparams(
-        source=repo, run_opts=deepcopy(run_options),
+        source=repo, run_opts=deepcopy(run_options)
     )
 
     # From HF model card

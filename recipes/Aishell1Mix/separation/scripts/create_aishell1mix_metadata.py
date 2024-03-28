@@ -73,7 +73,7 @@ def main(args):
     md_dir = args.metadata_outdir
     if md_dir is None:
         root = os.path.dirname(aishell1_dir)
-        md_dir = os.path.join(root, f"aishell1mix/metadata")
+        md_dir = os.path.join(root, "aishell1mix/metadata")
     os.makedirs(md_dir, exist_ok=True)
     create_aishell1mix_metadata(
         aishell1_dir, aishell1_md_dir, wham_dir, wham_md_dir, md_dir, n_src
@@ -83,7 +83,7 @@ def main(args):
 def create_aishell1mix_metadata(
     aishell1_dir, aishell1_md_dir, wham_dir, wham_md_dir, md_dir, n_src
 ):
-    """ Generate aishell1mix metadata according to aishell1 metadata """
+    """Generate aishell1mix metadata according to aishell1 metadata"""
 
     # Dataset name
     dataset = f"aishell1mix{n_src}"
@@ -164,7 +164,7 @@ def check_already_generated(md_dir, dataset, to_be_ignored, aishell1_md_files):
 def create_aishell1mix_df(
     aishell1_md_file, aishell1_dir, wham_md_file, wham_dir, n_src
 ):
-    """ Generate aishell1mix dataframe from a aishell1 and wha md file"""
+    """Generate aishell1mix dataframe from a aishell1 and wha md file"""
 
     # Create a dataframe that will be used to generate sources and mixtures
     mixtures_md = pd.DataFrame(columns=["mixture_ID"])
@@ -197,7 +197,7 @@ def create_aishell1mix_df(
         # Do the mixture
         mixture_max = mix(sources_list_norm)
         # Check the mixture for clipping and renormalize if necessary
-        renormalize_loudness, did_clip = check_for_cliping(
+        renormalize_loudness, did_clip = check_for_clipping(
             mixture_max, sources_list_norm
         )
         clip_counter += int(did_clip)
@@ -213,7 +213,7 @@ def create_aishell1mix_df(
 
 
 def set_pairs(aishell1_md_file, wham_md_file, n_src):
-    """ set pairs of sources to make the mixture """
+    """set pairs of sources to make the mixture"""
     # Initialize list for pairs sources
     utt_pairs = []
     noise_pairs = []
@@ -386,7 +386,7 @@ def add_noise(wham_md_file, wham_dir, pair_noise, sources_list, sources_info):
 
 
 def set_loudness(sources_list):
-    """ Compute original loudness and normalise them randomly """
+    """Compute original loudness and normalise them randomly"""
     # Initialize loudness
     loudness_list = []
     # In aishell1 all sources are at 16KHz hence the meter
@@ -424,7 +424,7 @@ def set_loudness(sources_list):
 
 
 def mix(sources_list_norm):
-    """ Do the mixture for min mode and max mode """
+    """Do the mixture for min mode and max mode"""
     # Initialize mixture
     mixture_max = np.zeros_like(sources_list_norm[0])
     for i in range(len(sources_list_norm)):
@@ -432,7 +432,7 @@ def mix(sources_list_norm):
     return mixture_max
 
 
-def check_for_cliping(mixture_max, sources_list_norm):
+def check_for_clipping(mixture_max, sources_list_norm):
     """Check the mixture (mode max) for clipping and re normalize if needed."""
     # Initialize renormalized sources and loudness
     renormalize_loudness = []
@@ -453,7 +453,7 @@ def check_for_cliping(mixture_max, sources_list_norm):
 
 
 def compute_gain(loudness, renormalize_loudness):
-    """ Compute the gain between the original and target loudness"""
+    """Compute the gain between the original and target loudness"""
     gain = []
     for i in range(len(loudness)):
         delta_loudness = renormalize_loudness[i] - loudness[i]
@@ -462,7 +462,7 @@ def compute_gain(loudness, renormalize_loudness):
 
 
 def get_row(sources_info, gain_list, n_src):
-    """ Get new row for each mixture/info dataframe """
+    """Get new row for each mixture/info dataframe"""
     row_mixture = [sources_info["mixtures_id"]]
     row_info = [sources_info["mixtures_id"]]
     for i in range(n_src):

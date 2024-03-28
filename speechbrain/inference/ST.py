@@ -13,6 +13,7 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
 from speechbrain.inference.interfaces import Pretrained
 
@@ -23,6 +24,12 @@ class EncoderDecoderS2UT(Pretrained):
     The class can be used  to  run the entire encoder-decoder S2UT model
     (translate_file()) to translate speech. The given YAML must contains the fields
     specified in the *_NEEDED[] lists.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -117,7 +124,7 @@ class EncoderDecoderS2UT(Pretrained):
         with torch.no_grad():
             wav_lens = wav_lens.to(self.device)
             encoder_out = self.encode_batch(wavs, wav_lens)
-            predicted_tokens, _ = self.mods.decoder(encoder_out, wav_lens)
+            predicted_tokens, _, _, _ = self.mods.decoder(encoder_out, wav_lens)
         return predicted_tokens
 
     def forward(self, wavs, wav_lens):

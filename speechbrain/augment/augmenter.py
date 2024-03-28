@@ -3,6 +3,7 @@
 Authors
  * Mirco Ravanelli 2022
 """
+
 import random
 import logging
 import torch
@@ -95,7 +96,7 @@ class Augmenter(torch.nn.Module):
     >>> chunk_dropper = DropChunk(drop_start=100, drop_end=16000)
     >>> augment = Augmenter(parallel_augment=False, concat_original=False, augmentations=[freq_dropper, chunk_dropper])
     >>> signal = torch.rand([4, 16000])
-    >>> output_signal, lenghts = augment(signal, lengths=torch.tensor([0.2,0.5,0.7,1.0]))
+    >>> output_signal, lengths = augment(signal, lengths=torch.tensor([0.2,0.5,0.7,1.0]))
     """
 
     def __init__(
@@ -205,7 +206,7 @@ class Augmenter(torch.nn.Module):
             self.require_lengths[aug_key] = lengths_arg_exists(aug_fun.forward)
 
     def augment(self, x, lengths, selected_augmentations):
-        """Applies data augmentation on the seleted augmentations.
+        """Applies data augmentation on the selected augmentations.
 
         Arguments
         ---------
@@ -214,7 +215,14 @@ class Augmenter(torch.nn.Module):
         lengths : torch.Tensor
             The length of each sequence in the batch.
         selected_augmentations: dict
-            Dictionary containg the selected augmentation to apply.
+            Dictionary containing the selected augmentation to apply.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Augmented outputs.
+        output_lengths : torch.Tensor
+            The corresponding length of each output.
         """
         next_input = x
         next_lengths = lengths
@@ -264,7 +272,7 @@ class Augmenter(torch.nn.Module):
                 output, output_lengths
             )
         else:
-            # Take the last agumented signal of the pipeline
+            # Take the last augmented signal of the pipeline
             output = out
             output_lengths = out_lengths
 
@@ -279,6 +287,13 @@ class Augmenter(torch.nn.Module):
             input to augment.
         lengths : torch.Tensor
             The length of each sequence in the batch.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Augmented outputs.
+        output_lengths : torch.Tensor
+            The corresponding length of each output.
         """
 
         # Determine whether to apply data augmentation
@@ -394,17 +409,15 @@ class Augmenter(torch.nn.Module):
 
         Arguments
         ---------
-        augmentations : List of torch.Tensor
+        augment_lst : List of torch.Tensor
             List of augmented signals to be concatenated.
-
-        augmentation_lengths : List of torch.Tensor
+        augment_len_lst : List of torch.Tensor
             List of lengths corresponding to the augmented signals.
 
         Returns
         -------
         concatenated_signals : torch.Tensor
             A tensor containing the concatenated signals.
-
         concatenated_lengths : torch.Tensor
             A tensor containing the concatenated signal lengths.
 
@@ -438,20 +451,52 @@ class Augmenter(torch.nn.Module):
 
         return output, output_lengths
 
-    def replicate_labels(self, labels):
+    def replicate_multiple_labels(self, *args):
         """
         Replicates the labels along the batch axis a number of times that
-        corresponds to the number of augmentations.
+        corresponds to the number of augmentations. Indeed parallel and
+        concatenation augmentations alter the time dimension.
 
         Arguments
         ---------
-        labels : torch.Tensor
-            Input label tensor to be replicated.
+        *args : tuple
+            Input label tensors to be replicated. Can be a uniq or a list of
+            torch.Tensors.
 
         Returns
         -------
         augmented_labels: torch.Tensor
-            Labels corresponding to the augmented input.
+            Labels corresponding to the augmented input. Returns as many torch.Tensor
+            as given in input.
+        """
+
+        # Determine whether to apply data augmentation
+        if not self.do_augment:
+            return args
+
+        list_of_augmented_labels = []
+
+        for labels in args:
+            list_of_augmented_labels.append(self.replicate_labels(labels))
+
+        return list_of_augmented_labels
+
+    def replicate_labels(self, labels):
+        """
+        Replicates the labels along the batch axis a number of times that
+        corresponds to the number of augmentations. Indeed parallel and
+        concatenation augmentations alter the time dimension.
+
+        Arguments
+        ---------
+        labels : torch.Tensor
+            Input label tensors to be replicated.
+
+        Returns
+        -------
+        augmented_labels: torch.Tensor
+            Labels corresponding to the augmented input. Returns as many torch.Tensor
+            as given in input.
         """
 
         # Determine whether to apply data augmentation
@@ -477,11 +522,11 @@ class Augmenter(torch.nn.Module):
         )
 
         augmented_labels = torch.cat(augmented_labels, dim=0)
+
         return augmented_labels
 
     def check_min_max_augmentations(self):
-        """Checks the min_augmentations and max_augmentations arguments.
-        """
+        """Checks the min_augmentations and max_augmentations arguments."""
         if self.min_augmentations is None:
             self.min_augmentations = 1
         if self.max_augmentations is None:

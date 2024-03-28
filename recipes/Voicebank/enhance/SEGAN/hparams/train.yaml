@@ -14,7 +14,7 @@
 seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-data_folder: !PLACEHOLDED #e.g., /localscratch/noisy-vctk-16k
+data_folder: !PLACEHOLDER #e.g., /localscratch/noisy-vctk-16k
 # test_clean_folder: !ref <data_folder>/clean_testset_wav_16k/
 
 output_folder: !ref results/SEGAN/<seed>
@@ -22,7 +22,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 enhanced_folder: !ref <output_folder>/enhanced
 
-# Tensorboar (optional)
+# torch.Tensorboar (optional)
 use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 

@@ -1,7 +1,7 @@
 # ################################
 # Model: Wav2Vec + DNN + CTC + Softmax
 # Authors:
-# Gaelle Laperriere 2023
+# Gaëlle Laperrière 2023
 # ################################
 
 # ------ Paths and parameters
@@ -55,7 +55,7 @@ test_dataloader_options:
 sample_rate: 16000
 feats_dim: 1024
 
-# Training parameters:
+####################### Training Parameters ####################################:
 number_of_epochs: 30
 lr: 1
 lr_wav2vec: 0.0001
@@ -67,7 +67,7 @@ patient: 0
 patient_wav2vec: 0
 sorting: ascending
 
-# Model parameters:
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dnn_blocks: 3
 dnn_neurons: 512

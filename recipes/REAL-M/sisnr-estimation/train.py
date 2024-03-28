@@ -27,17 +27,17 @@ from speechbrain.core import AMPConfig
 class Separation(sb.Brain):
     def compress_snrrange(self, inp):
         """Convert from true snr range to 0-1 range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
+        range = self.hparams.snrmax - self.hparams.snrmin
 
         inp = torch.clip(inp, min=self.hparams.snrmin, max=self.hparams.snrmax)
         inp = inp - self.hparams.snrmin
-        inp = inp / rnge
+        inp = inp / range
         return inp
 
     def gettrue_snrrange(self, inp):
         """Convert from 0-1 range to true snr range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
-        inp = inp * rnge
+        range = self.hparams.snrmax - self.hparams.snrmin
+        inp = inp * range
         inp = inp + self.hparams.snrmin
         return inp
 
@@ -58,11 +58,11 @@ class Separation(sb.Brain):
         if stage == sb.Stage.TRAIN:
             with torch.no_grad():
                 if self.hparams.use_speedperturb or self.hparams.use_rand_shift:
-                    mix, targets = self.add_speed_perturb(targets)
+                    mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     if self.hparams.use_reverb_augment:
                         targets_rev = [
-                            self.hparams.reverb(targets[:, :, i], None)
+                            self.hparams.reverb(targets[:, :, i])
                             for i in range(self.hparams.num_spks)
                         ]
                         targets_rev = torch.stack(targets_rev, dim=-1)
@@ -180,7 +180,8 @@ class Separation(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
                 ):
                     (
                         predictions,
@@ -198,7 +199,6 @@ class Separation(sb.Brain):
                         loss.nelement() > 0
                         and loss < self.hparams.loss_upper_lim
                     ):  # the fix for computational problems
-
                         self.scaler.scale(loss).backward()
                         if self.hparams.clip_grad_norm >= 0:
                             self.scaler.unscale_(self.optimizer)
@@ -283,7 +283,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -302,7 +301,8 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"error": stage_stats["error"]}, min_keys=["error"],
+                meta={"error": stage_stats["error"]},
+                min_keys=["error"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -322,9 +322,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speed_perturb(
-                    targets[:, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(targets[:, :, i])
                 new_targets.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[-1]
@@ -361,7 +359,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length withing the mixture.
+        """This function selects a random segment of a given length within the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -413,7 +411,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture = batch.mix_sig
                     snt_id = batch.id
@@ -571,7 +568,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -669,7 +665,6 @@ if __name__ == "__main__":
         )
 
         if hparams["use_whamr_train"]:
-
             if "processed" not in hparams["base_folder_dm_whamr"]:
                 # if the processed folder does not exist for whamr dynamic mixing, we do the necessary preprocessing
 
@@ -768,7 +763,7 @@ if __name__ == "__main__":
     from speechbrain.inference.separation import (
         SepformerSeparation as separator,
     )
-    from speechbrain.utils.fetch import fetch
+    from speechbrain.utils.fetching import fetch
 
     all_separators = []
     for separator_model in hparams["separators_to_use"]:

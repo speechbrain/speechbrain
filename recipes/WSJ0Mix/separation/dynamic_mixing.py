@@ -28,7 +28,6 @@ def build_spk_hashtable(hparams):
 
     spk_hashtable = {}
     for utt in wsj0_utterances:
-
         spk_id = Path(utt).stem[:3]
         assert torchaudio.info(utt).sample_rate == hparams["sample_rate"]
 
@@ -131,7 +130,6 @@ def dynamic_mix_data_prep(hparams):
         )
 
         for i, spk_file in enumerate(spk_files):
-
             # select random offset
             length = torchaudio.info(spk_file).num_frames
             start = 0
@@ -141,7 +139,7 @@ def dynamic_mix_data_prep(hparams):
                 stop = start + minlen
 
             tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
+                spk_file, frame_offset=start, num_frames=stop - start
             )
 
             # peak = float(Path(spk_file).stem.split("_peak_")[-1])

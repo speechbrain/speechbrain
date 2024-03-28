@@ -110,8 +110,10 @@ and where the implemented algorithm needs clarification.
 - Automatically fix trailing whitespace, end of file, sort requirements.txt
 - Check that no large (>512kb) files are added by accident
 - Automatically run flake8
+- Automatically run cspell
 - NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with black), these changes are not automatically added and committed. You’ll have to add the fixed files again and run the commit again. I guess this is a safeguard: don’t blindly accept changes from git hooks.
 - NOTE2: The hooks are only run on the files you git added to the commit. This is in contrast to the CI pipeline, which always tests everything.
+- NOTE3: If a word is flagged as a spelling error but it should be kept, you can add the word to `.dict-speechbrain.txt`
 
 ### the git pre-push hooks
 - Black and flake8 as checks on the whole repo

@@ -40,6 +40,7 @@ from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DistributedSamplerWrapper
 from speechbrain.dataio.sampler import ReproducibleRandomSampler
+from speechbrain.utils.profiling import prepare_profiler
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ run_opt_defaults = {
     "compile_using_fullgraph": False,
     "compile_using_dynamic_shape_tracing": False,
     "precision": "fp32",
+    "eval_precision": "fp32",
     "auto_mix_prec": False,
     "bfloat16_mix_prec": False,
     "max_grad_norm": 5.0,
@@ -83,6 +85,9 @@ run_opt_defaults = {
     "tqdm_colored_bar": False,
     "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
     "remove_vector_weight_decay": False,
+    "profile_training": False,
+    "profile_warmup": 5,
+    "profile_steps": 5,
 }
 
 
@@ -247,7 +252,7 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="Run the experiment in evaluate only mode."
-        "It skipps the training and goes directly to the evaluation."
+        "It skips the training and goes directly to the evaluation."
         "The model is expected to be already trained.",
     )
     parser.add_argument(
@@ -361,6 +366,12 @@ def parse_arguments(arg_list=None):
         "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
+        "--eval_precision",
+        type=str,
+        help="This flag enables inference with automatic mixed-precision."
+        "It can be set to `fp32`, `fp16`, or `bf16`.",
+    )
+    parser.add_argument(
         "--auto_mix_prec",
         default=None,
         action="store_true",
@@ -429,6 +440,27 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
+    )
+    parser.add_argument(
+        "--profile_training",
+        default=False,
+        action="store_true",
+        help=(
+            "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
+            "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'."
+        ),
+    )
+    parser.add_argument(
+        "--profile_warmup",
+        default=5,
+        type=int,
+        help="Number of warmup steps before logging for the profiler.",
+    )
+    parser.add_argument(
+        "--profile_steps",
+        default=5,
+        type=int,
+        help="Number of steps of logging for the profiler",
     )
 
     # Accept extra args to override yaml
@@ -555,6 +587,8 @@ class Brain:
             The location for performing computations.
         precision (str)
             One of ``fp32``, ``fp16``, ``bf16``.
+        eval_precision (str)
+            One of ``fp32``, ``fp16``, ``bf16``.
         auto_mix_prec (bool)
             If ``True``, automatic mixed-precision (fp16) is used.
             Activate it only with cuda. Note: this is a
@@ -589,9 +623,6 @@ class Brain:
     checkpointer : speechbrain.Checkpointer
         By default, this will be used to load checkpoints, and will have the
         optimizer added to continue training if interrupted.
-    profiler : torch.profiler.profile
-        Context manager for profiling and benchmarking of training/inference steps.
-        Default: ``None`` (skip profiling).
 
     Example
     -------
@@ -613,12 +644,10 @@ class Brain:
         hparams=None,
         run_opts=None,
         checkpointer=None,
-        profiler=None,
     ):
         self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-        self.profiler = profiler
 
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -735,12 +764,14 @@ class Brain:
             )
             self.precision = "bf16"
 
-        if self.device == "cpu" and self.precision == "fp16":
+        if self.device == "cpu" and (
+            self.precision == "fp16" or self.eval_precision == "fp16"
+        ):
             raise ValueError(
-                "The option `--precision` is enabled with the value "
-                "fp16. This option is not yet supported on CPU. "
-                "Please use `--precision=bf16` instead to get "
-                "mixed precision on CPU."
+                "The option `--precision` or `--eval_precision` is set to fp16. "
+                "This option is not yet supported on CPU. "
+                "Please use `--precision=bf16` or `--eval_precision=bf16` instead "
+                "to enable mixed precision on CPU."
             )
 
         gradscaler_enabled = self.precision == "fp16" and "cuda" in self.device
@@ -768,13 +799,7 @@ class Brain:
             )
 
         # List parameter count for the user
-        total_params = sum(
-            p.numel() for p in self.modules.parameters() if p.requires_grad
-        )
-        if total_params > 0:
-            clsname = self.__class__.__name__
-            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
-            logger.info(f"{fmt_num} trainable parameters in {clsname}")
+        self.print_trainable_parameters()
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
@@ -805,9 +830,43 @@ class Brain:
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
 
-        # Force default color for tqdm progrressbar
+        # Force default color for tqdm progressbar
         if not self.tqdm_colored_bar:
             self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
+
+        # Profiler setup
+        self.profiler = None
+        if self.profile_training:
+            logger.info("Pytorch profiler has been activated.")
+            self.tot_prof_steps = (self.profile_steps + self.profile_warmup) - 1
+            self.profiler = prepare_profiler(
+                self.profile_warmup,
+                self.profile_steps,
+                self.hparams.output_folder,
+            )
+
+    def print_trainable_parameters(self):
+        """Prints the number of trainable parameters in the model."""
+        total_trainable_params = 0
+        total_parameters = 0
+        for parameter in self.modules.parameters():
+            total_parameters += parameter.numel()
+            if parameter.requires_grad:
+                total_trainable_params += parameter.numel()
+        class_name = self.__class__.__name__
+        percentage_trainable = 100 * total_trainable_params / total_parameters
+        formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
+            total_trainable_params
+        )
+        formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+            total_parameters
+        )
+        logger.info(
+            f"{class_name} Model Statistics:\n"
+            f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
+            f"* Total Number of Parameters: {formatted_total_params}\n"
+            f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
+        )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -821,18 +880,19 @@ class Brain:
 
         Returns
         -------
-        torch.Tensor or Tensors
+        torch.Tensor or torch.Tensors
             The outputs after all processing is complete.
             Directly passed to ``compute_objectives()``.
         """
         raise NotImplementedError
+        return
 
     def compute_objectives(self, predictions, batch, stage):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
         ---------
-        predictions : torch.Tensor or Tensors
+        predictions : torch.Tensor or torch.Tensors
             The output tensor or tensors to evaluate.
             Comes directly from ``compute_forward()``.
         batch : torch.Tensor or tensors
@@ -846,6 +906,7 @@ class Brain:
             A tensor with the computed loss.
         """
         raise NotImplementedError
+        return
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called when a stage starts.
@@ -921,6 +982,10 @@ class Brain:
         **loader_kwargs : dict
             Additional keyword arguments to the DataLoader.
             E.g., batch_size, num_workers, pin_memory.
+
+        Returns
+        -------
+        DataLoader for the input dataset
         """
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
@@ -1095,7 +1160,7 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key, min_key=min_key,
+                max_key=max_key, min_key=min_key
             )
 
     def fit_batch(self, batch):
@@ -1126,7 +1191,7 @@ class Brain:
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                     loss = self.compute_objectives(
@@ -1180,7 +1245,7 @@ class Brain:
                 logger.warning("Patience not yet exhausted.")
 
     def check_gradients(self):
-        """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
+        """Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
         for param in self.modules.parameters():
             if param.requires_grad and param.grad is not None:
                 if not torch.isfinite(param.grad).all():
@@ -1295,9 +1360,16 @@ class Brain:
         -------
         detached loss
         """
-
-        out = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(out, batch, stage=stage)
+        amp = AMPConfig.from_name(self.eval_precision)
+        if self.use_amp:
+            with torch.autocast(
+                dtype=amp.dtype, device_type=torch.device(self.device).type
+            ):
+                out = self.compute_forward(batch, stage=stage)
+                loss = self.compute_objectives(out, batch, stage=stage)
+        else:
+            out = self.compute_forward(batch, stage=stage)
+            loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
     def _fit_train(self, train_set, epoch, enable):
@@ -1324,6 +1396,8 @@ class Brain:
             disable=not enable,
             colour=self.tqdm_barcolor["train"],
         ) as t:
+            if self.profiler is not None:
+                self.profiler.start()
             for batch in t:
                 if self._optimizer_step_limit_exceeded:
                     logger.info("Train iteration limit exceeded")
@@ -1336,10 +1410,14 @@ class Brain:
                 )
                 t.set_postfix(train_loss=self.avg_train_loss)
 
-                # Profile only if desired (steps allow the profiler to know when all is warmed up)
                 if self.profiler is not None:
-                    if self.profiler.record_steps:
-                        self.profiler.step()
+                    self.profiler.step()
+                    if self.profiler.step_num > self.tot_prof_steps:
+                        logger.info(
+                            "The profiler finished, training is stopped."
+                        )
+                        self.profiler.stop()
+                        quit()
 
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
@@ -1407,11 +1485,6 @@ class Brain:
                     loss = self.evaluate_batch(batch, stage=Stage.VALID)
                     avg_valid_loss = self.update_average(loss, avg_valid_loss)
 
-                    # Profile only if desired (steps allow the profiler to know when all is warmed up)
-                    if self.profiler is not None:
-                        if self.profiler.record_steps:
-                            self.profiler.step()
-
                     # Debug mode only runs a few batches
                     if self.debug and self.step == self.debug_batches:
                         break
@@ -1455,6 +1528,8 @@ class Brain:
             A set of data to use for validation. If a Dataset is given, a
             DataLoader is automatically created. If a DataLoader is given, it is
             used directly.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
         train_loader_kwargs : dict
             Kwargs passed to `make_dataloader()` for making the train_loader
             (if train_set is a Dataset, not DataLoader).
@@ -1465,8 +1540,10 @@ class Brain:
             (if valid_set is a Dataset, not DataLoader).
             E.g., batch_size, num_workers.
             DataLoader kwargs are all valid.
-        progressbar : bool
-            Whether to display the progress of each epoch in a progressbar.
+
+        Returns
+        -------
+        None
         """
         if self.test_only:
             logger.info(
@@ -1682,11 +1759,6 @@ class Brain:
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
                 avg_test_loss = self.update_average(loss, avg_test_loss)
 
-                # Profile only if desired (steps allow the profiler to know when all is warmed up)
-                if self.profiler is not None:
-                    if self.profiler.record_steps:
-                        self.profiler.step()
-
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
                     break
@@ -1727,7 +1799,11 @@ class Brain:
         Arguments
         ---------
         use : bool
-            If set to `False` will still sync gradients, useful to make behaviour togglable.
+            If set to `False` will still sync gradients, useful to make behavior toggleable.
+
+        Yields
+        ------
+        None
         """
         if use:
             old_values_list = []

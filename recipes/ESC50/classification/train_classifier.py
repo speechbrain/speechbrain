@@ -27,8 +27,7 @@ from confusion_matrix_fig import create_cm_fig
 
 
 class ESC50Brain(sb.core.Brain):
-    """Class for classifier training"
-    """
+    """Class for classifier training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -57,8 +56,7 @@ class ESC50Brain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using class-id as label.
-        """
+        """Computes the loss using class-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         classid, _ = batch.class_string_encoded
@@ -80,19 +78,19 @@ class ESC50Brain(sb.core.Brain):
             y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
 
         if stage == sb.Stage.VALID:
-            confusion_matix = confusion_matrix(
+            my_confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.valid_confusion_matrix += confusion_matix
+            self.valid_confusion_matrix += my_confusion_matrix
         if stage == sb.Stage.TEST:
-            confusion_matix = confusion_matrix(
+            my_confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.test_confusion_matrix += confusion_matix
+            self.test_confusion_matrix += my_confusion_matrix
 
         # Compute Accuracy using MetricStats
         self.acc_metric.append(
@@ -321,7 +319,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -333,7 +331,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 

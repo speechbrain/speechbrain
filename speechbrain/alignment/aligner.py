@@ -5,6 +5,7 @@ Authors
  * Elena Rastorgueva 2020
  * Loren Lugosch 2020
 """
+
 import torch
 import random
 from speechbrain.utils.checkpoints import register_checkpoint_hooks
@@ -693,6 +694,8 @@ class HMMAligner(torch.nn.Module):
             The absolute length of each phoneme sequence in the batch.
         phns : torch.Tensor (batch, phoneme in phn sequence)
             The phonemes that are known/thought to be in each utterance.
+        final_states : list
+            List of final states
 
         Returns
         -------
@@ -1406,7 +1409,7 @@ def batch_log_matvecmul(A, b):
     b : torch.Tensor (batch, dim1)
         Tensor.
 
-    Outputs
+    Returns
     -------
     x : torch.Tensor (batch, dim1)
 
@@ -1444,7 +1447,7 @@ def batch_log_maxvecmul(A, b):
     b : torch.Tensor (batch, dim1)
         Tensor
 
-    Outputs
+    Returns
     -------
     x : torch.Tensor (batch, dim1)
         Tensor.

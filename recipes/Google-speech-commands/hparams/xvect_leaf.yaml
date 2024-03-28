@@ -22,7 +22,7 @@ RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?r
 # Data files
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/GSC
-data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 train_annotation: !ref <save_folder>/train.csv
 valid_annotation: !ref <save_folder>/valid.csv
@@ -42,7 +42,7 @@ percentage_silence: 10 # Set this to 0 for the V2 35 task
 skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 100
 batch_size: 32
 lr: 0.001

@@ -36,7 +36,7 @@ test_csv: !ref <save_folder>/test.csv
 # (e.g. /path/to/2000_unigram.model)
 tokenizer_file: !PLACEHOLDER
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 100
 batch_size: 164
 lr: 1

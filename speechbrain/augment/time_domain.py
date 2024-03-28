@@ -11,10 +11,10 @@ Authors:
 """
 
 # Importing libraries
-import math
 import random
 import torch
 import torch.nn.functional as F
+import torchaudio
 from speechbrain.dataio.legacy import ExtendedCSVDataset
 from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.processing.signal_processing import (
@@ -61,7 +61,7 @@ class AddNoise(torch.nn.Module):
         containing the noisy sequences are not provided. By default,
         torch.randn_like is used (to sample white noise). In general, it must
         be a function that takes in input the original waveform and returns
-        a tensor with the corresponsing noise to add (e.g., see pink_noise_like).
+        a tensor with the corresponding noise to add (e.g., see pink_noise_like).
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -120,9 +120,9 @@ class AddNoise(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
+        lengths : torch.Tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
@@ -188,7 +188,6 @@ class AddNoise(torch.nn.Module):
 
         # Load a noise batch
         if not hasattr(self, "data_loader"):
-
             if self.noise_sample_rate != self.clean_sample_rate:
                 self.resampler = Resample(
                     self.noise_sample_rate, self.clean_sample_rate
@@ -202,9 +201,9 @@ class AddNoise(torch.nn.Module):
                 dataset = ExtendedCSVDataset(
                     csvpath=self.csv_file,
                     output_keys=self.csv_keys,
-                    sorting=self.sorting
-                    if self.sorting != "random"
-                    else "original",
+                    sorting=(
+                        self.sorting if self.sorting != "random" else "original"
+                    ),
                     replacements=self.replacements,
                 )
                 self.data_loader = make_dataloader(
@@ -369,7 +368,7 @@ class AddReverb(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -418,9 +417,9 @@ class AddReverb(torch.nn.Module):
         if not hasattr(self, "data_loader"):
             dataset = ExtendedCSVDataset(
                 csvpath=self.csv_file,
-                sorting=self.sorting
-                if self.sorting != "random"
-                else "original",
+                sorting=(
+                    self.sorting if self.sorting != "random" else "original"
+                ),
                 replacements=self.replacements,
             )
             self.data_loader = make_dataloader(
@@ -493,12 +492,12 @@ class SpeedPerturb(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveform : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, time, channels]`.
+        torch.Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
 
         # Perform a random perturbation
@@ -508,10 +507,9 @@ class SpeedPerturb(torch.nn.Module):
 
 
 class Resample(torch.nn.Module):
-    """This class resamples an audio signal using sinc-based interpolation.
-
-    It is a modification of the `resample` function from torchaudio
-    (https://pytorch.org/audio/stable/tutorials/audio_resampling_tutorial.html)
+    """This class resamples audio using the
+    :class:`torchaudio resampler <torchaudio.transforms.Resample>` based on
+    sinc interpolation.
 
     Arguments
     ---------
@@ -519,10 +517,12 @@ class Resample(torch.nn.Module):
         the sampling frequency of the input signal.
     new_freq : int
         the new sampling frequency after this operation is performed.
-    lowpass_filter_width : int
-        Controls the sharpness of the filter, larger numbers result in a
-        sharper filter, but they are less efficient. Values from 4 to 10 are
-        allowed.
+    *args
+        additional arguments forwarded to the
+        :class:`torchaudio.transforms.Resample` constructor
+    **kwargs
+        additional keyword arguments forwarded to the
+        :class:`torchaudio.transforms.Resample` constructor
 
     Example
     -------
@@ -537,48 +537,27 @@ class Resample(torch.nn.Module):
     torch.Size([1, 26087])
     """
 
-    def __init__(self, orig_freq=16000, new_freq=16000, lowpass_filter_width=6):
+    def __init__(self, orig_freq=16000, new_freq=16000, *args, **kwargs):
         super().__init__()
+
         self.orig_freq = orig_freq
         self.new_freq = new_freq
-        self.lowpass_filter_width = lowpass_filter_width
 
-        # Compute rate for striding
-        self._compute_strides()
-        assert self.orig_freq % self.conv_stride == 0
-        assert self.new_freq % self.conv_transpose_stride == 0
-
-    def _compute_strides(self):
-        """Compute the phases in polyphase filter.
-
-        (almost directly from torchaudio.compliance.kaldi)
-        """
-
-        # Compute new unit based on ratio of in/out frequencies
-        base_freq = math.gcd(self.orig_freq, self.new_freq)
-        input_samples_in_unit = self.orig_freq // base_freq
-        self.output_samples = self.new_freq // base_freq
-
-        # Store the appropriate stride based on the new units
-        self.conv_stride = input_samples_in_unit
-        self.conv_transpose_stride = self.output_samples
+        self.resampler = torchaudio.transforms.Resample(
+            orig_freq=orig_freq, new_freq=new_freq, *args, **kwargs
+        )
 
     def forward(self, waveforms):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
-            Shape should be a single dimension, `[batch]`.
 
         Returns
         -------
         Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
-
-        if not hasattr(self, "first_indices"):
-            self._indices_and_weights(waveforms)
 
         # Don't do anything if the frequencies are the same
         if self.orig_freq == self.new_freq:
@@ -593,8 +572,15 @@ class Resample(torch.nn.Module):
         else:
             raise ValueError("Input must be 2 or 3 dimensions")
 
+        # If necessary, migrate the resampler to the current device, for
+        # backwards compat with scripts that do not call `resampler.to()`
+        # themselves.
+        # Please do not reuse the sample resampler for tensors that live on
+        # different devices, though.
+        self.resampler.to(waveforms.device)  # in-place
+
         # Do resampling
-        resampled_waveform = self._perform_resample(waveforms)
+        resampled_waveform = self.resampler(waveforms)
 
         if unsqueezed:
             resampled_waveform = resampled_waveform.squeeze(1)
@@ -602,219 +588,6 @@ class Resample(torch.nn.Module):
             resampled_waveform = resampled_waveform.transpose(1, 2)
 
         return resampled_waveform
-
-    def _perform_resample(self, waveforms):
-        """Resamples the waveform at the new frequency.
-
-        This matches Kaldi's OfflineFeatureTpl ResampleWaveform which uses a
-        LinearResample (resample a signal at linearly spaced intervals to
-        up/downsample a signal). LinearResample (LR) means that the output
-        signal is at linearly spaced intervals (i.e the output signal has a
-        frequency of `new_freq`). It uses sinc/bandlimited interpolation to
-        upsample/downsample the signal.
-
-        (almost directly from torchaudio.compliance.kaldi)
-
-        https://ccrma.stanford.edu/~jos/resample/
-        Theory_Ideal_Bandlimited_Interpolation.html
-
-        https://github.com/kaldi-asr/kaldi/blob/master/src/feat/resample.h#L56
-
-        Arguments
-        ---------
-        waveforms : tensor
-            The batch of audio signals to resample.
-
-        Returns
-        -------
-        The waveforms at the new frequency.
-        """
-
-        # Compute output size and initialize
-        batch_size, num_channels, wave_len = waveforms.size()
-        window_size = self.weights.size(1)
-        tot_output_samp = self._output_samples(wave_len)
-        resampled_waveform = torch.zeros(
-            (batch_size, num_channels, tot_output_samp), device=waveforms.device
-        )
-        self.weights = self.weights.to(waveforms.device)
-
-        # Check weights are on correct device
-        if waveforms.device != self.weights.device:
-            self.weights = self.weights.to(waveforms.device)
-
-        # eye size: (num_channels, num_channels, 1)
-        eye = torch.eye(num_channels, device=waveforms.device).unsqueeze(2)
-
-        # Iterate over the phases in the polyphase filter
-        for i in range(self.first_indices.size(0)):
-            wave_to_conv = waveforms
-            first_index = int(self.first_indices[i].item())
-            if first_index >= 0:
-                # trim the signal as the filter will not be applied
-                # before the first_index
-                wave_to_conv = wave_to_conv[..., first_index:]
-
-            # pad the right of the signal to allow partial convolutions
-            # meaning compute values for partial windows (e.g. end of the
-            # window is outside the signal length)
-            max_index = (tot_output_samp - 1) // self.output_samples
-            end_index = max_index * self.conv_stride + window_size
-            current_wave_len = wave_len - first_index
-            right_padding = max(0, end_index + 1 - current_wave_len)
-            left_padding = max(0, -first_index)
-            wave_to_conv = torch.nn.functional.pad(
-                wave_to_conv, (left_padding, right_padding)
-            )
-            conv_wave = torch.nn.functional.conv1d(
-                input=wave_to_conv,
-                weight=self.weights[i].repeat(num_channels, 1, 1),
-                stride=self.conv_stride,
-                groups=num_channels,
-            )
-
-            # we want conv_wave[:, i] to be at
-            # output[:, i + n*conv_transpose_stride]
-            dilated_conv_wave = torch.nn.functional.conv_transpose1d(
-                conv_wave, eye, stride=self.conv_transpose_stride
-            )
-
-            # pad dilated_conv_wave so it reaches the output length if needed.
-            left_padding = i
-            previous_padding = left_padding + dilated_conv_wave.size(-1)
-            right_padding = max(0, tot_output_samp - previous_padding)
-            dilated_conv_wave = torch.nn.functional.pad(
-                dilated_conv_wave, (left_padding, right_padding)
-            )
-            dilated_conv_wave = dilated_conv_wave[..., :tot_output_samp]
-
-            resampled_waveform += dilated_conv_wave
-
-        return resampled_waveform
-
-    def _output_samples(self, input_num_samp):
-        """Based on LinearResample::GetNumOutputSamples.
-
-        LinearResample (LR) means that the output signal is at
-        linearly spaced intervals (i.e the output signal has a
-        frequency of ``new_freq``). It uses sinc/bandlimited
-        interpolation to upsample/downsample the signal.
-
-        (almost directly from torchaudio.compliance.kaldi)
-
-        Arguments
-        ---------
-        input_num_samp : int
-            The number of samples in each example in the batch.
-
-        Returns
-        -------
-        Number of samples in the output waveform.
-        """
-
-        # For exact computation, we measure time in "ticks" of 1.0 / tick_freq,
-        # where tick_freq is the least common multiple of samp_in and
-        # samp_out.
-        samp_in = int(self.orig_freq)
-        samp_out = int(self.new_freq)
-
-        tick_freq = abs(samp_in * samp_out) // math.gcd(samp_in, samp_out)
-        ticks_per_input_period = tick_freq // samp_in
-
-        # work out the number of ticks in the time interval
-        # [ 0, input_num_samp/samp_in ).
-        interval_length = input_num_samp * ticks_per_input_period
-        if interval_length <= 0:
-            return 0
-        ticks_per_output_period = tick_freq // samp_out
-
-        # Get the last output-sample in the closed interval,
-        # i.e. replacing [ ) with [ ]. Note: integer division rounds down.
-        # See http://en.wikipedia.org/wiki/Interval_(mathematics) for an
-        # explanation of the notation.
-        last_output_samp = interval_length // ticks_per_output_period
-
-        # We need the last output-sample in the open interval, so if it
-        # takes us to the end of the interval exactly, subtract one.
-        if last_output_samp * ticks_per_output_period == interval_length:
-            last_output_samp -= 1
-
-        # First output-sample index is zero, so the number of output samples
-        # is the last output-sample plus one.
-        num_output_samp = last_output_samp + 1
-
-        return num_output_samp
-
-    def _indices_and_weights(self, waveforms):
-        """Based on LinearResample::SetIndexesAndWeights
-
-        Retrieves the weights for resampling as well as the indices in which
-        they are valid. LinearResample (LR) means that the output signal is at
-        linearly spaced intervals (i.e the output signal has a frequency
-        of ``new_freq``). It uses sinc/bandlimited interpolation to
-        upsample/downsample the signal.
-
-        Returns
-        -------
-        - the place where each filter should start being applied
-        - the filters to be applied to the signal for resampling
-        """
-
-        # Lowpass filter frequency depends on smaller of two frequencies
-        min_freq = min(self.orig_freq, self.new_freq)
-        lowpass_cutoff = 0.99 * 0.5 * min_freq
-
-        assert lowpass_cutoff * 2 <= min_freq
-        window_width = self.lowpass_filter_width / (2.0 * lowpass_cutoff)
-
-        assert lowpass_cutoff < min(self.orig_freq, self.new_freq) / 2
-        output_t = torch.arange(
-            start=0.0, end=self.output_samples, device=waveforms.device
-        )
-        output_t /= self.new_freq
-        min_t = output_t - window_width
-        max_t = output_t + window_width
-
-        min_input_index = torch.ceil(min_t * self.orig_freq)
-        max_input_index = torch.floor(max_t * self.orig_freq)
-        num_indices = max_input_index - min_input_index + 1
-
-        max_weight_width = num_indices.max()
-        j = torch.arange(max_weight_width, device=waveforms.device)
-        input_index = min_input_index.unsqueeze(1) + j.unsqueeze(0)
-        delta_t = (input_index / self.orig_freq) - output_t.unsqueeze(1)
-
-        weights = torch.zeros_like(delta_t)
-        inside_window_indices = delta_t.abs().lt(window_width)
-
-        # raised-cosine (Hanning) window with width `window_width`
-        weights[inside_window_indices] = 0.5 * (
-            1
-            + torch.cos(
-                2
-                * math.pi
-                * lowpass_cutoff
-                / self.lowpass_filter_width
-                * delta_t[inside_window_indices]
-            )
-        )
-
-        t_eq_zero_indices = delta_t.eq(0.0)
-        t_not_eq_zero_indices = ~t_eq_zero_indices
-
-        # sinc filter function
-        weights[t_not_eq_zero_indices] *= torch.sin(
-            2 * math.pi * lowpass_cutoff * delta_t[t_not_eq_zero_indices]
-        ) / (math.pi * delta_t[t_not_eq_zero_indices])
-
-        # limit of the function at t = 0
-        weights[t_eq_zero_indices] *= 2 * lowpass_cutoff
-
-        # size (output_samples, max_weight_width)
-        weights /= self.orig_freq
-
-        self.first_indices = min_input_index
-        self.weights = weights
 
 
 class DropFreq(torch.nn.Module):
@@ -866,7 +639,7 @@ class DropFreq(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1009,9 +782,9 @@ class DropChunk(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
+        lengths : torch.Tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
@@ -1156,22 +929,22 @@ class FastDropChunk(torch.nn.Module):
 
     def initialize_masks(self, waveforms):
         """
-        Arguments
-        ---------
-        waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, time, channels]`.
-`.
-        Returns
-        -------
-        dropped_masks: tensor
-            Tensor of size `[n_masks, time]` with the dropped chunks. Dropped
-            regions are assigned to 0.
+                Arguments
+                ---------
+                waveforms : torch.Tensor
+                    Shape should be `[batch, time]` or `[batch, time, channels]`.
+        `.
+                Returns
+                -------
+                dropped_masks : torch.Tensor
+                    Tensor of size `[n_masks, time]` with the dropped chunks. Dropped
+                    regions are assigned to 0.
         """
 
         if self.n_masks < waveforms.shape[0]:
             raise ValueError("n_mask cannot be smaller than the batch size")
 
-        # Initiaizing the drop mask
+        # Initializing the drop mask
         dropped_masks = torch.ones(
             [self.n_masks, self.sig_len], device=waveforms.device
         )
@@ -1228,7 +1001,7 @@ class FastDropChunk(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1295,7 +1068,7 @@ class DoClip(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1317,21 +1090,21 @@ class DoClip(torch.nn.Module):
         # Apply clipping
         clipped_waveform = waveforms.clamp(-clip_value, clip_value)
 
-        # Restore orignal amplitude
+        # Restore original amplitude
         clipped_waveform = clipped_waveform * abs_max / clip_value
 
         return clipped_waveform
 
 
 class RandAmp(torch.nn.Module):
-    """This function multiples the signal by a random amplitude. Firist, the
+    """This function multiples the signal by a random amplitude. First, the
     signal is normalized to have amplitude between -1 and 1. Then it is
     multiplied with a random number.
 
     Arguments
     ---------
     amp_low : float
-        The minumum amplitude multiplication factor.
+        The minimum amplitude multiplication factor.
     amp_high : float
         The maximum amplitude multiplication factor.
 
@@ -1352,7 +1125,7 @@ class RandAmp(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1379,12 +1152,12 @@ class RandAmp(torch.nn.Module):
 
 
 class ChannelDrop(torch.nn.Module):
-    """This function drops random channels in the multi-channel nput waveform.
+    """This function drops random channels in the multi-channel input waveform.
 
     Arguments
     ---------
     drop_rate : float
-        The channel droput factor
+        The channel dropout factor
 
     Example
     -------
@@ -1401,7 +1174,7 @@ class ChannelDrop(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1422,7 +1195,7 @@ class ChannelSwap(torch.nn.Module):
     Arguments
     ---------
     min_swap : int
-        The mininum number of channels to swap.
+        The minimum number of channels to swap.
     max_swap : int
         The maximum number of channels to swap.
 
@@ -1450,7 +1223,7 @@ class ChannelSwap(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1507,7 +1280,7 @@ class CutCat(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1543,23 +1316,28 @@ class CutCat(torch.nn.Module):
 
 def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     """Creates a sequence of pink noise (also known as 1/f). The pink noise
-    is obtained by multipling the spectrum of a white noise sequence by a
+    is obtained by multiplying the spectrum of a white noise sequence by a
     factor (1/f^alpha).
-    The alpha factor controls the decrease factor in the frequnecy domain
-    (alpha=0 adds white noise, alpha>>0 adds low frequnecy noise). It is
+    The alpha factor controls the decrease factor in the frequency domain
+    (alpha=0 adds white noise, alpha>>0 adds low frequency noise). It is
     randomly sampled between alpha_low and alpha_high. With negative alpha this
-    funtion generates blue noise.
+    function generates blue noise.
 
     Arguments
     ---------
     waveforms : torch.Tensor
         The original waveform. It is just used to infer the shape.
     alpha_low : float
-        The minimum value for the alpha spectral smooting factor.
+        The minimum value for the alpha spectral smoothing factor.
     alpha_high : float
-        The maximum value for the alpha spectral smooting factor.
+        The maximum value for the alpha spectral smoothing factor.
     sample_rate : float
         The sample rate of the original signal.
+
+    Returns
+    -------
+    pink_noise : torch.Tensor
+        Pink noise in the shape of the input tensor.
 
     Example
     -------

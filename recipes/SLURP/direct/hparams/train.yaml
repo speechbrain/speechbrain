@@ -23,7 +23,7 @@ RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?r
 # Data files
 # The SLURP dataset will be automatically downloaded in the specified data_folder
 data_folder: !PLACEHOLDER # e.g, /localscratch/SLURP
-data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <save_folder>/train-type=direct.csv
@@ -34,7 +34,7 @@ rir_annotation: !ref <save_folder>/rir.csv
 tokenizer_file: https://www.dropbox.com/s/tmwq12r5vgcsif9/58_unigram.model?dl=1
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
@@ -42,7 +42,7 @@ lr: 0.0003
 sorting: random
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Model parameters
+####################### Model Parameters #######################################
 sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
@@ -100,41 +100,31 @@ add_noise: !new:speechbrain.augment.time_domain.AddNoise
     clean_sample_rate: !ref <sample_rate>
     num_workers: !ref <num_workers>
 
+############################## Augmentations ###################################
+
 # Speed perturbation
-speed_changes: [90, 95, 105, 110]  # List of speed changes for time-stretching
 speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: !ref <speed_changes>
+    speeds: [90, 95, 105, 110]
 
 # Frequency drop: randomly drops a number of frequency bands to zero.
-drop_freq_low: 0  # Min frequency band dropout probability
-drop_freq_high: 1  # Max frequency band dropout probability
-drop_freq_count_low: 1  # Min number of frequency bands to drop
-drop_freq_count_high: 3  # Max number of frequency bands to drop
-drop_freq_width: 0.05  # Width of frequency bands to drop
 drop_freq: !new:speechbrain.augment.time_domain.DropFreq
-    drop_freq_low: !ref <drop_freq_low>
-    drop_freq_high: !ref <drop_freq_high>
-    drop_freq_count_low: !ref <drop_freq_count_low>
-    drop_freq_count_high: !ref <drop_freq_count_high>
-    drop_freq_width: !ref <drop_freq_width>
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
 
 # Time drop: randomly drops a number of temporal chunks.
-drop_chunk_count_low: 1  # Min number of audio chunks to drop
-drop_chunk_count_high: 3  # Max number of audio chunks to drop
-drop_chunk_length_low: 1000  # Min length of audio chunks to drop
-drop_chunk_length_high: 2000  # Max length of audio chunks to drop
 drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
-    drop_length_low: !ref <drop_chunk_length_low>
-    drop_length_high: !ref <drop_chunk_length_high>
-    drop_count_low: !ref <drop_chunk_count_low>
-    drop_count_high: !ref <drop_chunk_count_high>
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 3
 
 # Augmenter: Combines previously defined augmentations to perform data augmentation
 wav_augment: !new:speechbrain.augment.augmenter.Augmenter
-    parallel_augment: False
     concat_original: True
-    repeat_augment: 1
     shuffle_augmentations: True
     min_augmentations: 1
     max_augmentations: 4
@@ -146,7 +136,8 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
         !ref <drop_freq>,
         !ref <drop_chunk>]
 
-# Models
+############################## Models ##########################################
+
 asr_model_source: speechbrain/asr-crdnn-rnnlm-librispeech
 
 slu_enc: !new:speechbrain.nnet.containers.Sequential

@@ -141,7 +141,7 @@ class CTCSegmentation:
     If needed, parameters for CTC segmentation can be set with ``set_config(·)``.
     Then call the instance as function to align text within an audio file.
 
-    Attributes
+    Arguments
     ---------
     asr_model : EncoderDecoderASR
         Speechbrain ASR interface. This requires a model that has a
@@ -196,7 +196,7 @@ class CTCSegmentation:
     (2) ``prepare_segmentation_task``: prepare the task, and
     (3) ``get_segments``: perform CTC segmentation.
     Note that the function `get_segments` is a staticmethod and therefore
-    independent of an already initialized CTCSegmentation obj́ect.
+    independent of an already initialized CTCSegmentation object.
 
     References
     ----------
@@ -205,7 +205,6 @@ class CTCSegmentation:
     https://arxiv.org/abs/2007.09127
 
     More parameters are described in https://github.com/lumaku/ctc-segmentation
-
     """
 
     fs = 16000
@@ -226,7 +225,6 @@ class CTCSegmentation:
         time_stamps: str = "auto",
         **ctc_segmentation_args,
     ):
-        """Initialize the CTCSegmentation module."""
         # Prepare ASR model
         if (
             isinstance(asr_model, EncoderDecoderASR)
@@ -601,7 +599,7 @@ class CTCSegmentation:
             Dictionary with alignments. Combine this with the task
             object to obtain a human-readable segments representation.
         """
-        assert type(task) == CTCSegmentationTask
+        assert isinstance(task, CTCSegmentationTask)
         assert task.config is not None
         config = task.config
         lpz = task.lpz
