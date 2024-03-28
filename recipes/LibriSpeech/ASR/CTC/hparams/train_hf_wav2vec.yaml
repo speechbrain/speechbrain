@@ -26,11 +26,11 @@ dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
 skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: ../../Tokenizer/results/128_bpe/train.csv
-valid_csv: ../../Tokenizer/results/128_bpe/dev-clean.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-   - ../../Tokenizer/results/128_bpe/test-clean.csv
-   - ../../Tokenizer/results/128_bpe/test-other.csv
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
 
 ####################### Training Parameters ####################################
 
