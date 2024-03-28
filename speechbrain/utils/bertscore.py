@@ -40,7 +40,7 @@ class BERTScoreStats(MetricStats):
 
     Arguments
     ---------
-    model : transformers.AutoModelForTextEncoding
+    lm : transformers.AutoModelForTextEncoding
         Transformers text encoder. May live on a non-CPU device.
     tokenizer : transformers.AutoTokenizer
         Transformers tokenizer.
