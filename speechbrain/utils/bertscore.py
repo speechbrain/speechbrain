@@ -289,10 +289,10 @@ def get_bert_token_mask(tokenizer) -> torch.BoolTensor:
 
     for tok_entry in tokenizer.special_tokens_map.values():
         if isinstance(tok_entry, str):
-            special_tokens.append(tok_entry)
+            special_tokens.append(vocab[tok_entry])
         else:
             for tok in tok_entry:
-                special_tokens.append(tok)
+                special_tokens.append(vocab[tok])
 
     weights[special_tokens] = False
 
