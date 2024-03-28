@@ -48,8 +48,3 @@ def cosine_similarity_matrix(
     # giving us the proper cosine similarity.
     # multiplication shape: a[..., X, 1] @ b[..., 1, Y]
     return a_normalized @ b_normalized.transpose(-1, -2)
-
-    # NOTE: needs a test written:
-    # - case where a dim is zero
-    # - case of 2-dim
-    # - case of more dims
