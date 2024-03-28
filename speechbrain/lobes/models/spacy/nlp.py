@@ -7,7 +7,7 @@ Authors
 import spacy
 import spacy.tokens
 
-from typing import List, Union, Iterable
+from typing import List, Union, Iterable, Iterator
 
 
 def _as_sentence(sentence: Union[str, List[str]]):
@@ -48,9 +48,16 @@ def _extract_lemmas(docs: Iterable[spacy.tokens.Doc]):
 
 
 class SpacyPipeline:
-    """Modelizes a spaCy pipeline."""
+    """Wraps a `spaCy pipeline <https://spacy.io/usage/processing-pipelines>`_
+    with methods that makes it easier to deal with SB's typical sentence format,
+    and adds some convenience functions if you only care about a specific task.
 
-    def __init__(self, nlp):
+    Arguments
+    ---------
+    nlp : spacy.language.Language
+        spaCy text processing pipeline to use."""
+
+    def __init__(self, nlp: spacy.language.Language):
         self.nlp = nlp
 
     @staticmethod
@@ -71,10 +78,32 @@ class SpacyPipeline:
 
         return SpacyPipeline(spacy.load(name, *args, **kwargs))
 
+    def __call__(
+        self, inputs: Union[List[str], List[List[str]]]
+    ) -> Iterator[spacy.tokens.Doc]:
+        """Processes a batch of sentences into an iterator of spaCy documents.
+
+        Arguments
+        ---------
+        inputs: list of sentences (str or list of tokens)
+            Sentences to process, in the form of batches of lists of tokens
+            (list of str) or a str.
+            In the case of token lists, tokens do *not* need to be already
+            tokenized for this specific sequence tagger, and they will be joined
+            with spaces instead.
+
+        Returns
+        -------
+        iterator of spacy.tokens.Doc
+            Iterator of documents for the passed sentences."""
+
+        return self.nlp.pipe(map(_as_sentence, inputs))
+
     def lemmatize(
         self, inputs: Union[List[str], List[List[str]]]
     ) -> List[List[str]]:
-        """Lemmatize a batch of sentences.
+        """Lemmatize a batch of sentences by processing the input sentences,
+        discarding other irrelevant outputs.
 
         Arguments
         ---------
@@ -90,6 +119,4 @@ class SpacyPipeline:
         list of list of str
             For each sentence, the sequence of extracted lemmas as `str`s."""
 
-        sentences = [_as_sentence(sentence) for sentence in inputs]
-
-        return _extract_lemmas(self.nlp.pipe(sentences))
+        return _extract_lemmas(self(inputs))
