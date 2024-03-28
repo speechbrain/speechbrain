@@ -68,7 +68,30 @@ class BaseSemDistStats(MetricStats):
 
     def summarize(self, field=None):
         """Summarize the SemDist metric scores. Performs the actual embedding
-        function call and SemDist calculation."""
+        function call and SemDist calculation.
+        
+        Full set of fields:
+        - `semdist`: The average SemDist over all utterances, multiplied by
+          the scale optionally specified at initialization.
+
+        Additionally, a `scores` list is populated by this function for each
+        pair of sentences. Each entry of that list is a dict, with the fields:
+        - `key`: the ID of the utterance.
+        - `semdist`: The SemDist of the utterance, multiplied by the scale.
+
+        Arguments
+        ---------
+        field : str, optional
+            The field to return, if you are only interested in one of them.
+            If specified, a single `float` is returned, otherwise, a dict is.
+
+        Returns
+        -------
+        dict from str to float, if `field is None`
+            A dictionary of the fields documented above.
+        float, if `field is not None`
+            The single field selected by `field`.
+        """
 
         with torch.no_grad():
             self._update_summary()
@@ -143,6 +166,20 @@ class SemDistStats(BaseSemDistStats):
         self.method = method
 
     def _embed(self, sentences: List[str]) -> torch.Tensor:
+        """Computes the LM embedding of a batch of independent sentences,
+        according to the pooling method choosen at initialization.
+        
+        Arguments
+        ---------
+        sentences : list of str
+            List of unprocessed sentences to tokenize and encode.
+
+        Returns
+        -------
+        torch.Tensor
+            Embedding of the LM encoder.
+        """
+
         sentences = [" ".join(sent) for sent in sentences]
         tokens = self.tokenizer(
             sentences, return_tensors="pt", padding=True
