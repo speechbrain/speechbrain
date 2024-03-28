@@ -67,6 +67,12 @@ class SpacyPipeline:
         want to use a remote model (e.g. `spacy download fr_core_news_md`)
         rather than just specifying a HF hub name.
 
+        .. note::
+            If you only need a subset of modules enabled in the pipeline,
+            e.g. for lemmatization, consider
+            `excluding <https://spacy.io/usage/processing-pipelines#disabling>_`
+            using the `exclude=[...]` argument.
+
         Arguments
         ---------
         name: str | Path
