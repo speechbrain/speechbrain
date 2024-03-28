@@ -79,9 +79,9 @@ class TextEncoder(HFTransformersInterface):
         assert (
             keep_layers > 0
         ), "Invalid requested layer count: Must keep at least one LM layer (negative values are not allowed)"
-        assert (keep_layers <= len(
+        assert keep_layers <= len(
             self.model.encoder.layer
-        )), "Too few layers in LM: kept layer count requested is too high"
+        ), "Too few layers in LM: kept layer count requested is too high"
         self.model.encoder.layer = self.model.encoder.layer[:keep_layers]
 
     def forward(self, input_texts, return_tokens: bool):

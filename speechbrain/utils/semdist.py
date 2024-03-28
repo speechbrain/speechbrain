@@ -69,7 +69,7 @@ class BaseSemDistStats(MetricStats):
     def summarize(self, field=None):
         """Summarize the SemDist metric scores. Performs the actual embedding
         function call and SemDist calculation.
-        
+
         Full set of fields:
         - `semdist`: The average SemDist over all utterances, multiplied by
           the scale optionally specified at initialization.
@@ -167,8 +167,8 @@ class SemDistStats(BaseSemDistStats):
 
     def _embed(self, sentences: List[str]) -> torch.Tensor:
         """Computes the LM embedding of a batch of independent sentences,
-        according to the pooling method choosen at initialization.
-        
+        according to the pooling method chosen at initialization.
+
         Arguments
         ---------
         sentences : list of str
