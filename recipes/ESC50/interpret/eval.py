@@ -277,7 +277,7 @@ if __name__ == "__main__":
     overlap_multiplier = 2
 
     # cem: this is the stuff I am adding to deal with different noise types
-    overlap_type = 'white_noise'
+    overlap_type = 'LJSpeech'
     if overlap_type == 'white_noise':
         dt = datasets["test"]
     elif overlap_type == 'mixtures':
