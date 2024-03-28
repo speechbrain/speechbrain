@@ -68,7 +68,7 @@ class LocalStrategy(Enum):
     COPY = 2
     """If the file is remote and not in cache, fetch it (potentially to cache).
 
-    Then, create a copy in the destination folder to the local file, if
+    Then, create a copy of the local file in the destination folder, if
     necessary.
     """
 
@@ -160,8 +160,9 @@ def fetch(
     Effect of local file strategies when the fetch source is a **local file**:
 
     - `LocalStrategy.SYMLINK`: Create symlink to the file in the destination.
-    - `LocalStrategy.COPY`: Create copy to the file in the destination.
-    - `LocalStrategy.COPY_NO_CACHE`: Create copy to the file in the destination.
+    - `LocalStrategy.COPY`: Create copy of the file in the destination.
+    - `LocalStrategy.COPY_SKIP_CACHE`: Create copy of the file in the
+      destination.
     - `LocalStrategy.NO_LINK`: Returns the path to the source file.
 
     Effect of local file strategies when the fetch source is an **URI**:
@@ -172,7 +173,7 @@ def fetch(
     - `LocalStrategy.SYMLINK`: Create symlink to the file in the cache.
     - `LocalStrategy.COPY`: Downloads to cache if necessary, then copies to the
       destination.
-    - `LocalStrategy.COPY_NO_CACHE`: Copies from cache if available, else
+    - `LocalStrategy.COPY_SKIP_CACHE`: Copies from cache if available, else
       downloads directly to the destination.
     - `LocalStrategy.NO_LINK`: Returns the path to the cache.
 
@@ -212,7 +213,7 @@ def fetch(
         Path to HuggingFace cache; if `None`, the default cache directory is
         used: `~/.cache/huggingface` unless overridden by environment variables.
         See `huggingface_hub documentation <https://huggingface.co/docs/huggingface_hub/guides/manage-cache#manage-huggingfacehub-cache-system>`_
-        Ignored if the local strategy is `LocalStrategy.COPY_NO_CACHE`.
+        Ignored if the local strategy is `LocalStrategy.COPY_SKIP_CACHE`.
         (default: None)
     local_strategy : LocalStrategy, optional
         Which strategy to use to deal with files locally. (default:
