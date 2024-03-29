@@ -10,7 +10,6 @@ Authors
 
 import torch
 import logging
-import os
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
