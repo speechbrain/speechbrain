@@ -144,8 +144,7 @@ class GigaspeechConfig(datasets.BuilderConfig):
     """BuilderConfig for Gigaspeech."""
 
     def __init__(self, name, *args, **kwargs):
-        """BuilderConfig for Gigaspeech
-        """
+        """BuilderConfig for Gigaspeech"""
         super().__init__(name=name, *args, **kwargs)
         # larger subsets are supersets of smaller subsets,
         # if we want to download "m", we need to download "xs" and "s" data too.
@@ -304,11 +303,11 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
                             dl_manager.iter_archive(archive_path)
                             for archive_path in audio_archives_paths["train"]
                         ],
-                        "local_audio_archives_paths": local_audio_archives_paths[
-                            "train"
-                        ]
-                        if local_audio_archives_paths
-                        else None,
+                        "local_audio_archives_paths": (
+                            local_audio_archives_paths["train"]
+                            if local_audio_archives_paths
+                            else None
+                        ),
                         "meta_paths": meta_paths["train"],
                     },
                 ),
@@ -319,11 +318,11 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
                             dl_manager.iter_archive(archive_path)
                             for archive_path in audio_archives_paths["dev"]
                         ],
-                        "local_audio_archives_paths": local_audio_archives_paths[
-                            "dev"
-                        ]
-                        if local_audio_archives_paths
-                        else None,
+                        "local_audio_archives_paths": (
+                            local_audio_archives_paths["dev"]
+                            if local_audio_archives_paths
+                            else None
+                        ),
                         "meta_paths": meta_paths["dev"],
                     },
                 ),
@@ -334,11 +333,11 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
                             dl_manager.iter_archive(archive_path)
                             for archive_path in audio_archives_paths["test"]
                         ],
-                        "local_audio_archives_paths": local_audio_archives_paths[
-                            "test"
-                        ]
-                        if local_audio_archives_paths
-                        else None,
+                        "local_audio_archives_paths": (
+                            local_audio_archives_paths["test"]
+                            if local_audio_archives_paths
+                            else None
+                        ),
                         "meta_paths": meta_paths["test"],
                     },
                 ),
@@ -353,11 +352,11 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
                             dl_manager.iter_archive(archive_path)
                             for archive_path in audio_archives_paths["dev"]
                         ],
-                        "local_audio_archives_paths": local_audio_archives_paths[
-                            "dev"
-                        ]
-                        if local_audio_archives_paths
-                        else None,
+                        "local_audio_archives_paths": (
+                            local_audio_archives_paths["dev"]
+                            if local_audio_archives_paths
+                            else None
+                        ),
                         "meta_paths": meta_paths["dev"],
                     },
                 ),
@@ -372,11 +371,11 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
                             dl_manager.iter_archive(archive_path)
                             for archive_path in audio_archives_paths["test"]
                         ],
-                        "local_audio_archives_paths": local_audio_archives_paths[
-                            "test"
-                        ]
-                        if local_audio_archives_paths
-                        else None,
+                        "local_audio_archives_paths": (
+                            local_audio_archives_paths["test"]
+                            if local_audio_archives_paths
+                            else None
+                        ),
                         "meta_paths": meta_paths["test"],
                     },
                 ),

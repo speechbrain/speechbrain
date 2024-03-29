@@ -34,7 +34,7 @@ SAMPLING_RATE = 16000
 
 @dataclass
 class GigaSpeechRow:
-    """ Dataclass for handling GigaSpeech rows.
+    """Dataclass for handling GigaSpeech rows.
 
     Attributes
     ----------
@@ -78,7 +78,7 @@ def prepare_gigaspeech(
     convert_opus_to_wav: bool = True,
     download_with_HF: bool = False,
 ) -> None:
-    """ Prepare the csv files for GigaSpeech dataset.
+    """Prepare the csv files for GigaSpeech dataset.
 
     Download instructions: https://github.com/SpeechColab/GigaSpeech
     Reference: https://arxiv.org/abs/2106.06909
@@ -173,7 +173,9 @@ def prepare_gigaspeech(
         for split, output in save_output.items():
             logger.info(f"Starting creating {output} using {split} split.")
             HF_create_csv(
-                output, hf_dataset[split], split,
+                output,
+                hf_dataset[split],
+                split,
             )
     else:
         # check that the data folder contains the GigaSpeech dataset
@@ -191,7 +193,10 @@ def prepare_gigaspeech(
 
 
 def process_line(
-    audio: json, data_folder: str, split: str, convert_opus_to_wav: bool,
+    audio: json,
+    data_folder: str,
+    split: str,
+    convert_opus_to_wav: bool,
 ) -> list:
     """
     Process the audio line and return the utterances for the given split.
@@ -318,14 +323,18 @@ def create_csv(
 
     os.replace(csv_file_tmp, csv_file)
 
-    logger.info(f"{csv_file} succesfully created!")
+    logger.info(f"{csv_file} successfully created!")
     logger.info(f"Number of samples in {split} split: {nb_samples}")
     logger.info(
         f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours"
     )
 
 
-def HF_create_csv(csv_file: str, hf_dataset, split: str,) -> None:
+def HF_create_csv(
+    csv_file: str,
+    hf_dataset,
+    split: str,
+) -> None:
     """
     Create a CSV file based on the info in the GigaSpeech JSON file and filter the data based on the split.
 
@@ -347,7 +356,9 @@ def HF_create_csv(csv_file: str, hf_dataset, split: str,) -> None:
     total_duration = 0.0
     nb_samples = 0
 
-    line_processor = functools.partial(HF_process_line,)
+    line_processor = functools.partial(
+        HF_process_line,
+    )
 
     csv_file_tmp = csv_file + ".tmp"
     with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
@@ -388,14 +399,16 @@ def HF_create_csv(csv_file: str, hf_dataset, split: str,) -> None:
 
     os.replace(csv_file_tmp, csv_file)
 
-    print(f"{csv_file} succesfully created!")
-    print(f"Number of samples in {split} split: {nb_samples}")
-    print(
+    logger.info(f"{csv_file} successfully created!")
+    logger.info(f"Number of samples in {split} split: {nb_samples}")
+    logger.info(
         f"Total duration of {split} split: {round(total_duration / 3600, 2)} Hours"
     )
 
 
-def HF_process_line(row,) -> list:
+def HF_process_line(
+    row,
+) -> list:
     """
     Process the audio line and return the utterances for the given split.
 
@@ -518,7 +531,7 @@ def preprocess_text(text: str) -> str:
 
 
 def skip_csv(save_csv_files: dict) -> bool:
-    """ Check if the CSV files already exist.
+    """Check if the CSV files already exist.
 
     Parameters
     ----------
