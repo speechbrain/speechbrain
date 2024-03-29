@@ -8,6 +8,7 @@ Authors
  * Andreas Nautsch 2023
  * Adel Moumen 2023
 """
+
 import logging
 import pathlib
 from speechbrain.utils.distributed import run_on_main
@@ -168,9 +169,7 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(
-        self, default_source=None, internal_ddp_handling=False,
-    ):
+    def collect_files(self, default_source=None, internal_ddp_handling=False):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a

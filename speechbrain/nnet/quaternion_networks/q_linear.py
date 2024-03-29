@@ -176,6 +176,10 @@ class QLinear(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input to transform linearly.
+
+        Returns
+        -------
+        The linearly transformed input.
         """
 
         if self.autograd:
@@ -200,7 +204,6 @@ class QLinear(torch.nn.Module):
                     self.b,
                 )
         else:
-
             # The custom backward needs an input with 2D at most!
             input_dim = x.dim()
             if input_dim == 3:

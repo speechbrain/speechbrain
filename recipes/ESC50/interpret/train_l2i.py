@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interepret audio classifiers.
+"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -87,7 +87,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -177,7 +177,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, pred_cl
 
     def interpret_sample(self, wavs, batch=None):
-        """get the interpratation for a given wav file."""
+        """get the interpretation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
@@ -200,7 +200,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder,
+                    "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -233,7 +234,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """interpration test with overlapped audio"""
+        """interpretation test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
@@ -277,7 +278,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         torchaudio.save(

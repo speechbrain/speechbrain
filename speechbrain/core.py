@@ -252,7 +252,7 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="Run the experiment in evaluate only mode."
-        "It skipps the training and goes directly to the evaluation."
+        "It skips the training and goes directly to the evaluation."
         "The model is expected to be already trained.",
     )
     parser.add_argument(
@@ -447,7 +447,7 @@ def parse_arguments(arg_list=None):
         action="store_true",
         help=(
             "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
-            "Please ensure you have installed the TensorBoard profiler with 'pip install torch_tb_profiler'."
+            "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'."
         ),
     )
     parser.add_argument(
@@ -799,13 +799,7 @@ class Brain:
             )
 
         # List parameter count for the user
-        total_params = sum(
-            p.numel() for p in self.modules.parameters() if p.requires_grad
-        )
-        if total_params > 0:
-            clsname = self.__class__.__name__
-            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
-            logger.info(f"{fmt_num} trainable parameters in {clsname}")
+        self.print_trainable_parameters()
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
@@ -836,7 +830,7 @@ class Brain:
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
 
-        # Force default color for tqdm progrressbar
+        # Force default color for tqdm progressbar
         if not self.tqdm_colored_bar:
             self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
 
@@ -851,6 +845,29 @@ class Brain:
                 self.hparams.output_folder,
             )
 
+    def print_trainable_parameters(self):
+        """Prints the number of trainable parameters in the model."""
+        total_trainable_params = 0
+        total_parameters = 0
+        for parameter in self.modules.parameters():
+            total_parameters += parameter.numel()
+            if parameter.requires_grad:
+                total_trainable_params += parameter.numel()
+        class_name = self.__class__.__name__
+        percentage_trainable = 100 * total_trainable_params / total_parameters
+        formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
+            total_trainable_params
+        )
+        formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+            total_parameters
+        )
+        logger.info(
+            f"{class_name} Model Statistics:\n"
+            f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
+            f"* Total Number of Parameters: {formatted_total_params}\n"
+            f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
+        )
+
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
 
@@ -863,18 +880,19 @@ class Brain:
 
         Returns
         -------
-        torch.Tensor or Tensors
+        torch.Tensor or torch.Tensors
             The outputs after all processing is complete.
             Directly passed to ``compute_objectives()``.
         """
         raise NotImplementedError
+        return
 
     def compute_objectives(self, predictions, batch, stage):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
         ---------
-        predictions : torch.Tensor or Tensors
+        predictions : torch.Tensor or torch.Tensors
             The output tensor or tensors to evaluate.
             Comes directly from ``compute_forward()``.
         batch : torch.Tensor or tensors
@@ -888,6 +906,7 @@ class Brain:
             A tensor with the computed loss.
         """
         raise NotImplementedError
+        return
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called when a stage starts.
@@ -963,6 +982,10 @@ class Brain:
         **loader_kwargs : dict
             Additional keyword arguments to the DataLoader.
             E.g., batch_size, num_workers, pin_memory.
+
+        Returns
+        -------
+        DataLoader for the input dataset
         """
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
@@ -1137,7 +1160,7 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key, min_key=min_key,
+                max_key=max_key, min_key=min_key
             )
 
     def fit_batch(self, batch):
@@ -1168,7 +1191,7 @@ class Brain:
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     outputs = self.compute_forward(batch, sb.Stage.TRAIN)
                     loss = self.compute_objectives(
@@ -1222,7 +1245,7 @@ class Brain:
                 logger.warning("Patience not yet exhausted.")
 
     def check_gradients(self):
-        """ Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
+        """Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
         for param in self.modules.parameters():
             if param.requires_grad and param.grad is not None:
                 if not torch.isfinite(param.grad).all():
@@ -1340,7 +1363,7 @@ class Brain:
         amp = AMPConfig.from_name(self.eval_precision)
         if self.use_amp:
             with torch.autocast(
-                dtype=amp.dtype, device_type=torch.device(self.device).type,
+                dtype=amp.dtype, device_type=torch.device(self.device).type
             ):
                 out = self.compute_forward(batch, stage=stage)
                 loss = self.compute_objectives(out, batch, stage=stage)
@@ -1505,6 +1528,8 @@ class Brain:
             A set of data to use for validation. If a Dataset is given, a
             DataLoader is automatically created. If a DataLoader is given, it is
             used directly.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
         train_loader_kwargs : dict
             Kwargs passed to `make_dataloader()` for making the train_loader
             (if train_set is a Dataset, not DataLoader).
@@ -1515,8 +1540,10 @@ class Brain:
             (if valid_set is a Dataset, not DataLoader).
             E.g., batch_size, num_workers.
             DataLoader kwargs are all valid.
-        progressbar : bool
-            Whether to display the progress of each epoch in a progressbar.
+
+        Returns
+        -------
+        None
         """
         if self.test_only:
             logger.info(
@@ -1772,7 +1799,11 @@ class Brain:
         Arguments
         ---------
         use : bool
-            If set to `False` will still sync gradients, useful to make behaviour togglable.
+            If set to `False` will still sync gradients, useful to make behavior toggleable.
+
+        Yields
+        ------
+        None
         """
         if use:
             old_values_list = []

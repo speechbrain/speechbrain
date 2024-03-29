@@ -5,6 +5,7 @@ Authors
     * Samuele Cornell 2021
     * Cem Subakan 2021
 """
+
 import speechbrain as sb
 import numpy as np
 import torch
@@ -33,7 +34,6 @@ def build_spk_hashtable_aishell1mix(hparams):
         == hparams["sample_rate"]
     )
     for utt in tqdm(aishell1_utterances):
-
         path = os.path.normpath(utt)
         path_list = path.split(os.sep)
         spk_id = path_list[-2]
@@ -169,7 +169,9 @@ def dynamic_mix_data_prep_aishell1mix(hparams):
                 stop = start + minlen
 
             tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
+                spk_file,
+                frame_offset=start,
+                num_frames=stop - start,
             )
             tmp = tmp[0].numpy()
             tmp = normalize(tmp)

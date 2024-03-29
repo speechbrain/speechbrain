@@ -22,12 +22,9 @@ INPUT_LENGTH = 9.01
 
 
 class ComputeScore:
-    """A class for computing MOS scores using an ONNX model and polynomial fitting.
-    """
+    """A class for computing MOS scores using an ONNX model and polynomial fitting."""
 
     def __init__(self, primary_model_path) -> None:
-        """Initialize the ComputeScore class.
-        """
         self.onnx_sess = ort.InferenceSession(primary_model_path)
 
     def get_polyfit_val(self, sig, bak, ovr, is_personalized_MOS):
@@ -51,8 +48,7 @@ class ComputeScore:
         return sig_poly, bak_poly, ovr_poly
 
     def __call__(self, fpath, sampling_rate, is_personalized_MOS):
-        """Compute MOS scores for an audio segment.
-        """
+        """Compute MOS scores for an audio segment."""
         aud, input_fs = sf.read(fpath)
         fs = sampling_rate
         if input_fs != fs:

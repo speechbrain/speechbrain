@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def csv2text():
-    """Read CSV file and convert specific data entries into text file.
-    """
+    """Read CSV file and convert specific data entries into text file."""
     annotation_file = open(hparams["train_csv"], "r")
     reader = csv.reader(annotation_file)
     headers = next(reader, None)
@@ -70,7 +69,7 @@ if __name__ == "__main__":
         )
         csv2text()
 
-    logger.info(f"Start tarining {hparams['ngram']}-gram kenlm model.")
+    logger.info(f"Start training {hparams['ngram']}-gram kenlm model.")
     tmp_ngram_file = "ngram.arpa"
     cmd = f'lmplz -o {hparams["ngram"]} <"{hparams["text_file"]}" > "{tmp_ngram_file}"'
     os.system(cmd)

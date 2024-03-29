@@ -93,7 +93,7 @@ default_role = "code"
 
 
 def run_apidoc(app):
-    """Generage API documentation"""
+    """Generate API documentation"""
     import better_apidoc
 
     better_apidoc.APP = app

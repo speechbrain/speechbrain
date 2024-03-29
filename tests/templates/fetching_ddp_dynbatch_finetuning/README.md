@@ -6,7 +6,7 @@ As such, this test case is supposed to be run offline and serves more as a tool 
 (outside of GitHub workflows).
 
 Since one can modify this recipe for further use cases, it also serves as a template.
-Eventually, code snippets provided here might find proper re-use in recipes and testing of pretrained models,
+Eventually, code snippets provided here might find proper reuse in recipes and testing of pretrained models,
 e.g. when re-running evaluations on int'l research challenges,
 (where one needs to obtain scores for fusion &/or calibration of classifiers for submission).
 
@@ -32,7 +32,7 @@ Each of the test cases below is of a different nature.
 The `finetune.py` example serves as a template to an extensive set of all of the above use cases combined.
 Accompanied by `finetune.yaml`, a YAML infrastructure is demonstrated that uses inputs from other hparam files.
 The benefit is a simple one: the training/fine-tuning hparams share a common set of yaml entries with the pretrained model: `ASR.yaml`.
-As such, the pretrained model yaml `source_pretrained/pretrained.ymal` also references inputs from `ASR.yaml` and
+As such, the pretrained model yaml `source_pretrained/pretrained.yaml` also references inputs from `ASR.yaml` and
 provides symlinks in `source_pretrained` to an expected CKPT that is created during the execution of the script.
 
 How to run with DDP:
@@ -78,39 +78,39 @@ test_dataloader_opts:
 You'll get different results depending on which one you take. Here are exemplary logs for `batch_size: 8`:
 ```
 __main__ - Batch from scratch w/ pretrainer_load_audio=True
-WER on DDP rank 0: {'WER': 7.366330698040391, 'SER': 40.30534351145038, 'num_edits': 1966, 'num_scored_tokens': 26689, 'num_erraneous_sents': 528, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 1039, 'deletions': 96, 'substitutions': 831, 'error_rate': 7.366330698040391}
-WER on DDP rank 1: {'WER': 6.7949163672886, 'SER': 41.98473282442748, 'num_edits': 1759, 'num_scored_tokens': 25887, 'num_erraneous_sents': 550, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 756, 'deletions': 145, 'substitutions': 858, 'error_rate': 6.7949163672886}
-	Summary: {'WER': 7.084981740718199, 'SER': 41.14503816793893, 'num_edits': 3725, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1078, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1795, 'deletions': 241, 'substitutions': 1689, 'error_rate': 7.084981740718199}
-	Summary: {'WER': 7.084981740718199, 'SER': 41.14503816793893, 'num_edits': 3725, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1078, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1795, 'deletions': 241, 'substitutions': 1689, 'error_rate': 7.084981740718199}
+WER on DDP rank 0: {'WER': 7.366330698040391, 'SER': 40.30534351145038, 'num_edits': 1966, 'num_scored_tokens': 26689, 'num_erroneous_sents': 528, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 1039, 'deletions': 96, 'substitutions': 831, 'error_rate': 7.366330698040391}
+WER on DDP rank 1: {'WER': 6.7949163672886, 'SER': 41.98473282442748, 'num_edits': 1759, 'num_scored_tokens': 25887, 'num_erroneous_sents': 550, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 756, 'deletions': 145, 'substitutions': 858, 'error_rate': 6.7949163672886}
+	Summary: {'WER': 7.084981740718199, 'SER': 41.14503816793893, 'num_edits': 3725, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1078, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1795, 'deletions': 241, 'substitutions': 1689, 'error_rate': 7.084981740718199}
+	Summary: {'WER': 7.084981740718199, 'SER': 41.14503816793893, 'num_edits': 3725, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1078, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1795, 'deletions': 241, 'substitutions': 1689, 'error_rate': 7.084981740718199}
 __main__ - WER: 7.084981740718199
 
 __main__ - Batch from scratch w/ pretrainer_load_audio=False
-WER on DDP rank 0: {'WER': 7.366330698040391, 'SER': 40.30534351145038, 'num_edits': 1966, 'num_scored_tokens': 26689, 'num_erraneous_sents': 528, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 1039, 'deletions': 96, 'substitutions': 831, 'error_rate': 7.366330698040391}
-WER on DDP rank 1: {'WER': 6.7949163672886, 'SER': 41.98473282442748, 'num_edits': 1759, 'num_scored_tokens': 25887, 'num_erraneous_sents': 550, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 756, 'deletions': 145, 'substitutions': 858, 'error_rate': 6.7949163672886}
-	Summary: {'WER': 7.084981740718199, 'SER': 41.14503816793893, 'num_edits': 3725, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1078, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1795, 'deletions': 241, 'substitutions': 1689, 'error_rate': 7.084981740718199}
+WER on DDP rank 0: {'WER': 7.366330698040391, 'SER': 40.30534351145038, 'num_edits': 1966, 'num_scored_tokens': 26689, 'num_erroneous_sents': 528, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 1039, 'deletions': 96, 'substitutions': 831, 'error_rate': 7.366330698040391}
+WER on DDP rank 1: {'WER': 6.7949163672886, 'SER': 41.98473282442748, 'num_edits': 1759, 'num_scored_tokens': 25887, 'num_erroneous_sents': 550, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 756, 'deletions': 145, 'substitutions': 858, 'error_rate': 6.7949163672886}
+	Summary: {'WER': 7.084981740718199, 'SER': 41.14503816793893, 'num_edits': 3725, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1078, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1795, 'deletions': 241, 'substitutions': 1689, 'error_rate': 7.084981740718199}
 __main__ - WER: 7.084981740718199
 
 __main__ - Testing w/ asr_brain's eval dataloader
-	Summary: {'WER': 7.018411442483262, 'SER': 40.83969465648855, 'num_edits': 3690, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1070, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1781, 'deletions': 246, 'substitutions': 1663, 'error_rate': 7.018411442483262}
+	Summary: {'WER': 7.018411442483262, 'SER': 40.83969465648855, 'num_edits': 3690, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1070, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 1781, 'deletions': 246, 'substitutions': 1663, 'error_rate': 7.018411442483262}
 __main__ - WER: 7.018411442483262
 ```
 (DDP-WER: 7.08% & one GPU WER: 7.02%), and [after commenting-out the `train()` step] with `batch_size: 1` (both WERs: 4.14%):
 ```
 __main__ - Batch from scratch w/ pretrainer_load_audio=True
-WER on DDP rank 0: {'WER': 4.087826445352018, 'SER': 39.00763358778626, 'num_edits': 1091, 'num_scored_tokens': 26689, 'num_erraneous_sents': 511, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 170, 'deletions': 90, 'substitutions': 831, 'error_rate': 4.087826445352018}
-WER on DDP rank 1: {'WER': 4.199018812531387, 'SER': 40.68702290076336, 'num_edits': 1087, 'num_scored_tokens': 25887, 'num_erraneous_sents': 533, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 104, 'deletions': 142, 'substitutions': 841, 'error_rate': 4.199018812531387}
-	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
+WER on DDP rank 0: {'WER': 4.087826445352018, 'SER': 39.00763358778626, 'num_edits': 1091, 'num_scored_tokens': 26689, 'num_erroneous_sents': 511, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 170, 'deletions': 90, 'substitutions': 831, 'error_rate': 4.087826445352018}
+WER on DDP rank 1: {'WER': 4.199018812531387, 'SER': 40.68702290076336, 'num_edits': 1087, 'num_scored_tokens': 25887, 'num_erroneous_sents': 533, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 104, 'deletions': 142, 'substitutions': 841, 'error_rate': 4.199018812531387}
+	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
 __main__ - WER: 4.142574558734023
 
 __main__ - Batch from scratch w/ pretrainer_load_audio=False
-WER on DDP rank 0: {'WER': 4.087826445352018, 'SER': 39.00763358778626, 'num_edits': 1091, 'num_scored_tokens': 26689, 'num_erraneous_sents': 511, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 170, 'deletions': 90, 'substitutions': 831, 'error_rate': 4.087826445352018}
-WER on DDP rank 1: {'WER': 4.199018812531387, 'SER': 40.68702290076336, 'num_edits': 1087, 'num_scored_tokens': 25887, 'num_erraneous_sents': 533, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 104, 'deletions': 142, 'substitutions': 841, 'error_rate': 4.199018812531387}
-	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
-	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
+WER on DDP rank 0: {'WER': 4.087826445352018, 'SER': 39.00763358778626, 'num_edits': 1091, 'num_scored_tokens': 26689, 'num_erroneous_sents': 511, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 170, 'deletions': 90, 'substitutions': 831, 'error_rate': 4.087826445352018}
+WER on DDP rank 1: {'WER': 4.199018812531387, 'SER': 40.68702290076336, 'num_edits': 1087, 'num_scored_tokens': 25887, 'num_erroneous_sents': 533, 'num_scored_sents': 1310, 'num_absent_sents': 0, 'num_ref_sents': 1310, 'insertions': 104, 'deletions': 142, 'substitutions': 841, 'error_rate': 4.199018812531387}
+	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
+	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
 __main__ - WER: 4.142574558734023
 
 __main__ - Testing w/ asr_brain's eval dataloader
-	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erraneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
+	Summary: {'WER': 4.142574558734023, 'SER': 39.847328244274806, 'num_edits': 2178, 'num_scored_tokens': 52576, 'num_erroneous_sents': 1044, 'num_scored_sents': 2620, 'num_absent_sents': 0, 'num_ref_sents': 2620, 'insertions': 274, 'deletions': 232, 'substitutions': 1672, 'error_rate': 4.142574558734023}
 __main__ - WER: 4.142574558734023
 ```
 Please feel free to use this template for testing & debugging when attempting to fix this, and avail the fix to the core module (compare commented code block in the `make_dataloader` function). At the time of writing, the WER of the last log entry has been equivalent to the outcome of `asr_brain.evaluate()` for both were `run_on_main` (a fix implies larger refactoring).

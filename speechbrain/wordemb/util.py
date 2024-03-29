@@ -4,6 +4,7 @@ Utilities for word embeddings
 Authors
 * Artem Ploujnikov 2021
 """
+
 import torch
 
 

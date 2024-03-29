@@ -5,7 +5,7 @@ This folder contains scripts necessary to run an ASR experiment with the CommonV
 python train.py hparams/{hparam_file}.yaml
 
 To use an n-gram Language Model (LM) for decoding, follow these steps:
-1. Uncomment the line `kenlm_model_path: none` in the `test_beam_serch` entry in the yaml file.
+1. Uncomment the line `kenlm_model_path: none` in the `test_beam_search` entry in the yaml file.
 2. Set a path to an ARPA or bin file containing the n-gram LM.
 
 For training an n-gram LM in ARPA (or bin) format, refer to the LM recipe in recipes/CommonVoice/LM.

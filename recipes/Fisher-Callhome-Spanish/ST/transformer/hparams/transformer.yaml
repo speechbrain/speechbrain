@@ -63,7 +63,7 @@ speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
 
 # Trainer settings
 number_of_epochs: 50
-valid_search_eopch: 10
+valid_search_epoch: 10
 batch_size: 8 # this works for 2 GPUs with 11GB
 grad_accumulation_factor: 8
 loss_reduction: batchmean
@@ -132,7 +132,7 @@ eos_index: 2
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_search_interval: !ref <valid_search_eopch>
+valid_search_interval: !ref <valid_search_epoch>
 valid_beam_size: 10
 test_beam_size: 10
 

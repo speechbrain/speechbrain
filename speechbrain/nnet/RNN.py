@@ -16,7 +16,6 @@ from speechbrain.nnet.attention import (
     LocationAwareAttention,
     KeyValueAttention,
 )
-from torch import Tensor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -31,6 +30,10 @@ def pack_padded_sequence(inputs, lengths):
         The sequences to pack.
     lengths : torch.Tensor
         The length of each sequence.
+
+    Returns
+    -------
+    The packed sequences.
     """
     lengths = (lengths * inputs.size(1)).cpu()
     return torch.nn.utils.rnn.pack_padded_sequence(
@@ -45,6 +48,11 @@ def pad_packed_sequence(inputs):
     ---------
     inputs : torch.nn.utils.rnn.PackedSequence
         An input set of sequences to convert to a tensor.
+
+    Returns
+    -------
+    outputs : torch.Tensor
+        The padded sequences.
     """
     outputs, lengths = torch.nn.utils.rnn.pad_packed_sequence(
         inputs, batch_first=True
@@ -141,6 +149,13 @@ class RNN(torch.nn.Module):
             Starting hidden state.
         lengths : torch.Tensor
             Relative lengths of the input signals.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The output of the vanilla RNN
+        hn : torch.Tensor
+            The hidden states.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -252,6 +267,13 @@ class LSTM(torch.nn.Module):
             Starting hidden state.
         lengths : torch.Tensor
             Relative length of the input signals.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The output of the LSTM.
+        hn : torch.Tensor
+            The hidden states.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -279,7 +301,7 @@ class LSTM(torch.nn.Module):
 
 
 class GRU(torch.nn.Module):
-    """ This function implements a basic GRU.
+    """This function implements a basic GRU.
 
     It accepts input tensors formatted as (batch, time, fea).
     In the case of 4d inputs like (batch, time, fea, channel) the tensor is
@@ -298,7 +320,7 @@ class GRU(torch.nn.Module):
         Number of layers to employ in the RNN architecture.
     bias : bool
         If True, the additive bias b is adopted.
-    dropou t: float
+    dropout: float
         It is the dropout factor (must be between 0 and 1).
     re_init : bool
         If True, orthogonal initialization is used for the recurrent weights.
@@ -363,6 +385,13 @@ class GRU(torch.nn.Module):
             Starting hidden state.
         lengths : torch.Tensor
             Relative length of the input signals.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output of GRU.
+        hn : torch.Tensor
+            Hidden states.
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -390,7 +419,7 @@ class GRU(torch.nn.Module):
 
 
 class RNNCell(nn.Module):
-    """ This class implements a basic RNN Cell for a timestep of input,
+    """This class implements a basic RNN Cell for a timestep of input,
     while RNN() takes the whole sequence as input.
 
     It is designed for an autoregressive decoder (ex. attentional decoder),
@@ -417,6 +446,8 @@ class RNNCell(nn.Module):
     re_init : bool
         It True, orthogonal initialization is used for the recurrent weights.
         Xavier initialization is used for the input connection weights.
+    nonlinearity : str
+        Type of nonlinearity (tanh, relu).
 
     Example
     -------
@@ -480,6 +511,13 @@ class RNNCell(nn.Module):
             The input of RNNCell.
         hx : torch.Tensor
             The hidden states of RNNCell.
+
+        Returns
+        -------
+        h : torch.Tensor
+            Outputs of RNNCell.
+        hidden : torch.Tensor
+            Hidden states.
         """
         # if not provided, initialized with zeros
         if hx is None:
@@ -497,7 +535,7 @@ class RNNCell(nn.Module):
 
 
 class GRUCell(nn.Module):
-    """ This class implements a basic GRU Cell for a timestep of input,
+    """This class implements a basic GRU Cell for a timestep of input,
     while GRU() takes the whole sequence as input.
 
     It is designed for an autoregressive decoder (ex. attentional decoder),
@@ -584,6 +622,13 @@ class GRUCell(nn.Module):
             The input of GRUCell.
         hx : torch.Tensor
             The hidden states of GRUCell.
+
+        Returns
+        -------
+        h : torch.Tensor
+            Outputs of GRUCell
+        hidden : torch.Tensor
+            Hidden states.
         """
 
         # if not provided, initialized with zeros
@@ -602,7 +647,7 @@ class GRUCell(nn.Module):
 
 
 class LSTMCell(nn.Module):
-    """ This class implements a basic LSTM Cell for a timestep of input,
+    """This class implements a basic LSTM Cell for a timestep of input,
     while LSTM() takes the whole sequence as input.
 
     It is designed for an autoregressive decoder (ex. attentional decoder),
@@ -689,6 +734,12 @@ class LSTMCell(nn.Module):
             The input of LSTMCell.
         hx : torch.Tensor
             The hidden states of LSTMCell.
+
+        Returns
+        -------
+        h : torch.Tensor
+            Outputs
+        Tuple of (hidden, cell)
         """
         # if not provided, initialized with zeros
         if hx is None:
@@ -731,8 +782,8 @@ class AttentionalRNNDecoder(nn.Module):
         Number of attention module internal and output neurons.
     num_layers : int
         Number of layers to employ in the RNN architecture.
-    input_shape : tuple
-        Expected shape of an input.
+    enc_dim : int
+        Size of encoding dimension.
     input_size : int
         Expected size of the relevant input dimension.
     nonlinearity : str
@@ -961,7 +1012,7 @@ class AttentionalRNNDecoder(nn.Module):
 
 
 class LiGRU(torch.nn.Module):
-    """ This function implements a Light GRU (Li-GRU).
+    """This function implements a Light GRU (Li-GRU).
 
     Li-GRU is single-gate GRU model based on batch-norm + relu
     activations + recurrent dropout. For more info see:
@@ -1079,7 +1130,7 @@ class LiGRU(torch.nn.Module):
                 current_dim = self.hidden_size
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the Li-GRU.
 
         Arguments
@@ -1088,6 +1139,13 @@ class LiGRU(torch.nn.Module):
             The input tensor.
         hx : torch.Tensor
             Starting hidden state.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output of LiGRU
+        hh : torch.Tensor
+            Hidden states
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -1099,7 +1157,7 @@ class LiGRU(torch.nn.Module):
 
         return output, hh
 
-    def _forward_ligru(self, x, hx: Optional[Tensor]):
+    def _forward_ligru(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the vanilla Li-GRU.
 
         Arguments
@@ -1107,6 +1165,13 @@ class LiGRU(torch.nn.Module):
         x : torch.Tensor
             Input tensor.
         hx : torch.Tensor
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output tensor.
+        h : torch.Tensor
+            The hidden states.
         """
         h = []
         if hx is not None:
@@ -1132,7 +1197,7 @@ class LiGRU(torch.nn.Module):
 
 
 class LiGRU_Layer(torch.nn.Module):
-    """ This class implements Light-Gated Recurrent Units (Li-GRU) layer.
+    """This class implements Light-Gated Recurrent Units (Li-GRU) layer.
 
     Arguments
     ---------
@@ -1171,7 +1236,6 @@ class LiGRU_Layer(torch.nn.Module):
         bias=True,
         bidirectional=False,
     ):
-
         super().__init__()
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
@@ -1224,8 +1288,8 @@ class LiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the liGRU layer.
 
         Arguments
@@ -1234,6 +1298,11 @@ class LiGRU_Layer(torch.nn.Module):
             Input tensor.
         hx : torch.Tensor
             Hidden state.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The output of the liGRU.
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -1270,10 +1339,15 @@ class LiGRU_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        wx : torch.Tensor
+        w : torch.Tensor
             Linearly transformed input.
         ht : torch.Tensor
             Hidden state.
+
+        Returns
+        -------
+        h : torch.Tensor
+            Hidden state for each step.
         """
         hiddens = []
 
@@ -1310,7 +1384,6 @@ class LiGRU_Layer(torch.nn.Module):
     def _sample_drop_mask(self, w):
         """Selects one of the pre-defined dropout masks"""
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
@@ -1344,13 +1417,15 @@ class LiGRU_Layer(torch.nn.Module):
             if self.training:
                 self.drop_masks = self.drop(
                     torch.ones(
-                        self.N_drop_masks, self.hidden_size, device=x.device,
+                        self.N_drop_masks,
+                        self.hidden_size,
+                        device=x.device,
                     )
                 ).data
 
 
 class SLiGRU(torch.nn.Module):
-    """ This class implements a Stabilised Light GRU (SLi-GRU).
+    """This class implements a Stabilised Light GRU (SLi-GRU).
 
     SLi-GRU is single-gate GRU model based on batch-norm + relu
     activations + layer-norm on the recurrent connections + recurrent dropout.
@@ -1476,7 +1551,7 @@ class SLiGRU(torch.nn.Module):
                 current_dim = self.hidden_size
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the SLi-GRU.
 
         Arguments
@@ -1485,6 +1560,13 @@ class SLiGRU(torch.nn.Module):
             The input tensor.
         hx : torch.Tensor
             Starting hidden state.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output of SLiGRU
+        hh : torch.Tensor
+            Hidden states
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -1496,7 +1578,7 @@ class SLiGRU(torch.nn.Module):
 
         return output, hh
 
-    def _forward_sligru(self, x, hx: Optional[Tensor]):
+    def _forward_sligru(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the vanilla SLi-GRU.
 
         Arguments
@@ -1504,6 +1586,13 @@ class SLiGRU(torch.nn.Module):
         x : torch.Tensor
             Input tensor.
         hx : torch.Tensor
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output of SLiGRU
+        h : torch.Tensor
+            Hidden states
         """
         h = []
         if hx is not None:
@@ -1529,7 +1618,7 @@ class SLiGRU(torch.nn.Module):
 
 
 class SLiGRU_Layer(torch.nn.Module):
-    """ This class implements a Stabilised Light-Gated Recurrent Units (SLi-GRU) layer.
+    """This class implements a Stabilised Light-Gated Recurrent Units (SLi-GRU) layer.
 
     Arguments
     ---------
@@ -1574,7 +1663,6 @@ class SLiGRU_Layer(torch.nn.Module):
         bias=True,
         bidirectional=False,
     ):
-
         super().__init__()
         self.hidden_size = int(hidden_size)
         self.input_size = int(input_size)
@@ -1632,8 +1720,8 @@ class SLiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the liGRU layer.
 
         Arguments
@@ -1642,6 +1730,11 @@ class SLiGRU_Layer(torch.nn.Module):
             Input tensor.
         hx : torch.Tensor
             Hidden state.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The output of liGRU.
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -1682,6 +1775,11 @@ class SLiGRU_Layer(torch.nn.Module):
             Linearly transformed input.
         ht : torch.Tensor
             Hidden state.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for each step.
         """
         hiddens = []
 
@@ -1719,7 +1817,6 @@ class SLiGRU_Layer(torch.nn.Module):
     def _sample_drop_mask(self, w):
         """Selects one of the pre-defined dropout masks"""
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
@@ -1753,7 +1850,9 @@ class SLiGRU_Layer(torch.nn.Module):
             if self.training:
                 self.drop_masks = self.drop(
                     torch.ones(
-                        self.N_drop_masks, self.hidden_size, device=x.device,
+                        self.N_drop_masks,
+                        self.hidden_size,
+                        device=x.device,
                     )
                 ).data
 
@@ -1769,6 +1868,8 @@ class QuasiRNNLayer(torch.nn.Module):
     hidden_size : int
         The number of features in the hidden state h. If not specified,
         the input size is used.
+    bidirectional : bool
+        Whether to apply the RNN in both forward and backward directions.
     zoneout : float
         Whether to apply zoneout (i.e. failing to update elements in the
         hidden state) to the hidden state updates. Default: 0.
@@ -1812,13 +1913,20 @@ class QuasiRNNLayer(torch.nn.Module):
             self.o_gate = nn.Sigmoid()
 
     def forgetMult(self, f, x, hidden):
-        # type: (Tensor, Tensor, Optional[Tensor]) -> Tensor # noqa F821
+        # type: (Tensor, torch.Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
         """Returns the hidden states for each time step.
 
         Arguments
         ---------
-        wx : torch.Tensor
-            Linearly transformed input.
+        f : torch.Tensor
+        x : torch.Tensor
+            Input tensors
+        hidden : torch.Tensor
+            First hidden state if any.
+
+        Returns
+        -------
+        Hidden states for each step.
         """
         result = []
         htm1 = hidden
@@ -1835,7 +1943,7 @@ class QuasiRNNLayer(torch.nn.Module):
         return torch.stack(result)
 
     def split_gate_inputs(self, y):
-        # type: (Tensor) -> Tuple[Tensor, Tensor, Optional[Tensor]] # noqa F821
+        # type: (torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]] # noqa F821
         """Splits the input gates."""
         if self.output_gate:
             z, f, o = y.chunk(3, dim=-1)
@@ -1845,13 +1953,20 @@ class QuasiRNNLayer(torch.nn.Module):
         return z, f, o
 
     def forward(self, x, hidden=None):
-        # type: (Tensor, Optional[Tensor]) -> Tuple[Tensor, Tensor] # noqa F821
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor] # noqa F821
         """Returns the output of the QRNN layer.
 
         Arguments
         ---------
         x : torch.Tensor
             Input to transform linearly.
+        hidden : torch.Tensor
+            Initial hidden state, if any.
+
+        Returns
+        -------
+        h : torch.Tensor
+        c : torch.Tensor
         """
         if x.ndim == 4:
             # if input is a 4d tensor (batch, time, channel1, channel2)
@@ -1935,12 +2050,15 @@ class QuasiRNN(nn.Module):
         The size of the input. Alternatively, use ``input_shape``.
     num_layers : int
         The number of QRNN layers to produce.
-    zoneout : bool
-        Whether to apply zoneout (i.e. failing to update elements in the
-        hidden state) to the hidden state updates. Default: 0.
-    output_gate : bool
-        If True, performs QRNN-fo (applying an output gate to the output).
-        If False, performs QRNN-f. Default: True.
+    bias : bool
+        Whether to add a bias term, only True supported.
+    dropout : float
+        The rate at which to zero out outputs.
+    bidirectional : bool
+        If true, one set of parameters will traverse forward, and the
+        other set will traverse from end to start.
+    **kwargs : dict
+        Arguments to forward to QuasiRNN layers.
 
     Example
     -------
@@ -1960,7 +2078,6 @@ class QuasiRNN(nn.Module):
         input_size=None,
         num_layers=1,
         bias=True,
-        batch_first=False,
         dropout=0,
         bidirectional=False,
         **kwargs,
@@ -1987,11 +2104,15 @@ class QuasiRNN(nn.Module):
         for layer in range(self.num_layers):
             layers.append(
                 QuasiRNNLayer(
-                    input_size
-                    if layer == 0
-                    else self.hidden_size * 2
-                    if self.bidirectional
-                    else self.hidden_size,
+                    (
+                        input_size
+                        if layer == 0
+                        else (
+                            self.hidden_size * 2
+                            if self.bidirectional
+                            else self.hidden_size
+                        )
+                    ),
                     self.hidden_size,
                     self.bidirectional,
                     **self.kwargs,

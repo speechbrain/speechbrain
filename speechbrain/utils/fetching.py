@@ -5,6 +5,7 @@ Authors:
  * Samuele Cornell 2021
  * Andreas Nautsch 2022, 2023
 """
+
 import urllib.request
 import urllib.error
 import pathlib
@@ -91,7 +92,7 @@ def fetch(
         The filename to use for saving this file. Defaults to filename if not
         given.
     use_auth_token : bool (default: False)
-        If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+        If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because majority of models are public.
     revision : str
         The model revision corresponding to the HuggingFace Hub model revision.

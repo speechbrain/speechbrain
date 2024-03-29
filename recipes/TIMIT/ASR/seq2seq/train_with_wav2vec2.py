@@ -86,7 +86,7 @@ class ASR(sb.Brain):
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens_eos)
             self.per_metrics.append(
-                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim,
+                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim
             )
 
         return loss
@@ -177,7 +177,8 @@ class ASR(sb.Brain):
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(

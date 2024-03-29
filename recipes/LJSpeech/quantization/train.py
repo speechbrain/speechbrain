@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 def dataio_prepare(hparams):
-
     # Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -31,7 +30,8 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         info = torchaudio.info(wav)
         resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(sig)
         return resampled
 

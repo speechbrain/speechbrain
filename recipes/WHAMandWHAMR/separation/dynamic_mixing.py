@@ -33,7 +33,6 @@ def build_spk_hashtable(base_folder_dm, sample_rate):
 
     spk_hashtable = {}
     for utt in wsj0_utterances:
-
         spk_id = Path(utt).stem[:3]
         assert torchaudio.info(utt).sample_rate == sample_rate
 
@@ -97,7 +96,7 @@ def dynamic_mix_data_prep(
 
     # 1. Define datasets
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=tr_csv, replacements={"data_root": data_root_folder},
+        csv_path=tr_csv, replacements={"data_root": data_root_folder}
     )
 
     # we build an dictionary where keys are speakers id and entries are list
@@ -148,7 +147,6 @@ def dynamic_mix_data_prep(
         )
 
         for i, spk_file in enumerate(spk_files):
-
             # select random offset
             length = torchaudio.info(spk_file).num_frames
             start = 0
@@ -158,7 +156,7 @@ def dynamic_mix_data_prep(
                 stop = start + minlen
 
             tmp, fs_read = torchaudio.load(
-                spk_file, frame_offset=start, num_frames=stop - start,
+                spk_file, frame_offset=start, num_frames=stop - start
             )
 
             tmp = tmp[0]  # * peak  # remove channel dim and normalize

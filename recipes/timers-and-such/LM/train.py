@@ -55,7 +55,8 @@ class LM(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"loss": stage_stats["loss"]}, min_keys=["loss"],
+                meta={"loss": stage_stats["loss"]},
+                min_keys=["loss"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -66,12 +67,14 @@ class LM(sb.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -96,7 +99,8 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_valid"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -134,13 +138,13 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "transcript", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "transcript", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_real_data, test_synth_data, tokenizer
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

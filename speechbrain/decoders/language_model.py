@@ -9,6 +9,7 @@ See: speechbrain.decoders.ctc.py
 Authors
  * Adel Moumen 2023
 """
+
 import logging
 from typing import (
     Collection,
@@ -130,7 +131,7 @@ def _prepare_unigram_set(
 
 
 def _get_empty_lm_state() -> "kenlm.State":
-    """Get unintialized kenlm state.
+    """Get uninitialized kenlm state.
 
     Taken from: https://github.com/kensho-technologies/pyctcdecode
 

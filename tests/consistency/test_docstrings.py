@@ -3,6 +3,7 @@
 Authors
  * Mirco Ravanelli 2022
 """
+
 from tests.utils.check_docstrings import check_docstrings
 
 

@@ -13,6 +13,7 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import logging
 import hashlib
 import sys
@@ -86,12 +87,14 @@ def foreign_class(
         Where to put the pretraining material. If not given, will use
         ./pretrained_models/<class-name>-hash(source).
     use_auth_token : bool (default: False)
-        If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+        If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because the majority of models are public.
     download_only : bool (default: False)
         If true, class and instance creation is skipped.
     huggingface_cache_dir : str
         Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
+    **kwargs : dict
+        Arguments to forward to class constructor.
 
     Returns
     -------
@@ -430,7 +433,7 @@ class Pretrained(torch.nn.Module):
             Where to put the pretraining material. If not given, will use
             ./pretrained_models/<class-name>-hash(source).
         use_auth_token : bool (default: False)
-            If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+            If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
             default is False because the majority of models are public.
         revision : str
             The model revision corresponding to the HuggingFace Hub model revision.
@@ -438,12 +441,14 @@ class Pretrained(torch.nn.Module):
             version of a model hosted at HuggingFace.
         download_only : bool (default: False)
             If true, class and instance creation is skipped.
-        revision : str
-            The model revision corresponding to the HuggingFace Hub model revision.
-            This is particularly useful if you wish to pin your code to a particular
-            version of a model hosted at HuggingFace.
         huggingface_cache_dir : str
             Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
+        **kwargs : dict
+            Arguments to forward to class constructor.
+
+        Returns
+        -------
+        Instance of cls
         """
         if savedir is None:
             clsname = cls.__name__

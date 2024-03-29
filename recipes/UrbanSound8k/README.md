@@ -97,7 +97,7 @@ Please, take a look [here](https://www.dropbox.com/sh/f61325e3w8h5yy2/AADm3E3PXF
 
 Classification performance and f-scores are output to the console and log file for each epoch using a passed validation set, and after training using the passed test set.
 
-The default hyperparameter settings will output Tensorboard logs to `<output_folder>/tb_logs/` and can be viewed simply using:
+The default hyperparameter settings will output torch.Tensorboard logs to `<output_folder>/tb_logs/` and can be viewed simply using:
 
  `tensorboard --logdir=<YOUR_PATH_TO_OUTPUT_FOLDER>/tb_logs/`
 
