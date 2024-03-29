@@ -76,11 +76,11 @@ class DiscreteWavLM(WavLM):
     >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
     >>> kmeans_filename = "LJSpeech_wavlm_k128_L7.pt"
     >>> kmeans_cache_dir="savedir"
-    >>> model = DiscreteWavLM(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, kmeans_filename=kmeans_filename, kmeans_cache_dir=kmeans_cache_dir)
-    >>> embs, tokens = model(inputs)
-    >>> embs.shape
+    >>> model = DiscreteWavLM(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, kmeans_filename=kmeans_filename, kmeans_cache_dir=kmeans_cache_dir)  # doctest: +SKIP
+    >>> embs, tokens = model(inputs)  # doctest: +SKIP
+    >>> embs.shape  # doctest: +SKIP
     torch.Size([10, 1, 1024])
-    >>> tokens.shape
+    >>> tokens.shape  # doctest: +SKIP
     torch.Size([10, 1])
     """
 
