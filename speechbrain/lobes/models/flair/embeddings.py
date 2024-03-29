@@ -123,6 +123,11 @@ class FlairEmbeddings:
         word : str
             Word to embed. Out-of-vocabulary handling depends on the underlying
             embedding class.
+
+        Returns
+        -------
+        torch.Tensor
+            Embedding for a single word, of shape `[embed_size]`
         """
 
         return self([word])[0, 0, :]
