@@ -20,8 +20,6 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
 
 class TextEncoder(HFTransformersInterface):
     """This lobe enables the integration of a generic HuggingFace text encoder
