@@ -89,7 +89,7 @@ class TextEncoder(HFTransformersInterface):
         ), "Too few layers in LM: kept layer count requested is too high"
         self.model.encoder.layer = self.model.encoder.layer[:keep_layers]
 
-    def forward(self, input_texts, return_tokens: bool):
+    def forward(self, input_texts, return_tokens: bool = False):
         """This method implements a forward of the encoder model,
         which generates batches of embeddings embeddings from input text.
 
