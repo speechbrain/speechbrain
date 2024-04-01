@@ -1875,8 +1875,6 @@ class S2SSpeechT5BeamSearch(S2SBeamSearcher):
             Normally set to None for this usecase.
     temperature: float
         decoding temperature
-    temperature_lm: float
-        temperature for the model LM head.
     bos_token: int
         BOS token ID. 0 by default.
     pad_token: int
@@ -1893,7 +1891,6 @@ class S2SSpeechT5BeamSearch(S2SBeamSearcher):
         self,
         module,
         temperature=1.0,
-        temperature_lm=1.0,
         bos_token=0,
         pad_token=1,
         eos_token=2,
@@ -1901,16 +1898,13 @@ class S2SSpeechT5BeamSearch(S2SBeamSearcher):
         **kwargs,
     ):
 
-        super(S2SSpeechT5BeamSearch, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.model = module[0]
-        if len(module) == 2:
-            self.ctc_fc = module[1]
 
         self.softmax = torch.nn.LogSoftmax(dim=-1)
 
         self.temperature = temperature
-        self.temperature_lm = temperature_lm
 
         self.decoder_input_tokens = [bos_token]
 
@@ -1928,17 +1922,8 @@ class S2SSpeechT5BeamSearch(S2SBeamSearcher):
         """This method sets the first tokens to be decoder_input_tokens during search."""
         return torch.tensor([self.decoder_input_tokens] * batch_size).to(device)
 
-    def reset_lm_mem(self, batch_size, device):
-        """Needed to reset the LM memory during beamsearch."""
-        return None
-
     def permute_mem(self, memory, index):
         """Permutes the memory."""
-        memory = torch.index_select(memory, dim=0, index=index)
-        return memory
-
-    def permute_lm_mem(self, memory, index):
-        """Permutes the memory of the language model."""
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
 
