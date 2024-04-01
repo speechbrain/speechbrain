@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
-"""Recipe for fine-tuning a SpeechT5 model for the ST task (no transcriptions).
+"""Recipe for training a SpeechT5-based AST system with IWSLT 2022 Tamasheq-French dataset.
+The system uses SpeechT5 (https://arxiv.org/abs/2110.07205) and fine-tunes it on the data
+with NLL loss.
 
-Author
- * Haroun Elleuch, 2024
+This recipe uses the SpeechT5 for Speech-to-Text integration in SpeechBrain.
+For more details about it, you can check speechbrain/lobes/models/huggingface_transformers/speecht5.py
+Beam Search is used for the decoding step.
+
+To run this recipe, do the following:
+> python train_speechT5.py hparams/train_speecht5_st.yaml
+
+Author: Haroun Elleuch 2024
 """
 
 import sys
@@ -14,6 +22,8 @@ import speechbrain as sb
 from sacremoses import MosesDetokenizer
 from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -60,13 +70,8 @@ class ST(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             fr_detokenizer = MosesDetokenizer(lang=self.hparams.lang)
 
-            if self.distributed_launch:
-                tokenizer = self.modules.speecht5.module.tokenizer
-            else:
-                tokenizer = self.modules.speecht5.tokenizer
-
             # Decode token terms to words
-            predicted_words = tokenizer.batch_decode(
+            predicted_words = self.tokenizer.batch_decode(
                 hyps, skip_special_tokens=True
             )
             predicted_words = [text.split(" ") for text in predicted_words]
@@ -86,16 +91,6 @@ class ST(sb.core.Brain):
             self.acc_metric.append(log_probs, tokens_eos, tokens_eos_lens)
 
         return loss
-
-    def init_optimizers(self):
-        self.adam_optimizer = self.hparams.adam_opt_class(
-            self.modules.speecht5.parameters()
-        )
-
-        self.optimizers_dict = {"model_optimizer": self.adam_optimizer}
-
-    def freeze_optimizers(self, optimizers):
-        return {"model_optimizer": optimizers["model_optimizer"]}
 
     def on_stage_start(self, stage, epoch):
         """Gets called when a stage (either training, validation, test) starts."""
@@ -137,7 +132,7 @@ class ST(sb.core.Brain):
             name = "checkpoint_epoch" + str(current_epoch)
 
             self.checkpointer.save_and_keep_only(
-                meta=meta, name=name, num_to_keep=5, max_keys=["BLEU"]
+                meta=meta, name=name, num_to_keep=1, max_keys=["BLEU"]
             )
 
         elif stage == sb.Stage.TEST:
@@ -162,16 +157,6 @@ def dataio_prepare(hparams, tokenizer):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    @sb.utils.data_pipeline.takes("path")
-    @sb.utils.data_pipeline.provides("sig")
-    def sp_audio_pipeline(wav):
-        """Load the audio signal. This is done on the CPU in the `collate_fn`."""
-        sig = sb.dataio.dataio.read_audio(wav)
-        sig = sig.unsqueeze(0)
-        sig = hparams["speed_perturb"](sig)
-        sig = sig.squeeze(0)
-        return sig
-
     # Define text processing pipeline. We start from the raw text and then
     # encode it using the tokenizer. The tokens with BOS are used for feeding
     # decoder during training, the tokens with EOS for computing the cost function.
@@ -193,29 +178,9 @@ def dataio_prepare(hparams, tokenizer):
 
     # Load data and tokenize with tokenizer
     datasets = {}
-    for dataset in ["train", "valid"]:
+    for dataset in ["train", "valid", "test"]:
         json_path = hparams[f"annotation_{dataset}"]
 
-        is_use_sp = dataset == "train" and "speed_perturb" in hparams
-        audio_pipeline_func = sp_audio_pipeline if is_use_sp else audio_pipeline
-
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=json_path,
-            replacements={"data_root": data_folder},
-            dynamic_items=[audio_pipeline_func, reference_text_pipeline],
-            output_keys=[
-                "id",
-                "sig",
-                "duration",
-                "trans",
-                "tokens_list",
-                "tokens_bos",
-                "tokens_eos",
-            ],
-        )
-
-    for dataset in ["valid", "test"]:
-        json_path = hparams[f"annotation_{dataset}"]
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=json_path,
             replacements={"data_root": data_folder},
@@ -311,10 +276,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # creates a logger
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -331,19 +292,20 @@ if __name__ == "__main__":
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
+        opt_class=hparams["adam_opt_class"],
     )
 
     # Data preparation
-    import prepare_iwslt22
+    from prepare_iwslt22 import data_proc
 
-    if not hparams["skip_prep"]:
-        run_on_main(
-            prepare_iwslt22.data_proc,
-            kwargs={
-                "dataset_folder": hparams["root_data_folder"],
-                "output_folder": hparams["data_folder"],
-            },
-        )
+    run_on_main(
+        data_proc,
+        kwargs={
+            "dataset_folder": hparams["root_data_folder"],
+            "output_folder": hparams["data_folder"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
 
     # Load datasets for training, valid, and test, trains and applies tokenizer
     datasets = dataio_prepare(hparams, hparams["speecht5"].tokenizer)
@@ -356,6 +318,8 @@ if __name__ == "__main__":
         train_loader_kwargs=hparams["dataloader_options"],
         valid_loader_kwargs=hparams["test_dataloader_options"],
     )
+    # Adding a tokenizer:
+    st_brain.tokenizer = hparams["speecht5"].tokenizer
 
     # Test
     for dataset in ["valid", "test"]:
