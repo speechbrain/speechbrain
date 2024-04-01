@@ -1,3 +1,13 @@
+# ############################################################################
+# Model: E2E Automatic Speech Translation with SpeechT5 (https://arxiv.org/abs/2110.07205)
+# Encoder: SpeechT5 Speech Encoder Pre-net + Speech Encoder
+# Decoder: SpeechT5 Text Decoder + Text Decoder Post-net + beamsearch
+# Tokens: unigram (SentencePiece, vocab size: 81)
+# losses: NLL loss
+# Training: IWSLT 22 Tamlasheq - French dataset
+# Author: Haroun Elleuch
+# ############################################################################
+
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 372
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
