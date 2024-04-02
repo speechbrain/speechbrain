@@ -39,4 +39,4 @@ If you are using distributed training, use the following:
 
 | hyperparams file |  dev BLEU | test BLEU | Model Link |
 |:----------------:|:---------:|:--------:|:--------:|
-| train_speecht5_st.yaml | WIP | WIP | [DropBox](coming_soon) |
+| train_speecht5_st.yaml | 6.00 | 5.28 | [DropBox](https://www.dropbox.com/scl/fo/q5zx8ah7rzeoz0fg6ea62/h?rlkey=y68eo4faog0nz4t9c4lyxoh4x&dl=0) |
