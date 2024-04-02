@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 def eval_reporting(reports, single_node=False):
     """Performance logging independent of who logs what.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     reports: dict
         Maps metric labels to performance trackers (instances) which need summarise certain fields for final reporting.
     single_node: bool
@@ -69,8 +69,8 @@ def eval_test_use_recipe_dataio(
 ):
     """Bypassing speechbrain.inference.interfaces.Pretrained.load_audio with recipe dataio (speechbrain.dataio.dataio.read_audio).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: dict
@@ -116,8 +116,8 @@ def eval_test_batch_from_scratch(
 ):
     """Relies only on batched audio paths to create batches using the pretrained interface only.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: Dataset, DataLoader
@@ -326,7 +326,7 @@ if __name__ == "__main__":
         )
 
     # Re:testing w/ previous dataloader // note: needs to run as last item (the script might get stuck otherwise)
-    logger.info(f"\nTesting w/ asr_brain's eval dataloader")
+    logger.info("\nTesting w/ asr_brain's eval dataloader")
     run_on_main(
         eval_test_use_recipe_dataio,
         kwargs={

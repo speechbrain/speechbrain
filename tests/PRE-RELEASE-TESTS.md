@@ -72,7 +72,7 @@ if tests fail, it is most likely because one interface is missing, hence follow 
 ## Adding an interface to the HuggingFace API.
 
 1. Go to the [api-inference-community](https://github.com/huggingface/api-inference-community) and clone it.
-2. Add the interface name to the [ModelType file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/common.py). This correspond to the ALL CAPITALIZED varables.
+2. Add the interface name to the [ModelType file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/common.py). This correspond to the ALL CAPITALIZED variables.
 3. If your interface can be derived from one of the existing pipelines in [here](https://github.com/huggingface/api-inference-community/tree/main/docker_images/speechbrain/app/pipelines), simply go to the good one, for instance [automatic-speech-recognition](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/pipelines/automatic_speech_recognition.py) and add your new interface *if statement*.
 4. If your interface cannot be derived from an existing pipeline, then you will need to create a new file [here](https://github.com/huggingface/api-inference-community/tree/main/docker_images/speechbrain/app/pipelines) and contact the HuggingFace team to move forward (see our HuggingFace Slack channel).
 5. Test your changes (see previous section).

@@ -6,7 +6,6 @@ Samuele Cornell, 2020
 Mirco Ravanelli, 2020
 """
 
-
 import os
 import sys
 import speechbrain as sb

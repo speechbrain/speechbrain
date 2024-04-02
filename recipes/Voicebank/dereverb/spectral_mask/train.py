@@ -65,7 +65,6 @@ class SEBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN:
-
             # Evaluate speech quality/intelligibility
             self.stoi_metric.append(
                 batch.id, predict_wav, clean_wavs, lens, reduction="batch"
@@ -155,7 +154,8 @@ class SEBrain(sb.Brain):
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # Define audio pipelines
     @sb.utils.data_pipeline.takes("noisy_wav")
@@ -204,7 +204,6 @@ def create_folder(folder):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

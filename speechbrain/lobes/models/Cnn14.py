@@ -37,8 +37,8 @@ class ConvBlock(nn.Module):
     norm_type : str in ['bn', 'in', 'ln']
         The type of normalization
 
-    Example:
-    --------
+    Example
+    -------
     >>> convblock = ConvBlock(10, 20, 'ln')
     >>> x = torch.rand(5, 10, 20, 30)
     >>> y = convblock(x)
@@ -47,7 +47,7 @@ class ConvBlock(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, norm_type):
-        super(ConvBlock, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -139,8 +139,8 @@ class Cnn14(nn.Module):
     return_reps: bool (default=False)
         If True the model returns intermediate representations as well for interpretation
 
-    Example:
-    --------
+    Example
+    -------
     >>> cnn14 = Cnn14(120, 256)
     >>> x = torch.rand(3, 400, 120)
     >>> h = cnn14.forward(x)
@@ -149,7 +149,7 @@ class Cnn14(nn.Module):
     """
 
     def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False):
-        super(Cnn14, self).__init__()
+        super().__init__()
         self.return_reps = return_reps
 
         self.norm_type = norm_type

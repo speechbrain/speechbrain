@@ -54,7 +54,7 @@ class QBatchNorm(torch.nn.Module):
         eps=1e-4,
         track_running_stats=True,
     ):
-        super(QBatchNorm, self).__init__()
+        super().__init__()
 
         self.num_features = input_size // 4
         self.gamma_init = gamma_init
@@ -90,6 +90,10 @@ class QBatchNorm(torch.nn.Module):
         ---------
         input : torch.Tensor (batch, time, [channels])
             Input to normalize. It can be 2d, 3d, 4d.
+
+        Returns
+        -------
+        The normalized input.
         """
 
         exponential_average_factor = 0.0
@@ -116,7 +120,7 @@ class QBatchNorm(torch.nn.Module):
                 delta, 4, dim=self.dim
             )
             quat_variance = torch.mean(
-                (delta_r ** 2 + delta_i ** 2 + delta_j ** 2 + delta_k ** 2),
+                (delta_r**2 + delta_i**2 + delta_j**2 + delta_k**2),
                 dim=0,
             )
 

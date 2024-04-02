@@ -27,18 +27,23 @@ def gevd(a, b=None):
 
     Arguments
     ---------
-    a : tensor
+    a : torch.Tensor
         A first input matrix. It is equivalent to the matrix A in the
         equation in the description above. The tensor must have the
         following format: (*,2,C+P).
 
-    b : tensor
+    b : torch.Tensor
         A second input matrix. It is equivalent tot the matrix B in the
         equation in the description above. The tensor must have the
         following format: (*,2,C+P).
         This argument is optional and its default value is None. If
         b == None, then b is replaced by the identity matrix in the
         computations.
+
+    Returns
+    -------
+    vs : torch.Tensor
+    ds : torch.Tensor
 
     Example
     -------
@@ -68,7 +73,6 @@ def gevd(a, b=None):
     A = VDV^-1
 
     """
-
     # Dimensions
     D = a.dim()
     P = a.shape[D - 1]
@@ -94,6 +98,7 @@ def gevd(a, b=None):
     csh = torch.matmul(lsh_inv, torch.matmul(ash, lsh_inv_T))
 
     # Performing the eigenvalue decomposition
+    # cspell:ignore UPLO
     es, ysh = torch.linalg.eigh(csh, UPLO="U")
 
     # Collecting the eigenvalues
@@ -115,7 +120,7 @@ def gevd(a, b=None):
 
 
 def svdl(a):
-    """ Singular Value Decomposition (Left Singular Vectors).
+    """Singular Value Decomposition (Left Singular Vectors).
 
     This function finds the eigenvalues and eigenvectors of the
     input multiplied by its transpose (a x a.T).
@@ -126,7 +131,7 @@ def svdl(a):
 
     Arguments:
     ----------
-    a : tensor
+    a : torch.Tensor
         A complex input matrix to work with. The tensor must have
         the following format: (*,2,C+P).
 
@@ -153,7 +158,6 @@ def svdl(a):
     >>> XXs = cov(Xs)
     >>> us, ds = svdl(XXs)
     """
-
     # Dimensions
     D = a.dim()
     P = a.shape[D - 1]
@@ -190,11 +194,14 @@ def f(ws):
 
     Arguments
     ---------
-    ws : tensor
+    ws : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2,C+P)
-    """
 
+    Returns
+    -------
+    wsh : torch.Tensor
+    """
     # Dimensions
     D = ws.dim()
     ws = ws.transpose(D - 2, D - 1)
@@ -221,7 +228,7 @@ def f(ws):
 
 
 def finv(wsh):
-    """ Inverse transform 1
+    """Inverse transform 1
 
     This method takes a block matrix representing a complex Hermitian
     matrix and converts it to a complex matrix represented by its
@@ -230,11 +237,14 @@ def finv(wsh):
 
     Arguments
     ---------
-    wsh : tensor
+    wsh : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2C,2C)
-    """
 
+    Returns
+    -------
+    ws : torch.Tensor
+    """
     # Dimensions
     D = wsh.dim()
     C = int(wsh.shape[D - 1] / 2)
@@ -260,11 +270,14 @@ def g(ws):
 
     Arguments
     ---------
-    ws : tensor
+    ws : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,C,C,2)
-    """
 
+    Returns
+    -------
+    wsh : torch.Tensor
+    """
     # Dimensions
     D = ws.dim()
     C = ws.shape[D - 2]
@@ -293,11 +306,14 @@ def ginv(wsh):
 
     Arguments
     ---------
-    wsh : tensor
+    wsh : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2C,2C)
-    """
 
+    Returns
+    -------
+    ws : torch.Tensor
+    """
     # Extracting data
     D = wsh.dim()
     C = int(wsh.shape[D - 1] / 2)
@@ -322,18 +338,19 @@ def pos_def(ws, alpha=0.001, eps=1e-20):
 
     Arguments
     ---------
-    ws : tensor
+    ws : torch.Tensor
         An input matrix. The tensor must have the following format:
         (*,2,C+P)
-
     alpha : float
         A coefficient to multiply the trace. The default value is 0.001.
-
     eps : float
         A small value to increase the real part of the diagonal. The
         default value is 1e-20.
-    """
 
+    Returns
+    -------
+    ws_pf : torch.Tensor
+    """
     # Extracting data
     D = ws.dim()
     P = ws.shape[D - 1]
@@ -364,9 +381,13 @@ def inv(x):
 
     Arguments
     ---------
-    x : tensor
+    x : torch.Tensor
         An input matrix to work with. The tensor must have the
         following format: (*, 2, C+P)
+
+    Returns
+    -------
+    x_inv : torch.Tensor
 
     Example
     -------
@@ -391,7 +412,6 @@ def inv(x):
     >>> XXs = cov(Xs)
     >>> XXs_inv = inv(XXs)
     """
-
     # Dimensions
     d = x.dim()
     p = x.shape[-1]

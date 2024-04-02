@@ -13,7 +13,7 @@ from hyperpyyaml import load_hyperpyyaml
 
 class TransducerBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the output probabilities."
+        """Given an input batch it computes the output probabilities."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.modules.compute_features(wavs)
@@ -31,7 +31,8 @@ class TransducerBrain(sb.Brain):
 
         # Joint the networks
         joint = self.modules.Tjoint(
-            TN_output.unsqueeze(2), PN_output.unsqueeze(1),
+            TN_output.unsqueeze(2),
+            PN_output.unsqueeze(1),
         )
         outputs = self.modules.output(joint)
         outputs = self.hparams.log_softmax(outputs)
@@ -42,7 +43,7 @@ class TransducerBrain(sb.Brain):
             return outputs, lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the CTC loss."
+        """Given the network predictions and targets computed the CTC loss."""
         phns, phn_lens = batch.phn_encoded
 
         if stage == sb.Stage.TRAIN:
@@ -60,7 +61,7 @@ class TransducerBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
@@ -77,8 +78,7 @@ class TransducerBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

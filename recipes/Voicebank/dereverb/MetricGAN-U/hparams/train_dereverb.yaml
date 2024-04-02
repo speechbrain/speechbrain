@@ -24,7 +24,7 @@ historical_file: !ref <output_folder>/historical.txt
 use_tensorboard: False
 tensorboard_logs: !ref <output_folder>/logs/
 
-# FFT paremeters
+# FFT parameters
 Sample_rate: 16000
 Win_length: 32
 Hop_length: 16
@@ -39,7 +39,7 @@ skip_prep: False
 
 # The target metrics that you want to optimize.
 # Right now we only support 'dnsmos', and 'srmr'.
-# (Of course, it can be any arbitary metric.)
+# (Of course, it can be any arbitrary metric.)
 target_metric: srmr
 calculate_dnsmos_on_validation_set: False
 target_score: 1
@@ -114,6 +114,6 @@ resynth: !name:speechbrain.processing.signal_processing.resynthesize
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-# Tensorboard logger (optional)
+# torch.Tensorboard logger (optional)
 tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
     save_dir: !ref <tensorboard_logs>

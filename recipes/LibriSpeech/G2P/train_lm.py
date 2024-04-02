@@ -129,7 +129,6 @@ class LM(sb.core.Brain):
 
         # At the end of validation, we can wrote
         if stage == sb.Stage.VALID:
-
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -154,7 +153,6 @@ class LM(sb.core.Brain):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

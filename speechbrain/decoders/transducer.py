@@ -4,6 +4,7 @@ Author:
     Abdelwahab HEBA 2020
     Sung-Lin Yeh 2020
 """
+
 import torch
 from dataclasses import dataclass
 from functools import partial
@@ -24,19 +25,19 @@ class TransducerBeamSearcher(torch.nn.Module):
     """
     This class implements the beam-search algorithm for the transducer model.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     decode_network_lst : list
         List of prediction network (PN) layers.
     tjoint: transducer_joint module
         This module perform the joint between TN and PN.
     classifier_network : list
         List of output layers (after performing joint between TN and PN)
-        exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
+        exp: (TN,PN) => joint => classifier_network_list [DNN block, Linear..] => chars prob
     blank_id : int
         The blank symbol/index.
-    beam : int
-        The width of beam. Greedy Search is used when beam = 1.
+    beam_size : int
+        The width of beam. Greedy Search is used when beam_size = 1.
     nbest : int
         Number of hypotheses to keep.
     lm_module : torch.nn.ModuleList
@@ -109,7 +110,7 @@ class TransducerBeamSearcher(torch.nn.Module):
         state_beam=2.3,
         expand_beam=2.3,
     ):
-        super(TransducerBeamSearcher, self).__init__()
+        super().__init__()
         self.decode_network_lst = decode_network_lst
         self.tjoint = tjoint
         self.classifier_network = classifier_network
@@ -134,8 +135,8 @@ class TransducerBeamSearcher(torch.nn.Module):
     def forward(self, tn_output):
         """
         Arguments
-        ----------
-        tn_output : torch.tensor
+        ---------
+        tn_output : torch.Tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
 
@@ -158,17 +159,15 @@ class TransducerBeamSearcher(torch.nn.Module):
                 ---> keep the previous target prediction from the decoder
 
         Arguments
-        ----------
-        tn_output : torch.tensor
+        ---------
+        tn_output : torch.Tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
-
         hidden_state : (torch.Tensor, torch.Tensor)
             Hidden state to initially feed the decode network with. This is
             useful in conjunction with `return_hidden` to be able to perform
             beam search in a streaming context, so that you can reuse the last
             hidden state as an initial state across calls.
-
         return_hidden : bool
             Whether the return tuple should contain an extra 5th element with
             the hidden state at of the last step. See `hidden_state`.
@@ -263,7 +262,12 @@ class TransducerBeamSearcher(torch.nn.Module):
 
         if return_hidden:
             # append the `(out_PN, hidden)` tuple to ret
-            ret += ((out_PN, hidden,),)
+            ret += (
+                (
+                    out_PN,
+                    hidden,
+                ),
+            )
 
         return ret
 
@@ -283,6 +287,10 @@ class TransducerBeamSearcher(torch.nn.Module):
             Mutable streaming context object, which must be specified and reused
             across calls when streaming.
             You can obtain an initial context by initializing a default object.
+
+        Returns
+        -------
+        hyp : torch.Tensor
         """
         (hyp, _scores, _, _, hidden) = self.transducer_greedy_decode(
             x, context.hidden, return_hidden=True
@@ -301,14 +309,14 @@ class TransducerBeamSearcher(torch.nn.Module):
                         --> extend hyp by the new token
 
         Arguments
-        ----------
-        tn_output : torch.tensor
+        ---------
+        tn_output : torch.Tensor
             Output from transcription network with shape
             [batch, time_len, hiddens].
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             Outputs a logits tensor [B,T,1,Output_Dim]; padding
             has not been removed.
         """
@@ -349,13 +357,15 @@ class TransducerBeamSearcher(torch.nn.Module):
                         break
                     # Add norm score
                     a_best_hyp = max(
-                        process_hyps, key=partial(get_transducer_key),
+                        process_hyps,
+                        key=partial(get_transducer_key),
                     )
 
                     # Break if best_hyp in A is worse by more than state_beam than best_hyp in B
                     if len(beam_hyps) > 0:
                         b_best_hyp = max(
-                            beam_hyps, key=partial(get_transducer_key),
+                            beam_hyps,
+                            key=partial(get_transducer_key),
                         )
                         a_best_prob = a_best_hyp["logp_score"]
                         b_best_prob = b_best_hyp["logp_score"]
@@ -425,7 +435,9 @@ class TransducerBeamSearcher(torch.nn.Module):
                             process_hyps.append(topk_hyp)
             # Add norm score
             nbest_hyps = sorted(
-                beam_hyps, key=partial(get_transducer_key), reverse=True,
+                beam_hyps,
+                key=partial(get_transducer_key),
+                reverse=True,
             )[: self.nbest]
             all_predictions = []
             all_scores = []
@@ -450,7 +462,10 @@ class TransducerBeamSearcher(torch.nn.Module):
 
         with torch.no_grad():
             # the output would be a tensor of [B,T,U, oneof[sum,concat](Hidden_TN,Hidden_PN)]
-            out = self.tjoint(h_i, out_PN,)
+            out = self.tjoint(
+                h_i,
+                out_PN,
+            )
             # forward the output layers + activation + save logits
             out = self._forward_after_joint(out, self.classifier_network)
             log_probs = self.softmax(out)
@@ -486,20 +501,20 @@ class TransducerBeamSearcher(torch.nn.Module):
         from the Prediction Network.
 
         Arguments
-        ----------
+        ---------
         selected_sentences : list
             List of updated sentences (indexes).
-        output_PN: torch.tensor
+        output_PN: torch.Tensor
             Output tensor from prediction network (PN).
-        hidden : torch.tensor
+        hidden : torch.Tensor
             Optional: None, hidden tensor to be used for
             recurrent layers in the prediction network.
 
         Returns
         -------
-        selected_output_PN: torch.tensor
+        selected_output_PN: torch.Tensor
             Outputs a logits tensor [B_selected,U, hiddens].
-        hidden_update_hyp: torch.tensor
+        hidden_update_hyp: torch.Tensor
             Selected hiddens tensor.
         """
 
@@ -517,17 +532,17 @@ class TransducerBeamSearcher(torch.nn.Module):
         """Update hidden tensor by a subset of hidden tensor (updated ones).
 
         Arguments
-        ----------
+        ---------
         selected_sentences : list
             List of index to be updated.
-        updated_hidden : torch.tensor
+        updated_hidden : torch.Tensor
             Hidden tensor of the selected sentences for update.
-        hidden : torch.tensor
+        hidden : torch.Tensor
             Hidden tensor to be updated.
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             Updated hidden tensor.
         """
 
@@ -542,21 +557,21 @@ class TransducerBeamSearcher(torch.nn.Module):
         """Compute forward-pass through a list of prediction network (PN) layers.
 
         Arguments
-        ----------
-        out_PN : torch.tensor
+        ---------
+        out_PN : torch.Tensor
             Input sequence from prediction network with shape
             [batch, target_seq_lens].
         decode_network_lst: list
             List of prediction network (PN) layers.
-        hinne : torch.tensor
+        hidden : torch.Tensor
             Optional: None, hidden tensor to be used for
                 recurrent layers in the prediction network
 
         Returns
         -------
-        out_PN : torch.tensor
+        out_PN : torch.Tensor
             Outputs a logits tensor [B,U, hiddens].
-        hidden : torch.tensor
+        hidden : torch.Tensor
             Hidden tensor to be used for the next step
             by recurrent layers in prediction network.
         """
@@ -578,17 +593,17 @@ class TransducerBeamSearcher(torch.nn.Module):
         """Compute forward-pass through a list of classifier neural network.
 
         Arguments
-        ----------
-        out : torch.tensor
+        ---------
+        out : torch.Tensor
             Output from joint network with shape
             [batch, target_len, time_len, hiddens]
         classifier_network : list
             List of output layers (after performing joint between TN and PN)
-            exp: (TN,PN) => joint => classifier_network_list [DNN bloc, Linear..] => chars prob
+            exp: (TN,PN) => joint => classifier_network_list [DNN block, Linear..] => chars prob
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             Outputs a logits tensor [B, U,T, Output_Dim];
         """
 
@@ -602,7 +617,7 @@ def get_transducer_key(x):
     To be used as `key=partial(get_transducer_key)`.
 
     Arguments
-    ----------
+    ---------
     x : dict
         one of the items under comparison
 

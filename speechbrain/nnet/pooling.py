@@ -31,14 +31,14 @@ class Pooling1d(nn.Module):
         The count of dimensions expected in the input.
     pool_axis : int
         The axis where the pooling is applied.
-    stride : int
-        It is the stride size.
+    ceil_mode : bool
+        When True, will use ceil instead of floor to compute the output shape.
     padding : int
         It is the number of padding elements to apply.
     dilation : int
         Controls the dilation factor of pooling.
-    ceil_mode : bool
-        When True, will use ceil instead of floor to compute the output shape.
+    stride : int
+        It is the stride size.
 
     Example
     -------
@@ -114,6 +114,11 @@ class Pooling1d(nn.Module):
         ---------
         x : torch.Tensor
             It represents a tensor for a mini-batch.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The pooled outputs.
         """
         # Put the pooling axes as the last dimension for torch.nn.pool
         x = x.transpose(-1, self.pool_axis)
@@ -134,20 +139,20 @@ class Pooling2d(nn.Module):
     ---------
     pool_type : str
         It is the type of pooling function to use ('avg','max').
-    pool_axis : tuple
-        It is a list containing the axis that will be considered
-        during pooling.
     kernel_size : int
         It is the kernel size that defines the pooling dimension.
         For instance, kernel size=3,3 performs a 2D Pooling with a 3x3 kernel.
-    stride : int
-        It is the stride size.
+    pool_axis : tuple
+        It is a list containing the axis that will be considered
+        during pooling.
+    ceil_mode : bool
+        When True, will use ceil instead of floor to compute the output shape.
     padding : int
         It is the number of padding elements to apply.
     dilation : int
         Controls the dilation factor of pooling.
-    ceil_mode : bool
-        When True, will use ceil instead of floor to compute the output shape.
+    stride : int
+        It is the stride size.
 
     Example
     -------
@@ -203,6 +208,11 @@ class Pooling2d(nn.Module):
         ---------
         x : torch.Tensor
             It represents a tensor for a mini-batch.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The pooled outputs.
         """
         # Add extra two dimension at the last two, and then swap the pool_axis to them
         # Example: pool_axis=[1,2]
@@ -248,9 +258,9 @@ class StatisticsPooling(nn.Module):
 
     Arguments
     ---------
-    return_mean : True
+    return_mean : bool
          If True, the average pooling will be returned.
-    return_std : True
+    return_std : bool
          If True, the standard deviation will be returned.
 
     Example
@@ -282,6 +292,13 @@ class StatisticsPooling(nn.Module):
         ---------
         x : torch.Tensor
             It represents a tensor for a mini-batch.
+        lengths : torch.Tensor
+            The lengths of the samples in the input.
+
+        Returns
+        -------
+        pooled_stats : torch.Tensor
+            The mean and std for the input.
         """
         if lengths is None:
             if self.return_mean:
@@ -330,8 +347,15 @@ class StatisticsPooling(nn.Module):
 
         Arguments
         ---------
-        shape_of_tensor : tensor
+        shape_of_tensor : torch.Tensor
             It represents the size of tensor for generating Gaussian noise.
+        device : str
+            Device on which to perform computations.
+
+        Returns
+        -------
+        gnoise : torch.Tensor
+            The Gaussian noise.
         """
         gnoise = torch.randn(shape_of_tensor, device=device)
         gnoise -= torch.min(gnoise)
@@ -346,7 +370,7 @@ class AdaptivePool(nn.Module):
 
     Arguments
     ---------
-    delations : output_size
+    output_size : int
         The size of the output.
 
     Example
@@ -379,12 +403,17 @@ class AdaptivePool(nn.Module):
             self.pool = nn.AdaptiveAvgPool2d(output_size)
 
     def forward(self, x):
-        """Performs adpative pooling to the input tensor.
+        """Performs adaptive pooling to the input tensor.
 
         Arguments
         ---------
         x : torch.Tensor
             It represents a tensor for a mini-batch.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The pooled outputs.
         """
         if x.ndim == 3:
             return self.pool(x.permute(0, 2, 1)).permute(0, 2, 1)
@@ -409,6 +438,8 @@ class GaussianLowpassPooling(nn.Module):
     stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
+    initialization_constant : float
+        The constant used for initialization, default 0.4
     padding : str
         (same, valid). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is the same as the input shape.
@@ -444,7 +475,7 @@ class GaussianLowpassPooling(nn.Module):
         bias=True,
         skip_transpose=False,
     ):
-        super(GaussianLowpassPooling, self).__init__()
+        super().__init__()
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
@@ -456,7 +487,7 @@ class GaussianLowpassPooling(nn.Module):
         )
 
         if bias:
-            self._bias = torch.nn.Parameter(torch.ones(in_channels,))
+            self._bias = torch.nn.Parameter(torch.ones(in_channels))
         else:
             self._bias = None
 
@@ -476,6 +507,11 @@ class GaussianLowpassPooling(nn.Module):
         ---------
         x : torch.Tensor
             3D tensor in input [batch,time,channels].
+
+        Returns
+        -------
+        outputs : torch.Tensor
+            The pooled outputs.
         """
         if not self.skip_transpose:
             x = x.transpose(1, -1)
@@ -529,12 +565,12 @@ class GaussianLowpassPooling(nn.Module):
 
 
 class AttentionPooling(nn.Module):
-    """ This function implements a self-attention pooling (https://arxiv.org/abs/2008.01077).
+    """This function implements a self-attention pooling (https://arxiv.org/abs/2008.01077).
 
     Arguments
     ---------
     input_dim: int
-        The dimension of the input Tensor
+        The dimension of the input torch.Tensor
 
     Example
     -------
@@ -543,9 +579,7 @@ class AttentionPooling(nn.Module):
     >>> out_tensor = pool(inp_tensor)
     """
 
-    def __init__(
-        self, input_dim,
-    ):
+    def __init__(self, input_dim):
         super().__init__()
 
         self.input_dim = input_dim
@@ -560,6 +594,11 @@ class AttentionPooling(nn.Module):
         ---------
         x : torch.Tensor
             Input tensor.
+
+        Returns
+        -------
+        out : torch.Tensor
+            The pooled outputs.
         """
         out = self.attn_pooling_w(x).squeeze(-1).float()
         out = torch.nn.functional.softmax(out, dim=-1).unsqueeze(-1)

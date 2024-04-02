@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train PIQ to interepret audio classifiers.
+"""This recipe to train PIQ to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -93,20 +93,20 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, class_pred, X_stft_logpower, xhat
 
     def interpret_sample(self, wavs, batch=None):
-        """Get the interpratation for a given wav file."""
+        """Get the interpretation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(
             wavs
         )
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-        if not (batch is None):
+        if batch is not None:
             x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
 
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder, "audios_from_interpretation"
                 ),
                 exist_ok=True,
             )
@@ -141,7 +141,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """Interpration test with overlapped audio"""
+        """Interpretation test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
@@ -190,9 +190,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             "overlap_test",
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
-        makedirs(
-            out_folder, exist_ok=True,
-        )
+        makedirs(out_folder, exist_ok=True)
 
         torchaudio.save(
             os.path.join(out_folder, "mixture.wav"),
@@ -286,14 +284,12 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.title("mask")
 
         out_folder = os.path.join(
-            self.hparams.output_folder, "reconstructions/" f"{batch.id[0]}",
+            self.hparams.output_folder, "reconstructions/" f"{batch.id[0]}"
         )
-        makedirs(
-            out_folder, exist_ok=True,
-        )
+        makedirs(out_folder, exist_ok=True)
 
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"), format="png",
+            os.path.join(out_folder, "reconstructions.png"), format="png"
         )
         plt.close()
 
@@ -655,7 +651,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,

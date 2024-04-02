@@ -111,7 +111,7 @@ class Separation(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     predictions, targets = self.compute_forward(
                         mixture, targets, sb.Stage.TRAIN
@@ -215,7 +215,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -234,7 +233,7 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"]
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -342,7 +341,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture, mix_len = batch.mix_sig
                     snt_id = batch.id
@@ -414,13 +412,12 @@ class Separation(sb.Brain):
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
 
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
         for ns in range(self.hparams.num_spks):
-
             # Estimated source
             signal = predictions[0, :, ns]
             signal = signal / signal.abs().max()
@@ -516,7 +513,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -598,7 +594,7 @@ if __name__ == "__main__":
                     os.path.normpath(hparams["base_folder_dm"]) + "_processed"
                 )
 
-        # Colleting the hparams for dynamic batching
+        # Collecting the hparams for dynamic batching
         dm_hparams = {
             "train_data": hparams["train_data"],
             "data_folder": hparams["data_folder"],

@@ -23,11 +23,13 @@ logger = logging.getLogger(__name__)
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -60,7 +62,8 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         info = torchaudio.info(wav)
         resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(sig)
         return resampled
 
@@ -68,7 +71,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig"],
+        datasets,
+        ["id", "sig"],
     )
     return train_data
 

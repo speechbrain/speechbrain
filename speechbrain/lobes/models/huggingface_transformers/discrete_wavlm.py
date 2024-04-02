@@ -10,6 +10,7 @@ Author
  * Pooneh Mousavi 2023
 
 """
+
 import logging
 import torch
 from huggingface_hub import hf_hub_download
@@ -37,12 +38,12 @@ class DiscreteWavLM(WavLM):
         HuggingFace hub name: e.g "microsoft/wavlm-large"
     save_path : str
         Path (dir) of the downloaded model.
-    kmeans_repo_id : str
-        Huggingface repository if that contains the pretrained kmean model
     kmeans_filename : str
         Name of the file in HF repo that need to be downloaded.
     kmeans_cache_dir: str
         Path (dir) of the downloaded kmeans model.
+    kmeans_repo_id : str
+        Huggingface repository if that contains the pretrained kmean model
     output_norm : bool (default: True)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the WavLM model.
@@ -50,8 +51,8 @@ class DiscreteWavLM(WavLM):
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     freeze_feature_extractor :  bool (default: False)
-        When freeze = False and freeze_feature_extractor True, the featue_extractor module of the model is Frozen. If False
-        all the WavLM model will be trained including featue_extractor module.
+        When freeze = False and freeze_feature_extractor True, the feature_extractor module of the model is Frozen. If False
+        all the WavLM model will be trained including feature_extractor module.
     apply_spec_augment : bool (default: False)
         If True, the model will apply spec augment on the output of feature extractor
         (inside huggingface WavLM Model() class).
@@ -75,11 +76,11 @@ class DiscreteWavLM(WavLM):
     >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
     >>> kmeans_filename = "LJSpeech_wavlm_k128_L7.pt"
     >>> kmeans_cache_dir="savedir"
-    >>> model = DiscreteWavLM(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, kmeans_filename=kmeans_filename, kmeans_cache_dir=kmeans_cache_dir)
-    >>> embs, tokens = model(inputs)
-    >>> embs.shape
+    >>> model = DiscreteWavLM(model_hub, save_path,freeze = True,ssl_layer_num=ssl_layer_num,kmeans_repo_id=kmeans_repo_id, kmeans_filename=kmeans_filename, kmeans_cache_dir=kmeans_cache_dir)  # doctest: +SKIP
+    >>> embs, tokens = model(inputs)  # doctest: +SKIP
+    >>> embs.shape  # doctest: +SKIP
     torch.Size([10, 1, 1024])
-    >>> tokens.shape
+    >>> tokens.shape  # doctest: +SKIP
     torch.Size([10, 1])
     """
 
@@ -119,14 +120,15 @@ class DiscreteWavLM(WavLM):
         Arguments
         ---------
         repo_id : str
-           The hugingface repo id that contains the model.
+           The huggingface repo id that contains the model.
         filename : str
             The name of the checkpoints in the repo that need to be downloaded.
         cache_dir: str
             Path (dir) of the downloaded model.
-        Returns:
-        ---------
-        kmeans_model : MiniBatchKMeans:
+
+        Returns
+        -------
+        kmeans_model : MiniBatchKMeans
             pretrained Kmeans  model loaded from the HF.
         """
         kmeans_model = joblib.load(
@@ -141,12 +143,13 @@ class DiscreteWavLM(WavLM):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
-        Returns:
-        ---------
+
+        Returns
+        -------
         tokens : torch.Tensor
             A (Batch x Seq) tensor of audio tokens
         emb : torch.Tensor

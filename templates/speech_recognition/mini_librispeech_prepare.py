@@ -39,12 +39,15 @@ def prepare_mini_librispeech(
     save_json_test : str
         Path where the test data specification file will be saved.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/mini_librispeech'
     >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
     """
-
     # Check if this phase is already done (if so, skip it)
     if skip(save_json_train, save_json_valid, save_json_test):
         logger.info("Preparation completed in previous run, skipping.")
@@ -87,6 +90,11 @@ def get_transcription(trans_list):
     ---------
     trans_list : list of str
         The list of transcription files.
+
+    Returns
+    -------
+    trans_dict: dict
+        utterance id => transcription
     """
     # Processing all the transcription files in the list
     trans_dict = {}
@@ -147,6 +155,12 @@ def skip(*filenames):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    *filenames: tuple
+        The path to files that should exist in order to consider
+        preparation already completed.
 
     Returns
     -------

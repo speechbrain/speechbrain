@@ -14,11 +14,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
 data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
-data_folder_noise: !ref <data_folder>/noise # The noisy sequencies for data augmentation will automatically be downloaded here.
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
 audio_data_folder: !ref <data_folder>/audio
-# TODO the follwing folder will contain the resampled audio files (mono channel and config SR) to train on
-#reasmpled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
+# TODO the following folder will contain the resampled audio files (mono channel and config SR) to train on
+# resampled_audio_data_folder: !ref <data_folder>/audio_mono16kHz
 output_folder: !ref ./results/urban_sound/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -28,7 +28,7 @@ NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.z
 RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?rlkey=pg9cu8vrpn2u173vhiqyu743u&dl=1
 
 
-# Tensorboard logs
+# torch.Tensorboard logs
 use_tensorboard: True
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 

@@ -6,6 +6,7 @@ Authors
 """
 
 import collections
+from typing import Callable
 
 EDIT_SYMBOLS = {
     "eq": "=",  # when tokens are equal
@@ -15,21 +16,30 @@ EDIT_SYMBOLS = {
 }
 
 
+def _str_equals(a: str, b: str):
+    return a == b
+
+
 # NOTE: There is a danger in using mutables as default arguments, as they are
 # only initialized once, and not every time the function is run. However,
 # here the default is not actually ever mutated,
 # and simply serves as an empty Counter.
-def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
+def accumulatable_wer_stats(
+    refs,
+    hyps,
+    stats=collections.Counter(),
+    equality_comparator: Callable[[str, str], bool] = _str_equals,
+):
     """Computes word error rate and the related counts for a batch.
 
     Can also be used to accumulate the counts over many batches, by passing
     the output back to the function in the call for the next batch.
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
     stats : collections.Counter
         The running statistics.
@@ -37,6 +47,8 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
         to accumulate the counts. It may be cleanest to initialize
         the stats yourself; then an empty collections.Counter() should
         be used.
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------
@@ -61,7 +73,9 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     >>> print("%WER {WER:.2f}, {num_ref_tokens} ref tokens".format(**stats))
     %WER 33.33, 9 ref tokens
     """
-    updated_stats = stats + _batch_stats(refs, hyps)
+    updated_stats = stats + _batch_stats(
+        refs, hyps, equality_comparator=equality_comparator
+    )
     if updated_stats["num_ref_tokens"] == 0:
         updated_stats["WER"] = float("nan")
     else:
@@ -78,17 +92,21 @@ def accumulatable_wer_stats(refs, hyps, stats=collections.Counter()):
     return updated_stats
 
 
-def _batch_stats(refs, hyps):
+def _batch_stats(
+    refs, hyps, equality_comparator: Callable[[str, str], bool] = _str_equals
+):
     """Internal function which actually computes the counts.
 
     Used by accumulatable_wer_stats
 
     Arguments
-    ----------
-    ref : iterable
+    ---------
+    refs : iterable
         Batch of reference sequences.
-    hyp : iterable
+    hyps : iterable
         Batch of hypothesis sequences.
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------
@@ -114,14 +132,18 @@ def _batch_stats(refs, hyps):
         )
     stats = collections.Counter()
     for ref_tokens, hyp_tokens in zip(refs, hyps):
-        table = op_table(ref_tokens, hyp_tokens)
+        table = op_table(
+            ref_tokens, hyp_tokens, equality_comparator=equality_comparator
+        )
         edits = count_ops(table)
         stats += edits
         stats["num_ref_tokens"] += len(ref_tokens)
     return stats
 
 
-def op_table(a, b):
+def op_table(
+    a, b, equality_comparator: Callable[[str, str], bool] = _str_equals
+):
     """Table of edit operations between a and b.
 
     Solves for the table of edit operations, which is mainly used to
@@ -144,6 +166,8 @@ def op_table(a, b):
         Sequence for which the edit operations are solved.
     b : iterable
         Sequence for which the edit operations are solved.
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------
@@ -186,7 +210,7 @@ def op_table(a, b):
             # The dynamic programming algorithm cost rules
             insertion_cost = curr_row[j - 1] + 1
             deletion_cost = prev_row[j] + 1
-            substitution = 0 if a_token == b_token else 1
+            substitution = 0 if equality_comparator(a_token, b_token) else 1
             substitution_cost = prev_row[j - 1] + substitution
             # Here copying the Kaldi compute-wer comparison order, which in
             # ties prefers:
@@ -220,7 +244,7 @@ def alignment(table):
     alignment is monotonic, one-to-zero-or-one.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 
@@ -283,7 +307,7 @@ def count_ops(table):
     recognition to report the number of different error types separately.
 
     Arguments
-    ----------
+    ---------
     table : list
         Edit operations table from ``op_table(a, b)``.
 
@@ -339,7 +363,13 @@ def _batch_to_dict_format(ids, seqs):
     return dict(zip(ids, seqs))
 
 
-def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
+def wer_details_for_batch(
+    ids,
+    refs,
+    hyps,
+    compute_alignments=False,
+    equality_comparator: Callable[[str, str], bool] = _str_equals,
+):
     """Convenient batch interface for ``wer_details_by_utterance``.
 
     ``wer_details_by_utterance`` can handle missing hypotheses, but
@@ -379,12 +409,20 @@ def wer_details_for_batch(ids, refs, hyps, compute_alignments=False):
     refs = _batch_to_dict_format(ids, refs)
     hyps = _batch_to_dict_format(ids, hyps)
     return wer_details_by_utterance(
-        refs, hyps, compute_alignments=compute_alignments, scoring_mode="strict"
+        refs,
+        hyps,
+        compute_alignments=compute_alignments,
+        scoring_mode="strict",
+        equality_comparator=equality_comparator,
     )
 
 
 def wer_details_by_utterance(
-    ref_dict, hyp_dict, compute_alignments=False, scoring_mode="strict"
+    ref_dict,
+    hyp_dict,
+    compute_alignments=False,
+    scoring_mode="strict",
+    equality_comparator: Callable[[str, str], bool] = _str_equals,
 ):
     """Computes a wealth WER info about each single utterance.
 
@@ -477,10 +515,12 @@ def wer_details_by_utterance(
         else:
             raise ValueError("Invalid scoring mode: " + scoring_mode)
         # Compute edits for this utterance
-        table = op_table(ref_tokens, hyp_tokens)
+        table = op_table(
+            ref_tokens, hyp_tokens, equality_comparator=equality_comparator
+        )
         ops = count_ops(table)
         # Take into account "" outputs as empty
-        if ref_tokens[0] == "" and hyp_tokens[0] == "":
+        if len(ref_tokens) == 0 or ref_tokens[0] == "":
             num_ref_tokens = 0
         else:
             num_ref_tokens = len(ref_tokens)
@@ -488,12 +528,12 @@ def wer_details_by_utterance(
         utterance_details.update(
             {
                 "scored": True,
-                "hyp_empty": True
-                if len(hyp_tokens) == 0
-                else False,  # This also works for e.g. torch tensors
+                "hyp_empty": (
+                    True if len(hyp_tokens) == 0 else False
+                ),  # This also works for e.g. torch tensors
                 "num_edits": sum(ops.values()),
                 "num_ref_tokens": num_ref_tokens,
-                "WER": 100.0 * sum(ops.values()) / len(ref_tokens),
+                "WER": 100.0 * sum(ops.values()) / max(1, num_ref_tokens),
                 "insertions": ops["insertions"],
                 "deletions": ops["deletions"],
                 "substitutions": ops["substitutions"],
@@ -529,7 +569,7 @@ def wer_summary(details_by_utterance):
         * "num_scored_tokens": (int) Total number of tokens in scored
           reference utterances (a missing hypothesis might still
           have been scored with 'all' scoring mode).
-        * "num_erraneous_sents": (int) Total number of utterances
+        * "num_erroneous_sents": (int) Total number of utterances
           which had at least one error.
         * "num_scored_sents": (int) Total number of utterances
           which were scored.
@@ -545,9 +585,9 @@ def wer_summary(details_by_utterance):
     """
     # Build the summary details:
     ins = dels = subs = 0
-    num_scored_tokens = (
-        num_scored_sents
-    ) = num_edits = num_erraneous_sents = num_absent_sents = num_ref_sents = 0
+    num_scored_tokens = num_scored_sents = num_edits = num_erroneous_sents = (
+        num_absent_sents
+    ) = num_ref_sents = 0
     for dets in details_by_utterance:
         num_ref_sents += 1
         if dets["scored"]:
@@ -558,7 +598,7 @@ def wer_summary(details_by_utterance):
             subs += dets["substitutions"]
             num_edits += dets["num_edits"]
             if dets["num_edits"] > 0:
-                num_erraneous_sents += 1
+                num_erroneous_sents += 1
         if dets["hyp_absent"]:
             num_absent_sents += 1
     if num_scored_tokens != 0:
@@ -567,10 +607,10 @@ def wer_summary(details_by_utterance):
         WER = 0.0
     wer_details = {
         "WER": WER,
-        "SER": 100.0 * num_erraneous_sents / num_scored_sents,
+        "SER": 100.0 * num_erroneous_sents / num_scored_sents,
         "num_edits": num_edits,
         "num_scored_tokens": num_scored_tokens,
-        "num_erraneous_sents": num_erraneous_sents,
+        "num_erroneous_sents": num_erroneous_sents,
         "num_scored_sents": num_scored_sents,
         "num_absent_sents": num_absent_sents,
         "num_ref_sents": num_ref_sents,
@@ -607,7 +647,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
           have been scored with 'all' scoring mode).
         * "num_scored_sents": (int) number of scored utterances
           by this speaker.
-        * "num_erraneous_sents": (int) number of utterance with at least
+        * "num_erroneous_sents": (int) number of utterance with at least
           one error, by this speaker.
         * "num_absent_sents": (int) number of utterances for which no
           hypotheses was found, by this speaker.
@@ -629,7 +669,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
                     "num_scored_tokens": 0,
                     "num_scored_sents": 0,
                     "num_edits": 0,
-                    "num_erraneous_sents": 0,
+                    "num_erroneous_sents": 0,
                     "num_absent_sents": 0,
                     "num_ref_sents": 0,
                 }
@@ -650,7 +690,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
                 }
             )
             if dets["num_edits"] > 0:
-                utt_stats.update({"num_erraneous_sents": 1})
+                utt_stats.update({"num_erroneous_sents": 1})
         spk_dets.update(utt_stats)
     # We will in the end return a list of normal dicts
     # We want the output to be sortable
@@ -664,7 +704,7 @@ def wer_details_by_speaker(details_by_utterance, utt2spk):
             )
             spk_dets["SER"] = (
                 100.0
-                * spk_dets["num_erraneous_sents"]
+                * spk_dets["num_erroneous_sents"]
                 / spk_dets["num_scored_sents"]
             )
         else:
@@ -728,7 +768,7 @@ def top_wer_spks(details_by_speaker, top_k=10):
     details_by_speaker : list
         See output of wer_details_by_speaker.
     top_k : int
-        Number of seakers to return.
+        Number of speakers to return.
 
     Returns
     -------

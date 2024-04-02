@@ -24,31 +24,43 @@ logger = logging.getLogger(__name__)
 
 
 def getOverlap(a, b):
-    """ get the overlap length of two intervals
+    """get the overlap length of two intervals
 
     Arguments
     ---------
     a : list
     b : list
+
+    Returns
+    -------
+    overlap : float
     """
     return max(0, min(a[1], b[1]) - max(a[0], b[0]))
 
 
 def get_labels(data, win_len=0.02, stride=0.02):
-    """ make labels for training/test
+    """make labels for training/test
 
     Arguments
     ---------
-    data (dict): a dictionary that contains:
+    data : dict
+        a dictionary that contains:
         {
             'wav': path,
             'duration': dur,
             'emotion': [{'emo': emo, 'start': s, 'end': e}],
             'transcription': trans,
         }
-    win_len (float): the frame length used for frame-wise prediction
-    stride (float): the frame length used for frame-wise prediction
+    win_len : float
+        the frame length used for frame-wise prediction
+    stride : float
+        the frame length used for frame-wise prediction
 
+    Returns
+    -------
+    intervals : list
+    labels : list
+    frame_labels : list
     """
     emo_list = data["emotion"]
     assert len(emo_list) == 1
@@ -108,7 +120,7 @@ def prepare_train(
     jlcorpus_folder=None,
     ravdess_folder=None,
 ):
-    """ training sets preparation
+    """training sets preparation
 
     Args:
         save_json_train (str): train json path
@@ -189,9 +201,7 @@ def prepare_train(
         create_json(test_split, save_json_test)
 
 
-def prepare_test(
-    ZED_folder, save_json_test, win_len, stride,
-):
+def prepare_test(ZED_folder, save_json_test, win_len, stride):
     """test(ZED) set preparation
 
     Args:
@@ -239,6 +249,7 @@ def prepare_test(
 
 def split_sets(data_dict, split_ratio, splits=["train", "valid"]):
     """Randomly splits the wav list into training, validation, and test lists.
+
     Arguments
     ---------
     data_dict : list
@@ -250,8 +261,9 @@ def split_sets(data_dict, split_ratio, splits=["train", "valid"]):
         to training, 10% for validation, and 10% for test.
     splits : list
         List of splits.
+
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
     assert len(splits) == len(split_ratio)
@@ -289,7 +301,7 @@ def create_json(data, json_file):
 
 
 def check_and_prepare_dataset(
-    data_folder, data_name, prepare_function, dictonary, seed
+    data_folder, data_name, prepare_function, dictionary, seed
 ):
     """check if the preparation is done, do it if not
 
@@ -297,7 +309,7 @@ def check_and_prepare_dataset(
         data_folder (str): path to dataset
         data_name (str): name of the dataset
         prepare_function (function): the preparation function
-        dictonary (dict): the overall dictionary to be updated
+        dictionary (dict): the overall dictionary to be updated
         seed (int): the random seed for reproduction
     """
     if data_folder is not None:
@@ -314,6 +326,6 @@ def check_and_prepare_dataset(
             )
             with open(json_path, "r") as f:
                 data = json.load(f)
-        dictonary.update(data.items())
+        dictionary.update(data.items())
     else:
         logger.info(f"{data_name} is not used in this exp.")
