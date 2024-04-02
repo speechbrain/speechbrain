@@ -3,6 +3,7 @@
 Author
  * Pooneh Mousavi 2024
 """
+
 import numpy as np
 import torch
 
@@ -39,7 +40,7 @@ class DiscreteSSLTokenizer:
         self.num_clusters = num_clusters
 
     def textify(self, tokens):
-        """ Convert token ID to char to be used for training sentencepiece tokenizer.
+        """Convert token ID to char to be used for training sentencepiece tokenizer.
         Arguments
         ---------
         tokens : torch.Tensor
@@ -58,7 +59,7 @@ class DiscreteSSLTokenizer:
     def encode(
         self, input, SSL_layers=[7], deduplicates=[False], bpe_tokenizers=[None]
     ):
-        """Takes an input tokenized wavform and return its corresponding proccessed tokens.
+        """Takes an input tokenized wavform and return its corresponding processed tokens.
 
         Arguments
         ---------
@@ -77,7 +78,7 @@ class DiscreteSSLTokenizer:
         """
         assert input.shape[2] == len(
             SSL_layers
-        ), f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimention of input should be the same  as number of layers!!!"
+        ), f"input shape:{input.shape} has conflicts with the length of provided SSL_layers: {len(SSL_layers)}. The second dimension of input should be the same  as number of layers!!!"
         token_ids = []
         for i, duplicate in enumerate(deduplicates):
             tokens = []
@@ -87,7 +88,11 @@ class DiscreteSSLTokenizer:
                     for row in input[:, :, i].cpu()
                 ]
                 layer_token_ids = [
-                    torch.tensor(row, dtype=torch.long, device=input.device,)
+                    torch.tensor(
+                        row,
+                        dtype=torch.long,
+                        device=input.device,
+                    )
                     for row in unique_token_ids
                 ]
                 tokens.extend(layer_token_ids)

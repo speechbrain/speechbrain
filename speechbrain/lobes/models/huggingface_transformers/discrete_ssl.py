@@ -6,11 +6,11 @@ https://huggingface.co/transformers/installation.html
 Author
  * Pooneh Mousavi 2024
 """
+
 import logging
 import torch
 import joblib
 from huggingface_hub import snapshot_download
-from pathlib import Path
 import os
 from glob import glob
 from torch import nn
@@ -44,7 +44,7 @@ class DiscreteSSL(nn.Module):
     num_clusters:  int or List[int] (default: 1000)
             determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
     layers_num: : List[int] (Optional)
-            detremine layers to be download from HF repo. If it is not provided, all layers with num_clusters(int) is loaded from HF repo. If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer. 
+            detremine layers to be download from HF repo. If it is not provided, all layers with num_clusters(int) is loaded from HF repo. If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
 
 
     Example
@@ -86,46 +86,53 @@ class DiscreteSSL(nn.Module):
         model_name = ssl_model.__class__.__name__.lower()
         self.check_if_input_is_compatible(layers_num, num_clusters)
 
-        self.kmeans_models, self.ssl_layer_ids ,self.num_clusters= self.load_kmeans(
-            kmeans_repo_id,
-            kmeans_dataset,
-            model_name,
-            self.num_clusters,
-            save_path,
-            layers_num
+        self.kmeans_models, self.ssl_layer_ids, self.num_clusters = (
+            self.load_kmeans(
+                kmeans_repo_id,
+                kmeans_dataset,
+                model_name,
+                self.num_clusters,
+                save_path,
+                layers_num,
+            )
         )
 
         self.vocabularies = []
         for model in self.kmeans_models:
             self.vocabularies.append(model.cluster_centers_)
 
-        
-
         self.tokenizer = DiscreteSSLTokenizer(self.num_clusters)
-    
-    def check_if_input_is_compatible(self,layers_num,num_clusters):
+
+    def check_if_input_is_compatible(self, layers_num, num_clusters):
         """check if layer_number and num_clusters is consisntent with each other.
-            Arguments
-            ---------
-            num_clusters:  int or List[int]
-                determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
-            layers_num: : List[int] (Optional)
-                If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
+        Arguments
+        ---------
+        num_clusters:  int or List[int]
+            determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
+        layers_num: : List[int] (Optional)
+            If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
         """
 
-        if layers_num: 
-            if type(num_clusters) == int:
+        if layers_num:
+            if isinstance(num_clusters, int):
                 num_clusters = [num_clusters for i in layers_num]
-            assert (
-            len(num_clusters) == len(layers_num) 
-            ), f"length of num_clusters and layers_num should be the same!!!"
-        if layers_num is None :
-            assert (
-            type(num_clusters) == int), f"num_clusters is expected to be int since the layers_num is not provided."
-        self.num_clusters= num_clusters
+            assert len(num_clusters) == len(
+                layers_num
+            ), "length of num_clusters and layers_num should be the same!!!"
+        if layers_num is None:
+            assert isinstance(
+                num_clusters, int
+            ), "num_clusters is expected to be int since the layers_num is not provided."
+        self.num_clusters = num_clusters
 
     def load_kmeans(
-        self, repo_id, kmeans_dataset, encoder_name, num_clusters, cache_dir, layers_num=None,
+        self,
+        repo_id,
+        kmeans_dataset,
+        encoder_name,
+        num_clusters,
+        cache_dir,
+        layers_num=None,
     ):
         """Load a Pretrained kmeans model from HF.
 
@@ -153,10 +160,14 @@ class DiscreteSSL(nn.Module):
         layer_ids = []
         file_patterns = []
         if layers_num:
-            for i,layer in enumerate(layers_num):
-                file_patterns.append(f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}*.pt")
+            for i, layer in enumerate(layers_num):
+                file_patterns.append(
+                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}*.pt"
+                )
         else:
-            file_patterns.append(f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters}*.pt")
+            file_patterns.append(
+                f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters}*.pt"
+            )
         kmeans_dir = snapshot_download(
             repo_id=repo_id, allow_patterns=file_patterns, cache_dir=cache_dir
         )
@@ -171,11 +182,13 @@ class DiscreteSSL(nn.Module):
             kmeans_models.append(joblib.load(file))
         assert (
             len(layer_ids) > 0
-        ), f"There is no trained k-means model avaiable for {repo_id}/{encoder_name}/*_k{num_clusters[i]}_L*"
+        ), f"There is no trained k-means model available for {repo_id}/{encoder_name}/*_k{num_clusters[i]}_L*"
 
-        if type(num_clusters) == int:
-            num_clusters= [num_clusters for i in layer_ids]
-        layer_ids, kmeans_models, num_clusters = zip(*sorted(zip(layer_ids, kmeans_models,num_clusters)))
+        if isinstance(num_clusters, int):
+            num_clusters = [num_clusters for i in layer_ids]
+        layer_ids, kmeans_models, num_clusters = zip(
+            *sorted(zip(layer_ids, kmeans_models, num_clusters))
+        )
 
         return kmeans_models, layer_ids, num_clusters
 
@@ -213,7 +226,7 @@ class DiscreteSSL(nn.Module):
 
         assert (
             len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)
-        ), f"length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
+        ), "length of SSL_layers,deduplicates,bpe_tokenizers should be the same!!!"
 
         embeddings = []
         token_ids = []
