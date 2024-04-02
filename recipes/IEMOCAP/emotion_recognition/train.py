@@ -11,15 +11,17 @@ Authors
  * Pierre-Yves Yanni 2021
 """
 
+import csv
 import os
 import sys
-import csv
-import speechbrain as sb
-import torch
-from torch.utils.data import DataLoader
 from enum import Enum, auto
-from tqdm.contrib import tqdm
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+from torch.utils.data import DataLoader
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
 
 
 class EmoIdBrain(sb.Brain):

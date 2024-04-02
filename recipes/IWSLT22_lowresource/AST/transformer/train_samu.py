@@ -5,12 +5,14 @@ Author
  * Ha Nguyen, 2023
 """
 
-import sys
-import torch
 import logging
-from hyperpyyaml import load_hyperpyyaml
-import speechbrain as sb
+import sys
+
+import torch
 import torch.nn.functional as F
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)

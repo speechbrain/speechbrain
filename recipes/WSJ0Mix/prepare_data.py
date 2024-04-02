@@ -6,8 +6,8 @@ Author
 
  """
 
-import os
 import csv
+import os
 
 
 def prepare_wsjmix(

@@ -18,24 +18,25 @@ Authors
  * Nauman Dawalatabad 2020
 """
 
-import os
-import sys
-import torch
-import logging
-import pickle
-import json
 import glob
+import json
+import logging
+import os
+import pickle
 import shutil
+import sys
+
 import numpy as np
-import speechbrain as sb
-from tqdm.contrib import tqdm
+import torch
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.processing.PLDA_LDA import StatObject_SB
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataio import read_audio, read_audio_multichannel
 from speechbrain.processing import diarization as diar
+from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.utils.DER import DER
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import read_audio_multichannel
+from speechbrain.utils.distributed import run_on_main
 
 np.random.seed(1234)
 

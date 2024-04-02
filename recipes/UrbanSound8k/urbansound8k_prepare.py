@@ -38,13 +38,14 @@ Authors:
  * David Whipps, 2021
 """
 
-import os
 import json
 import logging
 import ntpath
+import os
+
 import torchaudio
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import load_data_csv
+
+from speechbrain.dataio.dataio import load_data_csv, read_audio
 
 logger = logging.getLogger(__name__)
 

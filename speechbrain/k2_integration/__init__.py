@@ -25,9 +25,11 @@ except ImportError:
     MSG += "Checkout: https://k2-fsa.github.io/k2/installation/from_wheels.html"
     raise ImportError(MSG)
 
-from . import utils
-from . import graph_compiler
-from . import lattice_decoder
-from . import lexicon
-from . import losses
-from . import prepare_lang
+from . import (
+    graph_compiler,
+    lattice_decoder,
+    lexicon,
+    losses,
+    prepare_lang,
+    utils,
+)

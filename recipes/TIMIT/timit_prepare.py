@@ -8,11 +8,12 @@ Authors
 * Elena Rastorgueva 2020
 """
 
-import os
 import json
 import logging
-from speechbrain.utils.data_utils import get_all_files
+import os
+
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import get_all_files
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000

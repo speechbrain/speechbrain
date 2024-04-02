@@ -8,11 +8,13 @@ Author
 Pavlo Ruban 2021
 """
 
-import os
 import csv
 import logging
+import os
+
 import torchaudio
 from tqdm.contrib import tzip
+
 from speechbrain.utils.data_utils import get_all_files
 
 logger = logging.getLogger(__name__)

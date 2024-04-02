@@ -1,5 +1,6 @@
-import torch
 import math
+
+import torch
 
 
 def test_cosine_similarity_matrix_simple(device):

@@ -5,8 +5,9 @@ Authors
  * Jianyuan Zhong 2020
 """
 
-import torch
 import logging
+
+import torch
 import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
