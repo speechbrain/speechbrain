@@ -60,7 +60,6 @@ test_dataloader_options:
 
 # Outputs
 label_smoothing: 0.1
-pad_index: 1
 bos_index: 0
 eos_index: 2
 
