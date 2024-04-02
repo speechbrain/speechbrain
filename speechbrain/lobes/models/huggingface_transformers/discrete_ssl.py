@@ -65,7 +65,7 @@ class DiscreteSSL(nn.Module):
     >>> tokens, embs ,pr_tokens= model(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
-    >>> rint(embs.shape)
+    >>> print(embs.shape)
     torch.Size([3, 6, 2, 1024])
     >>> print(pr_tokens.shape)
     torch.Size([3, 6, 2])
