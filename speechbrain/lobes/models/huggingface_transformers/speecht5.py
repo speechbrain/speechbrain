@@ -51,8 +51,8 @@ class SpeechT5ForASR(HFTransformersInterface):
         HuggingFace hub name: e.g "microsoft/speecht5_asr"
     save_path : str
         save directory of the downloaded model.
-    encoder_only : bool (default: False)
-        If `True`, will only load the (speech) encoder of the SpeechT5 model.
+    cache_dir: str
+        cache directory used by HuggingFace transformers.
     freeze : bool (default: True)
         If `True`, the model is frozen. If `False`, the model will be trained
         alongside with the rest of the pipeline.
@@ -63,6 +63,8 @@ class SpeechT5ForASR(HFTransformersInterface):
         Whether or not to freeze the feature extractor of SpeechT5.
     sampling_rate: int (default: 16000)
         Sampling rate of the audio inputs.
+    encoder_only : bool (default: False)
+        If `True`, will only load the (speech) encoder of the SpeechT5 model.
     output_attentions: bool (default: True)
         Whether to output the attentions from the encoder.
     output_all_hiddens: bool (default: True)
@@ -86,7 +88,7 @@ class SpeechT5ForASR(HFTransformersInterface):
         freeze_feature_extractor: bool = False,
         sampling_rate: int = 16_000,
         encoder_only: bool = False,
-        output_attentions: bool = True,
+        output_attentions: bool = False,
         output_all_hiddens: bool = False,
         *args,
         **kwargs,
@@ -132,7 +134,7 @@ class SpeechT5ForASR(HFTransformersInterface):
         if self.freeze_feature_extractor:
             self.model.freeze_feature_encoder()
 
-    def forward(self, wav, decoder_input_ids=None, pad_idx=0):
+    def forward(self, wav, decoder_input_ids=None):
         """
         One forward step of the SpeechT5 model ** using the manually implemented methods ** by calling
         the `forward_encoder()` and `forward_decoder()` methods.
@@ -205,7 +207,7 @@ class SpeechT5ForASR(HFTransformersInterface):
                 )
             return torch.stack(states.hidden_states)
 
-        elif not self.output_all_hiddens:
+        else:
             if self.freeze_encoder:
                 with torch.no_grad():
                     states = self.model.speecht5.encoder(
@@ -219,7 +221,9 @@ class SpeechT5ForASR(HFTransformersInterface):
                 )
             return states.last_hidden_state
 
-    def forward_decoder(self, audio_features, decoder_input_ids):
+    def forward_decoder(
+        self, audio_features, decoder_input_ids
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Perform one step of the SpeechT5 decoder.
 
         Arguments
@@ -231,6 +235,12 @@ class SpeechT5ForASR(HFTransformersInterface):
 
         For more details or go to theseq2seq2.py file in SpeechBrain to see how to generate
         the tokens with Greedy Search and/or Beam Search.
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor]
+            logits: output of the model's text decoder post-net
+            attentions: decoder self-attentions
         """
 
         output_states = self.model.speecht5.decoder(
@@ -254,7 +264,9 @@ class SpeechT5ForASR(HFTransformersInterface):
         return logits, attentions
 
     @torch.no_grad()
-    def decode(self, tgt, encoder_out, enc_len=None):
+    def decode(
+        self, tgt, encoder_out, enc_len=None
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """This method implements a decoding step for the transformer model.
 
         Arguments
@@ -263,8 +275,13 @@ class SpeechT5ForASR(HFTransformersInterface):
             The sequence to the decoder.
         encoder_out : torch.Tensor
             Hidden output of the encoder.
-        enc_len : torch.LongTensor
-            Length of encoder states.
+        enc_len : torch.LongTensor, optional
+            Length of encoder states, by default None
+        
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor]
+            _description_
         """
 
         if tgt.dtype not in [torch.long, torch.int64]:
@@ -299,8 +316,6 @@ class SpeechT5ForASR(HFTransformersInterface):
 
         is_sb, ckpt_file, _ = self._check_model_source(source, save_path)
 
-        logger.info(f"###\nIS_SB: {is_sb}###")
-
         if is_sb or self.for_pretraining:
             self.model = SpeechT5ForSpeechToText._from_config(self.config)
 
@@ -314,9 +329,7 @@ class SpeechT5ForASR(HFTransformersInterface):
                 huggingface_cache_dir=cache_dir,
             )
             # We transfer the parameters from the checkpoint.
-            self._load_sb_pretrained_parameters(
-                path=ckpt_full_path,
-            )
+            self._load_sb_pretrained_parameters(path=ckpt_full_path,)
         elif not self.for_pretraining:
             self.model = SpeechT5ForSpeechToText.from_pretrained(
                 source,
