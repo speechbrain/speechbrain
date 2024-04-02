@@ -26,8 +26,13 @@ __all__ = [
 
 __version__ = version
 
+_sb1_0_redirect_str = (
+    "This is a change from SpeechBrain 1.0. "
+    "See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0"
+)
+
 deprecated_redirect(
     "speechbrain.pretrained",
     "speechbrain.inference",
-    extra_reason="See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0",
+    extra_reason=_sb1_0_redirect_str,
 )
