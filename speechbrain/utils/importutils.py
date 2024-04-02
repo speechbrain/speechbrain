@@ -10,6 +10,7 @@ import importlib
 import sys
 import warnings
 
+
 class LegacyModuleRedirect(ModuleType):
     def __init__(self, old_import, new_import):
         super().__init__(old_import)
@@ -29,6 +30,7 @@ class LegacyModuleRedirect(ModuleType):
         # NOTE: exceptions here get eaten and not displayed
 
         return getattr(self.lazy_module, attr)
+
 
 def deprecated_redirect(old_import: str, new_import: str) -> None:
     """Patches the module list to add a lazy redirection from `old_import` to
