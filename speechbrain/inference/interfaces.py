@@ -13,6 +13,7 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import logging
 import hashlib
 import sys
@@ -92,6 +93,8 @@ def foreign_class(
         If true, class and instance creation is skipped.
     huggingface_cache_dir : str
         Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
+    **kwargs : dict
+        Arguments to forward to class constructor.
 
     Returns
     -------
@@ -437,12 +440,14 @@ class Pretrained(torch.nn.Module):
             version of a model hosted at HuggingFace.
         download_only : bool (default: False)
             If true, class and instance creation is skipped.
-        revision : str
-            The model revision corresponding to the HuggingFace Hub model revision.
-            This is particularly useful if you wish to pin your code to a particular
-            version of a model hosted at HuggingFace.
         huggingface_cache_dir : str
             Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
+        **kwargs : dict
+            Arguments to forward to class constructor.
+
+        Returns
+        -------
+        Instance of cls
         """
         if savedir is None:
             clsname = cls.__name__

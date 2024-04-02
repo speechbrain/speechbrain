@@ -145,9 +145,7 @@ class DynamicItemDataset(Dataset):
         and value is the internal key.
     """
 
-    def __init__(
-        self, data, dynamic_items=[], output_keys=[],
-    ):
+    def __init__(self, data, dynamic_items=[], output_keys=[]):
         self.data = data
         self.data_ids = list(self.data.keys())
         static_keys = list(self.data[self.data_ids[0]].keys())
@@ -215,6 +213,11 @@ class DynamicItemDataset(Dataset):
     def output_keys_as(self, keys):
         """Context manager to temporarily set output keys.
 
+        Arguments
+        ---------
+        keys : list
+            A set of output keys to use in the context.
+
         Example
         -------
         >>> dataset = DynamicItemDataset({"a":{"x":1,"y":2},"b":{"x":3,"y":4}},
@@ -229,6 +232,10 @@ class DynamicItemDataset(Dataset):
         ----
         Not thread-safe. While in this context manager, the output keys
         are affected for any call.
+
+        Yields
+        ------
+        self
         """
         saved_output = self.pipeline.output_mapping
         self.pipeline.set_output_keys(keys)
@@ -284,7 +291,7 @@ class DynamicItemDataset(Dataset):
         Temporarily changes the output keys!
         """
         filtered_sorted_ids = self._filtered_sorted_ids(
-            key_min_value, key_max_value, key_test, sort_key, reverse, select_n,
+            key_min_value, key_max_value, key_test, sort_key, reverse, select_n
         )
         return FilteredSortedDynamicItemDataset(
             self, filtered_sorted_ids
@@ -356,8 +363,8 @@ class DynamicItemDataset(Dataset):
         test - repeating sample_count samples to create a repeating
         dataset with a total of epoch_data_count samples
 
-        Argument
-        --------
+        Arguments
+        ---------
         sample_count: int
             the number of samples to select
         total_count: int
@@ -413,6 +420,7 @@ class DynamicItemDataset(Dataset):
         cls, dataset, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """Loading a prepared huggingface dataset"""
+
         # define an unbound method to generate pseudo keys
         def keys(self):
             "Returns the keys."

@@ -10,6 +10,7 @@ Authors:
   * Andreas Nautsch 2021, 2023
   * Adel Moumen 2023
 """
+
 import torch
 import logging
 from operator import itemgetter
@@ -49,6 +50,8 @@ class ReproducibleRandomSampler(RandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------
@@ -135,6 +138,8 @@ class ReproducibleWeightedRandomSampler(WeightedRandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------
@@ -401,6 +406,8 @@ class DynamicBatchSampler(Sampler):
         in the dataset. This argument must be set when the dataset is a plain
         Pytorch Dataset object and not a DynamicItemDataset object as length_func
         cannot be used on Pytorch Datasets.
+    seed : int
+        Random seed.
     epoch : int
         The epoch to start at.
     drop_last : bool
@@ -503,7 +510,9 @@ class DynamicBatchSampler(Sampler):
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
-        self, max_batch_length: int, num_quantiles: int,
+        self,
+        max_batch_length: int,
+        num_quantiles: int,
     ) -> List[int]:
 
         # NOTE: the following lines do not cover that there is only one example in the dataset
@@ -513,7 +522,9 @@ class DynamicBatchSampler(Sampler):
         num_boundaries = num_quantiles + 1
         # create latent linearly equal spaced buckets
         latent_boundaries = np.linspace(
-            1 / num_boundaries, num_quantiles / num_boundaries, num_quantiles,
+            1 / num_boundaries,
+            num_quantiles / num_boundaries,
+            num_quantiles,
         )
         # get quantiles using lognormal distribution
         quantiles = lognorm.ppf(latent_boundaries, 1)
@@ -753,9 +764,9 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
 
     Arguments
     ---------
-    dataset: DynamicItemDataset
+    dataset : DynamicItemDataset
         the dataset form which samples will be drawn
-    key: str
+    key : str
         the key from which samples will be taken
     num_samples : int
         Number of samples to draw
@@ -766,6 +777,8 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------

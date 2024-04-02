@@ -54,6 +54,7 @@ Example
 Authors:
     * Aku Rouhe 2020
 """
+
 import collections
 import uuid
 
@@ -151,10 +152,6 @@ class DependencyGraph:
             The key which depends on.
         to_key : hashable
             The key which is depended on.
-
-        Returns
-        -------
-        None
         """
         from_ind = self._get_ind_and_add_if_new(from_key)
         to_ind = self._get_ind_and_add_if_new(to_key)

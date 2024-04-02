@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 def eval_reporting(reports, single_node=False):
     """Performance logging independent of who logs what.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     reports: dict
         Maps metric labels to performance trackers (instances) which need summarise certain fields for final reporting.
     single_node: bool
@@ -69,8 +69,8 @@ def eval_test_use_recipe_dataio(
 ):
     """Bypassing speechbrain.inference.interfaces.Pretrained.load_audio with recipe dataio (speechbrain.dataio.dataio.read_audio).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: dict
@@ -116,8 +116,8 @@ def eval_test_batch_from_scratch(
 ):
     """Relies only on batched audio paths to create batches using the pretrained interface only.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: Dataset, DataLoader
@@ -235,8 +235,8 @@ if __name__ == "__main__":
     # * the tokenizer from URL - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/
     # * the pretrained LM from HuggingFace - HF: speechbrain/asr-crdnn-rnnlm-librispeech
     # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
-    run_on_main(hparams["pretrainer_tokenizer"].collect_files,)
-    run_on_main(hparams["pretrainer_LM"].collect_files,)
+    run_on_main(hparams["pretrainer_tokenizer"].collect_files)
+    run_on_main(hparams["pretrainer_LM"].collect_files)
     hparams["pretrainer_tokenizer"].load_collected(run_opts["device"])
     hparams["pretrainer_LM"].load_collected(run_opts["device"])
     # LOCAL fetching takes sources directly from their location

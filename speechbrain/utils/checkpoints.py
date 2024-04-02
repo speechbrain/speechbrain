@@ -47,6 +47,7 @@ Example
 Authors
  * Aku Rouhe 2020
 """
+
 import torch
 import collections
 import collections.abc
@@ -88,11 +89,6 @@ def torch_recovery(obj, path, end_of_epoch):
         Path where to load from.
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
-
-    Returns
-    -------
-    None
-        Given object is modified in place.
     """
     del end_of_epoch  # Unused
     device = "cpu"
@@ -115,11 +111,6 @@ def torch_save(obj, path):
         Instance to save.
     path : str, pathlib.Path
         Path where to save to.
-
-    Returns
-    -------
-    None
-        State dict is written to disk.
     """
     state_dict = obj.state_dict()
     if not state_dict:
@@ -141,11 +132,6 @@ def torch_parameter_transfer(obj, path):
         Instance for which to load the parameters.
     path : str
         Path where to load from.
-
-    Returns
-    -------
-    None
-        The object is modified in place.
     """
     device = "cpu"
     incompatible_keys = obj.load_state_dict(
@@ -219,6 +205,10 @@ def mark_as_saver(method):
         signature (instance, path) using positional arguments. This is
         satisfied by for example: def saver(self, path):
 
+    Returns
+    -------
+    The decorated method, marked as a checkpoint saver.
+
     Note
     ----
     This will not add the hook (not possible via a method decorator),
@@ -246,6 +236,10 @@ def mark_as_loader(method):
         arguments. This is satisfied by for example:
         `def loader(self, path, end_of_epoch):`
 
+    Returns
+    -------
+    The decorated method, registered as a checkpoint loader.
+
     Note
     ----
     This will not add the hook (not possible via a method decorator),
@@ -272,6 +266,10 @@ def mark_as_transfer(method):
         signature (instance, path) using positional
         arguments. This is satisfied by for example:
         `def loader(self, path):`
+
+    Returns
+    -------
+    The decorated method, registered as a transfer method.
 
     Note
     ----
@@ -309,6 +307,10 @@ def register_checkpoint_hooks(cls, save_on_main_only=True):
         By default, the saver is only run on a single process. This argument
         provides the option to run the saver on all processes, needed
         for some savers where data is first gathered before saving.
+
+    Returns
+    -------
+    the decorated class with hooks registered
 
     Example
     -------
@@ -410,8 +412,8 @@ def ckpt_recency(ckpt):
 class Checkpointer:
     """Saves checkpoints and recovers from them.
 
-    Arguments:
-
+    Arguments
+    ---------
     checkpoints_dir : str, pathlib.Path
         Path to directory where to save checkpoints.
     recoverables : mapping, optional
@@ -688,13 +690,13 @@ class Checkpointer:
             Only the checkpoints for which ckpt_predicate is True can be
             deleted. The function is called with Checkpoint namedtuples
             (see above).
+        verbosity : int
+            The logging level, default logging.INFO
 
-        Returns
-        -------
-        None
-            Unlike save_checkpoint, this does not return anything, since
-            we cannot guarantee that the saved checkpoint actually survives
-            deletion.
+        Note
+        ----
+        Unlike save_checkpoint, this does not return anything, since we cannot
+        guarantee that the saved checkpoint actually survives deletion.
         """
         self.save_checkpoint(
             meta=meta, end_of_epoch=end_of_epoch, name=name, verbosity=verbosity
@@ -745,9 +747,6 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
-        max_num_checkpoints : int, None
-            The maximum number of checkpoints to return, or None to return all
-            found checkpoints.
 
         Returns
         -------
@@ -816,11 +815,11 @@ class Checkpointer:
         if max_key and not importance_key:
 
             def importance_key(ckpt):
-                "Defines the importance key."
+                """Defines the importance key."""
                 return ckpt.meta[max_key]
 
             def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
-                "Checkpoints predicate."
+                """Checkpoints predicate."""
                 if old_predicate is not None:
                     return max_key in ckpt.meta and old_predicate(ckpt)
                 else:
@@ -829,11 +828,11 @@ class Checkpointer:
         elif min_key and not importance_key:
 
             def importance_key(ckpt):
-                "Defines the importance key."
+                """Defines the importance key."""
                 return -ckpt.meta[min_key]
 
             def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
-                "Checkpoints predicate."
+                """Checkpoints predicate."""
                 if old_predicate is not None:
                     return min_key in ckpt.meta and old_predicate(ckpt)
                 else:
@@ -905,7 +904,7 @@ class Checkpointer:
             If no Checkpoints exist/remain after filtering.
         """
         chosen_ckpt = self.find_checkpoint(
-            importance_key, max_key, min_key, ckpt_predicate,
+            importance_key, max_key, min_key, ckpt_predicate
         )
         if chosen_ckpt is not None:
             self.load_checkpoint(chosen_ckpt)
@@ -1065,9 +1064,7 @@ class Checkpointer:
 
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](
-                    obj, loadpath, end_of_epoch,
-                )
+                self.custom_load_hooks[name](obj, loadpath, end_of_epoch)
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)

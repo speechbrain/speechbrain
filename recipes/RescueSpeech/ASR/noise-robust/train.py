@@ -79,8 +79,7 @@ class ASR(sb.core.Brain):
         return predictions, clean, [log_probs, hyps, wav_lens]
 
     def compute_forward_enhance(self, batch, stage):
-        """Forward computations from the noisy to the separated signals.
-        """
+        """Forward computations from the noisy to the separated signals."""
         noisy = batch.noisy_sig
         clean = batch.clean_sig
         noise = batch.noise_sig[0]
@@ -146,13 +145,13 @@ class ASR(sb.core.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss NLL given predictions and targets."""
 
-        log_probs, hyps, wav_lens, = predictions
+        (log_probs, hyps, wav_lens) = predictions
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
 
         loss = self.hparams.nll_loss(
-            log_probs, tokens_eos, length=tokens_eos_lens,
+            log_probs, tokens_eos, length=tokens_eos_lens
         )
 
         if stage != sb.Stage.TRAIN:
@@ -341,7 +340,8 @@ class ASR(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -641,13 +641,15 @@ class ASR(sb.core.Brain):
 # Define custom data procedure
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # 1. Define datasets
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -677,13 +679,15 @@ def dataio_prepare(hparams, tokenizer):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # We also sort the validation data so it is faster to validate
@@ -698,7 +702,8 @@ def dataio_prepare(hparams, tokenizer):
         info = torchaudio.info(wav)
         clean_sig = sb.dataio.dataio.read_audio(wav)
         clean_sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["enhance_sample_rate"],
+            info.sample_rate,
+            hparams["enhance_sample_rate"],
         )(clean_sig)
         return clean_sig
 
@@ -708,7 +713,8 @@ def dataio_prepare(hparams, tokenizer):
         info = torchaudio.info(wav)
         noise_sig = sb.dataio.dataio.read_audio(wav)
         noise_sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["enhance_sample_rate"],
+            info.sample_rate,
+            hparams["enhance_sample_rate"],
         )(noise_sig)
         return noise_sig
 
@@ -718,7 +724,8 @@ def dataio_prepare(hparams, tokenizer):
         info = torchaudio.info(wav)
         noisy_sig = sb.dataio.dataio.read_audio(wav)
         noisy_sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["enhance_sample_rate"],
+            info.sample_rate,
+            hparams["enhance_sample_rate"],
         )(noisy_sig)
         return wav, noisy_sig
 
@@ -766,7 +773,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

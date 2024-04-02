@@ -164,7 +164,9 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file, from_didatasets=[train_data], output_key="spk_id",
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="spk_id",
     )
 
     # 4. Set output:

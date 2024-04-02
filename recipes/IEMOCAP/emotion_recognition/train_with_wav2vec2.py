@@ -19,8 +19,7 @@ from hyperpyyaml import load_hyperpyyaml
 
 class EmoIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + emotion classifier.
-        """
+        """Computation pipeline based on a encoder + emotion classifier."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -35,8 +34,7 @@ class EmoIdBrain(sb.Brain):
         return outputs
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         emoid, _ = batch.emo_encoded
 
         """to meet the input form of nll loss"""
@@ -93,7 +91,6 @@ class EmoIdBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(stats["error_rate"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -213,7 +210,6 @@ def dataio_prep(hparams):
 
 # RECIPE BEGINS!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

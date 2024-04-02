@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class ContentBasedAttention(nn.Module):
-    """ This class implements content-based attention module for seq2seq
+    """This class implements content-based attention module for seq2seq
     learning.
 
     Reference: NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN
@@ -29,6 +29,10 @@ class ContentBasedAttention(nn.Module):
 
     Arguments
     ---------
+    enc_dim : int
+        Size of encoder layer.
+    dec_dim : int
+        Size of decoder layer.
     attn_dim : int
         Size of the attention feature.
     output_dim : int
@@ -63,8 +67,7 @@ class ContentBasedAttention(nn.Module):
         self.reset()
 
     def reset(self):
-        """Reset the memory in the attention module.
-        """
+        """Reset the memory in the attention module."""
         self.enc_len = None
         self.precomputed_enc_h = None
         self.mask = None
@@ -81,10 +84,12 @@ class ContentBasedAttention(nn.Module):
         dec_states : torch.Tensor
             The query tensor.
 
+        Returns
+        -------
+        The output of the attention module.
         """
 
         if self.precomputed_enc_h is None:
-
             self.precomputed_enc_h = self.mlp_enc(enc_states)
             self.mask = length_to_mask(
                 enc_len, max_len=enc_states.size(1), device=enc_states.device
@@ -115,6 +120,10 @@ class LocationAwareAttention(nn.Module):
 
     Arguments
     ---------
+    enc_dim : int
+        Size of encoder.
+    dec_dim : int
+        Size of decoder.
     attn_dim : int
         Size of the attention feature.
     output_dim : int
@@ -179,8 +188,7 @@ class LocationAwareAttention(nn.Module):
         self.reset()
 
     def reset(self):
-        """Reset the memory in attention module.
-        """
+        """Reset the memory in attention module."""
         self.enc_len = None
         self.precomputed_enc_h = None
         self.mask = None
@@ -197,9 +205,12 @@ class LocationAwareAttention(nn.Module):
             The real length (without padding) of enc_states for each sentence.
         dec_states : torch.Tensor
             The query tensor.
+
+        Returns
+        -------
+        The output of the attention module.
         """
         if self.precomputed_enc_h is None:
-
             self.precomputed_enc_h = self.mlp_enc(enc_states)
             self.mask = length_to_mask(
                 enc_len, max_len=enc_states.size(1), device=enc_states.device
@@ -235,7 +246,7 @@ class LocationAwareAttention(nn.Module):
 
 
 class KeyValueAttention(nn.Module):
-    """ This class implements a single-headed key-value attention module for seq2seq
+    """This class implements a single-headed key-value attention module for seq2seq
     learning.
 
     Reference: "Attention Is All You Need" by Vaswani et al., sec. 3.2.1
@@ -274,8 +285,7 @@ class KeyValueAttention(nn.Module):
         self.reset()
 
     def reset(self):
-        """Reset the memory in the attention module.
-        """
+        """Reset the memory in the attention module."""
         self.values = None
         self.keys = None
         self.mask = None
@@ -291,10 +301,13 @@ class KeyValueAttention(nn.Module):
             The real length (without padding) of enc_states for each sentence.
         dec_states : torch.Tensor
             The query tensor.
+
+        Returns
+        -------
+        The output of the attention module.
         """
 
         if self.keys is None:
-
             self.keys = self.key_linear(enc_states)
             self.values = self.value_linear(enc_states)
             self.mask = length_to_mask(
@@ -310,9 +323,7 @@ class KeyValueAttention(nn.Module):
 
 
 class RelPosEncXL(nn.Module):
-    """
-
-    """
+    """ """
 
     def __init__(self, emb_dim):
         super().__init__()
@@ -326,10 +337,11 @@ class RelPosEncXL(nn.Module):
 
     def forward(self, x: torch.Tensor):
         """
-        Parameters
-        ----------
+        Arguments
+        ---------
         x : torch.Tensor
-        input tensor with shape batch_size, seq_len, embed_dim
+            input tensor with shape batch_size, seq_len, embed_dim
+
         Returns
         -------
         pos_emb : torch.Tensor
@@ -360,7 +372,7 @@ class RelPosEncXL(nn.Module):
 
 
 class RelPosMHAXL(nn.Module):
-    """ This class implements the relative multihead implementation similar to that in Transformer XL
+    """This class implements the relative multihead implementation similar to that in Transformer XL
     https://arxiv.org/pdf/1901.02860.pdf
 
     Arguments
@@ -378,6 +390,7 @@ class RelPosMHAXL(nn.Module):
     mask_pos_future: bool, optional
         Whether to mask future positional encodings values.
         Must be true for causal applications e.g. decoder.
+
     Example
     -------
     >>> inputs = torch.rand([6, 60, 512])
@@ -493,29 +506,30 @@ class RelPosMHAXL(nn.Module):
         attn_mask=None,
         return_attn_weights=True,
     ):
-        """
+        """Compute attention.
+
         Arguments
-        ----------
-        query : tensor
+        ---------
+        query : torch.Tensor
             (B, L, E) where L is the target sequence length,
             B is the batch size, E is the embedding dimension.
-        key : tensor
+        key : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        value : tensor
+        value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        pos_emb : tensor
+        pos_embs : torch.Tensor
             bidirectional sinusoidal positional embedding tensor (1, 2*S-1, E) where S is the max length between source and target sequence lengths,
             and E is the embedding dimension.
-        key_padding_mask : tensor
+        key_padding_mask : torch.Tensor
             (B, S) where B is the batch size, S is the source sequence
             length. If a ByteTensor is provided, the non-zero positions will
             be ignored while the position with the zero positions will be
             unchanged. If a BoolTensor is provided, the positions with the
             value of True will be ignored while the position with the value
             of False will be unchanged.
-        attn_mask : tensor
+        attn_mask : torch.Tensor
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
             3D mask (N*num_heads, L, S) where N is the batch
@@ -526,13 +540,15 @@ class RelPosMHAXL(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
+        return_attn_weights : bool
+            Whether to additionally return the attention weights.
 
-        Outputs
+        Returns
         -------
-        out : tensor
+        out : torch.Tensor
             (B, L, E) where L is the target sequence length, B is the
             batch size, E is the embedding dimension.
-        attn_score : tensor
+        attn_score : torch.Tensor
             (B, L, S) where B is the batch size, L is the target
             sequence length, S is the source sequence length.
         """
@@ -631,7 +647,8 @@ class RelPosMHAXL(nn.Module):
 
         if key_padding_mask is not None:
             attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen), self.attn_fill_value,
+                key_padding_mask.view(bsz, 1, 1, klen),
+                self.attn_fill_value,
             )
 
         attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
@@ -650,7 +667,8 @@ class RelPosMHAXL(nn.Module):
 
         if key_padding_mask is not None:
             attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen), 0.0,
+                key_padding_mask.view(bsz, 1, 1, klen),
+                0.0,
             )
 
         x = torch.matmul(
@@ -669,14 +687,16 @@ class RelPosMHAXL(nn.Module):
 
 
 class MultiheadAttention(nn.Module):
-    """ The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
+    """The class is a wrapper of MultiHead Attention for torch.nn.MultiHeadAttention.
 
     Reference: https://pytorch.org/docs/stable/nn.html
 
     Arguments
-    ----------
-    num_heads : int
+    ---------
+    nhead : int
         parallel attention heads.
+    d_model : int
+        The size of the model layers.
     dropout : float
         a Dropout layer on attn_output_weights (default: 0.0).
     bias : bool
@@ -733,9 +753,10 @@ class MultiheadAttention(nn.Module):
         return_attn_weights: bool = True,
         pos_embs: Optional[torch.Tensor] = None,
     ):
-        """
+        """Compute attention.
+
         Arguments
-        ----------
+        ---------
         query : torch.Tensor
             (B, L, E) where L is the target sequence length,
             B is the batch size, E is the embedding dimension.
@@ -768,7 +789,7 @@ class MultiheadAttention(nn.Module):
         pos_embs : torch.Tensor, optional
             Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
 
-        Outputs
+        Returns
         -------
         attn_output : torch.Tensor
             (B, L, E) where L is the target sequence length, B is the
@@ -814,7 +835,7 @@ class PositionalwiseFeedForward(nn.Module):
     “Attention Is All You Need”.
 
     Arguments
-    ----------
+    ---------
     d_ffn: int
         Hidden layer size.
     input_shape : tuple, optional

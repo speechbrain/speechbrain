@@ -165,7 +165,7 @@ def test_huggingfacelmrescorer(device):
 
     source = "gpt2-medium"
 
-    huggingfacelm_rescorer = HuggingFaceLMRescorer(model_name=source,)
+    huggingfacelm_rescorer = HuggingFaceLMRescorer(model_name=source)
 
     rescorer = RescorerBuilder(
         rescorers=[huggingfacelm_rescorer], weights={"huggingfacelm": 1.0}
@@ -248,7 +248,7 @@ def test_rescorerbuilder(tmpdir, device):
 
     source = "gpt2-medium"
 
-    huggingfacelm_rescorer = HuggingFaceLMRescorer(model_name=source,)
+    huggingfacelm_rescorer = HuggingFaceLMRescorer(model_name=source)
 
     # check combine both rescorers
     rescorer = RescorerBuilder(

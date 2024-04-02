@@ -20,3 +20,4 @@ from .wavlm import *  # noqa
 from .whisper import *  # noqa
 from .encodec import *  # noqa
 from .weighted_ssl import *  # noqa
+from .textencoder import *  # noqa

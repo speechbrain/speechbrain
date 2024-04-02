@@ -36,8 +36,8 @@ Results are obtained with beam search and no LM (no-streaming i.e. full context)
 
 | Language | Release |  LM | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs |
 | ------------- |:-------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
-| French | 2024-03-22 | No | 3.51 | 10.30 | 4.64 | 12.47 | [model](https://www.dropbox.com/scl/fo/kue72ik3vc55xu6u8zjr7/h?rlkey=ie98ktqf9gbunn4x9i3pskedq&dl=0) | [model]() | 4xV100 32GB |
-| Italian | 2024-03-22 | No | 2.47 | 8.49 | 2.69 | 8.92 | [model](https://www.dropbox.com/scl/fo/uyqfo3kwcpkaq26au2foj/h?rlkey=gxlj7xn6bnhjfb5jds8p80fe6&dl=0) | [model]() | 4xV100 32GB |
+| French | 2024-03-22 | No | 3.51 | 10.30 | 4.64 | 12.47 | [model](https://www.dropbox.com/scl/fo/kue72ik3vc55xu6u8zjr7/h?rlkey=ie98ktqf9gbunn4x9i3pskedq&dl=0) | 4xV100 32GB |
+| Italian | 2024-03-22 | No | 2.47 | 8.49 | 2.69 | 8.92 | [model](https://www.dropbox.com/scl/fo/uyqfo3kwcpkaq26au2foj/h?rlkey=gxlj7xn6bnhjfb5jds8p80fe6&dl=0) | 4xV100 32GB |
 
 The output folders with checkpoints and logs can be found [here](https://www.dropbox.com/sh/852eq7pbt6d65ai/AACv4wAzk1pWbDo4fjVKLICYa?dl=0).
 

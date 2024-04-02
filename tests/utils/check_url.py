@@ -4,6 +4,7 @@ reachable.
 Authors
  * Mirco Ravanelli 2022
 """
+
 import os
 import re
 import time
@@ -58,7 +59,7 @@ def get_all_urls(file_lst, avoid_urls):
     -------
     urls: dict
         A dictionary where the keys are the detected URLs and the values
-    are the files where the URLs are found.
+        are the files where the URLs are found.
     """
     all_urls = {}
 
@@ -131,8 +132,14 @@ def check_links(
         Used to avoid some file extensions.
     avoid_files: list
         Used to avoid testing some specific file.
-    """
+    avoid_urls: list
+        Used to avoid certain urls.
 
+    Returns
+    -------
+    check_test: bool
+        Whether or not the test is passed.
+    """
     check_test = True
     # Find all the files that potentially contain urls
     file_lst = get_all_files(folder, match_or=match_or, exclude_or=exclude_or)

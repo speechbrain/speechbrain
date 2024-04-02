@@ -9,6 +9,7 @@ See: speechbrain.decoders.ctc.py
 Authors
  * Adel Moumen 2023
 """
+
 import logging
 from typing import (
     Collection,

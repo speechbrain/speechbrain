@@ -180,7 +180,8 @@ class Separation(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
                 ):
                     (
                         predictions,
@@ -198,7 +199,6 @@ class Separation(sb.Brain):
                         loss.nelement() > 0
                         and loss < self.hparams.loss_upper_lim
                     ):  # the fix for computational problems
-
                         self.scaler.scale(loss).backward()
                         if self.hparams.clip_grad_norm >= 0:
                             self.scaler.unscale_(self.optimizer)
@@ -283,7 +283,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -302,7 +301,8 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"error": stage_stats["error"]}, min_keys=["error"],
+                meta={"error": stage_stats["error"]},
+                min_keys=["error"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -411,7 +411,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture = batch.mix_sig
                     snt_id = batch.id
@@ -569,7 +568,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -667,7 +665,6 @@ if __name__ == "__main__":
         )
 
         if hparams["use_whamr_train"]:
-
             if "processed" not in hparams["base_folder_dm_whamr"]:
                 # if the processed folder does not exist for whamr dynamic mixing, we do the necessary preprocessing
 

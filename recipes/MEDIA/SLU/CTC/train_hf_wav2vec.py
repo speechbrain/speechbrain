@@ -159,7 +159,8 @@ class SLU(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"CER": stage_stats["CER"]}, min_keys=["CER"],
+                meta={"CER": stage_stats["CER"]},
+                min_keys=["CER"],
             )
 
         # Same plus write results in txt files.
@@ -181,13 +182,15 @@ class SLU(sb.core.Brain):
 # Define custom data procedure.
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # 1. Define datasets:
     csv_folder = hparams["save_folder"] + "/csv"
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": csv_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": csv_folder},
     )
 
     # We sort training data to speed up training and get better results.
@@ -269,7 +272,8 @@ def dataio_prepare(hparams):
 
     # 5. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "char_encoded"],
+        datasets,
+        ["id", "sig", "char_encoded"],
     )
 
     # 6. Make DataLoaders and shuffle if needed:
@@ -298,7 +302,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

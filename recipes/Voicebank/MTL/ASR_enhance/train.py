@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 def pesq_eval(pred_wav, target_wav):
     return pesq(
-        fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb",
+        fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb"
     )
 
 
@@ -97,7 +97,6 @@ class MTLbrain(sb.Brain):
 
         # Compute seq outputs
         if self.hparams.seq_type is not None:
-
             # Prepare target inputs
             tokens, token_lens = self.prepare_targets(batch.tokens_bos, stage)
             tokens = self.modules.tgt_embedding(tokens)
@@ -259,7 +258,6 @@ class MTLbrain(sb.Brain):
 
         # Compute nll loss for seq2seq model
         if self.hparams.seq_weight > 0:
-
             tokens, token_lens = self.prepare_targets(batch.tokens_eos, stage)
             seq_loss = self.hparams.seq_loss(
                 predictions["seq_pout"], tokens, token_lens
@@ -293,7 +291,6 @@ class MTLbrain(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN:
-
             if self.hparams.enhance_weight > 0:
                 self.enh_metrics = self.hparams.enhance_stats()
                 self.stoi_metrics = self.hparams.estoi_stats()
@@ -469,7 +466,7 @@ def dataio_prep(hparams, token_encoder):
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="length", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending"
         )
         hparams["train_loader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
@@ -489,7 +486,6 @@ def dataio_prep(hparams, token_encoder):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

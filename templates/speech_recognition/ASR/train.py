@@ -121,6 +121,10 @@ class ASR(sb.Brain):
         ---------
         stage : sb.Stage
             Currently executing stage.
+
+        Returns
+        -------
+        is_active : bool
         """
         if stage != sb.Stage.TRAIN:
             return False
@@ -136,6 +140,13 @@ class ASR(sb.Brain):
             Currently executing stage.
         wavs : tuple
             The input signals (tensor) and their lengths (tensor).
+
+        Returns
+        -------
+        feats : torch.Tensor
+            The prepared features.
+        fea_lens : torch.Tensor
+            The lengths of the corresponding features.
         """
         wavs, wav_lens = wavs
 
@@ -167,8 +178,10 @@ class ASR(sb.Brain):
 
         Returns
         -------
-        tuple
-            Augmented tokens and their lengths.
+        tokens : torch.Tensor
+            Augmented tokens.
+        token_lens : torch.Tensor
+            and their lengths.
         """
         tokens, token_lens = tokens
         if stage == sb.Stage.TRAIN:
@@ -203,7 +216,6 @@ class ASR(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-
         # Compute sequence loss against targets with EOS
         tokens_eos, tokens_eos_lens = self.prepare_tokens(
             stage, batch.tokens_eos
@@ -272,7 +284,6 @@ class ASR(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Store the train loss until the validation stage.
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
@@ -299,7 +310,8 @@ class ASR(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
 
         # We also write statistics about test data to stdout and to the logfile.
@@ -329,6 +341,7 @@ def dataio_prepare(hparams):
         Dictionary containing "train", "valid", and "test" keys that correspond
         to the DynamicItemDataset objects.
     """
+
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
     @sb.utils.data_pipeline.takes("wav")
