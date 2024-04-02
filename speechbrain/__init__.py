@@ -25,3 +25,5 @@ __all__ = [
 ]
 
 __version__ = version
+
+deprecated_redirect("speechbrain.pretrained", "speechbrain.inference")
