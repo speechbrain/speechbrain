@@ -29,7 +29,7 @@ Depending on the testing need, `test.yaml` grows - some examples
 1. [ssl-wav2vec2-base-librispeech/test.yaml](https://github.com/speechbrain/speechbrain/blob/hf-interface-testing/updates_pretrained_models/ssl-wav2vec2-base-librispeech/test.yaml) - the play between test sample, interface class, and batch function is handled via HF testing in `tests/utils`
    ```yaml
    sample: example.wav # test audio provided via HF repo
-   cls: WaveformEncoder # existing speechbrain.pretrained.interfaces class
+   cls: WaveformEncoder # existing speechbrain.inference class
    fnx: encode_batch # it's batch-wise function after audio loading
    ```
 2. [asr-wav2vec2-librispeech/test.yaml](https://github.com/speechbrain/speechbrain/blob/hf-interface-testing/updates_pretrained_models/asr-wav2vec2-librispeech/test.yaml) - testing single example & against a dataset test partition
