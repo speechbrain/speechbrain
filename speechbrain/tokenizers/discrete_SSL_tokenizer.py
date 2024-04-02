@@ -18,7 +18,7 @@ class DiscreteSSLTokenizer:
 
     Arguments
     ---------
-    num_clusters:  int or List[int]
+    num_clusters: List[int]
         determine the number of clusters of the  kmeans models. It could be varying for each layer.
 
 
@@ -29,7 +29,7 @@ class DiscreteSSLTokenizer:
     >>> ssl_layer_num = [7,23]
     >>> deduplicate =[False, True]
     >>> bpe_tokenizers=[None, None]
-    >>> num_clusters = 1000
+    >>> num_clusters = [1000,2000]
     >>> tokenizer = DiscreteSSLTokenizer(num_clusters=num_clusters)
     >>> tokens= tokenizer.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
     >>> print(tokens.shape)
