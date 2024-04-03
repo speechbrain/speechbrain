@@ -13,8 +13,31 @@ import warnings
 
 
 class LegacyModuleRedirect(ModuleType):
+    """Defines a module type that lazily imports the target module (and warns
+    about the deprecation when this happens), thus allowing deprecated
+    redirections to be defined without immediately importing the target module
+    needlessly.
+
+    This is only the module type itself; if you want to define a redirection,
+    use :func:`~deprecated_redirect` instead.
+
+    Arguments
+    ---------
+    old_import : str
+        Old module import path e.g. `mypackage.myoldmodule`
+    new_import : str
+        New module import path e.g. `mypackage.mynewcoolmodule.mycoolsubmodule`
+    extra_reason : str, optional
+        If specified, extra text to attach to the warning for clarification
+        (e.g. justifying why the move has occurred, or additional problems to
+        look out for).
+    """
+
     def __init__(
-        self, old_import, new_import, extra_reason: Optional[str] = None
+        self,
+        old_import: str,
+        new_import: str,
+        extra_reason: Optional[str] = None,
     ):
         super().__init__(old_import)
         self.old_import = old_import
@@ -23,6 +46,9 @@ class LegacyModuleRedirect(ModuleType):
         self.lazy_module = None
 
     def _redirection_warn(self):
+        """Emits the warning for the redirection (with the extra reason if
+        provided)."""
+
         warning_text = (
             f"Module '{self.old_import}' was deprecated, redirecting to "
             f"'{self.new_import}'. Please update your script."
