@@ -127,9 +127,8 @@ class SincConv(nn.Module):
         x = x.transpose(1, -1)
         self.device = x.device
 
-        unsqueeze = x.ndim == 2
-        if unsqueeze:
-            x = x.unsqueeze(1)
+        # unsqueezes if necessary
+        x = x.reshape(x.shape[0], -1, x.shape[-1])
 
         if self.padding == "same":
             x = self._manage_padding(
@@ -160,9 +159,7 @@ class SincConv(nn.Module):
             groups=self.in_channels,
         )
 
-        if unsqueeze:
-            wx = wx.squeeze(1)
-
+        wx = wx.squeeze(1)  # does not squeeze if shape != 1
         wx = wx.transpose(1, -1)
 
         return wx
