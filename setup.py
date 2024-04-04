@@ -28,7 +28,7 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
     ],
-    packages=setuptools.find_packages(),
+    packages=["speechbrain"],
     package_data={"speechbrain": ["version.txt", "log-config.yaml"]},
     install_requires=[
         "hyperpyyaml",
