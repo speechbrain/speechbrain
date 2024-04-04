@@ -2,7 +2,6 @@
 import os
 import sys
 import site
-import setuptools
 from distutils.core import setup
 
 
