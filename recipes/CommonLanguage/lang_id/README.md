@@ -26,7 +26,7 @@ Basically, you can run inference with only few lines of code:
 
 ```python
 import torchaudio
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference import EncoderClassifier
 classifier = EncoderClassifier.from_hparams(source="speechbrain/lang-id-commonlanguage_ecapa", savedir="pretrained_models/lang-id-commonlanguage_ecapa")
 
 # Italian Example
