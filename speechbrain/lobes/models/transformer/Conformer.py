@@ -141,8 +141,10 @@ class ConvolutionModule(nn.Module):
             bias=bias,
         )
 
-        # NOTE: there appears to be a mismatch compared to the Conformer paper:
-        # I believe the first LayerNorm below is supposed to be a BatchNorm.
+        # BatchNorm in the original Conformer replaced with a LayerNorm due to
+        # https://github.com/speechbrain/speechbrain/pull/1329
+        # see discussion
+        # https://github.com/speechbrain/speechbrain/pull/933#issuecomment-1033367884
 
         self.after_conv = nn.Sequential(
             nn.LayerNorm(input_size),
