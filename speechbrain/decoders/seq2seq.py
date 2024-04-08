@@ -69,7 +69,7 @@ class S2SBaseSearcher(torch.nn.Module):
     def __init__(
         self, bos_index, eos_index, min_decode_ratio, max_decode_ratio
     ):
-        super(S2SBaseSearcher, self).__init__()
+        super().__init__()
         self.bos_index = bos_index
         self.eos_index = eos_index
         self.min_decode_ratio = min_decode_ratio
@@ -333,7 +333,7 @@ class S2STransformerGreedySearcher(S2SGreedySearcher):
         temperature=0.0,
         **kwargs,
     ):
-        super(S2SGreedySearcher, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.model = modules[0]
         self.fc = modules[1]
@@ -612,7 +612,7 @@ class S2SRNNGreedySearcher(S2SGreedySearcher):
     """
 
     def __init__(self, embedding, decoder, linear, temperature=0.0, **kwargs):
-        super(S2SRNNGreedySearcher, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.emb = embedding
         self.dec = decoder
         self.fc = linear
@@ -2124,7 +2124,7 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
     """
 
     def __init__(self, modules, vocab_size, **kwargs):
-        super(S2SHFTextBasedBeamSearcher, self).__init__(modules, **kwargs)
+        super().__init__(modules, **kwargs)
         self.vocab_size = vocab_size
 
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
