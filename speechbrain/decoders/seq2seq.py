@@ -2035,7 +2035,19 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
         return memory
 
     def _reorder_cache(self, past_key_values, beam_idx):
-        """Reorder the key-value cache."""
+        """Reorder the key-value cache.
+
+        Arguments
+        ---------
+        past_key_values : tuple
+            The key-value cache.
+        beam_idx : torch.Tensor
+            The index of the previous path.
+
+        Returns
+        -------
+        The reordered key-value cache.
+        """
         reordered_past = ()
         for layer_past in past_key_values:
             reordered_past += (
