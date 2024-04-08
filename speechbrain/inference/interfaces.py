@@ -69,7 +69,7 @@ def foreign_class(
     ---------
     source : str or Path or FetchSource
         The location to use for finding the model. See
-        ``speechbrain.pretrained.fetching.fetch`` for details.
+        ``speechbrain.utils.fetching.fetch`` for details.
     hparams_file : str
         The name of the hyperparameters file to use for constructing
         the modules necessary for inference. Must contain two keys:
@@ -412,7 +412,7 @@ class Pretrained(torch.nn.Module):
         ---------
         source : str
             The location to use for finding the model. See
-            ``speechbrain.pretrained.fetching.fetch`` for details.
+            ``speechbrain.utils.fetching.fetch`` for details.
         hparams_file : str
             The name of the hyperparameters file to use for constructing
             the modules necessary for inference. Must contain two keys:

@@ -9,9 +9,15 @@ Authors:
 """
 
 import torch
+from typing import Callable, Optional
 from joblib import Parallel, delayed
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
+from speechbrain.utils.edit_distance import (
+    EDIT_SYMBOLS,
+    wer_summary,
+    wer_details_for_batch,
+    _str_equals,
+)
 from speechbrain.dataio.dataio import (
     merge_char,
     split_word,
@@ -221,6 +227,8 @@ class ErrorRateStats(MetricStats):
         Start of the concept ('<' for example).
     tag_out : str
         End of the concept ('>' for example).
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Example
     -------
@@ -253,6 +261,7 @@ class ErrorRateStats(MetricStats):
         extract_concepts_values=False,
         tag_in="",
         tag_out="",
+        equality_comparator: Callable[[str, str], bool] = _str_equals,
     ):
         self.clear()
         self.merge_tokens = merge_tokens
@@ -262,6 +271,7 @@ class ErrorRateStats(MetricStats):
         self.keep_values = keep_values
         self.tag_in = tag_in
         self.tag_out = tag_out
+        self.equality_comparator = equality_comparator
 
     def append(
         self,
@@ -330,7 +340,13 @@ class ErrorRateStats(MetricStats):
                 space=self.space_token,
             )
 
-        scores = wer_details_for_batch(ids, target, predict, True)
+        scores = wer_details_for_batch(
+            ids,
+            target,
+            predict,
+            compute_alignments=True,
+            equality_comparator=self.equality_comparator,
+        )
 
         self.scores.extend(scores)
 
@@ -358,6 +374,288 @@ class ErrorRateStats(MetricStats):
 
         print_wer_summary(self.summary, filestream)
         print_alignments(self.scores, filestream)
+
+
+class WeightedErrorRateStats(MetricStats):
+    """Metric that reweighs the WER from :class:`~ErrorRateStats` with any
+    chosen method. This does not edit the sequence of found edits
+    (insertion/deletion/substitution) but multiplies their impact on the metric
+    by a value between 0 and 1 as returned by the cost function.
+
+    Arguments
+    ---------
+    base_stats : ErrorRateStats
+        The base WER calculator to use.
+    cost_function : Callable[[str, Optional[str], Optional[str]], float]
+        Cost function of signature `fn(edit_symbol, a, b) -> float`, where the
+        returned value, between 0 and 1, is the weight that should be assigned
+        to a particular edit in the weighted WER calculation.
+        In the case of insertions and deletions, either of `a` or `b` may be
+        `None`. In the case of substitutions, `a` and `b` will never be `None`.
+    weight_name : str
+        Prefix to be prepended to each metric name (e.g. `xxx_wer`)
+    """
+
+    def __init__(
+        self,
+        base_stats: ErrorRateStats,
+        cost_function: Callable[[str, Optional[str], Optional[str]], float],
+        weight_name: str = "weighted",
+    ):
+        self.clear()
+        self.base_stats = base_stats
+        self.cost_function = cost_function
+        self.weight_name = weight_name
+
+    def append(self, *args, **kwargs):
+        """Append function, which should **NOT** be used for the weighted error
+        rate stats. Please append to the specified `base_stats` instead.
+
+        `WeightedErrorRateStats` reuses the scores from the base
+        :class:`~ErrorRateStats` class.
+
+        Arguments
+        ---------
+        *args
+            Ignored.
+        **kwargs
+            Ignored.
+        """
+
+        raise ValueError(
+            "Cannot append to a WeightedErrorRateStats. "
+            "You should only append to the base ErrorRateStats."
+        )
+
+    def summarize(self, field=None):
+        """Returns a dict containing some detailed WER statistics after
+        weighting every edit with a weight determined by `cost_function`
+        (returning `0.0` for no error, `1.0` for the default error behavior, and
+        anything in between).
+
+        Does not require :meth:`~ErrorRateStats.summarize` to have been called.
+
+        Full set of fields, **each of which are prepended with
+        `<weight_name_specified_at_init>_`**:
+        - `wer`: Weighted WER (ratio `*100`)
+        - `insertions`: Weighted insertions
+        - `substitutions`: Weighted substitutions
+        - `deletions`: Weighted deletions
+        - `num_edits`: Sum of weighted insertions/substitutions/deletions
+
+        Additionally, a `scores` list is populated by this function for each
+        pair of sentences. Each entry of that list is a dict, with the fields:
+        - `key`: the ID of the utterance.
+        - `WER`, `insertions`, `substitutions`, `deletions`, `num_edits` with
+          the same semantics as described above, but at sentence level rather
+          than global.
+
+        Arguments
+        ---------
+        field : str, optional
+            The field to return, if you are only interested in one of them.
+            If specified, a single `float` is returned, otherwise, a dict is.
+
+        Returns
+        -------
+        dict from str to float, if `field is None`
+            A dictionary of the fields documented above.
+        float, if `field is not None`
+            The single field selected by `field`.
+        """
+
+        weighted_insertions = 0.0
+        weighted_substitutions = 0.0
+        weighted_deletions = 0.0
+        total = 0.0
+
+        for i, utterance in enumerate(self.base_stats.scores):
+            utt_weighted_insertions = 0.0
+            utt_weighted_substitutions = 0.0
+            utt_weighted_deletions = 0.0
+            utt_total = 0.0
+
+            for edit_symbol, a_idx, b_idx in utterance["alignment"]:
+                a = (
+                    utterance["ref_tokens"][a_idx]
+                    if a_idx is not None
+                    else None
+                )
+                b = (
+                    utterance["hyp_tokens"][b_idx]
+                    if b_idx is not None
+                    else None
+                )
+
+                if edit_symbol != EDIT_SYMBOLS["eq"]:
+                    pair_score = self.cost_function(edit_symbol, a, b)
+
+                    if edit_symbol == EDIT_SYMBOLS["ins"]:
+                        utt_weighted_insertions += pair_score
+                    elif edit_symbol == EDIT_SYMBOLS["del"]:
+                        utt_weighted_deletions += pair_score
+                    elif edit_symbol == EDIT_SYMBOLS["sub"]:
+                        utt_weighted_substitutions += pair_score
+
+                utt_total += 1.0
+
+            utt_weighted_edits = (
+                utt_weighted_insertions
+                + utt_weighted_substitutions
+                + utt_weighted_deletions
+            )
+            utt_weighted_wer_ratio = utt_weighted_edits / utt_total
+            self.scores.append(
+                {
+                    "key": self.base_stats.ids[i],
+                    "WER": utt_weighted_wer_ratio * 100.0,
+                    "insertions": utt_weighted_insertions,
+                    "substitutions": utt_weighted_substitutions,
+                    "deletions": utt_weighted_deletions,
+                    "num_edits": utt_weighted_edits,
+                }
+            )
+
+            weighted_insertions += utt_weighted_insertions
+            weighted_substitutions += utt_weighted_substitutions
+            weighted_deletions += utt_weighted_deletions
+            total += utt_total
+
+        weighted_edits = (
+            weighted_insertions + weighted_substitutions + weighted_deletions
+        )
+        weighted_wer_ratio = weighted_edits / total
+
+        self.summary = {
+            f"{self.weight_name}_wer": weighted_wer_ratio * 100.0,
+            f"{self.weight_name}_insertions": weighted_insertions,
+            f"{self.weight_name}_substitutions": weighted_substitutions,
+            f"{self.weight_name}_deletions": weighted_deletions,
+            f"{self.weight_name}_num_edits": weighted_edits,
+        }
+
+        if field is not None:
+            return self.summary[field]
+        else:
+            return self.summary
+
+    def write_stats(self, filestream):
+        """Write all relevant info to file; here, only the weighted info as
+        returned by `summarize`.
+        See :meth:`~ErrorRateStats.write_stats`.
+        """
+        if not self.summary:
+            self.summarize()
+
+        print(f"Weighted WER metrics ({self.weight_name}):", file=filestream)
+
+        for k, v in self.summary.items():
+            print(f"{k}: {v}", file=filestream)
+
+
+class EmbeddingErrorRateSimilarity:
+    """Implements the similarity function from the EmbER metric as defined by
+    https://www.isca-archive.org/interspeech_2022/roux22_interspeech.pdf
+
+    This metric involves a dictionary to map a token to a single word embedding.
+    Substitutions in the WER get weighted down when the embeddings are similar
+    enough. The goal is to reduce the impact of substitution errors with small
+    semantic impact. Only substitution errors get weighted.
+
+    This is done by computing the cosine similarity between the two embeddings,
+    then weighing the substitution with `low_similarity_weight` if
+    `similarity >= threshold` or with `high_similarity_weight` otherwise (e.g.
+    a substitution with high similarity could be weighted down to matter 10% as
+    much as a substitution with low similarity).
+
+    .. note ::
+        The cited paper recommended `(1.0, 0.1, 0.4)` as defaults for fastTexst
+        French embeddings, chosen empirically. When using different embeddings,
+        you might want to test other values; thus we don't provide defaults.
+
+    Arguments
+    ---------
+    embedding_function : Callable[[str], Optional[torch.Tensor]]
+        Function that returns an embedding (as a :class:`torch.Tensor`) from a
+        word. If no corresponding embedding could be found for the word, should
+        return `None`. In that case, `low_similarity_weight` will be chosen.
+    low_similarity_weight : float
+        Weight applied to the substitution if `cosine_similarity < threshold`.
+    high_similarity_weight : float
+        Weight applied to the substitution if `cosine_similarity >= threshold`.
+    threshold : float
+        Cosine similarity threshold used to select by how much a substitution
+        error should be weighed for this word.
+    """
+
+    def __init__(
+        self,
+        embedding_function: Callable[[str], Optional[torch.Tensor]],
+        low_similarity_weight: float,
+        high_similarity_weight: float,
+        threshold: float,
+    ):
+        self.embedding_function = embedding_function
+        self.low_similarity_weight = low_similarity_weight
+        self.high_similarity_weight = high_similarity_weight
+        self.threshold = threshold
+
+    def __call__(
+        self, edit_symbol: str, a: Optional[str], b: Optional[str]
+    ) -> float:
+        """Returns the weight that should be associated with a specific edit
+        in the WER calculation.
+
+        Compatible candidate for the cost function of
+        :class:`~WeightedErrorRateStats` so an instance of this class can be
+        passed as a `cost_function`.
+
+        Arguments
+        ---------
+        edit_symbol: str
+            Edit symbol as assigned by the WER functions, see `EDIT_SYMBOLS`.
+        a: str, optional
+            First word to compare (if present)
+        b: str, optional
+            Second word to compare (if present)
+
+        Returns
+        -------
+        float
+            Weight to assign to the edit.
+            For actual edits, either `low_similarity_weight` or
+            `high_similarity_weight` depending on the embedding distance and
+            threshold.
+        """
+        if edit_symbol in (EDIT_SYMBOLS["ins"], EDIT_SYMBOLS["del"]):
+            return 1.0
+
+        if edit_symbol == EDIT_SYMBOLS["sub"]:
+            if a is None or a == "":
+                return self.low_similarity_weight
+
+            if b is None or b == "":
+                return self.low_similarity_weight
+
+            a_emb = self.embedding_function(a)
+            if a_emb is None:
+                return self.low_similarity_weight
+
+            b_emb = self.embedding_function(b)
+            if b_emb is None:
+                return self.low_similarity_weight
+
+            similarity = torch.nn.functional.cosine_similarity(
+                a_emb, b_emb, dim=0
+            ).item()
+
+            if similarity >= self.threshold:
+                return self.high_similarity_weight
+
+            return self.low_similarity_weight
+
+        # eq
+        return 0.0
 
 
 class BinaryMetricStats(MetricStats):
