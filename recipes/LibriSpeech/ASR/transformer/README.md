@@ -29,7 +29,7 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 | Release | Model | commit hash | hyperparams file | LM | Dev Clean WER | Test Clean WER | Test Other WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:| -----:|-----:|:---------------------------:|  -----:| -----:| -----:|  :-----------: |:-----------:| :-----------:|
 | 2024-03-28 | large-v3 | [e4e2e13](https://github.com/speechbrain/speechbrain/pull/2450/commits/e4e2e135e9edafc6a26fc9aa4df9a94eaf86de41) | train_hf_whisper.yaml | No | 2.00% | 1.96% | 4.30% | [DropBox](https://www.dropbox.com/scl/fo/d3gmgf6q79byuhzozdwz8/AGFQwMWJ5hqB466GXTnL72M?rlkey=gmi157oa36vvo9c9o1z4oys0e&dl=0) | Not Avail. |  2xV100S 32GB |
-| 2024-03-28 | medium.en | [e4e2e13](https://github.com/speechbrain/speechbrain/pull/2450/commits/e4e2e135e9edafc6a26fc9aa4df9a94eaf86de41) | train_hf_whisper.yaml | No | 2.35% | 2.40% | 5.59% | Not Avail. | Not Avail. |  2xV100S 32GB |
+| 2024-03-28 | medium.en | [e4e2e13](https://github.com/speechbrain/speechbrain/pull/2450/commits/e4e2e135e9edafc6a26fc9aa4df9a94eaf86de41) | train_hf_whisper.yaml | No | 2.35% | 2.40% | 5.59% | [DropBox](https://www.dropbox.com/scl/fo/a233v5q1gjpy4nyfh2gq0/ALCbTe3UwAjfia7XI2GLx7A?rlkey=lnoxdpiyxm6lg461ptbdrifcj&dl=0) | Not Avail. |  2xV100S 32GB |
 
 
 ## Transformers
