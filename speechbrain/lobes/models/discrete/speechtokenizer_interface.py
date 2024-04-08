@@ -16,6 +16,7 @@ import torch.nn as nn
 from huggingface_hub import snapshot_download
 from speechtokenizer import SpeechTokenizer
 
+
 class SpeechTokenizer_interface(nn.Module):
     """This lobe enables the integration of HuggingFace and SpeechBrain
     pretrained SpeechTokenizer
@@ -56,13 +57,18 @@ class SpeechTokenizer_interface(nn.Module):
         super().__init__()
 
         saved_dir = snapshot_download(
-            repo_id=source, allow_patterns=['*config.json',"*SpeechTokenizer.pt"], cache_dir=save_path
+            repo_id=source,
+            allow_patterns=["*config.json", "*SpeechTokenizer.pt"],
+            cache_dir=save_path,
         )
 
-        config_path = f'{saved_dir}/speechtokenizer_hubert_avg/config.json'
-        ckpt_path = f'{saved_dir}/speechtokenizer_hubert_avg/SpeechTokenizer.pt'
-        self.model = SpeechTokenizer.load_from_checkpoint(config_path, ckpt_path)
+        config_path = f"{saved_dir}/speechtokenizer_hubert_avg/config.json"
+        ckpt_path = f"{saved_dir}/speechtokenizer_hubert_avg/SpeechTokenizer.pt"
+        self.model = SpeechTokenizer.load_from_checkpoint(
+            config_path, ckpt_path
+        )
         self.model.eval()
+
     def forward(self, wav, wav_lens=None):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -80,7 +86,6 @@ class SpeechTokenizer_interface(nn.Module):
 
         """
         return self.encode(wav, wav_lens)
-
 
     def encode(self, wav, wav_lens=None):
         """Takes an input waveform and return its corresponding wav2vec encoding.
@@ -100,10 +105,10 @@ class SpeechTokenizer_interface(nn.Module):
         """
         # Extract discrete codes from SpeechTokenizer
         with torch.no_grad():
-            codes = self.model.encode(wav.unsqueeze(1)) # codes: (n_q, B, T)
-
+            codes = self.model.encode(wav.unsqueeze(1))  # codes: (n_q, B, T)
 
         return codes
+
     def decode(self, codes):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -117,14 +122,17 @@ class SpeechTokenizer_interface(nn.Module):
         wav : torch.Tensor (signal)
             A batch of reconstructed audio signals.
         """
-    
-        
-        RVQ_1 = codes[:1, :, :] # Contain content info, can be considered as semantic tokens
-        RVQ_supplement = codes[1:, :, :] # Contain timbre info, complete info lost by the first quantizer
+
+        RVQ_1 = codes[
+            :1, :, :
+        ]  # Contain content info, can be considered as semantic tokens
+        RVQ_supplement = codes[
+            1:, :, :
+        ]  # Contain timbre info, complete info lost by the first quantizer
 
         # Concatenating semantic tokens (RVQ_1) and supplementary timbre tokens and then decoding
         wav = self.model.decode(torch.cat([RVQ_1, RVQ_supplement], axis=0))
 
         # Decoding from RVQ-i:j tokens from the ith quantizers to the jth quantizers
-        # wav = self.model.decode(codes[i: (j + 1)], st=i) 
+        # wav = self.model.decode(codes[i: (j + 1)], st=i)
         return wav.squeeze(1)
