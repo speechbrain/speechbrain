@@ -19,15 +19,15 @@ import os
 import sys
 
 import numpy as np
-import speechbrain as sb
 import torch
 import torchaudio
 import torchvision
+from confusion_matrix_fig import create_cm_fig
 from hyperpyyaml import load_hyperpyyaml
 from sklearn.metrics import confusion_matrix
-from speechbrain.utils.distributed import run_on_main
 
-from confusion_matrix_fig import create_cm_fig
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 class ESC50Brain(sb.core.Brain):

@@ -77,7 +77,7 @@ python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50
 
 This method interprets the norm of the activation maps as a measure of importance of each input location to the prediction.
 
-We obtain an interpretation mask by thresholding these saliency maps at the q-th quantile. 
+We obtain an interpretation mask by thresholding these saliency maps at the q-th quantile.
 Hence, the quality of the generated interpretation depends on how interpretable the activation maps are.
 
 Two neural network architectures are currently supported for this method: [FocalNet](https://arxiv.org/abs/2203.11926) and [ViT](https://arxiv.org/abs/2010.11929).

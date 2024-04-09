@@ -15,15 +15,16 @@ import os
 import sys
 
 import matplotlib.pyplot as plt
-import speechbrain as sb
 import torch
 import torchaudio
 import torchvision
 from hyperpyyaml import load_hyperpyyaml
+from torch.nn import functional as F
+
+import speechbrain as sb
 from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.metric_stats import MetricStats
-from torch.nn import functional as F
 
 
 class InterpreterESC50Brain(sb.core.Brain):
@@ -165,7 +166,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             # Save reconstructed and original spectrograms
             os.makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder,
+                    "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -260,7 +262,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         os.makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         torchaudio.save(
@@ -290,7 +293,13 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.figure(figsize=(15, 5), dpi=100)
 
         plt.subplot(161)
-        (_, _, _, X_s1, _,) = self.interpret_computation_steps(s1.unsqueeze(0))
+        (
+            _,
+            _,
+            _,
+            X_s1,
+            _,
+        ) = self.interpret_computation_steps(s1.unsqueeze(0))
         X_target = X_s1[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
         plt.imshow(X_target, origin="lower")
         current_class_ind = batch.class_string_encoded.data[0].item()
@@ -301,7 +310,13 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.colorbar(fraction=0.05)
 
         plt.subplot(162)
-        (_, _, _, X_s2, _,) = self.interpret_computation_steps(s2.unsqueeze(0))
+        (
+            _,
+            _,
+            _,
+            X_s2,
+            _,
+        ) = self.interpret_computation_steps(s2.unsqueeze(0))
         X_target = X_s2[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
         plt.imshow(X_target, origin="lower")
         current_class_ind = batch.class_string_encoded.data[1].item()
@@ -385,10 +400,13 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.title("estimated mask")
 
         out_folder = os.path.join(
-            self.hparams.output_folder, "reconstructions", f"{batch.id[0]}",
+            self.hparams.output_folder,
+            "reconstructions",
+            f"{batch.id[0]}",
         )
         os.makedirs(
-            out_folder, exist_ok=True,
+            out_folder,
+            exist_ok=True,
         )
 
         plt.subplots_adjust()
