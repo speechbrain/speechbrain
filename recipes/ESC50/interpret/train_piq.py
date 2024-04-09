@@ -65,9 +65,9 @@ class InterpreterESC50Brain(sb.core.Brain):
     @torch.no_grad()
     def classifier_forward(self, X_stft_logpower):
         """The forward pass for the classifier."""
-        if hasattr(self.modules.embedding_model, "config"):
+        if hasattr(self.hparams.embedding_model, "config"):
             # Hugging Face model
-            config = self.modules.embedding_model.config
+            config = self.hparams.embedding_model.config
             # Resize to match expected resolution
             net_input = torchvision.transforms.functional.resize(
                 X_stft_logpower, (config.image_size, config.image_size)
@@ -283,7 +283,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             current_class_ind
         ]
         plt.title(current_class_name)
-        plt.colorbar()
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(162)
         (_, _, _, X_s2, _,) = self.interpret_computation_steps(s2.unsqueeze(0))
@@ -294,7 +294,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             current_class_ind
         ]
         plt.title(current_class_name)
-        plt.colorbar()
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(163)
         X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
@@ -303,17 +303,21 @@ class InterpreterESC50Brain(sb.core.Brain):
             pred_cl.item()
         ]
         plt.title(predicted_class_name)
-        plt.colorbar()
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(164)
         plt.imshow(mask.data.cpu().permute(1, 0), origin="lower")
-        plt.title("Estimated Mask")
-        plt.colorbar()
+        plt.title("estimated mask")
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(165)
         plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
-        plt.savefig(os.path.join(out_folder, "specs.png"))
+        plt.title("interpretation")
+        plt.colorbar(fraction=0.05)
+
+        plt.subplots_adjust()
+        plt.tight_layout()
+        plt.savefig(os.path.join(out_folder, "specs.png"), bbox_inches="tight")
         plt.close()
 
     def debug_files(self, X_stft, xhat, X_stft_logpower, batch, wavs):
@@ -338,7 +342,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.subplot(141)
         X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
         plt.imshow(X_target, origin="lower")
-        plt.colorbar()
+        plt.title("input")
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(142)
         input_masked = X_target > (
@@ -347,7 +352,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
         plt.imshow(input_masked, origin="lower")
         plt.title("input masked")
-        plt.colorbar()
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(143)
         if self.hparams.use_mask_output:
@@ -356,13 +361,13 @@ class InterpreterESC50Brain(sb.core.Brain):
             mask = xhat[0] > th
         X_masked = mask * X_stft_logpower[0, :Tmax, :]
         plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
-        plt.title("masked")
+        plt.colorbar(fraction=0.05)
+        plt.title("interpretation")
 
         plt.subplot(144)
         plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
-        plt.title("mask")
+        plt.colorbar(fraction=0.05)
+        plt.title("estimated mask")
 
         out_folder = os.path.join(
             self.hparams.output_folder, "reconstructions", f"{batch.id[0]}",
@@ -371,8 +376,11 @@ class InterpreterESC50Brain(sb.core.Brain):
             out_folder, exist_ok=True,
         )
 
+        plt.subplots_adjust()
+        plt.tight_layout()
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"), format="png",
+            os.path.join(out_folder, "reconstructions.png"),
+            bbox_inches="tight",
         )
         plt.close()
 

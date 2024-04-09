@@ -21,7 +21,7 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-save_interpretations: True
+save_interpretations: False
 concat_sources: False
 interpret_period: 10
 
@@ -93,8 +93,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: null
-classifier_model_path: null
+embedding_model_path: !PLACEHOLDER
+classifier_model_path: !PLACEHOLDER
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
