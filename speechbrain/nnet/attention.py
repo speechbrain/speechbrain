@@ -323,7 +323,16 @@ class KeyValueAttention(nn.Module):
 
 
 class RelPosEncXL(nn.Module):
-    """ """
+    """Relative positional encoding for the :class:`~RelPosMHAXL`.
+    
+    .. note::
+        Embeddings default to `torch.float32`, but migrating this module to a
+        different type (e.g. `torch.float16`) will make it so that the output
+        embeddings are cast to that type.
+
+        This does not change the space in which the embeddings are computed,
+        which remains `torch.float32`.
+    """
 
     def __init__(self, emb_dim):
         super().__init__()
@@ -335,29 +344,32 @@ class RelPosEncXL(nn.Module):
         )
         self.register_buffer("inv_freq", inv_freq)
 
-    def forward(self, x: torch.Tensor):
+    @torch.no_grad()
+    def make_pe(self, seq_len: int):
         """
+        Builds the positional embedding tensor for a given sequence length.
+
         Arguments
         ---------
-        x : torch.Tensor
-            input tensor with shape batch_size, seq_len, embed_dim
+        seq_len : int
+            The length of the sequence to create the position embedding for.
 
         Returns
         -------
-        pos_emb : torch.Tensor
+        torch.Tensor
+            Positional embedding tensor.
         """
-        seq_len = x.size(1)
+
         with torch.no_grad():
-            tot_pe = torch.zeros((2, seq_len, self.emb_dim), dtype=x.dtype).to(
-                x
-            )
+            # perform initialization with the same type as `inv_freq`, to enable
+            # migrating the embeddings to fp16 by calling
+            # `posenc.to(torch.float16)`
+
+            tot_pe = torch.zeros((2, seq_len, self.emb_dim), dtype=self.inv_freq.dtype, device=self.inv_freq.device)
             pe_past = tot_pe[0]
             pe_future = tot_pe[1]
-            positions = (
-                torch.arange(0, seq_len, dtype=x.dtype, device=x.device)
-                .to(x)
-                .unsqueeze(-1)
-            )
+            positions = torch.arange(0, seq_len, dtype=self.inv_freq.dtype, device=self.inv_freq.device).unsqueeze(-1)
+            
             sinusoids = torch.sin(positions * self.inv_freq)
             pe_past[:, 0::2] = sinusoids
             pe_past[:, 1::2] = torch.cos(positions * self.inv_freq)
@@ -367,8 +379,27 @@ class RelPosEncXL(nn.Module):
             pe_past = torch.flip(pe_past, (0,)).unsqueeze(0)
             pe_future = pe_future[1:].unsqueeze(0)
             pe = torch.cat([pe_past, pe_future], dim=1)
+            pe = pe.to(self.inv_freq.dtype)  # convert to type of module
             # pe is now 1, 2*seq_len, embed_dim
             return pe
+
+    def forward(self, x: torch.Tensor):
+        """
+        Builds the positional embedding tensor. Similar to
+        :meth:`~RelPosEncXL.make_pe` but uses the shape information from the
+        provided tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            input tensor with shape batch_size, seq_len, embed_dim
+
+        Returns
+        -------
+        pos_emb : torch.Tensor
+        """
+
+        return self.make_pe(seq_len=x.size(1))
 
 
 class RelPosMHAXL(nn.Module):
