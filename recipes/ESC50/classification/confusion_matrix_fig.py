@@ -6,10 +6,9 @@ Authors
  * Ala Eddine Limame 2021
 """
 
-import itertools
-
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import itertools
 
 
 def create_cm_fig(cm, display_labels):
@@ -23,7 +22,7 @@ def create_cm_fig(cm, display_labels):
         Class labels to display.
 
     Returns
-    -------
+    ---------
     Confusion matrix figure : matplotlib.figure.Figure
     """
 

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interpret audio classifiers.
+"""This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interepret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023
@@ -7,18 +7,16 @@ Authors
 """
 import os
 import sys
-from os import makedirs
-
 import torch
-import torch.nn.functional as F
 import torchaudio
-from esc50_prepare import prepare_esc50
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.processing.NMF import spectral_phase
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from esc50_prepare import prepare_esc50
 from speechbrain.utils.metric_stats import MetricStats
+from os import makedirs
+import torch.nn.functional as F
+from speechbrain.processing.NMF import spectral_phase
 
 eps = 1e-10
 
@@ -89,7 +87,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mapping.
+    # mappinng.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -179,11 +177,11 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, pred_cl
 
     def interpret_sample(self, wavs, batch=None):
-        """get the interpretation for a given wav file."""
+        """get the interpratation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
-        if batch is not None:
+        if not (batch is None):
             X_stft_phase_sb = torch.cat(
                 (
                     torch.cos(X_stft_phase).unsqueeze(-1),
@@ -202,8 +200,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             # save reconstructed and original spectrograms
             makedirs(
                 os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
+                    self.hparams.output_folder, "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -236,7 +233,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """interpretation test with overlapped audio"""
+        """interpration test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
@@ -280,8 +277,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
         makedirs(
-            out_folder,
-            exist_ok=True,
+            out_folder, exist_ok=True,
         )
 
         torchaudio.save(
@@ -437,7 +433,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         def compute_inp_fidelity(wavs, predictions):
             """Computes top-1 input fidelity of interpreter."""
             X2 = self.interpret_sample(wavs[0].unsqueeze(0)).unsqueeze(0)
-            for i, wav in enumerate(wavs[1:, ...]):
+            for (i, wav) in enumerate(wavs[1:, ...]):
                 X2 = torch.cat(
                     (X2, self.interpret_sample(wav.unsqueeze(0)).unsqueeze(0)),
                     axis=0,
@@ -472,7 +468,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         @torch.no_grad()
         def compute_faithfulness(wavs, predictions):
             X2 = self.interpret_sample(wavs[0].unsqueeze(0)).unsqueeze(0)
-            for i, wav in enumerate(wavs[1:, ...]):
+            for (i, wav) in enumerate(wavs[1:, ...]):
                 X2 = torch.cat(
                     (X2, self.interpret_sample(wav.unsqueeze(0)).unsqueeze(0)),
                     axis=0,
@@ -590,6 +586,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
 
 if __name__ == "__main__":
+
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
 
