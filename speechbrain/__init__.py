@@ -12,7 +12,7 @@ from . import nnet  # noqa
 from . import processing  # noqa
 from . import tokenizers  # noqa
 from . import utils  # noqa
-from .core import Brain, Stage, create_experiment_directory, parse_arguments
+from .utils.importutils import deprecated_redirect
 
 with open(os.path.join(os.path.dirname(__file__), "version.txt")) as f:
     version = f.read().strip()
@@ -25,3 +25,19 @@ __all__ = [
 ]
 
 __version__ = version
+
+
+def make_deprecated_redirections():
+    sb1_0_redirect_str = (
+        "This is a change from SpeechBrain 1.0. "
+        "See: https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0"
+    )
+
+    deprecated_redirect(
+        "speechbrain.pretrained",
+        "speechbrain.inference",
+        extra_reason=sb1_0_redirect_str,
+    )
+
+
+make_deprecated_redirections()

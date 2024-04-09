@@ -28,7 +28,9 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
     ],
-    packages=setuptools.find_packages(),
+    # we don't want to ship the tests package. for future proofing, also
+    # exclude any tests subpackage (if we ever define __init__.py there)
+    packages=setuptools.find_packages(exclude=["tests", "tests.*"]),
     package_data={"speechbrain": ["version.txt", "log-config.yaml"]},
     install_requires=[
         "hyperpyyaml",
