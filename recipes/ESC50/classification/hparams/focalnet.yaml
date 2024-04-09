@@ -1,10 +1,11 @@
 # #################################
 # Basic training parameters for sound classification using the ESC50 dataset.
-# This recipe uses a conv2d backbone for classification.
+# This recipe uses a FocalNet backbone for classification.
 #
 # Authors:
 #  * Cem Subakan 2022, 2023
 #  * Francesco Paissan 2022, 2023
+#  * Luca Della Libera 2024
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 
@@ -13,15 +14,13 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
-# Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: conv2dv2_classifier-16k
+experiment_name: focalnet-base-esc50
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
-
 
 # Tensorboard logs
 use_tensorboard: False
@@ -42,67 +41,75 @@ skip_manifest_creation: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 200
-batch_size: 32
-lr: 0.00002
-base_lr: 0.000002
+number_of_epochs: 100
+batch_size: 16
+lr: 0.0002
+base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 16000
 
-device: "cpu"
-
-# Feature parameters
-n_mels: 80
-
 # Number of classes
 out_n_neurons: 50
 
+# Note that it's actually important to shuffle the data here
 shuffle: True
 dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: !ref <shuffle>
     num_workers: 0
 
-use_pretrained: True
-use_melspectra: False
-embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
-    dim: 256
+# Augmentation
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0  # Min frequency band dropout probability
+    drop_freq_high: 1  # Max frequency band dropout probability
+    drop_freq_count_low: 1  # Min number of frequency bands to drop
+    drop_freq_count_high: 3  # Max number of frequency bands to drop
+    drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1  # Min number of audio chunks to drop
+    drop_length_high: 5  # Max number of audio chunks to drop
+    drop_count_low: 1000  # Min length of audio chunks to drop
+    drop_count_high: 2000  # Max length of audio chunks to drop
+
+augmentation: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: False
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 2
+    max_augmentations: 2
+    augment_prob: 0.75
+    augmentations: [!ref <drop_freq>, !ref <drop_chunk>]
+
+# Model
+embedding_model: !apply:transformers.FocalNetBackbone.from_pretrained [microsoft/focalnet-base]
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 256
+    input_size: 1024
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
-    std_norm: False
-
-# pre-processing
+# Pre-processing
 n_fft: 1024
 spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
+
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
     sample_rate: !ref <sample_rate>
 
-compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: !ref <n_mels>
-    n_fft: !ref <n_fft>
-    sample_rate: !ref <sample_rate>
-
 modules:
     compute_stft: !ref <compute_stft>
-    compute_fbank: !ref <compute_fbank>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
-    mean_var_norm: !ref <mean_var_norm>
 
 compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
     loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
@@ -131,15 +138,4 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         embedding_model: !ref <embedding_model>
         classifier: !ref <classifier>
-        normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
-
-
-# If you do not want to use the pretrained separator you can simply delete pretrained_separator field.
-embedding_model_path: "speechbrain/PIQ-ESC50/embedding_model.ckpt"
-pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        embedding_model: !ref <embedding_model>
-    paths:
-        embedding_model: !ref <embedding_model_path>
