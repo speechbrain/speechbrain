@@ -29,7 +29,7 @@ The pre-trained model + easy inference is available on HuggingFace:
 Basically, you can run inference with only a few lines of code:
 
 ```python
-from speechbrain.pretrained import VAD
+from speechbrain.inference import VAD
 
 VAD = VAD.from_hparams(source="speechbrain/vad-crdnn-libriparty", savedir="pretrained_models/vad-crdnn-libriparty")
 boundaries = VAD.get_speech_segments("speechbrain/vad-crdnn-libriparty/example_vad.wav")

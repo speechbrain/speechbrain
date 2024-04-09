@@ -14,7 +14,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                python-version: [3.9, "3.10", 3.11]
+                python-version: [3.8, 3.12]
         steps:
             - uses: actions/checkout@v2
             - name: Set up Python ${{ matrix.python-version }}
@@ -37,13 +37,15 @@ jobs:
               run: |
                   sudo apt-get update
                   # up to k2 compatible torch version
-                  pip install torch==2.1.2 torchaudio==2.1.2
+                  pip install torch==2.2.1 torchaudio==2.2.1
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install ctc-segmentation
-                  pip install k2==1.24.4.dev20231220+cpu.torch2.1.2 -f https://k2-fsa.github.io/k2/cpu.html
+                  pip install k2==1.24.4.dev20240223+cpu.torch2.2.1 -f https://k2-fsa.github.io/k2/cpu.html
                   pip install protobuf
-                  pip install kaldilm==1.15
+                  pip install kaldilm==1.15.1
+                  pip install spacy==3.7.4
+                  pip install flair==0.13.1
             - name: Consistency tests with pytest
               run: |
                   pytest tests/consistency
