@@ -103,16 +103,16 @@ classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/C
 
 ## Results
 
-| Hyperparams file  | Fidelity-to-input | Faithfulness |   Training time    |                   HuggingFace link                    |                                     Model link                                     |    GPUs     |
-|:-----------------:|:-----------------:|:------------:|:------------------:|:-----------------------------------------------------:|:----------------------------------------------------------------------------------:|:-----------:|
-| amt_focalnet.yaml |       0.305       |    0.0111    |         -          |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
-|   amt_vit.yaml    |       0.225       |    0.0109    |         -          |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
-|  l2i_cnn14.yaml   |       TODO        |     TODO     |    25 s / epoch    |                     Not available                     | [model](https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0) |  RTX 3090   |
-|  l2i_conv2d.yaml  |       TODO        |     TODO     |  1 min 10 s /epoch |                     Not available                     | [model](https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0) |  RTX 3090   |
-|     nmf.yaml      |         -         |      -       |    45 s / epoch    |                     Not available                     | [model](https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0) |  RTX 3090   |
-|     piq.yaml      |       TODO        |     TODO     | 1 min 10 s /epoch  | [model](https://huggingface.co/speechbrain/PIQ-ESC50) | [model](https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0) |  RTX 3090   |
-| piq_focalnet.yaml |       0.278       |    0.0111    |   8 min / epoch    |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
-|   piq_vit.yaml    |       0.110       |    0.0121    |   5 min / epoch    |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
+| Hyperparams file  | Fidelity-to-input |  Faithfulness   |   Training time    |                   HuggingFace link                    |                                     Model link                                     |    GPUs     |
+|:-----------------:|:-----------------:|:---------------:|:------------------:|:-----------------------------------------------------:|:----------------------------------------------------------------------------------:|:-----------:|
+| amt_focalnet.yaml |       0.305       |     0.0111      |         -          |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
+|   amt_vit.yaml    |       0.225       |     0.0109      |         -          |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
+|  l2i_cnn14.yaml   |   Not available   |  Not available  |    25 s / epoch    |                     Not available                     | [model](https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0) |  RTX 3090   |
+|  l2i_conv2d.yaml  |   Not available   |  Not available  |  1 min 10 s /epoch |                     Not available                     | [model](https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0) |  RTX 3090   |
+|     nmf.yaml      |         -         |        -        |    45 s / epoch    |                     Not available                     | [model](https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0) |  RTX 3090   |
+|     piq.yaml      |   Not available   |   Not available | 1 min 10 s /epoch  | [model](https://huggingface.co/speechbrain/PIQ-ESC50) | [model](https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0) |  RTX 3090   |
+| piq_focalnet.yaml |       0.278       |     0.0111      |   8 min / epoch    |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
+|   piq_vit.yaml    |       0.110       |     0.0121      |   5 min / epoch    |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -152,7 +152,7 @@ Please cite our [PIQ paper](https://arxiv.org/abs/2303.12659) if you use it in y
 Please cite our [FocalNet paper](https://arxiv.org/abs/2303.12659) if you use it in your research:
 
 ```bibtex
-@inproceedings{paissan2023posthoc,
+@inproceedings{dellalibera2024focal,
     title={Focal Modulation Networks for Interpretable Sound Classification},
     author={Luca Della Libera and Cem Subakan and Mirco Ravanelli},
     booktitle={IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) XAI-SA Workshop},
