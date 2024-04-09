@@ -12,6 +12,7 @@ from . import nnet  # noqa
 from . import processing  # noqa
 from . import tokenizers  # noqa
 from . import utils  # noqa
+from .core import Brain, Stage, create_experiment_directory, parse_arguments
 from .utils.importutils import deprecated_redirect
 
 with open(os.path.join(os.path.dirname(__file__), "version.txt")) as f:
