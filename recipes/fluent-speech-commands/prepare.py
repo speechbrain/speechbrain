@@ -1,5 +1,6 @@
-import os
 import logging
+import os
+
 from speechbrain.dataio.dataio import read_audio
 
 try:

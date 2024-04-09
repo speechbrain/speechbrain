@@ -11,8 +11,9 @@ def test_parse_arguments():
 
 def test_brain(device):
     import torch
-    from speechbrain.core import Brain, Stage
     from torch.optim import SGD
+
+    from speechbrain.core import Brain, Stage
 
     model = torch.nn.Linear(in_features=10, out_features=10, device=device)
 

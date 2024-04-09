@@ -20,15 +20,17 @@ Based on VoxCeleb By:
 """
 import os
 import sys
+
+import numpy as np
 import torch
 import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from urbansound8k_prepare import prepare_urban_sound_8k
-from sklearn.metrics import confusion_matrix
-import numpy as np
 from confusion_matrix_fig import create_cm_fig
+from hyperpyyaml import load_hyperpyyaml
+from sklearn.metrics import confusion_matrix
+from urbansound8k_prepare import prepare_urban_sound_8k
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 class UrbanSound8kBrain(sb.core.Brain):

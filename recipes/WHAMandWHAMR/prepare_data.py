@@ -5,8 +5,8 @@ Author
 The .csv preparation functions for WSJ0-Mix.
 """
 
-import os
 import csv
+import os
 
 
 def prepare_wham_whamr_csv(

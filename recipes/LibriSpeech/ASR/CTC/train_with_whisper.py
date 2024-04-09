@@ -20,15 +20,17 @@ Authors
  * Samuele Cornell 2020
 """
 
-import sys
-import torch
 import logging
+import sys
+from pathlib import Path
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 

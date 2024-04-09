@@ -10,17 +10,17 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
+import logging
+from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-from collections import OrderedDict
-
-from . import k2  # import k2 from ./__init__.py
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.lm.arpa import arpa_to_fst
 
 import torch
-import logging
 
+from speechbrain.lm.arpa import arpa_to_fst
+from speechbrain.utils.distributed import run_on_main
+
+from . import k2  # import k2 from ./__init__.py
 from . import graph_compiler, utils
 
 logger = logging.getLogger(__name__)

@@ -14,11 +14,13 @@ Authors
  * Shucong Zhang 2023
 """
 
-import sys
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 import shutil
+import sys
+
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 if __name__ == "__main__":
     # CLI:

@@ -4,9 +4,10 @@ Authors
  * Titouan Parcollet 2020
 """
 
+import numpy as np
 import torch
 from torch.nn import Parameter
-import numpy as np
+
 from speechbrain.nnet.complex_networks.c_ops import multi_mean
 
 

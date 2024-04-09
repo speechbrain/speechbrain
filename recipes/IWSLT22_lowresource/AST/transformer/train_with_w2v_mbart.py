@@ -5,15 +5,16 @@ Author
  * Ha Nguyen, 2023
 """
 
-import sys
-import torch
 import logging
+import sys
 
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+import torch
 from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
 from torch.nn.parallel import DistributedDataParallel
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 

@@ -25,6 +25,7 @@ Author:
 
 import inspect
 from dataclasses import dataclass
+
 from speechbrain.utils.depgraph import DependencyGraph
 
 

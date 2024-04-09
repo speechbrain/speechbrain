@@ -6,11 +6,12 @@ Authors
 
 import torch  # noqa E402
 from torch import nn
-from speechbrain.nnet.linear import Linear
+
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
     get_lookahead_mask,
 )
+from speechbrain.nnet.linear import Linear
 
 
 class CNNTransformerSE(TransformerInterface):

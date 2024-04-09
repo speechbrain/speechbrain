@@ -19,23 +19,24 @@ Authors
  * Titouan Parcollet 2022
 """
 
-import os
-import sys
 import csv
 import logging
+import os
+import sys
+
 import numpy as np
-from tqdm import tqdm
+import torch
+import torch.nn.functional as F
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 from pystoi import stoi
+from tqdm import tqdm
 
-import torch
-import torchaudio
-import torch.nn.functional as F
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import MetricStats
-from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 logger = logging.getLogger(__name__)
 

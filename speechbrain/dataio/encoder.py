@@ -6,14 +6,16 @@ Authors
 """
 
 import ast
-import torch
 import collections
 import itertools
 import logging
+
+import torch
+
 import speechbrain as sb
 from speechbrain.utils.checkpoints import (
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
     register_checkpoint_hooks,
 )
 
