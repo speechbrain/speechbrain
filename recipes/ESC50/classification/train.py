@@ -410,6 +410,11 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
+    # Load pretrained encoder if it exists in the yaml file
+    if "pretrained_encoder" in hparams and hparams["use_pretrained"]:
+        run_on_main(hparams["pretrained_encoder"].collect_files)
+        hparams["pretrained_encoder"].load_collected()
+
     ESC50_brain.fit(
         epoch_counter=ESC50_brain.hparams.epoch_counter,
         train_set=datasets["train"],
