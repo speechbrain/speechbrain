@@ -56,7 +56,7 @@ Simply add the argument `--gold_previous_state False` to perform the inference w
 
 ### Evaluation
 
-Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue level) and Slot Precision (per slot groups) with the script [evaluate_spokenwoz_dst.py](./evaluate_spokenwoz_dst.py).
+Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue level) and Slot Precision (per slot groups) with the script [evaluate_spokenwoz_dst.py](../meta/evaluate_spokenwoz_dst.py).
 
 ```
 python evaluate_spokenwoz_dst.py --reference_manifest PATH_TO_SPLIT_DATA --predictions PATH_TO_PREDICTIONS_CSV
