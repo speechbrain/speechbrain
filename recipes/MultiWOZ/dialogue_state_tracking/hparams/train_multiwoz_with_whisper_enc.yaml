@@ -238,4 +238,4 @@ valid_greedy_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearc
     max_decode_ratio: 1.0
 
 # Metrics
-acc_computer: !name:speechbrain.utils.evaluate_dialogue_state_tracking.JGATracker
+acc_computer: !name:speechbrain.utils.metric_stats.JointGoalAccuracyTracker

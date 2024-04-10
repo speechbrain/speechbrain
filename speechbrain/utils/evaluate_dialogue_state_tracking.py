@@ -6,187 +6,34 @@ Author
     * Lucas Druart 2024
 """
 
-import argparse
 from tqdm import tqdm
 import numpy as np
 import json
-import os
-
-multiwoz_slot_types = [
-    "attraction-area",
-    "attraction-name",
-    "attraction-type",
-    "hotel-area",
-    "hotel-name",
-    "hotel-type",
-    "hotel-day",
-    "hotel-people",
-    "hotel-pricerange",
-    "hotel-stay",
-    "hotel-stars",
-    "hotel-internet",
-    "hotel-parking",
-    "restaurant-area",
-    "restaurant-name",
-    "restaurant-food",
-    "restaurant-day",
-    "restaurant-people",
-    "restaurant-pricerange",
-    "restaurant-time",
-    "taxi-arriveby",
-    "taxi-departure",
-    "taxi-destination",
-    "taxi-leaveat",
-    "train-arriveby",
-    "train-departure",
-    "train-destination",
-    "train-leaveat",
-    "train-people",
-    "train-day",
-    "hospital-department",
-    "bus-people",
-    "bus-leaveat",
-    "bus-arriveby",
-    "bus-day",
-    "bus-destination",
-    "bus-departure",
-]
-
-multiwoz_time_slots = [
-    "restaurant-time",
-    "taxi-arriveby",
-    "taxi-leaveat",
-    "train-arriveby",
-    "train-leaveat",
-]
-
-multiwoz_open_slots = [
-    "attraction-name",
-    "hotel-name",
-    "restaurant-name",
-    "taxi-departure",
-    "taxi-destination",
-    "train-departure",
-    "train-destination",
-]
+from speechbrain.utils.metric_stats import dialogue_state_str2dict
 
 
-def dialogueState_str2dict(
-    dialogue_state: str, slot_type_filtering: list[str] = None
-):
+class DSTEval:
     """
-    Converts the ; separated Dialogue State linearization to a domain-slot-value dictionary.
-    When *slot_type_filtering* is provided, it filters out the slots which are not part of this list.
-    """
-    dict_state = {}
-
-    # We consider every word after "[State] " to discard the transcription if present.
-    dialogue_state = dialogue_state.split("[State] ")[-1]
-    if ";" not in dialogue_state:
-        return {}
-    else:
-        slots = dialogue_state.split(";")
-        for slot_value in slots:
-            if "=" not in slot_value:
-                continue
-            else:
-                slot, value = (
-                    slot_value.split("=")[0].strip(),
-                    slot_value.split("=")[1].strip(),
-                )
-                if slot_type_filtering and slot not in slot_type_filtering:
-                    continue
-                elif "-" in slot:
-                    domain, slot_type = (
-                        slot.split("-")[0].strip(),
-                        slot.split("-")[1].strip(),
-                    )
-                    if domain not in dict_state.keys():
-                        dict_state[domain] = {}
-                    dict_state[domain][slot_type] = value
-
-        return dict_state
-
-
-def dialogueState_dict2str(dialogue_state: dict):
-    """
-    Converts a dialogue state as a dictionary per slot type per domain to a serialized ; separated list
-    """
-    slots = []
-    for domain, slots_values in dialogue_state.items():
-        slots.extend(
-            [f"{domain}-{slot}={value}" for slot, value in slots_values.items()]
-        )
-
-    return "; ".join(slots)
-
-
-class JGATracker:
-    """
-    Class to track the Joint-Goal Accuracy during training. Keeps track of the number of correct and total dialogue states.
-    """
-
-    def __init__(self):
-        self.correct = 0
-        self.total = 0
-
-    def append(self, predictions: list[str], targets: list[str]):
-        """
-        This function is for updating the stats according to the a batch of predictions and targets.
-
-        Arguments
-        ----------
-        predictions : list[str]
-            Predicted dialogue states.
-        targets : list[str]
-            Target dialogue states.
-        """
-        for prediction, reference in zip(predictions, targets):
-            pred = dialogueState_str2dict(prediction)
-            ref = dialogueState_str2dict(reference)
-            if pred == ref:
-                self.correct += 1
-            self.total += 1
-
-    def summarize(self):
-        """
-        Averages the current Joint-Goal Accuracy (JGA).
-        """
-        return (
-            round(100 * self.correct / self.total, 2)
-            if self.total != 0
-            else 100.00
-        )
-
-
-class DSTMetrics:
-    """
-    Class to compute the Dialogue State Tracking metrics i.e. Joint-Goal Accuracy and slot F1.
+    Class to evaluate Dialogue State Tracking metrics i.e. Joint-Goal Accuracy and slot's F1.
 
     Arguments
     ----------
-    slot_types: List
-        List of slot types to consider for slot F1 and slot prediction filtering.
-    time_slots: List
-        List of time related slot types to compute average F1 per time slot group.
-    open_slots: List
-        List of open value slot types to compute average F1 per open value slot group.
+    slot_categories: str
+        Path to the json mapping different slots to broader categories depending on their possible values.
+        Required for both the full slot list and the slot groups for grouped F1.
     """
 
-    def __init__(
-        self,
-        slot_types=multiwoz_slot_types,
-        time_slots=multiwoz_time_slots,
-        open_slots=multiwoz_open_slots,
-    ):
+    def __init__(self, slot_categories):
         """
         Prepares the class for data.
         """
         self.references = {}
         self.predictions = {}
-        self.slot_types = slot_types
-        self.time_slots = time_slots
-        self.open_slots = open_slots
+        with open(slot_categories, "r") as slots:
+            self.slot_categories = json.load(slots)
+        self.slot_list = []
+        for _, slots in self.slot_categories.items():
+            self.slot_list.extend([slot for slot in slots])
 
     def add_prediction(
         self, prediction: str, dialogue_id: str, turn_id: str, filtering=True
@@ -198,11 +45,11 @@ class DSTMetrics:
         if dialogue_id not in self.predictions:
             self.predictions[dialogue_id] = {}
         if filtering:
-            self.predictions[dialogue_id][turn_id] = dialogueState_str2dict(
-                prediction, slot_type_filtering=self.slot_types
+            self.predictions[dialogue_id][turn_id] = dialogue_state_str2dict(
+                prediction, slot_type_filtering=self.slot_list
             )
         else:
-            self.predictions[dialogue_id][turn_id] = dialogueState_str2dict(
+            self.predictions[dialogue_id][turn_id] = dialogue_state_str2dict(
                 prediction
             )
 
@@ -212,7 +59,7 @@ class DSTMetrics:
         """
         if dialogue_id not in self.references:
             self.references[dialogue_id] = {}
-        self.references[dialogue_id][turn_id] = dialogueState_str2dict(
+        self.references[dialogue_id][turn_id] = dialogue_state_str2dict(
             reference
         )
 
@@ -269,7 +116,7 @@ class DSTMetrics:
                 "false-positive": 0,
                 "false-negative": 0,
             }
-            for slot_name in self.slot_types
+            for slot_name in self.slot_list
         }
         self.slot_value_scores[f"sample {k}"] = {
             slot_name: {
@@ -277,7 +124,7 @@ class DSTMetrics:
                 "false-positive": 0,
                 "false-negative": 0,
             }
-            for slot_name in self.slot_types
+            for slot_name in self.slot_list
         }
         for dialogue_id in sampled_dialogues:
             for dialogue_turn, reference_state in self.references[
@@ -389,135 +236,10 @@ class DSTMetrics:
                 100 * total_correct / total, 1
             )
 
-    def get_average_jga(self):
-        """
-        Returns the average Joint-Goal Accuracy of the tracked turns.
-        It is especially useful for logging during training.
-        """
-        round(100 * self.correct / self.total, 2) if self.total != 0 else 100.00
-
-    def read_multiwoz_files(
+    def read_files(
         self, predictions_file: str, reference_manifest: str, filtering: bool
     ):
-        self.file = predictions_file
-        print("\nExtracting the references...\n")
-        with open(reference_manifest, "r") as references:
-            dialog_id = ""
-            for line in tqdm(references):
-                if line.__contains__("END_OF_DIALOG"):
-                    pass
-                else:
-                    fields = line.split(" ", 7)
-                    # A line looks like: line_nr: [N] dialog_id: [D.json] turn_id: [T] text: (user:|agent:) [ABC] state: domain1-slot1=value1; domain2-slot2=value2
-                    key_map = {
-                        "line_nr": 1,
-                        "dialog_id": 3,
-                        "turn_id": 5,
-                        "text": 7,
-                    }
-                    if (
-                        fields[key_map["dialog_id"]].split(".json")[0]
-                        != dialog_id
-                    ):
-                        # Arriving on a new dialog we reset our dialogue_id
-                        dialog_id = fields[key_map["dialog_id"]].split(".json")[
-                            0
-                        ]
-                    turn_id = fields[key_map["turn_id"]]
-
-                    # User turn line
-                    if int(turn_id) % 2 == 1:
-                        # Extracting the text part (transcription and state) of the line
-                        text_split = fields[key_map["text"]].split("state:")
-                        state = text_split[-1].strip()
-                        self.add_reference(
-                            state,
-                            dialogue_id=dialog_id,
-                            turn_id=f"Turn-{turn_id}",
-                        )
-
-        print("\nExtracting the predictions...\n")
-        with open(predictions_file, "r") as predictions:
-            for line in tqdm(predictions):
-                # The predictions csv is composed of the id and the prediction
-                fields = line.split(",", 1)
-                dialogue_id = fields[0].split("/")[-2]
-                turn_id = fields[0].split("/")[-1]
-                self.add_prediction(
-                    fields[1].strip(),
-                    dialogue_id=dialogue_id,
-                    turn_id=turn_id,
-                    filtering=filtering,
-                )
-
-        if self.references.keys() != self.predictions.keys():
-            raise AssertionError(
-                f"Careful the predictions ({predictions_file}) and references ({reference_manifest}) do not concern strictly the same set of examples."
-            )
-
-    def read_spokenwoz_files(
-        self, predictions_file: str, reference_manifest: str, filtering: bool
-    ):
-        self.file = predictions_file
-        with open(reference_manifest, "r") as data:
-            for line in data:
-                annotations = json.loads(line)
-
-        if "dev" in reference_manifest:
-            # Selecting only dialogues for dev set
-            dev_ids = []
-            folder = os.path.dirname(reference_manifest)
-            with open(
-                os.path.join(folder, "valListFile.json"), "r"
-            ) as val_list_file:
-                for line in val_list_file:
-                    dev_ids.append(line.strip())
-            dialogues_to_remove = [
-                k for k, _ in annotations.items() if k not in dev_ids
-            ]
-            for dialog_id in dialogues_to_remove:
-                del annotations[dialog_id]
-
-        for dialog_id, dialog_info in annotations.items():
-            for turn_id, turn_info in enumerate(dialog_info["log"]):
-                if turn_id % 2 == 1:
-                    # Dialogue States annotations are on Agent turns
-                    state = []
-                    for domain, info in turn_info["metadata"].items():
-                        for slot, value in info["book"].items():
-                            if slot != "booked" and value != "":
-                                state.append(f"{domain}-{slot}={value}")
-                        for slot, value in info["semi"].items():
-                            if value != "":
-                                # One example in train set has , between numbers
-                                state.append(
-                                    f'{domain}-{slot}={value.replace(",", "")}'
-                                )
-                    self.add_reference(
-                        "; ".join(state),
-                        dialogue_id=dialog_id,
-                        turn_id=f"Turn-{turn_id-1}",
-                    )
-
-        print("\nExtracting the predictions...\n")
-        with open(predictions_file, "r") as predictions:
-            for line in tqdm(predictions):
-                # The predictions csv is composed of the id and the prediction
-                fields = line.split(",", 1)
-                # Example of id: SNG1751_Turn-26
-                dialogue_id = fields[0].split("/")[-1].split("_")[0]
-                turn_id = fields[0].split("/")[-1].split("_")[1]
-                self.add_prediction(
-                    fields[1].strip(),
-                    dialogue_id=dialogue_id,
-                    turn_id=turn_id,
-                    filtering=filtering,
-                )
-
-        if self.references.keys() != self.predictions.keys():
-            raise AssertionError(
-                f"Careful the predictions ({predictions_file}) and references ({reference_manifest}) do not concern strictly the same set of examples."
-            )
+        raise NotImplementedError
 
     def summary(self):
         """
@@ -525,8 +247,8 @@ class DSTMetrics:
 
         Returns
         -------
-        str
-        A string summarizing the computed results.
+        summary: str
+            Metric report summarizing the computed results.
         """
         self.jga()
         self.slot_precision_recall()
@@ -585,101 +307,32 @@ class DSTMetrics:
                 + f"{[value for value in evaluated_per_turn_jga.values()]}\n\n"
             )
 
-        open_f1s = []
-        time_f1s = []
-        cat_f1s = []
+        categorical_f1s = {cat: [] for cat in self.slot_categories.keys()}
 
         summary += "Slot Values Scores:\n"
-        for slot, scores in self.slot_value_scores[
+        sample_slot_value_scores = self.slot_value_scores[
             f"sample {self.number_of_samples}"
-        ].items():
-            tp = scores["true-positive"]
-            fp = scores["false-positive"]
-            fn = scores["false-negative"]
-            precision = tp / (tp + fp) if (tp + fp) != 0 else 1
-            recall = tp / (tp + fn) if (tp + fn) != 0 else 1
-            f1 = (
-                2 * precision * recall / (precision + recall)
-                if (precision + recall) != 0
-                else 1
-            )
-            if slot in self.open_slots:
-                open_f1s.append(f1)
-            elif slot in self.time_slots:
-                time_f1s.append(f1)
-            else:
-                cat_f1s.append(f1)
+        ]
+        for category, slots in self.slot_categories.items():
+            for slot in slots:
+                scores = sample_slot_value_scores[slot]
+                tp = scores["true-positive"]
+                fp = scores["false-positive"]
+                fn = scores["false-negative"]
+                precision = tp / (tp + fp) if (tp + fp) != 0 else 1
+                recall = tp / (tp + fn) if (tp + fn) != 0 else 1
+                f1 = (
+                    2 * precision * recall / (precision + recall)
+                    if (precision + recall) != 0
+                    else 1
+                )
+                categorical_f1s[category].append(f1)
 
-        summary += f"\t- Open slots:\n"
-        summary += f"\t\t- F1s: {open_f1s}\n"
-        summary += f"\t- Time slots:\n"
-        summary += f"\t\t- F1s: {time_f1s}\n"
-        summary += f"\t- Categorical slots:\n"
-        summary += f"\t\t- F1s: {cat_f1s}\n"
+        summary += "\n".join(
+            [
+                f"\t- {category}:\n \t\t- F1s: {f1s}"
+                for category, f1s in categorical_f1s.items()
+            ]
+        )
 
         return summary
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--reference_manifest",
-        type=str,
-        help="The path to the reference txt file.",
-        default="../data/dev_manifest.txt",
-    )
-    parser.add_argument(
-        "--predictions",
-        type=str,
-        help="The path where to find the csv file with the models predictions.",
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default="multiwoz",
-        help='Dataset ("multiwoz" or "spokenwoz") for which the evaluation is done. Selects the way to read the reference file and the slot types.',
-    )
-    parser.add_argument(
-        "--no_filtering",
-        action="store_true",
-        default=False,
-        help="Deactivates the slot ontology predictions filtering.",
-    )
-    parser.add_argument(
-        "--evaluate_ci",
-        action="store_true",
-        default=False,
-        help="Whether to evaluate the confidence intervals of the JGA.",
-    )
-    args = parser.parse_args()
-
-    if args.dataset == "multiwoz":
-        metrics = DSTMetrics()
-        metrics.read_multiwoz_files(
-            predictions_file=args.predictions,
-            reference_manifest=args.reference_manifest,
-            filtering=not args.no_filtering,
-        )
-    elif args.dataset == "spokenwoz":
-        metrics = DSTMetrics()
-        # Adding the extended slot types specific to spokenwoz
-        metrics.slot_types += [
-            "profile-name",
-            "profile-phonenumber",
-            "profile-idnumber",
-            "profile-email",
-            "profile-platenumber",
-        ]
-        metrics.read_spokenwoz_files(
-            predictions_file=args.predictions,
-            reference_manifest=args.reference_manifest,
-            filtering=not args.no_filtering,
-        )
-    else:
-        parser.error(
-            'Argument dataset should be either "multiwoz" or "spokenwoz".'
-        )
-
-    metrics.prepare_samples(evaluate_ci=args.evaluate_ci)
-
-    print(metrics.summary())

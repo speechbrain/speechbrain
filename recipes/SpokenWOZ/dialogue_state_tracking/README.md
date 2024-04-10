@@ -56,10 +56,10 @@ Simply add the argument `--gold_previous_state False` to perform the inference w
 
 ### Evaluation
 
-Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue level) and Slot Precision (per slot groups) with the script [evaluate_dialogue_state_tracking.py](../../../speechbrain/utils/evaluate_dialogue_state_tracking.py).
+Evaluate your predictions in terms of Joint-Goal Accuracy (at turn and dialogue level) and Slot Precision (per slot groups) with the script [evaluate_spokenwoz_dst.py](./evaluate_spokenwoz_dst.py).
 
 ```
-python evaluatePredictions.py --reference_manifest PATH_TO_SPLIT_DATA --predictions PATH_TO_PREDICTIONS_CSV --dataset spokenwoz
+python evaluate_spokenwoz_dst.py --reference_manifest PATH_TO_SPLIT_DATA --predictions PATH_TO_PREDICTIONS_CSV
 ```
 
 To evaluate the 95% confidence intervals of the JGA scores, with a bootstrapping strategy, add the argument `--evaluate_ci`.
