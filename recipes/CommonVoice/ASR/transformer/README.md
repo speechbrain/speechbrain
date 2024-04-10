@@ -22,6 +22,7 @@ It is important to note that CommonVoice initially offers mp3 audio files at 42H
 Here is a list of the different languages that we tested within the CommonVoice dataset
 with our transformers:
 - Italian
+- French
 
 For Whisper-large-v2 and medium finetuning, here is list of the different language that we tested  within the CommonVoice.14_0 dataset:
 - Hindi
@@ -38,6 +39,8 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 | Language | Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|:-----------:| :-----------:| :-----------:|
 | Italian | 2024-04-09 | train_it.yaml | No | 2.91 | 9.79 | 2.68 | 9.27 | - | [model](https://www.dropbox.com/scl/fo/tf44itp8f4icf2z5qlxpm/AIOYS_CMov5ss5Q9AonFEno?rlkey=xek5ikbhqoovcao31iniqimrr&dl=0) | 2xV100 32GB |
+| French | 2024-04-09 | train_it.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
+
 
 ## Whisper Finetuning Result:
 Following table contains whisper-finetuning results for 1 epoch using whisper_medium model, freezing encoder and finetuning decoder.
