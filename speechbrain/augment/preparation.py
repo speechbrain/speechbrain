@@ -7,12 +7,11 @@ Authors:
 
 """
 
-import logging
 import os
-
+import logging
 import torchaudio
-
-from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.data_utils import get_all_files
 
 # Logger init
 logger = logging.getLogger(__name__)

@@ -3,14 +3,10 @@ import torch
 
 def test_normalize(device):
 
+    from speechbrain.processing.signal_processing import compute_amplitude
+    from speechbrain.processing.signal_processing import rescale
     import random
-
     import numpy as np
-
-    from speechbrain.processing.signal_processing import (
-        compute_amplitude,
-        rescale,
-    )
 
     for scale in ["dB", "linear"]:
         for amp_type in ["peak", "avg"]:

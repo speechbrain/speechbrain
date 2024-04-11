@@ -7,10 +7,8 @@ Authors
 """
 
 import os
-
-import sentencepiece as spm
-
 from speechbrain.utils.data_utils import download_file
+import sentencepiece as spm
 
 
 class tokenizer:

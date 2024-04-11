@@ -12,7 +12,6 @@ Credits
 import os
 import re
 import subprocess
-
 import numpy as np
 
 FILE_IDS = re.compile(r"(?<=Speaker Diarization for).+(?=\*\*\*)")

@@ -15,17 +15,15 @@ Based on the Urban8k recipe by
 """
 import os
 import sys
-
-import numpy as np
 import torch
 import torchaudio
-from confusion_matrix_fig import create_cm_fig
-from esc50_prepare import prepare_esc50
-from hyperpyyaml import load_hyperpyyaml
-from sklearn.metrics import confusion_matrix
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from esc50_prepare import prepare_esc50
+from sklearn.metrics import confusion_matrix
+import numpy as np
+from confusion_matrix_fig import create_cm_fig
 
 
 class ESC50Brain(sb.core.Brain):

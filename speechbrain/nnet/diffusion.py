@@ -10,15 +10,13 @@ Authors
 """
 
 from collections import namedtuple
-
 import torch
 from torch import nn
 from torch.nn import functional as F
 from tqdm.auto import tqdm
-
+from speechbrain.utils.data_utils import unsqueeze_as
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils import data_utils
-from speechbrain.utils.data_utils import unsqueeze_as
 
 
 class Diffuser(nn.Module):

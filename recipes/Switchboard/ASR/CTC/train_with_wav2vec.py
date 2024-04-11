@@ -23,19 +23,19 @@ Authors
 """
 
 import functools
-import logging
 import os
 import sys
 from pathlib import Path
 
 import torch
+import logging
+import speechbrain as sb
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
-import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -347,8 +347,8 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Dataset preparation (parsing Switchboard)
-    from normalize_util import normalize_words, read_glm_csv  # noqa
     from switchboard_prepare import prepare_switchboard  # noqa
+    from normalize_util import normalize_words, read_glm_csv  # noqa
 
     # Create experiment directory
     sb.create_experiment_directory(

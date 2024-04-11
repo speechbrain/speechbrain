@@ -8,8 +8,9 @@ Authors
  * Juan Pablo Zuluaga 2023
 """
 
-import math
 from typing import Optional
+
+import math
 
 import torch
 from torch import nn

@@ -8,14 +8,14 @@ Authors
  * Sylvain de Langen 2024
 """
 
-import logging
-from typing import Optional
-
 import torch
+import logging
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

@@ -6,13 +6,12 @@ Authors
  * Titouan Parcollet 2023
 """
 
-import logging
-import math
-import warnings
-
 import torch
 from torch.autograd import Function
 from torch.nn import Module
+import logging
+import math
+import warnings
 
 NUMBA_VERBOSE = 0
 

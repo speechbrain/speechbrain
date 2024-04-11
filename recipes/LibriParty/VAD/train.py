@@ -22,16 +22,14 @@ Authors
  * Mirco Ravanelli 2021
 """
 
-import logging
 import sys
-
-import numpy as np
 import torch
-from data_augment import augment_data
-from hyperpyyaml import load_hyperpyyaml
-
+import logging
+import numpy as np
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from data_augment import augment_data
 
 logger = logging.getLogger(__name__)
 

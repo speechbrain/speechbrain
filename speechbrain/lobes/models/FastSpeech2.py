@@ -7,22 +7,21 @@ Authors
 * Yingzhi Wang 2023
 """
 
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
+import torch.nn.functional as F
 from torch.nn.modules.loss import _Loss
-
+from speechbrain.nnet import CNN, linear
+from speechbrain.nnet.embedding import Embedding
 from speechbrain.lobes.models.transformer.Transformer import (
-    PositionalEncoding,
     TransformerEncoder,
+    PositionalEncoding,
     get_key_padding_mask,
     get_mask_from_lengths,
 )
-from speechbrain.nnet import CNN, linear
-from speechbrain.nnet.embedding import Embedding
-from speechbrain.nnet.losses import bce_loss
 from speechbrain.nnet.normalization import LayerNorm
+from speechbrain.nnet.losses import bce_loss
+import numpy as np
 
 
 class EncoderPreNet(nn.Module):

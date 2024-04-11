@@ -8,21 +8,19 @@ Authors:
  * Samuele Cornell 2021
 """
 
-import csv
-import itertools as it
-import logging
 import os
 import sys
-
-import numpy as np
 import torch
-from hyperpyyaml import load_hyperpyyaml
-from tqdm import tqdm
-
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.core import AMPConfig
 from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
+import itertools as it
+from tqdm import tqdm
+import numpy as np
+import logging
+import csv
+from speechbrain.core import AMPConfig
 
 
 # Define training procedure
@@ -632,8 +630,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if hparams["use_reverb_augment"]:
-        from create_whamr_rirs import create_rirs
         from prepare_data_wham import create_whamr_rir_csv
+        from create_whamr_rirs import create_rirs
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):

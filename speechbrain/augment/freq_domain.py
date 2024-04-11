@@ -9,9 +9,8 @@ Authors:
 - Mirco Ravanelli (2023)
 """
 
-import random
-
 import torch
+import random
 
 
 class SpectrogramDrop(torch.nn.Module):

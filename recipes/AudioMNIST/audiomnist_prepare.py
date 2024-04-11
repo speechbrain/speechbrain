@@ -12,23 +12,25 @@ Artem Ploujnikov 2023
 Mirco Ravanelli 2023
 """
 
-import csv
-import json
 import logging
+import csv
 import math
+import json
 import os
-from functools import partial
-from glob import glob
-from subprocess import list2cmdline
-
 import torchaudio
-from torchaudio import functional as F
-from tqdm.auto import tqdm
-
 import speechbrain as sb
-from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.utils.data_utils import download_file
+
+from glob import glob
+from functools import partial
+from tqdm.auto import tqdm
+from torchaudio import functional as F
+from subprocess import list2cmdline
 from speechbrain.utils.superpowers import run_shell
+from speechbrain.utils.data_utils import download_file
+from speechbrain.dataio.dataio import (
+    load_pkl,
+    save_pkl,
+)
 
 DEFAULT_SPLITS = ["train", "valid", "test"]
 DEFAULT_AUDIOMNIST_REPO = "https://github.com/soerenab/AudioMNIST.git"

@@ -3,12 +3,10 @@
 The generator and the discriminator are based on convolutional networks.
 """
 
-import pathlib
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
+import pathlib
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 
 
 class EnhanceGanBrain(sb.Brain):

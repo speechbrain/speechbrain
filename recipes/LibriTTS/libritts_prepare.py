@@ -5,18 +5,16 @@ Authors
  * Pradnya Kandarkar 2022
 """
 
+from speechbrain.utils.data_utils import get_all_files, download_file
 import json
-import logging
 import os
-import random
 import shutil
-
-import torch
+import random
+import logging
 import torchaudio
+import torch
 from tqdm import tqdm
-
 from speechbrain.inference.txt import GraphemeToPhoneme
-from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 logger = logging.getLogger(__name__)

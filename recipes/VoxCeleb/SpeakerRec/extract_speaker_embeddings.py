@@ -28,18 +28,18 @@ Author
     * Nauman Dawalatabad 2020
     * Xuechen Liu 2023
 """
-import logging
 import os
 import sys
 
 import numpy as np
 import torch
+import logging
 import torchaudio
+import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 
-import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.data_utils import download_file
 
 
 def compute_embeddings_single(wavs, wav_lens, params):

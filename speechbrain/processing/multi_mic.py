@@ -79,7 +79,6 @@ Authors:
 
 import torch
 from packaging import version
-
 import speechbrain.processing.decomposition as eig
 
 

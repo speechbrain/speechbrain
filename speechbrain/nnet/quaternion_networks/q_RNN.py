@@ -4,13 +4,11 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import logging
-from typing import Optional
-
 import torch
-
+import logging
 from speechbrain.nnet.quaternion_networks.q_linear import QLinear
 from speechbrain.nnet.quaternion_networks.q_normalization import QBatchNorm
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

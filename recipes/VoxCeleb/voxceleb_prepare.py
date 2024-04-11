@@ -4,20 +4,21 @@ Data preparation.
 Download: http://www.robots.ox.ac.uk/~vgg/data/voxceleb/
 """
 
-import csv
-import glob
-import logging
 import os
+import csv
+import logging
+import glob
 import random
 import shutil
 import sys  # noqa F401
-
 import numpy as np
 import torch
 import torchaudio
 from tqdm.contrib import tqdm
-
-from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.dataio.dataio import (
+    load_pkl,
+    save_pkl,
+)
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_voxceleb_prepare.pkl"

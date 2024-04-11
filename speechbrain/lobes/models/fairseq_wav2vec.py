@@ -9,14 +9,12 @@ Authors
  * Salima Mdhaffar 2021
 """
 
-import logging
-
 import torch
+import logging
 import torch.nn.functional as F
 from torch import nn
-
-from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.data_utils import download_file
+from speechbrain.dataio.dataio import length_to_mask
 
 # We check if fairseq is installed.
 try:

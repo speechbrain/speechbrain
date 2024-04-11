@@ -15,7 +15,6 @@ Authors:
 """
 
 import torch
-
 from speechbrain.inference.classifiers import EncoderClassifier
 
 

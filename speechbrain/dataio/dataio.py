@@ -12,19 +12,17 @@ Authors
  * Sylvain de Langen 2022
 """
 
-import csv
-import hashlib
-import json
-import logging
 import os
-import pickle
-import re
-import time
-
-import numpy as np
 import torch
+import logging
+import numpy as np
+import pickle
+import hashlib
+import csv
+import time
 import torchaudio
-
+import json
+import re
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()

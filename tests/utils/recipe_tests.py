@@ -5,16 +5,14 @@ Authors
  * Andreas Nautsch 2022, 2023
 """
 
-import csv
 import os
-import pydoc
 import re
-import subprocess as sp
+import csv
 import sys
+import pydoc
 from time import time
-
+import subprocess as sp
 from hyperpyyaml import load_hyperpyyaml
-
 from speechbrain.utils.data_utils import download_file  # noqa: F401
 
 __skip_list = ["README.md", "setup"]

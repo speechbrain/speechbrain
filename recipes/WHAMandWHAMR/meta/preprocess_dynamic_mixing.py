@@ -8,18 +8,18 @@ Author
 Samuele Cornell, 2020
 """
 
-import argparse
-import glob
 import os
+import argparse
 from pathlib import Path
-
-import numpy as np
-import torch
-import torchaudio
 import tqdm
+import torchaudio
+import glob
 
 # from oct2py import octave
 from scipy import signal
+import numpy as np
+import torch
+
 
 parser = argparse.ArgumentParser(
     "utility for resampling all audio files in a folder recursively"

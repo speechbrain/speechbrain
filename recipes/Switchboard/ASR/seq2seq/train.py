@@ -30,17 +30,18 @@ Authors
  * Dominik Wagner 2022
 """
 import functools
-import logging
 import os
 import sys
-from pathlib import Path
 
 import torch
+import logging
+
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.distributed import run_on_main, if_main_process
+from hyperpyyaml import load_hyperpyyaml
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -325,9 +326,9 @@ def dataio_prepare(hparams):
     train_batch_sampler = None
     valid_batch_sampler = None
     if hparams["dynamic_batching"]:
-        from speechbrain.dataio.batch import PaddedBatch  # noqa
-        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
+        from speechbrain.dataio.batch import PaddedBatch  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
         hop_size = hparams["feats_hop_size"]
@@ -371,8 +372,8 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Switchboard)
-    from normalize_util import normalize_words, read_glm_csv  # noqa
     from switchboard_prepare import prepare_switchboard  # noqa
+    from normalize_util import normalize_words, read_glm_csv  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(

@@ -15,10 +15,9 @@ Authors:
     - Mirco Ravanelli 2023
 """
 
-import argparse
 import csv
 import re
-
+import argparse
 from speechbrain.utils.data_utils import get_all_files
 
 

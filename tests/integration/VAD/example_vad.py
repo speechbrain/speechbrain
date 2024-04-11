@@ -4,12 +4,10 @@ The system is trained with the binary cross-entropy metric.
 """
 
 import os
-
-import numpy as np
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
+import numpy as np
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 
 
 class VADBrain(sb.Brain):

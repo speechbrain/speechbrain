@@ -7,24 +7,24 @@ Authors
 * Sylvain de Langen 2023
 """
 
-import warnings
 from dataclasses import dataclass
-from typing import List, Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from typing import Optional, List
 import speechbrain as sb
-from speechbrain.nnet.activations import Swish
+import warnings
+
+
 from speechbrain.nnet.attention import (
+    RelPosMHAXL,
     MultiheadAttention,
     PositionalwiseFeedForward,
-    RelPosMHAXL,
 )
+from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 from speechbrain.nnet.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+from speechbrain.nnet.activations import Swish
 
 
 @dataclass

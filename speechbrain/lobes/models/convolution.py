@@ -6,8 +6,7 @@ Authors
 """
 
 import torch
-
-from speechbrain.nnet.CNN import Conv1d, Conv2d
+from speechbrain.nnet.CNN import Conv2d, Conv1d
 from speechbrain.nnet.containers import Sequential
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.utils.filter_analysis import (

@@ -1,5 +1,5 @@
-import pytest
 import torch
+import pytest
 
 
 def test_saveable_dataloader(tmpdir, device):

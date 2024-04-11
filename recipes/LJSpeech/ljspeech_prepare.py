@@ -8,24 +8,23 @@ Authors
  * Pradnya Kandarkar 2023
 """
 
+import os
 import csv
 import json
-import logging
-import os
 import random
-import re
-
-import numpy as np
-import tgt
+import logging
 import torch
 import torchaudio
+import numpy as np
 from tqdm import tqdm
-from unidecode import unidecode
-
-from speechbrain.dataio.dataio import load_pkl, save_pkl
-from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import download_file
+from speechbrain.dataio.dataio import load_pkl, save_pkl
+import tgt
+from speechbrain.inference.text import GraphemeToPhoneme
+import re
+from unidecode import unidecode
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
+
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"

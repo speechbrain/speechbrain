@@ -131,8 +131,8 @@ def test_categorical_encoder_saving(tmpdir):
 
 
 def test_categorical_encoder_from_dataset():
-    from speechbrain.dataio.dataset import DynamicItemDataset
     from speechbrain.dataio.encoder import CategoricalEncoder
+    from speechbrain.dataio.dataset import DynamicItemDataset
 
     encoder = CategoricalEncoder()
     data = {

@@ -21,23 +21,23 @@ Authors
 import csv
 import numbers
 import warnings
-
-import numpy as np
-import pytest
 import scipy
+import pytest
+import numpy as np
+
 from scipy import sparse
+from scipy.sparse.linalg import eigsh
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse.csgraph import laplacian as csgraph_laplacian
-from scipy.sparse.linalg import eigsh
 
 np.random.seed(1234)
 pytest.importorskip("sklearn")
 
 try:
     import sklearn
+    from sklearn.neighbors import kneighbors_graph
     from sklearn.cluster import SpectralClustering
     from sklearn.cluster._kmeans import k_means
-    from sklearn.neighbors import kneighbors_graph
 except ImportError:
     err_msg = "The optional dependency scikit-learn (sklearn) is used in this module\n"
     err_msg += "Cannot import scikit-learn. \n"

@@ -4,21 +4,19 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import logging
-from typing import Tuple
-
 import torch
 import torch.nn as nn
+import logging
 import torch.nn.functional as F
-
 from speechbrain.nnet.CNN import get_padding_elem
 from speechbrain.nnet.quaternion_networks.q_ops import (
+    unitary_init,
+    quaternion_init,
     affect_conv_init,
     quaternion_conv_op,
     quaternion_conv_rotation_op,
-    quaternion_init,
-    unitary_init,
 )
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 

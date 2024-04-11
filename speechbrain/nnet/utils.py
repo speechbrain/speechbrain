@@ -6,7 +6,6 @@ Authors
 """
 
 from torch import nn
-
 from speechbrain.dataio.dataio import length_to_mask
 
 

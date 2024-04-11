@@ -5,9 +5,8 @@ Author
  * Pooneh Mousavi 2023
 """
 
-import logging
 import os
-
+import logging
 from tqdm.contrib import tqdm
 
 try:

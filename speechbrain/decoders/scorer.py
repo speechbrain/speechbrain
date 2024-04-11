@@ -6,9 +6,8 @@ Authors:
  * Sung-Lin Yeh 2021
 """
 
-import numpy as np
 import torch
-
+import numpy as np
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
 

@@ -6,9 +6,9 @@
 # Author(s): Tanel Alumäe, Nik Vaessen
 ################################################################################
 
-import argparse
 import json
 import pathlib
+import argparse
 import random
 import re
 from collections import defaultdict

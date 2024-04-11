@@ -8,17 +8,15 @@ Authors
  * Loren Lugosch 2020
 """
 
-import logging
-from typing import Optional
-
 import torch
+import logging
 import torch.nn as nn
-
 from speechbrain.nnet.attention import (
     ContentBasedAttention,
-    KeyValueAttention,
     LocationAwareAttention,
+    KeyValueAttention,
 )
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

@@ -12,11 +12,9 @@ Authors
 """
 import os
 import sys
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 # Define training procedure

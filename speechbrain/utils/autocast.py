@@ -7,7 +7,6 @@ Authors
 
 import functools
 from typing import Callable, Optional
-
 import torch
 
 

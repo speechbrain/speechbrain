@@ -11,22 +11,20 @@ Authors
 """
 
 import os
-import pickle
-import shutil
 import sys
-from enum import Enum, auto
-
+import shutil
+import pickle
 import torch
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-from pesq import pesq
-
 import speechbrain as sb
-from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
-from speechbrain.nnet.loss.stoi_loss import stoi_loss
-from speechbrain.processing.features import spectral_magnitude
-from speechbrain.utils.distributed import run_on_main
+from pesq import pesq
+from enum import Enum, auto
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.metric_stats import MetricStats
+from speechbrain.processing.features import spectral_magnitude
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
 
 
 def pesq_eval(pred_wav, target_wav):

@@ -4,10 +4,9 @@ Authors
  * Aku Rouhe 2022
 """
 
-import warnings
-import weakref
-
 import torch
+import weakref
+import warnings
 
 WEAKREF_MARKER = "WEAKREF"
 

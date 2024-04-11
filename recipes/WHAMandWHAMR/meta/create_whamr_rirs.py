@@ -5,17 +5,16 @@ Authors
     * Cem Subakan 2021
 """
 
-import argparse
 import os
-
 import pandas as pd
-import torch
+import argparse
 import torchaudio
-from scipy.signal import resample_poly
-from tqdm import tqdm
-from wham_room import WhamRoom
 
+from wham_room import WhamRoom
+from scipy.signal import resample_poly
+import torch
 from speechbrain.utils.fetching import fetch
+from tqdm import tqdm
 
 
 def create_rirs(output_dir, sr=8000):

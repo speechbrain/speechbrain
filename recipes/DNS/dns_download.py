@@ -21,19 +21,18 @@ Authors
     * Sangeet Sagar 2022
 """
 
+import os
+import ssl
+import shutil
+import zipfile
+import tarfile
+import certifi
 import argparse
 import fileinput
-import os
-import shutil
-import ssl
-import tarfile
-import urllib.request
-import zipfile
-from concurrent.futures import ThreadPoolExecutor
-
-import certifi
 import requests
+import urllib.request
 from tqdm.auto import tqdm
+from concurrent.futures import ThreadPoolExecutor
 
 BLOB_NAMES = [
     "clean_fullband/datasets_fullband.clean_fullband.VocalSet_48kHz_mono_000_NA_NA.tar.bz2",

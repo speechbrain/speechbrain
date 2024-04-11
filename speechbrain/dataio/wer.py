@@ -10,7 +10,6 @@ Authors
 """
 
 import sys
-
 from speechbrain.utils import edit_distance
 
 

@@ -6,20 +6,18 @@ Author
 Samuele Cornell, 2020
 """
 
-import json
 import os
-import random
 import sys
-from pathlib import Path
-
+import json
+import random
 import numpy as np
-from hyperpyyaml import load_hyperpyyaml
-from local.create_mixtures_from_metadata import create_mixture
-from local.create_mixtures_metadata import create_metadata
-from tqdm import tqdm
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import get_all_files
+from local.create_mixtures_metadata import create_metadata
+from local.create_mixtures_from_metadata import create_mixture
+from pathlib import Path
+from tqdm import tqdm
 
 # Load hyperparameters file with command-line overrides
 params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])

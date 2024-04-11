@@ -5,9 +5,8 @@ Authors
  * Davide Borra 2021
 """
 
-import logging
-
 import torch
+import logging
 import torch.nn as nn
 
 logger = logging.getLogger(__name__)

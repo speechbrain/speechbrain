@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import os
-import site
 import sys
+import site
+import setuptools
 from distutils.core import setup
 
-import setuptools
 
 # Editable install in user site directory can be allowed with this hack:
 # https://github.com/pypa/pip/issues/7953.

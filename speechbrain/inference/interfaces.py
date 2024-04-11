@@ -14,25 +14,23 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import hashlib
 import logging
+import hashlib
 import sys
 import warnings
-from types import SimpleNamespace
-
 import torch
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-from torch.nn import DataParallel as DP
+from types import SimpleNamespace
 from torch.nn import SyncBatchNorm
-from torch.nn.parallel import DistributedDataParallel as DDP
-
-from speechbrain.dataio.batch import PaddedBatch, PaddedData
+from torch.nn import DataParallel as DP
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.fetching import fetch
 from speechbrain.dataio.preprocess import AudioNormalizer
-from speechbrain.utils.data_pipeline import DataPipeline
+from torch.nn.parallel import DistributedDataParallel as DDP
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import fetch
+from speechbrain.dataio.batch import PaddedBatch, PaddedData
+from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.superpowers import import_from_path
 
 logger = logging.getLogger(__name__)

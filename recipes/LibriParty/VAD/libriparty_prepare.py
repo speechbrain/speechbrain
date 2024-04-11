@@ -13,12 +13,12 @@ Authors
   * Arjun V 2021
 """
 
+import numpy as np
+import pandas as pd
 import json
 import logging
 from collections import OrderedDict
 
-import numpy as np
-import pandas as pd
 
 """ Global variables"""
 logger = logging.getLogger(__name__)

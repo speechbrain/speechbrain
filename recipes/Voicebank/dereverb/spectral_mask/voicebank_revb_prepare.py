@@ -12,13 +12,12 @@ Authors:
  * Peter Plantinga, 2020
 """
 
-import json
-import logging
 import os
+import json
 import string
-
-from speechbrain.dataio.dataio import read_audio
+import logging
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"

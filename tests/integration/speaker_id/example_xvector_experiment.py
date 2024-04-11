@@ -4,10 +4,8 @@ x-vectors. The encoder is based on TDNNs. The classifier is a MLP.
 """
 
 import pathlib
-
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 
 
 # Trains xvector model

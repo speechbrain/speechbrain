@@ -5,16 +5,16 @@ Authors
  * Artem Ploujnikov 2021
 """
 
-import torch
-from torch import nn
-
 from speechbrain.lobes.models.transformer.Transformer import (
     TransformerInterface,
-    get_key_padding_mask,
     get_lookahead_mask,
+    get_key_padding_mask,
 )
-from speechbrain.nnet import normalization
+
+import torch
+from torch import nn
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet import normalization
 
 
 class AttentionSeq2Seq(nn.Module):

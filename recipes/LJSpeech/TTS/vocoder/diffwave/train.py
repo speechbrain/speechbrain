@@ -6,15 +6,13 @@ Authors
  * Yingzhi Wang 2022
 """
 
-import logging
-import os
-import sys
-
-import torch
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-
+import logging
+import sys
+import torch
 import speechbrain as sb
+import os
+from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
 

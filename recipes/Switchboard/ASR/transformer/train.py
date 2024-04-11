@@ -33,17 +33,18 @@ Authors
  * Dominik Wagner 2022
 """
 import functools
-import logging
 import os
 import sys
-from pathlib import Path
 
 import torch
+import logging
+from pathlib import Path
+
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from speechbrain.utils.distributed import if_main_process, run_on_main
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main, if_main_process
 
 logger = logging.getLogger(__name__)
 
@@ -445,8 +446,8 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    from normalize_util import normalize_words, read_glm_csv  # noqa
     from switchboard_prepare import prepare_switchboard  # noqa
+    from normalize_util import normalize_words, read_glm_csv  # noqa
 
     # Create experiment directory
     sb.create_experiment_directory(

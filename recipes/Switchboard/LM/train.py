@@ -10,12 +10,10 @@ Authors
  * Ju-Chieh Chou 2020
  * Dominik Wagner 2022
 """
-import logging
 import sys
-
+import logging
 import torch
 from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 

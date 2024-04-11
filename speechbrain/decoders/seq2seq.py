@@ -9,11 +9,10 @@ Authors
 """
 
 import torch
-
 from speechbrain.decoders.utils import (
-    _update_mem,
     inflate_tensor,
     mask_by_condition,
+    _update_mem,
 )
 from speechbrain.utils.data_utils import undo_padding
 

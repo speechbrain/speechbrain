@@ -30,10 +30,9 @@ def test_NewBobScheduler():
 
 def test_WarmAndExpDecayLRSchedule():
 
-    import torch
-
-    from speechbrain.nnet.linear import Linear
     from speechbrain.nnet.schedulers import WarmAndExpDecayLRSchedule
+    from speechbrain.nnet.linear import Linear
+    import torch
 
     model = Linear(input_size=3, n_neurons=4)
     optim = torch.optim.Adam(model.parameters(), lr=1)

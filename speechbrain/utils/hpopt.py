@@ -10,15 +10,15 @@ Authors
 """
 
 import importlib
-import json
 import logging
+import json
 import os
+import speechbrain as sb
 import sys
-from datetime import datetime
 
+from datetime import datetime
 from hyperpyyaml import load_hyperpyyaml
 
-import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 

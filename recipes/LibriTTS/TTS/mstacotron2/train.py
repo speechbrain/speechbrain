@@ -12,18 +12,16 @@
  * Yingzhi Wang 2022
  * Pradnya Kandarkar 2023
 """
-import logging
-import os
-import sys
-
 import torch
-import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.inference.vocoders import HIFIGAN
-from speechbrain.utils.data_utils import scalarize
+import sys
+import logging
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.text_to_sequence import text_to_sequence
+from speechbrain.utils.data_utils import scalarize
+import os
+from speechbrain.inference.vocoders import HIFIGAN
+import torchaudio
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)

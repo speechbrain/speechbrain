@@ -15,9 +15,8 @@ Authors:
 """
 
 import torch
-
-from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.inference.ASR import EncoderDecoderASR
 
 
 class EndToEndSLU(Pretrained):

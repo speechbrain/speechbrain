@@ -8,11 +8,11 @@ Authors:
     * Andreas Nautsch 2023
 """
 import logging
-from copy import deepcopy
-
 import speechbrain as sb
+from copy import deepcopy
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.utils.fetching import FetchFrom, FetchSource
+
 
 logger = logging.getLogger(__name__)
 

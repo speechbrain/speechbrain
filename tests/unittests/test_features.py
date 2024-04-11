@@ -38,7 +38,8 @@ def test_context_window(device):
 
 
 def test_istft(device):
-    from speechbrain.processing.features import ISTFT, STFT
+    from speechbrain.processing.features import STFT
+    from speechbrain.processing.features import ISTFT
 
     fs = 16000
     inp = torch.randn([10, 16000], device=device)

@@ -22,26 +22,25 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
 import os
-import pathlib
-
 import torch
-from huggingface_hub import model_info
+import logging
+import pathlib
 from torch import nn
+from huggingface_hub import model_info
+from speechbrain.utils.fetching import fetch
+from speechbrain.dataio.dataio import length_to_mask
+
 from transformers import (
     AutoConfig,
-    AutoFeatureExtractor,
-    AutoModel,
-    AutoModelForCausalLM,
-    AutoModelForPreTraining,
-    AutoModelForSeq2SeqLM,
-    AutoModelWithLMHead,
     AutoTokenizer,
+    AutoFeatureExtractor,
+    AutoModelForPreTraining,
+    AutoModel,
+    AutoModelWithLMHead,
+    AutoModelForSeq2SeqLM,
+    AutoModelForCausalLM,
 )
-
-from speechbrain.dataio.dataio import length_to_mask
-from speechbrain.utils.fetching import fetch
 
 logger = logging.getLogger(__name__)
 

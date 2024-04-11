@@ -6,11 +6,9 @@ Authors
 """
 
 import logging
-import os
-
 import torch
-
-from speechbrain.utils.distributed import if_main_process, main_process_only
+import os
+from speechbrain.utils.distributed import main_process_only, if_main_process
 
 logger = logging.getLogger(__name__)
 

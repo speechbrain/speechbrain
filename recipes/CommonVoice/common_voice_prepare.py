@@ -9,16 +9,16 @@ Pooneh Mousavi 2022
 Salima Mdhaffar 2023
 """
 
-import csv
-import functools
-import logging
-import os
-import re
-import unicodedata
 from dataclasses import dataclass
+import os
+import csv
+import re
+import logging
+import unicodedata
+import functools
 
-from speechbrain.dataio.dataio import read_audio_info
 from speechbrain.utils.parallel import parallel_map
+from speechbrain.dataio.dataio import read_audio_info
 
 logger = logging.getLogger(__name__)
 

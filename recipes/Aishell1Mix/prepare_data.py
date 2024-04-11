@@ -5,17 +5,16 @@ Author
  * Cem Subakan 2020
 """
 
-import csv
-import functools
-import glob
 import os
+import csv
 import tarfile
 import zipfile
-from urllib.request import urlretrieve
-
-import soundfile as sf
+import glob
 import tqdm.contrib.concurrent
+import soundfile as sf
+import functools
 from pysndfx import AudioEffectsChain
+from urllib.request import urlretrieve
 
 
 def prepare_aishell1mix(

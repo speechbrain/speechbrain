@@ -2,13 +2,12 @@ import torch
 
 
 def test_ConcatDatasetBatchSampler(device):
-    import numpy as np
-    from torch.utils.data import ConcatDataset, DataLoader, TensorDataset
-
+    from torch.utils.data import TensorDataset, ConcatDataset, DataLoader
     from speechbrain.dataio.sampler import (
-        ConcatDatasetBatchSampler,
         ReproducibleRandomSampler,
+        ConcatDatasetBatchSampler,
     )
+    import numpy as np
 
     datasets = []
     for i in range(3):
@@ -49,10 +48,10 @@ def test_ConcatDatasetBatchSampler(device):
     np.testing.assert_array_equal(non_cat_data.T, concat_data)
 
     # check DynamicBatchSampler
-    from speechbrain.dataio.batch import PaddedBatch
-    from speechbrain.dataio.dataloader import SaveableDataLoader
-    from speechbrain.dataio.dataset import DynamicItemDataset
     from speechbrain.dataio.sampler import DynamicBatchSampler
+    from speechbrain.dataio.dataset import DynamicItemDataset
+    from speechbrain.dataio.dataloader import SaveableDataLoader
+    from speechbrain.dataio.batch import PaddedBatch
 
     max_batch_length = 4
     num_buckets = 5

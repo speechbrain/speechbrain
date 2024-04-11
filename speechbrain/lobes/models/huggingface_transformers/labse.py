@@ -8,11 +8,10 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
-import os
-
 import torch
+import logging
 import torch.nn.functional as F
+import os
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,

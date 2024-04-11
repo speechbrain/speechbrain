@@ -7,13 +7,12 @@ Authors
 
 import torch
 from torch.nn import Dropout
-
-from speechbrain.nnet.activations import Swish
-from speechbrain.nnet.CNN import Conv1d, DepthwiseSeparableConv1d
-from speechbrain.nnet.containers import Sequential
+from speechbrain.nnet.CNN import DepthwiseSeparableConv1d, Conv1d
 from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.normalization import BatchNorm1d
 from speechbrain.nnet.pooling import AdaptivePool
+from speechbrain.nnet.containers import Sequential
+from speechbrain.nnet.normalization import BatchNorm1d
+from speechbrain.nnet.activations import Swish
 
 
 class ContextNet(Sequential):

@@ -4,13 +4,11 @@ The architecture is based on ConvTasnet and expects in input mixtures of two
 speakers.
 """
 
-import pathlib
-
 import torch
+import pathlib
+import speechbrain as sb
 import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
-
-import speechbrain as sb
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 

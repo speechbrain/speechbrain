@@ -14,20 +14,19 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import logging
-import random
 import re
-
+import logging
 import torch
 import torchaudio
-
+import random
 import speechbrain
-from speechbrain.inference.classifiers import EncoderClassifier
-from speechbrain.inference.encoders import MelSpectrogramEncoder
-from speechbrain.inference.interfaces import Pretrained
-from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.fetching import fetch
+from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.text_to_sequence import text_to_sequence
+from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.inference.encoders import MelSpectrogramEncoder
+from speechbrain.inference.classifiers import EncoderClassifier
+
 
 logger = logging.getLogger(__name__)
 

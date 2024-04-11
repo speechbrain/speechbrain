@@ -3,8 +3,8 @@ import pytest
 
 def test_dependency_graph():
     from speechbrain.utils.depgraph import (
-        CircularDependencyError,
         DependencyGraph,
+        CircularDependencyError,
     )
 
     dg = DependencyGraph()

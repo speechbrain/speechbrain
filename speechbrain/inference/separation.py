@@ -15,12 +15,11 @@ Authors:
 """
 
 import torch
-import torch.nn.functional as F
 import torchaudio
-
-from speechbrain.inference.interfaces import Pretrained
-from speechbrain.utils.data_utils import split_path
+import torch.nn.functional as F
 from speechbrain.utils.fetching import fetch
+from speechbrain.utils.data_utils import split_path
+from speechbrain.inference.interfaces import Pretrained
 
 
 class SepformerSeparation(Pretrained):

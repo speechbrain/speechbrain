@@ -7,7 +7,6 @@ Authors
 
 import torch
 import torchaudio.transforms as T
-
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.pooling import Pooling1d
 

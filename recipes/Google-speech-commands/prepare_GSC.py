@@ -9,20 +9,18 @@ David Raby-Pepin 2021
 
 """
 
-import copy
-import glob
-import hashlib
-import logging
 import os
-import re
-import shutil
 from os import walk
-
-import numpy as np
+import glob
+import shutil
+import logging
 import torch
-
-from speechbrain.dataio.dataio import read_audio
+import re
+import hashlib
+import copy
+import numpy as np
 from speechbrain.utils.data_utils import download_file
+from speechbrain.dataio.dataio import read_audio
 
 try:
     import pandas as pd

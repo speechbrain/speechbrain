@@ -3,14 +3,12 @@
 AISHELL-1 seq2seq model recipe. (Adapted from the LibriSpeech recipe.)
 """
 
-import logging
 import sys
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
+import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
 

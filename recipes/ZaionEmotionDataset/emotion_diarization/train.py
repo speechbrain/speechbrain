@@ -4,15 +4,13 @@ Authors
  * Yingzhi WANG 2023
 """
 
-import itertools
-import json
 import os
 import sys
-
-import torch
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
+import torch
+import json
+import itertools
 from speechbrain.utils.EDER import EDER
 
 
@@ -286,7 +284,7 @@ if __name__ == "__main__":
 
     # Data preparation, to be run on only one process.
     if not hparams["skip_prep"]:
-        from zed_prepare import prepare_test, prepare_train
+        from zed_prepare import prepare_train, prepare_test
 
         sb.utils.distributed.run_on_main(
             prepare_train,

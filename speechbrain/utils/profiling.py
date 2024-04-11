@@ -4,9 +4,8 @@ Author:
     * Titouan Parcollet 2024
 """
 
-import os
-
 from torch import profiler
+import os
 
 
 def prepare_profiler(

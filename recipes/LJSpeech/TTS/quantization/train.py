@@ -8,23 +8,22 @@ Authors
  * Jarod Duret 2023
 """
 
-import itertools
-import logging
-import pathlib as pl
-import random
 import sys
+import logging
 import time
+import random
+import itertools
+import pathlib as pl
 
 import joblib
-import numpy as np
 import torch
 import torchaudio
 import tqdm
-from hyperpyyaml import load_hyperpyyaml
-from ljspeech_prepare import prepare_ljspeech
+import numpy as np
 from sklearn.cluster import MiniBatchKMeans
-
+from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
+from ljspeech_prepare import prepare_ljspeech
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
 
 

@@ -8,10 +8,8 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 """
 
 import pathlib
-
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 
 
 class CTCBrain(sb.Brain):

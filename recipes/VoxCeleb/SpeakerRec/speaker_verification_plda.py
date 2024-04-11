@@ -11,26 +11,22 @@ Authors
     * Mirco Ravanelli 2020
 """
 
-import logging
 import os
-import pickle
 import sys
-
-import numpy
 import torch
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-from tqdm.contrib import tqdm
-
+import logging
 import speechbrain as sb
-from speechbrain.processing.PLDA_LDA import (
-    Ndx,
-    StatObject_SB,
-    fast_PLDA_scoring,
-)
+import numpy
+import pickle
+from tqdm.contrib import tqdm
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.metric_stats import EER, minDCF
+from speechbrain.processing.PLDA_LDA import StatObject_SB
+from speechbrain.processing.PLDA_LDA import Ndx
+from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.metric_stats import EER, minDCF
 
 
 # Compute embeddings from the waveforms

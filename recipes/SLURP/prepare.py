@@ -1,10 +1,8 @@
 import os
-import shutil
-
 import jsonlines
-
-from speechbrain.dataio.dataio import merge_csvs, read_audio
+from speechbrain.dataio.dataio import read_audio, merge_csvs
 from speechbrain.utils.data_utils import download_file
+import shutil
 
 try:
     import pandas as pd
