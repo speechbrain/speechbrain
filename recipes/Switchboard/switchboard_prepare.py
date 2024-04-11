@@ -18,10 +18,10 @@ Author
 Dominik Wagner 2022
 """
 
+import re
 import csv
 import logging
 import os
-import re
 from collections import defaultdict
 
 from speechbrain.dataio.dataio import merge_csvs

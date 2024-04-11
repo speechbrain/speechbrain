@@ -7,8 +7,8 @@ Author
 
  """
 
-import csv
 import os
+import csv
 
 
 def prepare_binaural_wsj0mix(

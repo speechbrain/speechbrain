@@ -7,9 +7,9 @@ Authors:
  * Georgios Karakasidis 2023
 """
 
-import torch
-
 from . import k2  # import k2 from ./__init__.py
+
+import torch
 
 
 def ctc_k2(

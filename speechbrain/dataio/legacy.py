@@ -1,15 +1,13 @@
 """SpeechBrain Extended CSV Compatibility."""
 
+from speechbrain.dataio.dataset import DynamicItemDataset
 import collections
 import csv
-import logging
 import pickle
-import re
-
+import logging
 import torch
 import torchaudio
-
-from speechbrain.dataio.dataset import DynamicItemDataset
+import re
 
 logger = logging.getLogger(__name__)
 

@@ -5,9 +5,8 @@ Authors
 """
 
 import torch
-
-import speechbrain.processing.features as spf
 from speechbrain.processing.features import spectral_magnitude
+import speechbrain.processing.features as spf
 
 
 def spectral_phase(stft):

@@ -12,19 +12,17 @@ Authors
     * Mirco Ravanelli 2020
     * Xuechen Liu 2023
 """
-import logging
 import os
 import sys
-
 import torch
+import logging
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-from tqdm.contrib import tqdm
-
 import speechbrain as sb
+from tqdm.contrib import tqdm
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.metric_stats import EER, minDCF
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.metric_stats import EER, minDCF
 
 
 # Compute embeddings from the waveforms

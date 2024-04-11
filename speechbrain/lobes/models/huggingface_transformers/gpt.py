@@ -9,12 +9,12 @@ Authors
 """
 
 import logging
-
 import torch
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+
 
 logger = logging.getLogger(__name__)
 

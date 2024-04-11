@@ -5,11 +5,11 @@ Author
  * Sylvain de Langen 2024
 """
 
+from types import ModuleType
 import importlib
 import sys
-import warnings
-from types import ModuleType
 from typing import Optional
+import warnings
 
 
 class LegacyModuleRedirect(ModuleType):

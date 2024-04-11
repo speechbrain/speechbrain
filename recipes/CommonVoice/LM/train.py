@@ -8,15 +8,14 @@ Author
  * Pooneh Mousavi 2023
 """
 
-import csv
-import logging
 import os
+import csv
 import sys
-
-from hyperpyyaml import load_hyperpyyaml
-
+import logging
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from hyperpyyaml import load_hyperpyyaml
+
 
 logger = logging.getLogger(__name__)
 

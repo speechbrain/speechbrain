@@ -15,14 +15,13 @@ Authors:
 """
 
 import torch
-import torch.nn.functional as F
 import torchaudio
-
+import torch.nn.functional as F
 import speechbrain
-from speechbrain.inference.interfaces import Pretrained
-from speechbrain.processing.NMF import spectral_phase
-from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import fetch
+from speechbrain.utils.data_utils import split_path
+from speechbrain.processing.NMF import spectral_phase
+from speechbrain.inference.interfaces import Pretrained
 
 
 class PIQAudioInterpreter(Pretrained):

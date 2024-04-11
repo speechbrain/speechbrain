@@ -9,16 +9,14 @@ Authors
  * Sarthak Yadav 2022
 """
 
-import logging
 import math
-from typing import Tuple
-
-import numpy as np
 import torch
+import logging
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
-
+from typing import Tuple
 from speechbrain.processing.signal_processing import (
     gabor_impulse_response,
     gabor_impulse_response_legacy_complex,

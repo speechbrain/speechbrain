@@ -28,16 +28,15 @@ Authors
 # limitations under the License.
 # ==============================================================================
 
-from math import sqrt
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from speechbrain.nnet.CNN import Conv1d
+from speechbrain.nnet import linear
+from speechbrain.nnet.diffusion import DenoisingDiffusion
+from math import sqrt
 from torchaudio import transforms
 
-from speechbrain.nnet import linear
-from speechbrain.nnet.CNN import Conv1d
-from speechbrain.nnet.diffusion import DenoisingDiffusion
 
 Linear = linear.Linear
 ConvTranspose2d = nn.ConvTranspose2d

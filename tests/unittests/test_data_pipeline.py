@@ -84,7 +84,7 @@ def test_data_pipeline():
 
 
 def test_takes_provides():
-    from speechbrain.utils.data_pipeline import provides, takes
+    from speechbrain.utils.data_pipeline import takes, provides
 
     @takes("a")
     @provides("b")
@@ -103,7 +103,7 @@ def test_takes_provides():
 
 
 def test_MIMO_pipeline():
-    from speechbrain.utils.data_pipeline import DataPipeline, provides, takes
+    from speechbrain.utils.data_pipeline import DataPipeline, takes, provides
 
     @takes("text", "other-text")
     @provides("reversed", "concat")

@@ -10,16 +10,14 @@ Authors
 """
 import os
 import sys
-
 import torch
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-from pesq import pesq
-
 import speechbrain as sb
+from pesq import pesq
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.metric_stats import MetricStats
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.metric_stats import MetricStats
 
 
 # Brain class for speech enhancement training

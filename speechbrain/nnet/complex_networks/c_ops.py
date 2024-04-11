@@ -7,9 +7,9 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import numpy as np
 import torch
 import torch.nn.functional as F
+import numpy as np
 
 
 def check_complex_input(input_shape):

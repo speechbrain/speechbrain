@@ -16,14 +16,13 @@ Authors
  * Lugosch Loren 2020
 """
 
-import logging
 import sys
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.utils.distributed import if_main_process, run_on_main
+import logging
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main, if_main_process
+
 
 logger = logging.getLogger(__name__)
 

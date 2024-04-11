@@ -12,17 +12,15 @@ Authors:
 
 # Importing libraries
 import random
-
 import torch
 import torch.nn.functional as F
 import torchaudio
-
-from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.dataio.legacy import ExtendedCSVDataset
+from speechbrain.dataio.dataloader import make_dataloader
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
-    convolve1d,
     dB_to_amplitude,
+    convolve1d,
     notch_filter,
     reverberate,
 )

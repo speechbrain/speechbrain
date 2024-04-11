@@ -4,16 +4,14 @@ Authors
  * Loren Lugosch 2020
 """
 
+import os.path
+import torch
+import logging
 import csv
 import json
-import logging
-import os.path
 from dataclasses import dataclass
 from typing import List
-
 import sentencepiece as spm
-import torch
-
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main

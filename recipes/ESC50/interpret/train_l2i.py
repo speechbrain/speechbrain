@@ -7,18 +7,16 @@ Authors
 """
 import os
 import sys
-from os import makedirs
-
 import torch
-import torch.nn.functional as F
 import torchaudio
-from esc50_prepare import prepare_esc50
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.processing.NMF import spectral_phase
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+from esc50_prepare import prepare_esc50
 from speechbrain.utils.metric_stats import MetricStats
+from os import makedirs
+import torch.nn.functional as F
+from speechbrain.processing.NMF import spectral_phase
 
 eps = 1e-10
 

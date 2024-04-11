@@ -20,13 +20,11 @@ Authors
  * Artem Ploujnikov 2023
 """
 
-import logging
-
 import torch
-from huggingface_hub import hf_hub_download
+import logging
 from torch import nn
-
 from speechbrain.dataio.dataio import length_to_mask
+from huggingface_hub import hf_hub_download
 
 try:
     from vocos import Vocos as VocosModel

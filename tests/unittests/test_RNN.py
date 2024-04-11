@@ -1,12 +1,11 @@
-from collections import OrderedDict
-
 import torch
 import torch.nn
+from collections import OrderedDict
 
 
 def test_RNN(device):
 
-    from speechbrain.nnet.RNN import GRU, LSTM, RNN, LiGRU, QuasiRNN, RNNCell
+    from speechbrain.nnet.RNN import RNN, GRU, LSTM, LiGRU, QuasiRNN, RNNCell
 
     # Check RNN
     inputs = torch.randn(4, 2, 7, device=device)

@@ -11,10 +11,17 @@ Authors
 """
 
 import logging
-import math
-from typing import Collection, Optional, Set, Tuple, cast
+from typing import (
+    Collection,
+    Optional,
+    Set,
+    Tuple,
+    cast,
+)
 
 from pygtrie import CharTrie
+
+import math
 
 logger = logging.getLogger(__name__)
 

@@ -4,9 +4,8 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import logging
-
 import torch  # noqa: F401
+import logging
 import torch.nn as nn
 
 logger = logging.getLogger(__name__)

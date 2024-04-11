@@ -10,9 +10,9 @@ Author
 Dominik Wagner 2022
 """
 
-import csv
-import os
 import re
+import os
+import csv
 import string
 from collections import defaultdict
 

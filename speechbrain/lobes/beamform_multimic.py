@@ -5,9 +5,16 @@ Authors
 """
 
 import torch
+from speechbrain.processing.features import (
+    STFT,
+    ISTFT,
+)
 
-from speechbrain.processing.features import ISTFT, STFT
-from speechbrain.processing.multi_mic import Covariance, DelaySum, GccPhat
+from speechbrain.processing.multi_mic import (
+    Covariance,
+    GccPhat,
+    DelaySum,
+)
 
 
 class DelaySum_Beamformer(torch.nn.Module):

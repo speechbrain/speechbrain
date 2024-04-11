@@ -7,11 +7,9 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
 import pathlib
-
-import torch
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
+import torch
 
 
 class ConformerTransducerBrain(sb.Brain):

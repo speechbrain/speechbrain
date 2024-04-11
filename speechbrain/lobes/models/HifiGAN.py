@@ -33,12 +33,11 @@ Authors
 # SOFTWARE.
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torchaudio import transforms
-
+import torch.nn as nn
 import speechbrain as sb
-from speechbrain.nnet.CNN import Conv1d, Conv2d, ConvTranspose1d
+from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d, Conv2d
+from torchaudio import transforms
 
 LRELU_SLOPE = 0.1
 

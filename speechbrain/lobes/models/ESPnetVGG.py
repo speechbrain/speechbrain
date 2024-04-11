@@ -7,7 +7,6 @@ Authors
 """
 
 import torch
-
 import speechbrain as sb
 
 

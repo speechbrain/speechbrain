@@ -8,9 +8,8 @@ Authors:
 
 import datetime
 import os
-from functools import wraps
-
 import torch
+from functools import wraps
 
 MAIN_PROC_ONLY = 0
 

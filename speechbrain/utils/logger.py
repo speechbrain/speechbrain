@@ -6,16 +6,14 @@ Author
  * Aku Rouhe 2020
 """
 
+import sys
+import os
+import yaml
+import tqdm
 import logging
 import logging.config
 import math
-import os
-import sys
-
 import torch
-import tqdm
-import yaml
-
 from speechbrain.utils.data_utils import recursive_update
 from speechbrain.utils.superpowers import run_shell
 

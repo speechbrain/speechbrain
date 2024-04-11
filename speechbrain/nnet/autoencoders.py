@@ -4,14 +4,12 @@ Authors
  * Artem Ploujnikov 2022
 """
 
-from collections import namedtuple
-
 import torch
 from torch import nn
-
+from collections import namedtuple
 from speechbrain.dataio.dataio import clean_padding
-from speechbrain.processing.features import GlobalNorm
 from speechbrain.utils.data_utils import trim_as
+from speechbrain.processing.features import GlobalNorm
 
 
 class Autoencoder(nn.Module):

@@ -9,10 +9,10 @@ Authors
  * Aku Rouhe 2021
 """
 
-import importlib
 import logging
-import pathlib
 import subprocess
+import importlib
+import pathlib
 
 logger = logging.getLogger(__name__)
 

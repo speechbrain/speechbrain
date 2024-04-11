@@ -11,11 +11,9 @@ Authors
  * Adel Moumen 2023, 2024
 """
 
-import logging
-
 import torch
+import logging
 import torch.nn.functional as F
-
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )

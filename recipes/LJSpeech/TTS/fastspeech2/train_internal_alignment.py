@@ -10,18 +10,16 @@ Authors
 * Yingzhi Wang 2023
 """
 
-import logging
 import os
 import sys
-from pathlib import Path
-
-import numpy as np
 import torch
+import logging
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-
+import numpy as np
 import speechbrain as sb
 from speechbrain.inference.vocoders import HIFIGAN
+from pathlib import Path
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"

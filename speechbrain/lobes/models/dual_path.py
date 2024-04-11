@@ -8,21 +8,19 @@ Authors
  * Jianyuan Zhong 2020
 """
 
-import copy
 import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-import speechbrain.nnet.RNN as SBRNN
-from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
-from speechbrain.lobes.models.transformer.Transformer import (
-    PositionalEncoding,
-    TransformerEncoder,
-)
-from speechbrain.nnet.activations import Swish
+import copy
 from speechbrain.nnet.linear import Linear
+from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
+from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
+from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
+import speechbrain.nnet.RNN as SBRNN
+
+from speechbrain.nnet.activations import Swish
+
 
 EPS = 1e-8
 
@@ -735,10 +733,10 @@ class DPTNetBlock(nn.Module):
         self, d_model, nhead, dim_feedforward=256, dropout=0, activation="relu"
     ):
         from torch.nn.modules.activation import MultiheadAttention
-        from torch.nn.modules.dropout import Dropout
-        from torch.nn.modules.linear import Linear
         from torch.nn.modules.normalization import LayerNorm
+        from torch.nn.modules.dropout import Dropout
         from torch.nn.modules.rnn import LSTM
+        from torch.nn.modules.linear import Linear
 
         super().__init__()
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)

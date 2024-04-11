@@ -20,16 +20,14 @@ Authors
  * Gaëlle Laperrière 2023
 """
 
-import logging
 import sys
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-from media_prepare import prepare_media
-
+import logging
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
+from media_prepare import prepare_media
 
 logger = logging.getLogger(__name__)
 

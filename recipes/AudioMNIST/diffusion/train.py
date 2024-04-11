@@ -13,31 +13,29 @@ Authors
  * Artem Ploujnikov 2022
 """
 import logging
-import os
 import sys
-from collections import namedtuple
-from enum import Enum
-
 import torch
+import speechbrain as sb
+import os
+from collections import namedtuple
 from audiomnist_prepare import prepare_audiomnist
 from hyperpyyaml import load_hyperpyyaml
 from torchaudio import functional as AF
-
-import speechbrain as sb
 from speechbrain.dataio.dataio import length_to_mask, write_audio
 from speechbrain.dataio.dataset import apply_overfit_test
 from speechbrain.utils import data_utils
+from speechbrain.utils.train_logger import plot_spectrogram
+from enum import Enum
+from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import (
     dict_value_combinations,
     dist_stats,
-    masked_max,
     masked_mean,
     masked_min,
+    masked_max,
     masked_std,
     match_shape,
 )
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.train_logger import plot_spectrogram
 
 logger = logging.getLogger(__name__)
 

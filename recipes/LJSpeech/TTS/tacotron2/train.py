@@ -17,15 +17,13 @@
  * Artem Ploujnikov 2021
  * Yingzhi Wang 2022
 """
-import logging
-import sys
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.utils.data_utils import scalarize
+import sys
+import logging
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.text_to_sequence import text_to_sequence
+from speechbrain.utils.data_utils import scalarize
 
 logger = logging.getLogger(__name__)
 

@@ -15,12 +15,10 @@ Authors
  * Artem Ploujnikov 2023
 """
 
-import logging
-
 import torch
+import logging
 from torch.nn import functional as F
-
-from speechbrain.dataio.dataio import clean_padding_, length_to_mask
+from speechbrain.dataio.dataio import length_to_mask, clean_padding_
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )

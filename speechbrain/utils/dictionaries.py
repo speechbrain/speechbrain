@@ -3,9 +3,9 @@
 Authors
  * Sylvain de Langen 2024"""
 
-import json
 from collections import defaultdict
 from typing import Iterable
+import json
 
 
 class SynonymDictionary:

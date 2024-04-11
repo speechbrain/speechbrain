@@ -6,16 +6,14 @@ Samuele Cornell, 2020
 Mirco Ravanelli, 2020
 """
 
-import json
 import os
 import sys
-
-from hyperpyyaml import load_hyperpyyaml
-from local.create_mixtures_from_metadata import create_mixture
-from tqdm import tqdm
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import download_file
+from local.create_mixtures_from_metadata import create_mixture
+import json
+from tqdm import tqdm
 
 URL_METADATA = (
     "https://www.dropbox.com/s/0u6x6ndyedb4rl7/LibriParty_metadata.zip?dl=1"

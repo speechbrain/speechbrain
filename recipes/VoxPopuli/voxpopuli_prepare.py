@@ -6,15 +6,15 @@ Author
 Titouan Parcollet 2024
 """
 
-import csv
-import functools
-import logging
-import os
-import re
 from dataclasses import dataclass
+import os
+import csv
+import re
+import logging
+import functools
 
-from speechbrain.dataio.dataio import read_audio_info
 from speechbrain.utils.parallel import parallel_map
+from speechbrain.dataio.dataio import read_audio_info
 
 logger = logging.getLogger(__name__)
 

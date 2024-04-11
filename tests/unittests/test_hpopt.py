@@ -2,10 +2,9 @@ import pytest
 
 
 def test_hpopt_generic():
-    import json
     from io import StringIO
-
     from speechbrain.utils import hpopt as hp
+    import json
 
     output = StringIO()
 
@@ -45,9 +44,8 @@ def test_hpopt_orion():
 
 def test_hpopt_context():
     import json
-    from io import StringIO
-
     from speechbrain.utils import hpopt as hp
+    from io import StringIO
 
     output = StringIO()
     reporter = hp.GenericHyperparameterOptimizationReporter(

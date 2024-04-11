@@ -11,20 +11,18 @@ synthesis' paper
  * Pradnya Kandarkar 2023
 """
 
-import logging
 import os
 import sys
-from pathlib import Path
-
-import numpy as np
 import torch
+import logging
 import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-
+import numpy as np
 import speechbrain as sb
-from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.inference.vocoders import HIFIGAN
+from pathlib import Path
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
+from speechbrain.inference.text import GraphemeToPhoneme
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)

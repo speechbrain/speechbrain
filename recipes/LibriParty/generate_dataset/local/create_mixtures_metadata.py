@@ -7,12 +7,11 @@ Author
 Samuele Cornell, 2020
 """
 
-import json
-from pathlib import Path
-
 import numpy as np
-import torchaudio
+from pathlib import Path
+import json
 from tqdm import tqdm
+import torchaudio
 
 
 def _read_metadata(file_path, configs):

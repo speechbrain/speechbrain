@@ -9,15 +9,15 @@ Authors
 * Titouan Parcollet 2023
 """
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
+from typing import Optional
 
-from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
-from speechbrain.nnet.attention import MultiheadAttention, RelPosMHAXL
-from speechbrain.nnet.hypermixing import HyperMixing
+from speechbrain.nnet.attention import RelPosMHAXL, MultiheadAttention
 from speechbrain.nnet.normalization import LayerNorm
+from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
+
+from speechbrain.nnet.hypermixing import HyperMixing
 
 
 class ConvolutionBranch(nn.Module):

@@ -4,12 +4,10 @@ Authors
  * Mirco Ravanelli 2022
 """
 
-import logging
 import random
-
+import logging
 import torch
 import torch.nn.functional as F
-
 from speechbrain.utils.callchains import lengths_arg_exists
 
 logger = logging.getLogger(__name__)

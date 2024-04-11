@@ -1,7 +1,6 @@
 def test_dynamic_item_dataset():
-    import operator
-
     from speechbrain.dataio.dataset import DynamicItemDataset
+    import operator
 
     data = {
         "utt1": {"foo": -1, "bar": 0, "text": "hello world"},
@@ -28,9 +27,8 @@ def test_dynamic_item_dataset():
 
 
 def test_filtered_sorted_dynamic_item_dataset():
-    import operator
-
     from speechbrain.dataio.dataset import DynamicItemDataset
+    import operator
 
     data = {
         "utt1": {"foo": -1, "bar": 0, "text": "hello world"},

@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-import logging
 import os
 import sys
-
+import logging
 import torchaudio
-from common_language_prepare import prepare_common_language
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
+from hyperpyyaml import load_hyperpyyaml
+from common_language_prepare import prepare_common_language
 
 """Recipe for training a LID system with CommonLanguage.
 

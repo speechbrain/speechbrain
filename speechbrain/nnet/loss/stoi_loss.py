@@ -6,10 +6,9 @@ Authors:
     Szu-Wei, Fu 2020
 """
 
-import numpy as np
 import torch
 import torchaudio
-
+import numpy as np
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()

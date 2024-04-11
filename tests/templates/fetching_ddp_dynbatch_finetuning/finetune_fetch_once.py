@@ -7,29 +7,31 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
-import logging
 import os
 import sys
-from copy import deepcopy
-
 import torch
-from ASR_template_train import ASR, dataio_prepare
-from hyperpyyaml import load_hyperpyyaml
-from torch.utils.data import DataLoader
-from tqdm.contrib import tqdm
-
+import logging
 import speechbrain as sb
-from speechbrain.dataio.dataio import read_audio  # read_audio_multichannel,
-from speechbrain.dataio.dataloader import (
-    LoopedLoader,
-    distributed_loader_specifics,
-    make_dataloader,
-)
+from copy import deepcopy
+from tqdm.contrib import tqdm
+from torch.utils.data import DataLoader
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.inference.ASR import EncoderDecoderASR
+from speechbrain.utils.distributed import run_on_main, ddp_barrier
+from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.sampler import DynamicBatchSampler
-from speechbrain.inference.ASR import EncoderDecoderASR
-from speechbrain.utils.data_utils import batch_pad_right
-from speechbrain.utils.distributed import ddp_barrier, run_on_main
+from speechbrain.dataio.dataloader import (
+    LoopedLoader,
+    make_dataloader,
+    distributed_loader_specifics,
+)
+from speechbrain.dataio.dataio import (
+    read_audio,
+    # read_audio_multichannel,
+)
+from ASR_template_train import ASR, dataio_prepare
+
 
 logger = logging.getLogger(__name__)
 

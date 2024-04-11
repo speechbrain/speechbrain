@@ -1,14 +1,12 @@
+from itertools import product
+from statistics import mean
+from typing import Any, Dict, List, Optional, Set, Tuple
 import json
 import logging
 import os
 import re
 import shutil
-from itertools import product
-from statistics import mean
-from typing import Any, Dict, List, Optional, Set, Tuple
-
 from tqdm import tqdm
-
 from speechbrain.utils.data_utils import download_file
 
 """

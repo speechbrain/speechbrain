@@ -1,8 +1,6 @@
 import os
-
 import torch
 import torchaudio
-
 from speechbrain.dataio.dataio import write_audio
 
 
@@ -492,8 +490,8 @@ def test_SpectrogramDrop():
 
 
 def test_augment_pipeline():
+    from speechbrain.augment.time_domain import DropFreq, DropChunk
     from speechbrain.augment.augmenter import Augmenter
-    from speechbrain.augment.time_domain import DropChunk, DropFreq
 
     freq_dropper = DropFreq()
     chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)

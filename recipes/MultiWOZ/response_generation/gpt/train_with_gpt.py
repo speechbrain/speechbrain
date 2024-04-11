@@ -13,16 +13,14 @@ Authors
 """
 
 
-import math
 import sys
-from itertools import chain
-
-import torch
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.dataio.batch import PaddedBatch
+import torch
+from itertools import chain
+from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
+import math
+from speechbrain.dataio.batch import PaddedBatch
 
 
 class ResGenBrain(sb.Brain):

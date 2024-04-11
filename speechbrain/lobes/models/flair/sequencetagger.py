@@ -4,10 +4,10 @@ Authors
 * Sylvain de Langen 2024
 """
 
-from typing import List, Union
-
 from flair.data import Sentence
 from flair.models import SequenceTagger
+
+from typing import List, Union
 
 from speechbrain.utils.fetching import fetch
 

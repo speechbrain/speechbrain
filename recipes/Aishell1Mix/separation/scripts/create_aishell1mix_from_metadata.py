@@ -1,14 +1,13 @@
-import argparse
-import functools
-import glob
 import os
-import shutil
-
-import numpy as np
-import pandas as pd
+import argparse
 import soundfile as sf
-import tqdm.contrib.concurrent
+import pandas as pd
+import numpy as np
+import functools
 from scipy.signal import resample_poly
+import tqdm.contrib.concurrent
+import glob
+import shutil
 
 # eps secures log and division
 EPS = 1e-10

@@ -11,15 +11,14 @@ Authors
 
 import logging
 import pathlib
-
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.fetching import fetch, FetchFrom, FetchSource
 from speechbrain.utils.checkpoints import (
     DEFAULT_LOAD_HOOKS,
     DEFAULT_TRANSFER_HOOKS,
     PARAMFILE_EXT,
     get_default_hook,
 )
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import FetchFrom, FetchSource, fetch
 
 logger = logging.getLogger(__name__)
 

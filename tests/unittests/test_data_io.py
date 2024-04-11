@@ -1,6 +1,5 @@
-import os
-
 import torch
+import os
 
 
 def test_read_audio_info(tmpdir, device):

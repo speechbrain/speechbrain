@@ -4,11 +4,10 @@ Authors
  * Mirco Ravanelli 2021
 """
 
-import logging
 import platform
-from typing import Optional
-
+import logging
 import torchaudio
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

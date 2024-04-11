@@ -7,13 +7,12 @@ Authors
  * Loren Lugosch 2020
 """
 
-import logging
 import math
-
 import torch
-from torch import nn
+import logging
 
 from speechbrain.utils import checkpoints
+from torch import nn
 
 logger = logging.getLogger(__name__)
 

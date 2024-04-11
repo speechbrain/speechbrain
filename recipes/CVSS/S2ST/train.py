@@ -9,20 +9,18 @@
  * Jarod Duret 2023
 """
 
+import sys
+import torch
 import logging
 import pathlib as pl
-import sys
-
-import numpy as np
-import torch
-import torchaudio
-import tqdm
 from hyperpyyaml import load_hyperpyyaml
-from torch.nn.parallel import DistributedDataParallel
-
 import speechbrain as sb
-from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.inference.vocoders import UnitHIFIGAN
+from speechbrain.inference.ASR import EncoderDecoderASR
+import tqdm
+import torchaudio
+import numpy as np
+from torch.nn.parallel import DistributedDataParallel
 
 logger = logging.getLogger(__name__)
 

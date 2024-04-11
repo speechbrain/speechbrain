@@ -11,22 +11,20 @@ Authors:
   * Adel Moumen 2023
 """
 
-import logging
-from collections import Counter
-from operator import itemgetter
-from typing import List
-
-import numpy as np
 import torch
-from scipy.stats import lognorm
+import logging
+from operator import itemgetter
 from torch.utils.data import (
-    DistributedSampler,
     RandomSampler,
-    Sampler,
     WeightedRandomSampler,
+    DistributedSampler,
+    Sampler,
 )
-
+import numpy as np
+from typing import List
 from speechbrain.dataio.dataset import DynamicItemDataset
+from collections import Counter
+from scipy.stats import lognorm
 
 logger = logging.getLogger(__name__)
 

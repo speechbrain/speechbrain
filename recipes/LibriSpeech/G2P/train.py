@@ -8,40 +8,38 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
+from speechbrain.dataio.dataset import (
+    FilteredSortedDynamicItemDataset,
+    DynamicItemDataset,
+)
+from speechbrain.dataio.sampler import BalancingDataSampler
+from speechbrain.utils.data_utils import undo_padding
+import datasets
 import logging
 import os
 import random
-import sys
-from collections import namedtuple
-from enum import Enum
-from functools import partial
-from io import StringIO
-
-import datasets
-import numpy as np
-from hyperpyyaml import load_hyperpyyaml
-
 import speechbrain as sb
-from speechbrain.dataio.dataset import (
-    DynamicItemDataset,
-    FilteredSortedDynamicItemDataset,
-)
-from speechbrain.dataio.sampler import BalancingDataSampler
-from speechbrain.dataio.wer import print_alignments
-from speechbrain.lobes.models.g2p.dataio import (
-    add_bos_eos,
-    enable_eos_bos,
-    get_sequence_key,
-    grapheme_pipeline,
-    phoneme_pipeline,
-    phonemes_to_label,
-    tokenizer_encode_pipeline,
-)
-from speechbrain.utils import hpopt as hp
-from speechbrain.utils.data_utils import undo_padding
+import sys
+from enum import Enum
+from collections import namedtuple
+from hyperpyyaml import load_hyperpyyaml
+from functools import partial
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.pretrained import save_for_pretrained
+from speechbrain.lobes.models.g2p.dataio import (
+    enable_eos_bos,
+    grapheme_pipeline,
+    phoneme_pipeline,
+    tokenizer_encode_pipeline,
+    add_bos_eos,
+    get_sequence_key,
+    phonemes_to_label,
+)
+from speechbrain.dataio.wer import print_alignments
 from speechbrain.wordemb.util import expand_to_chars
+from io import StringIO
+from speechbrain.utils import hpopt as hp
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

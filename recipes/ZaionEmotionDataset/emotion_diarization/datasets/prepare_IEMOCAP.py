@@ -10,16 +10,15 @@ Author
 Yingzhi Wang 2023
 """
 
-import json
-import logging
+import numpy as np
+import re
 import os
 import random
-import re
-from pathlib import Path
-
-import numpy as np
-from datasets.vad import write_audio
 from pydub import AudioSegment
+import json
+from datasets.vad import write_audio
+from pathlib import Path
+import logging
 
 logger = logging.getLogger(__name__)
 combinations = ["neu_emo", "emo_neu", "neu_emo_neu", "emo_emo"]

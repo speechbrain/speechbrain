@@ -19,18 +19,16 @@ Authors
  * Andreas Nautsch 2021
 """
 
-import logging
 import os
 import sys
-
 import torch
-from hyperpyyaml import load_hyperpyyaml
-
+import logging
 import speechbrain as sb
-from speechbrain.dataio.batch import PaddedBatch
+from hyperpyyaml import load_hyperpyyaml
+from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
-from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.dataio.batch import PaddedBatch
 
 logger = logging.getLogger(__name__)
 

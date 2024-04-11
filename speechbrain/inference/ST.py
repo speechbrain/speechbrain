@@ -15,7 +15,6 @@ Authors:
 """
 
 import torch
-
 from speechbrain.inference.interfaces import Pretrained
 
 

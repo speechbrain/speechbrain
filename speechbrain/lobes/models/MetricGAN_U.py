@@ -5,10 +5,9 @@ Authors:
 """
 
 import torch
+import speechbrain as sb
 from torch import nn
 from torch.nn.utils import spectral_norm
-
-import speechbrain as sb
 
 
 def xavier_init_layer(

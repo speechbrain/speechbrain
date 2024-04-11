@@ -1,12 +1,11 @@
-import math
-
 import torch
 import torch.nn
+import math
 
 
 def test_metric_stats(device):
-    from speechbrain.nnet.losses import l1_loss
     from speechbrain.utils.metric_stats import MetricStats
+    from speechbrain.nnet.losses import l1_loss
 
     l1_stats = MetricStats(metric=l1_loss)
     l1_stats.append(
@@ -83,8 +82,8 @@ def test_weighted_error_rate_stats():
 
 
 def test_synonym_dict_error_rate_stats():
-    from speechbrain.utils.dictionaries import SynonymDictionary
     from speechbrain.utils.metric_stats import ErrorRateStats
+    from speechbrain.utils.dictionaries import SynonymDictionary
 
     syn_dict = SynonymDictionary()
     syn_dict.add_synonym_set({"a", "a'"})
@@ -191,7 +190,6 @@ def test_minDCF(device):
 
 def test_classification_stats():
     import pytest
-
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()
@@ -208,7 +206,6 @@ def test_classification_stats():
 
 def test_categorized_classification_stats():
     import pytest
-
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()
@@ -242,7 +239,6 @@ def test_categorized_classification_stats():
 
 def test_classification_stats_report():
     from io import StringIO
-
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()

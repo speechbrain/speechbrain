@@ -6,13 +6,12 @@ Authors:
  * Peter Plantinga, 2020
 """
 
-import json
-import logging
 import os
+import json
 import shutil
-
+import logging
+from speechbrain.utils.data_utils import get_all_files, download_file
 from speechbrain.dataio.dataio import read_audio
-from speechbrain.utils.data_utils import download_file, get_all_files
 
 logger = logging.getLogger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"

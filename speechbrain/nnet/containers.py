@@ -4,13 +4,11 @@ Authors
  * Peter Plantinga 2020
 """
 
-import functools
+import torch
 import inspect
 import logging
 import operator
-
-import torch
-
+import functools
 from speechbrain.nnet.linear import Linear
 from speechbrain.utils.callchains import lengths_arg_exists
 

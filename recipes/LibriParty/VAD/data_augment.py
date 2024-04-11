@@ -4,10 +4,9 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import random
-
 import torch
 import torchaudio
+import random
 
 # fade-in/fade-out definition
 fade_in = torchaudio.transforms.Fade(fade_in_len=1000, fade_out_len=0)

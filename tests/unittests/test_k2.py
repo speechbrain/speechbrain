@@ -1,13 +1,11 @@
-import logging
 import os
-import shutil
+import pytest
 import tempfile
+import shutil
+import torch
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
-import pytest
-import torch
-
+import logging
 from speechbrain.k2_integration import k2
 
 logger = logging.getLogger(__name__)

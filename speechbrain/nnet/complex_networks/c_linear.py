@@ -4,16 +4,14 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import logging
-
 import torch
-
+import logging
 from speechbrain.nnet.complex_networks.c_ops import (
     affect_init,
-    check_complex_input,
     complex_init,
-    complex_linear_op,
     unitary_init,
+    complex_linear_op,
+    check_complex_input,
 )
 
 logger = logging.getLogger(__name__)

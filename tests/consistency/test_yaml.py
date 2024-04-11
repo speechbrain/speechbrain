@@ -4,9 +4,8 @@ Authors
  * Mirco Ravanelli 2022
 """
 
-import csv
 import os
-
+import csv
 from tests.consistency.test_recipe import __skip_list
 from tests.utils.check_yaml import check_yaml_vs_script
 
