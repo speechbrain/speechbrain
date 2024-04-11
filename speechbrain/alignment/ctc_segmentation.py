@@ -248,10 +248,16 @@ class CTCSegmentation:
             )
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
+
         if isinstance(asr_model, EncoderDecoderASR):
-            # Assumption: we assume that there's a ``ScorerBuilder`` object
-            # which a ``CTCScorer`` object.
-            def ctc_forward_step(x):
+            if not hasattr(asr_model.hparams, "scorer") or not hasattr(
+                asr_model.hparams.scorer.full_scorers, "ctc"
+            ):
+                raise AttributeError(
+                    "``ScorerBuilder`` and ``CTCScorer`` module are required for CTC segmentation."
+                )
+
+            def ctc_forward_step(x: torch.Tensor) -> torch.Tensor:
                 """Forward step for CTC module."""
                 module = self.asr_model.hparams.scorer.full_scorers["ctc"]
                 logits = module.ctc_fc(x)
