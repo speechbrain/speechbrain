@@ -1,4 +1,3 @@
-from . import dataio  # noqa
-from . import homograph  # noqa
-from . import model  # noqa
-from .dataio import *  # noqa
+from speechbrain.utils.importutils import lazy_export_all
+
+lazy_export_all(__file__, __name__, export_subpackages=True)
