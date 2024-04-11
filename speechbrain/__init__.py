@@ -2,17 +2,9 @@
 """
 
 import os
-from .core import Stage, Brain, create_experiment_directory, parse_arguments
-from . import alignment  # noqa
-from . import dataio  # noqa
-from . import decoders  # noqa
-from . import lobes  # noqa
-from . import lm  # noqa
-from . import nnet  # noqa
-from . import processing  # noqa
-from . import tokenizers  # noqa
-from . import utils  # noqa
-from .utils.importutils import deprecated_redirect
+
+from .core import Brain, Stage, create_experiment_directory, parse_arguments
+from .utils.importutils import deprecated_redirect, lazy_export_all
 
 with open(os.path.join(os.path.dirname(__file__), "version.txt")) as f:
     version = f.read().strip()
@@ -37,7 +29,10 @@ def make_deprecated_redirections():
         "speechbrain.pretrained",
         "speechbrain.inference",
         extra_reason=sb1_0_redirect_str,
+        also_lazy_export=True,
     )
 
 
 make_deprecated_redirections()
+
+lazy_export_all(__file__, __name__, export_subpackages=True)
