@@ -14,11 +14,13 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import torch
 from itertools import chain
+
+import torch
+
 from speechbrain.inference.interfaces import (
-    Pretrained,
     EncodeDecodePipelineMixin,
+    Pretrained,
 )
 
 

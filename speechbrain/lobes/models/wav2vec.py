@@ -8,19 +8,20 @@ Authors
 """
 
 import logging
-import torch
-import torch.nn.functional as F
-import torch.nn as nn
 import random
-import numpy as np
 
-from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
-from speechbrain.utils.data_utils import batch_pad_right
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.lobes.models.convolution import ConvolutionFrontEnd
+from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.quantisers import GumbelVectorQuantizer
+from speechbrain.utils.data_utils import batch_pad_right
 
 logger = logging.getLogger()
 

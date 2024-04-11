@@ -5,8 +5,9 @@ Authors
  * Andreas Nautsch 2022
 """
 
-import os
 import csv
+import os
+
 from speechbrain.utils.data_utils import download_file
 
 

@@ -13,26 +13,27 @@ Author:
 """
 
 import sys
-import torch
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.profiling import (
-    profile_report,
-    export,
-    report_time,
-    report_memory,
-)
+from typing import List, Optional
 
-from speechbrain.inference.interfaces import Pretrained
-from speechbrain.inference.ASR import EncoderDecoderASR, EncoderASR
-from speechbrain.inference.SLU import EndToEndSLU
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
 from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.enhancement import SpectralMaskEnhancement
+from speechbrain.inference.interfaces import Pretrained
+from speechbrain.inference.metrics import SNREstimator
+from speechbrain.inference.separation import SepformerSeparation
+from speechbrain.inference.SLU import EndToEndSLU
 from speechbrain.inference.speaker import SpeakerRecognition
 from speechbrain.inference.VAD import VAD
-from speechbrain.inference.separation import SepformerSeparation
-from speechbrain.inference.enhancement import SpectralMaskEnhancement
-from speechbrain.inference.metrics import SNREstimator
-from typing import Optional, List
+from speechbrain.utils.profiling import (
+    export,
+    profile_report,
+    report_memory,
+    report_time,
+)
 
 
 def get_funcs_to_unary_input_classifier(

@@ -4,8 +4,9 @@ Author
     Abdelwahab HEBA 2020
 """
 
-import torch
 import logging
+
+import torch
 import torch.nn as nn
 
 logger = logging.getLogger(__name__)

@@ -15,7 +15,9 @@ Authors:
 """
 
 import logging
+
 import torch
+
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.inference.interfaces import Pretrained
 

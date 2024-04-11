@@ -1,11 +1,13 @@
 import json
-from speechbrain.inference.encoders import MelSpectrogramEncoder
-from speechbrain.inference.classifiers import EncoderClassifier
-import torchaudio
-import pickle
 import logging
 import os
+import pickle
+
+import torchaudio
 from tqdm import tqdm
+
+from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.encoders import MelSpectrogramEncoder
 
 logger = logging.getLogger(__name__)
 

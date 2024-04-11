@@ -4,15 +4,16 @@ Authors
 * Sylvain de Langen 2024
 """
 
-from collections import defaultdict
-from typing import Iterable, Optional
-import torch
 import logging
 import math
+from collections import defaultdict
+from typing import Iterable, Optional
 
+import torch
+
+from speechbrain.lobes.models.huggingface_transformers import TextEncoder
 from speechbrain.utils.distances import cosine_similarity_matrix
 from speechbrain.utils.metric_stats import MetricStats
-from speechbrain.lobes.models.huggingface_transformers import TextEncoder
 
 logger = logging.getLogger(__name__)
 

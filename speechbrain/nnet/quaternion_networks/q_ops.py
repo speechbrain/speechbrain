@@ -11,9 +11,10 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import torch
 import math
+
 import numpy as np
+import torch
 import torch.nn.functional as F
 from scipy.stats import chi
 from torch.autograd import Variable

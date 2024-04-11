@@ -5,18 +5,19 @@ Authors
 """
 
 import math
+from typing import Optional
+
+import numpy as np
 import torch
 import torch.nn as nn
+
 import speechbrain as sb
-from typing import Optional
-import numpy as np
-
-
-from .Conformer import ConformerEncoder
-from .Branchformer import BranchformerEncoder
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 from speechbrain.nnet.CNN import Conv1d
+
+from .Branchformer import BranchformerEncoder
+from .Conformer import ConformerEncoder
 
 
 class TransformerInterface(nn.Module):

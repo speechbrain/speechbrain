@@ -7,15 +7,16 @@ Authors
  * Samuele Cornell 2020
 """
 
-import torch
 import logging
-import torch.nn as nn
-import numpy as np
-from typing import Optional
-from speechbrain.dataio.dataio import length_to_mask
-import torch.nn.functional as F
 import math
+from typing import Optional
 
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from speechbrain.dataio.dataio import length_to_mask
 
 logger = logging.getLogger(__name__)
 

@@ -5,20 +5,18 @@ Authors
  * Jarod Duret 2023
 """
 
-import logging
 import json
+import logging
 import pathlib as pl
 
 import joblib
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
 from tqdm import tqdm
+
 import speechbrain as sb
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
 
 OPT_FILE = "opt_ljspeech_extract.pkl"

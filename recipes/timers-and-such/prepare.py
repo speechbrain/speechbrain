@@ -1,7 +1,8 @@
+import logging
 import os
 import shutil
-import logging
-from speechbrain.dataio.dataio import read_audio, merge_csvs
+
+from speechbrain.dataio.dataio import merge_csvs, read_audio
 from speechbrain.utils.data_utils import download_file
 
 try:
