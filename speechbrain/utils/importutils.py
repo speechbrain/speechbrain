@@ -15,8 +15,7 @@ from typing import List, Optional
 
 class LazyModule(ModuleType):
     """Defines a module type that lazily imports the target module, thus
-    exposing
-    defined without immediately importing the target module needlessly.
+    exposing contents without importing the target module needlessly.
 
     Arguments
     ---------
