@@ -250,11 +250,14 @@ class CTCSegmentation:
         self._encode = self.asr_model.encode_batch
 
         if isinstance(asr_model, EncoderDecoderASR):
-            if not hasattr(asr_model.hparams, "scorer") or not hasattr(
-                asr_model.hparams.scorer.full_scorers, "ctc"
-            ):
+            if not hasattr(asr_model.hparams, "scorer"):
                 raise AttributeError(
-                    "``ScorerBuilder`` and ``CTCScorer`` module are required for CTC segmentation."
+                    "``ScorerBuilder`` module is required for CTC segmentation."
+                )
+
+            if not hasattr(asr_model.hparams.scorer.full_scorers, "ctc"):
+                raise AttributeError(
+                    "``CTCScorer`` module is required for CTC segmentation."
                 )
 
             def ctc_forward_step(x: torch.Tensor) -> torch.Tensor:
