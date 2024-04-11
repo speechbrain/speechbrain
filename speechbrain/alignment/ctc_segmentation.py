@@ -249,7 +249,8 @@ class CTCSegmentation:
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
         if isinstance(asr_model, EncoderDecoderASR):
-            # Assumption: we assume that scorer contains the CTC module
+            # Assumption: we assume that there's a ``ScorerBuilder`` object
+            # which a ``CTCScorer`` object.
             def ctc_forward_step(x):
                 """Forward step for CTC module."""
                 module = self.asr_model.hparams.scorer.full_scorers["ctc"]
