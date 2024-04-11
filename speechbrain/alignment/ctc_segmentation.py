@@ -12,23 +12,23 @@ Authors
 import logging
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
-from typing import Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from typing import List
 
 # speechbrain interface
 from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
 
 # imports for CTC segmentation
 try:
-    from ctc_segmentation import ctc_segmentation
-    from ctc_segmentation import CtcSegmentationParameters
-    from ctc_segmentation import determine_utterance_segments
-    from ctc_segmentation import prepare_text
-    from ctc_segmentation import prepare_token_list
+    from ctc_segmentation import (
+        CtcSegmentationParameters,
+        ctc_segmentation,
+        determine_utterance_segments,
+        prepare_text,
+        prepare_token_list,
+    )
 except ImportError:
     print(
         "ImportError: "
@@ -249,8 +249,15 @@ class CTCSegmentation:
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
         if isinstance(asr_model, EncoderDecoderASR):
-            # Assumption: log-softmax is already included in ctc_forward_step
-            self._ctc = self.asr_model.mods.decoder.ctc_forward_step
+            # Assumption: we assume that scorer contains the CTC module
+            def ctc_forward_step(x):
+                """Forward step for CTC module."""
+                module = self.asr_model.hparams.scorer.full_scorers["ctc"]
+                logits = module.ctc_fc(x)
+                log_probs = module.softmax(logits)
+                return log_probs
+
+            self._ctc = ctc_forward_step
         else:
             # Apply log-softmax to encoder output
             self._ctc = self.asr_model.hparams.log_softmax
