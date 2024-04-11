@@ -224,7 +224,7 @@ def deprecated_redirect(
     old_import : str
         Old module import path e.g. `mypackage.myoldmodule`
     new_import : str
-        New module import path e.g. `mypackage.mynewcoolmodule.mycoolsubmodule`
+        New module import path e.g. `mypackage.mycoolpackage.mynewmodule`
     extra_reason : str, optional
         If specified, extra text to attach to the warning for clarification
         (e.g. justifying why the move has occurred, or additional problems to
