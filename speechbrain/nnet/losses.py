@@ -9,19 +9,20 @@ Authors
  * Titouan Parcollet 2020
 """
 
-from collections import namedtuple
-import math
-import torch
-import logging
 import functools
+import logging
+import math
+from collections import namedtuple
+from itertools import permutations
+
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from itertools import permutations
+
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.decoders.ctc import filter_ctc_output
 from speechbrain.utils.data_utils import unsqueeze_as
-
 
 logger = logging.getLogger(__name__)
 

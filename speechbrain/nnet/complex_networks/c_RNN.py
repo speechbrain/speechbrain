@@ -4,8 +4,10 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import torch
 import logging
+
+import torch
+
 from speechbrain.nnet.complex_networks.c_linear import CLinear
 from speechbrain.nnet.complex_networks.c_normalization import (
     CBatchNorm,

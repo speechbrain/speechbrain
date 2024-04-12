@@ -35,23 +35,23 @@ Authors:
   * Aku Rouhe 2020
 """
 
-from torch.utils.data import DataLoader
-from torch.utils.data import IterableDataset
-from torch.utils.data.dataloader import _BaseDataLoaderIter
+import functools
 import logging
 import warnings
-import functools
-from torch.utils.data import DistributedSampler
-from speechbrain.dataio.batch import PaddedBatch, BatchsizeGuesser
+
+from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
+from torch.utils.data.dataloader import _BaseDataLoaderIter
+
+from speechbrain.dataio.batch import BatchsizeGuesser, PaddedBatch
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.sampler import (
-    ReproducibleRandomSampler,
     DistributedSamplerWrapper,
+    ReproducibleRandomSampler,
 )
 from speechbrain.utils.checkpoints import (
-    register_checkpoint_hooks,
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
 )
 
 # Optional support for webdataset

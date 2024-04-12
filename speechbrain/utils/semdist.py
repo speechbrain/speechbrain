@@ -4,9 +4,11 @@ Authors
 * Sylvain de Langen 2024
 """
 
-from speechbrain.utils.metric_stats import MetricStats
-from typing import Literal, Callable, List
+from typing import Callable, List, Literal
+
 import torch
+
+from speechbrain.utils.metric_stats import MetricStats
 
 
 class BaseSemDistStats(MetricStats):

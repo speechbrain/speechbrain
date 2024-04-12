@@ -6,9 +6,10 @@ Authors
  * Ala Eddine Limame 2021
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
 import itertools
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def create_cm_fig(cm, display_labels):

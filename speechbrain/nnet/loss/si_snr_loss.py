@@ -8,8 +8,8 @@
  * Titouan Parcollet 2020
 """
 
-import torch
 import numpy as np
+import torch
 
 smallVal = np.finfo("float").eps  # To avoid divide by zero
 

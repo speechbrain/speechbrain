@@ -15,13 +15,15 @@ Author
     * Nauman Dawalatabad 2020
 """
 import os
-import sys
 import random
+import sys
+
 import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 

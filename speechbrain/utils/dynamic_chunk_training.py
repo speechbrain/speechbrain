@@ -9,11 +9,12 @@ Authors
 * Sylvain de Langen 2023
 """
 
-import speechbrain as sb
 from dataclasses import dataclass
 from typing import Optional
 
 import torch
+
+import speechbrain as sb
 
 
 # NOTE: this configuration object is intended to be relatively specific to

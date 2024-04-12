@@ -12,23 +12,23 @@ Authors
 import logging
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
-from typing import Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from typing import List
 
 # speechbrain interface
 from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
 
 # imports for CTC segmentation
 try:
-    from ctc_segmentation import ctc_segmentation
-    from ctc_segmentation import CtcSegmentationParameters
-    from ctc_segmentation import determine_utterance_segments
-    from ctc_segmentation import prepare_text
-    from ctc_segmentation import prepare_token_list
+    from ctc_segmentation import (
+        CtcSegmentationParameters,
+        ctc_segmentation,
+        determine_utterance_segments,
+        prepare_text,
+        prepare_token_list,
+    )
 except ImportError:
     print(
         "ImportError: "

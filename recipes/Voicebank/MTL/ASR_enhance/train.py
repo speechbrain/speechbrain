@@ -16,18 +16,20 @@ can be used for enhancement or ASR models.
 Authors
  * Peter Plantinga 2020, 2021
 """
+import logging
 import os
 import sys
+
 import torch
 import torchaudio
-import logging
-import speechbrain as sb
-from pesq import pesq
-from pystoi import stoi
 from composite_eval import eval_composite
 from hyperpyyaml import load_hyperpyyaml
+from pesq import pesq
+from pystoi import stoi
+
+import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main, if_main_process
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 

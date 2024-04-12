@@ -34,18 +34,19 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import math
-import torch
 import logging
+import math
+
+import torch
+
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.checkpoints import (
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
     mark_as_transfer,
     register_checkpoint_hooks,
 )
-from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.filter_analysis import FilterProperties
-
 
 logger = logging.getLogger(__name__)
 

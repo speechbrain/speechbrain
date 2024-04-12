@@ -30,17 +30,16 @@ Authors
  * Artem Ploujnikov 2022
 """
 
-from abc import abstractmethod
-
-from speechbrain.utils.data_utils import pad_divisible
-from .autoencoders import NormalizingAutoencoder
-
-
 import math
+from abc import abstractmethod
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from speechbrain.utils.data_utils import pad_divisible
+
+from .autoencoders import NormalizingAutoencoder
 
 
 def fixup(module, use_fixup_init=True):
