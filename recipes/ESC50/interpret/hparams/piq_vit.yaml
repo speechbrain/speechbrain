@@ -93,8 +93,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: !PLACEHOLDER
-classifier_model_path: !PLACEHOLDER
+embedding_model_path: null
+classifier_model_path: null
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
@@ -102,9 +102,6 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
         embedding_model: !ref <embedding_model>
         classifier: !ref <classifier>
     paths:
-        embedding_model: !ref <embedding_model_path>
-        classifier: !ref <classifier_model_path>
-    conditions:
         embedding_model: !ref <embedding_model_path>
         classifier: !ref <classifier_model_path>
 
