@@ -250,12 +250,12 @@ class CTCSegmentation:
         self._encode = self.asr_model.encode_batch
 
         if isinstance(asr_model, EncoderDecoderASR):
-            if not hasattr(asr_model.hparams, "scorer"):
+            if not hasattr(self.asr_model.hparams, "scorer"):
                 raise AttributeError(
                     "``ScorerBuilder`` module is required for CTC segmentation."
                 )
 
-            if not hasattr(asr_model.hparams.scorer.full_scorers, "ctc"):
+            if "ctc" not in self.asr_model.hparams.scorer.full_scorers:
                 raise AttributeError(
                     "``CTCScorer`` module is required for CTC segmentation."
                 )
