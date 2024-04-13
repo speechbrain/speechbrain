@@ -18,6 +18,15 @@ but maintains the advantages of interpretability and independence, since
 each model can be used for other data or tasks without requiring the
 co-trained model.
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
+## How to run
 To train these models from scratch, you can run these three steps
 using the following commands:
 
@@ -71,7 +80,7 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 https://huggingface.co/speechbrain/mtl-mimic-voicebank
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-https://drive.google.com/drive/folders/1vSpQ5UREiBbTxNUjJjEpSYO8rLTPvQW_?usp=sharing
+https://www.dropbox.com/sh/azvcbvu8g5hpgm1/AACDc6QxtNMGZ3IoZLrDiU0Va?dl=0
 
 
 ## References

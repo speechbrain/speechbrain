@@ -5,19 +5,18 @@ Authors
 * Samuele Cornell
 """
 
-
 import torch  # noqa 42
 from torch import nn
 
+from speechbrain.lobes.models.transformer.Transformer import (
+    NormalizedEmbedding,
+    TransformerInterface,
+    get_key_padding_mask,
+    get_lookahead_mask,
+)
+from speechbrain.nnet.containers import ModuleList
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.nnet.containers import ModuleList
-from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerInterface,
-    get_lookahead_mask,
-    get_key_padding_mask,
-    NormalizedEmbedding,
-)
 
 
 class TransformerLM(TransformerInterface):
@@ -26,21 +25,35 @@ class TransformerLM(TransformerInterface):
     The architecture is based on the paper "Attention Is All You Need": https://arxiv.org/pdf/1706.03762.pdf
 
     Arguments
-    ----------
+    ---------
+    vocab : int
+        Embedding vocabulary size
     d_model : int
         The number of expected features in the encoder/decoder inputs (default=512).
     nhead : int
         The number of heads in the multiheadattention models (default=8).
     num_encoder_layers : int
-        The number of sub-encoder-layers in the encoder (default=6).
+        The number of sub-encoder-layers in the encoder (default=12).
     num_decoder_layers : int
-        The number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn : int
+        The number of sub-decoder-layers in the decoder (default=0).
+    d_ffn : int
         The dimension of the feedforward network model (default=2048).
-    dropout : int
+    dropout : float
         The dropout value (default=0.1).
     activation: torch class
         The activation function of encoder/decoder intermediate layer, relu or gelu (default=relu).
+    positional_encoding : str
+        Type of positional encoding, default "fixed_abs_sine"
+    normalize_before : bool
+        Whether to normalize before each layer.
+    d_embedding : int
+        Size of embedding, if None use d_model.
+    max_length : int
+        Maximum sequence length, default 2500 tokens.
+    causal : bool
+        Whether to incorporate future information in decoding, default True.
+    attention_type : str
+        Type of attention to use, one of "regularMHA" or "RelPosMHAXL"
     decoder_use_memory: bool
         whether to use the hidden state in the decoder
 
@@ -111,12 +124,17 @@ class TransformerLM(TransformerInterface):
         # reset the params of the transformer model
         self._reset_params()
 
-    def forward(self, src, hx=None):
+    def forward(self, src):
         """
         Arguments
         ---------
-        src : tensor
+        src : torch.Tensor
             The sequence to the encoder (required).
+
+        Returns
+        -------
+        pred : torch.Tensor
+            Output of the transformer.
         """
         src_mask, src_key_padding_mask = self.make_masks(src)
 

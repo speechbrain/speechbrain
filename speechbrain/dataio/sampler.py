@@ -7,22 +7,26 @@ Authors:
   * Samuele Cornell 2020
   * Ralf Leibold 2020
   * Artem Ploujnikov 2021
-  * Andreas Nautsch 2021
+  * Andreas Nautsch 2021, 2023
+  * Adel Moumen 2023
 """
-import torch
+
 import logging
-from operator import itemgetter
-from torch.utils.data import (
-    RandomSampler,
-    WeightedRandomSampler,
-    DistributedSampler,
-    Sampler,
-)
-import numpy as np
-from typing import List
-from speechbrain.dataio.dataset import DynamicItemDataset
 from collections import Counter
+from operator import itemgetter
+from typing import List
+
+import numpy as np
+import torch
 from scipy.stats import lognorm
+from torch.utils.data import (
+    DistributedSampler,
+    RandomSampler,
+    Sampler,
+    WeightedRandomSampler,
+)
+
+from speechbrain.dataio.dataset import DynamicItemDataset
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,8 @@ class ReproducibleRandomSampler(RandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------
@@ -134,6 +140,8 @@ class ReproducibleWeightedRandomSampler(WeightedRandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------
@@ -204,9 +212,8 @@ class ConcatDatasetBatchSampler(Sampler):
 
     Arguments
     ---------
-    samplers : int
-        The base seed to use for the random number generator. It is recommended
-        to use a value which has a good mix of 0 and 1 bits.
+    samplers : list or tuple
+        a list or tuple of pytorch samplers
     batch_sizes: list
         Batch sizes.
     epoch : int
@@ -240,7 +247,7 @@ class ConcatDatasetBatchSampler(Sampler):
         if not isinstance(samplers, (list, tuple)):
             raise ValueError(
                 "samplers should be a list or tuple of Pytorch Samplers, "
-                "but got samplers={}".format(batch_sizes)
+                "but got samplers={}".format(samplers)
             )
 
         if not isinstance(batch_sizes, (list, tuple)):
@@ -389,8 +396,8 @@ class DynamicBatchSampler(Sampler):
     batch_ordering : string
         If ``random``, batches are randomly permuted; otherwise ``ascending`` or ``descending`` sorted by length.
     max_batch_ex: int
-        If set, it limits the maximum number of examples that can be in a batch superseeding max_batch_length
-        in instances where the amount of examples will exceeed the value specified here.
+        If set, it limits the maximum number of examples that can be in a batch superseding max_batch_length
+        in instances where the amount of examples will exceed the value specified here.
         E.g. you have a lot of short examples and the batch size for those will be too high, you can use this argument
         to limit the batch size for these short examples.
     bucket_boundaries : list
@@ -401,6 +408,8 @@ class DynamicBatchSampler(Sampler):
         in the dataset. This argument must be set when the dataset is a plain
         Pytorch Dataset object and not a DynamicItemDataset object as length_func
         cannot be used on Pytorch Datasets.
+    seed : int
+        Random seed.
     epoch : int
         The epoch to start at.
     drop_last : bool
@@ -428,7 +437,6 @@ class DynamicBatchSampler(Sampler):
     ):
         self._dataset = dataset
         self._ex_lengths = {}
-        ex_ids = self._dataset.data_ids
         self.verbose = verbose
 
         # We do not put a default on num_buckets to encourage users to play with this parameter
@@ -450,7 +458,7 @@ class DynamicBatchSampler(Sampler):
                 )
             for indx in range(len(self._dataset)):
                 self._ex_lengths[str(indx)] = length_func(
-                    self._dataset.data[ex_ids[indx]]
+                    self._dataset.data[self._dataset.data_ids[indx]]
                 )
 
         if len(bucket_boundaries) > 0:
@@ -487,7 +495,13 @@ class DynamicBatchSampler(Sampler):
         self._max_batch_ex = max_batch_ex
         # Calculate bucket lengths - how often does one bucket boundary fit into max_batch_length?
         self._bucket_lens = [
-            max(1, int(max_batch_length / self._bucket_boundaries[i]))
+            min(
+                self._max_batch_ex,  # tops max_duration_per_batch
+                max(
+                    1,  # and at least 1
+                    int(self._max_batch_length / self._bucket_boundaries[i]),
+                ),
+            )
             for i in range(len(self._bucket_boundaries))
         ] + [1]
         self._epoch = epoch
@@ -498,7 +512,9 @@ class DynamicBatchSampler(Sampler):
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
-        self, max_batch_length: int, num_quantiles: int,
+        self,
+        max_batch_length: int,
+        num_quantiles: int,
     ) -> List[int]:
 
         # NOTE: the following lines do not cover that there is only one example in the dataset
@@ -508,7 +524,9 @@ class DynamicBatchSampler(Sampler):
         num_boundaries = num_quantiles + 1
         # create latent linearly equal spaced buckets
         latent_boundaries = np.linspace(
-            1 / num_boundaries, num_quantiles / num_boundaries, num_quantiles,
+            1 / num_boundaries,
+            num_quantiles / num_boundaries,
+            num_quantiles,
         )
         # get quantiles using lognormal distribution
         quantiles = lognorm.ppf(latent_boundaries, 1)
@@ -520,7 +538,7 @@ class DynamicBatchSampler(Sampler):
             for x in range(num_quantiles - 1)
         ]
         # logging
-        logger.info(
+        logger.debug(
             "Latent bucket boundary - buckets: {} - length multipliers: {}".format(
                 list(map("{:.2f}".format, bucket_boundaries)),
                 list(map("{:.2f}".format, length_multipliers)),
@@ -630,7 +648,7 @@ class DynamicBatchSampler(Sampler):
                     num_batches = 0
                     pad_factor = 0
 
-                logger.info(
+                logger.debug(
                     (
                         "DynamicBatchSampler: Bucket {} with boundary {:.1f}-{:.1f} and "
                         + "batch_size {}: Num Examples {:.1f}, Num Full Batches {:.3f}, Pad Factor {:.3f}."
@@ -671,7 +689,7 @@ class DynamicBatchSampler(Sampler):
                 padding_details = "Batch {} with {:.1f} frames with {} files - {:.1f} padding, {:.2f} (%) of total."
                 padding_details = "DynamicBatchSampler: " + padding_details
                 for i in range(len(self._batches)):
-                    logger.info(
+                    logger.debug(
                         padding_details.format(
                             i,
                             batch_stats["tot_frames"][i],
@@ -689,8 +707,6 @@ class DynamicBatchSampler(Sampler):
         if self._batch_ordering == "random":
             # we randomly permute the batches only --> faster
             self._permute_batches()
-        else:
-            pass
 
     def set_epoch(self, epoch):
         """
@@ -704,7 +720,7 @@ class DynamicBatchSampler(Sampler):
         return len(self._batches)
 
 
-# Heavily inspired by Catalyst, which is under Apache 2.0 licence.
+# Heavily inspired by Catalyst, which is under Apache 2.0 license.
 # https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
 class DistributedSamplerWrapper(DistributedSampler):
     """This wrapper allows using any sampler (for example batch) with Distributed Data Parallel (DDP)
@@ -750,9 +766,9 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
 
     Arguments
     ---------
-    dataset: DynamicItemDataset
+    dataset : DynamicItemDataset
         the dataset form which samples will be drawn
-    key: str
+    key : str
         the key from which samples will be taken
     num_samples : int
         Number of samples to draw
@@ -763,6 +779,8 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------

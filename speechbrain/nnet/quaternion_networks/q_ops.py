@@ -11,9 +11,10 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import torch
 import math
+
 import numpy as np
+import torch
 import torch.nn.functional as F
 from scipy.stats import chi
 from torch.autograd import Variable
@@ -21,9 +22,9 @@ from torch.autograd import Variable
 
 class QuaternionLinearCustomBackward(torch.autograd.Function):
     """This class redefine the backpropagation of a quaternion linear layer
-       (not a spinor layer). By doing so, we can save up to 4x memory, but it
-       is also 2x slower than 'quaternion_linear_op'. It should be used
-       within speechbrain.nnet.quaternion_networks.linear.QuaternionLinear.
+    (not a spinor layer). By doing so, we can save up to 4x memory, but it
+    is also 2x slower than 'quaternion_linear_op'. It should be used
+    within speechbrain.nnet.quaternion_networks.linear.QuaternionLinear.
     """
 
     @staticmethod
@@ -38,6 +39,8 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
 
         Arguments
         ---------
+        ctx : PyTorch context object
+            Used to save the context necessary to perform a backwards pass.
         input : torch.Tensor
             Quaternion input tensor to be transformed. Shape: [batch*time, X].
         r_weight : torch.Parameter
@@ -49,6 +52,10 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
         k_weight : torch.Parameter
             Third imaginary part of the quaternion weight matrix of this layer.
         bias : torch.Parameter
+
+        Returns
+        -------
+        The linearly transformed quaternions
         """
 
         ctx.save_for_backward(
@@ -92,22 +99,19 @@ class QuaternionLinearCustomBackward(torch.autograd.Function):
 
         Arguments
         ---------
-        input : torch.Tensor
-            Quaternion input tensor to be transformed.
-        r_weight : torch.Parameter
-            Real part of the quaternion weight matrix of this layer.
-        i_weight : torch.Parameter
-            First imaginary part of the quaternion weight matrix of this layer.
-        j_weight : torch.Parameter
-            Second imaginary part of the quaternion weight matrix of this layer.
-        k_weight : torch.Parameter
-            Third imaginary part of the quaternion weight matrix of this layer.
-        bias : torch.Parameter
+        ctx : Pytorch context object
+            Contains saved weights and bias
+        grad_output : torch.Tensor
+            The output of the forward part
+
+        Returns
+        -------
+        The corresponding gradients of this op
         """
         input, r_weight, i_weight, j_weight, k_weight, bias = ctx.saved_tensors
-        grad_input = (
-            grad_weight_r
-        ) = grad_weight_i = grad_weight_j = grad_weight_k = grad_bias = None
+        grad_input = grad_weight_r = grad_weight_i = grad_weight_j = (
+            grad_weight_k
+        ) = grad_bias = None
 
         input_r = torch.cat([r_weight, -i_weight, -j_weight, -k_weight], dim=0)
         input_i = torch.cat([i_weight, r_weight, -k_weight, j_weight], dim=0)
@@ -198,6 +202,10 @@ def quaternion_linear_op(input, r_weight, i_weight, j_weight, k_weight, bias):
     k_weight : torch.Parameter
         Third imaginary part of the quaternion weight matrix of this layer.
     bias : torch.Parameter
+
+    Returns
+    -------
+    The linearly transformed quaternions
     """
 
     cat_kernels_4_r = torch.cat(
@@ -267,6 +275,10 @@ def quaternion_linear_rotation_op(
         Its shape is equivalent to a quaternion component shape. In fact,
         it is only needed to make the dimensions match when using the rotation
         matrix : https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+
+    Returns
+    -------
+    The linearly rotated quaternions
     """
 
     # First we normalise the quaternion weights. Only unit quaternions are
@@ -389,9 +401,6 @@ def quaternion_conv_rotation_op(
     ---------
     input : torch.Tensor
         Quaternion input tensor to be transformed.
-    conv1d : bool
-        If true, a 1D convolution operation will be applied. Otherwise, a 2D
-        convolution is called.
     r_weight : torch.Parameter
         Real part of the quaternion weight matrix of this layer.
     i_weight : torch.Parameter
@@ -413,6 +422,22 @@ def quaternion_conv_rotation_op(
         Its shape is equivalent to a quaternion component shape. In fact,
         it is only needed to make the dimensions match when using the rotation
         matrix : https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+    stride : int
+        Stride factor of the convolutional filters.
+    padding : int
+        Amount of padding. See torch.nn documentation for more information.
+    groups : int
+        This option specifies the convolutional groups. See torch.nn
+        documentation for more information.
+    dilation : int
+        Dilation factor of the convolutional filters.
+    conv1d : bool
+        If true, a 1D convolution operation will be applied. Otherwise, a 2D
+        convolution is called.
+
+    Returns
+    -------
+    The rotated quaternion inputs
     """
 
     square_r = r_weight * r_weight
@@ -538,9 +563,6 @@ def quaternion_conv_op(
     ---------
     input : torch.Tensor
         Quaternion input tensor to be transformed.
-    conv1d : bool
-        If true, a 1D convolution operation will be applied. Otherwise, a 2D
-        convolution is called.
     r_weight : torch.Parameter
         Real part of the quaternion weight matrix of this layer.
     i_weight : torch.Parameter
@@ -559,6 +581,13 @@ def quaternion_conv_op(
         documentation for more information.
     dilation : int
         Dilation factor of the convolutional filters.
+    conv1d : bool
+        If true, a 1D convolution operation will be applied. Otherwise, a 2D
+        convolution is called.
+
+    Returns
+    -------
+    The convolved quaternion inputs
     """
 
     cat_kernels_4_r = torch.cat(
@@ -605,7 +634,7 @@ def quaternion_init(
     in_features, out_features, kernel_size=None, criterion="glorot"
 ):
     """Returns a matrix of quaternion numbers initialized with the method
-    described in "Quaternion Recurrent Neural Network " - Parcollt T.
+    described in "Quaternion Recurrent Neural Network " - Parcollet T.
 
     Arguments
     ---------
@@ -617,13 +646,17 @@ def quaternion_init(
         Kernel_size for convolutional layers (ex: (3,3)).
     criterion : str
         (glorot, he)
+
+    Returns
+    -------
+    Matrix of initialized quaternion numbers
     """
 
     # We set the numpy seed equal to the torch seed for reproducibility
     # Indeed we use numpy and scipy here. We need % (2**31-1) or, if the
     # seed hasn't been set by the used in the YAML file, torch will generate
     # a double that would be to big for numpy.
-    np.random.seed(seed=torch.initial_seed() % (2 ** 31 - 1))
+    np.random.seed(seed=torch.initial_seed() % (2**31 - 1))
 
     if kernel_size is not None:
         receptive_field = np.prod(kernel_size)
@@ -686,6 +719,10 @@ def unitary_init(in_features, out_features, kernel_size=None, criterion="he"):
         Kernel_size for convolutional layers (ex: (3,3)).
     criterion : str
         (glorot, he)
+
+    Returns
+    -------
+    Matrix of unitary quaternion numbers.
     """
 
     if kernel_size is None:
@@ -742,7 +779,7 @@ def affect_init(
     """
 
     r, i, j, k = init_func(
-        r_weight.size(0), r_weight.size(1), None, init_criterion,
+        r_weight.size(0), r_weight.size(1), None, init_criterion
     )
 
     r_weight.data = r.type_as(r_weight.data)
@@ -760,7 +797,7 @@ def affect_conv_init(
     init_func,
     init_criterion,
 ):
-    """ Applies the weight initialization function given to the parameters.
+    """Applies the weight initialization function given to the parameters.
     This is specifically written for convolutional layers.
 
     Arguments
@@ -813,6 +850,6 @@ def check_quaternion_input(input_shape):
 
     if nb_hidden % 4 != 0:
         raise Exception(
-            "Quaternion Tensors must have dimensions divisible by 4."
+            "Quaternion torch.Tensors must have dimensions divisible by 4."
             " input.size()[1] = " + str(nb_hidden)
         )

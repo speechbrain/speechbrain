@@ -3,21 +3,30 @@ This folder contains some popular recipes for the WSJ0-Mix task (2/3 sources).
 
 * This recipe supports train with several source separation models on WSJ0-2Mix, including [Sepformer](https://arxiv.org/abs/2010.13154), [RE-SepFormer](https://arxiv.org/abs/2206.09507), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
-**Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Seperation: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/speechbrain-speech-seperation)
+**Web Demo** Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See demo Speech Separation: [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/akhaliq/speechbrain-speech-seperation)
 
-Additional dependency:
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
 ```
-pip install mir_eval
+pip install -r ../extra_requirements.txt
 ```
 
+## How to run
 To run it:
 
-```
+```shell
 python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
 
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
 
+```shell
+python train.py hyperparams/sepformer.yaml --data_folder yourpath/wsj0-mix/2speakers --test_only
+```
 # WSJ0-2mix and WSJ0-3mix dataset creation
 * The best way to create the datasets is using the original matlab script. This script and the associated meta data can be obtained through the following [link](https://www.dropbox.com/s/gg524noqvfm1t7e/create_mixtures_wsj023mix.zip?dl=1).
 * The dataset creation script assumes that the original WSJ0 files in the sphere format are already converted to .wav .
@@ -62,11 +71,13 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 * https://huggingface.co/speechbrain/sepformer-wsj03mix
 * https://huggingface.co/speechbrain/resepformer-wsj02mix
 
-* The output folder (with logs and checkpoints) for SepFormer (hparams/sepformer.yaml) can be found [here](https://drive.google.com/drive/folders/11ulM8NqLYle6vNNZb3NvPRPHR5Rrl-FF?usp=sharing).
-* The output folder (with logs and checkpoints) for RE-SepFormer (hparams/resepformer.yaml) can be found [here](https://drive.google.com/drive/folders/1rXOyPQ7OZZMUzg7wrP1Zsa_fjFKMqaeu?usp=sharing).
-* The output folder (with logs and checkpoints) for convtasnet (hparams/convtasnet.yaml) can be found [here](https://drive.google.com/drive/folders/12_Df4zsRW18YvD4hPAJAT9y_mVWnNyBm?usp=sharing).
-* The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://drive.google.com/drive/folders/1Olq2077mXKqtqHluxECn1lMKIbo7xPFu?usp=sharing).
-* The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://drive.google.com/drive/folders/12HqVPpMXY-OOMsZ3xTAtkN7kk5TZ2YaL?usp=sharing).
+* The output folder (with logs and checkpoints) for SepFormer (hparams/sepformer.yaml) can be found [here](https://www.dropbox.com/sh/9klsqadkhin6fw1/AADEqGdT98rcqxVgFlfki7Gva?dl=0).
+* The output folder (with logs and checkpoints) for RE-SepFormer (hparams/resepformer.yaml) can be found [here](https://www.dropbox.com/sh/obnu87zhubn1iia/AAAbn_jzqzIfeqaE9YQ7ujyQa?dl=0).
+* The output folder (with logs and checkpoints) for convtasnet (hparams/convtasnet.yaml) can be found [here](https://www.dropbox.com/sh/hdpxj47signsay7/AABbDjGoyQesnFxjg0APxl7qa?dl=0).
+* The output folder (with logs and checkpoints) for dual-path RNN (hparams/dprnn.yaml) can be found [here](https://www.dropbox.com/sh/o8fohu5s07h4bnw/AADPNyR1E3Q4aRobg3FtXTwVa?dl=0).
+* The output folder (with logs and checkpoints) for SkiM (hparams/skim.yaml) can be found [here](https://www.dropbox.com/sh/zy0l5rc8abxdfp3/AAA2ngB74fugqpWXmjZo5v3wa?dl=0).
+* The output folder (with logs and checkpoints) for Sepformer with conformer block as intra model (hparams/sepformer-conformerintra.yaml) can be found [here](https://www.dropbox.com/sh/w27rbdfnrtntrc9/AABCMFFvnxxYkKTInYXtsow3a?dl=0).
+
 
 
 
@@ -86,10 +97,10 @@ Pretrained models for SepFormer on WSJ0-2Mix, WSJ0-3Mix, and WHAM! datasets can 
 
 You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
 
+```bash
+torchrun --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath
 ```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/sepformer.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
-```
-You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 
 
 

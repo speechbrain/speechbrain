@@ -17,18 +17,18 @@ Author
 """
 import os
 import sys
+
 import torch
 import torchaudio
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 
+import speechbrain as sb
 import speechbrain.nnet.CNN
 from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for GSC training"
-    """
+    """Class for GSC training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + command classifier.
@@ -38,33 +38,9 @@ class SpeakerBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN and self.hparams.apply_data_augmentation:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         if isinstance(
             self.modules.compute_features, speechbrain.lobes.features.Leaf
@@ -82,22 +58,21 @@ class SpeakerBrain(sb.core.Brain):
         embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
 
-        # Ecapa model uses softmax outside of its classifer
+        # Ecapa model uses softmax outside of its classifier
         if "softmax" in self.modules.keys():
             outputs = self.modules.softmax(outputs)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using command-id as label.
-        """
+        """Computes the loss using command-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         command, _ = batch.command_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN and self.hparams.apply_data_augmentation:
-            command = torch.cat([command] * self.n_augment, dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            command = self.hparams.wav_augment.replicate_labels(command)
 
         # compute the cost function
         loss = self.hparams.compute_cost(predictions, command, lens)
@@ -201,7 +176,9 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file, from_didatasets=[train_data], output_key="command",
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="command",
     )
 
     # 4. Set output:
@@ -213,7 +190,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
@@ -306,6 +282,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)

@@ -3,9 +3,11 @@
 Author
  * Peter Plantinga 2022
 """
+
 import torch
+
 import speechbrain as sb
-from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
+from speechbrain.processing.features import ISTFT, STFT, spectral_magnitude
 
 
 class EnhanceResnet(torch.nn.Module):
@@ -94,7 +96,9 @@ class EnhanceResnet(torch.nn.Module):
         )
         for _ in range(dense_count):
             self.DNN.append(
-                sb.nnet.linear.Linear, n_neurons=dense_nodes, combine_dims=True,
+                sb.nnet.linear.Linear,
+                n_neurons=dense_nodes,
+                combine_dims=True,
             )
             self.DNN.append(activation)
             self.DNN.append(sb.nnet.normalization.LayerNorm)
@@ -183,7 +187,9 @@ class ConvBlock(torch.nn.Module):
         )
         self.norm1 = normalization(input_size=channels)
         self.conv2 = sb.nnet.CNN.Conv2d(
-            in_channels=channels, out_channels=channels, kernel_size=3,
+            in_channels=channels,
+            out_channels=channels,
+            kernel_size=3,
         )
         self.norm2 = normalization(input_size=channels)
         self.dropout = sb.nnet.dropout.Dropout2d(drop_rate=dropout)
@@ -234,8 +240,11 @@ class SEblock(torch.nn.Module):
         )
 
     def forward(self, x):
-        """Processes the input tensor with a speech enhancement block."""
-        x = torch.mean(x, dim=(1, 2), keepdim=True)
+        """Processes the input tensor with a squeeze-and-excite block."""
+        # torch.mean causes weird inplace error
+        # x = torch.mean(x, dim=(1, 2), keepdim=True)
+        count = x.size(1) * x.size(2)
+        x = torch.sum(x, dim=(1, 2), keepdim=True) / count
         x = self.linear1(x)
         x = torch.nn.functional.relu(x)
         x = self.linear2(x)

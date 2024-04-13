@@ -5,7 +5,7 @@ Efficient and High Fidelity Speech Synthesis
 For more details: https://arxiv.org/pdf/2010.05646.pdf
 
 Authors
- * Duret Jarod 2021
+ * Jarod Duret 2021
  * Yingzhi WANG 2022
 """
 
@@ -33,17 +33,18 @@ Authors
 # SOFTWARE.
 
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
-from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d, Conv2d
+import torch.nn.functional as F
 from torchaudio import transforms
+
+import speechbrain as sb
+from speechbrain.nnet.CNN import Conv1d, Conv2d, ConvTranspose1d
 
 LRELU_SLOPE = 0.1
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamique range compression for audio signals
-    """
+    """Dynamic range compression for audio signals"""
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -90,8 +91,13 @@ def mel_spectogram(
         Scale to use: "htk" or "slaney".
     compression : bool
         whether to do dynamic range compression
-    audio : torch.tensor
+    audio : torch.Tensor
         input audio signal
+
+    Returns
+    -------
+    mel : torch.Tensor
+        The mel spectrogram corresponding to the input audio.
     """
 
     audio_to_mel = transforms.MelSpectrogram(
@@ -116,6 +122,67 @@ def mel_spectogram(
     return mel
 
 
+def process_duration(code, code_feat):
+    """
+    Process a given batch of code to extract consecutive unique elements and their associated features.
+
+    Arguments
+    ---------
+    code : torch.Tensor (batch, time)
+        Tensor of code indices.
+    code_feat : torch.Tensor (batch, time, channel)
+        Tensor of code features.
+
+    Returns
+    -------
+    uniq_code_feat_filtered : torch.Tensor (batch, time)
+        Features of consecutive unique codes.
+    mask : torch.Tensor (batch, time)
+        Padding mask for the unique codes.
+    uniq_code_count : torch.Tensor (n)
+        Count of unique codes.
+
+    Example
+    -------
+    >>> code = torch.IntTensor([[40, 18, 18, 10]])
+    >>> code_feat = torch.rand([1, 4, 128])
+    >>> out_tensor, mask, uniq_code = process_duration(code, code_feat)
+    >>> out_tensor.shape
+    torch.Size([1, 1, 128])
+    >>> mask.shape
+    torch.Size([1, 1])
+    >>> uniq_code.shape
+    torch.Size([1])
+    """
+    uniq_code_count = []
+    uniq_code_feat = []
+    for i in range(code.size(0)):
+        _, count = torch.unique_consecutive(code[i, :], return_counts=True)
+        if len(count) > 2:
+            # remove first and last code as segment sampling may cause incomplete segment length
+            uniq_code_count.append(count[1:-1])
+            uniq_code_idx = count.cumsum(dim=0)[:-2]
+        else:
+            uniq_code_count.append(count)
+            uniq_code_idx = count.cumsum(dim=0) - 1
+        uniq_code_feat.append(
+            code_feat[i, uniq_code_idx, :].view(-1, code_feat.size(2))
+        )
+    uniq_code_count = torch.cat(uniq_code_count)
+
+    # collate
+    max_len = max(feat.size(0) for feat in uniq_code_feat)
+    uniq_code_feat_filtered = uniq_code_feat[0].new_zeros(
+        (len(uniq_code_feat), max_len, uniq_code_feat[0].size(1))
+    )
+    mask = torch.arange(max_len).repeat(len(uniq_code_feat), 1)
+    for i, v in enumerate(uniq_code_feat):
+        uniq_code_feat_filtered[i, : v.size(0)] = v
+        mask[i, :] = mask[i, :] < v.size(0)
+
+    return uniq_code_feat_filtered, mask.bool(), uniq_code_count.float()
+
+
 ##################################
 # Generator
 ##################################
@@ -131,7 +198,7 @@ class ResBlock1(torch.nn.Module):
         number of hidden channels for the convolutional layers.
     kernel_size : int
         size of the convolution filter in each layer.
-    dilations : list
+    dilation : tuple
         list of dilation value for each conv layer in a block.
     """
 
@@ -214,6 +281,11 @@ class ResBlock1(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, channel, time)
             input tensor.
+
+        Returns
+        -------
+        x : torch.Tensor
+            output of ResBlock1
         """
 
         for c1, c2 in zip(self.convs1, self.convs2):
@@ -225,12 +297,11 @@ class ResBlock1(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
-        for l in self.convs1:
-            l.remove_weight_norm()
-        for l in self.convs2:
-            l.remove_weight_norm()
+        """This functions removes weight normalization during inference."""
+        for layer in self.convs1:
+            layer.remove_weight_norm()
+        for layer in self.convs2:
+            layer.remove_weight_norm()
 
 
 class ResBlock2(torch.nn.Module):
@@ -243,7 +314,7 @@ class ResBlock2(torch.nn.Module):
         number of hidden channels for the convolutional layers.
     kernel_size : int
         size of the convolution filter in each layer.
-    dilations : list
+    dilation : tuple
         list of dilation value for each conv layer in a block.
     """
 
@@ -275,12 +346,17 @@ class ResBlock2(torch.nn.Module):
         )
 
     def forward(self, x):
-        """Returns the output of ResBlock1
+        """Returns the output of ResBlock2
 
         Arguments
         ---------
         x : torch.Tensor (batch, channel, time)
             input tensor.
+
+        Returns
+        -------
+        x : torch.Tensor
+            output of ResBlock2
         """
 
         for c in self.convs:
@@ -290,10 +366,9 @@ class ResBlock2(torch.nn.Module):
         return x
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
-        for l in self.convs:
-            l.remove_weight_norm()
+        """This functions removes weight normalization during inference."""
+        for layer in self.convs:
+            layer.remove_weight_norm()
 
 
 class HifiganGenerator(torch.nn.Module):
@@ -320,6 +395,10 @@ class HifiganGenerator(torch.nn.Module):
         upsampling factors (stride) for each upsampling layer.
     inference_padding : int
         constant padding applied to the input at inference time. Defaults to 5.
+    cond_channels : int
+        Default 0
+    conv_post_bias : bool
+        Default True
 
     Example
     -------
@@ -375,7 +454,7 @@ class HifiganGenerator(torch.nn.Module):
         ):
             self.ups.append(
                 ConvTranspose1d(
-                    in_channels=upsample_initial_channel // (2 ** i),
+                    in_channels=upsample_initial_channel // (2**i),
                     out_channels=upsample_initial_channel // (2 ** (i + 1)),
                     kernel_size=k,
                     stride=u,
@@ -418,6 +497,11 @@ class HifiganGenerator(torch.nn.Module):
             feature input tensor.
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
+
+        Returns
+        -------
+        o : torch.Tensor
+            The output tensor
         """
 
         o = self.conv_pre(x)
@@ -439,29 +523,280 @@ class HifiganGenerator(torch.nn.Module):
         return o
 
     def remove_weight_norm(self):
-        """This functions removes weight normalization during inference.
-        """
+        """This functions removes weight normalization during inference."""
 
-        for l in self.ups:
-            l.remove_weight_norm()
-        for l in self.resblocks:
-            l.remove_weight_norm()
+        for layer in self.ups:
+            layer.remove_weight_norm()
+        for layer in self.resblocks:
+            layer.remove_weight_norm()
         self.conv_pre.remove_weight_norm()
         self.conv_post.remove_weight_norm()
 
     @torch.no_grad()
-    def inference(self, c):
+    def inference(self, c, padding=True):
         """The inference function performs a padding and runs the forward method.
 
         Arguments
         ---------
+        c : torch.Tensor (batch, channel, time)
+            feature input tensor.
+        padding : bool
+            Whether to apply padding before forward.
+
+        Returns
+        -------
+        See ``forward()``
+        """
+        if padding:
+            c = torch.nn.functional.pad(
+                c, (self.inference_padding, self.inference_padding), "replicate"
+            )
+        return self.forward(c)
+
+
+class VariancePredictor(nn.Module):
+    """Variance predictor inspired from FastSpeech2
+
+    Arguments
+    ---------
+    encoder_embed_dim : int
+        number of input tensor channels.
+    var_pred_hidden_dim : int
+        size of hidden channels for the convolutional layers.
+    var_pred_kernel_size : int
+        size of the convolution filter in each layer.
+    var_pred_dropout : float
+        dropout probability of each layer.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([4, 80, 128])
+    >>> duration_predictor = VariancePredictor(
+    ...    encoder_embed_dim = 128,
+    ...    var_pred_hidden_dim = 128,
+    ...    var_pred_kernel_size = 3,
+    ...    var_pred_dropout = 0.5,
+    ... )
+    >>> out_tensor = duration_predictor (inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([4, 80])
+    """
+
+    def __init__(
+        self,
+        encoder_embed_dim,
+        var_pred_hidden_dim,
+        var_pred_kernel_size,
+        var_pred_dropout,
+    ):
+        super().__init__()
+        self.conv1 = nn.Sequential(
+            Conv1d(
+                in_channels=encoder_embed_dim,
+                out_channels=var_pred_hidden_dim,
+                kernel_size=var_pred_kernel_size,
+                padding="same",
+                skip_transpose=True,
+                weight_norm=True,
+            ),
+            nn.ReLU(),
+        )
+        self.dropout = var_pred_dropout
+        self.conv2 = nn.Sequential(
+            Conv1d(
+                in_channels=var_pred_hidden_dim,
+                out_channels=var_pred_hidden_dim,
+                kernel_size=var_pred_kernel_size,
+                padding="same",
+                skip_transpose=True,
+                weight_norm=True,
+            ),
+            nn.ReLU(),
+        )
+        self.proj = nn.Linear(var_pred_hidden_dim, 1)
+
+    def forward(self, x):
+        """
+        Arguments
+        ---------
         x : torch.Tensor (batch, channel, time)
             feature input tensor.
+
+        Returns
+        -------
+        Variance prediction
         """
-        c = torch.nn.functional.pad(
-            c, (self.inference_padding, self.inference_padding), "replicate"
+        x = self.conv1(x.transpose(1, 2)).transpose(1, 2)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.conv2(x.transpose(1, 2)).transpose(1, 2)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        return self.proj(x).squeeze(dim=2)
+
+
+class UnitHifiganGenerator(HifiganGenerator):
+    """Unit HiFiGAN Generator with Multi-Receptive Field Fusion (MRF)
+
+    Arguments
+    ---------
+    in_channels : int
+        number of input tensor channels.
+    out_channels : int
+        number of output tensor channels.
+    resblock_type : str
+        type of the `ResBlock`. '1' or '2'.
+    resblock_dilation_sizes : List[List[int]]
+        list of dilation values in each layer of a `ResBlock`.
+    resblock_kernel_sizes : List[int]
+        list of kernel sizes for each `ResBlock`.
+    upsample_kernel_sizes : List[int]
+        list of kernel sizes for each transposed convolution.
+    upsample_initial_channel : int
+        number of channels for the first upsampling layer. This is divided by 2
+        for each consecutive upsampling layer.
+    upsample_factors : List[int]
+        upsampling factors (stride) for each upsampling layer.
+    inference_padding : int
+        constant padding applied to the input at inference time. Defaults to 5.
+    cond_channels : int
+        Default 0
+    conv_post_bias : bool
+        Default True
+    num_embeddings : int
+        size of the dictionary of embeddings.
+    embedding_dim : int
+        size of each embedding vector.
+    duration_predictor : bool
+        enable duration predictor module.
+    var_pred_hidden_dim : int
+        size of hidden channels for the convolutional layers of the duration predictor.
+    var_pred_kernel_size : int
+        size of the convolution filter in each layer of the duration predictor.
+    var_pred_dropout : float
+        dropout probability of each layer in the duration predictor.
+
+    Example
+    -------
+    >>> inp_tensor = torch.randint(0, 100, (4, 10))
+    >>> unit_hifigan_generator= UnitHifiganGenerator(
+    ...    in_channels = 128,
+    ...    out_channels = 1,
+    ...    resblock_type = "1",
+    ...    resblock_dilation_sizes = [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+    ...    resblock_kernel_sizes = [3, 7, 11],
+    ...    upsample_kernel_sizes = [11, 8, 8, 4, 4],
+    ...    upsample_initial_channel = 512,
+    ...    upsample_factors = [5, 4, 4, 2, 2],
+    ...    num_embeddings = 100,
+    ...    embedding_dim = 128,
+    ...    duration_predictor = True,
+    ...    var_pred_hidden_dim = 128,
+    ...    var_pred_kernel_size = 3,
+    ...    var_pred_dropout = 0.5,
+    ... )
+    >>> out_tensor, _ = unit_hifigan_generator(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([4, 1, 3200])
+    """
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        resblock_type,
+        resblock_dilation_sizes,
+        resblock_kernel_sizes,
+        upsample_kernel_sizes,
+        upsample_initial_channel,
+        upsample_factors,
+        inference_padding=5,
+        cond_channels=0,
+        conv_post_bias=True,
+        num_embeddings=100,
+        embedding_dim=128,
+        duration_predictor=False,
+        var_pred_hidden_dim=128,
+        var_pred_kernel_size=3,
+        var_pred_dropout=0.5,
+    ):
+        super().__init__(
+            in_channels,
+            out_channels,
+            resblock_type,
+            resblock_dilation_sizes,
+            resblock_kernel_sizes,
+            upsample_kernel_sizes,
+            upsample_initial_channel,
+            upsample_factors,
+            inference_padding,
+            cond_channels,
+            conv_post_bias,
         )
-        return self.forward(c)
+        self.unit_embedding = torch.nn.Embedding(num_embeddings, embedding_dim)
+        self.duration_predictor = duration_predictor
+        if duration_predictor:
+            self.var_predictor = VariancePredictor(
+                embedding_dim,
+                var_pred_hidden_dim,
+                var_pred_kernel_size,
+                var_pred_dropout,
+            )
+
+    def forward(self, x, g=None):
+        """
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time)
+            feature input tensor.
+        g : torch.Tensor (batch, 1, time)
+            global conditioning input tensor.
+
+        Returns
+        -------
+        See parent ``forward()``
+        tuple of log_dur_pred and log_dur
+        """
+        u = self.unit_embedding(x).transpose(1, 2)
+
+        log_dur = None
+        log_dur_pred = None
+
+        if self.duration_predictor:
+            uniq_code_feat, uniq_code_mask, dur = process_duration(
+                x, u.transpose(1, 2)
+            )
+            log_dur_pred = self.var_predictor(uniq_code_feat)
+            log_dur_pred = log_dur_pred[uniq_code_mask]
+            log_dur = torch.log(dur + 1)
+
+        return super().forward(u), (log_dur_pred, log_dur)
+
+    @torch.no_grad()
+    def inference(self, x):
+        """The inference function performs duration prediction and runs the forward method.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time)
+            feature input tensor.
+
+        Returns
+        -------
+        See parent ``forward()``
+        """
+        x = self.unit_embedding(x).transpose(1, 2)
+
+        if self.duration_predictor:
+            assert (
+                x.size(0) == 1
+            ), "only support single sample batch in inference"
+            log_dur_pred = self.var_predictor(x.transpose(1, 2))
+            dur_out = torch.clamp(
+                torch.round((torch.exp(log_dur_pred) - 1)).long(), min=1
+            )
+            # B x C x T
+            x = torch.repeat_interleave(x, dur_out.view(-1), dim=2)
+
+        return super().forward(x)
 
 
 ##################################
@@ -471,15 +806,19 @@ class HifiganGenerator(torch.nn.Module):
 
 class DiscriminatorP(torch.nn.Module):
     """HiFiGAN Periodic Discriminator
-    Takes every Pth value from the input waveform and applied a stack of convoluations.
+    Takes every Pth value from the input waveform and applied a stack of convolutions.
     Note:
         if period is 2
         waveform = [1, 2, 3, 4, 5, 6 ...] --> [1, 3, 5 ... ] --> convs -> score, feat
 
     Arguments
     ---------
-    x : torch.Tensor (batch, 1, time)
-        input waveform.
+    period : int
+        Takes every Pth value from input
+    kernel_size : int
+        The size of the convolution kernel
+    stride : int
+        The stride of the convolution kernel
     """
 
     def __init__(self, period, kernel_size=5, stride=3):
@@ -552,6 +891,10 @@ class DiscriminatorP(torch.nn.Module):
         x : torch.Tensor (batch, 1, time)
             input waveform.
 
+        Returns
+        -------
+        x : torch.Tensor
+        feat : list
         """
 
         feat = []
@@ -564,8 +907,8 @@ class DiscriminatorP(torch.nn.Module):
             t = t + n_pad
         x = x.view(b, c, t // self.period, self.period)
 
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
@@ -600,6 +943,11 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, 1, time)
             input waveform.
+
+        Returns
+        -------
+        scores : list
+        feats : list
         """
 
         scores = []
@@ -614,7 +962,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
     """HiFiGAN Scale Discriminator.
     It is similar to `MelganDiscriminator` but with a specific architecture explained in the paper.
-    SpeechBrain CNN wrappers are not used here beacause spectral_norm is not often used
+    SpeechBrain CNN wrappers are not used here because spectral_norm is not often used
 
     Arguments
     ---------
@@ -648,11 +996,16 @@ class DiscriminatorS(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, 1, time)
             input waveform.
+
+        Returns
+        -------
+        x : torch.Tensor
+        feat : list
         """
 
         feat = []
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
@@ -685,6 +1038,11 @@ class MultiScaleDiscriminator(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, 1, time)
             input waveform.
+
+        Returns
+        -------
+        scores : list
+        feats : list
         """
 
         scores = []
@@ -725,6 +1083,11 @@ class HifiganDiscriminator(nn.Module):
         ---------
         x : torch.Tensor
             input waveform.
+
+        Returns
+        -------
+        scores : list
+        feats : list
         """
 
         scores, feats = self.mpd(x)
@@ -738,12 +1101,16 @@ class HifiganDiscriminator(nn.Module):
 
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
-    """computes the Fourier transform of short overlapping windows of the input
-    """
-    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
+    """computes the Fourier transform of short overlapping windows of the input"""
+    o = torch.stft(
+        x.squeeze(1),
+        n_fft,
+        hop_length,
+        win_length,
+    )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
-    S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
+    S = torch.sqrt(torch.clamp(M**2 + P**2, min=1e-8))
     return S
 
 
@@ -773,10 +1140,17 @@ class STFTLoss(nn.Module):
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
+
+        Returns
+        -------
+        loss_mag : torch.Tensor
+            Magnitude loss
+        loss_sc : torch.Tensor
+            Spectral convergence loss
         """
 
         y_hat_M = stft(y_hat, self.n_fft, self.hop_length, self.win_length)
@@ -811,10 +1185,17 @@ class MultiScaleSTFTLoss(torch.nn.Module):
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
+
+        Returns
+        -------
+        loss_mag : torch.Tensor
+            Magnitude loss
+        loss_sc : torch.Tensor
+            Spectral convergence loss
         """
 
         N = len(self.loss_funcs)
@@ -841,23 +1222,25 @@ class L1SpecLoss(nn.Module):
         Length of hop between STFT windows.
     win_length : int
         Window size.
+    n_mel_channels : int
+        Number of mel filterbanks.
     n_fft : int
         Size of FFT.
-    n_mels : int
-        Number of mel filterbanks.
-    f_min : float
+    n_stft : int
+        Size of STFT.
+    mel_fmin : float
         Minimum frequency.
-    f_max : float
+    mel_fmax : float
         Maximum frequency.
+    mel_normalized : bool
+        Whether to normalize by magnitude after stft.
     power : float
         Exponent for the magnitude spectrogram.
-    normalized : bool
-        Whether to normalize by magnitude after stft.
     norm : str or None
         If "slaney", divide the triangular mel weights by the width of the mel band
     mel_scale : str
         Scale to use: "htk" or "slaney".
-    compression : bool
+    dynamic_range_compression : bool
         whether to do dynamic range compression
     """
 
@@ -898,10 +1281,15 @@ class L1SpecLoss(nn.Module):
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
+
+        Returns
+        -------
+        loss_mag : torch.Tensor
+            L1 loss
         """
 
         y_hat_M = mel_spectogram(
@@ -955,6 +1343,11 @@ class MSEGLoss(nn.Module):
         ---------
         score_fake : list
             discriminator scores of generated waveforms D(G(s))
+
+        Returns
+        -------
+        loss_fake : torch.Tensor
+            Generator loss
         """
 
         loss_fake = F.mse_loss(
@@ -969,7 +1362,7 @@ class MelganFeatureLoss(nn.Module):
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
 
-    def __init__(self,):
+    def __init__(self):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -983,6 +1376,11 @@ class MelganFeatureLoss(nn.Module):
             discriminator features of generated waveforms
         real_feats : list
             discriminator features of groundtruth waveforms
+
+        Returns
+        -------
+        loss_feats : torch.Tensor
+            Feature matching loss
         """
 
         loss_feats = 0
@@ -1006,7 +1404,7 @@ class MSEDLoss(nn.Module):
     and the samples synthesized from the generator to 0.
     """
 
-    def __init__(self,):
+    def __init__(self):
         super().__init__()
         self.loss_func = nn.MSELoss()
 
@@ -1019,6 +1417,15 @@ class MSEDLoss(nn.Module):
             discriminator scores of generated waveforms
         score_real : list
             discriminator scores of groundtruth waveforms
+
+        Returns
+        -------
+        loss_d : torch.Tensor
+            The total discriminator loss
+        loss_real : torch.Tensor
+            The loss on real samples
+        loss_fake : torch.Tensor
+            The loss on fake samples
         """
 
         loss_real = self.loss_func(
@@ -1046,6 +1453,11 @@ def _apply_G_adv_loss(scores_fake, loss_func):
         discriminator scores of generated waveforms
     loss_func : object
         object of target generator loss
+
+    Returns
+    -------
+    adv_loss : torch.Tensor
+        The adversarial loss
     """
 
     adv_loss = 0
@@ -1071,6 +1483,15 @@ def _apply_D_loss(scores_fake, scores_real, loss_func):
         discriminator scores of groundtruth waveforms
     loss_func : object
         object of target discriminator loss
+
+    Returns
+    -------
+    loss : torch.Tensor
+        Total loss
+    real_loss : torch.Tensor
+        Loss from real samples
+    fake_loss : torch.Tensor
+        Loss from fake samples
     """
 
     loss = 0
@@ -1123,6 +1544,10 @@ class GeneratorLoss(nn.Module):
         object of L1 spectrogram loss
     l1_spec_loss_weight : float
         weight of L1 spectrogram loss
+    mseg_dur_loss : object
+        object of duration loss
+    mseg_dur_loss_weight : float
+        weight of duration loss
     """
 
     def __init__(
@@ -1135,6 +1560,8 @@ class GeneratorLoss(nn.Module):
         feat_match_loss_weight=0,
         l1_spec_loss=None,
         l1_spec_loss_weight=0,
+        mseg_dur_loss=None,
+        mseg_dur_loss_weight=0,
     ):
         super().__init__()
         self.stft_loss = stft_loss
@@ -1145,22 +1572,29 @@ class GeneratorLoss(nn.Module):
         self.feat_match_loss_weight = feat_match_loss_weight
         self.l1_spec_loss = l1_spec_loss
         self.l1_spec_loss_weight = l1_spec_loss_weight
+        self.mseg_dur_loss = mseg_dur_loss
+        self.mseg_dur_loss_weight = mseg_dur_loss_weight
 
     def forward(
         self,
+        stage,
         y_hat=None,
         y=None,
         scores_fake=None,
         feats_fake=None,
         feats_real=None,
+        log_dur_pred=None,
+        log_dur=None,
     ):
         """Returns a dictionary of generator losses and applies weights
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        stage : sb.Stage
+            Either TRAIN or VALID or TEST
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
         scores_fake : list
             discriminator scores of generated waveforms
@@ -1168,10 +1602,20 @@ class GeneratorLoss(nn.Module):
             discriminator features of generated waveforms
         feats_real : list
             discriminator features of groundtruth waveforms
+        log_dur_pred : torch.Tensor
+            Predicted duration
+        log_dur : torch.Tensor
+            Actual duration
+
+        Returns
+        -------
+        loss : dict
+            The generator losses.
         """
 
         gen_loss = 0
         adv_loss = 0
+        dur_loss = 0
         loss = {}
 
         # STFT Loss
@@ -1202,7 +1646,14 @@ class GeneratorLoss(nn.Module):
             feat_match_loss = self.feat_match_loss(feats_fake, feats_real)
             loss["G_feat_match_loss"] = feat_match_loss
             adv_loss = adv_loss + self.feat_match_loss_weight * feat_match_loss
-        loss["G_loss"] = gen_loss + adv_loss
+
+        # Duration loss
+        if self.mseg_dur_loss and stage == sb.Stage.TRAIN:
+            dur_loss = F.mse_loss(log_dur_pred, log_dur, reduction="mean")
+            loss["G_dur_loss"] = dur_loss
+            dur_loss *= self.mseg_dur_loss_weight
+
+        loss["G_loss"] = gen_loss + adv_loss + dur_loss
         loss["G_gen_loss"] = gen_loss
         loss["G_adv_loss"] = adv_loss
 
@@ -1231,6 +1682,15 @@ class DiscriminatorLoss(nn.Module):
             discriminator scores of generated waveforms
         scores_real : list
             discriminator scores of groundtruth waveforms
+
+        Returns
+        -------
+        loss : dict
+            Contains the keys:
+                "D_mse_gan_loss"
+                "D_mse_gan_real_loss"
+                "D_mse_gan_fake_loss"
+                "D_loss"
         """
 
         disc_loss = 0

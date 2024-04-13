@@ -23,17 +23,19 @@ other possible variations.
 Authors
  * Titouan Parcollet 2021
  * Jianyuan Zhong 2020
+ * Pooneh Mousavi 2023
 """
+import logging
 import sys
+
 import torch
 import torchaudio
-import logging
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.tokenizers.SentencePiece import SentencePiece
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.data_utils import undo_padding
 
+import speechbrain as sb
+from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +49,20 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
         tokens_bos, _ = batch.tokens_bos
 
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
+
         # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.hparams.normalize(feats, wav_lens, epoch=current_epoch)
 
-        # Augmentation
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
 
         # forward modules
         src = self.modules.CNN(feats)
@@ -73,26 +80,54 @@ class ASR(sb.core.Brain):
 
         # Compute outputs
         hyps = None
-        if stage == sb.Stage.TRAIN:
-            hyps = None
-        elif stage == sb.Stage.VALID:
-            hyps = None
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch % self.hparams.valid_search_interval == 0:
-                hyps, _ = self.hparams.beam_searcher(enc_out.detach(), wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.beam_searcher(enc_out.detach(), wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        is_valid_search = (
+            stage == sb.Stage.VALID
+            and current_epoch % self.hparams.valid_search_interval == 0
+        )
+        is_test_search = stage == sb.Stage.TEST
+
+        if is_valid_search:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+
+        elif is_test_search:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        (p_ctc, p_seq, wav_lens, predicted_tokens,) = predictions
+        (p_ctc, p_seq, wav_lens, predicted_tokens) = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
+
+        # Augment Labels
+        if stage == sb.Stage.TRAIN:
+            # Labels must be extended if parallel augmentation or concatenated
+            # augmentation was performed on the input (increasing the time dimension)
+            if hasattr(self.hparams, "wav_augment"):
+                (
+                    tokens,
+                    tokens_lens,
+                    tokens_eos,
+                    tokens_eos_lens,
+                ) = self.hparams.wav_augment.replicate_multiple_labels(
+                    tokens, tokens_lens, tokens_eos, tokens_eos_lens
+                )
+            if hasattr(self.hparams, "fea_augment"):
+                (
+                    tokens,
+                    tokens_lens,
+                    tokens_eos,
+                    tokens_eos_lens,
+                ) = self.hparams.fea_augment.replicate_multiple_labels(
+                    tokens, tokens_lens, tokens_eos, tokens_eos_lens
+                )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
@@ -126,37 +161,16 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-
+    def on_fit_batch_start(self, batch, should_step):
+        """Gets called at the beginning of each fit_batch."""
         # check if we need to switch optimizer
         # if so change the optimizer from Adam to SGD
         self.check_and_reset_optimizer()
 
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-            # anneal lr every update
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        with torch.no_grad():
-            predictions = self.compute_forward(batch, stage=stage)
-            loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -183,8 +197,7 @@ class ASR(sb.core.Brain):
                 stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
-
+        if stage == sb.Stage.VALID:
             # report different epoch stages according current stage
             current_epoch = self.hparams.epoch_counter.current
             if current_epoch <= self.hparams.stage_one_epochs:
@@ -217,8 +230,9 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(self.hparams.test_wer_file, "w") as w:
+                    self.wer_metric.write_stats(w)
 
     def check_and_reset_optimizer(self):
         """reset the optimizer if training enters stage 2"""
@@ -248,23 +262,22 @@ class ASR(sb.core.Brain):
         """
         # Run this *after* starting all processes since jit modules cannot be
         # pickled.
-        self._compile_jit()
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
 
+        if self.checkpointer is not None:
+            self.checkpointer.recover_if_possible()
+
         # Initialize optimizers after parameters are configured
         self.init_optimizers()
 
-        # Load latest checkpoint to check to current epoch number
-        if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
-
-        # if the model is resumed from stage two, reinitialize the optimizer
         current_epoch = self.hparams.epoch_counter.current
         if current_epoch > self.hparams.stage_one_epochs:
+            logger.info(
+                f"The checkpoint's epoch(= {current_epoch}) is greater than stage_one_epochs(= {self.hparams.stage_one_epochs}). Using the fine-tuning optimizer instead of the training one."
+            )
             self.optimizer = self.hparams.SGD(self.modules.parameters())
 
             if self.checkpointer is not None:
@@ -272,21 +285,21 @@ class ASR(sb.core.Brain):
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
 
 # Define custom data procedure
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # 1. Define datasets
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -316,13 +329,15 @@ def dataio_prepare(hparams, tokenizer):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # We also sort the validation data so it is faster to validate
@@ -337,7 +352,8 @@ def dataio_prepare(hparams, tokenizer):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(sig)
         return resampled
 
@@ -363,7 +379,8 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
     return train_data, valid_data, test_data
 
@@ -374,7 +391,6 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If --distributed_launch then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -437,15 +453,15 @@ if __name__ == "__main__":
         valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
-    # Test
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test.txt"
+    # Testing
+    asr_brain.hparams.test_wer_file = hparams["test_wer_file"]
     asr_brain.evaluate(
         test_data,
         min_key="WER",
         test_loader_kwargs=hparams["test_dataloader_opts"],
     )
 
-    asr_brain.hparams.wer_file = hparams["output_folder"] + "/wer_valid.txt"
+    asr_brain.hparams.test_wer_file = hparams["valid_wer_file"]
     asr_brain.evaluate(
         valid_data,
         min_key="WER",

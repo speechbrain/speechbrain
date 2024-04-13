@@ -1,4 +1,5 @@
-""" from https://github.com/keithito/tacotron """
+"""from https://github.com/keithito/tacotron"""
+
 # *****************************************************************************
 #  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -25,8 +26,10 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # *****************************************************************************
+import logging
 import re
 
+logger = logging.getLogger(__name__)
 
 valid_symbols = [
     "AA",
@@ -152,7 +155,7 @@ _whitespace_re = re.compile(r"\s+")
 _abbreviations = [
     (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
     for x in [
-        ("mrs", "misess"),
+        ("mrs", "missus"),
         ("mr", "mister"),
         ("dr", "doctor"),
         ("st", "saint"),
@@ -175,8 +178,7 @@ _abbreviations = [
 
 
 def expand_abbreviations(text):
-    """expand abbreviations pre-defined
-    """
+    """Expand abbreviations pre-defined"""
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
     return text
@@ -187,35 +189,36 @@ def expand_abbreviations(text):
 
 
 def lowercase(text):
-    """lowercase the text
-    """
+    """Lowercase the text"""
     return text.lower()
 
 
 def collapse_whitespace(text):
-    """Replaces whitespace by " " in the text
-    """
+    """Replaces whitespace by " " in the text"""
     return re.sub(_whitespace_re, " ", text)
 
 
 def convert_to_ascii(text):
-    """Converts text to ascii
-    """
+    """Converts text to ascii"""
     text_encoded = text.encode("ascii", "ignore")
     return text_encoded.decode()
 
 
 def basic_cleaners(text):
-    """Basic pipeline that lowercases and collapses whitespace without transliteration.
-    """
+    """Basic pipeline that lowercases and collapses whitespace without transliteration."""
     text = lowercase(text)
     text = collapse_whitespace(text)
     return text
 
 
+def german_cleaners(text):
+    """Pipeline for German text, that collapses whitespace without transliteration."""
+    text = collapse_whitespace(text)
+    return text
+
+
 def transliteration_cleaners(text):
-    """Pipeline for non-English text that transliterates to ASCII.
-    """
+    """Pipeline for non-English text that transliterates to ASCII."""
     text = convert_to_ascii(text)
     text = lowercase(text)
     text = collapse_whitespace(text)
@@ -223,8 +226,7 @@ def transliteration_cleaners(text):
 
 
 def english_cleaners(text):
-    """Pipeline for English text, including number and abbreviation expansion.
-    """
+    """Pipeline for English text, including number and abbreviation expansion."""
     text = convert_to_ascii(text)
     text = lowercase(text)
     text = expand_abbreviations(text)
@@ -233,8 +235,7 @@ def english_cleaners(text):
 
 
 def text_to_sequence(text, cleaner_names):
-    """Returns a list of integers corresponding to the symbols in the text.
-    Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
+    """Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
     The text can optionally have ARPAbet sequences enclosed in curly braces embedded
     in it. For example, "Turn left on {HH AW1 S S T AH0 N} Street."
 
@@ -245,6 +246,10 @@ def text_to_sequence(text, cleaner_names):
     cleaner_names : list
         names of the cleaner functions to run the text through
 
+    Returns
+    -------
+    sequence : list
+        The integers corresponding to the symbols in the text.
     """
     sequence = []
 
@@ -262,8 +267,7 @@ def text_to_sequence(text, cleaner_names):
 
 
 def sequence_to_text(sequence):
-    """Converts a sequence of IDs back to a string
-    """
+    """Converts a sequence of IDs back to a string"""
     result = ""
     for symbol_id in sequence:
         if symbol_id in _id_to_symbol:
@@ -276,8 +280,7 @@ def sequence_to_text(sequence):
 
 
 def _clean_text(text, cleaner_names):
-    """apply different cleaning pipeline according to cleaner_names
-    """
+    """Apply different cleaning pipeline according to cleaner_names"""
     for name in cleaner_names:
         if name == "english_cleaners":
             cleaner = english_cleaners
@@ -285,6 +288,8 @@ def _clean_text(text, cleaner_names):
             cleaner = transliteration_cleaners
         if name == "basic_cleaners":
             cleaner = basic_cleaners
+        if name == "german_cleaners":
+            cleaner = german_cleaners
         if not cleaner:
             raise Exception("Unknown cleaner: %s" % name)
         text = cleaner(text)
@@ -292,18 +297,87 @@ def _clean_text(text, cleaner_names):
 
 
 def _symbols_to_sequence(symbols):
-    """convert symbols to sequence
-    """
+    """Convert symbols to sequence"""
     return [_symbol_to_id[s] for s in symbols if _should_keep_symbol(s)]
 
 
 def _arpabet_to_sequence(text):
-    """Prepend "@" to ensure uniqueness
-    """
+    """Prepend "@" to ensure uniqueness"""
     return _symbols_to_sequence(["@" + s for s in text.split()])
 
 
 def _should_keep_symbol(s):
-    """whether to keep a certain symbol
-    """
+    """Whether to keep a certain symbol"""
     return s in _symbol_to_id and s != "_" and s != "~"
+
+
+def _g2p_keep_punctuations(g2p_model, text):
+    """Do grapheme to phoneme and keep the punctuations between the words
+
+    Arguments
+    ---------
+    g2p_model: speechbrain.inference.text.GraphemeToPhoneme
+        Model to apply to the given text while keeping punctuation.
+    text: string
+        the input text.
+
+    Returns
+    -------
+    The text string's corresponding phoneme symbols with punctuation symbols.
+
+    Example
+    -------
+    >>> from speechbrain.inference.text import GraphemeToPhoneme
+    >>> g2p_model = GraphemeToPhoneme.from_hparams("speechbrain/soundchoice-g2p") # doctest: +SKIP
+    >>> from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations # doctest: +SKIP
+    >>> text = "Hi, how are you?" # doctest: +SKIP
+    >>> _g2p_keep_punctuations(g2p_model, text) # doctest: +SKIP
+    ['HH', 'AY', ',', ' ', 'HH', 'AW', ' ', 'AA', 'R', ' ', 'Y', 'UW', '?']
+    """
+    # find the words where a "-" or "'" or "." or ":" appears in the middle
+    special_words = re.findall(r"\w+[-':\.][-':\.\w]*\w+", text)
+
+    # remove intra-word punctuations ("-':."), this does not change the output of speechbrain g2p
+    for special_word in special_words:
+        rmp = special_word.replace("-", "")
+        rmp = rmp.replace("'", "")
+        rmp = rmp.replace(":", "")
+        rmp = rmp.replace(".", "")
+        text = text.replace(special_word, rmp)
+
+    # keep inter-word punctuations
+    all_ = re.findall(r"[\w]+|[-!'(),.:;? ]", text)
+    try:
+        phonemes = g2p_model(text)
+    except RuntimeError:
+        logger.info(f"error with text: {text}")
+        quit()
+    word_phonemes = "-".join(phonemes).split(" ")
+
+    phonemes_with_punc = []
+    count = 0
+    try:
+        # if the g2p model splits the words correctly
+        for i in all_:
+            if i not in "-!'(),.:;? ":
+                phonemes_with_punc.extend(word_phonemes[count].split("-"))
+                count += 1
+            else:
+                phonemes_with_punc.append(i)
+    except IndexError:
+        # sometimes the g2p model cannot split the words correctly
+        logger.warning(
+            f"Do g2p word by word because of unexpected outputs from g2p for text: {text}"
+        )
+
+        for i in all_:
+            if i not in "-!'(),.:;? ":
+                p = g2p_model.g2p(i)
+                p_without_space = [i for i in p if i != " "]
+                phonemes_with_punc.extend(p_without_space)
+            else:
+                phonemes_with_punc.append(i)
+
+    while "" in phonemes_with_punc:
+        phonemes_with_punc.remove("")
+    return phonemes_with_punc

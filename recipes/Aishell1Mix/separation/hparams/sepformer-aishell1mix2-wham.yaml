@@ -14,12 +14,14 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # this is the storage folder for the whole needed dataset e.g. /yourpath
 # it should contain at least 250G space for aishell1, wham_noise and aishell1mix.
+num_spks: 2
 data_folder: !PLACEHOLDER
+data_folder_nspks: !ref <data_folder>/aishell1mix/Aishell1Mix<num_spks>
 data_freqs: ['8k'] # or if you want the whole dataset ['8k','16k']
 data_modes: ['min'] # or if you want the whole dataset ['min', 'max']
 
 # this is the base folder for dynamic mixing, usually not changed.
-base_folder_dm: !ref <data_folder>/data_aishell/wav/train
+base_folder_dm: !ref <data_folder_nspks>/data_aishell/wav/train
 
 experiment_name: sepformer-aishell1mix2-whamnoise
 output_folder: !ref results/<experiment_name>/<seed>
@@ -33,14 +35,12 @@ skip_prep: False
 ckpt_interval_minutes: 60
 
 # Experiment params
-auto_mix_prec: True # Set it to True for mixed precision
-test_only: False
-num_spks: 2
+precision: fp16 # bf16, fp16 or fp32 # Set it to True for mixed precision
 noprogressbar: False
 save_audio: False # Save estimated sources on disk
 sample_rate: 8000
 
-# Training parameters
+####################### Training Parameters ####################################
 N_epochs: 200
 batch_size: 1
 lr: 0.00015
@@ -63,18 +63,38 @@ use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
 
-speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 1.0
-    drop_freq_prob: 0.0
-    drop_chunk_prob: 0.0
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
-wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 0.0
-    drop_freq_prob: 1.0
-    drop_chunk_prob: 1.0
-    sample_rate: !ref <sample_rate>
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
 
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True
@@ -85,6 +105,7 @@ N_encoder_out: 256
 out_channels: 256
 kernel_size: 16
 kernel_stride: 8
+d_ffn: 1024
 
 # Dataloader options
 dataloader_opts:
@@ -102,7 +123,7 @@ SBtfintra: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
-    d_ffn: 1024
+    d_ffn: !ref <d_ffn>
     dropout: 0
     use_positional_encoding: True
     norm_before: True
@@ -111,7 +132,7 @@ SBtfinter: !new:speechbrain.lobes.models.dual_path.SBTransformerBlock
     num_layers: 8
     d_model: !ref <out_channels>
     nhead: 8
-    d_ffn: 1024
+    d_ffn: !ref <d_ffn>
     dropout: 0
     use_positional_encoding: True
     norm_before: True
@@ -161,7 +182,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         decoder: !ref <Decoder>
         masknet: !ref <MaskNet>
         counter: !ref <epoch_counter>
-        # lr_scheduler: !ref <lr_scheduler>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

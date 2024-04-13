@@ -9,8 +9,9 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer/<seed>
-wer_file: !ref <output_folder>/wer.txt
+output_folder: !ref results/transformer_fr/<seed>
+test_wer_file: !ref <output_folder>/wer_test.txt
+valid_wer_file: !ref <output_folder>/wer_valid.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -32,13 +33,14 @@ avoid_if_longer_than: 10.0
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 50
 batch_size: 32 # This works with a 32GB GPU ! (bs * nb_gpu * accum) > 128 !
 ctc_weight: 0.3
-gradient_accumulation: 4
+grad_accumulation_factor: 4
 loss_reduction: 'batchmean'
 sorting: random
+precision: fp32 # bf16, fp16 or fp32
 
 # stages related parameters
 stage_one_epochs: 40
@@ -68,7 +70,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: 6
 
-####################### Model parameters ###########################
+####################### Model Parameters ###########################
 # Transformer
 d_model: 768
 nhead: 8
@@ -91,8 +93,9 @@ min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 valid_search_interval: 5
 valid_beam_size: 10
-# test_beam_size: 80
+test_beam_size: 80
 ctc_weight_decode: 0.3
+scorer_beam_scale: 0.3
 
 ############################## models ################################
 
@@ -136,7 +139,7 @@ model: !new:torch.nn.ModuleList
 
 # We define two optimizers as we have two stages (training + finetuning)
 Adam: !name:torch.optim.Adam
-    lr: 0
+    lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
 
@@ -145,17 +148,39 @@ SGD: !name:torch.optim.SGD
     momentum: 0.99
     nesterov: True
 
-beam_searcher: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
-    bos_index: !ref <bos_index>
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <ctc_scorer>]
+    weights:
+        ctc: !ref <ctc_weight_decode>
+    scorer_beam_scale: !ref <scorer_beam_scale>
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
+    scorer: !ref <scorer>
+
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+    temperature: 1.15
+    using_eos_threshold: True
+    scorer: !ref <scorer>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
@@ -188,17 +213,34 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 3
 
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
-    time_warp_window: 5
-    time_warp_mode: bicubic
-    freq_mask: True
-    n_freq_mask: 2
-    time_mask: True
-    n_time_mask: 2
-    replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
+############################## Augmentations ###################################
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: 15
+    drop_length_high: 25
+    drop_count_low: 5
+    drop_count_high: 5
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: 25
+    drop_length_high: 35
+    drop_count_low: 2
+    drop_count_high: 2
+    dim: 2
+
+# Time warp
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <time_drop>,
+        !ref <freq_drop>,
+        !ref <time_warp>]
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

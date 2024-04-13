@@ -2,7 +2,7 @@
 This folder contains scripts necessary to run an ASR experiment with the DVoice dataset(Darija, Swahili): [Link](https://zenodo.org/record/6342622). The dataset used to train the Wolof, Fongbe and Amharic languages can be founded here: [Link](https://github.com/besacier/ALFFA_PUBLIC).
 
 # Data preparation
-[DVoice](https://dvoice.ma) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
+[DVoice](https://zenodo.org/record/5482551) attempts to provide automatic voice processing solutions for African languages and dialects. We use preprocessing techniques including voice augmentation to fill the data gap for each language.
 
 # How to run
 - Darija : Just download the DVoice dataset than run `python train_with_wav2vec2.py hparams/train_dar_with_wav2vec.yaml --data_folder=/localscratch/darija/`
@@ -48,7 +48,7 @@ Here is a list of the different African languages and dialects that we tested:
 | Fongbe | v2.0 | train_fon_with_wav2vec.yaml | No | 4.16 | 9.19 | 3.98 | 9.00 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-fongbe)
 | Amharic | v2.0 | train_amh_with_wav2vec.yaml | No | 6.71 | 25.50 | 6.57 | 24.92 | [Link](https://huggingface.co/speechbrain/asr-wav2vec2-dvoice-amharic) |
 
-You can find our training results (models, logs, etc) [here](https://drive.google.com/drive/folders/1vNT7RjRuELs7pumBHmfYsrOp9m46D0ym?usp=sharing).
+You can find our training results (models, logs, etc) [here](https://www.dropbox.com/sh/pyu40jq1ebv6hcc/AADQO_lAD-F9Q0vlVq8KoXHqa?dl=0).
 
 # Performances of DVoice Multilingual on each language
 | Dataset Link | Language | Test WER |
@@ -63,7 +63,7 @@ You can find our training results (models, logs, etc) [here](https://drive.googl
 SpeechBrain provides a simple interface to transcribe audio files with pretrained models. All the necessary information can be found on the different HuggingFace repositories (see the results table above) corresponding to our different models for DVoice.
 
 # **About DVoice**
-DVoice is a community initiative that aims to provide Africa low resources languages with data and models to facilitate their use of voice technologies. The lack of data on these languages makes it necessary to collect data using methods that are specific to each one. The DVoice platform([https://dvoice.ma](https://dvoice.ma) is based on Mozilla Common Voice, for collecting authentic recordings from the community, and transfer learning techniques for automatically labeling recordings that are retrived from social medias. The DVoice platform currently manages 7 languages including Darija(Moroccan Arabic dialect) whose dataset appears on this version, Wolof, Mandingo, Serere, Pular, Diola and Soninke.
+DVoice is a community initiative that aims to provide Africa low resources languages with data and models to facilitate their use of voice technologies. The lack of data on these languages makes it necessary to collect data using methods that are specific to each one. The DVoice platform is based on Mozilla Common Voice, for collecting authentic recordings from the community, and transfer learning techniques for automatically labeling recordings that are retrieved from social media. The DVoice platform currently manages 7 languages including Darija(Moroccan Arabic dialect) whose dataset appears on this version, Wolof, Mandingo, Serere, Pular, Diola and Soninke.
 
 For this project, AIOX Labs the SI2M Laboratory are joining forces to build the future of technologies together.
 
@@ -75,7 +75,6 @@ Based in Rabat, London and Paris, AIOX - Labs mobilizes artificial intelligence 
 - Business ready data products with a solid algorithmic base and adaptability for the specific needs of each client.
 - A complementary team made up of doctors in AI and business experts with a solid scientific base and international publications.
 
-Website: [https://www.aiox-labs.com/ ](https://www.aiox-labs.com/)
 
 # **About SI2M Laboratory**
 The Information Systems, Intelligent Systems and Mathematical Modeling Research Laboratory(SI2M) is an academic research laboratory of the National Institute of Statistics and Applied Economics(INSEA). The research areas of the laboratories are Information Systems, Intelligent Systems, Artificial Intelligence, Decision Support, Network and System Security, Mathematical Modelling.

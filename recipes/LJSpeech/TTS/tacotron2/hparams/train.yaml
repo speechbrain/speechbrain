@@ -65,7 +65,7 @@ n_mel_channels: 80
 n_fft: 1024
 mel_fmin: 0.0
 mel_fmax: 8000.0
-mel_normalized: null
+mel_normalized: False
 power: 1
 norm: "slaney"
 mel_scale: "slaney"
@@ -77,6 +77,7 @@ dynamic_range_compression: True
 learning_rate: 0.001
 weight_decay: 0.000006
 batch_size: 64 #minimum 2
+num_workers: 8
 mask_padding: True
 guided_attention_sigma: 0.2
 guided_attention_weight: 50.0
@@ -87,17 +88,17 @@ gate_loss_weight: 1.0
 train_dataloader_opts:
   batch_size: !ref <batch_size>
   drop_last: False  #True #False
-  num_workers: 8
+  num_workers: !ref <num_workers>
   collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
 
 valid_dataloader_opts:
   batch_size: !ref <batch_size>
-  num_workers: 8
+  num_workers: !ref <num_workers>
   collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
 
 test_dataloader_opts:
   batch_size: !ref <batch_size>
-  num_workers: 8
+  num_workers: !ref <num_workers>
   collate_fn: !new:speechbrain.lobes.models.Tacotron2.TextMelCollate
 
 ################################

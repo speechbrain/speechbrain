@@ -1,0 +1,76 @@
+name: 🪲 Bug Report
+description: Something went wrong? Let us know! 🐣
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before submitting a bug report, please read the following instructions:**
+
+        - Make sure the issue hasn't already been addressed by searching through existing and past issues.
+        - Use a clear and concise title for your bug report.
+        - Fill out all relevant sections below to help us understand and reproduce the issue.
+
+  - type: textarea
+    id: describe-the-bug
+    attributes:
+      label: Describe the bug
+      description: Provide a clear and concise description of the bug.
+    validations:
+      required: True
+
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected behaviour
+      description: Describe what you expected to happen.
+    validations:
+      required: True
+
+  - type: textarea
+    id: to-reproduce
+    attributes:
+      label: To Reproduce
+      description: |
+        If relevant, add a minimal example or detailed steps to reproduce the error. You can share code directly using Google Colab:
+        1. Visit [Google Colab](https://colab.research.google.com/).
+        2. Create a new notebook.
+        3. Paste your code into the notebook.
+        4. Share the notebook by clicking on "Share" in the top-right corner.
+        5. Share the notebook's link here.
+
+        In the worst case, provide detailed steps to reproduce the behavior.
+
+      placeholder: "```python #your code ``` \n ```yaml #your yaml code ```"
+    validations:
+      required: False
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: Environment Details
+      description: Provide information about your SpeechBrain version, setup, and any other relevant environment details.
+    validations:
+      required: False
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: Copy and paste any relevant log output here.
+      render: shell
+    validations:
+      required: False
+
+  - type: textarea
+    id: add-context
+    attributes:
+      label: Additional Context
+      description: Share any other context about the problem or your environment that may help in troubleshooting.
+    validations:
+      required: False
+
+  - type: markdown
+    attributes:
+      value: |
+        **Thank you for contributing to SpeechBrain!** Your bug report helps us improve the project's reliability.

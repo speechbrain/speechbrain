@@ -27,6 +27,8 @@ test_spk_id: 1
 train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
+split_ratio: [80, 10, 10]
+skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -41,7 +43,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training Parameters
 number_of_epochs: 30
 batch_size: 16
-gradient_accumulation: 2
+grad_accumulation_factor: 2
 lr: 0.0001
 weight_decay: 0.00002
 base_lr: 0.000001

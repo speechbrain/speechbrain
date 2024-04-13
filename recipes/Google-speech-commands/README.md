@@ -1,6 +1,9 @@
 # Google Speech Command v0.02 Dataset
 This folder contains recipes for command recognition with [Google Speech Command Dataset](https://www.tensorflow.org/datasets/catalog/speech_commands), including a sample recipe for the recent [LEAF audio frontend](https://openreview.net/forum?id=jM76BCb6F9m).
-The recipes supports 12 or 35 commands.  To run it, please type:
+The recipes supports 12 or 35 commands.
+
+# How to run
+To run it, please type:
 
 ```
 python train.py hparams/xvect.yaml --data_folder=/path_to_/GSC (V12 task)
@@ -26,8 +29,8 @@ You can find the pre-trained model with an easy-inference function on HuggingFac
 - https://huggingface.co/speechbrain/google_speech_command_xvector
 
 You can find the full experiment folder (i.e., checkpoints, logs, etc) here:
-- xvector v12: https://drive.google.com/drive/folders/1yPcXVHtrnNM0RhA_IGo8iAdezYZfoViQ?usp=sharing
-- xvector leaf v35: https://drive.google.com/drive/folders/18AaNWrFUtr5OggwZxV7X7ZXvv2aQ4iMh?usp=sharing
+- xvector v12: https://www.dropbox.com/sh/9n9q42pugbx0g7a/AADihpfGKuWf6gkwQznEFINDa?dl=0
+- xvector leaf v35: https://www.dropbox.com/sh/r63w4gytft4s1x6/AAApP8-pp179QKGCZHV_OuD8a?dl=0
 
 
 # **About SpeechBrain**

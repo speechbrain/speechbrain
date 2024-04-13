@@ -14,10 +14,23 @@ The datasets are derived from the LibriSpeech-Alignments dataset (https://zenodo
 
 Decoding is performed with a beamsearch, optionally enhanced with language models.
 
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
+## How to run
 To run this recipe, do the following:
-> python train.py <hyperparameter file>
+> python train.py &lt;hyperparameter file&gt;
+
 Example:
-> python train.py hparams/hparams_g2p_transformer.yaml
+```shell
+python train.py hparams/hparams_g2p_transformer.yaml
+```
 
 RNN Model
 ---------
@@ -55,7 +68,7 @@ To train a language model, use the `train_lm.py` script provided.
 For an RNN-based language model:
 > python train_lm.py hparams/hparams_lm_rnn.yaml
 
-For a transformer-based language modle:
+For a transformer-based language model:
 > python train_lm.py hparams/hparams_lm_transformer.yaml
 
 To use a language model during training or inference
@@ -69,11 +82,11 @@ Hyperparameter Optimization
 This recipe supports hyperparameter optimization via Oríon or other similar tools.
 For details on how to set up hyperparameter optimization, refer to the
 "Hyperparameter Optimization" tutorial in the Advanced Tutorials section
-on the SpeechBrian website:
+on the SpeechBrain website:
 
 https://speechbrain.github.io/tutorial_advanced.html
 
-A supplemental hyperparameter file is provided for hyperparameter optimiszation,
+A supplemental hyperparameter file is provided for hyperparameter optimization,
 which will turn off checkpointing and limit the number of epochs:
 
 hparams/hpopt.yaml
@@ -84,8 +97,8 @@ Pretrained Models
 -----------------
 | Release       | hyperparams file           | Sentence Test PER | Homograph % | Model link                                                                           |
 |:-------------:|:--------------------------:| --------:| --------------------------------------------------------------------------------------------------:|
-| 0.5.12        | train_g2p_rnn.yaml         | 2.72               |  94%        | https://drive.google.com/drive/folders/1jpVDz6Kqtl4qp3_dsuK767mjNlqkIxTH?usp=sharing |
-| 0.5.12        | train_g2p_transformer.yaml | 2.89               |  92%        | https://drive.google.com/drive/folders/1lbSjCKUit8H3FCzaDJmfBDJOkcDRH3XI?usp=sharing |
+| 0.5.12        | train_g2p_rnn.yaml         | 2.72               |  94%        | https://www.dropbox.com/sh/qmcl1obp8pxqaap/AAC3yXvjkfJ3mL-RKyAUxPdNa?dl=0 |
+| 0.5.12        | train_g2p_transformer.yaml | 2.89               |  92%        | https://www.dropbox.com/sh/zhrxg7anuhje7e8/AADTeJtdsja_wClkE2DsF9Ewa?dl=0 |
 
 NOTE: Sentence PER is reported as achieved at the end of the sentence training step. Nominal PER on
 librispeech data may increase post fine-tuning due to a distribution shift in labeling, if reevaluated.
@@ -93,8 +106,12 @@ To replicate the result exactly, train with --homograph_epochs=0.
 
 
 Pretrained language models can be found at the following URLs:
-* **RNN**: https://drive.google.com/drive/folders/1Zv8SNYIXzboFatSRpmoNgRyVXl_6ucir?usp=sharing
-* **Transformer**: https://drive.google.com/drive/folders/1MPceslDRVKW7sk1Q6W6nSaWETEAqp5t5?usp=sharing
+* **RNN**: https://www.dropbox.com/sh/pig0uk80xxii7cg/AACQ1rrRLYthvpNZ5FadPLtRa?dl=0
+* **Transformer**: https://www.dropbox.com/sh/tkf6di10edpz4i6/AAArnGAkE0bEEOvOGfc6KWuma?dl=0
+
+
+The best model is available on HuggingFace:
+https://huggingface.co/speechbrain/soundchoice-g2p
 
 Training Time
 -------------
@@ -113,7 +130,7 @@ evaluation, use `--beam_search_beam_size 1`.
 
 # Pretrained Models
 Pretrained models can be found on the following Google drive:
-https://drive.google.com/drive/folders/1nk9ms8cQ5N07wOG4oTi9h5a1dmiPmvnv?usp=sharing
+https://www.dropbox.com/sh/3m4u7xda4xsh2ob/AAAYpOJHRhYbUHmuQtybgzrea?dl=0
 
 
 # **About SpeechBrain**

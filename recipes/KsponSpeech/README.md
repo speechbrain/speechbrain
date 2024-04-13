@@ -12,7 +12,7 @@ Training and evaluation transcripts were generated the same way as in the above 
 
 ## Prepare data
 
-You can download KsponSpeech at https://aihub.or.kr/aidata/105/download
+You can download KsponSpeech at [Link](https://aihub.or.kr/aihubdata/data/view.do?currMenu=115&topMenu=100&aihubDataSe=realm&dataSetSn=123)
 
 Run following script to unzip the downloaded file
 
@@ -23,7 +23,15 @@ Run following script to unzip the downloaded file
 pcm files need to be converted to wav for training. Run following script for the conversion.
 
 ```bash
-python conert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
+python convert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
+```
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
 ```
 
 ## How to run an ASR experiment with KsponSpeech
@@ -47,7 +55,7 @@ SpeechBrain provides a simple interface to transcribe audio files with pretraine
 can be found on the HuggingFace repositories corresponding to our models for KsponSpeech:
 
 - [Conformer + ctc + TransformerLM](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)
-- [Colab example](https://colab.research.google.com/drive/10N98aGoeLGfh6Hu6xOCH5BbjVTVYgCyB?usp=sharing)
+- [Colab example](https://colab.research.google.com/drive/1finp9pfmGRzWHCAPNkqAH2yGH6k_BbPA?usp=sharing)
 
 # Citing SpeechBrain
 Please, cite SpeechBrain if you use it for your research or business.
@@ -68,7 +76,7 @@ Please, cite SpeechBrain if you use it for your research or business.
 ```bibtex
 @misc{returnzero,
   title = {ReturnZero Conformer Korean ASR model},
-  author = {Dongwon Kim and Dongwoo Kim and Roh Jeongkyu},
+  author = {Dongwon Kim and Dongwoo Kim and Jeongkyu Roh},
   year = {2021},
   howpublished = {\url{https://huggingface.co/ddwkim/asr-conformer-transformerlm-ksponspeech}},
 }

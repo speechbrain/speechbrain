@@ -11,22 +11,26 @@ Authors
     * Mirco Ravanelli 2020
 """
 
+import logging
 import os
+import pickle
 import sys
+
+import numpy
 import torch
 import torchaudio
-import logging
-import speechbrain as sb
-import numpy
-import pickle
-from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import EER, minDCF
-from speechbrain.processing.PLDA_LDA import StatObject_SB
-from speechbrain.processing.PLDA_LDA import Ndx
-from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.processing.PLDA_LDA import (
+    Ndx,
+    StatObject_SB,
+    fast_PLDA_scoring,
+)
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import EER, minDCF
 
 
 # Compute embeddings from the waveforms
@@ -35,15 +39,19 @@ def compute_embeddings(wavs, wav_lens):
 
     Arguments
     ---------
-    wavs : Torch.Tensor
-        Tensor containing the speech waveform (batch, time).
+    wavs : torch.Tensor
+        torch.Tensor containing the speech waveform (batch, time).
         Make sure the sample rate is fs=16000 Hz.
-    wav_lens: Torch.Tensor
-        Tensor containing the relative length for each sentence
+    wav_lens : torch.Tensor
+        torch.Tensor containing the relative length for each sentence
         in the length (e.g., [0.8 0.6 1.0])
+
+    Returns
+    -------
+    embeddings : torch.Tensor
     """
-    wavs = wavs.to(params["device"])
-    wav_lens = wav_lens.to(params["device"])
+    wavs = wavs.to(run_opts["device"])
+    wav_lens = wav_lens.to(run_opts["device"])
     with torch.no_grad():
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, wav_lens)
@@ -77,7 +85,7 @@ def emb_computation_loop(split, set_loader, stat_file):
         modelset = numpy.array(modelset, dtype="|O")
         segset = numpy.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0
+        # Initialize variables for start, stop and stat0
         s = numpy.array([None] * embeddings.shape[0])
         b = numpy.array([[1.0]] * embeddings.shape[0])
 
@@ -156,7 +164,8 @@ def dataio_prep(params):
 
     # Train data (used for normalization)
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["train_data"], replacements={"data_root": data_folder},
+        csv_path=params["train_data"],
+        replacements={"data_root": data_folder},
     )
     train_data = train_data.filtered_sorted(
         sort_key="duration", select_n=params["n_train_snts"]
@@ -164,13 +173,15 @@ def dataio_prep(params):
 
     # Enrol data
     enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
+        csv_path=params["enrol_data"],
+        replacements={"data_root": data_folder},
     )
     enrol_data = enrol_data.filtered_sorted(sort_key="duration")
 
     # Test data
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["test_data"], replacements={"data_root": data_folder},
+        csv_path=params["test_data"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -209,7 +220,6 @@ def dataio_prep(params):
 
 
 if __name__ == "__main__":
-
     # Logger setup
     logger = logging.getLogger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -220,7 +230,7 @@ if __name__ == "__main__":
     with open(params_file) as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         params["save_folder"], os.path.basename(params["verification_file"])
     )
@@ -242,8 +252,9 @@ if __name__ == "__main__":
         save_folder=params["save_folder"],
         verification_pairs_file=veri_file_path,
         splits=["train", "test"],
-        split_ratio=[90, 10],
-        seg_dur=3,
+        split_ratio=params["split_ratio"],
+        seg_dur=params["seg_dur"],
+        skip_prep=params["skip_prep"],
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -264,7 +275,7 @@ if __name__ == "__main__":
     params["pretrainer"].load_collected()
 
     params["embedding_model"].eval()
-    params["embedding_model"].to(params["device"])
+    params["embedding_model"].to(run_opts["device"])
 
     # Computing training embeddings (skip it of if already extracted)
     if not os.path.exists(xv_file):
@@ -290,7 +301,7 @@ if __name__ == "__main__":
         modelset = numpy.array(modelset, dtype="|O")
         segset = numpy.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0
+        # Initialize variables for start, stop and stat0
         s = numpy.array([None] * embeddings.shape[0])
         b = numpy.array([[1.0]] * embeddings.shape[0])
 

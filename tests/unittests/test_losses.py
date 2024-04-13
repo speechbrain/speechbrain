@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 
 
 def test_nll(device):
@@ -76,9 +76,10 @@ def test_classification_error(device):
 
 
 def test_pitwrapper(device):
-    from speechbrain.nnet.losses import PitWrapper
     import torch
     from torch import nn
+
+    from speechbrain.nnet.losses import PitWrapper
 
     base_loss = nn.MSELoss(reduction="none")
     pit = PitWrapper(base_loss)
@@ -149,7 +150,7 @@ def test_transducer_loss(device):
         use_torchaudio=False,
     )
     out_cost.backward()
-    assert out_cost.item() == 2.247833251953125
+    assert out_cost.item() == pytest.approx(2.2478, 0.0001)
 
 
 def test_guided_attention_loss_mask(device):

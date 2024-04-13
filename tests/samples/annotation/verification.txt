@@ -1,0 +1,4 @@
+1 spk1_snt1 spk1_snt1.wav
+0 spk1_snt1 spk1_snt2.wav
+0 spk1_snt2 spk1_snt1.wav
+0 spk1_snt2 spk1_snt2.wav

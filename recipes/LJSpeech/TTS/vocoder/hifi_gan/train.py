@@ -10,14 +10,16 @@ Authors
  * Yingzhi WANG 2022
 """
 
-import sys
-import torch
 import copy
+import os
+import sys
+
+import torch
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import scalarize
-import torchaudio
-import os
 
 
 class HifiGanBrain(sb.Brain):
@@ -33,12 +35,19 @@ class HifiGanBrain(sb.Brain):
         stage: speechbrain.Stage
             the training stage
 
+        Returns
+        -------
+        y_g_hat : torch.Tensor
+        scores_fake : torch.Tensor
+        feats_fake : torch.Tensor
+        scores_real : torch.Tensor
+        feats_real : torch.Tensor
         """
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
 
-        # generate sythesized waveforms
+        # generate synthesized waveforms
         y_g_hat = self.modules.generator(x)[:, :, : y.size(2)]
 
         # get scores and features from discriminator for real and synthesized waveforms
@@ -48,14 +57,13 @@ class HifiGanBrain(sb.Brain):
         return (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes and combines generator and discriminator losses
-        """
+        """Computes and combines generator and discriminator losses"""
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
 
         # Hold on to the batch for the inference sample. This is needed because
-        # the infernece sample is run from on_stage_end only, where
+        # the inference sample is run from on_stage_end only, where
         # batch information is not available
         self.last_batch = (x, y)
 
@@ -64,7 +72,7 @@ class HifiGanBrain(sb.Brain):
 
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
         loss_g = self.hparams.generator_loss(
-            y_hat, y, scores_fake, feats_fake, feats_real
+            stage, y_hat, y, scores_fake, feats_fake, feats_real
         )
         loss_d = self.hparams.discriminator_loss(scores_fake, scores_real)
         loss = {**loss_g, **loss_d}
@@ -72,8 +80,7 @@ class HifiGanBrain(sb.Brain):
         return loss
 
     def fit_batch(self, batch):
-        """Train discriminator and generator adversarially
-        """
+        """Train discriminator and generator adversarially"""
 
         batch = batch.to(self.device)
         y, _ = batch.sig
@@ -104,8 +111,7 @@ class HifiGanBrain(sb.Brain):
         return loss_g.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
-        """Evaluate one batch
-        """
+        """Evaluate one batch"""
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
@@ -153,6 +159,11 @@ class HifiGanBrain(sb.Brain):
                     "scheduler_d", self.scheduler_d
                 )
 
+    def zero_grad(self, set_to_none=False):
+        if self.opt_class is not None:
+            self.optimizer_g.zero_grad(set_to_none)
+            self.optimizer_d.zero_grad(set_to_none)
+
     def _remember_sample(self, batch, predictions):
         """Remembers samples of spectrograms and the batch for logging purposes
 
@@ -167,8 +178,7 @@ class HifiGanBrain(sb.Brain):
         y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)
-        """
+        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)"""
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.scheduler_g.step()
@@ -199,19 +209,21 @@ class HifiGanBrain(sb.Brain):
                 end_of_epoch=True,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
 
             self.run_inference_sample("Valid")
 
-        # We also write statistics about test data to stdout and to the TensorboardLogger.
+        # We also write statistics about test data to stdout and to the torch.TensorboardLogger.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(  # 1#2#
                 {"Epoch loaded": self.hparams.epoch_counter.current},
@@ -329,12 +341,14 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    # create ddp_group with the right communication protocol
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -343,7 +357,6 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    sys.path.append("../../")
     from ljspeech_prepare import prepare_ljspeech
 
     sb.utils.distributed.run_on_main(
@@ -375,8 +388,10 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
-            save_dir=hparams["output_folder"] + "/tensorboard"
+        hifi_gan_brain.tensorboard_logger = (
+            sb.utils.train_logger.TensorboardLogger(
+                save_dir=hparams["output_folder"] + "/tensorboard"
+            )
         )
 
     # Training

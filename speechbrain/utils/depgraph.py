@@ -54,6 +54,7 @@ Example
 Authors:
     * Aku Rouhe 2020
 """
+
 import collections
 import uuid
 
@@ -151,10 +152,6 @@ class DependencyGraph:
             The key which depends on.
         to_key : hashable
             The key which is depended on.
-
-        Returns
-        -------
-        None
         """
         from_ind = self._get_ind_and_add_if_new(from_key)
         to_ind = self._get_ind_and_add_if_new(to_key)
@@ -215,7 +212,7 @@ class DependencyGraph:
         seen_ever = set()
 
         def toposort(root_ind, visited):
-            """Implementation of topsort."""
+            """Implementation of toposort."""
             nonlocal seen_ever
             here = visited + [root_ind]
             if root_ind in visited:

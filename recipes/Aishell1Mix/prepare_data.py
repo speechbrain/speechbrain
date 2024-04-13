@@ -5,16 +5,17 @@ Author
  * Cem Subakan 2020
 """
 
-import os
 import csv
+import functools
+import glob
+import os
 import tarfile
 import zipfile
-import glob
-import tqdm.contrib.concurrent
-import soundfile as sf
-import functools
-from pysndfx import AudioEffectsChain
 from urllib.request import urlretrieve
+
+import soundfile as sf
+import tqdm.contrib.concurrent
+from pysndfx import AudioEffectsChain
 
 
 def prepare_aishell1mix(
@@ -40,6 +41,8 @@ def prepare_aishell1mix(
         skip_prep (bool): If True, skip data preparation
         aishell1mix_addnoise: If True, add whamnoise to aishell1mix datasets
     """
+    if skip_prep:
+        return
 
     # create the datapath folder if it does not exist
     if not os.path.exists(datapath):
@@ -51,7 +54,6 @@ def prepare_aishell1mix(
     aishell1mix_outdir = os.path.join(datapath, "aishell1mix")
 
     if not os.path.exists(aishell1_dir):
-
         print("Download Aishell1 into %s" % datapath)
         urlretrieve(
             "https://us.openslr.org/resources/33/data_aishell.tgz",
@@ -70,7 +72,6 @@ def prepare_aishell1mix(
         extracttar(os.path.join(datapath, "resource_aishell.tgz"))
 
     if not os.path.exists(wham_dir):
-
         print("Download Wham noise dataset into %s" % datapath)
         urlretrieve(
             "https://storage.googleapis.com/whisper-public/wham_noise.zip",
@@ -158,9 +159,6 @@ def prepare_aishell1mix(
         datatypes,
     )
 
-    if skip_prep:
-        return
-
     if "Aishell1" in aishell1mix_outdir:
         # Aishell1 Mix2/3 datasets
         if n_spks == 2:
@@ -236,7 +234,6 @@ def create_aishell1mix2_csv(
             for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,

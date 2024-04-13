@@ -2,12 +2,14 @@
 This folder contains some recipes for the Binaural-WSJ0Mix task (2/3 sources). Please refer to [Real-time binaural speech separation with preserved spatial cues](https://arxiv.org/abs/2002.06637) [1] for details.
 
 
-Additional dependency:
-```
-pip install mir_eval
-pip install pyroomacoustics==0.3.1
-```
+## Installing Extra Dependencies
 
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r ../extra_requirements.txt
+
+```
 To run it:
 
 ```
@@ -15,13 +17,19 @@ python train.py hparams/convtasnet-parallel.yaml
                 --data_folder yourpath/binaural-wsj0mix/2speakers
                 --wsj_root yourpath/to/wsj/
 ```
-The data_folder will be automatically created from the wsj_root one.
+The training data will be automatically created from the `wsj_root`, which is the root folder that contains
 Note that during training we print the negative SNR instead of SI-SNR because the scale-invariance property of SI-SNR makes it insensitive to power rescaling of the estimated signal, which may fail in preserving the ILD between the outputs.
 
-
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+```
+python train.py hparams/convtasnet-parallel.yaml
+                --data_folder yourpath/binaural-wsj0mix/2speakers
+                --wsj_root yourpath/to/wsj/
+                --test_only
+```
 # Binaural WSJ0-2mix and WSJ0-3mix dataset creation
-* The best way to create the datasets is using the the scripts at https://github.com/huangzj421/Binaural-WSJ0Mix. The train.py will download it under data_folder if not exists.
-* Also the train.py will create Binaural WSJ0Mix datasets automatically with wsj_root specified:`python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/to/wsj/`
+* The training data generation scripts can be found from [https://github.com/huangzj421/Binaural-WSJ0Mix](https://github.com/huangzj421/Binaural-WSJ0Mix). But the `train.py` also automatically downloads and generates the data. It puts the data under the path specified in `data_folder`.
+* The default command to run that automatically generate the data given wsj0 folder:`python train.py hparams/convtasnet-parallel.yaml --data_folder yourpath/binaural-wsj0mix/2speakers --wsj_root yourpath/wsj0-mix/wsj0`
 
 
 # Dynamic Mixing:
@@ -37,13 +45,17 @@ Here are the SNRi results (in dB) as well as ITD and ILD errors as the metric fo
 | --- | --- | --- | --- |
 |ConvTasnet-independent| 12.39 | 6.17 | 0.32 |
 |ConvTasnet-cross| 11.9 | 5.69 | 0.37 |
-|ConvTasnet-parallel| 11.69 | 3.23 | 0.23 |
+|ConvTasnet-parallel| 16.93 | 2.38 | 0.09 |
+|ConvTasnet-parallel-noise| 18.25 | 5.56 | 0.23 |
+|ConvTasnet-parallel-reverb| 6.95 | 0.0 | 0.40 |
 
 * ConvTasnet-independent.yaml refers to ConvTasnet is applied to each channel independently.
 * ConvTasnet-cross.yaml refers to cross-channel features like ILD or IPD are concatenated to the encoder output.
 * ConvTasnet-parallel.yaml refers to the proposed multiinput-multi-output (MIMO) TasNet in the original paper [1].
+* ConvTasnet-parallel-noise.yaml refers to the above Tasnet applied to 2 speakers with DEMAND noise.
+* ConvTasnet-parallel-reverb.yaml refers to the above Tasnet applied to 2 speakers with reverberance(RT60) from the [BRIR Sim Set](http://iosr.uk/software/index.php).
 
-The output folders with the checkpoints, logs, etc are available [here](https://drive.google.com/drive/folders/17FFwlIq6MQLHT9RXPgeYssti5TEeEXsx?usp=sharing)
+The output folders with the checkpoints, logs, etc are available [here](https://www.dropbox.com/sh/i7fhu7qswjb84gw/AABsX1zP-GOTmyl86PtU8GGua?dl=0)
 
 # Example calls for running the training scripts
 
@@ -57,10 +69,10 @@ The output folders with the checkpoints, logs, etc are available [here](https://
 
 You can run the following command to train the model using Distributed Data Parallel (DDP) with 2 GPUs:
 
+```bash
+torchrun --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath
 ```
- python -m torch.distributed.launch --nproc_per_node=2 train.py hparams/convtasnet-parallel.yaml --data_folder /yourdatapath --distributed_launch --distributed_backend='nccl'
-```
-You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15?usp=sharing).
+You can add the other runtime options as appropriate. For more complete information on multi-GPU usage, take a look at this [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15).
 
 
 

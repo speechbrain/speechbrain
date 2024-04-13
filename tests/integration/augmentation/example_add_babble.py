@@ -1,6 +1,8 @@
 import os
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio, write_audio
 
 output_folder = os.path.join("results", "add_babble")
@@ -26,7 +28,7 @@ def main():
     dataloader = sb.dataio.dataloader.make_dataloader(
         dataset=hyperparams["sample_data"], batch_size=hyperparams["batch_size"]
     )
-    for (id, (wav, wav_len),) in iter(dataloader):
+    for id, (wav, wav_len) in iter(dataloader):
         wav_babble = hyperparams["add_babble"](wav, wav_len)
         # save results on file
         for i, snt_id in enumerate(id):

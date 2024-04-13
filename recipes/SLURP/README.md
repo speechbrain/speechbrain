@@ -1,6 +1,14 @@
 # SLU recipes for SLURP
 This folder contains recipes for spoken language understanding (SLU) with [SLURP](https://zenodo.org/record/4274930#.YEFCYHVKg5k).
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ### Direct recipe
 The "direct" maps the input speech directly to semantics using a seq2seq model.
 
@@ -40,8 +48,8 @@ The following results were obtained on a 48 GB RTX 8000 (the recipe has also bee
 
 | Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Word-F1 | Char-F1 | SLU-F1 | Training time | Model link |
 |:------:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
-| Direct | 81.73 | 77.11 | 75.05 | 61.24 | 65.42 | 63.26 | 1 hour per epoch | https://drive.google.com/drive/folders/103t4_zqBZNqa_gGlIfteIs8_mdKhn3Rd?usp=sharing |
-| Direct (HuBert) | 91.24 | 88.47 | 87.54 | 72.93 | 77.40 | 75.10 | 4 hours per epoch | https://drive.google.com/drive/folders/1LpcuFldRo_Va1OCGp1bLNdiaC7AQNJOb?usp=sharing |
+| Direct | 81.73 | 77.11 | 75.05 | 61.24 | 65.42 | 63.26 | 1 hour per epoch | https://www.dropbox.com/scl/fo/c0rm2ja8oxus8q27om8ve/h?rlkey=irxzl1ea8g7e6ipk0vuc288zh&dl=0 |
+| Direct (HuBert) | 91.24 | 88.47 | 87.54 | 72.93 | 77.40 | 75.10 | 4 hours per epoch | https://www.dropbox.com/scl/fo/c0rm2ja8oxus8q27om8ve/h?rlkey=irxzl1ea8g7e6ipk0vuc288zh&dl=0 |
 
 | Model	| scenario (accuracy) | action (accuracy) | intent (accuracy) | Training time |
 |:---:|:-----:|:-----:|:-----:|:-----:|

@@ -4,8 +4,10 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import torch
 import logging
+
+import torch
+
 from speechbrain.nnet.complex_networks.c_linear import CLinear
 from speechbrain.nnet.complex_networks.c_normalization import (
     CBatchNorm,
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class CLSTM(torch.nn.Module):
-    """ This function implements a complex-valued LSTM.
+    """This function implements a complex-valued LSTM.
 
     Input format is (batch, time, fea) or (batch, time, fea, channel).
     In the latter shape, the two last dimensions will be merged:
@@ -28,17 +30,19 @@ class CLSTM(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of complex-valued neurons. Thus, the output
         is 2*hidden_size.
+    input_shape : tuple
+        The expected shape of the input.
     num_layers : int, optional
         Number of layers to employ in the RNN architecture (default 1).
     bias: bool, optional
         If True, the additive bias b is adopted (default True).
     dropout : float, optional
         It is the dropout factor (must be between 0 and 1) (default 0.0).
-    return_hidden : bool, optional
-        It True, the function returns the last hidden layer.
     bidirectional : bool, optional
         If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used (default False).
+    return_hidden : bool, optional
+        It True, the function returns the last hidden layer.
     init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
@@ -93,14 +97,14 @@ class CLSTM(torch.nn.Module):
 
         self.rnn = self._init_layers()
 
-    def _init_layers(self,):
+    def _init_layers(self):
         """
         Initializes the layers of the ComplexLSTM.
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
+        Returns
+        -------
+        rnn : ModuleList
+            The list of CLSTM_Layers.
         """
 
         rnn = torch.nn.ModuleList([])
@@ -133,6 +137,15 @@ class CLSTM(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            The hidden layer.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The output tensor.
+        hh : torch.Tensor
+            If return_hidden, the second tensor is hidden states.
         """
 
         # Reshaping input tensors for 4d inputs
@@ -154,6 +167,15 @@ class CLSTM(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            The hidden layer.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The output tensor.
+        h : torch.Tensor
+            The hidden states for each step.
         """
         h = []
         if hx is not None:
@@ -180,18 +202,18 @@ class CLSTM(torch.nn.Module):
 
 
 class CLSTM_Layer(torch.nn.Module):
-    """ This function implements complex-valued LSTM layer.
+    """This function implements complex-valued LSTM layer.
 
     Arguments
     ---------
     input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size : int
-        Batch size of the input tensors.
     hidden_size : int
         Number of output values (in term of real values).
     num_layers : int, optional
         Number of layers to employ in the RNN architecture (default 1).
+    batch_size : int
+        Batch size of the input tensors.
     dropout : float, optional
         It is the dropout factor (must be between 0 and 1) (default 0.0).
     bidirectional : bool, optional
@@ -222,8 +244,7 @@ class CLSTM_Layer(torch.nn.Module):
         init_criterion="glorot",
         weight_init="complex",
     ):
-
-        super(CLSTM_Layer, self).__init__()
+        super().__init__()
 
         self.hidden_size = int(hidden_size) // 2  # Express in term of quat
         self.input_size = int(input_size)
@@ -264,13 +285,20 @@ class CLSTM_Layer(torch.nn.Module):
         self.drop_mask_te = torch.tensor([1.0]).float()
 
     def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+        # type: (Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the CRNN_layer.
 
         Arguments
         ---------
         x : torch.Tensor
-            Input tensor.
+            Linearly transformed input.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for each step.
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -300,8 +328,15 @@ class CLSTM_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        wx : torch.Tensor
+        w : torch.Tensor
             Linearly transformed input.
+        ht : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for each step.
         """
 
         hiddens = []
@@ -314,7 +349,6 @@ class CLSTM_Layer(torch.nn.Module):
 
         # Loop over time axis
         for k in range(w.shape[1]):
-
             gates = w[:, k] + self.u(ht)
             (itr, iti, ftr, fti, otr, oti, ctr, cti) = gates.chunk(8, 1)
             it = torch.sigmoid(torch.cat([itr, iti], dim=-1))
@@ -349,11 +383,9 @@ class CLSTM_Layer(torch.nn.Module):
         )
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks
-        """
+        """Selects one of the pre-defined dropout masks"""
 
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
@@ -392,7 +424,7 @@ class CLSTM_Layer(torch.nn.Module):
 
 
 class CRNN(torch.nn.Module):
-    """ This function implements a vanilla complex-valued RNN.
+    """This function implements a vanilla complex-valued RNN.
 
     Input format is (batch, time, fea) or (batch, time, fea, channel).
     In the latter shape, the two last dimensions will be merged:
@@ -404,19 +436,21 @@ class CRNN(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of complex-valued neurons. Thus, the output
         is 2*hidden_size.
-    num_layers : int, optional
-        Number of layers to employ in the RNN architecture (default 1).
+    input_shape : tuple
+        The expected shape of the input.
     nonlinearity : str, optional
         Type of nonlinearity (tanh, relu) (default "tanh").
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
     bias : bool, optional
         If True, the additive bias b is adopted (default True).
     dropout : float, optional
         It is the dropout factor (must be between 0 and 1) (default 0.0).
-    return_hidden : bool, optional
-        It True, the function returns the last hidden layer (default False).
     bidirectional : bool, optional
         If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used (default False).
+    return_hidden : bool, optional
+        It True, the function returns the last hidden layer (default False).
     init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
@@ -473,14 +507,14 @@ class CRNN(torch.nn.Module):
 
         self.rnn = self._init_layers()
 
-    def _init_layers(self,):
+    def _init_layers(self):
         """
         Initializes the layers of the CRNN.
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
+        Returns
+        -------
+        rnn : ModuleList
+            The list of CRNN_Layers.
         """
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
@@ -513,6 +547,16 @@ class CRNN(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Hidden layers.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The outputs of the CliGRU.
+        hh : torch.Tensor
+            If return_hidden, also returns the hidden states for each step.
         """
 
         # Reshaping input tensors for 4d inputs
@@ -533,6 +577,16 @@ class CRNN(torch.nn.Module):
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            The hidden layer.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The output tensor.
+        h : torch.Tensor
+            The hidden states for each step.
         """
 
         h = []
@@ -560,22 +614,22 @@ class CRNN(torch.nn.Module):
 
 
 class CRNN_Layer(torch.nn.Module):
-    """ This function implements complex-valued recurrent layer.
+    """This function implements complex-valued recurrent layer.
 
     Arguments
     ---------
     input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size : int
-        Batch size of the input tensors.
     hidden_size : int
         Number of output values (in term of real values).
     num_layers : int, optional
         Number of layers to employ in the RNN architecture (default 1).
-    nonlinearity : str, optional
-        Type of nonlinearity (tanh, relu) (default "tanh").
+    batch_size : int
+        Batch size of the input tensors.
     dropout : float, optional
         It is the dropout factor (must be between 0 and 1) (default 0.0).
+    nonlinearity : str, optional
+        Type of nonlinearity (tanh, relu) (default "tanh").
     bidirectional : bool, optional
         If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used (default False).
@@ -605,8 +659,7 @@ class CRNN_Layer(torch.nn.Module):
         init_criterion="glorot",
         weight_init="complex",
     ):
-
-        super(CRNN_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size) // 2  # Express in term of complex
         self.input_size = int(input_size)
         self.batch_size = batch_size
@@ -652,13 +705,20 @@ class CRNN_Layer(torch.nn.Module):
             self.act = torch.nn.ReLU()
 
     def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+        # type: (Tensor, Optional[Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the CRNN_layer.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            The hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for each step.
         """
 
         if self.bidirectional:
@@ -689,8 +749,15 @@ class CRNN_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        wx : torch.Tensor
+        w : torch.Tensor
             Linearly transformed input.
+        ht : torch.Tensor
+            The hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for each step.
         """
 
         hiddens = []
@@ -725,11 +792,9 @@ class CRNN_Layer(torch.nn.Module):
         )
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks
-        """
+        """Selects one of the pre-defined dropout masks"""
 
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
@@ -768,7 +833,7 @@ class CRNN_Layer(torch.nn.Module):
 
 
 class CLiGRU(torch.nn.Module):
-    """ This function implements a complex-valued Light GRU (liGRU).
+    """This function implements a complex-valued Light GRU (liGRU).
 
     Ligru is single-gate GRU model based on batch-norm + relu
     activations + recurrent dropout. For more info see:
@@ -791,23 +856,25 @@ class CLiGRU(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of complex-valued neurons. Thus, the output
         is 2*hidden_size.
+    input_shape : tuple
+        The expected size of the input.
     nonlinearity : str
-         Type of nonlinearity (tanh, relu).
+        Type of nonlinearity (tanh, relu).
     normalization : str
-         Type of normalization for the ligru model (batchnorm, layernorm).
-         Every string different from batchnorm and layernorm will result
-         in no normalization.
+        Type of normalization for the ligru model (batchnorm, layernorm).
+        Every string different from batchnorm and layernorm will result
+        in no normalization.
     num_layers : int
-         Number of layers to employ in the RNN architecture.
+        Number of layers to employ in the RNN architecture.
     bias : bool
         If True, the additive bias b is adopted.
     dropout : float
         It is the dropout factor (must be between 0 and 1).
-    return_hidden : bool
-        If True, the function returns the last hidden layer.
     bidirectional : bool
         If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
+    return_hidden : bool
+        If True, the function returns the last hidden layer.
     init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
@@ -867,10 +934,10 @@ class CLiGRU(torch.nn.Module):
     def _init_layers(self):
         """Initializes the layers of the liGRU.
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
+        Returns
+        -------
+        rnn : ModuleList
+            The list of CLiGRU_Layers.
         """
 
         rnn = torch.nn.ModuleList([])
@@ -904,6 +971,15 @@ class CLiGRU(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            Hidden layers.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The outputs of the CliGRU.
+        hh : torch.Tensor
+            If return_hidden, also returns the hidden states for each step.
         """
 
         # Reshaping input tensors for 4d inputs
@@ -926,6 +1002,15 @@ class CLiGRU(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            The hidden layer.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The output tensor.
+        h : torch.Tensor
+            The hidden states for each step.
         """
 
         h = []
@@ -959,20 +1044,20 @@ class CLiGRU_Layer(torch.nn.Module):
     ---------
     input_size : int
         Feature dimensionality of the input tensors.
-    batch_size : int
-        Batch size of the input tensors.
     hidden_size : int
         Number of output values.
     num_layers : int
         Number of layers to employ in the RNN architecture.
+    batch_size : int
+        Batch size of the input tensors.
+    dropout : float
+        It is the dropout factor (must be between 0 and 1).
     nonlinearity : str
         Type of nonlinearity (tanh, relu).
     normalization : str
         Type of normalization (batchnorm, layernorm).
         Every string different from batchnorm and layernorm will result
         in no normalization.
-    dropout : float
-        It is the dropout factor (must be between 0 and 1).
     bidirectional : bool
         If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
@@ -1003,8 +1088,7 @@ class CLiGRU_Layer(torch.nn.Module):
         init_criterion="glorot",
         weight_init="complex",
     ):
-
-        super(CLiGRU_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size) // 2
         self.input_size = int(input_size)
         self.batch_size = batch_size
@@ -1070,13 +1154,20 @@ class CLiGRU_Layer(torch.nn.Module):
             self.act = torch.nn.ReLU()
 
     def forward(self, x, hx=None):
-        # type: (Tensor, Optional[Tensor], Optional[Bool]) -> Tensor # noqa F821
+        # type: (Tensor, Optional[Tensor], Optional[Bool]) -> torch.Tensor # noqa F821
         """Returns the output of the Complex liGRU layer.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for each step.
         """
 
         if self.bidirectional:
@@ -1112,8 +1203,15 @@ class CLiGRU_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        wx : torch.Tensor
+        w : torch.Tensor
             Linearly transformed input.
+        ht : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for each step.
         """
 
         hiddens = []
@@ -1153,11 +1251,9 @@ class CLiGRU_Layer(torch.nn.Module):
         )
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks
-        """
+        """Selects one of the pre-defined dropout masks"""
 
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0

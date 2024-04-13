@@ -34,19 +34,24 @@ Example
 Authors:
   * Aku Rouhe 2020
 """
-from torch.utils.data import DataLoader
-from torch.utils.data import IterableDataset
-from torch.utils.data.dataloader import _BaseDataLoaderIter
+
+import functools
 import logging
 import warnings
-import functools
-from speechbrain.dataio.batch import PaddedBatch, BatchsizeGuesser
+
+from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
+from torch.utils.data.dataloader import _BaseDataLoaderIter
+
+from speechbrain.dataio.batch import BatchsizeGuesser, PaddedBatch
 from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.sampler import ReproducibleRandomSampler
+from speechbrain.dataio.sampler import (
+    DistributedSamplerWrapper,
+    ReproducibleRandomSampler,
+)
 from speechbrain.utils.checkpoints import (
-    register_checkpoint_hooks,
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
 )
 
 # Optional support for webdataset
@@ -65,6 +70,72 @@ except ImportError:
     WDS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
+
+def distributed_loader_specifics(
+    distributed_launch, rank, dataset, loader_kwargs
+):
+    """Prepare loader_kwargs for DDP when necessary.
+
+    Arguments
+    ---------
+    distributed_launch : bool
+        DDP flag
+    rank : int
+        node rank in DDP
+    dataset : Dataset
+        The dataset to make a DataLoader for.
+    loader_kwargs : dict
+        Keyword args to DataLoader, see PyTorch DataLoader for
+        options.
+
+    Returns
+    -------
+    loader_kwargs
+        augmented keyword args to DataLoader
+    """
+    sampler = loader_kwargs.get("sampler", None)
+    shuffle = loader_kwargs.get("shuffle", False)
+    # Possibly make a DistributedSampler or a wrapper for some other sampler
+    if distributed_launch and not isinstance(dataset, IterableDataset):
+        drop_last = loader_kwargs.get("drop_last", False)
+        # num_replicas arg is equal to world_size
+        # and retrieved automatically within
+        # DistributedSampler obj.
+        if sampler is not None:
+            sampler = DistributedSamplerWrapper(
+                sampler,
+                rank=rank,
+                drop_last=drop_last,
+                shuffle=shuffle,
+            )
+
+            # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+            loader_kwargs["shuffle"] = False
+            loader_kwargs["sampler"] = sampler
+        elif loader_kwargs.get("batch_sampler") is None:
+            # no sampler and batch-sampler
+            sampler = DistributedSampler(
+                dataset,
+                rank=rank,
+                drop_last=drop_last,
+            )
+
+            # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+            loader_kwargs["shuffle"] = False
+            loader_kwargs["sampler"] = sampler
+        else:  # batch_sampler was specified
+            sampler = DistributedSamplerWrapper(
+                loader_kwargs.get("batch_sampler", None),
+                rank=rank,
+            )
+            loader_kwargs["batch_sampler"] = sampler
+    elif distributed_launch and isinstance(dataset, IterableDataset):
+        logger.warning(
+            "Cannot automatically solve distributed sampling "
+            "for IterableDataset."
+        )
+    return loader_kwargs
 
 
 def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
@@ -246,8 +317,7 @@ class SaveableDataLoader(DataLoader):
             fo.write(str(to_save))
 
     @mark_as_loader
-    def _speechbrain_load(self, path, end_of_epoch, device=None):
-        del device  # Unused here
+    def _speechbrain_load(self, path, end_of_epoch):
         if self._speechbrain_iterator is not None:
             logging.debug(
                 "SaveableDataLoader was requested to load a "
@@ -286,6 +356,8 @@ class LoopedLoader:
     epoch_length : int
         The length of the nominal epoch. After this many steps, raises
         StopIteration
+    batchsize_fn : callable
+        Function for determining batch size, default ``BatchsizeGuesser``
     """
 
     def __init__(self, loader, epoch_length, batchsize_fn=None):
@@ -330,9 +402,8 @@ class LoopedLoader:
             print(self.total_samples, file=fo)
 
     @mark_as_loader
-    def load(self, path, end_of_epoch=True, device=None):
+    def load(self, path, end_of_epoch=True):
         """Loads the needed information."""
-        del device  # Unused here
         with open(path) as fi:
             self.step = int(fi.readline().strip())
             self.total_steps = int(fi.readline().strip())

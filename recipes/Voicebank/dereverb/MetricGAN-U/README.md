@@ -4,11 +4,19 @@ This recipe implements MetricGAN-U recipe for dereverberation as described in th
 [MetricGAN-U: Unsupervised speech enhancement/ dereverberation based only on noisy/ reverberated speech](https://arxiv.org/abs/2110.05866)
 
 Notes:
-1- By default we use srmr as a default target metric. This requires you to install SRMRpy (see extra-dependecies.txt)
+1- By default we use srmr as a default target metric. This requires you to install SRMRpy (see extra-dependencies.txt)
 2- To use dnsmos as a target metric, you have to ask the key from the DNS organizer first: dns_challenge@microsoft.com
 
 # Dataset
 Please "Manually" Download VoiceBank-SLR dataset from [here](https://bio-asplab.citi.sinica.edu.tw/Opensource.html#VB-SLR):
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
 
 # How to run
 To run an experiment, execute the following command in
@@ -23,7 +31,7 @@ Experiment Date | Hyperparams file | PESQ | SRMR |
 -|-|-|-|
 2021-10-31 | train_dereverb.yaml | 2.07 | 8.265 |
 
-You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://drive.google.com/drive/folders/1CFHE3lFYyIUWAxW8Ccx3hReACQ70qdE1?usp=sharing).
+You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://www.dropbox.com/sh/r94qn1f5lq9r3p7/AAAZfisBhhkS8cwpzy1O5ADUa?dl=0).
 
 
 ## Citation

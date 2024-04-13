@@ -1,6 +1,7 @@
-def test_backofff_ngram_lm():
-    from speechbrain.lm.ngram import BackoffNgramLM
+def test_backoff_ngram_lm():
     import math
+
+    from speechbrain.lm.ngram import BackoffNgramLM
 
     HALF = math.log(0.5)
     ngrams = {

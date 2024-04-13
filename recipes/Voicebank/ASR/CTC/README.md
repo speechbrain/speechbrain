@@ -8,8 +8,12 @@ download and resample the dataset.
 ## How to run
 
 ```bash
-python train.py hparams/train.yaml
+python train.py hparams/train.yaml --data_folder=your/data/folder --jit
 ```
+
+**Note on Compilation**:
+Enabling the just-in-time (JIT) compiler significantly improves code performance, resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
+This speed improvement is observed specifically when using the CRDNN model.
 
 ## Results
 
@@ -17,7 +21,7 @@ python train.py hparams/train.yaml
 |:--------:|:----------------:|:-----------:|:--------:|:-------------:|:-----------:|
 | 21-02-09 | train.yaml       | `clean_wav` | 10.12    | Not Available | 1xV100 32GB |
 
-You can find the output folders with the training logs and checkpoints [here](https://drive.google.com/drive/folders/1diFVwth-MKKeNPJFwRdU9ItiFrupddKk?usp=sharing)
+You can find the output folders with the training logs and checkpoints [here](https://www.dropbox.com/sh/w4j0auezgmmo005/AAAjKcoJMdLDp0Pqe3m7CLVaa?dl=0)
 
 ## Training Time
 

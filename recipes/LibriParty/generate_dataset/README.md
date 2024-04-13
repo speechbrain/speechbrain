@@ -38,7 +38,7 @@ It also requires background QUT-TIMIT noises. The metadata are downloaded from t
         You need to specify *metadata_folder*, *out_folder* and paths to downloaded source datasets:
         Librispeech, noises and impulse responses and QUT noise.
 
-- step 3: run *get_dataset_from_metadata.py*
+- step 3: run *python get_dataset_from_metadata.py dataset.yaml*
 
 #### Custom:
 Follow the next steps to create a novel LibriParty datasets.

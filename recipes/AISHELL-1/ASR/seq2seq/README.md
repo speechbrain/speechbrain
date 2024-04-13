@@ -9,9 +9,8 @@ To train a full recipe:
 
 ```
 cd ../../Tokenizer
-python train.py hparams/tokenizer_bpe5000.yaml --data_folder=/localscratch/aishell/
+python train.py hparams/tokenizer_bpe5000.yaml --data_folder=/path/to/aishell/
 ```
-If not present in the specified data_folder, the dataset will be automatically downloaded there.
 This step is not mandatory. We will use the official tokenizer downloaded from the web if you do not
 specify a different tokenizer in the speech recognition recipe.
 
@@ -30,7 +29,7 @@ Results are reported in terms of Character Error Rate (CER). It is not clear fro
 | Base (keep spaces) | 7.51 |
 
 You can checkout our results (models, training logs, etc,) here:
-https://drive.google.com/drive/folders/1zlTBib0XEwWeyhaXDXnkqtPsIBI18Uzs?usp=sharing
+https://www.dropbox.com/sh/kefuzzf6jaljqbr/AADBRWRzHz74GCMDqJY9BES4a?dl=0
 
 # Training Time
 It takes about 1h 30 minutes on a NVIDIA V100 (32GB).

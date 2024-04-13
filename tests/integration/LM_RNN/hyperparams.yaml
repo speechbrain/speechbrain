@@ -10,7 +10,7 @@ dataloader_options:
 
 # token information
 bos_index: 0 # eos_index = bos_index + 1
-num_chars: 26 # 24 chars + 1 bos + 1 eos
+num_chars: 25 # 23 chars + 1 bos + 1 eos
 
 # Model parameters
 rnn_layers: 1

@@ -1,6 +1,14 @@
 # SLU recipes for Timers and Such v1.0
 This folder contains recipes for spoken language understanding (SLU) with [Timers and Such v1.0](https://zenodo.org/record/4623772#.YGeMMHVKg5k), an SLU dataset with a (train/dev/test) set of synthetic speech and a (train/dev/test) set of real speech.
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 ### LM recipe
 This recipe trains a language model (LM) on Timers and Such transcripts. (It is not necessary to run this before running the other recipes, as they download a trained checkpoint.)
 
@@ -61,7 +69,7 @@ The third uses the "960 Hr" variant of wav2vec 2.0, which is finetuned on LibriS
 | wav2vec 2.0 "Base" | 92.7% ± 1.0% | none |
 | wav2vec 2.0 "960 Hr" | 94.0% ± 1.2% | none |
 
-You can find the output folders (model, logs, etc) [here](https://drive.google.com/drive/folders/1x2crmemZj2uxdzyOM_nlfuHxlTCP-9_-?usp=sharing)
+You can find the output folders (model, logs, etc) [here](https://www.dropbox.com/sh/gmmum179ig9wz0x/AAAOSOi11yVymGXHp9LzYNrqa?dl=0)
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/slu-timers-and-such-direct-librispeech-asr).

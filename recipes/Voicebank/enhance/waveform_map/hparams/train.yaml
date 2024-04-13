@@ -81,6 +81,6 @@ compute_cost: !name:speechbrain.nnet.losses.mse_loss
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-# Tensorboard logger (optional)
+# torch.Tensorboard logger (optional)
 tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
     save_dir: !ref <tensorboard_logs>

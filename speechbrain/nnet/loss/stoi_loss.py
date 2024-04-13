@@ -6,9 +6,10 @@ Authors:
     Szu-Wei, Fu 2020
 """
 
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
+
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
@@ -74,6 +75,10 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
         Window length.
     K: int
         Step size.
+
+    Returns
+    -------
+    list with 2 elements, x and y with silence removed.
     """
     w = torch.unsqueeze(torch.from_numpy(np.hanning(N)), 0).to(torch.float)
 
@@ -88,7 +93,7 @@ def removeSilentFrames(x, y, dyn_range=40, N=256, K=128):
     X[:, 1::2] = X2
 
     energy = 20 * torch.log10(
-        torch.sqrt(torch.matmul(w ** 2, X ** 2)) / 16.0 + smallVal
+        torch.sqrt(torch.matmul(w**2, X**2)) / 16.0 + smallVal
     )
 
     Max_energy = torch.max(energy)
@@ -143,6 +148,10 @@ def stoi_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
         The relative lengths of the waveforms within the batch.
     reduction : str
         The type of reduction ("mean" or "batch") to use.
+
+    Returns
+    -------
+    The computed STOI loss.
 
     Example
     -------

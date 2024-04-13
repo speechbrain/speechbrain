@@ -8,21 +8,29 @@
 
 * The paper for the REAL-M dataset can be found on [this arxiv link](https://arxiv.org/pdf/2110.10812.pdf).
 
-* The model is trained with the LibriMix and WHAMR! datasets. You can download LibriMix by following the instructions [here](https://github.com/JorisCos/LibriMix). Instructions on WHAMR! can be found [here](https://wham.whisper.ai/)
+* The model is trained with the LibriMix and WHAMR! datasets. You can download LibriMix by following the instructions [here](https://github.com/JorisCos/LibriMix). Instructions on WHAMR! can be found [here](http://wham.whisper.ai/)
 
 # How to Run
 
 * To train with dynamic mixing:
 
-```python train.py hparams/pool_sisnrestimator.yaml --data_folder /yourLibri2Mixpath --base_folder_dm /yourLibriSpeechpath --rir_path /yourpathforwhamrRIRs --dynamic_mixing True --use_whamr_train True --whamr_data_folder /yourpath/whamr --base_folder_dm_whamr /yourpath/wsj0-processed/si_tr_s```
+```shell
+python train.py hparams/pool_sisnrestimator.yaml --data_folder /yourLibri2Mixpath --base_folder_dm /yourLibriSpeechpath --rir_path /yourpathforwhamrRIRs --dynamic_mixing True --use_whamr_train True --whamr_data_folder /yourpath/whamr --base_folder_dm_whamr /yourpath/wsj0-processed/si_tr_s
+```
 
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+
+```shell
+python train.py hparams/pool_sisnrestimator.yaml --data_folder /yourLibri2Mixpath --base_folder_dm /yourLibriSpeechpath --rir_path /yourpathforwhamrRIRs --dynamic_mixing True --use_whamr_train True --whamr_data_folder /yourpath/whamr --base_folder_dm_whamr /yourpath/wsj0-processed/si_tr_s --test_only
+```
 # Results
 
 | Release | hyperparams file | L1-Error (DB) | HuggingFace link | Full model link | GPUs |
 |:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
 | 18-10-21 | pool_sisnrestimator.yaml | 1.71 | [HuggingFace](https://huggingface.co/speechbrain/REAL-M-sisnr-estimator) | Not Available| RTX8000 48GB |
 
-You can find the output folders with the training logs [here](https://drive.google.com/drive/folders/1NGncbjvLeGfbUqmVi6ej-NH9YQn5vBmI?usp=sharing).
+You can find the output folders with the training logs [here](https://www.dropbox.com/sh/n55lm8i5z51pbm1/AABHfByOEy__UP_bmT4GJvSba?dl=0).
 This [repository](https://huggingface.co/speechbrain/REAL-M-sisnr-estimator-training) provides the Separator models needed to train a blind SI-SNR estimator.
 
 # Training Time

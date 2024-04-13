@@ -1,16 +1,15 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the
+"""Recipe for training a neural speech separation system on binaural wsjmix the
 dataset. The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
-> python train.py hparams/sepformer.yaml
-> python train.py hparams/dualpath_rnn.yaml
-> python train.py hparams/convtasnet.yaml
+> python train.py hparams/convtasnet-parallel.yaml
+                --data_folder yourpath/binaural-wsj0mix/2speakers
+                --wsj_root yourpath/to/wsj/
 
 The experiment file is flexible enough to support different neural
 networks. By properly changing the parameter files, you can try
-different architectures. The script supports both wsj2mix and
-wsj3mix.
+different architectures.
 
 
 Authors
@@ -22,25 +21,27 @@ Authors
  * Zijian Huang 2022
 """
 
+import csv
+import logging
 import os
 import sys
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from pyroomacoustics.experimental.localization import tdoa
+from torch.nn import Conv1d
+from tqdm import tqdm
+
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from torch.cuda.amp import autocast
-from hyperpyyaml import load_hyperpyyaml
-import numpy as np
-from tqdm import tqdm
-import csv
-import logging
-from pyroomacoustics.experimental.localization import tdoa
+from speechbrain.core import AMPConfig
 from speechbrain.processing.features import STFT, spectral_magnitude
-from torch.nn import Conv1d
-from speechbrain.pretrained.fetching import fetch
-import zipfile
+from speechbrain.utils.distributed import run_on_main
+
+logger = logging.getLogger(__name__)
 
 
 # Define training procedure
@@ -66,9 +67,23 @@ class Separation(sb.Brain):
                     mix, targets = self.add_speed_perturb(targets, mix_lens)
 
                     mix = targets.sum(-1)
+                    if "noise" in self.hparams.experiment_name:
+                        noise = noise.to(self.device)
+                        len_noise = noise.shape[1]
+                        len_mix = mix.shape[1]
+                        min_len = min(len_noise, len_mix)
+
+                        # add the noise
+                        if noise.ndim == 2:
+                            noise = noise.unsqueeze(-1)
+                        mix = mix[:, :min_len] + noise[:, :min_len]
+
+                        # fix the length of targets also
+                        targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
-                    mix = self.hparams.wavedrop(mix, mix_lens)
+                    mix = self.hparams.drop_chunk(mix, mix_lens)
+                    mix = self.hparams.drop_freq(mix)
 
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
@@ -185,6 +200,9 @@ class Separation(sb.Brain):
 
     def fit_batch(self, batch):
         """Trains one batch"""
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
+
         # Unpacking batch list
         mixture = batch.mix_sig
         targets = [batch.s1_sig, batch.s2_sig]
@@ -192,72 +210,82 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
-        if self.auto_mix_prec:
-            with autocast():
+        noise = None
+        if "noise" in self.hparams.experiment_name:
+            noise = batch.noise_sig[0]
+
+        with self.no_sync(not should_step):
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
+                ):
+                    predictions, targets = self.compute_forward(
+                        mixture, targets, sb.Stage.TRAIN, noise
+                    )
+                    loss = self.compute_objectives(predictions, targets)
+
+                    # hard threshold the easy dataitems
+                    if self.hparams.threshold_byloss:
+                        th = self.hparams.threshold
+                        loss = loss[loss > th]
+                        if loss.nelement() > 0:
+                            loss = loss.mean()
+                    else:
+                        loss = loss.mean()
+
+                if (
+                    loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
+                ):  # the fix for computational problems
+                    self.scaler.scale(loss).backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        self.scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                else:
+                    self.nonfinite_count += 1
+                    logger.info(
+                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                            self.nonfinite_count
+                        )
+                    )
+                    loss.data = torch.tensor(0).to(self.device)
+            else:
                 predictions, targets = self.compute_forward(
-                    mixture, targets, sb.Stage.TRAIN
+                    mixture, targets, sb.Stage.TRAIN, noise
                 )
                 loss = self.compute_objectives(predictions, targets)
 
-                # hard threshold the easy dataitems
                 if self.hparams.threshold_byloss:
                     th = self.hparams.threshold
-                    loss_to_keep = loss[loss > th]
-                    if loss_to_keep.nelement() > 0:
-                        loss = loss_to_keep.mean()
+                    loss = loss[loss > th]
+                    if loss.nelement() > 0:
+                        loss = loss.mean()
                 else:
                     loss = loss.mean()
 
-            if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
-                self.scaler.scale(loss).backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    self.scaler.unscale_(self.optimizer)
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm,
+                if (
+                    loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
+                ):  # the fix for computational problems
+                    loss.backward()
+                    if self.hparams.clip_grad_norm >= 0:
+                        torch.nn.utils.clip_grad_norm_(
+                            self.modules.parameters(),
+                            self.hparams.clip_grad_norm,
+                        )
+                    self.optimizer.step()
+                else:
+                    self.nonfinite_count += 1
+                    logger.info(
+                        "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                            self.nonfinite_count
+                        )
                     )
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
-        else:
-            predictions, targets = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN
-            )
-            loss = self.compute_objectives(predictions, targets)
-
-            if self.hparams.threshold_byloss:
-                th = self.hparams.threshold
-                loss_to_keep = loss[loss > th]
-                if loss_to_keep.nelement() > 0:
-                    loss = loss_to_keep.mean()
-            else:
-                loss = loss.mean()
-
-            if (
-                loss < self.hparams.loss_upper_lim and loss.nelement() > 0
-            ):  # the fix for computational problems
-                loss.backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm
-                    )
-                self.optimizer.step()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -283,7 +311,7 @@ class Separation(sb.Brain):
             else:
                 self.save_audio(snt_id[0], mixture, targets, predictions)
 
-        return loss.detach()
+        return loss.mean().detach()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -294,7 +322,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -313,7 +340,8 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"snr": stage_stats["snr"]}, min_keys=["snr"],
+                meta={"snr": stage_stats["snr"]},
+                min_keys=["snr"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -333,9 +361,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speedperturb(
-                    targets[:, :, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(targets[:, :, :, i])
                 new_targets.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[1]
@@ -410,7 +436,7 @@ class Separation(sb.Brain):
                 s_target[:, 1, i].cpu().numpy(),
                 fs=self.hparams.sample_rate,
             )
-            * 10 ** 6
+            * 10**6
             for i in range(s_target.shape[-1])
         ]
         ITD_prediction = [
@@ -419,7 +445,7 @@ class Separation(sb.Brain):
                 s_prediction[:, 1, i].cpu().numpy(),
                 fs=self.hparams.sample_rate,
             )
-            * 10 ** 6
+            * 10**6
             for i in range(s_prediction.shape[-1])
         ]
         ITD_error1 = np.mean(
@@ -471,7 +497,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture, mix_len = batch.mix_sig
                     snt_id = batch.id
@@ -539,13 +564,12 @@ class Separation(sb.Brain):
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
 
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
         for ns in range(self.hparams.num_spks):
-
             # Estimated source
             signal = predictions[0, :, :, ns]
             signal = signal / signal.abs().max(0).values
@@ -624,6 +648,14 @@ def dataio_prep(hparams):
             s3_sig = sb.dataio.dataio.read_audio(s3_wav)
             return s3_sig
 
+    if "noise" in hparams["experiment_name"]:
+
+        @sb.utils.data_pipeline.takes("noise_wav")
+        @sb.utils.data_pipeline.provides("noise_sig")
+        def audio_pipeline_noise(noise_wav):
+            noise_sig = sb.dataio.dataio.read_audio(noise_wav)
+            return noise_sig
+
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_mix)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s1)
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s2)
@@ -631,6 +663,11 @@ def dataio_prep(hparams):
         sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_s3)
         sb.dataio.dataset.set_output_keys(
             datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "s3_sig"]
+        )
+    elif "noise" in hparams["experiment_name"]:
+        sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline_noise)
+        sb.dataio.dataset.set_output_keys(
+            datasets, ["id", "mix_sig", "s1_sig", "s2_sig", "noise_sig"]
         )
     else:
         sb.dataio.dataset.set_output_keys(
@@ -641,7 +678,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -649,9 +685,6 @@ if __name__ == "__main__":
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
-
-    # Logger info
-    logger = logging.getLogger(__name__)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -664,49 +697,63 @@ if __name__ == "__main__":
     if hparams["dynamic_mixing"] and not os.path.exists(
         hparams["base_folder_dm"]
     ):
-        print(
+        raise ValueError(
             "Please, specify a valid base_folder_dm folder when using dynamic mixing"
         )
-        sys.exit(1)
 
-    if not os.path.exists(hparams["datasets_generation"]):
-        print("Download Datasets Generation scripts")
-        fetch(
-            filename="main.zip",
-            source="https://github.com/huangzj421/Binaural-WSJ0Mix/archive/refs/heads",
-            savedir=hparams["data_folder"],
-            save_filename="Binaural-WSJ0Mix-main.zip",
-        )
-        file = zipfile.ZipFile(
-            os.path.join(hparams["data_folder"], "Binaural-WSJ0Mix-main.zip")
-        )
-        file.extractall(path=hparams["data_folder"])
+    if not hparams["skip_prep"]:
+        if not os.path.exists(hparams["datasets_generation"]):
+            from git import Repo
 
-    if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
-        print("Generate Binaural WSJ0Mix dataset automatically")
+            git_url = "https://github.com/huangzj421/BinauralWSJ0Mix"
+            repo_dir = hparams["datasets_generation"]
+            Repo.clone_from(git_url, repo_dir)
+
         sys.path.append(hparams["datasets_generation"])
-        if hparams["num_spks"] == 2:
+        if "noise" in hparams["experiment_name"]:
+            from create_wav_2speakers_noise import create_binaural_wsj0mix
+
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "noise"
+            )
+        elif "reverb" in hparams["experiment_name"]:
+            from create_wav_2speakers_reverb import create_binaural_wsj0mix
+
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "reverb"
+            )
+        elif hparams["num_spks"] == 2:
             from create_wav_2speakers import create_binaural_wsj0mix
+
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "2speakers"
+            )
         else:
             from create_wav_3speakers import create_binaural_wsj0mix
-        run_on_main(
-            create_binaural_wsj0mix,
-            kwargs={
-                "wsj_root": hparams["wsj_root"],
-                "output_root": hparams["data_folder"],
-                "datafreqs": hparams["data_freqs"],
-                "datamodes": hparams["data_modes"],
-            },
-        )
+
+            hparams["data_folder"] = os.path.join(
+                hparams["data_folder"], "3speakers"
+            )
+
+        if not os.path.exists(os.path.join(hparams["data_folder"], "wav8k")):
+            print("Generate Binaural WSJ0Mix dataset automatically")
+            run_on_main(
+                create_binaural_wsj0mix,
+                kwargs={
+                    "wsj_root": hparams["wsj_root"],
+                    "output_root": hparams["data_folder"],
+                    "datafreqs": hparams["data_freqs"],
+                    "datamodes": hparams["data_modes"],
+                },
+            )
 
     # Data preparation
-    from recipes.BinauralWSJ0Mix.prepare_data import (
-        prepare_binaural_wsj0mix,
-    )  # noqa
+    from prepare_data import prepare_binaural_wsj0mix  # noqa
 
     run_on_main(
         prepare_binaural_wsj0mix,
         kwargs={
+            "experiment_name": hparams["experiment_name"],
             "datapath": hparams["data_folder"],
             "savepath": hparams["save_folder"],
             "n_spks": hparams["num_spks"],
@@ -790,15 +837,14 @@ if __name__ == "__main__":
         for module in separator.modules.values():
             separator.reset_layer_recursively(module)
 
-    if not hparams["test_only"]:
-        # Training
-        separator.fit(
-            separator.hparams.epoch_counter,
-            train_data,
-            valid_data,
-            train_loader_kwargs=hparams["dataloader_opts"],
-            valid_loader_kwargs=hparams["dataloader_opts"],
-        )
+    # Training
+    separator.fit(
+        separator.hparams.epoch_counter,
+        train_data,
+        valid_data,
+        train_loader_kwargs=hparams["dataloader_opts"],
+        valid_loader_kwargs=hparams["dataloader_opts"],
+    )
 
     # Eval
     separator.evaluate(test_data, min_key="snr")

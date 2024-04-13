@@ -1,0 +1,48 @@
+# ############################################################################
+# Based on:
+#   https://github.com/speechbrain/speechbrain/blob/develop/templates/speech_recognition/ASR/train.yaml
+#   https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/blob/main/hyperparams.yaml
+#   by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell 2020
+#
+# Goal: more clarity on when, where & how to use
+#    speechbrain.utils.parameter_transfer.Pretrainer
+#    speechbrain.inference.interfaces.Pretrained
+#
+# Authors:  Andreas Nautsch 2023
+# # ############################################################################
+
+params: !include:../ASR.yaml
+
+normalizer: !ref <params[normalize]>
+compute_features: !ref <params[compute_features]>
+enc: !ref <params[encoder]>
+emb: !ref <params[embedding]>
+dec: !ref <params[decoder]>
+ctc_lin: !ref <params[ctc_lin]>
+seq_lin: !ref <params[seq_lin]>
+lm_model: !ref <params[lm_model]>
+tokenizer: !ref <params[tokenizer]>
+
+asr_model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+
+encoder: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    input_shape: !ref <enc[input_shape]>
+    compute_features: !ref <compute_features>
+    normalize: !ref <normalizer>
+    model: !ref <enc>
+
+decoder: !ref <params[test_search]>
+
+modules:
+    normalizer: !ref <normalizer>
+    encoder: !ref <encoder>
+    decoder: !ref <decoder>
+    lm_model: !ref <lm_model>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        normalizer: !ref <normalizer>
+        asr: !ref <asr_model>
+        lm: !ref <lm_model>
+        tokenizer: !ref <tokenizer>

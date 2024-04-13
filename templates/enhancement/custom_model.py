@@ -8,6 +8,7 @@ a custom PyTorch module.
 Authors
  * Peter Plantinga 2021
 """
+
 import torch
 
 
@@ -45,7 +46,8 @@ class CustomModel(torch.nn.Module):
             linear_size = input_size if i == layers - 1 else projection
             self.layers.append(
                 torch.nn.Linear(
-                    in_features=rnn_size * 2, out_features=linear_size,
+                    in_features=rnn_size * 2,
+                    out_features=linear_size,
                 )
             )
 

@@ -16,7 +16,7 @@ trial_id: null
 
 # Data paths
 output_folder: !ref results/RNN/<seed>
-data_folder: null # e.g. /localscratch/librig2p
+data_folder: !PLACEHOLDER # e.g. /localscratch/librig2p
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 use_tensorboard: True
@@ -95,7 +95,7 @@ homograph_loss_weight: 2.0
 lr: 0.002
 save_for_pretrained: True
 
-# Model parameters
+####################### Model Parameters #######################################
 output_neurons: !apply:speechbrain.utils.hparams.choice
     value: !ref <phn_tokenize>
     choices:
@@ -342,60 +342,79 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
 
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+    language_model: !ref <lm_model>
+    temperature: !ref <beam_search_temperature_lm>
+
+# Scorer
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+    vocab_size: !ref <output_neurons>
+
+
+scorer_lm: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>, !ref <coverage_scorer>]
+    weights:
+        ctc: !ref <beam_search_ctc_weight_decode>
+        transformerlm: !ref <beam_search_lm_weight>
+        coverage: !ref <beam_search_coverage_penalty>
+
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <ctc_scorer>, !ref <coverage_scorer>]
+    weights:
+        ctc: !ref <beam_search_ctc_weight_decode>
+        coverage: !ref <beam_search_coverage_penalty>
+
 beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
     max_decode_ratio: !ref <beam_search_max_decode_ratio>
     beam_size: !ref <beam_search_beam_size>
     eos_threshold: !ref <beam_search_eos_threshold>
     using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
     max_attn_shift: !ref <beam_search_max_attn_shift>
-    coverage_penalty: !ref <beam_search_coverage_penalty>
-    ctc_weight: !ref <beam_search_ctc_weight_decode>
+    temperature: !ref <beam_search_temperature>
+    scorer: !ref <scorer>
 
 beam_searcher_valid: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
     max_decode_ratio: !ref <beam_search_max_decode_ratio>
     beam_size: !ref <beam_search_beam_size_valid>
     eos_threshold: !ref <beam_search_eos_threshold>
     using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
     max_attn_shift: !ref <beam_search_max_attn_shift>
-    coverage_penalty: !ref <beam_search_coverage_penalty>
-    ctc_weight: !ref <beam_search_ctc_weight_decode>
+    temperature: !ref <beam_search_temperature>
+    scorer: !ref <scorer>
 
-beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearchLM
+beam_searcher_lm: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <lin>
-    ctc_linear: !ref <ctc_lin>
-    language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <beam_search_min_decode_ratio>
     max_decode_ratio: !ref <beam_search_max_decode_ratio>
     beam_size: !ref <beam_search_beam_size>
     eos_threshold: !ref <beam_search_eos_threshold>
     using_max_attn_shift: !ref <beam_search_using_max_attn_shift>
     max_attn_shift: !ref <beam_search_max_attn_shift>
-    coverage_penalty: !ref <beam_search_coverage_penalty>
-    ctc_weight: !ref <beam_search_ctc_weight_decode>
-    lm_weight: !ref <beam_search_lm_weight>
     temperature: !ref <beam_search_temperature>
-    temperature_lm: !ref <beam_search_temperature_lm>
+    scorer: !ref <scorer_lm>
 
 
 lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler

@@ -1,0 +1,22 @@
+{
+    "example_1": {
+        "length": 32000,
+        "wav": "{data_root}/valid.wav",
+        "speech": [[0.38, 2]]
+    },
+    "example_2": {
+        "length": 32000,
+        "wav": "{data_root}/valid.wav",
+        "speech": [[0, 0.7]]
+    },
+    "example_3": {
+        "length": 32000,
+        "wav": "{data_root}/valid.wav",
+        "speech": [[0.1, 1.88]]
+    },
+    "example_4": {
+        "length": 32000,
+        "wav": "{data_root}/valid.wav",
+        "speech": []
+    }
+}

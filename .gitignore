@@ -16,6 +16,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+node_modules/
 parts/
 sdist/
 var/
@@ -52,6 +53,7 @@ coverage.xml
 .pytest_cache/
 cover/
 tests/tmp/
+tests/download/
 
 # Translations
 *.mo
@@ -71,11 +73,8 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
-docs/source/*.rst
-!docs/source/index.rst
-!docs/source/_templates
-!docs/source/_static
+docs/build/
+docs/API/*.rst
 
 # PyBuilder
 target/
@@ -141,6 +140,9 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+
+# Audio folders
+**/audio_cache/
 
 # Pretrained & models folders
 **/model_checkpoints/

@@ -60,6 +60,14 @@ cd voxlingua107_shards
 wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
 ```
 
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
+```
+
 
 ## Training
 
@@ -73,7 +81,7 @@ Training is run for 40 epochs. One epoch takes one hour and 40 minutes on a NVid
 # Performance
 | Release | hyperparams file | Dev error rate | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| :-----------:|
-| 21-08-24 | train_ecapa.yaml | 6.7 |https://drive.google.com/drive/folders/151QTW9oHVElLIkuzXjkuHpOCLNZF0Ufd?usp=sharing | 1xA100 40GB |
+| 21-08-24 | train_ecapa.yaml | 6.7 |https://www.dropbox.com/sh/72gpuic5m4x8ztz/AAB5R-RVIEsXJtRH8SGkb_oCa?dl=0 | 1xA100 40GB |
 
 
 
@@ -85,9 +93,9 @@ You can run inference with only few lines of code:
 
 ```python
 import torchaudio
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference import EncoderClassifier
 language_id = EncoderClassifier.from_hparams(source="speechbrain/lang-id-voxlingua107-ecapa", savedir="tmp")
-# Download Thai language sample from Omniglot and cvert to suitable form
+# Download Thai language sample from Omniglot and convert to suitable form
 signal = language_id.load_audio("https://omniglot.com/soundfiles/udhr/udhr_th.mp3")
 prediction =  language_id.classify_batch(signal)
 print(prediction)

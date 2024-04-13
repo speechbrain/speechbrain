@@ -14,23 +14,38 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                python-version: [3.7, 3.8, 3.9]
+                python-version: [3.8, 3.12]
         steps:
             - uses: actions/checkout@v2
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v1
               with:
                   python-version: ${{ matrix.python-version }}
-            - name: Install libsndfile
+            - name: Install sox
               run: |
-                  sudo apt-get install -y libsndfile1
+                  sudo apt-get update
+                  sudo apt install sox libsox-dev
+            # Installing only SoX for now due to FFmpeg issues on the CI server with Torchaudio 2.1.
+            # FFmpeg works fine on all other machines. We'll switch back when the CI server is fixed.
+            #- name: Install ffmpeg
+            #  run: |
+            #      sudo apt-get update
+            #      sudo apt-get install -y ffmpeg
             - name: Display Python version
               run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
               run: |
+                  sudo apt-get update
+                  # up to k2 compatible torch version
+                  pip install torch==2.2.1 torchaudio==2.2.1
                   pip install -r requirements.txt
                   pip install --editable .
                   pip install ctc-segmentation
+                  pip install k2==1.24.4.dev20240223+cpu.torch2.2.1 -f https://k2-fsa.github.io/k2/cpu.html
+                  pip install protobuf
+                  pip install kaldilm==1.15.1
+                  pip install spacy==3.7.4
+                  pip install flair==0.13.1
             - name: Consistency tests with pytest
               run: |
                   pytest tests/consistency

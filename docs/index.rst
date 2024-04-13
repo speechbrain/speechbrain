@@ -3,32 +3,29 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-SpeechBrain
-=======================================
-
-.. image:: images/logo_noname_rounded_big.png
-  :width: 400
-  :align: center
+==========
+User guide
+==========
 
 SpeechBrain is an open-source and all-in-one speech toolkit based on PyTorch.
 This documentation is intended to give SpeechBrain users all the API
 information necessary to develop their projects. For tutorials,
 please refer to the official `Github <https://github.com/speechbrain/speechbrain>`_
-or the official `Website <https://speechbrain.github.io>`
+or the official `Website <https://speechbrain.github.io>`_.
 
 
-Licence
---------
+License
+-------
 
-SpeechBrain is released under the Apache license, version 2.0. The Apache license is a popular BSD-like license.
+SpeechBrain is released under the `Apache License, version 2.0 <https://github.com/speechbrain/speechbrain/blob/develop/LICENSE>`_. The Apache license is a popular BSD-like license.
 SpeechBrain can be redistributed for free, even for commercial purposes, although you can not take off the license headers (and under some circumstances you may have to distribute a license document).
 Apache is not a viral license like the GPL, which forces you to release your modifications to the source code. Also note that this project has no connection to the Apache Foundation, other than that we use the same license terms.
 
 It is a community project, which means that discussions are engaged community-wide while decisions are taken by Dr. Ravanelli and Dr. Parcollet with respect to the community views.
-There is no legal institution associated as an owner of SpeechBrain. Furthermore, and due to the Apache Licence, anyone that would disagree with the way the project is being run can fork it and start a new toolkit.
+There is no legal institution associated as an owner of SpeechBrain. Furthermore, and due to the Apache License, anyone that would disagree with the way the project is being run can fork it and start a new toolkit.
 
 Referencing SpeechBrain
---------
+-----------------------
 .. code-block:: txt
 
   @misc{speechbrain,
@@ -43,16 +40,31 @@ Referencing SpeechBrain
 
 .. toctree::
    :maxdepth: 1
-   :caption: Getting started:
+   :caption: Getting started
 
    installation.md
    experiment.md
    multigpu.md
    tutorials.md
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Tips & tricks
+
+   audioloading.rst
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contributing
+
    contributing.md
+   guidance.md
+   coverage.md
 
 API Documentation
---------
+-----------------
 
 .. toctree::
    :caption: API Documentation:
@@ -66,11 +78,17 @@ API Documentation
 
    speechbrain
    speechbrain.alignment
+   speechbrain.augment
    speechbrain.dataio
    speechbrain.decoders
+   speechbrain.inference
+   speechbrain.k2_integration
    speechbrain.lm
    speechbrain.lobes
    speechbrain.nnet
    speechbrain.processing
    speechbrain.tokenizers
    speechbrain.utils
+   speechbrain.wordemb
+
+   hyperpyyaml.core

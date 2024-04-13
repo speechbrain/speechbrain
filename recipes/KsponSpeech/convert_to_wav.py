@@ -14,10 +14,6 @@ def convert_to_wav(filepath):
     ---------
     filepath : str
         path to the pcm file
-
-    Returns
-    -------
-    None
     """
 
     with open(filepath, "rb") as r:

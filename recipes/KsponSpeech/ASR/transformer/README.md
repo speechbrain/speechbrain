@@ -2,7 +2,7 @@
 
 This folder contains the scripts to train a Transformer-based speech recognizer using KsponSpeech.
 
-You can download KsponSpeech at https://aihub.or.kr/aidata/105/download
+You can download KsponSpeech at [Link](https://aihub.or.kr/aihubdata/data/view.do?currMenu=115&topMenu=100&aihubDataSe=realm&dataSetSn=123)
 
 # How to run
 Before start training, set pretrained lm and tokenizer path in the YAML file to the proper path (i.e. the directory where trained tokenizer and language model exist)
@@ -13,7 +13,7 @@ This is set to huggingface repository as a default. Pretrained models will be do
 pretrained_lm_tokenizer_path: /path/to/pretrained/models
 ```
 
-Also, data_foler in the YAML file should point to the results of ksponspeech_prepare.py
+Also, data_folder in the YAML file should point to the results of ksponspeech_prepare.py
 ```YAML
 data_folder: /path/to/data/prep/results
 ```
@@ -25,7 +25,7 @@ python train.py hparams/conformer_medium.yaml
 # Results
 | Release  |   hyperparams file    | eval clean WER | eval other WER | eval clean CER | eval other CER |                                   HuggingFace link                                   |                                               Model link                                                |    GPUs     |  Training time  |
 | :------: | :-------------------: | :------------: | :------------: | :------------: | :------------: | :----------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------: | :-------------: |
-| 09-05-21 | conformer_medium.yaml |     21.00%     |     25.69%     |     7.48%      |     8.38%      | [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech) | [GoogleDrive](https://drive.google.com/drive/folders/1iPzuhaKIUeKtOunkBkhc_sGlk47Awe80?usp=sharing) | 6xA100 80GB | 2 days 13 hours |
+| 01-23-23 | conformer_medium.yaml |     20.47%     |     25.18%     |     7.33%      |     7.99%      | [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech) | [DropBox](https://www.dropbox.com/sh/uibokbz83o8ybv3/AACtO5U7mUbu_XhtcoOphAjza?dl=0) | 6xA100 80GB | 2 days 13 hours |
 
 # PreTrained Model + Easy-Inference
 You can find the pre-trained model with an easy-inference function on HuggingFace: [HuggingFace](https://huggingface.co/speechbrain/asr-conformer-transformerlm-ksponspeech)

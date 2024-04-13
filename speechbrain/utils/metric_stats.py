@@ -4,13 +4,28 @@ statistics produced over the course of an experiment and summarizing them.
 Authors:
  * Peter Plantinga 2020
  * Mirco Ravanelli 2020
+ * Gaëlle Laperrière 2021
+ * Sahar Ghannay 2021
 """
+
+from typing import Callable, Optional
+
 import torch
 from joblib import Parallel, delayed
+
+from speechbrain.dataio.dataio import (
+    extract_concepts_values,
+    merge_char,
+    split_word,
+)
+from speechbrain.dataio.wer import print_alignments, print_wer_summary
 from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.edit_distance import wer_summary, wer_details_for_batch
-from speechbrain.dataio.dataio import merge_char, split_word
-from speechbrain.dataio.wer import print_wer_summary, print_alignments
+from speechbrain.utils.edit_distance import (
+    EDIT_SYMBOLS,
+    _str_equals,
+    wer_details_for_batch,
+    wer_summary,
+)
 
 
 class MetricStats:
@@ -25,15 +40,15 @@ class MetricStats:
         at least two arguments (predictions and targets) and can
         optionally take the relative lengths of either or both arguments.
         Not usually used in sub-classes.
-    batch_eval: bool
-        When True it feeds the evaluation metric with the batched input.
-        When False and n_jobs=1, it performs metric evaluation one-by-one
-        in a sequential way. When False and n_jobs>1, the evaluation
-        runs in parallel over the different inputs using joblib.
     n_jobs : int
         The number of jobs to use for computing the metric. If this is
         more than one, every sample is processed individually, otherwise
         the whole batch is passed at once.
+    batch_eval : bool
+        When True it feeds the evaluation metric with the batched input.
+        When False and n_jobs=1, it performs metric evaluation one-by-one
+        in a sequential way. When False and n_jobs>1, the evaluation
+        runs in parallel over the different inputs using joblib.
 
     Example
     -------
@@ -73,7 +88,9 @@ class MetricStats:
         ---------
         ids : list
             List of ids corresponding to utterances.
-        *args, **kwargs
+        *args : tuple
+            Arguments to pass to the metric function.
+        **kwargs : dict
             Arguments to pass to the metric function.
         """
         self.ids.extend(ids)
@@ -204,6 +221,16 @@ class ErrorRateStats(MetricStats):
         this represents character to split on after merge.
         Used with ``split_tokens`` the sequence is joined with
         this token in between, and then the whole sequence is split.
+    keep_values : bool
+        Whether to keep the values of the concepts or not.
+    extract_concepts_values : bool
+        Process the predict and target to keep only concepts and values.
+    tag_in : str
+        Start of the concept ('<' for example).
+    tag_out : str
+        End of the concept ('>' for example).
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Example
     -------
@@ -227,11 +254,26 @@ class ErrorRateStats(MetricStats):
     1
     """
 
-    def __init__(self, merge_tokens=False, split_tokens=False, space_token="_"):
+    def __init__(
+        self,
+        merge_tokens=False,
+        split_tokens=False,
+        space_token="_",
+        keep_values=True,
+        extract_concepts_values=False,
+        tag_in="",
+        tag_out="",
+        equality_comparator: Callable[[str, str], bool] = _str_equals,
+    ):
         self.clear()
         self.merge_tokens = merge_tokens
         self.split_tokens = split_tokens
         self.space_token = space_token
+        self.extract_concepts_values = extract_concepts_values
+        self.keep_values = keep_values
+        self.tag_in = tag_in
+        self.tag_out = tag_out
+        self.equality_comparator = equality_comparator
 
     def append(
         self,
@@ -284,7 +326,29 @@ class ErrorRateStats(MetricStats):
             predict = split_word(predict, space=self.space_token)
             target = split_word(target, space=self.space_token)
 
-        scores = wer_details_for_batch(ids, target, predict, True)
+        if self.extract_concepts_values:
+            predict = extract_concepts_values(
+                predict,
+                self.keep_values,
+                self.tag_in,
+                self.tag_out,
+                space=self.space_token,
+            )
+            target = extract_concepts_values(
+                target,
+                self.keep_values,
+                self.tag_in,
+                self.tag_out,
+                space=self.space_token,
+            )
+
+        scores = wer_details_for_batch(
+            ids,
+            target,
+            predict,
+            compute_alignments=True,
+            equality_comparator=self.equality_comparator,
+        )
 
         self.scores.extend(scores)
 
@@ -314,9 +378,290 @@ class ErrorRateStats(MetricStats):
         print_alignments(self.scores, filestream)
 
 
-class BinaryMetricStats(MetricStats):
-    """Tracks binary metrics, such as precision, recall, F1, EER, etc.
+class WeightedErrorRateStats(MetricStats):
+    """Metric that reweighs the WER from :class:`~ErrorRateStats` with any
+    chosen method. This does not edit the sequence of found edits
+    (insertion/deletion/substitution) but multiplies their impact on the metric
+    by a value between 0 and 1 as returned by the cost function.
+
+    Arguments
+    ---------
+    base_stats : ErrorRateStats
+        The base WER calculator to use.
+    cost_function : Callable[[str, Optional[str], Optional[str]], float]
+        Cost function of signature `fn(edit_symbol, a, b) -> float`, where the
+        returned value, between 0 and 1, is the weight that should be assigned
+        to a particular edit in the weighted WER calculation.
+        In the case of insertions and deletions, either of `a` or `b` may be
+        `None`. In the case of substitutions, `a` and `b` will never be `None`.
+    weight_name : str
+        Prefix to be prepended to each metric name (e.g. `xxx_wer`)
     """
+
+    def __init__(
+        self,
+        base_stats: ErrorRateStats,
+        cost_function: Callable[[str, Optional[str], Optional[str]], float],
+        weight_name: str = "weighted",
+    ):
+        self.clear()
+        self.base_stats = base_stats
+        self.cost_function = cost_function
+        self.weight_name = weight_name
+
+    def append(self, *args, **kwargs):
+        """Append function, which should **NOT** be used for the weighted error
+        rate stats. Please append to the specified `base_stats` instead.
+
+        `WeightedErrorRateStats` reuses the scores from the base
+        :class:`~ErrorRateStats` class.
+
+        Arguments
+        ---------
+        *args
+            Ignored.
+        **kwargs
+            Ignored.
+        """
+
+        raise ValueError(
+            "Cannot append to a WeightedErrorRateStats. "
+            "You should only append to the base ErrorRateStats."
+        )
+
+    def summarize(self, field=None):
+        """Returns a dict containing some detailed WER statistics after
+        weighting every edit with a weight determined by `cost_function`
+        (returning `0.0` for no error, `1.0` for the default error behavior, and
+        anything in between).
+
+        Does not require :meth:`~ErrorRateStats.summarize` to have been called.
+
+        Full set of fields, **each of which are prepended with
+        `<weight_name_specified_at_init>_`**:
+        - `wer`: Weighted WER (ratio `*100`)
+        - `insertions`: Weighted insertions
+        - `substitutions`: Weighted substitutions
+        - `deletions`: Weighted deletions
+        - `num_edits`: Sum of weighted insertions/substitutions/deletions
+
+        Additionally, a `scores` list is populated by this function for each
+        pair of sentences. Each entry of that list is a dict, with the fields:
+        - `key`: the ID of the utterance.
+        - `WER`, `insertions`, `substitutions`, `deletions`, `num_edits` with
+          the same semantics as described above, but at sentence level rather
+          than global.
+
+        Arguments
+        ---------
+        field : str, optional
+            The field to return, if you are only interested in one of them.
+            If specified, a single `float` is returned, otherwise, a dict is.
+
+        Returns
+        -------
+        dict from str to float, if `field is None`
+            A dictionary of the fields documented above.
+        float, if `field is not None`
+            The single field selected by `field`.
+        """
+
+        weighted_insertions = 0.0
+        weighted_substitutions = 0.0
+        weighted_deletions = 0.0
+        total = 0.0
+
+        for i, utterance in enumerate(self.base_stats.scores):
+            utt_weighted_insertions = 0.0
+            utt_weighted_substitutions = 0.0
+            utt_weighted_deletions = 0.0
+            utt_total = 0.0
+
+            for edit_symbol, a_idx, b_idx in utterance["alignment"]:
+                a = (
+                    utterance["ref_tokens"][a_idx]
+                    if a_idx is not None
+                    else None
+                )
+                b = (
+                    utterance["hyp_tokens"][b_idx]
+                    if b_idx is not None
+                    else None
+                )
+
+                if edit_symbol != EDIT_SYMBOLS["eq"]:
+                    pair_score = self.cost_function(edit_symbol, a, b)
+
+                    if edit_symbol == EDIT_SYMBOLS["ins"]:
+                        utt_weighted_insertions += pair_score
+                    elif edit_symbol == EDIT_SYMBOLS["del"]:
+                        utt_weighted_deletions += pair_score
+                    elif edit_symbol == EDIT_SYMBOLS["sub"]:
+                        utt_weighted_substitutions += pair_score
+
+                utt_total += 1.0
+
+            utt_weighted_edits = (
+                utt_weighted_insertions
+                + utt_weighted_substitutions
+                + utt_weighted_deletions
+            )
+            utt_weighted_wer_ratio = utt_weighted_edits / utt_total
+            self.scores.append(
+                {
+                    "key": self.base_stats.ids[i],
+                    "WER": utt_weighted_wer_ratio * 100.0,
+                    "insertions": utt_weighted_insertions,
+                    "substitutions": utt_weighted_substitutions,
+                    "deletions": utt_weighted_deletions,
+                    "num_edits": utt_weighted_edits,
+                }
+            )
+
+            weighted_insertions += utt_weighted_insertions
+            weighted_substitutions += utt_weighted_substitutions
+            weighted_deletions += utt_weighted_deletions
+            total += utt_total
+
+        weighted_edits = (
+            weighted_insertions + weighted_substitutions + weighted_deletions
+        )
+        weighted_wer_ratio = weighted_edits / total
+
+        self.summary = {
+            f"{self.weight_name}_wer": weighted_wer_ratio * 100.0,
+            f"{self.weight_name}_insertions": weighted_insertions,
+            f"{self.weight_name}_substitutions": weighted_substitutions,
+            f"{self.weight_name}_deletions": weighted_deletions,
+            f"{self.weight_name}_num_edits": weighted_edits,
+        }
+
+        if field is not None:
+            return self.summary[field]
+        else:
+            return self.summary
+
+    def write_stats(self, filestream):
+        """Write all relevant info to file; here, only the weighted info as
+        returned by `summarize`.
+        See :meth:`~ErrorRateStats.write_stats`.
+        """
+        if not self.summary:
+            self.summarize()
+
+        print(f"Weighted WER metrics ({self.weight_name}):", file=filestream)
+
+        for k, v in self.summary.items():
+            print(f"{k}: {v}", file=filestream)
+
+
+class EmbeddingErrorRateSimilarity:
+    """Implements the similarity function from the EmbER metric as defined by
+    https://www.isca-archive.org/interspeech_2022/roux22_interspeech.pdf
+
+    This metric involves a dictionary to map a token to a single word embedding.
+    Substitutions in the WER get weighted down when the embeddings are similar
+    enough. The goal is to reduce the impact of substitution errors with small
+    semantic impact. Only substitution errors get weighted.
+
+    This is done by computing the cosine similarity between the two embeddings,
+    then weighing the substitution with `low_similarity_weight` if
+    `similarity >= threshold` or with `high_similarity_weight` otherwise (e.g.
+    a substitution with high similarity could be weighted down to matter 10% as
+    much as a substitution with low similarity).
+
+    .. note ::
+        The cited paper recommended `(1.0, 0.1, 0.4)` as defaults for fastTexst
+        French embeddings, chosen empirically. When using different embeddings,
+        you might want to test other values; thus we don't provide defaults.
+
+    Arguments
+    ---------
+    embedding_function : Callable[[str], Optional[torch.Tensor]]
+        Function that returns an embedding (as a :class:`torch.Tensor`) from a
+        word. If no corresponding embedding could be found for the word, should
+        return `None`. In that case, `low_similarity_weight` will be chosen.
+    low_similarity_weight : float
+        Weight applied to the substitution if `cosine_similarity < threshold`.
+    high_similarity_weight : float
+        Weight applied to the substitution if `cosine_similarity >= threshold`.
+    threshold : float
+        Cosine similarity threshold used to select by how much a substitution
+        error should be weighed for this word.
+    """
+
+    def __init__(
+        self,
+        embedding_function: Callable[[str], Optional[torch.Tensor]],
+        low_similarity_weight: float,
+        high_similarity_weight: float,
+        threshold: float,
+    ):
+        self.embedding_function = embedding_function
+        self.low_similarity_weight = low_similarity_weight
+        self.high_similarity_weight = high_similarity_weight
+        self.threshold = threshold
+
+    def __call__(
+        self, edit_symbol: str, a: Optional[str], b: Optional[str]
+    ) -> float:
+        """Returns the weight that should be associated with a specific edit
+        in the WER calculation.
+
+        Compatible candidate for the cost function of
+        :class:`~WeightedErrorRateStats` so an instance of this class can be
+        passed as a `cost_function`.
+
+        Arguments
+        ---------
+        edit_symbol: str
+            Edit symbol as assigned by the WER functions, see `EDIT_SYMBOLS`.
+        a: str, optional
+            First word to compare (if present)
+        b: str, optional
+            Second word to compare (if present)
+
+        Returns
+        -------
+        float
+            Weight to assign to the edit.
+            For actual edits, either `low_similarity_weight` or
+            `high_similarity_weight` depending on the embedding distance and
+            threshold.
+        """
+        if edit_symbol in (EDIT_SYMBOLS["ins"], EDIT_SYMBOLS["del"]):
+            return 1.0
+
+        if edit_symbol == EDIT_SYMBOLS["sub"]:
+            if a is None or a == "":
+                return self.low_similarity_weight
+
+            if b is None or b == "":
+                return self.low_similarity_weight
+
+            a_emb = self.embedding_function(a)
+            if a_emb is None:
+                return self.low_similarity_weight
+
+            b_emb = self.embedding_function(b)
+            if b_emb is None:
+                return self.low_similarity_weight
+
+            similarity = torch.nn.functional.cosine_similarity(
+                a_emb, b_emb, dim=0
+            ).item()
+
+            if similarity >= self.threshold:
+                return self.high_similarity_weight
+
+            return self.low_similarity_weight
+
+        # eq
+        return 0.0
+
+
+class BinaryMetricStats(MetricStats):
+    """Tracks binary metrics, such as precision, recall, F1, EER, etc."""
 
     def __init__(self, positive_label=1):
         self.clear()
@@ -338,8 +683,11 @@ class BinaryMetricStats(MetricStats):
         Arguments
         ---------
         ids : list
-            The string ids for the samples
-
+            The string ids for the samples.
+        scores : list
+            The scores corresponding to the ids.
+        labels : list
+            The labels corresponding to the ids.
         """
         self.ids.extend(ids)
         self.scores.extend(scores.detach())
@@ -372,7 +720,7 @@ class BinaryMetricStats(MetricStats):
         threshold : float
             If no threshold is provided, equal error rate is used.
         max_samples: float
-            How many samples to keep for postive/negative scores.
+            How many samples to keep for positive/negative scores.
             If no max_samples is provided, all scores are kept.
             Only effective when threshold is None.
         beta : float
@@ -381,18 +729,23 @@ class BinaryMetricStats(MetricStats):
             higher, and lower values weight precision higher.
         eps : float
             A small value to avoid dividing by zero.
-        """
 
+        Returns
+        -------
+        summary
+            if field is specified, only returns the score for that field.
+            if field is None, returns the full set of fields.
+        """
         if isinstance(self.scores, list):
             self.scores = torch.stack(self.scores)
             self.labels = torch.stack(self.labels)
 
         if threshold is None:
             positive_scores = self.scores[
-                (self.labels == 1).nonzero(as_tuple=True)
+                (self.labels == self.positive_label).nonzero(as_tuple=True)
             ]
             negative_scores = self.scores[
-                (self.labels == 0).nonzero(as_tuple=True)
+                (self.labels != self.positive_label).nonzero(as_tuple=True)
             ]
             if max_samples is not None:
                 if len(positive_scores) > max_samples:
@@ -438,9 +791,9 @@ class BinaryMetricStats(MetricStats):
         self.summary["precision"] = TP / (TP + FP + eps)
         self.summary["recall"] = TP / (TP + FN + eps)
         self.summary["F-score"] = (
-            (1.0 + beta ** 2.0)
+            (1.0 + beta**2.0)
             * TP
-            / ((1.0 + beta ** 2.0) * TP + beta ** 2.0 * FN + FP)
+            / ((1.0 + beta**2.0) * TP + beta**2.0 * FN + FP)
         )
 
         self.summary["MCC"] = (TP * TN - FP * FN) / (
@@ -463,6 +816,13 @@ def EER(positive_scores, negative_scores):
     negative_scores : torch.tensor
         The scores from entries of different classes.
 
+    Returns
+    -------
+    EER : float
+        The EER score.
+    threshold : float
+        The corresponding threshold for the EER score.
+
     Example
     -------
     >>> positive_scores = torch.tensor([0.6, 0.7, 0.8, 0.5])
@@ -471,14 +831,13 @@ def EER(positive_scores, negative_scores):
     >>> val_eer
     0.0
     """
-
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
 
     # Adding intermediate thresholds
-    interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
-    thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
+    intermediate_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
 
     # Variable to store the min FRR, min FAR and their corresponding index
     min_index = 0
@@ -531,6 +890,12 @@ def minDCF(
     p_target: float
         Prior probability of having a target (default 0.01).
 
+    Returns
+    -------
+    minDCF : float
+        The minDCF score.
+    threshold : float
+        The corresponding threshold for the minDCF score.
 
     Example
     -------
@@ -540,14 +905,13 @@ def minDCF(
     >>> val_minDCF
     0.0
     """
-
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
 
     # Adding intermediate thresholds
-    interm_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
-    thresholds, _ = torch.sort(torch.cat([thresholds, interm_thresholds]))
+    intermediate_thresholds = (thresholds[0:-1] + thresholds[1:]) / 2
+    thresholds, _ = torch.sort(torch.cat([thresholds, intermediate_thresholds]))
 
     # Computing False Rejection Rate (miss detection)
     positive_scores = torch.cat(
@@ -574,9 +938,8 @@ def minDCF(
 
 
 class ClassificationStats(MetricStats):
-    """Computes statistics pertaining to multi-label
-    classification tasks, as well as tasks that can be loosely interpreted as such for the purpose of
-    evaluations
+    """Computes statistics pertaining to multi-label classification tasks, as
+    well as tasks that can be loosely interpreted as such for the purpose of evaluations.
 
     Example
     -------
@@ -685,7 +1048,7 @@ class ClassificationStats(MetricStats):
             for each class
         keys: all available class keys, which can be either target classes
             or (category, target) tuples
-        predictions: all available predictions all predicions the model
+        predictions: all available predictions all predictions the model
             has made
 
         Arguments
@@ -700,7 +1063,6 @@ class ClassificationStats(MetricStats):
             Returns a float if ``field`` is provided, otherwise
             returns a dictionary containing all computed stats.
         """
-
         self._build_lookups()
         confusion_matrix = self._compute_confusion_matrix()
         self.summary = {
@@ -884,3 +1246,181 @@ class ClassificationStats(MetricStats):
         else:
             label = key
         return label
+
+
+class MultiMetricStats:
+    """A wrapper that evaluates multiple metrics simultaneously
+
+    Arguments
+    ---------
+    metric : function
+        The function to use to compute the relevant metrics. Should take
+        at least two arguments (predictions and targets) and can
+        optionally take the relative lengths of either or both arguments.
+        The function should return a dict or a namedtuple
+    n_jobs : int
+        The number of jobs to use for computing the metric. If this is
+        more than one, every sample is processed individually, otherwise
+        the whole batch is passed at once.
+    batch_eval : bool
+        When True it feeds the evaluation metric with the batched input.
+        When False and n_jobs=1, it performs metric evaluation one-by-one
+        in a sequential way. When False and n_jobs>1, the evaluation
+        runs in parallel over the different inputs using joblib.
+
+    Example
+    -------
+    >>> def metric(a, b):
+    ...    return {
+    ...        "sum": a + b,
+    ...        "diff": a - b,
+    ...        "sum_sq": a**2 + b**2
+    ...    }
+    >>> multi_metric = MultiMetricStats(metric, batch_eval=True)
+    >>> multi_metric.append([1, 2], a=torch.tensor([2.0, 1.0]), b=torch.tensor([1.0, 2.0]))
+    >>> multi_metric.append([3, 4], a=torch.tensor([4.0, 5.0]), b=torch.tensor([0.0, 1.0]))
+    >>> multi_metric.append([5, 6], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
+    >>> multi_metric.append([7, 8], a=torch.tensor([2.0, 4.0]), b=torch.tensor([4.0, 2.0]))
+    >>> multi_metric.summarize() #doctest: +NORMALIZE_WHITESPACE
+    {'sum': {'average': 5.0,
+      'min_score': 3.0,
+      'min_id': 1,
+      'max_score': 6.0,
+      'max_id': 4},
+     'diff': {'average': 1.0,
+      'min_score': -2.0,
+      'min_id': 5,
+      'max_score': 4.0,
+      'max_id': 3},
+     'sum_sq': {'average': 16.5,
+      'min_score': 5.0,
+      'min_id': 1,
+      'max_score': 26.0,
+      'max_id': 4}}
+    >>> multi_metric.summarize(flat=True) #doctest: +NORMALIZE_WHITESPACE
+    {'sum_average': 5.0,
+     'sum_min_score': 3.0,
+     'sum_min_id': 1,
+     'sum_max_score': 6.0,
+     'sum_max_id': 4,
+     'diff_average': 1.0,
+     'diff_min_score': -2.0,
+     'diff_min_id': 5,
+     'diff_max_score': 4.0,
+     'diff_max_id': 3,
+     'sum_sq_average': 16.5,
+     'sum_sq_min_score': 5.0,
+     'sum_sq_min_id': 1,
+     'sum_sq_max_score': 26.0,
+     'sum_sq_max_id': 4}
+    """
+
+    def __init__(self, metric, n_jobs=1, batch_eval=False):
+        self.metric = _dictify(metric)
+        self.n_jobs = n_jobs
+        self.batch_eval = batch_eval
+        self.ids = []
+        self.metrics = {}
+
+    def append(self, ids, *args, **kwargs):
+        """Store a particular set of metric scores.
+
+        Arguments
+        ---------
+        ids : list
+            List of ids corresponding to utterances.
+        *args : tuple
+            Arguments to pass to the metric function.
+        **kwargs : dict
+            Arguments to pass to the metric function.
+        """
+        self.ids.extend(ids)
+
+        # Batch evaluation
+        if self.batch_eval:
+            scores = self.eval_simple(*args, **kwargs)
+
+        else:
+            if "predict" not in kwargs or "target" not in kwargs:
+                raise ValueError(
+                    "Must pass 'predict' and 'target' as kwargs if batch_eval=False"
+                )
+            if self.n_jobs == 1:
+                # Sequence evaluation (loop over inputs)
+                scores_raw = sequence_evaluation(self.metric, **kwargs)
+            else:
+                # Multiprocess evaluation
+                scores_raw = multiprocess_evaluation(
+                    metric=self.metric, n_jobs=self.n_jobs, **kwargs
+                )
+
+            keys = scores_raw[0].keys()
+            scores = {
+                key: torch.tensor([score[key] for score in scores_raw])
+                for key in keys
+            }
+
+        for key, metric_scores in scores.items():
+            if key not in self.metrics:
+                self.metrics[key] = MetricStats(lambda x: x, batch_eval=True)
+            self.metrics[key].append(ids, metric_scores)
+
+    def eval_simple(self, *args, **kwargs):
+        """Evaluates the metric in a simple, sequential manner"""
+        scores = self.metric(*args, **kwargs)
+        return {key: score.detach() for key, score in scores.items()}
+
+    def summarize(self, field=None, flat=False):
+        """Summarize the metric scores, returning relevant stats.
+
+        Arguments
+        ---------
+        field : str
+            If provided, only returns selected statistic. If not,
+            returns all computed statistics.
+        flat : bool
+            whether to flatten the dictionary
+
+        Returns
+        -------
+        dict
+            Returns a dictionary of all computed stats
+        """
+        result = {
+            key: metric.summarize(field) for key, metric in self.metrics.items()
+        }
+        if flat:
+            result = {
+                f"{key}_{field}": value
+                for key, fields in result.items()
+                for field, value in fields.items()
+            }
+        return result
+
+
+def _dictify(f):
+    """A wrapper that converts functions returning
+    namedtuples to functions returning dicts while leaving
+    functions returning dicts intact
+
+    Arguments
+    ---------
+    f : callable
+        a function
+
+    Returns
+    -------
+    result : callable
+        a wrapped function
+    """
+    has_asdict = None
+
+    def wrapper(*args, **kwargs):
+        """The wrapper function"""
+        nonlocal has_asdict
+        result = f(*args, **kwargs)
+        if has_asdict is None:
+            has_asdict = hasattr(result, "_asdict")
+        return result._asdict() if has_asdict else result
+
+    return wrapper

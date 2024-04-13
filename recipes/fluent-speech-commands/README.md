@@ -24,7 +24,7 @@ python train.py hparams/train.yaml
 
 | Release | hyperparams file | Test Acc | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:|
-| 21-06-03 | train.yaml | 99.60% | https://drive.google.com/drive/folders/13t2PYdedrPQoNYo_QSf6s04WXu2_vAb-?usp=sharing | 1xV100 32GB |
+| 21-06-03 | train.yaml | 99.60% | https://www.dropbox.com/sh/wal9ap0go9f66qw/AADBVlGs_E2pEU4vYJgEe3Fba?dl=0 | 1xV100 32GB |
 
 
 # PreTrained Model + Easy-Inference

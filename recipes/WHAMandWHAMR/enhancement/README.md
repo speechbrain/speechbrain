@@ -3,21 +3,30 @@ This folder contains speech enhancement recipes for the WHAM! and WHAMR! dataset
 
 * This recipe supports training several models on WHAM! and WHAMR! datasets, including [Sepformer](https://arxiv.org/abs/2010.13154), [DPRNN](https://arxiv.org/abs/1910.06379), [ConvTasnet](https://arxiv.org/abs/1809.07454), [DPTNet](https://arxiv.org/abs/2007.13975).
 
-Additional dependency:
-```
-pip install mir_eval
-pip install pyroomacoustics==0.3.1
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
 
 ```
-For `pyroomacoustics`, you need to use the version 0.3.1.
+pip install -r ../extra_requirements.txt
+```
 
+## How to run:
 To run it:
 
-```
+```shell
 python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original
 python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr
 ```
 Note that during training we print the negative SI-SNR (as we treat this value as the loss).
+
+# How to run on test sets only
+If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+
+```shell
+python train.py hparams/sepformer-wham.yaml --data_folder yourpath/wham_original --test_only
+python train.py hparams/sepformer-whamr.yaml --data_folder yourpath/whamr --test_only
+```
 
 # WHAM! and WHAMR! dataset:
 
@@ -47,8 +56,8 @@ Here are the SI - SNR (in dB) and PESQ on the test set of WHAM!, WHAMR! datasets
 |DynamicMixing | 10.6 | 2.84 |
 
 
-The output folder with the model checkpoints and logs for WHAMR! is available [here](https://drive.google.com/drive/folders/1V0KwkEfWwomZ0Vjox0BTnQ694_uxgu8G?usp=sharing).
-The output folder with the model checkpoints and logs for WHAM! is available [here](https://drive.google.com/drive/folders/1bbQvaiN-R79M697NnekA7Rr0jIYtO6e3?usp=sharing).
+The output folder with the model checkpoints and logs for WHAMR! is available [here](https://www.dropbox.com/sh/kb0xrvi5k168ou2/AAAPB2U6HyyUT1gMoUH8gxQCa?dl=0).
+The output folder with the model checkpoints and logs for WHAM! is available [here](https://www.dropbox.com/sh/pxz2xbj76ijd5ci/AAD3c3dHyszk4oHJaa26K1_ha?dl=0).
 
 # Training time
 It takes about 2h 30 min for WHAMR! (DynamicMixing) and WHAM! on a NVIDIA V100 (32GB).
@@ -59,7 +68,7 @@ Pretrained models for SepFormer on WHAM!, WHAMR! datasets can be found through h
 * https://huggingface.co/speechbrain/sepformer-wham-enhancement
 * https://huggingface.co/speechbrain/sepformer-whamr-enhancement
 * https://huggingface.co/speechbrain/sepformer-whamr16k
-* Pretrained models with the training logs can be found on `https://drive.google.com/drive/u/0/folders/1ZVuROxR711Xib2MsJbcPla4PWqbK1Ddw` also.
+* Pretrained models with the training logs can be found on `https://www.dropbox.com/sh/e4bth1bylk7c6h8/AADFq3cWzBBKxuDv09qjvUMta?dl=0` also.
 
 
 # Example calls for running the training scripts

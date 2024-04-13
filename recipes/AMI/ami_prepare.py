@@ -6,17 +6,15 @@ Download: http://groups.inf.ed.ac.uk/ami/download/
 Prepares metadata files (JSON) from manual annotations "segments/" using RTTM format (Oracle VAD).
 """
 
-import os
-import logging
-import xml.etree.ElementTree as et
 import glob
 import json
+import logging
+import os
+import xml.etree.ElementTree as et
+
 from ami_splits import get_AMI_split
 
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
@@ -63,6 +61,10 @@ def prepare_ami(
         Duration in seconds of a subsegments to be prepared from larger segments.
     overlap : float
         Overlap duration in seconds between adjacent subsegments
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -176,8 +178,7 @@ def prepare_ami(
 
 
 def get_RTTM_per_rec(segs, spkrs_list, rec_id):
-    """Prepares rttm for each recording
-    """
+    """Prepares rttm for each recording"""
 
     rttm = []
 
@@ -234,11 +235,9 @@ def get_RTTM_per_rec(segs, spkrs_list, rec_id):
 def prepare_segs_for_RTTM(
     list_ids, out_rttm_file, audio_dir, annot_dir, split_type, skip_TNO
 ):
-
     RTTM = []  # Stores all RTTMs clubbed together for a given dataset split
 
     for main_meet_id in list_ids:
-
         # Skip TNO meetings from dev and eval sets
         if (
             main_meet_id.startswith("TS")
@@ -269,7 +268,6 @@ def prepare_segs_for_RTTM(
             )  # Since non-scenario recordings contains 3-5 speakers
 
             for spkr_xml_file in list_spkr_xmls:
-
                 # Speaker ID
                 spkr = os.path.basename(spkr_xml_file).split(".")[1]
                 spkr_ID = rec_id + "." + spkr
@@ -310,6 +308,10 @@ def is_overlapped(end1, start2):
         End time of the first segment.
     start2 : float
         Start time of the second segment.
+
+    Returns
+    -------
+    overlapped : bool
     """
 
     if start2 > end1:
@@ -319,8 +321,7 @@ def is_overlapped(end1, start2):
 
 
 def merge_rttm_intervals(rttm_segs):
-    """Merges adjacent segments in rttm if they overlap.
-    """
+    """Merges adjacent segments in rttm if they overlap."""
     # For one recording
     # rec_id = rttm_segs[0][1]
     rttm_segs.sort(key=lambda x: float(x[3]))
@@ -351,8 +352,7 @@ def merge_rttm_intervals(rttm_segs):
 
 
 def get_subsegments(merged_segs, max_subseg_dur=3.0, overlap=1.5):
-    """Divides bigger segments into smaller sub-segments
-    """
+    """Divides bigger segments into smaller sub-segments"""
 
     shift = max_subseg_dur - overlap
     subsegments = []
@@ -521,6 +521,17 @@ def skip(save_folder, conf, meta_files, opt_file):
     """
     Detects if the AMI data_preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_folder : str
+        The folder containing the generated files.
+    conf : dict
+        Configuration to check against saved config.
+    meta_files : list
+        List of file paths to check.
+    opt_file : str
+        One more file to check.
 
     Returns
     -------

@@ -4,7 +4,7 @@ This recipe implements the Spectral-Mask baseline for dereverberation as describ
 [MetricGAN-U: Unsupervised speech enhancement/ dereverberation based only on noisy/ reverberated speech](https://arxiv.org/abs/2110.05866)
 
 Notes:
-1- By default we use srmr as a default target metric. This requires you to install SRMRpy (see extra-dependecies.txt)
+1- By default we use srmr as a default target metric. This requires you to install SRMRpy (see extra-dependencies.txt)
 2- To use dnsmos as a target metric, you have to ask the key from the DNS organizer first: dns_challenge@microsoft.com
 
 # Dataset
@@ -23,7 +23,7 @@ Experiment Date | Hyperparams file | PESQ | STOI |
 -|-|-|-|
 2021-10-31 | train.yaml | 2.35 | 0.886 |
 
-You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://drive.google.com/drive/folders/1Bf-SL4gRpBdazBFuae3aFe0_EwL8v7jh?usp=sharing).
+You can find the full experiment folder (i.e., checkpoints, logs, etc) [here](https://www.dropbox.com/sh/pw8aer8gcsrdbx7/AADknh7plHF5GBeTRK9VkIKga?dl=0).
 
 ## Citation
 If you find the code useful in your research, please cite:

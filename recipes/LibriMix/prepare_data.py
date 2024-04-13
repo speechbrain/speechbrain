@@ -5,8 +5,8 @@ Author
  * Cem Subakan 2020
 """
 
-import os
 import csv
+import os
 
 
 def prepare_librimix(
@@ -102,7 +102,6 @@ def create_libri2mix_csv(
             for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,

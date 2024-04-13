@@ -14,10 +14,12 @@ Authors
 """
 import os
 import sys
+
 import torch
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
 
 
 # Define training procedure
@@ -26,7 +28,9 @@ class ASR_Brain(sb.Brain):
         "Given an input batch it computes the phoneme probabilities."
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        wavs = self.modules.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.normalize(feats, wav_lens)
         out = self.modules.model(feats)
@@ -39,6 +43,10 @@ class ASR_Brain(sb.Brain):
         "Given the network predictions and targets computed the CTC loss."
         pout, pout_lens = predictions
         phns, phn_lens = batch.phn_encoded
+        # Label Augmentation
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
         loss = self.hparams.compute_cost(pout, phns, pout_lens, phn_lens)
         self.ctc_metrics.append(batch.id, pout, phns, pout_lens, phn_lens)
 
@@ -79,7 +87,7 @@ class ASR_Brain(sb.Brain):
                 valid_stats={"loss": stage_loss, "PER": per},
             )
             self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"],
+                meta={"PER": per}, min_keys=["PER"]
             )
 
         elif stage == sb.Stage.TEST:
@@ -134,7 +142,7 @@ def dataio_prep(hparams):
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="length", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending"
         )
         hparams["dataloader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
@@ -158,7 +166,6 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

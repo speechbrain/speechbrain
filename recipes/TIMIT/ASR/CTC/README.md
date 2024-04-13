@@ -2,15 +2,24 @@
 This folder contains the scripts to train a CTC system using TIMIT.
 TIMIT is a speech dataset available from LDC: https://catalog.ldc.upenn.edu/LDC93S1
 
-# How to run
-python train.py hparams/train.yaml
+# Running the Code
+
+To execute the code, use the following command:
+
+```
+python train.py hparams/train.yaml --data_folder=your_data_folder/TIMIT --jit
+```
+
+**Note on Compilation**:
+Enabling the just-in-time (JIT) compiler significantly improves code performance, resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
+This speed improvement is observed specifically when using the CRDNN model.
 
 # Results
 | Release | hyperparams file | Val. PER | Test PER | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| --------:| :-----------:|
-| 20-05-22 | train.yaml |  12.80 | 14.78 | https://drive.google.com/drive/folders/1OhBOTfC34PaOuiLIUjEBP1JmmlBTxJ8D?usp=sharing | 1xV100 16GB |
+| 20-05-22 | train.yaml |  12.80 | 14.78 | https://www.dropbox.com/sh/xjh9qrat7v8ssuq/AAA4inQHBzRcbAeB_I8GSXi_a?dl=0 | 1xV100 16GB |
 
-The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://drive.google.com/drive/folders/1ZcME-Wf4stlzW3j_iJ3zGDCkSy1V_Wjs?usp=sharing).
+The output folders with checkpoints and logs for TIMIT recipes can be found [here](https://www.dropbox.com/sh/059jnwdass8v45u/AADTjh5DYdYKuZsgH9HXGx0Sa?dl=0).
 
 # Training Time
 About 1 min and 30 sec for each epoch with a TESLA V100.

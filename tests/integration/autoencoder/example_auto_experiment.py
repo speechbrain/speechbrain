@@ -7,13 +7,16 @@ training data  (with a validation performance that stays high).
 """
 
 import pathlib
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class AutoBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Appling encoder and decoder to the input features"
+        """Applying encoder and decoder to the input features"""
+
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
@@ -26,7 +29,7 @@ class AutoBrain(sb.Brain):
         return decoded
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the MSE loss."
+        """Given the network predictions and targets computed the MSE loss."""
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
@@ -34,7 +37,7 @@ class AutoBrain(sb.Brain):
         return self.hparams.compute_cost(predictions, feats, lens)
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         self.mse_metric = self.hparams.loss_tracker()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -66,8 +69,7 @@ class AutoBrain(sb.Brain):
 
 
 def data_prep(data_folder):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

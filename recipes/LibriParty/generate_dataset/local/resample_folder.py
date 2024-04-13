@@ -9,12 +9,14 @@ Author
 Samuele Cornell, 2020
 """
 
-import os
 import argparse
+import os
 from pathlib import Path
-import tqdm
-import torchaudio
+
 import torch
+import torchaudio
+import tqdm
+
 from speechbrain.utils.data_utils import get_all_files
 
 parser = argparse.ArgumentParser(
@@ -29,17 +31,12 @@ parser.add_argument("--regex", type=str, default="*.wav")
 
 
 def resample_folder(input_folder, output_folder, fs, regex):
-
     files = get_all_files(input_folder, match_and=[regex])
-    torchaudio.initialize_sox()
     for f in tqdm.tqdm(files):
-
         # we use sox because torchaudio.Resample uses too much RAM.
-        resample = torchaudio.sox_effects.SoxEffectsChain()
-        resample.append_effect_to_chain("rate", [fs])
-        resample.set_input_file(f)
-
-        audio, fs = resample.sox_build_flow_effects()
+        audio, fs = torchaudio.sox_effects.apply_effects_file(
+            f, [["rate", str(fs)]]
+        )
 
         audio = (
             audio / torch.max(torch.abs(audio), dim=-1, keepdim=True)[0]
@@ -59,10 +56,8 @@ def resample_folder(input_folder, output_folder, fs, regex):
             audio,
             fs,
         )
-    torchaudio.shutdown_sox()
 
 
 if __name__ == "__main__":
-
     args = parser.parse_args()
     resample_folder(args.input_folder, args.output_folder, args.fs, args.regex)

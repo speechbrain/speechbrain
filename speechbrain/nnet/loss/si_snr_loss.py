@@ -8,8 +8,8 @@
  * Titouan Parcollet 2020
 """
 
-import torch
 import numpy as np
+import torch
 
 smallVal = np.finfo("float").eps  # To avoid divide by zero
 
@@ -31,8 +31,9 @@ def si_snr_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
     reduction : str
         The type of reduction ("mean" or "batch") to use.
 
-    Example
+    Returns
     -------
+    Computed si_snr loss.
     """
 
     y_pred_batch = torch.squeeze(y_pred_batch, dim=-1)
@@ -47,17 +48,15 @@ def si_snr_loss(y_pred_batch, y_true_batch, lens, reduction="mean"):
 
         # s_target = <s', s>s / ||s||^2
         dot = torch.sum(s_estimate * s_target, dim=0, keepdim=True)
-        s_target_energy = (
-            torch.sum(s_target ** 2, dim=0, keepdim=True) + smallVal
-        )
+        s_target_energy = torch.sum(s_target**2, dim=0, keepdim=True) + smallVal
         proj = dot * s_target / s_target_energy
 
         # e_noise = s' - s_target
         e_noise = s_estimate - proj
 
         # SI-SNR = 10 * log_10(||s_target||^2 / ||e_noise||^2)
-        si_snr_beforelog = torch.sum(proj ** 2, dim=0) / (
-            torch.sum(e_noise ** 2, dim=0) + smallVal
+        si_snr_beforelog = torch.sum(proj**2, dim=0) / (
+            torch.sum(e_noise**2, dim=0) + smallVal
         )
         SI_SNR[i] = 10 * torch.log10(si_snr_beforelog + smallVal)
 

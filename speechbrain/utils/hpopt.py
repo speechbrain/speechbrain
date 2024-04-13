@@ -8,16 +8,17 @@ https://github.com/Epistimio/orion
 Authors
  * Artem Ploujnikov 2021
 """
-import importlib
-import logging
-import json
-import os
-import speechbrain as sb
-import sys
 
+import importlib
+import json
+import logging
+import os
+import sys
 from datetime import datetime
+
 from hyperpyyaml import load_hyperpyyaml
 
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ ORION_TRIAL_ID_ENV = [
 ]
 KEY_HPOPT = "hpopt"
 KEY_HPOPT_MODE = "hpopt_mode"
+KEY_TRIAL_ID = "trial_id"
+
+HPOPT_KEYS = [KEY_HPOPT, KEY_HPOPT_MODE]
 
 _hpopt_modes = {}
 
@@ -68,7 +72,7 @@ def hpopt_mode(mode):
     """
 
     def f(cls):
-        """"Call the function that registers and returns the reporter class"""
+        """ "Call the function that registers and returns the reporter class"""
         _hpopt_modes[mode] = cls
         return cls
 
@@ -94,6 +98,11 @@ class HyperparameterOptimizationReporter:
         ---------
         result: dict
             a dictionary with the run result.
+
+        Returns
+        -------
+        objective: dict
+            A mapping from metric to score.
         """
         return NotImplemented
 
@@ -119,9 +128,14 @@ class GenericHyperparameterOptimizationReporter(
 
     Arguments
     ---------
-    objective_key: str
-        the key from the result dictionary to be used as the objective
-
+    reference_date: datetime.datetime
+        The date used to create trial id
+    output: stream
+        The stream to report the results to
+    *args: tuple
+        Arguments to be forwarded to parent class
+    **kwargs: dict
+        Arguments to be forwarded to parent class
     """
 
     def __init__(self, reference_date=None, output=None, *args, **kwargs):
@@ -179,8 +193,8 @@ class OrionHyperparameterOptimizationReporter(
 
     Arguments
     ---------
-    orion_client: module
-        the Python module for Orion
+    objective_key: str
+        the key from the result dictionary to be used as the objective
     """
 
     def __init__(self, objective_key):
@@ -207,7 +221,8 @@ class OrionHyperparameterOptimizationReporter(
         Returns
         -------
         message: str
-            a formatted message"""
+            a formatted message
+        """
         return ", ".join(f"{key} = {value}" for key, value in result.items())
 
     def report_objective(self, result):
@@ -238,7 +253,8 @@ class OrionHyperparameterOptimizationReporter(
         """Determines if Orion is available. In order for it to
         be available, the library needs to be installed, and at
         least one of ORION_EXPERIMENT_NAME, ORION_EXPERIMENT_VERSION,
-        ORION_TRIAL_ID needs to be set"""
+        ORION_TRIAL_ID needs to be set
+        """
         return self.orion_client is not None and any(
             os.getenv(name) for name in ORION_TRIAL_ID_ENV
         )
@@ -251,9 +267,13 @@ def get_reporter(mode, *args, **kwargs):
     Arguments
     ---------
     mode: str
-        a string identifier for a registered hyperparametr
+        a string identifier for a registered hyperparameter
         optimization mode, corresponding to a specific reporter
         instance
+    *args: tuple
+        Arguments to forward to the reporter class.
+    **kwargs: dict
+        Arguments to forward to the reporter class.
 
     Returns
     -------
@@ -269,11 +289,13 @@ def get_reporter(mode, *args, **kwargs):
     """
     reporter_cls = _hpopt_modes.get(mode)
     if reporter_cls is None:
-        logger.warn(f"hpopt_mode {mode} is not supported, reverting to generic")
+        logger.warning(
+            f"hpopt_mode {mode} is not supported, reverting to generic"
+        )
         reporter_cls = _hpopt_modes[DEFAULT_REPORTER]
     reporter = reporter_cls(*args, **kwargs)
     if not reporter.is_available:
-        logger.warn("Reverting to a generic reporter")
+        logger.warning("Reverting to a generic reporter")
         reporter_cls = _hpopt_modes[DEFAULT_REPORTER]
         reporter = reporter_cls(*args, **kwargs)
     return reporter
@@ -309,14 +331,16 @@ class HyperparameterOptimizationContext:
         self.enabled = False
         self.result = {"objective": 0.0}
 
-    def parse_arguments(self, arg_list):
+    def parse_arguments(
+        self, arg_list, pass_hpopt_args=None, pass_trial_id=True
+    ):
         """A version of speechbrain.parse_arguments enhanced for hyperparameter optimization.
 
         If a parameter named 'hpopt' is provided, hyperparameter
         optimization and reporting will be enabled.
 
         If the parameter value corresponds to a filename, it will
-        be read as a hyperpyaml file, and the contents will be added
+        be read as a hyperpyyaml file, and the contents will be added
         to "overrides". This is useful for cases where the values of
         certain hyperparameters are different during hyperparameter
         optimization vs during full training (e.g. number of epochs, saving
@@ -324,7 +348,14 @@ class HyperparameterOptimizationContext:
 
         Arguments
         ---------
-        arg_list: a list of arguments
+        arg_list: list
+            a list of arguments
+        pass_hpopt_args: enumerable
+            forces arguments that are normally suppressed and only used
+            for hyperparameter optimization to be passed into overrides
+        pass_trial_id: bool
+            whether the "trial_id" argument is passed through (enabled by default)
+
 
         Returns
         -------
@@ -343,6 +374,9 @@ class HyperparameterOptimizationContext:
         >>> print(f"File: {hparams_file}, Overrides: {overrides}")
         File: hparams.yaml, Overrides: {'x': 1, 'y': 2}
         """
+        if pass_hpopt_args is None:
+            pass_hpopt_args = []
+        pass_hpopt_args = set(pass_hpopt_args)
         hparams_file, run_opts, overrides_yaml = sb.parse_arguments(arg_list)
         overrides = load_hyperpyyaml(overrides_yaml) if overrides_yaml else {}
         hpopt = overrides.get(KEY_HPOPT, False)
@@ -361,8 +395,11 @@ class HyperparameterOptimizationContext:
                         overrides_must_match=False,
                     )
                     overrides = dict(hpopt_overrides, **overrides)
-                    for key in [KEY_HPOPT, KEY_HPOPT_MODE]:
-                        if key in overrides:
+                    keys = list(HPOPT_KEYS)
+                    if not pass_trial_id:
+                        keys.append(KEY_TRIAL_ID)
+                    for key in keys:
+                        if key in overrides and key not in pass_hpopt_args:
                             del overrides[key]
         return hparams_file, run_opts, overrides
 
@@ -385,6 +422,17 @@ class HyperparameterOptimizationContext:
 
 def hyperparameter_optimization(*args, **kwargs):
     """Initializes the hyperparameter optimization context
+
+    Arguments
+    ---------
+    *args : tuple
+        Arguments to forward to HyperparameterOptimizationContext
+    **kwargs : dict
+        Arguments to forward to HyperparameterOptimizationContext
+
+    Returns
+    -------
+    HyperparameterOptimizationContext
 
     Example
     -------
