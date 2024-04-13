@@ -63,12 +63,12 @@ python train.py hparams/vit.yaml --data_folder /yourpath/ESC50
 
 ## Results
 
-| Hyperparams file | Accuracy (%) |   Training time    |                    HuggingFace link                     |                                     Model link                                     |    GPUs     |
-|:----------------:|:------------:|:------------------:|:-------------------------------------------------------:|:----------------------------------------------------------------------------------:|:-----------:|
-|    cnn14.yaml    |     82.0     | 11 seconds / epoch | [model](https://huggingface.co/speechbrain/cnn14-esc50) | [model](https://www.dropbox.com/sh/fbe7l14o3n8f5rw/AACABE1BQGBbX4j6A1dIhBcSa?dl=0) |  RTX 3090   |
-|   conv2d.yaml    |     75.0     | 15 seconds / epoch |  [model](https://huggingface.co/speechbrain/PIQ-ESC50)  | [model](https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0) |  RTX 3090   |
-|  focalnet.yaml   |     77.4     | 60 seconds / epoch |                      Not available                      |                                      [TODO]()                                      | 1xV100 32GB |
-|     vit.yaml     |     73.6     | 56 seconds / epoch |                      Not available                      |                                      [TODO]()                                      | 1xV100 32GB |
+| Hyperparams file | Accuracy (%) |   Training time    |                        HuggingFace link                         |                                                         Model link                                                         |    GPUs     |
+|:----------------:|:------------:|:------------------:|:---------------------------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------:|:-----------:|
+|    cnn14.yaml    |     82.0     | 11 seconds / epoch |     [model](https://huggingface.co/speechbrain/cnn14-esc50)     |                     [model](https://www.dropbox.com/sh/fbe7l14o3n8f5rw/AACABE1BQGBbX4j6A1dIhBcSa?dl=0)                     |  RTX 3090   |
+|   conv2d.yaml    |     75.0     | 15 seconds / epoch |      [model](https://huggingface.co/speechbrain/PIQ-ESC50)      |                     [model](https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0)                     |  RTX 3090   |
+|  focalnet.yaml   |     77.4     | 60 seconds / epoch | [model](https://huggingface.co/speechbrain/focalnet-base-esc50) | [model](https://www.dropbox.com/scl/fo/zk101h5xypgi56d777yp5/AGVIfoe56OWInxWf6F57JyQ?rlkey=hmme5c8rnu2sok3jnwbanw7eq&dl=0) | 1xV100 32GB |
+|     vit.yaml     |     73.6     | 56 seconds / epoch |   [model](https://huggingface.co/speechbrain/vit-base-esc50)    | [model](https://www.dropbox.com/scl/fo/af59l6mtm0ytqyhz3l7ib/ADGklBYXxil1DWKv5CSMDGk?rlkey=wk5tdh0h26f61e1tn3bh80vys&dl=0) | 1xV100 32GB |
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -105,6 +105,15 @@ If you find this recipe useful, please cite:
     author = {Zhepei Wang and Cem Subakan and Xilin Jiang and Junkai Wu and Efthymios Tzinis and Mirco Ravanelli and Paris Smaragdis},
     title = {Learning Representations for New Sound Classes With Continual Self-Supervised Learning},
     journal = {{IEEE} Signal Processing Letters}
+}
+```
+
+```bibtex
+@inproceedings{dellalibera2024focal,
+    title={Focal Modulation Networks for Interpretable Sound Classification},
+    author={Luca Della Libera and Cem Subakan and Mirco Ravanelli},
+    booktitle={IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) XAI-SA Workshop},
+    year={2024},
 }
 ```
 

@@ -85,8 +85,8 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: null
-classifier_model_path: null
+embedding_model_path: speechbrain/vit-base-esc50/embedding_model.ckpt
+classifier_model_path: speechbrain/vit-base-esc50/classifier.ckpt
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

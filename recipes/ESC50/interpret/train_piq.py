@@ -19,11 +19,9 @@ import torch
 import torchaudio
 import torchvision
 from hyperpyyaml import load_hyperpyyaml
-from torch import nn
 from torch.nn import functional as F
 
 import speechbrain as sb
-from speechbrain.lobes.models.PIQ import VectorQuantizedPSI_Audio, weights_init
 from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.metric_stats import MetricStats
@@ -205,8 +203,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         ):
             length = min(len(s1), len(s2))
             mid = length // 2
-            s1[:mid] = 0.0
-            s2[mid:] = 0.0
+            s1[mid:] = 0.0
+            s2[:mid] = 0.0
             mix = (s1 + s2).unsqueeze(0)
         else:
             mix = (s1 * 0.8 + (s2 * 0.2)).unsqueeze(0)
@@ -758,48 +756,6 @@ def dataio_prep(hparams):
     )
 
     return datasets, label_encoder
-
-
-class VectorQuantizedPSIFocalNet(VectorQuantizedPSI_Audio):
-    def __init__(self, dim=1024, **kwargs):
-        super().__init__(dim=dim, **kwargs)
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
-        )
-        self.apply(weights_init)
-
-
-class VectorQuantizedPSIViT(VectorQuantizedPSI_Audio):
-    def __init__(self, dim=768, **kwargs):
-        super().__init__(dim=dim, **kwargs)
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
-            nn.ReLU(),
-            nn.BatchNorm2d(dim),
-            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
-        )
-        self.apply(weights_init)
 
 
 if __name__ == "__main__":

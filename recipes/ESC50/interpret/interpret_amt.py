@@ -221,8 +221,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         ):
             length = min(len(s1), len(s2))
             mid = length // 2
-            s1[:mid] = 0.0
-            s2[mid:] = 0.0
+            s1[mid:] = 0.0
+            s2[:mid] = 0.0
             mix = (s1 + s2).unsqueeze(0)
         else:
             mix = (s1 * 0.8 + (s2 * 0.2)).unsqueeze(0)

@@ -4,7 +4,7 @@
 
 The objective of interpretability is to offer an explanation regarding the decision made by a classifier.
 
-**Post-hoc** interpretation methods aim to build an auxiliary module -- the interpreter -- that generates an additional signal in its output
+**Post-hoc** interpretation methods aim to build an auxiliary module -- the **interpreter** -- that generates an additional signal in its output
 helping the user to better understand why a specific prediction was made by a pre-trained classifier.
 You can find some examples [here](https://piqinter.github.io).
 
@@ -83,16 +83,15 @@ Hence, the quality of the generated interpretation depends on how interpretable 
 Two neural network architectures are currently supported for this method: [FocalNet](https://arxiv.org/abs/2203.11926) and [ViT](https://arxiv.org/abs/2010.11929).
 In particular, FocalNet offers a neural network architecture that is interpretable by design.
 
-To use this method, you first have to train the FocalNet or ViT using the classification recipe under `ESC50/classification`.
-
-To generate interpretations for a pre-trained FocalNet or ViT classifier, use the following command:
+To generate interpretations for the pre-trained FocalNet or ViT classifiers available on HuggingFace, use the following command:
 
 ```shell
-python interpret_amt.py hparams/amt_focalnet.yaml --data_folder /yourpath/ESC50 --embedding_model_path <path-to-embedding-model> --classifier_model_path <path-to-classifier>
-python interpret_amt.py hparams/amt_vit.yaml --data_folder /yourpath/ESC50 --embedding_model_path <path-to-embedding-model> --classifier_model_path <path-to-classifier>
+python interpret_amt.py hparams/amt_focalnet.yaml --data_folder /yourpath/ESC50
+python interpret_amt.py hparams/amt_vit.yaml --data_folder /yourpath/ESC50
 ```
 
-Alternatively, you can specify the paths directly in the configuration file. For example:
+Alternatively, you can train your own FocalNet or ViT classifiers using the classification recipe under `ESC50/classification`,
+and set the corresponding paths as command line arguments or directly in the configuration file. For example:
 
 ```yaml
 embedding_model_path: ../classification/results/focalnet-base-esc50/1234/save/CKPT+2024-02-08+18-59-37+00/embedding_model.ckpt
@@ -103,16 +102,16 @@ classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/C
 
 ## Results
 
-| Hyperparams file  | Fidelity-to-input |  Faithfulness   |   Training time    |                   HuggingFace link                    |                                     Model link                                     |    GPUs     |
-|:-----------------:|:-----------------:|:---------------:|:------------------:|:-----------------------------------------------------:|:----------------------------------------------------------------------------------:|:-----------:|
-| amt_focalnet.yaml |       0.305       |     0.0111      |         -          |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
-|   amt_vit.yaml    |       0.225       |     0.0109      |         -          |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
-|  l2i_cnn14.yaml   |   Not available   |  Not available  |    25 s / epoch    |                     Not available                     | [model](https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0) |  RTX 3090   |
-|  l2i_conv2d.yaml  |   Not available   |  Not available  |  1 min 10 s /epoch |                     Not available                     | [model](https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0) |  RTX 3090   |
-|     nmf.yaml      |         -         |        -        |    45 s / epoch    |                     Not available                     | [model](https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0) |  RTX 3090   |
-|     piq.yaml      |   Not available   |   Not available | 1 min 10 s /epoch  | [model](https://huggingface.co/speechbrain/PIQ-ESC50) | [model](https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0) |  RTX 3090   |
-| piq_focalnet.yaml |       0.278       |     0.0111      |   8 min / epoch    |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
-|   piq_vit.yaml    |       0.110       |     0.0121      |   5 min / epoch    |                     Not available                     |                                      [TODO]()                                      | 1xV100 32GB |
+| Hyperparams file  | Fidelity-to-input |  Faithfulness   |   Training time    |                   HuggingFace link                    |                                                         Model link                                                         |    GPUs     |
+|:-----------------:|:-----------------:|:---------------:|:------------------:|:-----------------------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------:|:-----------:|
+| amt_focalnet.yaml |       0.305       |     0.0111      |         -          |                           -                           | [model](https://www.dropbox.com/scl/fo/0hheboei1b35mlrhwj6mt/AOeCdNstN3h8UqFxv0abT7M?rlkey=kx0d1t5v5hqawqwr5ir9weihq&dl=0) | 1xV100 32GB |
+|   amt_vit.yaml    |       0.225       |     0.0109      |         -          |                           -                           | [model](https://www.dropbox.com/scl/fo/vlluiqiirlprl3oa7h4sj/APrEFgcIiWjdQhDUEZuNook?rlkey=bhswfspzklypu7k8ndh8lm3st&dl=0) | 1xV100 32GB |
+|  l2i_cnn14.yaml   |   Not available   |  Not available  |    25 s / epoch    |                     Not available                     |                     [model](https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0)                     |  RTX 3090   |
+|  l2i_conv2d.yaml  |   Not available   |  Not available  |  1 min 10 s /epoch |                     Not available                     |                     [model](https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0)                     |  RTX 3090   |
+|     nmf.yaml      |         -         |        -        |    45 s / epoch    |                     Not available                     |                     [model](https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0)                     |  RTX 3090   |
+|     piq.yaml      |   Not available   |   Not available | 1 min 10 s /epoch  | [model](https://huggingface.co/speechbrain/PIQ-ESC50) |                     [model](https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0)                     |  RTX 3090   |
+| piq_focalnet.yaml |       0.278       |     0.0111      |   8 min / epoch    |                     Not available                     | [model](https://www.dropbox.com/scl/fo/6mvxb32f0g1i8b4lkdjoq/AGD1xNF8Of2_IXeEsbpXtQE?rlkey=llefue4rxalqyqwxqtwrn8qii&dl=0) | 1xV100 32GB |
+|   piq_vit.yaml    |       0.110       |     0.0121      |   5 min / epoch    |                     Not available                     | [model](https://www.dropbox.com/scl/fo/nz4lqwumgz03nanmf9xai/AI21fGwSOzsVvyegTJUEtz4?rlkey=40yjchqgkhcrhbxsa30m3rr6w&dl=0) | 1xV100 32GB |
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -130,7 +129,7 @@ python train_<method>.py hparams/<method-config>.yaml --data_folder /yourpath/ES
 
 - The recipe automatically downloads the ESC50 dataset. You only need to specify the path to which you would like to download it.
 
-- All the necessary models for CNN14 and Conv2D-based configurations are downloaded automatically for each training script.
+- All the necessary models are downloaded automatically for each training script.
 
 ---------------------------------------------------------------------------------------------------------
 
