@@ -507,6 +507,13 @@ class VectorQuantizedPSIFocalNet_Audio(VectorQuantizedPSI_Audio):
     """
     This class reconstructs log-power spectrograms from a FocalNet classifier's representations.
 
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of VQ vectors.
+    kwargs : dict
+        See documentation of `VectorQuantizedPSI_Audio`.
+
     Example
     -------
     >>> psi = VectorQuantizedPSIFocalNet_Audio(dim=256, K=1024)
@@ -540,6 +547,13 @@ class VectorQuantizedPSIFocalNet_Audio(VectorQuantizedPSI_Audio):
 class VectorQuantizedPSIViT_Audio(VectorQuantizedPSI_Audio):
     """
     This class reconstructs log-power spectrograms from a ViT classifier's representations.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of VQ vectors.
+    kwargs : dict
+        See documentation of `VectorQuantizedPSI_Audio`.
 
     Example
     -------
