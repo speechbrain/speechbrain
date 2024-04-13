@@ -13,13 +13,15 @@ Authors
  * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
-import sys
 import logging
 import os
-import speechbrain as sb
+import sys
+
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 from train import dataio_prep
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 # The following hyperparameters are used in dataio_prep, shared with the
 # main G2P training script:

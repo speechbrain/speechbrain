@@ -5,8 +5,8 @@ Authors
 * Artem Ploujnikov 2021
 """
 
-import os
 import logging
+import os
 import shutil
 
 logger = logging.getLogger(__name__)

@@ -15,16 +15,16 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
-import logging
-import re
-import os
 import csv
+import logging
+import os
+import re
 from pathlib import Path
-from typing import List, Union, Tuple, Optional
-
-from . import k2  # import k2 from ./__init__.py
+from typing import List, Optional, Tuple, Union
 
 import torch
+
+from . import k2  # import k2 from ./__init__.py
 
 logger = logging.getLogger(__name__)
 

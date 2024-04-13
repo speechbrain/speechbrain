@@ -6,11 +6,15 @@ Authors
  * Loren Lugosch 2020
 """
 
-import torch
 import random
-from speechbrain.utils.checkpoints import register_checkpoint_hooks
-from speechbrain.utils.checkpoints import mark_as_saver
-from speechbrain.utils.checkpoints import mark_as_loader
+
+import torch
+
+from speechbrain.utils.checkpoints import (
+    mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
+)
 from speechbrain.utils.data_utils import undo_padding
 
 

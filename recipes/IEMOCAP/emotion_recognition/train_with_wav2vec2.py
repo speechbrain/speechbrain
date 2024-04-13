@@ -13,8 +13,10 @@ Authors
 
 import os
 import sys
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class EmoIdBrain(sb.Brain):

@@ -1,6 +1,8 @@
 import os
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio, write_audio
 
 output_folder = os.path.join("results", "speed_perturb")

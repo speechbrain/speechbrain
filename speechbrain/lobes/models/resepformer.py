@@ -4,17 +4,18 @@ Authors
  * Cem Subakan 2022
 """
 
-import torch
-import torch.nn as nn
-from speechbrain.lobes.models.dual_path import select_norm
-from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerEncoder,
-    PositionalEncoding,
-    get_lookahead_mask,
-)
-import speechbrain.nnet.RNN as SBRNN
 import copy
 
+import torch
+import torch.nn as nn
+
+import speechbrain.nnet.RNN as SBRNN
+from speechbrain.lobes.models.dual_path import select_norm
+from speechbrain.lobes.models.transformer.Transformer import (
+    PositionalEncoding,
+    TransformerEncoder,
+    get_lookahead_mask,
+)
 
 EPS = torch.finfo(torch.get_default_dtype()).eps
 

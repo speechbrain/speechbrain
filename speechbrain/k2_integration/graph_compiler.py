@@ -10,11 +10,12 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
+import abc
+import logging
 import os
 from typing import List, Optional, Tuple
-import abc
+
 import torch
-import logging
 
 from . import k2  # import k2 from ./__init__.py
 from . import lexicon

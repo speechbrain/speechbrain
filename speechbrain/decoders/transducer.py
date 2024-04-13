@@ -5,10 +5,11 @@ Author:
     Sung-Lin Yeh 2020
 """
 
-import torch
 from dataclasses import dataclass
 from functools import partial
-from typing import Optional, Any
+from typing import Any, Optional
+
+import torch
 
 
 @dataclass

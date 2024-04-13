@@ -15,11 +15,13 @@ Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
 """
+import logging
 import os
 import sys
-import logging
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)

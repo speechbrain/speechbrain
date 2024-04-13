@@ -7,11 +7,10 @@
 # Author(s): Tanel Alumäe, Nik Vaessen, Sangeet Sagar (2023)
 ################################################################################
 
-import os
-import json
-from tqdm import tqdm
-import pathlib
 import argparse
+import json
+import os
+import pathlib
 import random
 from collections import defaultdict
 
@@ -19,6 +18,7 @@ import librosa
 import torch
 import torchaudio
 import webdataset as wds
+from tqdm import tqdm
 
 ################################################################################
 # methods for writing the shards

@@ -15,14 +15,16 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import sys
-import torch
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
-import jsonlines
 import ast
+import sys
+
+import jsonlines
 import pandas as pd
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 
 # Define training procedure

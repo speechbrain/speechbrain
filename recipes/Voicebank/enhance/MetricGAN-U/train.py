@@ -9,28 +9,29 @@ Authors
  * Szu-Wei Fu 2021/09
 """
 
+import json
 import os
-import sys
+import pickle
 import shutil
+import sys
+import time
+from enum import Enum, auto
+from urllib.parse import urljoin, urlparse
+
+import numpy as np
+import requests
 import torch
 import torchaudio
-import speechbrain as sb
-import numpy as np
-import json
-import pickle
-import requests
-import time
-
-from urllib.parse import urlparse, urljoin
-from srmrpy import srmr
-from pesq import pesq
-from enum import Enum, auto
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import MetricStats
-from speechbrain.processing.features import spectral_magnitude
-from speechbrain.nnet.loss.stoi_loss import stoi_loss
-from speechbrain.utils.distributed import run_on_main
+from pesq import pesq
+from srmrpy import srmr
+
+import speechbrain as sb
 from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from speechbrain.processing.features import spectral_magnitude
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 ### For DNSMSOS
 # URL for the web service
