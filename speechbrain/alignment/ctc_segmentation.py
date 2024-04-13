@@ -248,9 +248,26 @@ class CTCSegmentation:
             )
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
+
         if isinstance(asr_model, EncoderDecoderASR):
-            # Assumption: log-softmax is already included in ctc_forward_step
-            self._ctc = self.asr_model.mods.decoder.ctc_forward_step
+            if not hasattr(self.asr_model.hparams, "scorer"):
+                raise AttributeError(
+                    "``ScorerBuilder`` module is required for CTC segmentation."
+                )
+
+            if "ctc" not in self.asr_model.hparams.scorer.full_scorers:
+                raise AttributeError(
+                    "``CTCScorer`` module is required for CTC segmentation."
+                )
+
+            def ctc_forward_step(x: torch.Tensor) -> torch.Tensor:
+                """Forward step for CTC module."""
+                module = self.asr_model.hparams.scorer.full_scorers["ctc"]
+                logits = module.ctc_fc(x)
+                log_probs = module.softmax(logits)
+                return log_probs
+
+            self._ctc = ctc_forward_step
         else:
             # Apply log-softmax to encoder output
             self._ctc = self.asr_model.hparams.log_softmax
