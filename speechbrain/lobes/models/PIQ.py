@@ -562,7 +562,7 @@ class VectorQuantizedPSIViT_Audio(VectorQuantizedPSI_Audio):
     >>> labels = torch.Tensor([0, 2])
     >>> logspectra, hcat, z_q_x = psi(x, labels)
     >>> print(logspectra.shape, hcat.shape, z_q_x.shape)
-    torch.Size([2, 1, 257, 257]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
+    torch.Size([2, 1, 495, 593]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
     """
 
     def __init__(self, dim=768, **kwargs):
