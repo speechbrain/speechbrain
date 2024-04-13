@@ -1,8 +1,12 @@
 """This lobe enables the integration of pretrained SpeechTokenizer.
 
+Please, install speechtokenizer:
+    pip install speechtokenizer
+
 Reference: https://arxiv.org/abs/2308.16692
 Reference: https://arxiv.org/abs/1904.05862
 Reference: https://arxiv.org/abs/2110.13900
+
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
 
@@ -19,7 +23,10 @@ from speechtokenizer import SpeechTokenizer
 
 class SpeechTokenizer_interface(nn.Module):
     """This lobe enables the integration of HuggingFace and SpeechBrain
-    pretrained SpeechTokenizer
+    pretrained SpeechTokenizer.
+
+    Please, install speechtokenizer:
+    pip install speechtokenizer
 
     Source paper: https://arxiv.org/abs/2308.16692
 
