@@ -855,6 +855,15 @@ class Brain:
             if parameter.requires_grad:
                 total_trainable_params += parameter.numel()
         class_name = self.__class__.__name__
+        if total_parameters == 0:
+            logger.warning("The model has no parameters!")
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
+                f"* Total Number of Parameters: {total_parameters}\n"
+                f"* Trainable Parameters represent {0:.4f}% of the total size."
+            )
+            return
         percentage_trainable = 100 * total_trainable_params / total_parameters
         formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
             total_trainable_params
