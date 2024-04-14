@@ -99,6 +99,11 @@ class QBatchNorm(torch.nn.Module):
 
         exponential_average_factor = 0.0
 
+        repeats = [
+            4 if dim == (self.dim % input.dim()) else 1
+            for dim in range(input.dim())
+        ]
+
         # Entering training mode
         if self.training:
             if self.num_batches_tracked is not None:
@@ -129,10 +134,7 @@ class QBatchNorm(torch.nn.Module):
             denominator = torch.rsqrt(quat_variance + self.eps)
 
             # (x - mu) / sqrt(var + e)
-            out = delta * torch.cat(
-                [denominator, denominator, denominator, denominator],
-                dim=self.dim,
-            )
+            out = delta * denominator.repeat(repeats)
 
             # Update the running stats
             if self.track_running_stats:
@@ -150,17 +152,11 @@ class QBatchNorm(torch.nn.Module):
                     )
         else:
             denominator = torch.rsqrt(self.running_var + self.eps)
-            denominator = torch.cat(
-                [denominator, denominator, denominator, denominator],
-                dim=self.dim,
-            )
+            denominator = denominator.repeat(repeats)
             out = (input - self.running_mean) * denominator
 
         # lambda * (x - mu / sqrt(var + e)) + beta
-
-        q_gamma = torch.cat(
-            [self.gamma, self.gamma, self.gamma, self.gamma], dim=self.dim
-        )
+        q_gamma = self.gamma.repeat(repeats)
         out = (q_gamma * out) + self.beta
 
         return out
