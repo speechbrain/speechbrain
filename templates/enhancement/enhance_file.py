@@ -1,3 +1,15 @@
+#!/usr/bin/env/python3
+"""Run this script to perform inference with a trained model.
+
+To run this script, execute the following (for example) on the command line:
+> python enhance_file.py noisy_file.wav results/4234/save
+
+NOTE: If you changed the hparams in train.yaml, especially w.r.t STFT or
+the enhancement model, make sure the hparams in inference.yaml are the same.
+
+Authors
+ * Peter Plantinga 2024
+"""
 import argparse
 
 from speechbrain.inference.enhancement import SpectralMaskEnhancement
