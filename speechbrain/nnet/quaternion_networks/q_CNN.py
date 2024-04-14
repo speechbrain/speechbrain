@@ -403,8 +403,12 @@ class QConv2d(torch.nn.Module):
         kernel max-norm.
     swap: bool
         If True, the convolution is done with the format (B, C, W, H).
-        If False, the convolution is dine with (B, H, W, C).
+        If False, the convolution is done with (B, H, W, C).
         Active only if skip_transpose is False.
+    skip_transpose : bool
+        If False, uses batch x spatial.dim2 x spatial.dim1 x channel convention of speechbrain.
+        If True, uses batch x channel x spatial.dim1 x spatial.dim2 convention.
+
 
     Example
     -------
@@ -434,6 +438,7 @@ class QConv2d(torch.nn.Module):
         vector_scale=False,
         max_norm=None,
         swap=False,
+        skip_transpose=False,
     ):
         super().__init__()
         self.input_shape = input_shape
@@ -450,6 +455,7 @@ class QConv2d(torch.nn.Module):
         self.vector_scale = vector_scale
         self.max_norm = max_norm
         self.swap = swap
+        self.skip_transpose = skip_transpose
 
         # handle the case if some parameters are int
         if isinstance(kernel_size, int):
@@ -530,9 +536,10 @@ class QConv2d(torch.nn.Module):
         """
 
         # (batch, channel, time)
-        x = x.transpose(1, -1)
-        if self.swap:
-            x = x.transpose(-1, -2)
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+            if self.swap:
+                x = x.transpose(-1, -2)
 
         if self.max_norm is not None:
             self.r_weight.data = torch.renorm(
@@ -593,11 +600,12 @@ class QConv2d(torch.nn.Module):
                 conv1d=False,
             )
 
-        out = out.transpose(1, -1)
-        if self.swap:
-            out = out.transpose(1, 2)
+        if not self.skip_transpose:
+            out = out.transpose(1, -1)
+            if self.swap:
+                out = out.transpose(1, 2)
 
-        return out
+            return out
 
     def _check_input(self, input_shape):
         """Checks the input and returns the number of input channels."""
