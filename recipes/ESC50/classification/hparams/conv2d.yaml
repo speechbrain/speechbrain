@@ -1,7 +1,8 @@
 # #################################
-# The recipe for training PIQ on the ESC50 dataset.
+# Basic training parameters for sound classification using the ESC50 dataset.
+# This recipe uses a conv2d backbone for classification.
 #
-# Author:
+# Authors:
 #  * Cem Subakan 2022, 2023
 #  * Francesco Paissan 2022, 2023
 #  (based on the SpeechBrain UrbanSound8k recipe)
@@ -15,13 +16,11 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: piq
+experiment_name: conv2dv2_classifier-16k
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-save_interpretations: False
-interpret_period: 10
 
 # Tensorboard logs
 use_tensorboard: False
@@ -43,14 +42,14 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
 number_of_epochs: 200
-batch_size: 16
-lr: 0.0002
+batch_size: 32
+lr: 0.00002
+base_lr: 0.000002
+max_lr: !ref <lr>
+step_size: 65000
 sample_rate: 16000
-use_vq: True
-rec_loss_coef: 1
-use_mask_output: True
-mask_th: 0.35
 
+device: "cpu"
 
 # Feature parameters
 n_mels: 80
@@ -64,31 +63,8 @@ dataloader_options:
     shuffle: !ref <shuffle>
     num_workers: 0
 
-epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-    limit: !ref <number_of_epochs>
-
-opt_class: !name:torch.optim.Adam
-    lr: !ref <lr>
-    weight_decay: 0.000002
-
-lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
-    factor: 0.5
-    patience: 3
-    dont_halve_until_epoch: 100
-
-# Logging + checkpoints
-train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-    save_file: !ref <train_log>
-
-checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
-    checkpoints_dir: !ref <save_folder>
-    recoverables:
-        psi_model: !ref <psi_model>
-        counter: !ref <epoch_counter>
-
 use_pretrained: True
-
-# embedding_model: !new:custom_models.Conv2dEncoder_v2
+use_melspectra: False
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256
 
@@ -97,19 +73,12 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
-classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
-pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        embedding_model: !ref <embedding_model>
-        classifier: !ref <classifier>
-    paths:
-        embedding_model: !ref <embedding_model_path>
-        classifier: !ref <classifier_model_path>
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
 
-# Interpretation hyperparams
-K: 1024
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+    std_norm: False
 
 # pre-processing
 n_fft: 1024
@@ -127,21 +96,49 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
 
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    hop_length: !ref <hop_length>
-    win_length: !ref <win_length>
-
-psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSI_Audio
-    dim: 256
-    K: !ref <K>
-    shared_keys: 0
-    activate_class_partitioning: True
-    use_adapter: True
-    adapter_reduce_dim: True
-
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
-    compute_istft: !ref <compute_istft>
-    psi: !ref <psi_model>
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+    mean_var_norm: !ref <mean_var_norm>
+
+compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
+    loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
+        margin: 0.2
+        scale: 30
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+lr_annealing: !new:speechbrain.nnet.schedulers.CyclicLRScheduler
+    base_lr: !ref <base_lr>
+    max_lr: !ref <max_lr>
+    step_size: !ref <step_size>
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        normalizer: !ref <mean_var_norm>
+        counter: !ref <epoch_counter>
+
+
+# If you do not want to use the pretrained separator you can simply delete pretrained_separator field.
+embedding_model_path: "speechbrain/PIQ-ESC50/embedding_model.ckpt"
+pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+    paths:
+        embedding_model: !ref <embedding_model_path>

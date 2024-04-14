@@ -1,9 +1,10 @@
 # #################################
-# The recipe for training PIQ on the ESC50 dataset.
+# This recipe trains PIQ to interpret a ViT audio classifier.
 #
 # Author:
 #  * Cem Subakan 2022, 2023
 #  * Francesco Paissan 2022, 2023
+#  * Luca Della Libera 2024
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 
@@ -15,12 +16,13 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: piq
+experiment_name: piq_vit-base
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
+concat_sources: False
 interpret_period: 10
 
 # Tensorboard logs
@@ -42,18 +44,14 @@ skip_manifest_creation: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 200
-batch_size: 16
+number_of_epochs: 100
+batch_size: 6
 lr: 0.0002
 sample_rate: 16000
 use_vq: True
 rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
-
-
-# Feature parameters
-n_mels: 80
 
 # Number of classes
 out_n_neurons: 50
@@ -88,17 +86,16 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 use_pretrained: True
 
-# embedding_model: !new:custom_models.Conv2dEncoder_v2
-embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
-    dim: 256
+embedding_model: !apply:transformers.ViTModel.from_pretrained [google/vit-base-patch16-224]
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 256
+    input_size: 768
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
-classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
+embedding_model_path: speechbrain/vit-base-esc50/embedding_model.ckpt
+classifier_model_path: speechbrain/vit-base-esc50/classifier.ckpt
+
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
@@ -111,20 +108,16 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
 # Interpretation hyperparams
 K: 1024
 
-# pre-processing
+# Pre-processing
 n_fft: 1024
 spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
+
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
-    sample_rate: !ref <sample_rate>
-
-compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: !ref <n_mels>
-    n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
 
 compute_istft: !new:speechbrain.processing.features.ISTFT
@@ -132,8 +125,8 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSI_Audio
-    dim: 256
+psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSIViT_Audio
+    dim: 768
     K: !ref <K>
     shared_keys: 0
     activate_class_partitioning: True
@@ -142,6 +135,5 @@ psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSI_Audio
 
 modules:
     compute_stft: !ref <compute_stft>
-    compute_fbank: !ref <compute_fbank>
     compute_istft: !ref <compute_istft>
     psi: !ref <psi_model>

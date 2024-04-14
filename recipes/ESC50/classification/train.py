@@ -1,26 +1,28 @@
 #!/usr/bin/python3
-"""Recipe to train a classifier on ESC50 data
-We employ an encoder followed by a sound classifier.
+
+"""Recipe to train a classifier on ESC50 data.
 
 To run this recipe, use the following command:
-> python train_classifier.py hparams/cnn14.yaml --data_folder yourpath/ESC-50-master
+> python train.py hparams/<config>.yaml --data_folder yourpath/ESC-50-master
 
 Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023
+    * Luca Della Libera 2024
 
 Based on the Urban8k recipe by
     * David Whipps 2021
     * Ala Eddine Limame 2021
 """
+
 import os
 import sys
 
 import numpy as np
 import torch
 import torchaudio
+import torchvision
 from confusion_matrix_fig import create_cm_fig
-from esc50_prepare import prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from sklearn.metrics import confusion_matrix
 
@@ -29,29 +31,57 @@ from speechbrain.utils.distributed import run_on_main
 
 
 class ESC50Brain(sb.core.Brain):
-    """Class for classifier training" """
+    """Class for classifier training."""
 
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + sound classifier.
-        Data augmentation and environmental corruption are applied to the
-        input sound.
-        """
+        """Computation pipeline based on an encoder + sound classifier."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
+
+        # Augment if specified
+        if hasattr(self.hparams, "augmentation") and stage == sb.Stage.TRAIN:
+            wavs, lens = self.hparams.augmentation(wavs, lens)
+
+        # Extract features
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
-
-        if self.hparams.use_melspectra:
+        if (
+            hasattr(self.hparams, "use_melspectra")
+            and self.hparams.use_melspectra
+        ):
             net_input = self.modules.compute_fbank(X_stft_power)
         else:
             net_input = torch.log1p(X_stft_power)
 
         # Embeddings + sound classifier
-        embeddings = self.modules.embedding_model(net_input)
-        if embeddings.ndim == 4:
-            embeddings = embeddings.mean((-1, -2))
+        if hasattr(self.modules.embedding_model, "config"):
+            # Hugging Face model
+            config = self.modules.embedding_model.config
+            # Resize to match expected resolution
+            net_input = torchvision.transforms.functional.resize(
+                net_input, (config.image_size, config.image_size)
+            )
+            # Expand to have 3 channels
+            net_input = net_input[:, None, ...].expand(-1, 3, -1, -1)
+            if config.model_type == "focalnet":
+                embeddings = self.modules.embedding_model(
+                    net_input
+                ).feature_maps[-1]
+                embeddings = embeddings.mean(dim=(-1, -2))
+            elif config.model_type == "vit":
+                embeddings = self.modules.embedding_model(
+                    net_input
+                ).last_hidden_state.movedim(-1, -2)
+                embeddings = embeddings.mean(dim=-1)
+            else:
+                raise NotImplementedError
+        else:
+            # SpeechBrain model
+            embeddings = self.modules.embedding_model(net_input)
+            if embeddings.ndim == 4:
+                embeddings = embeddings.mean((-1, -2))
 
         outputs = self.modules.classifier(embeddings)
 
@@ -69,7 +99,7 @@ class ESC50Brain(sb.core.Brain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        # Append this batch of losses to the loss metric for easy
+        # Append this batch of losses to the loss metric
         self.loss_metric.append(
             uttid, predictions, classid, lens, reduction="batch"
         )
@@ -80,21 +110,21 @@ class ESC50Brain(sb.core.Brain):
             y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
 
         if stage == sb.Stage.VALID:
-            my_confusion_matrix = confusion_matrix(
+            confusion_matix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.valid_confusion_matrix += my_confusion_matrix
+            self.valid_confusion_matrix += confusion_matix
         if stage == sb.Stage.TEST:
-            my_confusion_matrix = confusion_matrix(
+            confusion_matix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.test_confusion_matrix += my_confusion_matrix
+            self.test_confusion_matrix += confusion_matix
 
-        # Compute Accuracy using MetricStats
+        # Compute accuracy using MetricStats
         self.acc_metric.append(
             uttid, predict=predictions, target=classid, lengths=lens
         )
@@ -120,10 +150,10 @@ class ESC50Brain(sb.core.Brain):
             metric=sb.nnet.losses.nll_loss
         )
 
-        # Compute Accuracy using MetricStats
+        # Compute accuracy using MetricStats
         # Define function taking (prediction, target, length) for eval
         def accuracy_value(predict, target, lengths):
-            """Computes Accuracy"""
+            """Computes accuracy."""
             nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
                 predict, target, lengths
             )
@@ -170,16 +200,14 @@ class ESC50Brain(sb.core.Brain):
                 "loss": self.train_loss,
                 "acc": self.acc_metric.summarize("average"),
             }
-        # Summarize Valid statistics from the stage for record-keeping.
+        # Summarize Valid statistics from the stage for record-keeping
         elif stage == sb.Stage.VALID:
             valid_stats = {
                 "loss": stage_loss,
-                "acc": self.acc_metric.summarize(
-                    "average"
-                ),  # "acc": self.valid_acc_metric.summarize(),
+                "acc": self.acc_metric.summarize("average"),
                 "error": self.error_metrics.summarize("average"),
             }
-        # Summarize Test statistics from the stage for record-keeping.
+        # Summarize Test statistics from the stage for record-keeping
         else:
             test_stats = {
                 "loss": stage_loss,
@@ -210,18 +238,7 @@ class ESC50Brain(sb.core.Brain):
                     "Validation Confusion Matrix", cm_fig, epoch
                 )
 
-            # Per class accuracy from Validation confusion matrix
-            per_class_acc_arr = np.diag(self.valid_confusion_matrix) / np.sum(
-                self.valid_confusion_matrix, axis=1
-            )
-            per_class_acc_arr_str = "\n" + "\n".join(
-                "{:}: {:.3f}".format(
-                    self.hparams.label_encoder.decode_ndim(class_id), class_acc
-                )
-                for class_id, class_acc in enumerate(per_class_acc_arr)
-            )
-
-            # The train_logger writes a summary to stdout and to the logfile.
+            # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
@@ -232,7 +249,7 @@ class ESC50Brain(sb.core.Brain):
                 meta=valid_stats, min_keys=["error"]
             )
 
-        # We also write statistics about test data to stdout and to the logfile.
+        # We also write statistics about test data to stdout and to the log file
         if stage == sb.Stage.TEST:
             # Per class accuracy from Test confusion matrix
             per_class_acc_arr = np.diag(self.test_confusion_matrix) / np.sum(
@@ -256,8 +273,7 @@ class ESC50Brain(sb.core.Brain):
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
@@ -299,6 +315,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("class_string")
     @sb.utils.data_pipeline.provides("class_string", "class_string_encoded")
     def label_pipeline(class_string):
+        """The label pipeline."""
         yield class_string
         class_string_encoded = label_encoder.encode_label_torch(class_string)
         yield class_string_encoded
@@ -333,8 +350,8 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-    # This flag enables the inbuilt cudnn auto-tuner
-    torch.backends.cudnn.benchmark = True
+    # This flag enables the built-in cuDNN auto-tuner
+    # torch.backends.cudnn.benchmark = True
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -360,6 +377,8 @@ if __name__ == "__main__":
         hparams["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs_folder"]
         )
+
+    from esc50_prepare import prepare_esc50
 
     run_on_main(
         prepare_esc50,
@@ -391,7 +410,7 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # Load pretrained model if pretrained_separator is present in the yaml
+    # Load pretrained encoder if it exists in the yaml file
     if "pretrained_encoder" in hparams and hparams["use_pretrained"]:
         run_on_main(hparams["pretrained_encoder"].collect_files)
         hparams["pretrained_encoder"].load_collected()
