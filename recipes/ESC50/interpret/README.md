@@ -83,6 +83,8 @@ Hence, the quality of the generated interpretation depends on how interpretable 
 Two neural network architectures are currently supported for this method: [FocalNet](https://arxiv.org/abs/2203.11926) and [ViT](https://arxiv.org/abs/2010.11929).
 In particular, FocalNet offers a neural network architecture that is interpretable by design.
 
+For more details, refer to our [FocalNet paper](https://arxiv.org/abs/2402.02754).
+
 To generate interpretations for the pre-trained FocalNet or ViT classifiers available on HuggingFace, use the following command:
 
 ```shell
@@ -148,7 +150,7 @@ Please cite our [PIQ paper](https://arxiv.org/abs/2303.12659) if you use it in y
 }
 ```
 
-Please cite our [FocalNet paper](https://arxiv.org/abs/2303.12659) if you use it in your research:
+Please cite our [FocalNet paper](https://arxiv.org/abs/2402.02754) if you use it in your research:
 
 ```bibtex
 @inproceedings{dellalibera2024focal,

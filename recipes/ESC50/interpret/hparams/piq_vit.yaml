@@ -125,7 +125,7 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSIFocalNetViT_Audio
+psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSIViT_Audio
     dim: 768
     K: !ref <K>
     shared_keys: 0
