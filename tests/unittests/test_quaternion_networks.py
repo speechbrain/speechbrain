@@ -29,10 +29,12 @@ def test_QLinear(device):
         # | j  k  r  -i |
         # | k -j  i   r |
 
-        qlin_no_bias.r_weight.fill_(1)
+        qlin_no_bias.r_weight.fill_(2)
         qlin_no_bias.i_weight.fill_(0)
         qlin_no_bias.j_weight.fill_(0)
         qlin_no_bias.k_weight.fill_(0)
+
+    qlin_no_bias.max_norm = 1.0
     outputs = qlin_no_bias(inputs)
     assert torch.all(torch.eq(inputs, outputs))
 
@@ -93,7 +95,7 @@ def test_QBatchNorm(device):
     assert torch.all(torch.abs(current_mean) < 1e-06)
 
     r, i, j, k = torch.chunk(output, 4, dim=-1)
-    output_magnitude = torch.sqrt((r ** 2 + i ** 2 + j ** 2 + k ** 2))
+    output_magnitude = torch.sqrt((r**2 + i**2 + j**2 + k**2))
     average_magnitude = output_magnitude.mean(dim=0)
     assert torch.all(torch.abs(1.0 - average_magnitude) < 0.10)
 
@@ -128,10 +130,11 @@ def test_QConv2d(device):
     assert torch.all(torch.eq(torch.zeros(input.shape, device=device), output))
 
     with torch.no_grad():
-        convolve.r_weight.fill_(1.0)
+        convolve.r_weight.fill_(2.0)
         convolve.i_weight.fill_(0.0)
         convolve.j_weight.fill_(0.0)
         convolve.k_weight.fill_(0.0)
+    convolve.max_norm = 1.0
 
     output = convolve(input)
     assert torch.all(torch.eq(input, output))

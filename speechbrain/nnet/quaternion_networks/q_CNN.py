@@ -18,6 +18,7 @@ from speechbrain.nnet.quaternion_networks.q_ops import (
     quaternion_conv_op,
     quaternion_conv_rotation_op,
     quaternion_init,
+    renorm_quaternion_weights_inplace,
     unitary_init,
 )
 
@@ -203,17 +204,12 @@ class QConv1d(torch.nn.Module):
         x = x.transpose(1, -1)
 
         if self.max_norm is not None:
-            self.r_weight.data = torch.renorm(
-                self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.i_weight.data = torch.renorm(
-                self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.j_weight.data = torch.renorm(
-                self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.k_weight.data = torch.renorm(
-                self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            renorm_quaternion_weights_inplace(
+                self.r_weight,
+                self.i_weight,
+                self.j_weight,
+                self.k_weight,
+                max_norm=self.max_norm,
             )
 
         if self.padding == "same":
@@ -542,17 +538,12 @@ class QConv2d(torch.nn.Module):
                 x = x.transpose(-1, -2)
 
         if self.max_norm is not None:
-            self.r_weight.data = torch.renorm(
-                self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.i_weight.data = torch.renorm(
-                self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.j_weight.data = torch.renorm(
-                self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.k_weight.data = torch.renorm(
-                self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            renorm_quaternion_weights_inplace(
+                self.r_weight,
+                self.i_weight,
+                self.j_weight,
+                self.k_weight,
+                max_norm=self.max_norm,
             )
 
         if self.padding == "same":

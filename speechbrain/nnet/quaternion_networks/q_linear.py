@@ -16,6 +16,7 @@ from speechbrain.nnet.quaternion_networks.q_ops import (
     quaternion_init,
     quaternion_linear_op,
     quaternion_linear_rotation_op,
+    renorm_quaternion_weights_inplace,
     unitary_init,
 )
 
@@ -189,17 +190,12 @@ class QLinear(torch.nn.Module):
         """
 
         if self.max_norm is not None:
-            self.r_weight.data = torch.renorm(
-                self.r_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.i_weight.data = torch.renorm(
-                self.i_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.j_weight.data = torch.renorm(
-                self.j_weight.data, p=2, dim=0, maxnorm=self.max_norm
-            )
-            self.k_weight.data = torch.renorm(
-                self.k_weight.data, p=2, dim=0, maxnorm=self.max_norm
+            renorm_quaternion_weights_inplace(
+                self.r_weight,
+                self.i_weight,
+                self.j_weight,
+                self.k_weight,
+                max_norm=self.max_norm,
             )
 
         if self.autograd:
