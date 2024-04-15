@@ -17,7 +17,7 @@ Authors:
 import functools
 import itertools
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple
 
 import sentencepiece
 import torch
@@ -505,16 +505,73 @@ class WhisperASR(Pretrained):
             self.mods.decoder.set_lang_tokens(lang_tokens)
         return languages, lang_probs
 
+    def _get_audio_stream(
+        self, streamer: torchaudio.io.StreamReader, frames_per_chunk: int
+    ):
+        """From a :class:`torchaudio.io.StreamReader`, identifies the audio
+        stream and returns an iterable stream of chunks (after resampling and
+        downmixing to mono).
+
+        Arguments
+        ---------
+        streamer : torchaudio.io.StreamReader
+            The stream object. Must hold exactly one source stream of an
+            audio type.
+        frames_per_chunk : int
+            The number of frames per chunk. For a streaming model, this should
+            be determined from the DynChunkTrain configuration.
+
+        Yields
+        ------
+        chunks from streamer
+        """
+
+        stream_infos = [
+            streamer.get_src_stream_info(i)
+            for i in range(streamer.num_src_streams)
+        ]
+
+        audio_stream_infos = [
+            (i, stream_info)
+            for i, stream_info in enumerate(stream_infos)
+            if stream_info.media_type == "audio"
+        ]
+
+        if len(audio_stream_infos) != 1:
+            raise ValueError(
+                f"Expected stream to have only 1 stream (with any number of channels), got {len(audio_stream_infos)} (with streams: {stream_infos})"
+            )
+
+        # find the index of the first (and only) audio stream
+        audio_stream_index = audio_stream_infos[0][0]
+
+        # output stream #0
+        streamer.add_basic_audio_stream(
+            frames_per_chunk=frames_per_chunk,
+            stream_index=audio_stream_index,
+            sample_rate=self.audio_normalizer.sample_rate,
+            format="fltp",  # torch.float32
+            num_channels=1,
+        )
+
+        for (chunk,) in streamer.stream():
+            chunk = chunk.squeeze(-1)  # we deal with mono, remove that dim
+            chunk = chunk.unsqueeze(0)  # create a fake batch dim
+            yield chunk
+
     @torch.no_grad()
     def transcribe_file(
         self,
-        input: Union[str, torch.Tensor],
+        path: str,
         task: Optional[str] = None,
         initial_prompt: Optional[str] = None,
         logprob_threshold: Optional[float] = -1.0,
         no_speech_threshold=0.6,
         condition_on_previous_text: bool = False,
         verbose: bool = False,
+        use_torchaudio_streaming: bool = True,
+        chunk_size: Optional[int] = 30,
+        **kwargs,
     ):
         """Transcribes the given audiofile into a sequence of words.
         This method supports the following tasks: transcribe, translate, and lang_id.
@@ -522,8 +579,12 @@ class WhisperASR(Pretrained):
 
         Arguments
         ---------
-        input : Union[str, torch.Tensor]
-            Path to audio file which to transcribe or torch tensor of audio.
+        path : str
+            URI/path to the audio to transcribe. When
+            ``use_torchaudio_streaming`` is ``False``, uses SB fetching to allow
+            fetching from HF or a local file. When ``True``, resolves the URI
+            through ffmpeg, as documented in
+            :class:`torchaudio.io.StreamReader`.
         task : Optional[str]
             The task to perform. If None, the default task is the one passed in the Whisper model.
         initial_prompt : Optional[str]
@@ -536,6 +597,18 @@ class WhisperASR(Pretrained):
             If True, the model will be condition on the last 224 tokens.
         verbose : bool
             If True, print the transcription of each segment.
+        use_torchaudio_streaming : bool
+            Whether the audio file can be loaded in a streaming fashion. If not,
+            transcription is still performed through chunks of audio, but the
+            entire audio file is fetched and loaded at once.
+            This skips the usual fetching method and instead resolves the URI
+            using torchaudio (via ffmpeg).
+        chunk_size : Optional[int]
+            The size of the chunks to split the audio into. The default
+            chunk size is 30 seconds which corresponds to the maximal length
+            that the model can process in one go.
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``
 
         Returns
         -------
@@ -553,14 +626,15 @@ class WhisperASR(Pretrained):
                     f"Task {task} not supported. Supported tasks are {self.TASKS}"
                 )
 
-        if isinstance(input, str):
-            audio = self.load_audio(input).float().to(self.device).unsqueeze(0)
+        # create chunks of chunk_size seconds
+        num_frames_per_chunk = chunk_size * self.hparams.sample_rate
+        if use_torchaudio_streaming:
+            streamer = torchaudio.io.StreamReader(path)
+            segments = self._get_audio_stream(streamer, num_frames_per_chunk)
         else:
-            audio = input.float().to(self.device)
-
-        # create chunks of 30 seconds, if the audio is longer than 30 seconds
-        N_FRAMES = 30 * self.hparams.sample_rate
-        segments = split_fixed_chunks(audio, N_FRAMES, dim=-1)
+            waveform = self.load_audio(path, **kwargs)
+            batch = waveform.unsqueeze(0)
+            segments = split_fixed_chunks(batch, num_frames_per_chunk)
 
         rel_length = torch.tensor([1.0])
 
@@ -575,14 +649,16 @@ class WhisperASR(Pretrained):
         else:
             initial_prompt_tokens = []
 
-        for i, segment in enumerate(tqdm(segments, enable=verbose)):
+        for i, segment in enumerate(tqdm(segments, disable=verbose)):
+            # move the segment on the device
+            segment = segment.to(self.device)
 
             # extract mel spectrogram
             mel_segment = self.mods.whisper._get_mel(segment)
 
             results.append({})
-            start = i * N_FRAMES
-            end = (i + 1) * N_FRAMES
+            start = i * chunk_size
+            end = (i + 1) * chunk_size
 
             encoder_out = self.mods.whisper.forward_encoder(mel_segment)
             languages, _ = self._detect_language(mel_segment, task)
@@ -643,7 +719,9 @@ class WhisperASR(Pretrained):
                 prompt_reset_since = len(all_tokens)
 
             if verbose:
-                print(f"[{30 * i}s --> {30 * (i + 1)}s] {predicted_words[0]}")
+                print(
+                    f"[{chunk_size * i}s --> {chunk_size * (i + 1)}s] {predicted_words[0]}"
+                )
 
         if task == "lang_id":
             return "", results
