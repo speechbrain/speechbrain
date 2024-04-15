@@ -16,9 +16,10 @@ Authors:
 
 import torch
 import torchaudio
+
+from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import fetch
-from speechbrain.inference.interfaces import Pretrained
 
 
 class VAD(Pretrained):

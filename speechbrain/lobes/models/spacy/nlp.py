@@ -4,10 +4,10 @@ Authors
 * Sylvain de Langen 2024
 """
 
+from typing import Iterable, Iterator, List, Union
+
 import spacy
 import spacy.tokens
-
-from typing import List, Union, Iterable, Iterator
 
 
 def _as_sentence(sentence: Union[str, List[str]]):

@@ -7,16 +7,18 @@ Authors
 """
 import os
 import sys
-import torch
-import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from esc50_prepare import prepare_esc50
-from speechbrain.utils.metric_stats import MetricStats
 from os import makedirs
+
+import torch
 import torch.nn.functional as F
+import torchaudio
+from esc50_prepare import prepare_esc50
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.processing.NMF import spectral_phase
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
 
@@ -87,7 +89,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mapping.
+    # mappinng.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -177,11 +179,11 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, pred_cl
 
     def interpret_sample(self, wavs, batch=None):
-        """get the interpretation for a given wav file."""
+        """get the interpratation for a given wav file."""
 
         # get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl = self.interpret_computation_steps(wavs)
-        if batch is not None:
+        if not (batch is None):
             X_stft_phase_sb = torch.cat(
                 (
                     torch.cos(X_stft_phase).unsqueeze(-1),
@@ -234,7 +236,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """interpretation test with overlapped audio"""
+        """interpration test with overlapped audio"""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
@@ -588,6 +590,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
 
 if __name__ == "__main__":
+
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
 

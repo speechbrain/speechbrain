@@ -15,9 +15,10 @@ Authors
 
 import sys
 
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
 from fisher_callhome_prepare import prepare_fisher_callhome_spanish
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides

@@ -48,24 +48,26 @@ Authors
  * Aku Rouhe 2020
 """
 
-import torch
 import collections
 import collections.abc
-import os
-import time
-import yaml
-import pathlib
 import inspect
-import shutil
 import logging
+import os
+import pathlib
+import shutil
+import time
 import warnings
+
+import torch
+import yaml
 from packaging import version
+
 import speechbrain.utils._workarounds as __wa
 from speechbrain.utils.distributed import (
-    main_process_only,
-    if_main_process,
     ddp_barrier,
     ddp_broadcast,
+    if_main_process,
+    main_process_only,
 )
 
 logger = logging.getLogger(__name__)

@@ -1,9 +1,11 @@
 # #################################
-# The recipe for training an L2I interpretability method on the ESC50 dataset.
+# Recipe to interpret a ViT audio classifier by-design via activation map thresholding (AMT)
+# applied to its attention maps.
 #
 # Author:
 #  * Cem Subakan 2022, 2023
 #  * Francesco Paissan 2022, 2023
+#  * Luca Della Libera 2024
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 
@@ -12,18 +14,18 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
-# Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: L2I
+experiment_name: amt_vit-base
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
+concat_sources: False
 
-# torch.Tensorboard logs
+# Tensorboard logs
 use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 
@@ -32,6 +34,8 @@ train_annotation: !ref <data_folder>/manifest/train.json
 valid_annotation: !ref <data_folder>/manifest/valid.json
 test_annotation: !ref <data_folder>/manifest/test.json
 
+# To standardize results, UrbanSound8k has pre-separated samples into
+# 10 folds for multi-fold validation
 train_fold_nums: [1, 2, 3]
 valid_fold_nums: [4]
 test_fold_nums: [5]
@@ -39,19 +43,13 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-####################### Training Parameters ####################################
-number_of_epochs: 200
-batch_size: 16
+# Training parameters
+number_of_epochs: 100
+batch_size: 6
 lr: 0.0002
 sample_rate: 16000
-interpret_period: 1
-relevance_th: 0.2
-
-
-# Feature parameters
-n_mels: 80
-
-use_melspectra: False
+use_mask_output: True
+mask_th: 0.35
 
 # Number of classes
 out_n_neurons: 50
@@ -69,11 +67,6 @@ opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
     weight_decay: 0.000002
 
-lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
-    factor: 0.5
-    patience: 3
-    dont_halve_until_epoch: 50
-
 # Logging + checkpoints
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -81,36 +74,42 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
-        theta: !ref <theta>
-        psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
 
-embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
-    dim: 256
+use_pretrained: True
+
+embedding_model: !apply:transformers.ViTModel.from_pretrained [google/vit-base-patch16-224]
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 256
+    input_size: 768
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-# Interpretation hyperparams
-K: 100
-n_freq: 513
+embedding_model_path: speechbrain/vit-base-esc50/embedding_model.ckpt
+classifier_model_path: speechbrain/vit-base-esc50/classifier.ckpt
 
-# pre-processing
+pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+    paths:
+        embedding_model: !ref <embedding_model_path>
+        classifier: !ref <classifier_model_path>
+
+# Interpretation hyperparams
+quantile: 0.90
+
+# Pre-processing
 n_fft: 1024
 spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
+
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
-    sample_rate: !ref <sample_rate>
-
-compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: !ref <n_mels>
-    n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
 
 compute_istft: !new:speechbrain.processing.features.ISTFT
@@ -118,42 +117,6 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.L2I.PsiOptimized
-    dim: 256
-    K: !ref <K>
-    use_adapter: False
-    adapter_reduce_dim: False
-
-theta: !new:speechbrain.lobes.models.L2I.Theta
-    T: 417
-
-# NMF Decoder
-nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
-    n_comp: !ref <K>
-    n_freq: !ref <n_freq>
-
-alpha: 10 # applied to NMF loss
-beta: 0.8 # L1 regularization to time activations
-k_fidelity: 3 # top-k fidelity
-
 modules:
     compute_stft: !ref <compute_stft>
-    compute_fbank: !ref <compute_fbank>
     compute_istft: !ref <compute_istft>
-    psi: !ref <psi_model>
-    theta: !ref <theta>
-
-embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
-classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
-nmf_decoder_path: "speechbrain/PIQ-ESC50/nmf_decoder.ckpt"
-use_pretrained: True
-pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
-    collect_in: !ref <save_folder>
-    loadables:
-        embedding_model: !ref <embedding_model>
-        classifier: !ref <classifier>
-        nmf_decoder: !ref <nmf_decoder>
-    paths:
-        embedding_model: !ref <embedding_model_path>
-        classifier: !ref <classifier_model_path>
-        nmf_decoder: !ref <nmf_decoder_path>

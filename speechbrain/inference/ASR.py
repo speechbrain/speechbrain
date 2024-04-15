@@ -14,20 +14,22 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-from dataclasses import dataclass
-from typing import Any, Optional, List, Tuple, Union
+import functools
 import itertools
+from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple, Union
+
+import sentencepiece
 import torch
 import torchaudio
-import sentencepiece
+from tqdm import tqdm
+
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
-import functools
-from speechbrain.utils.fetching import fetch
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+from speechbrain.utils.fetching import fetch
 from speechbrain.utils.streaming import split_fixed_chunks
-from tqdm import tqdm
 
 
 class EncoderDecoderASR(Pretrained):

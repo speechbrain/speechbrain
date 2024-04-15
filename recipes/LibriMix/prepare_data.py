@@ -5,8 +5,8 @@ Author
  * Cem Subakan 2020
 """
 
-import os
 import csv
+import os
 
 
 def prepare_librimix(

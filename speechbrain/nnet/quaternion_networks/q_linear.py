@@ -4,16 +4,18 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import torch
 import logging
+
+import torch
+
 from speechbrain.nnet.quaternion_networks.q_ops import (
+    QuaternionLinearCustomBackward,
     affect_init,
-    unitary_init,
+    check_quaternion_input,
     quaternion_init,
     quaternion_linear_op,
-    check_quaternion_input,
     quaternion_linear_rotation_op,
-    QuaternionLinearCustomBackward,
+    unitary_init,
 )
 
 logger = logging.getLogger(__name__)

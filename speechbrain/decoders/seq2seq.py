@@ -8,16 +8,18 @@ Authors
  * Sung-Lin Yeh 2020
 """
 
+from functools import cached_property
+
 import torch
-from speechbrain.decoders.utils import (
-    inflate_tensor,
-    mask_by_condition,
-    _update_mem,
-)
-from speechbrain.utils.data_utils import undo_padding
 import torch.nn.functional as F
 from torch.distributions import Categorical
-from functools import cached_property
+
+from speechbrain.decoders.utils import (
+    _update_mem,
+    inflate_tensor,
+    mask_by_condition,
+)
+from speechbrain.utils.data_utils import undo_padding
 
 
 class AlivedHypotheses(torch.nn.Module):

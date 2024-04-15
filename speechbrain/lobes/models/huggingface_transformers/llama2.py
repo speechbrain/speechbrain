@@ -9,16 +9,16 @@ Authors
 """
 
 import logging
-import torch
 
+import torch
 import torch.nn as nn
-from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
+from bitsandbytes.nn import Linear4bit
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from transformers import BitsAndBytesConfig
+
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
-from transformers import BitsAndBytesConfig
-
-from bitsandbytes.nn import Linear4bit
 
 logger = logging.getLogger(__name__)
 

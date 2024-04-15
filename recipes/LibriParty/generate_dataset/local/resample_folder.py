@@ -9,12 +9,14 @@ Author
 Samuele Cornell, 2020
 """
 
-import os
 import argparse
+import os
 from pathlib import Path
-import tqdm
-import torchaudio
+
 import torch
+import torchaudio
+import tqdm
+
 from speechbrain.utils.data_utils import get_all_files
 
 parser = argparse.ArgumentParser(

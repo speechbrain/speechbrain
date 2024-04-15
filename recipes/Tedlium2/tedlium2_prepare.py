@@ -6,11 +6,13 @@ Authors
  * Adel Moumen 2023
 """
 
-import os
 import csv
-import logging
-import torchaudio
 import functools
+import logging
+import os
+
+import torchaudio
+
 from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)

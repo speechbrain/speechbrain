@@ -11,14 +11,16 @@ Authors
  * Adel Moumen 2024
 """
 
-import sys
-import torch
 import logging
+import sys
+
+import torch
 import torchaudio
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 

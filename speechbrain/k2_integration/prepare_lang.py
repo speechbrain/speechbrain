@@ -11,15 +11,17 @@ Modified by:
 """
 
 
-from . import k2  # import k2 from ./__init__.py
-from .lexicon import read_lexicon, write_lexicon, EPS
+import logging
 import math
 import os
-import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
+
 import torch
+
+from . import k2  # import k2 from ./__init__.py
+from .lexicon import EPS, read_lexicon, write_lexicon
 
 logger = logging.getLogger(__name__)
 

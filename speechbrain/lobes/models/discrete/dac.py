@@ -9,10 +9,10 @@ Author
 
 """
 
+import logging
 import math
 from pathlib import Path
 from typing import List, Union
-import logging
 
 import numpy as np
 import torch

@@ -7,16 +7,18 @@ Author
  * Pooneh Mousavi 2023
 """
 
+import logging
 import os
 import sys
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 from torch.utils.data import DataLoader
+
+import speechbrain as sb
 from speechbrain.dataio.dataloader import LoopedLoader
-from speechbrain.utils.kmeans import fetch_kmeans_model, train, save_model
-import torchaudio
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.kmeans import fetch_kmeans_model, save_model, train
 
 logger = logging.getLogger(__name__)
 

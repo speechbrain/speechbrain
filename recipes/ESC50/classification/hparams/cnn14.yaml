@@ -1,6 +1,6 @@
 # #################################
 # Basic training parameters for sound classification using the ESC50 dataset.
-# This recipe uses a conv2d backbone for classification.
+# This recipe uses the ecapa-tdnn backbone for classification.
 #
 # Authors:
 #  * Cem Subakan 2022, 2023
@@ -13,17 +13,16 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
-# Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: conv2dv2_classifier-16k
+experiment_name: cnn14-esc50
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 
-# torch.Tensorboard logs
+# Tensorboard logs
 use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 
@@ -41,45 +40,57 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-####################### Training Parameters ####################################
+# Training parameters
 number_of_epochs: 200
 batch_size: 32
-lr: 0.00002
-base_lr: 0.000002
+lr: 0.0002
+base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
-sample_rate: 16000
+sample_rate: 44100
 
 device: "cpu"
 
 # Feature parameters
 n_mels: 80
+left_frames: 0
+right_frames: 0
+deltas: False
+
+use_melspectra: True
 
 # Number of classes
 out_n_neurons: 50
 
+# Note that it's actually important to shuffle the data here
 shuffle: True
 dataloader_options:
     batch_size: !ref <batch_size>
     shuffle: !ref <shuffle>
     num_workers: 0
 
-use_pretrained: True
-use_melspectra: False
-embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
-    dim: 256
+# Functions
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+    sample_rate: !ref <sample_rate>
+    n_fft: 1024
+    win_length: 20
+    hop_length: 10
+
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
+    mel_bins: !ref <n_mels>
+    emb_dim: 2048
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 256
+    input_size: 2048
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
-    std_norm: False
 
 # pre-processing
 n_fft: 1024
@@ -93,16 +104,16 @@ compute_stft: !new:speechbrain.processing.features.STFT
     sample_rate: !ref <sample_rate>
 
 compute_fbank: !new:speechbrain.processing.features.Filterbank
-    n_mels: !ref <n_mels>
+    n_mels: 80
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
 
 modules:
     compute_stft: !ref <compute_stft>
     compute_fbank: !ref <compute_fbank>
+    compute_features: !ref <compute_features>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
-    mean_var_norm: !ref <mean_var_norm>
 
 compute_cost: !new:speechbrain.nnet.losses.LogSoftmaxWrapper
     loss_fn: !new:speechbrain.nnet.losses.AdditiveAngularMargin
@@ -131,12 +142,11 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         embedding_model: !ref <embedding_model>
         classifier: !ref <classifier>
-        normalizer: !ref <mean_var_norm>
         counter: !ref <epoch_counter>
 
-
-# If you do not want to use the pretrained separator you can simply delete pretrained_separator field.
-embedding_model_path: "speechbrain/PIQ-ESC50/embedding_model.ckpt"
+use_pretrained: True
+# If you do not want to use the pretrained encoder you can simply delete pretrained_encoder field.
+embedding_model_path: speechbrain/cnn14-esc50/embedding_model.ckpt
 pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:

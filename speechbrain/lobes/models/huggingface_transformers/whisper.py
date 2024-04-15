@@ -10,10 +10,11 @@ Authors
  * Ha Nguyen 2023
 """
 
-import torch
 import logging
 from functools import cached_property
+
 import numpy as np
+import torch
 import torch.nn as nn
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (

@@ -4,8 +4,9 @@ Authors
  * Mirco Ravanelli 2022
 """
 
-import os
 import csv
+import os
+
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
 __skip_list = ["README.md", "setup", "full_inference.csv"]
