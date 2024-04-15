@@ -8,12 +8,14 @@ Author
 """
 
 import logging
-import torch
-import joblib
-from huggingface_hub import snapshot_download
 import os
 from glob import glob
+
+import joblib
+import torch
+from huggingface_hub import snapshot_download
 from torch import nn
+
 from speechbrain.tokenizers.discrete_SSL_tokenizer import DiscreteSSLTokenizer
 
 logger = logging.getLogger(__name__)
