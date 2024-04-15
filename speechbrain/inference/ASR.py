@@ -442,11 +442,11 @@ class WhisperASR(Pretrained):
         return language_tokens, language_probs
 
     def detect_language_batch(self, wav: torch.Tensor):
-        """Detects the language of the given audiofile.
+        """Detects the language of the given wav Tensor.
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wav : torch.tensor
             Batch of waveforms [batch, time, channels].
 
         Returns
