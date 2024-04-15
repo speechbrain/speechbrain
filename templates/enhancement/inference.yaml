@@ -1,14 +1,9 @@
 # #################################
 # Basic training parameters for enhancement.
 #
-# Authors:
-#  * Szu-Wei Fu 2020
-#  * Chien-Feng Liao 2020
-#  * Peter Plantinga 2020, 2021
+# Authors
+#  * Peter Plantinga 2024
 # #################################
-
-# Set this folder to where the checkpoint is stored
-pretrained_folder: !ref ./results/4234/save
 
 # FFT parameters
 sample_rate: 16000
