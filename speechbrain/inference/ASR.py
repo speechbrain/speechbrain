@@ -410,11 +410,11 @@ class WhisperASR(Pretrained):
 
     HPARAMS_NEEDED = ["language", "sample_rate"]
     MODULES_NEEDED = ["whisper", "decoder"]
+    TASKS = ["transcribe", "translate", "lang_id"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.whisper.tokenizer
-        self.TASKS = ["transcribe", "translate", "lang_id"]
 
     def detect_language_file(self, input_file: str):
         """Detects the language of the given audiofile.
@@ -571,7 +571,7 @@ class WhisperASR(Pretrained):
         else:
             initial_prompt_tokens = []
 
-        for i, segment in enumerate(tqdm(segments)):
+        for i, segment in enumerate(tqdm(segments, enable=verbose)):
 
             # extract mel spectrogram
             mel_segment = self.mods.whisper._get_mel(segment)
