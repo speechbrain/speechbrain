@@ -418,6 +418,7 @@ class WhisperASR(Pretrained):
 
     def detect_language_file(self, input_file: str):
         """Detects the language of the given audiofile.
+        This method only works on input_file of 30 seconds or less.
 
         Arguments
         ---------
@@ -443,6 +444,7 @@ class WhisperASR(Pretrained):
 
     def detect_language_batch(self, wav: torch.Tensor):
         """Detects the language of the given wav Tensor.
+        This method only works on wav of 30 seconds or less.
 
         Arguments
         ---------
@@ -478,7 +480,7 @@ class WhisperASR(Pretrained):
         return language_tokens, language_probs
 
     def _detect_language(self, mel: torch.Tensor, task: str):
-        """Detects the language of the given audiofile.
+        """Detects the language of the given mel spectrogram.
 
         Arguments
         ---------
@@ -515,6 +517,8 @@ class WhisperASR(Pretrained):
         verbose: bool = False,
     ):
         """Transcribes the given audiofile into a sequence of words.
+        This method supports the following tasks: transcribe, translate, and lang_id.
+        It can process an input audio file longer than 30 seconds by splitting it into 30-second segments.
 
         Arguments
         ---------
