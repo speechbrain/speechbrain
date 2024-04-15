@@ -6,6 +6,7 @@ Author
 """
 
 import importlib
+import inspect
 import os
 import sys
 import warnings
@@ -43,9 +44,45 @@ class LazyModule(ModuleType):
         self.lazy_module = None
         self.package = package
 
-    def _ensure_module(self) -> ModuleType:
+    def _ensure_module(self, stacklevel: int) -> ModuleType:
         """Ensures that the target module is imported and available as
-        `self.lazy_module`, also returning it."""
+        `self.lazy_module`, also returning it.
+
+        When the function responsible for the import attempt is found to be
+        `inspect.py`, we raise an `AttributeError` here. This is because some
+        code will inadvertently cause our modules to be imported, such as some
+        of PyTorch's op registering machinery.
+
+        Arguments
+        ---------
+        stacklevel : int
+            The stack trace level of the function that caused the import to
+            occur, relative to the **caller** of this function (e.g. if in
+            function `f` you call `_ensure_module(1)`, it will refer to the
+            function that called `f`).
+        """
+
+        importer_frame = None
+
+        # NOTE: ironically, calling this causes getframeinfo to call into
+        # `findsource` -> `getmodule` -> ourselves here
+        # bear that in mind if you are debugging and checking out the trace.
+        # also note that `_getframe` is an implementation detail, but it is
+        # somewhat non-critical to us.
+        try:
+            importer_frame = inspect.getframeinfo(sys._getframe(stacklevel + 1))
+        except AttributeError:
+            warnings.warn(
+                "Failed to inspect frame to check if we should ignore "
+                "importing a module lazily. This relies on a CPython "
+                "implementation detail, report an issue if you see this with "
+                "standard Python and include your version number."
+            )
+
+        if importer_frame is not None and importer_frame.filename.endswith(
+            "/inspect.py"
+        ):
+            raise AttributeError()
 
         if self.lazy_module is None:
             try:
@@ -65,7 +102,7 @@ class LazyModule(ModuleType):
 
     def __getattr__(self, attr):
         # NOTE: exceptions here get eaten and not displayed
-        return getattr(self._ensure_module(), attr)
+        return getattr(self._ensure_module(1), attr)
 
 
 class DeprecatedModuleRedirect(LazyModule):
@@ -120,11 +157,17 @@ class DeprecatedModuleRedirect(LazyModule):
             stacklevel=4,  # _ensure_module <- __getattr__ <- python <- user
         )
 
-    def _ensure_module(self) -> ModuleType:
-        if self.lazy_module is None:
+    def _ensure_module(self, stacklevel: int) -> ModuleType:
+        should_warn = self.lazy_module is None
+
+        # can fail with exception if the module shouldn't be imported, so only
+        # actually emit the warning later
+        module = super()._ensure_module(stacklevel + 1)
+
+        if should_warn:
             self._redirection_warn()
 
-        return super()._ensure_module()
+        return module
 
 
 def find_imports(file_path: str, find_subpackages: bool = False) -> List[str]:
