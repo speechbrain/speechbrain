@@ -59,8 +59,11 @@ class Whisper(HFTransformersInterface):
         If True, the model is frozen.
     freeze_encoder : bool (default: False)
         If True, the encoder is frozen.
-    output_attentions : bool (default: True)
-        If True, the forward function outputs the attention weights.
+    output_attentions : bool (default: False)
+        If ``True``, the forward function outputs the attention weights. By default, it is ``False`` because
+        flash attention requires having ``output_attentions=False``. In case ``output_attentions`` is ``True``,
+        a from-scratch attention implementation is being used, which can make the code slower and can increase the
+        VRAM memory usage.
     output_all_hiddens: bool (default: False)
         If True, the forward function outputs the hidden states from all transformer layers of the encoder.
         For example whisper-base has 6 transformer layers and the output is of shape (7, B, T, C),
