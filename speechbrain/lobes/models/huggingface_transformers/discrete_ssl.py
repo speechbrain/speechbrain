@@ -1,4 +1,4 @@
-"""This lobe enables the integration of pretrained discrete SSL( hubert,wavlm,wav2vec) for extracting semnatic tokens from output of SSL layers.
+"""This lobe enables the integration of pretrained discrete SSL (hubert,wavlm,wav2vec) for extracting semnatic tokens from output of SSL layers.
 
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
