@@ -302,7 +302,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
         top_log_probs = log_probs
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths).abs() / max_length
+        top_lengths = top_lengths / max_length
 
         return (
             hyps.unsqueeze(1),
@@ -1386,7 +1386,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
         top_scores = torch.stack((top_scores), dim=0).view(batch_size, -1)
 
         # Use SpeechBrain style lengths
-        top_lengths = (top_lengths).abs() / top_hyps.size(1)
+        top_lengths = top_lengths / top_hyps.size(1)
 
         # Get topk indices
         topk_scores, indices = top_scores.topk(self.topk, dim=-1)
