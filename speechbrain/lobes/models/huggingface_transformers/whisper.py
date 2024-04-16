@@ -108,9 +108,17 @@ class Whisper(HFTransformersInterface):
 
         if encoder_only:
             self.tokenizer = None
-            # free the decoder from GPU
+            # We first move the decoder to the CPU
+            self.model.decoder.cpu()
+            # Then we delete the decoder
             del self.model.decoder
             self.model.decoder = None
+
+            import gc
+
+            gc.collect()
+
+            torch.cuda.empty_cache()
         else:
             # when the model is not multilingual i.e. all Whisper
             # models ending in .en, you must not set the language
