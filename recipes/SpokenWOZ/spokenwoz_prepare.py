@@ -69,7 +69,7 @@ def prepare_spokenwoz(
         Default : None
         If not None, only pick this many sentences.
     merge_lst : list
-        List of splits (e.g, train-human, train-tts,..) to merge in a singe csv file.
+        List of splits (e.g, train-human, train-tts,..) to merge in a single csv file.
     merge_name: str
         Name of the merged csv file.
     skip_prep: bool
