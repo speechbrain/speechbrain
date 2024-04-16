@@ -69,7 +69,9 @@ class Whisper(HFTransformersInterface):
     language: str (default: "en")
         Language token to use for the decoder.
     task: str (default: "transcribe")
-        Task token to use for the decoder.
+        Task token to use for the decoder. It must be one of the following:
+        - "transcribe"
+        - "translate"
 
     Example
     -------

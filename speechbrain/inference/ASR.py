@@ -382,12 +382,52 @@ class EncoderASR(Pretrained):
         return self.encode_batch(wavs, wav_lens)
 
 
-class WhisperASR(Pretrained):
-    """A ready-to-use Whisper ASR model
+@dataclass
+class ASRWhisperSegment:
+    """A single chunk of audio for Whisper ASR streaming.
 
-    The class can be used  to  run the entire encoder-decoder whisper model
-    (transcribe()) to transcribe speech. The given YAML must contains the fields
-    specified in the *_NEEDED[] lists.
+    This object is intended to be mutated as streaming progresses and passed across calls
+    to the lower-level APIs such as `encode_chunk`, `decode_chunk`, etc.
+
+    Attributes
+    ----------
+    start : float
+        The start time of the audio chunk.
+    end : float
+        The end time of the audio chunk.
+    chunk : torch.Tensor
+        The audio chunk, shape [time, channels].
+    lang_id : str
+        The language identifier associated with the audio chunk.
+    words : str
+        The predicted words for the audio chunk.
+    tokens : List[int]
+        The predicted tokens for the audio chunk.
+    prompt : List[str]
+        The prompt associated with the audio chunk.
+    avg_log_probs : float
+        The average log probability associated with the prediction.
+    no_speech_prob : float
+        The probability of no speech in the audio chunk.
+    """
+
+    start: float
+    end: float
+    chunk: torch.Tensor
+    lang_id: str
+    words: str
+    tokens: List[int]
+    prompt: List[str]
+    avg_log_probs: float
+    no_speech_prob: float
+
+
+class WhisperASR(Pretrained):
+    """A ready-to-use Whisper ASR model.
+
+    The class can be used to run the entire encoder-decoder whisper model.
+    The set of tasks supported are: ``transcribe``, ``translate``, and ``lang_id``.
+    The given YAML must contains the fields specified in the *_NEEDED[] lists.
 
     Arguments
     ---------
@@ -416,13 +456,14 @@ class WhisperASR(Pretrained):
         super().__init__(*args, **kwargs)
         self.tokenizer = self.hparams.whisper.tokenizer
 
-    def detect_language_file(self, input_file: str):
+    @torch.no_grad()
+    def detect_language_file(self, path: str):
         """Detects the language of the given audiofile.
         This method only works on input_file of 30 seconds or less.
 
         Arguments
         ---------
-        input_file : str
+        path : str
             Path to audio file which to transcribe.
 
         Returns
@@ -437,14 +478,15 @@ class WhisperASR(Pretrained):
         ValueError
             If the model doesn't have language tokens.
         """
-        wavs = self.load_audio(input_file).float().to(self.device).unsqueeze(0)
+        wavs = self.load_audio(path).float().to(self.device).unsqueeze(0)
         mel = self.mods.whisper._get_mel(wavs)
         language_tokens, language_probs = self.mods.whisper.detect_language(mel)
         return language_tokens, language_probs
 
+    @torch.no_grad()
     def detect_language_batch(self, wav: torch.Tensor):
         """Detects the language of the given wav Tensor.
-        This method only works on wav of 30 seconds or less.
+        This method only works on wav files of 30 seconds or less.
 
         Arguments
         ---------
@@ -479,6 +521,7 @@ class WhisperASR(Pretrained):
         language_tokens, language_probs = self.mods.whisper.detect_language(mel)
         return language_tokens, language_probs
 
+    @torch.no_grad()
     def _detect_language(self, mel: torch.Tensor, task: str):
         """Detects the language of the given mel spectrogram.
 
@@ -559,8 +602,60 @@ class WhisperASR(Pretrained):
             chunk = chunk.unsqueeze(0)  # create a fake batch dim
             yield chunk
 
+    def _new_segment(
+        self,
+        start: float,
+        end: float,
+        chunk: torch.Tensor,
+        lang_id: str = None,
+        words: str = None,
+        tokens: List[int] = None,
+        prompt: List[str] = None,
+        avg_log_probs: float = None,
+        no_speech_prob: float = None,
+    ):
+        """Create a new ``ASRWhisperSegment`` dataclass instance.
+
+        Arguments
+        ----------
+        start : float
+            The start time of the audio segment.
+        end : float
+            The end time of the audio segment.
+        chunk : torch.Tensor
+            The audio data for the segment.
+        lang_id : str, optional
+            The language identifier associated with the segment.
+        words : str, optional
+            The predicted words for the segment.
+        tokens : List[int], optional
+            The predicted tokens for the segment.
+        prompt : List[str], optional
+            The prompt associated with the segment.
+        avg_log_probs : float, optional
+            The average log probability associated with the prediction.
+        no_speech_prob : float, optional
+            The probability of no speech in the segment.
+
+        Returns
+        -------
+        ASRWhisperSegment
+            A new ASRWhisperSegment instance initialized with the provided parameters.
+        """
+        return ASRWhisperSegment(
+            start=start,
+            end=end,
+            chunk=chunk,
+            lang_id=lang_id,
+            words=words,
+            tokens=tokens,
+            prompt=prompt,
+            avg_log_probs=avg_log_probs,
+            no_speech_prob=no_speech_prob,
+        )
+
     @torch.no_grad()
-    def transcribe_file(
+    def transcribe_file_streaming(
         self,
         path: str,
         task: Optional[str] = None,
@@ -574,8 +669,8 @@ class WhisperASR(Pretrained):
         **kwargs,
     ):
         """Transcribes the given audiofile into a sequence of words.
-        This method supports the following tasks: transcribe, translate, and lang_id.
-        It can process an input audio file longer than 30 seconds by splitting it into 30-second segments.
+        This method supports the following tasks: ``transcribe``, ``translate``, and ``lang_id``.
+        It can process an input audio file longer than 30 seconds by splitting it into chunk_size-second segments.
 
         Arguments
         ---------
@@ -610,12 +705,10 @@ class WhisperASR(Pretrained):
         **kwargs : dict
             Arguments forwarded to ``load_audio``
 
-        Returns
-        -------
-        str
-            The audiofile transcription produced by this ASR system.
-        results
-            The results containing transcription, tokens, prompt, avg_log_probs, and no_speech_prob for each segment.
+        YIELDS
+        ------
+        ASRWhisperSegment
+            A new ASRWhisperSegment instance initialized with the provided parameters.
         """
         if task is not None:
             if task in self.TASKS:
@@ -639,7 +732,6 @@ class WhisperASR(Pretrained):
         rel_length = torch.tensor([1.0])
 
         all_tokens = []
-        results = []
         prompt_reset_since = 0
         if initial_prompt is not None:
             initial_prompt_tokens = self.whisper.tokenizer.encode(
@@ -656,18 +748,19 @@ class WhisperASR(Pretrained):
             # extract mel spectrogram
             mel_segment = self.mods.whisper._get_mel(segment)
 
-            results.append({})
             start = i * chunk_size
             end = (i + 1) * chunk_size
 
             encoder_out = self.mods.whisper.forward_encoder(mel_segment)
             languages, _ = self._detect_language(mel_segment, task)
 
-            results[-1]["start"] = start
-            results[-1]["end"] = end
-            results[-1]["lang_id"] = languages[0]
-
             if task == "lang_id":
+                yield self._new_segment(
+                    start=start,
+                    end=end,
+                    chunk=segment,
+                    lang_id=languages[0],
+                )
                 continue
 
             prompt = all_tokens[prompt_reset_since:]
@@ -690,12 +783,16 @@ class WhisperASR(Pretrained):
                     should_skip = False
 
                 if should_skip:
-                    results[-1]["words"] = ""
-                    results[-1]["tokens"] = []
-                    results[-1]["prompt"] = prompt
-                    results[-1]["avg_log_probs"] = avg_log_probs.item()
-                    results[-1]["no_speech_prob"] = (
-                        self.mods.decoder.no_speech_probs[0]
+                    yield self._new_segment(
+                        start=start,
+                        end=end,
+                        chunk=segment,
+                        lang_id=languages[0],
+                        words="",
+                        tokens=[],
+                        prompt=prompt,
+                        avg_log_probs=avg_log_probs.item(),
+                        no_speech_prob=self.mods.decoder.no_speech_probs[0],
                     )
                     continue
 
@@ -704,11 +801,17 @@ class WhisperASR(Pretrained):
                 for t in predicted_tokens
             ]
 
-            results[-1]["words"] = predicted_words[0]
-            results[-1]["tokens"] = predicted_tokens[0]
-            results[-1]["prompt"] = prompt
-            results[-1]["avg_log_probs"] = avg_log_probs.item()
-            results[-1]["no_speech_prob"] = self.mods.decoder.no_speech_probs[0]
+            yield self._new_segment(
+                start=start,
+                end=end,
+                chunk=segment,
+                lang_id=languages[0],
+                words=predicted_words[0],
+                tokens=predicted_tokens[0],
+                prompt=prompt,
+                avg_log_probs=avg_log_probs.item(),
+                no_speech_prob=self.mods.decoder.no_speech_probs[0],
+            )
 
             all_tokens.extend(predicted_tokens[0])
 
@@ -718,15 +821,88 @@ class WhisperASR(Pretrained):
             ):
                 prompt_reset_since = len(all_tokens)
 
-            if verbose:
-                print(
-                    f"[{chunk_size * i}s --> {chunk_size * (i + 1)}s] {predicted_words[0]}"
-                )
+    def transcribe_file(
+        self,
+        path: str,
+        task: Optional[str] = None,
+        initial_prompt: Optional[str] = None,
+        logprob_threshold: Optional[float] = -1.0,
+        no_speech_threshold=0.6,
+        condition_on_previous_text: bool = False,
+        verbose: bool = False,
+        use_torchaudio_streaming: bool = True,
+        chunk_size: Optional[int] = 30,
+        **kwargs,
+    ) -> List[ASRWhisperSegment]:
+        """Run the Whisper model using the specified task on the given audio file and return the ``ASRWhisperSegment`` objects
+        for each segment.
 
-        if task == "lang_id":
-            return "", results
-        else:
-            return " ".join([r["words"] for r in results]), results
+        This method supports the following tasks: ``transcribe``, ``translate``, and ``lang_id``.
+        It can process an input audio file longer than 30 seconds by splitting it into chunk_size-second segments.
+
+        Arguments
+        ---------
+        path : str
+            URI/path to the audio to transcribe. When
+            ``use_torchaudio_streaming`` is ``False``, uses SB fetching to allow
+            fetching from HF or a local file. When ``True``, resolves the URI
+            through ffmpeg, as documented in
+            :class:`torchaudio.io.StreamReader`.
+        task : Optional[str]
+            The task to perform. If None, the default task is the one passed in the Whisper model.
+            It can be one of the following: ``transcribe``, ``translate``, ``lang_id``.
+        initial_prompt : Optional[str]
+            The initial prompt to condition the model on.
+        logprob_threshold : Optional[float]
+            The log probability threshold to continue decoding the current segment.
+        no_speech_threshold : float
+            The threshold to skip decoding segment if the no_speech_prob is higher than this value.
+        condition_on_previous_text : bool
+            If True, the model will be condition on the last 224 tokens.
+        verbose : bool
+            If True, print the details of each segment.
+        use_torchaudio_streaming : bool
+            Whether the audio file can be loaded in a streaming fashion. If not,
+            transcription is still performed through chunks of audio, but the
+            entire audio file is fetched and loaded at once.
+            This skips the usual fetching method and instead resolves the URI
+            using torchaudio (via ffmpeg).
+        chunk_size : Optional[int]
+            The size of the chunks to split the audio into. The default
+            chunk size is 30 seconds which corresponds to the maximal length
+            that the model can process in one go.
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``
+
+        Returns
+        -------
+        results : list
+            A list of ``WhisperASRChunk`` objects, each containing the task result.
+        """
+        results = []
+        for whisper_segment in self.transcribe_file_streaming(
+            path,
+            task=task,
+            initial_prompt=initial_prompt,
+            logprob_threshold=logprob_threshold,
+            no_speech_threshold=no_speech_threshold,
+            condition_on_previous_text=condition_on_previous_text,
+            verbose=verbose,
+            use_torchaudio_streaming=use_torchaudio_streaming,
+            chunk_size=chunk_size,
+            **kwargs,
+        ):
+            results.append(whisper_segment)
+            if verbose:
+                pred = (
+                    whisper_segment.words
+                    if task != "lang_id"
+                    else whisper_segment.lang_id
+                )
+                print(
+                    f"[{whisper_segment.start}s --> {whisper_segment.end}s] {pred}"
+                )
+        return results
 
     def encode_batch(self, wavs, wav_lens):
         """Encodes the input audio into a sequence of hidden states
@@ -1209,6 +1385,6 @@ class StreamingASR(Pretrained):
         chunk, chunk_len = chunk.to(self.device), chunk_len.to(self.device)
 
         x = self.encode_chunk(context, chunk, chunk_len)
-        words, _tokens = self.decode_chunk(context, x)
+        words, _ = self.decode_chunk(context, x)
 
         return words
