@@ -329,12 +329,7 @@ class S2STransformerGreedySearcher(S2SGreedySearcher):
         Arguments to pass to S2SGreedySearcher
     """
 
-    def __init__(
-        self,
-        modules,
-        temperature=0.0,
-        **kwargs,
-    ):
+    def __init__(self, modules, temperature=0.0, **kwargs):
         super().__init__(**kwargs)
 
         self.model = modules[0]
@@ -360,7 +355,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
     This class implements the greedy decoding
     for Whisper neural nets made by OpenAI in
     https://cdn.openai.com/papers/whisper.pdf.
-    
+
     Arguments
     ---------
     model: HuggingFaceWhisper
