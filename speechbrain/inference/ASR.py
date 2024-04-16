@@ -927,7 +927,7 @@ class WhisperASR(Pretrained):
         torch.tensor
             The encoded batch
         """
-        wavs = wavs.float().to(self.device)
+        wavs = wavs.to(device=self.device, dtype=torch.float32)
         mel = self.mods.whisper._get_mel(wavs)
         encoder_out = self.mods.whisper.forward_encoder(mel)
         return encoder_out
