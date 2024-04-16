@@ -361,8 +361,8 @@ class Whisper(HFTransformersInterface):
         -------
         logits : torch.Tensor
             The logits of the decoder.
-        attn : torch.Tensor
-            The attention weights of the decoder.
+        attn : torch.Tensor | None
+            If ``output_attentions`` is True, the attention weights are returned. Otherwise, ``None`` is returned.
         past_key_values : torch.Tensor
             The past key values of the decoder.
         """
