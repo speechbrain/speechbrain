@@ -8,11 +8,13 @@ Author : Lucas Druart 2024
 """
 
 import logging
+from typing import Optional, Tuple
+
+import torch
+
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
-import torch
-from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

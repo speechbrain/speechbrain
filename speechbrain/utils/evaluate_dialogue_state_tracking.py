@@ -6,9 +6,11 @@ Author
     * Lucas Druart 2024
 """
 
-from tqdm import tqdm
-import numpy as np
 import json
+
+import numpy as np
+from tqdm import tqdm
+
 from speechbrain.utils.metric_stats import dialogue_state_str2dict
 
 

@@ -5,12 +5,13 @@ Author
     * Lucas Druart 2024
 """
 
+import argparse
 import os
 from glob import iglob
+
 import h5py
 import scipy.io.wavfile
 import tqdm
-import argparse
 
 
 def pcm2wav(filepath):

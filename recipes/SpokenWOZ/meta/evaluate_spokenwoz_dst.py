@@ -1,7 +1,9 @@
 import argparse
-from tqdm import tqdm
 import json
 import os
+
+from tqdm import tqdm
+
 from speechbrain.utils.evaluate_dialogue_state_tracking import DSTEval
 
 

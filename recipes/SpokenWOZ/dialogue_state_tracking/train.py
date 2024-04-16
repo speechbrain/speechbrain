@@ -10,21 +10,21 @@ Author
     * Lucas Druart 2024
 """
 
-import sys
-import torch
 import itertools
-from speechbrain.dataio.dataio import read_audio
-from transformers import AutoTokenizer
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.augment.time_domain import Resample
-from hyperpyyaml import load_hyperpyyaml
-
-from pathlib import Path
-import os
 import logging
-import pandas as pd
+import os
+import sys
+from pathlib import Path
 
+import pandas as pd
+import torch
+from hyperpyyaml import load_hyperpyyaml
+from transformers import AutoTokenizer
+
+import speechbrain as sb
+from speechbrain.augment.time_domain import Resample
+from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,9 @@ class DialogueUnderstanding(sb.core.Brain):
         state = self.tokenizer.decode(hyp)
         with open(
             os.path.join(
-                self.hparams.output_folder, "last_turns", f"{dialog_id}.txt",
+                self.hparams.output_folder,
+                "last_turns",
+                f"{dialog_id}.txt",
             ),
             "w",
         ) as last_turn:
@@ -380,7 +382,9 @@ class SpokenWozUnderstanding(DialogueUnderstanding):
         state = self.tokenizer.decode(hyp)
         with open(
             os.path.join(
-                self.hparams.output_folder, "last_turns", f"{dialog_id}.txt",
+                self.hparams.output_folder,
+                "last_turns",
+                f"{dialog_id}.txt",
             ),
             "w",
         ) as last_turn:
@@ -389,11 +393,13 @@ class SpokenWozUnderstanding(DialogueUnderstanding):
 
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":

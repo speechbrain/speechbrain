@@ -6,17 +6,19 @@ Author
     Lucas Druart 2024
 """
 
-import os
 import csv
 import logging
+import os
+
 from tqdm.contrib import tzip
-from speechbrain.utils.data_utils import get_all_files
+
 from speechbrain.dataio.dataio import (
     load_pkl,
-    save_pkl,
     merge_csvs,
     read_audio_info,
+    save_pkl,
 )
+from speechbrain.utils.data_utils import get_all_files
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_multiwoz_prepare.pkl"
@@ -192,9 +194,9 @@ def prepare_multiwoz(
                             text_dict[base_path + "_previous"] = ""
 
                         text_dict[base_path + "_current"] = state
-                        text_dict[
-                            base_path + "_transcription"
-                        ] = user_transcription
+                        text_dict[base_path + "_transcription"] = (
+                            user_transcription
+                        )
                         text_dict[base_path + "_agent"] = agent_transcription
 
                     else:
@@ -212,14 +214,20 @@ def prepare_multiwoz(
             n_sentences = len(wav_lst)
 
         create_csv(
-            save_folder, wav_lst, text_dict, split, n_sentences,
+            save_folder,
+            wav_lst,
+            text_dict,
+            split,
+            n_sentences,
         )
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
         merge_files = [split + ".csv" for split in merge_lst]
         merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+            data_folder=save_folder,
+            csv_lst=merge_files,
+            merged_csv=merge_name,
         )
 
     # saving options
@@ -227,7 +235,11 @@ def prepare_multiwoz(
 
 
 def create_csv(
-    save_folder, wav_lst, text_dict, split, select_n_sentences,
+    save_folder,
+    wav_lst,
+    text_dict,
+    split,
+    select_n_sentences,
 ):
     """
     Create the dataset csv file given a list of wav files.

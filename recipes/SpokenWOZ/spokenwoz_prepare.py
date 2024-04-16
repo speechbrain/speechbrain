@@ -13,17 +13,15 @@ Author
 Lucas Druart 2024
 """
 
-import os
 import csv
-import logging
 import json
+import logging
+import os
+
 from tqdm.contrib import tzip
+
+from speechbrain.dataio.dataio import load_pkl, merge_csvs, save_pkl
 from speechbrain.utils.data_utils import get_all_files
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-    merge_csvs,
-)
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_spokenwoz_prepare.pkl"
@@ -135,14 +133,20 @@ def prepare_spokenwoz(
             n_sentences = len(wav_lst)
 
         create_csv(
-            save_folder, wav_lst, text_dict, split, n_sentences,
+            save_folder,
+            wav_lst,
+            text_dict,
+            split,
+            n_sentences,
         )
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
         merge_files = [split + ".csv" for split in merge_lst]
         merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+            data_folder=save_folder,
+            csv_lst=merge_files,
+            merged_csv=merge_name,
         )
 
     # saving options
@@ -210,9 +214,9 @@ def prepare_spokenwoz_split(text_dict, annotations, version):
                             state.append(
                                 f'{domain}-{slot}={value.replace(",", "")}'
                             )
-                text_dict[dialog_id][f"Turn-{turn_id-1}"][
-                    "current"
-                ] = "; ".join(state)
+                text_dict[dialog_id][f"Turn-{turn_id-1}"]["current"] = (
+                    "; ".join(state)
+                )
 
                 # Preparing data for next turn prediction: last dialogue turn has no succeeding user turn
                 if turn_id != len(dialog_info["log"]) - 1:
@@ -243,7 +247,11 @@ def prepare_spokenwoz_split(text_dict, annotations, version):
 
 
 def create_csv(
-    save_folder, wav_lst, text_dict, split, select_n_sentences,
+    save_folder,
+    wav_lst,
+    text_dict,
+    split,
+    select_n_sentences,
 ):
     """
     Create the dataset csv file given a list of wav files.

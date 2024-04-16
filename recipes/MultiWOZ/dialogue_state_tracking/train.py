@@ -10,17 +10,19 @@ Author
     * Lucas Druart 2024
 """
 
-import sys
+import itertools
+import logging
 import os
+import sys
 from pathlib import Path
+
 import pandas as pd
 import torch
-import logging
-import itertools
+from hyperpyyaml import load_hyperpyyaml
 from transformers import AutoTokenizer
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +148,9 @@ class DialogueUnderstanding(sb.core.Brain):
         state = self.tokenizer.decode(hyp)
         with open(
             os.path.join(
-                self.hparams.output_folder, "last_turns", f"{dialog_id}.txt",
+                self.hparams.output_folder,
+                "last_turns",
+                f"{dialog_id}.txt",
             ),
             "w",
         ) as last_turn:
@@ -373,7 +377,8 @@ def dataio_prepare(hparams, tokenizer):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
