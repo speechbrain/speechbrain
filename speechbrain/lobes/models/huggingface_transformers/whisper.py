@@ -219,12 +219,12 @@ class Whisper(HFTransformersInterface):
         """
         Compute the mel spectrogram features from the input audio waveform.
 
-        Arguments:
+        Arguments
         ----------
         wav : torch.Tensor
             A batch of audio signals to compute mel spectrogram features from.
 
-        Returns:
+        Returns
         -------
         torch.Tensor
             Mel spectrogram features computed from the input audio waveform.
