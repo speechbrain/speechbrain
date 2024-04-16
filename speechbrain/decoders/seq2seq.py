@@ -1862,6 +1862,12 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
     """This class implements the beam search decoding
     for Whisper neural nets made by OpenAI in
     https://cdn.openai.com/papers/whisper.pdf.
+
+    The beam search is stateful, meaning that some variables are stored
+    in the searcher. If you want to reuse the searcher in different
+    contexts, you should make sure that the variables are updated
+    accordingly.
+
     Arguments
     ---------
     module : list with the following one:
