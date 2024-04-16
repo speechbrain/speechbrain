@@ -360,6 +360,7 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
     This class implements the greedy decoding
     for Whisper neural nets made by OpenAI in
     https://cdn.openai.com/papers/whisper.pdf.
+    
     Arguments
     ---------
     model: HuggingFaceWhisper
