@@ -11,7 +11,6 @@ Authors
 from functools import cached_property
 
 import torch
-import torch.nn.functional as F
 from torch.distributions import Categorical
 
 from speechbrain.decoders.utils import (
@@ -231,7 +230,7 @@ class S2SGreedySearcher(S2SBaseSearcher):
                 inp_tokens = Categorical(
                     logits=logits / self.temperature
                 ).sample()
-            log_probs = F.log_softmax(logits.float(), dim=-1)
+            log_probs = torch.nn.functional.log_softmax(logits.float(), dim=-1)
             log_probs_lst.append(log_probs)
 
             has_ended = has_ended | (inp_tokens == self.eos_index)
@@ -2103,7 +2102,10 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
                 tokens_to_suppress = self.model.get_suppress_tokens
             logits[:, list(tokens_to_suppress)] = -torch.inf
 
-        log_probs = F.log_softmax(logits.float(), dim=-1) / self.temperature
+        log_probs = (
+            torch.nn.functional.log_softmax(logits.float(), dim=-1)
+            / self.temperature
+        )
 
         return log_probs, tokens, attn
 
