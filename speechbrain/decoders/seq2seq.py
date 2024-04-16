@@ -512,10 +512,9 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
             self.kv_cache = None
 
         self.no_speech_probs = [torch.nan] * batch_size
-        memory_tokens = self.initial_tokens[
-            :-1
-        ]  # the last token will be used as
-        # the first input token
+        # the last token will be used as the first input token
+        # explaining why we are skipping it.
+        memory_tokens = self.initial_tokens[:-1]
         mem = torch.tensor([memory_tokens] * batch_size).to(device)
         if self.lang_tokens is not None:
             mem[:, self.initial_tokens.index(self.model.bos) + 1] = (
@@ -2021,10 +2020,10 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
             self.kv_cache = None
 
         self.no_speech_probs = [torch.nan] * batch_size
-        memory_tokens = self.initial_tokens[
-            :-1
-        ]  # the last token will be used as
-        # the first input token
+
+        # the last token will be used as the first input token
+        # explaining why we are skipping it.
+        memory_tokens = self.initial_tokens[:-1]
         mem = torch.tensor([memory_tokens] * batch_size).to(device)
         if self.lang_tokens is not None:
             mem[:, self.initial_tokens.index(self.model.bos) + 1] = (
