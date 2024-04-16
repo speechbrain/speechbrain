@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def accumulate_and_extract_features(
     batch, features_list, ssl_model, ssl_layer_num, device
 ):
-    """Extract features (output of SSL model) and accumulate them on cpu to be used for clustering.
+    """Extract features (output of SSL model) and acculamte them on cpu to be used for clustering.
 
     Arguments
     ---------
@@ -78,7 +78,7 @@ def fetch_kmeans_model(
             Size of the mini batches.
         tol : float
             Control early stopping based on the relative center changes as measured by a smoothed, variance-normalized of the mean center squared position changes.
-        max_no_improvement : int
+        max_no_improvement :int
             Control early stopping based on the consecutive number of mini batches that does not yield an improvement on the smoothed inertia.
         n_init : int
             Number of random initializations that are tried
@@ -86,11 +86,15 @@ def fetch_kmeans_model(
             Control the fraction of the maximum number of counts for a center to be reassigned.
         random_state :int
             Determines random number generation for centroid initialization and random reassignment.
+        compute_labels : bool
+            Compute label assignment and inertia for the complete dataset once the minibatch optimization has converged in fit.
+        init_size : int
+            Number of samples to randomly sample for speeding up the initialization.
         checkpoint_path : str
             Path to saved model.
 
     Returns
-    -------
+    ---------
         MiniBatchKMeans
             a k-means clustering model with specified parameters.
     """
@@ -121,49 +125,78 @@ def train(
     model,
     train_set,
     ssl_model,
+    save_path,
     ssl_layer_num,
     kmeans_batch_size=1000,
     device="cpu",
+    checkpoint_interval=10,
 ):
-    """Train a Kmeans model .
+    """Train a  Kmeans model .
 
     Arguments
     ---------
         model : MiniBatchKMeans
             The initial kmeans model for training.
         train_set : Dataloader
-            Batches of training data.
+            Batches of tarining data.
         ssl_model
             SSL-model used to  extract features used for clustering.
+        save_path: string
+            Path to save intra-checkpoints and dataloader.
         ssl_layer_num : int
             Specify output of which layer of the ssl_model should be used.
         device
             CPU or  GPU.
         kmeans_batch_size : int
             Size of the mini batches.
+        checkpoint_interval: int
+            Determine at which iterations to save the checkpoints.
     """
     logger.info("Start training kmeans model.")
     features_list = []
-    with tqdm(train_set, dynamic_ncols=True) as t:
+    iteration = 0
+
+    with tqdm(
+        train_set,
+        dynamic_ncols=True,
+    ) as t:
         for batch in t:
-            # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
-            if len(features_list) >= kmeans_batch_size:
-                model = model.fit(features_list)
-                features_list = []
             # extract features from the SSL model
             accumulate_and_extract_features(
                 batch, features_list, ssl_model, ssl_layer_num, device
             )
 
+            # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
+            if len(features_list) >= kmeans_batch_size:
+                model = model.fit(features_list)
+                iteration += 1
+                features_list = []
+
+            if (iteration + 1) % checkpoint_interval == 0:
+                logger.info(
+                    f"Saving intra-checkpoints for iteration {iteration}."
+                )
+                train_set._speechbrain_save(
+                    os.path.join(save_path, "dataloader-TRAIN.ckpt")
+                )
+                checkpoint_path = os.path.join(
+                    save_path,
+                    f"kmeans-cluster-{model.n_clusters}-layer-{ssl_layer_num}.pt",
+                )
+                save_model(model, checkpoint_path)
+
+        if len(features_list) > 0:
+            model = model.fit(features_list)
+
 
 def save_model(model, checkpoint_path):
-    """Save a Kmeans model.
+    """Save a  Kmeans model .
 
     Arguments
     ---------
         model : MiniBatchKMeans
-            The kmeans model to be saved.
-        checkpoint_path : str
-            Path to save the model.
+            The  kmeans model to be saved.
+        checkpoint_path : str)
+            Path to save the model..
     """
     joblib.dump(model, open(checkpoint_path, "wb"))

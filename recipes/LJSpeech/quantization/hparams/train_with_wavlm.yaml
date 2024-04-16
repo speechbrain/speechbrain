@@ -29,10 +29,12 @@ freeze_ssl: True
 ssl_folder: !ref <save_folder>/wavlm_checkpoint
 ssl_layer_num: 7
 batch_size: 32 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
+checkpoint_interval: 100
 
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>
+   drop_last: True
 
 ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
    source: !ref <ssl_hub>
