@@ -10,7 +10,7 @@ We recommend you upgrade to at least 3.9+ as support for 3.8 will be removed eve
 
 ## Install via PyPI
 
-Once you have created your Python environment (see instructions below) you can simply type:
+Once you have created your Python environment (see instructions further down below) you can simply type:
 
 ```
 pip install speechbrain
@@ -18,30 +18,34 @@ pip install speechbrain
 
 Depending on your OS, audio loading may require the install of optional torchaudio dependencies to work. If it does not work out-of-the box for you, please visit [audio troubleshooting](audioloading.html).
 
-Then you can then access SpeechBrain with:
+Then you can try importing SpeechBrain in Python with:
 
 ```
 import speechbrain as sb
 ```
 
-## Install locally
+## Install locally (editable install)
+This installation is recommended for users who wish to conduct experiments and customize the toolkit according to their needs.
 
-Once you have created your Python environment (see instructions below) you can simply type:
+Once you have created your Python environment (see instructions further down below) you can simply type:
 
 ```
-git clone https://github.com/speechbrain/speechbrain.git
+git clone https://github.com/speechbrain/speechbrain.git --recurse-submodules --filter=blob:none
 cd speechbrain
-pip install -r requirements.txt
-pip install --editable .
+pip install -r requirements.txt --editable .
 ```
 
-Then you can access SpeechBrain with:
+Then you can try importing SpeechBrain in Python with:
 
 ```
 import speechbrain as sb
 ```
 
-Any modification made to the `speechbrain` package will be automatically interpreted as we installed it with the `--editable` flag.
+Any modification made to the cloned `speechbrain` repo will automatically be reflected in your environment, as we installed it with the `--editable` flag.
+
+Note that we use git LFS within the `tests/samples` submodule. Those are sample files we use for tests. You can omit `--recurse-submodules` at clone time if you do not care about them.
+
+Also note that `--filter=blob:none` is recommended here to avoid cloning all of the history to make download quicker. Switching branches will work but will cause downloading form the remote on-demand. This can be safely omitted.
 
 ## Test installation
 Please, run the following script  from the main folder to make sure your installation is working:

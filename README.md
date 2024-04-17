@@ -76,6 +76,8 @@ To get started with SpeechBrain, follow these simple steps:
 
 ## 🛠️ Installation
 
+**See [detailed steps here](https://speechbrain.readthedocs.io/en/latest/installation.html)**, or follow these simple steps:
+
 ### Install via PyPI
 
 1. Install SpeechBrain using PyPI:
@@ -96,7 +98,7 @@ This installation is recommended for users who wish to conduct experiments and c
 1. Clone the GitHub repository and install the requirements:
 
     ```bash
-    git clone https://github.com/speechbrain/speechbrain.git
+    git clone https://github.com/speechbrain/speechbrain.git --recurse-submodules --filter=blob:none
     cd speechbrain
     pip install -r requirements.txt
     pip install --editable .
