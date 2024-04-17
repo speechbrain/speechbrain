@@ -1,0 +1,3 @@
+[submodule "tests/samples"]
+	path = tests/samples
+	url = https://huggingface.co/datasets/sdelangen/speechbrain-samples
