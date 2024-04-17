@@ -96,8 +96,8 @@ embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     emb_dim: 2048
 
 classifier: !new:torch.nn.Linear
-     in_features: 2048
-     out_features: !ref <out_n_neurons>   
+    in_features: 2048
+    out_features: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -156,7 +156,9 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 use_pretrained: True
-# If you do not want to use the pretrained encoder you can simply delete pretrained_encoder field.
+# If you do not want to use the pretrained encoder
+# you can simply delete pretrained_encoder field,
+# or set use_pretrained=False
 embedding_model_path: speechbrain/cnn14-esc50/embedding_model.ckpt
 pretrained_encoder: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

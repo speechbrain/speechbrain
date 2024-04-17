@@ -5,35 +5,36 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023
 """
-import os
-import sys
-import torch
-import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from esc50_prepare import prepare_esc50
-from speechbrain.utils.metric_stats import MetricStats
-from wham_prepare import WHAMDataset, combine_batches
-from os import makedirs
-import torch.nn.functional as F
-from speechbrain.processing.NMF import spectral_phase
-import matplotlib.pyplot as plt
-import gradient_based
-import quantus
-import torch.nn as nn
-import numpy as np
-import random
-from tqdm import tqdm
-
 import copy
+import os
+import random
+import sys
+from os import makedirs
+
+import gradient_based
+import matplotlib.pyplot as plt
+import numpy as np
+import quantus
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchaudio
+from esc50_prepare import prepare_esc50
+from hyperpyyaml import load_hyperpyyaml
 from quantus.helpers.utils import (
-    get_baseline_value,
     blur_at_indices,
     expand_indices,
+    get_baseline_value,
     get_leftover_shape,
     offset_coordinates,
 )
+from tqdm import tqdm
+from wham_prepare import WHAMDataset, combine_batches
+
+import speechbrain as sb
+from speechbrain.processing.NMF import spectral_phase
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-9
 
@@ -278,10 +279,10 @@ def truncated_gaussian_noise(
     arr,
     indices,
     indexed_axes,
-    perturb_mean = 0,
-    perturb_std = 0.15,
+    perturb_mean=0,
+    perturb_std=0.15,
     **kwargs,
-    ): 
+):
     """
     Add gaussian noise to the input at indices.
 
@@ -308,12 +309,19 @@ def truncated_gaussian_noise(
     """
 
     indices = expand_indices(arr, indices, indexed_axes)
-    noise = np.abs(np.random.normal(loc=0, scale=(np.max(arr) - np.min(arr)) * perturb_std, size=arr.shape))
+    noise = np.abs(
+        np.random.normal(
+            loc=0,
+            scale=(np.max(arr) - np.min(arr)) * perturb_std,
+            size=arr.shape,
+        )
+    )
 
     arr_perturbed = copy.copy(arr)
     arr_perturbed[indices] = (arr_perturbed + noise)[indices]
 
     return arr_perturbed
+
 
 class Evaluator:
     def __init__(self, hparams, X_shape=(1, 431, 513)):
@@ -402,25 +410,48 @@ class Evaluator:
         return metrics, inter, y
 
     def __call__(
-        self, model, explain_fn, X, X_mosaic, y_mosaic, y, X_stft, method, id_, device="cuda"
+        self,
+        model,
+        explain_fn,
+        X,
+        X_mosaic,
+        y_mosaic,
+        y,
+        X_stft,
+        method,
+        id_,
+        device="cuda",
     ):
         """computes quantus metrics sample-wise"""
         if model.training:
             model.eval()
 
         out_folder = os.path.join(
-                self.hparams["eval_outdir"], f"qualitative_{self.hparams['experiment_name']}", id_
-                )
+            self.hparams["eval_outdir"],
+            f"qualitative_{self.hparams['experiment_name']}",
+            id_,
+        )
         os.makedirs(
-                os.path.join(self.hparams["eval_outdir"], 
-                             f"qualitative_{self.hparams['experiment_name']}"),
-                exist_ok=True
-                )
+            os.path.join(
+                self.hparams["eval_outdir"],
+                f"qualitative_{self.hparams['experiment_name']}",
+            ),
+            exist_ok=True,
+        )
         os.makedirs(out_folder, exist_ok=True)
 
         metrics, inter, y_pred = self.compute_ours(X, model, method, explain_fn)
 
-        self.debug_files(y, y_pred, X_stft, X, inter, id_, out_folder, wavs=not self.hparams["use_melspectra"])
+        self.debug_files(
+            y,
+            y_pred,
+            X_stft,
+            X,
+            inter,
+            id_,
+            out_folder,
+            wavs=not self.hparams["use_melspectra"],
+        )
 
         X = X.clone().detach().cpu().numpy()
         y = y.clone().detach().cpu().numpy()
@@ -442,14 +473,14 @@ class Evaluator:
             "device": device,
             "explain_func": wrap_explain_fn,
         }
-        #metrics["max_sensitivity"] = self.max_sensitivity(**quantus_inp)
-        #metrics["avg_sensitivity"] = self.avg_sensitivity(**quantus_inp)
-        metrics['average'] = inter.mean().item()
-        if method != 'allones':
+        # metrics["max_sensitivity"] = self.max_sensitivity(**quantus_inp)
+        # metrics["avg_sensitivity"] = self.avg_sensitivity(**quantus_inp)
+        metrics["average"] = inter.mean().item()
+        if method != "allones":
             metrics["sparseness"] = self.sparseness(**quantus_inp)
             metrics["complexity"] = self.complexity(**quantus_inp)
-        metrics["accuracy"] = (y.item() == y_pred.item())*100
-        #if method != "l2i" and False:
+        metrics["accuracy"] = (y.item() == y_pred.item()) * 100
+        # if method != "l2i" and False:
         #    quantus_inp[
         #        "x_batch"
         #    ] = X_mosaic  # quantus expects the batch dim_mosaic
@@ -465,32 +496,46 @@ class Evaluator:
         return metrics
 
     @torch.no_grad()
-    def debug_files(self, y, y_hat, X_stft, X_logpower, interpretation, fname="test", out_folder=".", wavs=True):
+    def debug_files(
+        self,
+        y,
+        y_hat,
+        X_stft,
+        X_logpower,
+        interpretation,
+        fname="test",
+        out_folder=".",
+        wavs=True,
+    ):
         """The helper function to create debugging images"""
         X_stft_phase = spectral_phase(X_stft[None])
 
         if wavs:
             X = torch.expm1(X_logpower)[0, ..., None]
             x_inp = self.invert_stft_with_phase(X, X_stft_phase)
-    
+
             with open(os.path.join(out_folder, "predictions.txt"), "w") as f:
                 f.write(f"GT={int(y)} prediction={y_hat.item()}")
-    
+
             torchaudio.save(
-                    f"{os.path.join(out_folder, fname)}_original.wav",
-                    x_inp.cpu(),
-                    sample_rate=16000
-                    )
-    
-            X_logpower = X_logpower[:, :, :interpretation.shape[2], :interpretation.shape[3]]
-            int_ = torch.expm1(X_logpower[0, ..., None] * interpretation[0, ..., None])
+                f"{os.path.join(out_folder, fname)}_original.wav",
+                x_inp.cpu(),
+                sample_rate=16000,
+            )
+
+            X_logpower = X_logpower[
+                :, :, : interpretation.shape[2], : interpretation.shape[3]
+            ]
+            int_ = torch.expm1(
+                X_logpower[0, ..., None] * interpretation[0, ..., None]
+            )
             x_int = self.invert_stft_with_phase(int_, X_stft_phase)
-    
+
             torchaudio.save(
-                    f"{os.path.join(out_folder, fname)}_int.wav",
-                    x_int.cpu(),
-                    sample_rate=16000
-                    )
+                f"{os.path.join(out_folder, fname)}_int.wav",
+                x_int.cpu(),
+                sample_rate=16000,
+            )
 
         plt.figure(figsize=(11, 10), dpi=100)
 
@@ -501,22 +546,23 @@ class Evaluator:
         plt.colorbar()
 
         plt.subplot(312)
-        torch.save(interpretation, os.path.join(out_folder, "interpretation.pt"))
+        torch.save(
+            interpretation, os.path.join(out_folder, "interpretation.pt")
+        )
         X_masked = interpretation.squeeze().transpose(-1, -2).cpu()
         plt.imshow(X_masked.data.cpu(), origin="lower")
         plt.colorbar()
         plt.title("mask")
 
-        X_logpower = X_logpower[:, :, :X_masked.shape[-1], :]
+        X_logpower = X_logpower[:, :, : X_masked.shape[-1], :]
         plt.subplot(313)
-        plt.imshow((X_logpower.squeeze().t().cpu() * X_masked).cpu(), origin="lower")
+        plt.imshow(
+            (X_logpower.squeeze().t().cpu() * X_masked).cpu(), origin="lower"
+        )
         plt.colorbar()
         plt.title("masked")
 
-        out_fname_plot = os.path.join(
-            out_folder,
-            f"{fname}.png"
-        )
+        out_fname_plot = os.path.join(out_folder, f"{fname}.png")
 
         plt.savefig(out_fname_plot)
         plt.close()

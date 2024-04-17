@@ -1,6 +1,6 @@
 matplotlib
-scikit-learn
 pandas
+scikit-learn
 torchvision
 transformers
 wget

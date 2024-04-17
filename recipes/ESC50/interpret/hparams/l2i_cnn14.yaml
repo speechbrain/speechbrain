@@ -15,16 +15,16 @@ sample: ""
 overlap_type: LJSpeech
 
 exp_method: "l2i"
-mrt: false
+mrt: False
 mrt_layer: 6
 eval_outdir: ""
-use_stft2mel: false
+use_stft2mel: False
 
 # Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-add_wham_noise: false
+add_wham_noise: False
 signal_length_s: 5
 wham_folder: /mnt/data/large_audio/WHAM/wham_noise
 wham_audio_folder: !ref <wham_folder>/tr
@@ -121,11 +121,11 @@ embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
     return_reps: True
-    l2i: false
+    l2i: False
 
 classifier: !new:torch.nn.Linear
-     in_features: 2048
-     out_features: !ref <out_n_neurons>   
+    in_features: 2048
+    out_features: !ref <out_n_neurons>
 
 # Interpretation hyperparams
 K: 100
@@ -146,7 +146,7 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
     n_mels: 80
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
-    log_mel: false
+    log_mel: False
 
 compute_istft: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <sample_rate>

@@ -6,16 +6,19 @@
 # Last Modified Date: 07.01.2024
 # Last Modified By  : Francesco Paissan <francescopaissan@gmail.com>
 import os
-import torch
-import torchaudio
-import matplotlib.pyplot as plt
+
 import captum
+import matplotlib.pyplot as plt
+
 # import saliency.core as saliency
 import numpy as np
+import torch
+import torchaudio
+
 
 @torch.no_grad()
 def save_ints(inp, ints, labels, out_folder=".", fname="viz.png", cbar=True):
-    """ Iterate over all the generated interpretations and visualize. """
+    """Iterate over all the generated interpretations and visualize."""
     subplot_base = 3 * 100 + len(ints) * 10
 
     line_counter = 1
@@ -49,30 +52,32 @@ def save_ints(inp, ints, labels, out_folder=".", fname="viz.png", cbar=True):
     plt.savefig(os.path.join(out_folder, fname))
     plt.cla(), plt.clf()
 
+
 @torch.no_grad()
 def save_waves(inp, ints, labels, to_wav, out_folder="."):
-    """ Iterate over all the generated interpretations and visualize. """
+    """Iterate over all the generated interpretations and visualize."""
 
     original = to_wav(inp[0], inp[1])
     original /= original.max()
     torchaudio.save(
-            os.path.join(out_folder, "original.wav"),
-            original.cpu(),
-            sample_rate=16000
-            )
+        os.path.join(out_folder, "original.wav"),
+        original.cpu(),
+        sample_rate=16000,
+    )
 
     for idx in range(len(ints)):
         int_t = to_wav((inp[0] * ints[idx][0]), inp[1])
         int_t /= int_t.max()
 
         torchaudio.save(
-                os.path.join(out_folder, labels[idx] + ".wav"),
-                int_t.cpu(),
-                sample_rate=16000
-                )
+            os.path.join(out_folder, labels[idx] + ".wav"),
+            int_t.cpu(),
+            sample_rate=16000,
+        )
+
 
 def saliency(X, y, forward_fn, do_norm=True):
-    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    """Computes standard saliency - gradient of the max logit wrt to the input."""
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
     attr = captum.attr.Saliency(forward_fn).attribute(X, target=y)
@@ -82,8 +87,9 @@ def saliency(X, y, forward_fn, do_norm=True):
 
     return attr
 
+
 def smoothgrad(X, y, forward_fn, steps=50, noise_level=0.15, guidance=False):
-    """ Runs smoothgrad - gauss noise on input before saliency map. """
+    """Runs smoothgrad - gauss noise on input before saliency map."""
     # derive sigma from noise level -- see Fig 3. https://arxiv.org/pdf/1706.03825.pdf
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
@@ -98,27 +104,33 @@ def smoothgrad(X, y, forward_fn, steps=50, noise_level=0.15, guidance=False):
         X_perturb = noise + X
         slc = saliency(X_perturb, y, forward_fn)
 
-        maps.append(slc) 
+        maps.append(slc)
 
     return torch.stack(maps).mean(dim=0)
 
+
 def ig(X, y, forward_fn, steps=200):
-    """ Computes IG starting from X_baseline to X. """
+    """Computes IG starting from X_baseline to X."""
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
     X_baseline = torch.zeros_like(X)
 
-    attr = captum.attr.IntegratedGradients(forward_fn).attribute(
+    attr = (
+        captum.attr.IntegratedGradients(forward_fn)
+        .attribute(
             X,
             baselines=X_baseline,
             target=y,
             internal_batch_size=2,
-            ).abs()
+        )
+        .abs()
+    )
 
     return attr / attr.max()
 
+
 def guided_backprop(X, y, forward_fn, do_norm=True):
-    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    """Computes standard saliency - gradient of the max logit wrt to the input."""
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
     attr = captum.attr.GuidedBackprop(forward_fn).attribute(X, target=y).abs()
@@ -128,43 +140,70 @@ def guided_backprop(X, y, forward_fn, do_norm=True):
 
     return attr
 
+
 def guided_gradcam(X, y, forward_fn, do_norm=True):
-    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    """Computes standard saliency - gradient of the max logit wrt to the input."""
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
-    attr = captum.attr.GuidedGradCam(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, target=y).abs()
+    attr = (
+        captum.attr.GuidedGradCam(
+            forward_fn, forward_fn.embedding_model.conv_block6
+        )
+        .attribute(X, target=y)
+        .abs()
+    )
 
     if do_norm:
         return attr / attr.max()
 
     return attr
+
 
 def gradcam(X, y, forward_fn, do_norm=True):
-    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    """Computes standard saliency - gradient of the max logit wrt to the input."""
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
-    attr = captum.attr.LayerGradCam(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, target=y).abs()
-    attr = captum.attr.LayerAttribution.interpolate(attr, (X.shape[-2], X.shape[-1]))
+    attr = (
+        captum.attr.LayerGradCam(
+            forward_fn, forward_fn.embedding_model.conv_block6
+        )
+        .attribute(X, target=y)
+        .abs()
+    )
+    attr = captum.attr.LayerAttribution.interpolate(
+        attr, (X.shape[-2], X.shape[-1])
+    )
 
     if do_norm:
         return attr / attr.max()
 
     return attr
+
 
 def shap(X, y, forward_fn, do_norm=True):
-    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    """Computes standard saliency - gradient of the max logit wrt to the input."""
     X = torch.Tensor(X).to(next(forward_fn.parameters()).device)
     y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
-    baselines = torch.cat([torch.randn_like(X).abs() for _ in range(3)])    # trucated gaussian
-    attr = captum.attr.GradientShap(forward_fn, forward_fn.embedding_model.conv_block6).attribute(X, baselines, target=y).abs()
+    baselines = torch.cat(
+        [torch.randn_like(X).abs() for _ in range(3)]
+    )  # trucated gaussian
+    attr = (
+        captum.attr.GradientShap(
+            forward_fn, forward_fn.embedding_model.conv_block6
+        )
+        .attribute(X, baselines, target=y)
+        .abs()
+    )
 
     if do_norm:
         return attr / attr.max()
 
     return attr
 
+
 def guided_IG(X, y, forward_fn, do_norm=True):
-    """ Computes standard saliency - gradient of the max logit wrt to the input. """
+    """Computes standard saliency - gradient of the max logit wrt to the input."""
+
     def fw(images, call_model_args=None, expected_keys=None):
         X = torch.Tensor(images).to(next(forward_fn.parameters()).device)
         y = torch.Tensor(y).to(next(forward_fn.parameters()).device).long()
@@ -173,17 +212,16 @@ def guided_IG(X, y, forward_fn, do_norm=True):
     guided_ig = saliency.GuidedIG()
 
     guided_ig_mask_3d = guided_ig.GetMask(
-            X,
-            fw,
-            call_model_args,
-            x_steps=25,
-            x_baseline=baseline,
-            max_dist=1.0,
-            fraction=0.5
-            )
+        X,
+        fw,
+        call_model_args,
+        x_steps=25,
+        x_baseline=baseline,
+        max_dist=1.0,
+        fraction=0.5,
+    )
 
     if do_norm:
         return attr / attr.max()
 
     return attr
-

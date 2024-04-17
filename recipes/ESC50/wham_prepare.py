@@ -97,4 +97,3 @@ def prepare_wham(hparams):
         return dataset
 
     return None
-

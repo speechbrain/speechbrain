@@ -1,31 +1,32 @@
 #!/usr/bin/python3
-import os
-import sys
-import torch
-import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from esc50_prepare import prepare_esc50
-from speechbrain.utils.metric_stats import MetricStats
-from wham_prepare import WHAMDataset, combine_batches
-from os import makedirs
-import torch.nn.functional as F
-from speechbrain.processing.NMF import spectral_phase
-import matplotlib.pyplot as plt
-from train_piq import InterpreterESC50Brain, tv_loss, dataio_prep_esc50
-import pandas as pd
-import random
-import gradient_based
-import quantus_eval
-from tqdm import tqdm
-from maskin_maskout import opt_single_mask, interpret_pretrained, all_onesmask
-from l2i_eval import l2i_pretrained
 import math
-from torch.utils.data import Dataset
-import torchaudio.transforms as T
+import os
+import random
+import sys
+from os import makedirs
 
+import gradient_based
+import matplotlib.pyplot as plt
+import pandas as pd
+import quantus_eval
+import torch
+import torch.nn.functional as F
+import torchaudio
 import torchaudio.datasets as dts
+import torchaudio.transforms as T
+from esc50_prepare import prepare_esc50
+from hyperpyyaml import load_hyperpyyaml
+from l2i_eval import l2i_pretrained
+from maskin_maskout import all_onesmask, interpret_pretrained, opt_single_mask
+from torch.utils.data import Dataset
+from tqdm import tqdm
+from train_piq import InterpreterESC50Brain, dataio_prep_esc50, tv_loss
+from wham_prepare import WHAMDataset, combine_batches
+
+import speechbrain as sb
+from speechbrain.processing.NMF import spectral_phase
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
 
@@ -46,15 +47,16 @@ class LJSPEECH_split(dts.LJSPEECH):
     """
 
     def __init__(self, root, url, folder_in_archive, download, train=True):
-        #super(LJSPEECH_train, self).__init__()
+        # super(LJSPEECH_train, self).__init__()
         super().__init__(root, url, folder_in_archive, download)
-        #path = os.path.join('LJSpeech-1.1', folder_in_archive)
-        #self._flist = glob.glob(path + '/*.wav')
+        # path = os.path.join('LJSpeech-1.1', folder_in_archive)
+        # self._flist = glob.glob(path + '/*.wav')
         if train:
             self._flist = self._flist[:10000]
         else:
             self._flist = self._flist[-3000:]
-        print('dataset size = ', len(self._flist))
+        print("dataset size = ", len(self._flist))
+
 
 def generate_mixture(s1, s2):
     s1 = s1 / torch.norm(s1)
@@ -68,13 +70,16 @@ def generate_mixture(s1, s2):
 
 def fetch_model(url):
     from huggingface_hub import hf_hub_download
-    
+
     REPO_ID = "fpaissan/r"
-    
+
     return hf_hub_download(repo_id=REPO_ID, filename=url)
 
-def generate_overlap(sample, dataset, overlap_multiplier=1, overlap_type='mixtures'):
-    #if overlap_type in ['mixtures', 'LJSpeech']:
+
+def generate_overlap(
+    sample, dataset, overlap_multiplier=1, overlap_type="mixtures"
+):
+    # if overlap_type in ['mixtures', 'LJSpeech']:
     pool = [i for i in range(len(dataset))]
     indices = random.sample(pool, overlap_multiplier)
     # print("\n\n Generate overlap called!", indices, " \n\n")
@@ -83,26 +88,31 @@ def generate_overlap(sample, dataset, overlap_multiplier=1, overlap_type='mixtur
         {k: v for k, v in sample.items()} for _ in range(overlap_multiplier)
     ]
     for i, idx in enumerate(indices):
-        if overlap_type == 'mixtures':
-            samples[i]["sig"] = generate_mixture(sample["sig"], dataset[idx]["sig"])
-        elif overlap_type == 'LJSpeech':
+        if overlap_type == "mixtures":
+            samples[i]["sig"] = generate_mixture(
+                sample["sig"], dataset[idx]["sig"]
+            )
+        elif overlap_type == "LJSpeech":
             noise = dataset[idx][0][0]
             tfm = T.Resample(22050, 16000)
             noise = tfm(noise)
             smpl = sample["sig"]
 
             if noise.shape[0] > smpl.shape[0]:
-                noise = noise[:smpl.shape[0]]
+                noise = noise[: smpl.shape[0]]
             else:
-                noise = torch.nn.functional.pad(noise, (0, smpl.shape[0] - noise.shape[0]))
+                noise = torch.nn.functional.pad(
+                    noise, (0, smpl.shape[0] - noise.shape[0])
+                )
             samples[i]["sig"] = generate_mixture(smpl, noise)
         else:
             smp = sample["sig"] / sample["sig"].pow(2).sum().sqrt()
             noise = torch.randn(sample["sig"].shape)
             noise = noise / noise.pow(2).sum().sqrt()
-            samples[i]["sig"] = smp + 0.5*noise
+            samples[i]["sig"] = smp + 0.5 * noise
             samples[i]["sig"] = samples[i]["sig"] / samples[i]["sig"].max()
     return samples
+
 
 def preprocess(wavs, hparams):
     """Pre-process wavs."""
@@ -124,11 +134,14 @@ if __name__ == "__main__":
     # # This flag enables the inbuilt cudnn auto-tuner
     # torch.backends.cudnn.benchmark = True
 
-    root = '/work/interpretable_fakereal'
-    ljspeech_tr = LJSPEECH_split(root=root,
-                           url='https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2',
-                           folder_in_archive='wavs',
-                           download=True, train=True)
+    root = "/work/interpretable_fakereal"
+    ljspeech_tr = LJSPEECH_split(
+        root=root,
+        url="https://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2",
+        folder_in_archive="wavs",
+        download=True,
+        train=True,
+    )
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -223,13 +236,19 @@ if __name__ == "__main__":
                     hparams["embedding_model"].conv_block4.apply(init_weights)
                     if hparams["mrt_layer"] <= 3:
                         print("Initialized block 3.")
-                        hparams["embedding_model"].conv_block3.apply(init_weights)
+                        hparams["embedding_model"].conv_block3.apply(
+                            init_weights
+                        )
                         if hparams["mrt_layer"] <= 2:
                             print("Initialized block 2.")
-                            hparams["embedding_model"].conv_block2.apply(init_weights)
+                            hparams["embedding_model"].conv_block2.apply(
+                                init_weights
+                            )
                             if hparams["mrt_layer"] <= 1:
                                 print("Initialized block 1.")
-                                hparams["embedding_model"].conv_block1.apply(init_weights)
+                                hparams["embedding_model"].conv_block1.apply(
+                                    init_weights
+                                )
 
     model_wrap = quantus_eval.Model(
         hparams,
@@ -250,7 +269,7 @@ if __name__ == "__main__":
         "guided_IG": gradient_based.guided_IG,
         "single_maskinout": opt_single_mask,
         "l2i": l2i_pretrained(hparams, run_opts),
-        "allones": all_onesmask
+        "allones": all_onesmask,
     }
 
     if hparams["exp_method"] == "ao":
@@ -270,7 +289,7 @@ if __name__ == "__main__":
         "faithfulness_l2i",
         "inp_fid",
         "accuracy",
-        "average"
+        "average",
     ]
     aggregated_metrics = {k: 0.0 for k in computed_metrics}
     samples_interval = hparams["interpret_period"]
@@ -278,14 +297,14 @@ if __name__ == "__main__":
 
     # cem: this is the stuff I am adding to deal with different noise types
     overlap_type = hparams["overlap_type"]
-    if overlap_type == 'white_noise':
+    if overlap_type == "white_noise":
         dt = datasets["test"]
-    elif overlap_type == 'mixtures':
+    elif overlap_type == "mixtures":
         dt = datasets["test"]
-    elif overlap_type == 'LJSpeech':
+    elif overlap_type == "LJSpeech":
         dt = ljspeech_tr
     else:
-        raise ValueError('Not a valid overlap type')
+        raise ValueError("Not a valid overlap type")
 
     discarded = 0
     for idx, base_sample in enumerate(datasets["valid"]):
@@ -306,7 +325,7 @@ if __name__ == "__main__":
         else:
             overlap_batch = base_sample
             y_batch = base_sample["class_string_encoded"]
-            
+
             # extract sample
             wavs = base_sample["sig"].to(run_opts["device"]).unsqueeze(0)
 
@@ -318,9 +337,7 @@ if __name__ == "__main__":
 
         # assert not hparams["add_wham_noise"], "You should run eval without WHAM! noise."
         if hparams["add_wham_noise"]:
-            wavs = combine_batches(
-                wavs, iter(hparams["wham_dataset"])
-            )
+            wavs = combine_batches(wavs, iter(hparams["wham_dataset"]))
             # wavs = wavs + 0.1*torch.randn(wavs.shape, device=hparams['device'])
 
             X, X_stft, _ = preprocess(wavs, hparams)
@@ -330,9 +347,9 @@ if __name__ == "__main__":
         # X_mosaic, y_mosaic = d_mosaic(X, base_sample["class_string_encoded"])
         X_mosaic, y_mosaic = torch.zeros_like(X), [0 for _ in range(X.shape[0])]
 
-        for o_idx, (X_, X_stft_, X_mosaic_, y_mosaic_, y_batch_) in enumerate(zip(
-            X, X_stft, X_mosaic, y_mosaic, y_batch
-        )):
+        for o_idx, (X_, X_stft_, X_mosaic_, y_mosaic_, y_batch_) in enumerate(
+            zip(X, X_stft, X_mosaic, y_mosaic, y_batch)
+        ):
 
             try:
                 metrics = evaluator(
@@ -344,7 +361,7 @@ if __name__ == "__main__":
                     y_batch_,
                     X_stft_,
                     hparams["exp_method"],
-                    base_sample["id"] + "+" + str(o_idx)
+                    base_sample["id"] + "+" + str(o_idx),
                 )
 
                 local = f"Sample={idx+1} "
@@ -387,10 +404,9 @@ if __name__ == "__main__":
         )
 
         # if idx > 20:
-            # print("-----------------------------------")
-            # print("Breaking loop to transfer data....!!! \n\n")
-            # break
-            
+        # print("-----------------------------------")
+        # print("Breaking loop to transfer data....!!! \n\n")
+        # break
 
     for k in aggregated_metrics:
         aggregated_metrics[k] /= len(datasets["valid"]) * overlap_multiplier
@@ -401,7 +417,8 @@ if __name__ == "__main__":
 
     os.makedirs("quant_eval", exist_ok=True)
     out_folder = os.path.join(
-            hparams["eval_outdir"], f"qualitative_{hparams['experiment_name']}",
-            )
+        hparams["eval_outdir"],
+        f"qualitative_{hparams['experiment_name']}",
+    )
     with open(out_folder + "/quant.csv", "w") as f:
         f.write(json.dumps(aggregated_metrics))

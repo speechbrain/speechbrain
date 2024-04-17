@@ -7,19 +7,21 @@ Authors
 """
 import os
 import sys
-import torch
-import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from esc50_prepare import prepare_esc50
-from speechbrain.utils.metric_stats import MetricStats
-from wham_prepare import WHAMDataset, combine_batches
-from urbansound8k_prepare import prepare_urban_sound_8k
 from os import makedirs
-import torch.nn.functional as F
-from speechbrain.processing.NMF import spectral_phase
+
 import matplotlib.pyplot as plt
+import torch
+import torch.nn.functional as F
+import torchaudio
+from esc50_prepare import prepare_esc50
+from hyperpyyaml import load_hyperpyyaml
+from urbansound8k_prepare import prepare_urban_sound_8k
+from wham_prepare import WHAMDataset, combine_batches
+
+import speechbrain as sb
+from speechbrain.processing.NMF import spectral_phase
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
 
@@ -64,9 +66,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             X_stft, power=self.hparams.spec_mag_power
         )
 
-        #if self.hparams.use_stft2mel:
+        # if self.hparams.use_stft2mel:
         #    X_stft_logpower = X_stft_power
-        #else:
+        # else:
         if not self.hparams.use_melspectra:
             X_stft_logpower = torch.log1p(X_stft_power)
         else:
@@ -82,7 +84,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             X_stft_logpower = self.hparams.compute_fbank(X_in)
             X_stft_logpower = torch.log1p(X_stft_logpower)
 
-        if hasattr(self.hparams, 'return_reps'):
+        if hasattr(self.hparams, "return_reps"):
             embeddings, hs = self.hparams.embedding_model(X_stft_logpower)
             hcat = hs
         else:
@@ -258,17 +260,17 @@ class InterpreterESC50Brain(sb.core.Brain):
         plt.figure(figsize=(12, 10), dpi=100)
 
         plt.subplot(311)
-        X_target = X_mix[0].permute(1, 0)[:, :X_int.shape[0]].cpu()
-        plt.imshow(X_target, origin='lower')
+        X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[0]].cpu()
+        plt.imshow(X_target, origin="lower")
         plt.colorbar()
 
         plt.subplot(312)
-        plt.imshow(mask.data.cpu().permute(1, 0), origin='lower')
+        plt.imshow(mask.data.cpu().permute(1, 0), origin="lower")
         plt.title("Estimated Mask")
         plt.colorbar()
 
         plt.subplot(313)
-        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu(), origin='lower')
+        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu(), origin="lower")
         plt.colorbar()
         plt.title("masked")
         plt.savefig(os.path.join(out_folder, "specs.png"))
@@ -348,7 +350,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         wavs, lens = batch.sig
 
         # augment batch with WHAM!
-        if hasattr(self.hparams, 'add_wham_noise'):
+        if hasattr(self.hparams, "add_wham_noise"):
             if self.hparams.add_wham_noise:
                 wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
@@ -382,19 +384,24 @@ class InterpreterESC50Brain(sb.core.Brain):
             ) == 0 and self.hparams.save_interpretations:
                 # self.interpret_sample(wavs, batch)
                 self.overlap_test(batch)
-                self.debug_files(X_stft, xhat, X_stft_logpower, batch, wavs[0:1])
+                self.debug_files(
+                    X_stft, xhat, X_stft_logpower, batch, wavs[0:1]
+                )
 
         return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
 
     def crosscor(self, spectrogram, template):
-        if self.hparams.crosscortype == 'conv':
+        if self.hparams.crosscortype == "conv":
             spectrogram = spectrogram - spectrogram.mean((-1, -2), keepdim=True)
             template = template - template.mean((-1, -2), keepdim=True)
             template = template.unsqueeze(1)
             # 1 x BS x T x F
             # BS x 1 x T x F
             tmp = F.conv2d(
-                spectrogram[None], template, bias=None, groups=spectrogram.shape[0]
+                spectrogram[None],
+                template,
+                bias=None,
+                groups=spectrogram.shape[0],
             )
 
             normalization1 = F.conv2d(
@@ -413,20 +420,19 @@ class InterpreterESC50Brain(sb.core.Brain):
             ).squeeze()
 
             return ncc
-        elif self.hparams.crosscortype == 'dotp':
+        elif self.hparams.crosscortype == "dotp":
             dotp = (spectrogram * template).mean((-1, -2))
             norms_specs = spectrogram.pow(2).mean((-1, -2)).sqrt()
             norms_templates = template.pow(2).mean((-1, -2)).sqrt()
             norm_dotp = dotp / (norms_specs * norms_templates)
             return norm_dotp
         else:
-            raise ValueError('unknown crosscor type!')
+            raise ValueError("unknown crosscor type!")
 
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
         batch_sig, predictions, xhat, hcat, z_q_x, garbage = pred
 
-        
         batch = batch.to(self.device)
         wavs_clean, lens_clean = batch.sig
 
@@ -490,7 +496,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
             #         plt.subplot(144, sharex=ax)
             #         plt.imshow(s[1].t(), origin="lower")
-            #         plt.title("Mask in") 
+            #         plt.title("Mask in")
             #         plt.tight_layout()
             #         plt.suptitle("Cross correlation: %.2f - made the thr: %s" % (s[2].item(), bool(crosscor_mask[idx])))
             #         plt.savefig(f"batch/{idx}.png")
@@ -501,8 +507,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             #     #torchaudio.save(f"batch/{idx}.wav", wavs_clean[idx][None].cpu(), sample_rate=16000)
 
             # import pdb; pdb.set_trace()
-            
-            if self.hparams.guidelosstype == 'binary':
+
+            if self.hparams.guidelosstype == "binary":
                 rec_loss = (
                     F.binary_cross_entropy(
                         xhat, binarized_oracle, reduce=False
@@ -511,7 +517,19 @@ class InterpreterESC50Brain(sb.core.Brain):
                     * crosscor_mask
                 ).mean()
             else:
-                temp = ((xhat * X_stft_logpower[:, :X_stft_logpower_clean.shape[1], :]) - X_stft_logpower_clean).pow(2).mean((-1, -2))
+                temp = (
+                    (
+                        (
+                            xhat
+                            * X_stft_logpower[
+                                :, : X_stft_logpower_clean.shape[1], :
+                            ]
+                        )
+                        - X_stft_logpower_clean
+                    )
+                    .pow(2)
+                    .mean((-1, -2))
+                )
                 rec_loss = (temp * crosscor_mask).mean() * self.hparams.g_w
 
         else:
@@ -691,8 +709,10 @@ class InterpreterESC50Brain(sb.core.Brain):
         self.acc_metric = sb.utils.metric_stats.MetricStats(
             metric=self.accuracy_value, n_jobs=1
         )
+
         def counter(c):
             return c
+
         self.in_masks = MetricStats(metric=counter)
 
         return super().on_stage_start(stage, epoch)
@@ -707,7 +727,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.train_stats = {
                 "loss": self.train_loss,
                 "acc": self.acc_metric.summarize("average"),
-                "in_masks": sum(self.in_masks.scores)
+                "in_masks": sum(self.in_masks.scores),
             }
             # if self.hparams.use_mask_output:
             # self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
@@ -731,7 +751,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 "AD": self.AD.summarize("average"),
                 "AI": self.AI.summarize("average"),
                 "AG": self.AG.summarize("average"),
-                "in_masks": sum(self.in_masks.scores)
+                "in_masks": sum(self.in_masks.scores),
             }
             # if self.hparams.use_mask_output:
             # valid_stats["mask_ll"] = self.mask_ll.summarize("average")
@@ -1002,13 +1022,13 @@ if __name__ == "__main__":
                 "test_fold_nums": hparams["test_fold_nums"],
                 "skip_manifest_creation": hparams["skip_manifest_creation"],
             },
-        ) 
+        )
 
         # Dataset IO prep: creating Dataset objects and proper encodings for phones
         datasets, label_encoder = dataio_prep_us8k(hparams)
         hparams["label_encoder"] = label_encoder
 
-    if hparams["dataset"] == "esc50": 
+    if hparams["dataset"] == "esc50":
         assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
         assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
     if hparams["dataset"] == "us8k":

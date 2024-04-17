@@ -27,7 +27,7 @@ from confusion_matrix_fig import create_cm_fig
 from esc50_prepare import prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from sklearn.metrics import confusion_matrix
-from wham_prepare import prepare_wham, combine_batches
+from wham_prepare import combine_batches, prepare_wham
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main

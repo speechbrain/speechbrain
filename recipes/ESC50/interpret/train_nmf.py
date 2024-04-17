@@ -11,12 +11,12 @@ Authors
 import os
 import sys
 
+import matplotlib.pyplot as plt
 import torch
 from esc50_prepare import prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
-from wham_prepare import prepare_wham, combine_batches
 from train_l2i import dataio_prep
-import matplotlib.pyplot as plt
+from wham_prepare import combine_batches, prepare_wham
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
@@ -61,7 +61,11 @@ class NMFBrain(sb.core.Brain):
         loss = ((target.squeeze() - predictions) ** 2).mean()
 
         with torch.no_grad():
-            if self.hparams.epoch_counter.current % self.hparams.save_period == 0 and stage == sb.Stage.VALID:
+            if (
+                self.hparams.epoch_counter.current % self.hparams.save_period
+                == 0
+                and stage == sb.Stage.VALID
+            ):
                 os.makedirs("nmf_rec", exist_ok=True)
                 for idx in range(X_stft.shape[0]):
                     tmp = os.path.join("nmf_rec", f"{idx}.png")

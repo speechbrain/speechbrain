@@ -130,7 +130,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 
     #classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    #input_size: 
+    #input_size:
     #out_neurons: !ref <out_n_neurons>
     #lin_blocks: 1
     #
@@ -144,7 +144,7 @@ embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
 pool_classifier: False
 classifier: !new:torch.nn.Linear
      in_features: 2048
-     out_features: !ref <out_n_neurons>   
+     out_features: !ref <out_n_neurons>
 
 pretrained_PIQ: null
 load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer

@@ -423,22 +423,21 @@ class CNN14PSI_stft(nn.Module):
         shared_keys=0,
         use_adapter=True,
         adapter_reduce_dim=True,
-        stft2mel=False
+        stft2mel=False,
     ):
         super().__init__()
-        
+
         self.adapter_reduce_dim = adapter_reduce_dim
 
         self.convt1 = nn.ConvTranspose1d(dim, dim, 3, 2, 1)
-        self.convt2 = nn.ConvTranspose1d(dim//2, dim, 3, 2, 1)
+        self.convt2 = nn.ConvTranspose1d(dim // 2, dim, 3, 2, 1)
         self.convt3 = nn.ConvTranspose1d(dim, dim, 7, 2, 1)
-        self.convt4 = nn.ConvTranspose1d(dim//4, dim, 5, 2, 1)
-        self.convt5 = nn.ConvTranspose1d(dim, dim//2, 3, 2, 1)
-        self.convt6 = nn.ConvTranspose1d(dim//8, dim//2, 3, 2, 1)
-        self.convt7 = nn.ConvTranspose1d(dim//2, dim//4, 4, 2, 0)
-        self.convt8 = nn.ConvTranspose1d(dim//4, dim//8, 3, 2, 0)
-        self.convt9 = nn.ConvTranspose1d(dim//8, K, 7, 1, 0)
-
+        self.convt4 = nn.ConvTranspose1d(dim // 4, dim, 5, 2, 1)
+        self.convt5 = nn.ConvTranspose1d(dim, dim // 2, 3, 2, 1)
+        self.convt6 = nn.ConvTranspose1d(dim // 8, dim // 2, 3, 2, 1)
+        self.convt7 = nn.ConvTranspose1d(dim // 2, dim // 4, 4, 2, 0)
+        self.convt8 = nn.ConvTranspose1d(dim // 4, dim // 8, 3, 2, 0)
+        self.convt9 = nn.ConvTranspose1d(dim // 8, K, 7, 1, 0)
 
         self.nonl = nn.ReLU(True)
 
@@ -459,46 +458,46 @@ class CNN14PSI_stft(nn.Module):
         --------
         Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
         """
-        
+
         hs = [h.mean(-1) for h in hs]
         h1 = self.convt1(hs[0])
         h1 = self.nonl(h1)
-        #h1 = self.bn1(h1)
+        # h1 = self.bn1(h1)
 
         h2 = self.convt2(hs[1])
         h2 = self.nonl(h2)
-        #h2 = self.bn2(h2)
+        # h2 = self.bn2(h2)
         h = h1 + h2
 
         h3 = self.convt3(h)
         h3 = self.nonl(h3)
-        #h3 = self.bn3(h3)
+        # h3 = self.bn3(h3)
 
         h4 = self.convt4(hs[2])
         h4 = self.nonl(h4)
-        #h4 = self.bn4(h4)
+        # h4 = self.bn4(h4)
         h = h3 + h4
 
         h5 = self.convt5(h)
         h5 = self.nonl(h5)
-        #h5 = self.bn5(h5)
+        # h5 = self.bn5(h5)
 
         h6 = self.convt6(hs[3])
         h6 = self.nonl(h6)
-        #h6 = self.bn6(h6)
+        # h6 = self.bn6(h6)
 
         h = h5 + h6
 
         h = self.convt7(h)
         h = self.nonl(h)
-        #h = self.bn7(h)
+        # h = self.bn7(h)
 
         h = self.convt8(h)
         h = self.nonl(h)
 
         xhat = self.convt9(h)
         xhat = self.nonl(xhat)
-        #if self.stft2mel:
+        # if self.stft2mel:
         #    xhat = self.lin(xhat)
 
         # xhat = self.final_conv(xhat)[..., :100].squeeze(1)
@@ -508,6 +507,7 @@ class CNN14PSI_stft(nn.Module):
         xhat = F.relu(xhat)
 
         return xhat
+
 
 class CNN14PSI_stft_2d(nn.Module):
     def __init__(
@@ -519,21 +519,25 @@ class CNN14PSI_stft_2d(nn.Module):
         shared_keys=0,
         use_adapter=True,
         adapter_reduce_dim=True,
-        stft2mel=False
+        stft2mel=False,
     ):
         super().__init__()
-        
+
         self.adapter_reduce_dim = adapter_reduce_dim
 
         self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 4), 1)
-        self.convt2 = nn.ConvTranspose2d(dim//2, dim, 3, (2, 4), 1)
+        self.convt2 = nn.ConvTranspose2d(dim // 2, dim, 3, (2, 4), 1)
         self.convt3 = nn.ConvTranspose2d(dim, dim, (7, 4), (2, 4), 1)
-        self.convt4 = nn.ConvTranspose2d(dim//4, dim, (5, 4), (2, 4), 1)
-        self.convt5 = nn.ConvTranspose2d(dim, dim//2, (3, 5), (2, 2), 1)
-        self.convt6 = nn.ConvTranspose2d(dim//8, dim//2, (3, 3), (2, 4), 1)
-        self.convt7 = nn.ConvTranspose2d(dim//2, dim//4, (4, 3), (2, 2), (0, 5))
-        self.convt8 = nn.ConvTranspose2d(dim//4, dim//8, (3, 4), (2, 2), (0, 2))
-        self.convt9 = nn.ConvTranspose2d(dim//8, K, (7, 5), (1, 4), 0)
+        self.convt4 = nn.ConvTranspose2d(dim // 4, dim, (5, 4), (2, 4), 1)
+        self.convt5 = nn.ConvTranspose2d(dim, dim // 2, (3, 5), (2, 2), 1)
+        self.convt6 = nn.ConvTranspose2d(dim // 8, dim // 2, (3, 3), (2, 4), 1)
+        self.convt7 = nn.ConvTranspose2d(
+            dim // 2, dim // 4, (4, 3), (2, 2), (0, 5)
+        )
+        self.convt8 = nn.ConvTranspose2d(
+            dim // 4, dim // 8, (3, 4), (2, 2), (0, 2)
+        )
+        self.convt9 = nn.ConvTranspose2d(dim // 8, K, (7, 5), (1, 4), 0)
 
         self.nonl = nn.ReLU(True)
 
@@ -554,45 +558,45 @@ class CNN14PSI_stft_2d(nn.Module):
         --------
         Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
         """
-        
+
         h1 = self.convt1(hs[0])
         h1 = self.nonl(h1)
-        #h1 = self.bn1(h1)
+        # h1 = self.bn1(h1)
 
         h2 = self.convt2(hs[1])
         h2 = self.nonl(h2)
-        #h2 = self.bn2(h2)
+        # h2 = self.bn2(h2)
         h = h1 + h2
 
         h3 = self.convt3(h)
         h3 = self.nonl(h3)
-        #h3 = self.bn3(h3)
+        # h3 = self.bn3(h3)
 
         h4 = self.convt4(hs[2])
         h4 = self.nonl(h4)
-        #h4 = self.bn4(h4)
+        # h4 = self.bn4(h4)
         h = h3 + h4
 
         h5 = self.convt5(h)
         h5 = self.nonl(h5)
-        #h5 = self.bn5(h5)
+        # h5 = self.bn5(h5)
 
         h6 = self.convt6(hs[3])
         h6 = self.nonl(h6)
-        #h6 = self.bn6(h6)
+        # h6 = self.bn6(h6)
 
         h = h5 + h6
 
         h = self.convt7(h)
         h = self.nonl(h)
-        #h = self.bn7(h)
+        # h = self.bn7(h)
 
         h = self.convt8(h)
         h = self.nonl(h)
 
         xhat = self.convt9(h)
         xhat = self.nonl(xhat)
-        #if self.stft2mel:
+        # if self.stft2mel:
         #    xhat = self.lin(xhat)
 
         xhat = xhat.mean(-1)
@@ -602,4 +606,3 @@ class CNN14PSI_stft_2d(nn.Module):
         xhat = F.relu(xhat)
 
         return xhat
-
