@@ -12,9 +12,10 @@ jobs:
     name: Builds and publishes to PyPI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           ref: main
+          submodules: true
       - uses: actions/setup-python@v2
         with:
           python-version: 3.8
