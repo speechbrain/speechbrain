@@ -25,6 +25,7 @@ import speechbrain as sb
 ```
 
 ## Install locally (editable install)
+
 This installation is recommended for users who wish to conduct experiments and customize the toolkit according to their needs.
 
 Once you have created your Python environment (see instructions further down below) you can simply type:
@@ -45,7 +46,7 @@ Any modification made to the cloned `speechbrain` repo will automatically be ref
 
 Note that we use git LFS within the `tests/samples` submodule. Those are sample files we use for tests. You can omit `--recurse-submodules` at clone time if you do not care about them.
 
-Also note that `--filter=blob:none` is recommended here to avoid cloning all of the history to make download quicker. Switching branches will work but will cause downloading form the remote on-demand. This can be safely omitted.
+Also note that `--filter=blob:none` is recommended here to avoid cloning all of the history to make download quicker. Switching branches will work but will cause downloading from the remote on-demand. This can be safely omitted.
 
 ## Test installation
 Please, run the following script  from the main folder to make sure your installation is working:
