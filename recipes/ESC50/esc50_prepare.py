@@ -235,7 +235,7 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
 
                 # If we're using sox/soundfile backend, file_info will have the old type
                 if isinstance(
-                    file_info, torchaudio.backend.common.AudioMetaData
+                    file_info, torchaudio.AudioMetaData
                 ):
                     duration = signal.shape[0] / file_info.sample_rate
                 else:

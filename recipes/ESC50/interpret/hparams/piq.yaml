@@ -12,15 +12,38 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
-data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
+# Dataset must already exist at `audio_data_folder`
+data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
+
+l_in_w: 0.5
+l_out_w: 0.5
+reg_w_tv: 0.1
+reg_w_l1: 0.3
+ao_w: 0.5
+
+use_stft2mel: False
+
+g_w: 1 # regularization weight of oracles
+crosscor_th: 0.6
+bin_th: 0.35 # needed to binarize guidance spectrograms
+finetuning: True
+guidelosstype: binary
+crosscortype: 'dotp'
 
 experiment_name: piq
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-save_interpretations: False
+wham_folder: /mnt/data/large_audio/WHAM/wham_noise
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
+use_wham: False
+exp_method: saliency
+
+test_only: False
+save_interpretations: True
 interpret_period: 10
 
 # Tensorboard logs
@@ -46,11 +69,21 @@ number_of_epochs: 200
 batch_size: 16
 lr: 0.0002
 sample_rate: 16000
-use_vq: True
+use_vq: False
 rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
+signal_length_s: 5
+add_wham_noise: False
+use_melspectra: False
 
+wham_dataset: !new:wham_prepare.WHAMDataset
+    data_dir: !ref <wham_audio_folder>
+    target_length: !ref <signal_length_s>
+    sample_rate: !ref <sample_rate>
+
+
+device: "cuda"
 
 # Feature parameters
 n_mels: 80
@@ -86,7 +119,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         psi_model: !ref <psi_model>
         counter: !ref <epoch_counter>
 
-use_pretrained: True
 
 # embedding_model: !new:custom_models.Conv2dEncoder_v2
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
@@ -97,8 +129,22 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
 
-embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
-classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
+# pretrained_PIQ: null
+pretrained_PIQ: "/home/franz/dev/interpretability/audio/recipes/ESC50/interpret/results/wham_classifier_int_gw4_ft/1234/save/CKPT+2024-01-10+19-38-03+00/psi_model.ckpt"
+load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        psi: !ref <psi_model>
+    paths:
+        psi: !ref <pretrained_PIQ>
+
+use_pretrained: True
+
+#embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
+#classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
+embedding_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
+classifier_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
+
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:

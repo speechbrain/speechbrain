@@ -1,3 +1,5 @@
 matplotlib
 scikit-learn
 torchvision
+transformers
+pandas

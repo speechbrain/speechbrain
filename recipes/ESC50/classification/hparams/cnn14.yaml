@@ -4,7 +4,7 @@
 #
 # Authors:
 #  * Cem Subakan 2022, 2023
-#  * Francesco Paissan 2022, 2023
+#  * Francesco Paissan 2022, 2023, 2024
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 
@@ -16,11 +16,22 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: cnn14-esc50
+dataset: "us8k"
+experiment_name: !ref cnn14-<dataset>
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+add_wham_noise: True
+test_only: False
+
+wham_folder: null
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
+
+
+sample_rate: 16000
+signal_length_s: 5
 
 # Tensorboard logs
 use_tensorboard: False
@@ -47,7 +58,6 @@ lr: 0.0002
 base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
-sample_rate: 44100
 
 device: "cpu"
 
@@ -58,6 +68,7 @@ right_frames: 0
 deltas: False
 
 use_melspectra: True
+use_log1p_mel: True
 
 # Number of classes
 out_n_neurons: 50
@@ -84,10 +95,9 @@ embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
     emb_dim: 2048
 
-classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 2048
-    out_neurons: !ref <out_n_neurons>
-    lin_blocks: 1
+classifier: !new:torch.nn.Linear
+     in_features: 2048
+     out_features: !ref <out_n_neurons>   
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
@@ -107,6 +117,7 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
     n_mels: 80
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
+    log_mel: False
 
 modules:
     compute_stft: !ref <compute_stft>

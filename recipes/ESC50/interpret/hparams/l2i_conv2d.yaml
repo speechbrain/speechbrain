@@ -3,7 +3,7 @@
 #
 # Author:
 #  * Cem Subakan 2022, 2023
-#  * Francesco Paissan 2022, 2023
+#  * Francesco Paissan 2022, 2023, 2024
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 
@@ -15,11 +15,19 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
+exp_method: "l2i"
+add_wham_noise: false
+
 experiment_name: L2I
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+wham_folder: /mnt/data/large_audio/WHAM/wham_noise
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
+
+test_only: False
 save_interpretations: False
 
 # Tensorboard logs
@@ -41,11 +49,19 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training parameters
 number_of_epochs: 200
 batch_size: 16
-lr: 0.0002
+lr: 0.00002
 sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
+signal_length_s: 5
 
+use_wham: True
+wham_dataset: !new:wham_prepare.WHAMDataset
+    data_dir: !ref <wham_audio_folder>
+    target_length: !ref <signal_length_s>
+    sample_rate: !ref <sample_rate>
+
+device: "cuda"
 
 # Feature parameters
 n_mels: 80
@@ -66,7 +82,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    weight_decay: 0.000002
+    weight_decay: 0.0001
 
 lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
     factor: 0.5
@@ -87,6 +103,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256
 
+classifier_temp: 0.01
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 256
     out_neurons: !ref <out_n_neurons>
@@ -124,6 +141,7 @@ psi_model: !new:speechbrain.lobes.models.L2I.PsiOptimized
     adapter_reduce_dim: False
 
 theta: !new:speechbrain.lobes.models.L2I.Theta
+    n_comp: !ref <K>
     T: 417
 
 # NMF Decoder
@@ -142,6 +160,7 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
+pretrained_PIQ: ""
 embedding_model_path: "speechbrain/PIQ-ESC50/embedding_modelft.ckpt"
 classifier_model_path: "speechbrain/PIQ-ESC50/classifier.ckpt"
 nmf_decoder_path: "speechbrain/PIQ-ESC50/nmf_decoder.ckpt"
