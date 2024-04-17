@@ -13,18 +13,39 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER
+data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
 audio_data_folder: !ref <data_folder>/audio
 
-experiment_name: piq
+sample: ""
+true_target: false
+
+dataset: "esc50"
+mrt: false
+mrt_layer: 6
+exp_method: "saliency"
+eval_outdir: ""
+
+l_in_w: 0.5
+l_out_w: 0.5
+reg_w_tv: 0.1
+reg_w_l1: 0.3
+ao_w: 0.5
+
+g_w: 1 # regularization weight of oracles
+crosscor_th: 0.6
+bin_th: 0.35 # needed to binarize guidance spectrograms
+finetuning: False
+guidelosstype: binary
+crosscortype: 'dotp'
+
+experiment_name: stft2mel-cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-wham_folder: null
+wham_folder: /mnt/data/large_audio/WHAM/wham_noise
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
-use_wham: False
 
 test_only: False
 save_interpretations: True
@@ -44,7 +65,7 @@ test_annotation: !ref <data_folder>/manifest/test.json
 train_fold_nums: [1, 2, 3]
 valid_fold_nums: [4]
 test_fold_nums: [5]
-skip_manifest_creation: False
+skip_manifest_creation: True
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
@@ -59,7 +80,12 @@ use_mask_output: True
 mask_th: 0.35
 signal_length_s: 5
 add_wham_noise: False
-use_melspectra: False
+
+wham_dataset: !new:wham_prepare.WHAMDataset
+    data_dir: !ref <wham_audio_folder>
+    target_length: !ref <signal_length_s>
+    sample_rate: !ref <sample_rate>
+
 
 device: "cuda"
 
@@ -99,16 +125,28 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 
 # embedding_model: !new:custom_models.Conv2dEncoder_v2
-embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
-    dim: 256
+# embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
+#     dim: 256
 
-classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    input_size: 256
-    out_neurons: !ref <out_n_neurons>
-    lin_blocks: 1
 
-# pretrained_PIQ: null
-pretrained_PIQ: "/home/franz/dev/interpretability/audio/recipes/ESC50/interpret/results/wham_classifier_int_gw4_ft/1234/save/CKPT+2024-01-10+19-38-03+00/psi_model.ckpt"
+    #classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    #input_size:
+    #out_neurons: !ref <out_n_neurons>
+    #lin_blocks: 1
+    #
+
+return_reps: True
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
+    mel_bins: !ref <n_mels>
+    emb_dim: 2048
+    return_reps: True
+
+pool_classifier: False
+classifier: !new:torch.nn.Linear
+     in_features: 2048
+     out_features: !ref <out_n_neurons>
+
+pretrained_PIQ: null
 load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
@@ -118,10 +156,35 @@ load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 use_pretrained: True
 
+# embedding_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/embedding_model.ckpt"
+# classifier_model_path: "../classification/results/fix_0dB/1234/save/CKPT+2023-12-09+09-52-13+00/classifier.ckpt"
+
+#embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/embedding_model.ckpt"
+#classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_nowham/1234/save/CKPT+2024-01-01+20-49-53+00/classifier.ckpt"
+
 #embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
 #classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/conv2d_yeswham/1234/save//CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
-embedding_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/embedding_model.ckpt"
-classifier_model_path: "/home/franz/dev/interpretability/audio/recipes/ESC50/classification/results/conv2d_yeswham/1234/save/CKPT+2024-01-08+08-19-59+00/classifier.ckpt"
+
+# cnn14 linear
+#embedding_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear/1234/save/CKPT+2024-01-13+12-02-43+00/embedding_model.ckpt"
+#classifier_model_path: "/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear/1234/save/CKPT+2024-01-13+12-02-43+00/classifier.ckpt"
+
+# embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-nologmel/1234/save/CKPT+2024-01-15+01-35-09+00/embedding_model.ckpt'
+# classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-nologmel/1234/save/CKPT+2024-01-15+01-35-09+00/classifier.ckpt'
+
+#embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-nologmel/1234/save/CKPT+2024-01-15+01-35-09+00/embedding_model.ckpt'
+#classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-nologmel/1234/save/CKPT+2024-01-15+01-35-09+00/classifier.ckpt'
+#
+
+#embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel/1234/save/CKPT+2024-01-15+12-09-28+00/embedding_model.ckpt'
+#classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-linear-log1pmel/1234/save/CKPT+2024-01-15+12-09-28+00/classifier.ckpt'
+
+# embedding_model_path: 'fpaissan/r/embedding_model.ckpt'
+# classifier_model_path: 'fpaissan/r/classifier.ckpt'
+
+embedding_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-esc-wwham/1234/save/CKPT+2024-03-26+21-09-10+00/embedding_model.ckpt'
+classifier_model_path: '/data2/cloned_repos/audio_interpretability/recipes/ESC50/classification/results/cnn14-esc-wwham/1234/save/CKPT+2024-03-26+21-09-10+00/classifier.ckpt'
+
 
 pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
@@ -140,6 +203,9 @@ n_fft: 1024
 spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
+use_melspectra: False
+use_stft2mel: True
+
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
     hop_length: !ref <hop_length>
@@ -150,19 +216,20 @@ compute_fbank: !new:speechbrain.processing.features.Filterbank
     n_mels: !ref <n_mels>
     n_fft: !ref <n_fft>
     sample_rate: !ref <sample_rate>
+    log_mel: False
 
 compute_istft: !new:speechbrain.processing.features.ISTFT
     sample_rate: !ref <sample_rate>
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.PIQ.VectorQuantizedPSI_Audio
-    dim: 256
+psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI_stft
+    dim: 2048
     K: !ref <K>
     shared_keys: 0
     activate_class_partitioning: True
-    use_adapter: True
     adapter_reduce_dim: True
+    stft2mel: True
 
 modules:
     compute_stft: !ref <compute_stft>
