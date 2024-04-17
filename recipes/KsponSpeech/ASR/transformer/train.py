@@ -34,13 +34,15 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dongwon Kim, Dongwoo Kim 2023
 """
-import sys
-import torch
 import logging
+import sys
 from pathlib import Path
-import speechbrain as sb
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 

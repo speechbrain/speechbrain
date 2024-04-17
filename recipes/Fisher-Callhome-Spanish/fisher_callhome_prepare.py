@@ -6,23 +6,22 @@ Author
 YAO-FEI, CHENG 2021
 """
 
+import json
+import logging
 import os
 import re
-import json
 import string
-import logging
 import subprocess
-
-from typing import List
 from dataclasses import dataclass, field
+from typing import List
 
 import torch
 import torchaudio
-
 from tqdm import tqdm
+
+from speechbrain.augment.time_domain import Resample
 from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
-from speechbrain.augment.time_domain import Resample
 
 try:
     from sacremoses import MosesPunctNormalizer, MosesTokenizer

@@ -40,13 +40,7 @@ try:
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/kmeans.py")
     collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/discrete_hubert.py"
-    )
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/discrete_wav2vec2.py"
-    )
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/discrete_wavlm.py"
+        "speechbrain/lobes/models/huggingface_transformers/discrete_ssl.py"
     )
 try:
     import peft  # noqa: F401
@@ -63,4 +57,10 @@ try:
 except ModuleNotFoundError:
     collect_ignore.append(
         "speechbrain/lobes/models/huggingface_transformers/vocos.py"
+    )
+try:
+    from speechtokenizer import SpeechTokenizer  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append(
+        "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
     )

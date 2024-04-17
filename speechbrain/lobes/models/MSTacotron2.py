@@ -39,20 +39,22 @@ Authors
 #
 # *****************************************************************************
 
+import pickle
+from collections import namedtuple
 from math import sqrt
-from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
+
 import torch
 from torch import nn
 from torch.nn import functional as F
-from collections import namedtuple
-import pickle
+
 from speechbrain.lobes.models.Tacotron2 import (
+    Decoder,
+    Encoder,
     LinearNorm,
     Postnet,
-    Encoder,
-    Decoder,
     get_mask_from_lengths,
 )
+from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
 
 
 class Tacotron2(nn.Module):

@@ -6,10 +6,10 @@ Ownership: Microsoft
     rocheng
 """
 
-import os
 import csv
-from shutil import copyfile
 import glob
+import os
+from shutil import copyfile
 
 
 def get_dir(cfg, param_name, new_dir_name):

@@ -18,20 +18,22 @@ Authors
  * Jianyuan Zhong 2020
 """
 
+import csv
+import logging
 import os
 import sys
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from tqdm import tqdm
+
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-import numpy as np
-from tqdm import tqdm
-import csv
-import logging
 from speechbrain.core import AMPConfig
+from speechbrain.utils.distributed import run_on_main
 
 
 # Define training procedure
@@ -575,8 +577,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
-        from prepare_data import create_whamr_rir_csv
         from create_whamr_rirs import create_rirs
+        from prepare_data import create_whamr_rir_csv
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):

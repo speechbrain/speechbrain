@@ -12,8 +12,7 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
-# Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
 experiment_name: L2I_cnn14
@@ -23,7 +22,7 @@ train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
 
-# torch.Tensorboard logs
+# Tensorboard logs
 use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 
@@ -39,7 +38,7 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-####################### Training Parameters ####################################
+# Training parameters
 number_of_epochs: 200
 batch_size: 2
 lr: 0.0001

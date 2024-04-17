@@ -7,17 +7,19 @@ Author
 Abdou Mohamed Naira 2022
 """
 
-import os
 import csv
-import re
+import glob
 import logging
-import unicodedata
-from tqdm.contrib import tzip
+import os
 import random
+import re
+import unicodedata
+
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import numpy as np
-import glob
+from tqdm.contrib import tzip
+
 from speechbrain.dataio.dataio import read_audio_info
 
 logger = logging.getLogger(__name__)

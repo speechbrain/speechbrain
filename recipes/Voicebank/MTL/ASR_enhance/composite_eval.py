@@ -6,13 +6,14 @@ Authors
  * adiyoss (https://github.com/adiyoss)
 """
 
-from scipy.linalg import toeplitz
-from tqdm import tqdm
-from pesq import pesq
-import librosa
-import numpy as np
 import os
 import sys
+
+import librosa
+import numpy as np
+from pesq import pesq
+from scipy.linalg import toeplitz
+from tqdm import tqdm
 
 
 def eval_composite(ref_wav, deg_wav):

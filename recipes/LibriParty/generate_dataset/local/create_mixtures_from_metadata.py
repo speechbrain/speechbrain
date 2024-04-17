@@ -7,11 +7,13 @@ Author
 Samuele Cornell, 2020
 """
 
-import os
-import torch
 import json
+import os
+
 import numpy as np
+import torch
 import torchaudio
+
 from speechbrain.processing.signal_processing import rescale, reverberate
 
 

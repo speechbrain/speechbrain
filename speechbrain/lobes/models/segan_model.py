@@ -10,11 +10,12 @@ Authors
  * Francis Carter 2021
 """
 
+from math import floor
+
 import torch
 import torch.nn as nn
-import torch.utils.data
 import torch.nn.functional as F
-from math import floor
+import torch.utils.data
 
 
 class Generator(torch.nn.Module):
