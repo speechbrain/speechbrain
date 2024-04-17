@@ -29,10 +29,6 @@ signal_length_s: 5
 wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
-wham_dataset: !new:wham_prepare.WHAMDataset
-    data_dir: !ref <wham_audio_folder>
-    target_length: !ref <signal_length_s>
-    sample_rate: !ref <sample_rate>
 
 experiment_name: L2I_cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
