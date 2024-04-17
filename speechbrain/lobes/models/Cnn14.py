@@ -37,8 +37,8 @@ class ConvBlock(nn.Module):
     norm_type : str in ['bn', 'in', 'ln']
         The type of normalization
 
-    Example
-    -------
+    Example:
+    --------
     >>> convblock = ConvBlock(10, 20, 'ln')
     >>> x = torch.rand(5, 10, 20, 30)
     >>> y = convblock(x)
@@ -47,7 +47,7 @@ class ConvBlock(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, norm_type):
-        super().__init__()
+        super(ConvBlock, self).__init__()
         self.conv1 = nn.Conv2d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -139,8 +139,8 @@ class Cnn14(nn.Module):
     return_reps: bool (default=False)
         If True the model returns intermediate representations as well for interpretation
 
-    Example
-    -------
+    Example:
+    --------
     >>> cnn14 = Cnn14(120, 256)
     >>> x = torch.rand(3, 400, 120)
     >>> h = cnn14.forward(x)
@@ -148,9 +148,12 @@ class Cnn14(nn.Module):
     torch.Size([3, 1, 256])
     """
 
-    def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False):
-        super().__init__()
+    def __init__(
+        self, mel_bins, emb_dim, norm_type="bn", return_reps=False, l2i=False
+    ):
+        super(Cnn14, self).__init__()
         self.return_reps = return_reps
+        self.l2i = l2i
 
         self.norm_type = norm_type
         if norm_type == "bn":
@@ -214,8 +217,8 @@ class Cnn14(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block2(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x, p=0.2, training=self.training)
-        x = self.conv_block3(x, pool_size=(2, 2), pool_type="avg")
-        x = F.dropout(x, p=0.2, training=self.training)
+        x4_out = self.conv_block3(x, pool_size=(2, 2), pool_type="avg")
+        x = F.dropout(x4_out, p=0.2, training=self.training)
         x3_out = self.conv_block4(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x3_out, p=0.2, training=self.training)
         x2_out = self.conv_block5(x, pool_size=(2, 2), pool_type="avg")
@@ -232,4 +235,7 @@ class Cnn14(nn.Module):
         if not self.return_reps:
             return x.unsqueeze(1)
 
-        return x.unsqueeze(1), (x1_out, x2_out, x3_out)
+        if self.l2i:
+            return x.unsqueeze(1), (x1_out, x2_out, x3_out)
+        else:
+            return x.unsqueeze(1), (x1_out, x2_out, x3_out, x4_out)
