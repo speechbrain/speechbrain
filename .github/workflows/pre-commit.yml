@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: True
+          lfs: True
       - uses: actions/setup-python@v2
         with:
           python-version: '3.8'

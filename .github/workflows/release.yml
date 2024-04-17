@@ -16,6 +16,7 @@ jobs:
         with:
           ref: main
           submodules: True
+          lfs: True
       - uses: actions/setup-python@v2
         with:
           python-version: 3.8
