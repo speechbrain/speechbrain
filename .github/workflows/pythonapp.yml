@@ -18,7 +18,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
               with:
-                  submodules: true
+                  submodules: True
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v1
               with:
