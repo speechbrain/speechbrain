@@ -26,7 +26,7 @@ audio_data_folder: !ref <data_folder>/audio
 
 add_wham_noise: False
 signal_length_s: 5
-wham_folder: /mnt/data/large_audio/WHAM/wham_noise
+wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 wham_dataset: !new:wham_prepare.WHAMDataset
@@ -154,13 +154,13 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     win_length: !ref <win_length>
 
 psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft_2d
-  dim: 2048
-  K: !ref <K>
-  shared_keys: 0
-  activate_class_partitioning: True
-  adapter_reduce_dim: True
-  stft2mel: True
-# psi_model: !new:speechbrain.lobes.models.L2I.Psi
+    dim: 2048
+    K: !ref <K>
+    shared_keys: 0
+    activate_class_partitioning: True
+    adapter_reduce_dim: True
+    stft2mel: True
+
 theta: !new:speechbrain.lobes.models.L2I.Theta
     num_classes: !ref <out_n_neurons>
 

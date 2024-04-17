@@ -16,14 +16,14 @@ data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
 exp_method: "l2i"
-add_wham_noise: false
+add_wham_noise: False
 
 experiment_name: L2I
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-wham_folder: /mnt/data/large_audio/WHAM/wham_noise
+wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 
