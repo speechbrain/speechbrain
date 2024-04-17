@@ -13,34 +13,18 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 # Set up folders for reading from and writing to
 # Dataset must already exist at `audio_data_folder`
-data_folder: /mnt/data/ESC50 # e.g., /localscratch/UrbanSound8K
+data_folder: !PLACEHOLDER
 audio_data_folder: !ref <data_folder>/audio
-
-l_in_w: 0.5
-l_out_w: 0.5
-reg_w_tv: 0.1
-reg_w_l1: 0.3
-ao_w: 0.5
-
-use_stft2mel: False
-
-g_w: 1 # regularization weight of oracles
-crosscor_th: 0.6
-bin_th: 0.35 # needed to binarize guidance spectrograms
-finetuning: True
-guidelosstype: binary
-crosscortype: 'dotp'
 
 experiment_name: piq
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-wham_folder: /mnt/data/large_audio/WHAM/wham_noise
+wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 use_wham: False
-exp_method: saliency
 
 test_only: False
 save_interpretations: True
@@ -76,12 +60,6 @@ mask_th: 0.35
 signal_length_s: 5
 add_wham_noise: False
 use_melspectra: False
-
-wham_dataset: !new:wham_prepare.WHAMDataset
-    data_dir: !ref <wham_audio_folder>
-    target_length: !ref <signal_length_s>
-    sample_rate: !ref <sample_rate>
-
 
 device: "cuda"
 
