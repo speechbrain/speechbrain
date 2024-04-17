@@ -1,4 +1,4 @@
-# LibriSpeech ASR with CTC and pre-trained wav2vec2 or whisper models.
+# LibriSpeech ASR with CTC only or pre-trained wav2vec2 or whisper models.
 This folder contains the scripts to finetune a wav2vec2 or a whisper based system using LibriSpeech.
 You can download LibriSpeech at http://www.openslr.org/12.
 The loss function is the CTC loss and it is implemented in two different ways:
