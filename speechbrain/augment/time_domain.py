@@ -460,6 +460,8 @@ class SpeedPerturb(torch.nn.Module):
     speeds : list
         The speeds that the signal should be changed to, as a percentage of the
         original signal (i.e. `speeds` is divided by 100 to get a ratio).
+    device : str
+        The device to use for the resampling.
 
     Example
     -------
@@ -474,10 +476,11 @@ class SpeedPerturb(torch.nn.Module):
     torch.Size([1, 46956])
     """
 
-    def __init__(self, orig_freq, speeds=[90, 100, 110]):
+    def __init__(self, orig_freq, speeds=[90, 100, 110], device="cpu"):
         super().__init__()
         self.orig_freq = orig_freq
         self.speeds = speeds
+        self.device = device
         # Initialize index of perturbation
         self.samp_index = 0
 
@@ -504,8 +507,11 @@ class SpeedPerturb(torch.nn.Module):
 
         # Perform a random perturbation
         self.samp_index = torch.randint(0, len(self.speeds), (1,))
-        perturbed_waveform = self.resamplers[self.samp_index](waveform)
-        return perturbed_waveform
+        perturbed_waveform = self.resamplers[self.samp_index](
+            waveform.to(self.device)
+        )
+        # Move back from host to original device
+        return perturbed_waveform.to(waveform.device)
 
 
 class Resample(torch.nn.Module):
