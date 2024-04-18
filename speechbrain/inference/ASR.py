@@ -664,7 +664,7 @@ class WhisperASR(Pretrained):
         no_speech_threshold=0.6,
         condition_on_previous_text: bool = False,
         verbose: bool = False,
-        use_torchaudio_streaming: bool = True,
+        use_torchaudio_streaming: bool = False,
         chunk_size: Optional[int] = 30,
         **kwargs,
     ):
@@ -830,7 +830,7 @@ class WhisperASR(Pretrained):
         no_speech_threshold=0.6,
         condition_on_previous_text: bool = False,
         verbose: bool = False,
-        use_torchaudio_streaming: bool = True,
+        use_torchaudio_streaming: bool = False,
         chunk_size: Optional[int] = 30,
         **kwargs,
     ) -> List[ASRWhisperSegment]:
