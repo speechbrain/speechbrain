@@ -36,10 +36,10 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 
 # Results
 # Transformer Results:
-| Language | CV version | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
+| Language | CV version | hyperparams file | Flags | LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|:-----------:| :-----------:| :-----------:|
-| Italian | 14.0 | train_it.yaml | No | 2.91 | 9.79 | 2.68 | 9.27 | - | [model](https://www.dropbox.com/scl/fo/tf44itp8f4icf2z5qlxpm/AIOYS_CMov5ss5Q9AonFEno?rlkey=xek5ikbhqoovcao31iniqimrr&dl=0) | 2xV100 32GB |
-| French | 14.0 | train_it.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
+| Italian | 14.0 | conformer_large.yaml | No | 2.91 | 9.79 | 2.68 | 9.27 | - | [model](https://www.dropbox.com/scl/fo/tf44itp8f4icf2z5qlxpm/AIOYS_CMov5ss5Q9AonFEno?rlkey=xek5ikbhqoovcao31iniqimrr&dl=0) | 2xV100 32GB |
+| French | 14.0 | conformer_large.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
 
 
 ## Whisper Finetuning Result:
