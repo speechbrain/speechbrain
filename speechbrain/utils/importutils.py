@@ -44,7 +44,7 @@ class LazyModule(ModuleType):
         self.lazy_module = None
         self.package = package
 
-    def _ensure_module(self, stacklevel: int) -> ModuleType:
+    def ensure_module(self, stacklevel: int) -> ModuleType:
         """Ensures that the target module is imported and available as
         `self.lazy_module`, also returning it.
 
@@ -53,7 +53,7 @@ class LazyModule(ModuleType):
         stacklevel : int
             The stack trace level of the function that caused the import to
             occur, relative to the **caller** of this function (e.g. if in
-            function `f` you call `_ensure_module(1)`, it will refer to the
+            function `f` you call `ensure_module(1)`, it will refer to the
             function that called `f`).
 
         Raises
@@ -105,7 +105,7 @@ class LazyModule(ModuleType):
 
     def __getattr__(self, attr):
         # NOTE: exceptions here get eaten and not displayed
-        return getattr(self._ensure_module(1), attr)
+        return getattr(self.ensure_module(1), attr)
 
 
 class DeprecatedModuleRedirect(LazyModule):
@@ -157,15 +157,15 @@ class DeprecatedModuleRedirect(LazyModule):
         warnings.warn(
             warning_text,
             # category=DeprecationWarning,
-            stacklevel=4,  # _ensure_module <- __getattr__ <- python <- user
+            stacklevel=4,  # ensure_module <- __getattr__ <- python <- user
         )
 
-    def _ensure_module(self, stacklevel: int) -> ModuleType:
+    def ensure_module(self, stacklevel: int) -> ModuleType:
         should_warn = self.lazy_module is None
 
         # can fail with exception if the module shouldn't be imported, so only
         # actually emit the warning later
-        module = super()._ensure_module(stacklevel + 1)
+        module = super().ensure_module(stacklevel + 1)
 
         if should_warn:
             self._redirection_warn()
