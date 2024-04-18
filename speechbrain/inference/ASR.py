@@ -414,12 +414,12 @@ class ASRWhisperSegment:
     start: float
     end: float
     chunk: torch.Tensor
-    lang_id: str
-    words: str
-    tokens: List[int]
-    prompt: List[str]
-    avg_log_probs: float
-    no_speech_prob: float
+    lang_id: Optional[str] = None
+    words: Optional[str] = None
+    tokens: Optional[List[str]] = None
+    prompt: Optional[List[str]] = None
+    avg_log_probs: Optional[float] = None
+    no_speech_prob: Optional[float] = None
 
 
 class WhisperASR(Pretrained):
@@ -602,58 +602,6 @@ class WhisperASR(Pretrained):
             chunk = chunk.unsqueeze(0)  # create a fake batch dim
             yield chunk
 
-    def _new_segment(
-        self,
-        start: float,
-        end: float,
-        chunk: torch.Tensor,
-        lang_id: str = None,
-        words: str = None,
-        tokens: List[int] = None,
-        prompt: List[str] = None,
-        avg_log_probs: float = None,
-        no_speech_prob: float = None,
-    ):
-        """Create a new ``ASRWhisperSegment`` dataclass instance.
-
-        Arguments
-        ----------
-        start : float
-            The start time of the audio segment.
-        end : float
-            The end time of the audio segment.
-        chunk : torch.Tensor
-            The audio data for the segment.
-        lang_id : str, optional
-            The language identifier associated with the segment.
-        words : str, optional
-            The predicted words for the segment.
-        tokens : List[int], optional
-            The predicted tokens for the segment.
-        prompt : List[str], optional
-            The prompt associated with the segment.
-        avg_log_probs : float, optional
-            The average log probability associated with the prediction.
-        no_speech_prob : float, optional
-            The probability of no speech in the segment.
-
-        Returns
-        -------
-        ASRWhisperSegment
-            A new ASRWhisperSegment instance initialized with the provided parameters.
-        """
-        return ASRWhisperSegment(
-            start=start,
-            end=end,
-            chunk=chunk,
-            lang_id=lang_id,
-            words=words,
-            tokens=tokens,
-            prompt=prompt,
-            avg_log_probs=avg_log_probs,
-            no_speech_prob=no_speech_prob,
-        )
-
     @torch.no_grad()
     def transcribe_file_streaming(
         self,
@@ -755,7 +703,7 @@ class WhisperASR(Pretrained):
             languages, _ = self._detect_language(mel_segment, task)
 
             if task == "lang_id":
-                yield self._new_segment(
+                yield ASRWhisperSegment(
                     start=start,
                     end=end,
                     chunk=segment,
@@ -783,7 +731,7 @@ class WhisperASR(Pretrained):
                     should_skip = False
 
                 if should_skip:
-                    yield self._new_segment(
+                    yield ASRWhisperSegment(
                         start=start,
                         end=end,
                         chunk=segment,
@@ -801,7 +749,7 @@ class WhisperASR(Pretrained):
                 for t in predicted_tokens
             ]
 
-            yield self._new_segment(
+            yield ASRWhisperSegment(
                 start=start,
                 end=end,
                 chunk=segment,
