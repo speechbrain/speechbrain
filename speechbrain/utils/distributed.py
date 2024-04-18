@@ -4,6 +4,7 @@ Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
  * Peter Plantinga 2023
+ * Adel Moumen 2024
 """
 
 import datetime
@@ -13,6 +14,7 @@ from functools import wraps
 import torch
 
 MAIN_PROC_ONLY = 0
+USE_LOCAL_RANK: bool = False
 
 
 def run_on_main(
@@ -74,16 +76,35 @@ def run_on_main(
 
 
 def if_main_process():
-    """Checks if the current process is the main local process and authorized to run
-    I/O commands. In DDP mode, the main local process is the one with `RANK == 0`.
+    """Checks if the current process is the main process and authorized to run
+    I/O commands. By default, the main process is the one with `RANK == 0`.
+    If you want to use the local rank as the main process, set the global
+    variable `USE_GLOBAL_RANK` to `False` by using the flag `--local_rank` in
+    the command line.
+
     In standard mode, the process will not have `RANK` Unix var and will be
     authorized to run the I/O commands.
     """
-    if "RANK" in os.environ:
-        if os.environ["RANK"] == "":
+    global USE_LOCAL_RANK
+
+    # By default, the global rank is used.
+    # In some cases, the local rank can be
+    # used as the main process. For instance,
+    # some compute clusters may have multiples
+    # nodes without shared storage. In this case,
+    # the local rank can be used as the main process
+    # to enable I/O operations on each node rather
+    # than on a single and main node.
+    if not USE_LOCAL_RANK:
+        env_name = "RANK"
+    else:
+        env_name = "LOCAL_RANK"
+
+    if env_name in os.environ:
+        if os.environ[env_name] == "":
             return False
         else:
-            if int(os.environ["RANK"]) == 0:
+            if int(os.environ[env_name]) == 0:
                 return True
             return False
     return True

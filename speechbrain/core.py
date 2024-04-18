@@ -89,6 +89,7 @@ run_opt_defaults = {
     "profile_training": False,
     "profile_warmup": 5,
     "profile_steps": 5,
+    "local_rank": False,
 }
 
 
@@ -463,6 +464,14 @@ def parse_arguments(arg_list=None):
         type=int,
         help="Number of steps of logging for the profiler",
     )
+    parser.add_argument(
+        "--local_rank",
+        default=False,
+        action="store_true",
+        help="This flag is used to modify the behaviour of `if_main_process`. "
+        "If set, the `LOCAL_RANK` is used instead of `RANK` to determine the main process."
+        "This is useful for multi-node training where each node has its own filesystem.",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -484,6 +493,9 @@ def parse_arguments(arg_list=None):
     local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is not None and "cuda" in run_opts["device"]:
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
+
+    # we override the local rank if it is set
+    sb.utils.distributed.USE_LOCAL_RANK = run_opts["local_rank"]
 
     return param_file, run_opts, overrides
 
