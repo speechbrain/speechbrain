@@ -145,7 +145,7 @@ class DialogueUnderstanding(sb.core.Brain):
 
         # Id in the form /path/to/dialogue/Turn-N
         dialog_id = element_id.split("/")[-2]
-        state = self.tokenizer.decode(hyp)
+        state = self.tokenizer.decode(hyp).replace("[State] ", "")
         with open(
             os.path.join(
                 self.hparams.output_folder,

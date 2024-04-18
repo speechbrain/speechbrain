@@ -1435,11 +1435,23 @@ def dialogue_state_str2dict(
     """
     dict_state = {}
 
-    # We consider every word after "[State] " to discard the transcription if present.
+    # Considering every word after "[State] " to discard the transcription if present.
     dialogue_state = dialogue_state.split("[State] ")[-1]
     if ";" not in dialogue_state:
-        return {}
+        # One slot or none
+        if "=" not in dialogue_state:
+            return {}
+        else:
+            slot_value = dialogue_state.split("=")
+            slot, value = (slot_value[0], slot_value[1])
+            if "-" not in slot:
+                return {}
+            else:
+                domain_slot = slot.split("-")
+                domain, slot_type = (domain_slot[0], domain_slot[1])
+                return {domain: {slot_type: value}}
     else:
+        # Multiple slots
         slots = dialogue_state.split(";")
         for slot_value in slots:
             if "=" not in slot_value:
@@ -1467,12 +1479,19 @@ class JointGoalAccuracyTracker:
     """
     Class to track the Joint-Goal Accuracy during training.
     Keeps track of the number of correct and total dialogue states considered.
+
+    Arguments
+    ---------
+    None
     """
 
     def __init__(self):
         self.clear()
 
     def clear(self):
+        """
+        Resets the correct and total counters of the metric.
+        """
         self.correct = 0
         self.total = 0
 
@@ -1481,7 +1500,7 @@ class JointGoalAccuracyTracker:
         This function is for updating the stats according to the a batch of predictions and targets.
 
         Arguments
-        ----------
+        ---------
         predictions : list[str]
             Predicted dialogue states.
         targets : list[str]
