@@ -1,5 +1,6 @@
-from speechbrain.inference.ASR import EncoderDecoderASR
 import pytest
+
+from speechbrain.inference.ASR import EncoderDecoderASR
 
 pytest.importorskip(
     "speechbrain.alignment.ctc_segmentation",
@@ -28,8 +29,11 @@ def test_CTCSegmentation(asr_model: EncoderDecoderASR):
     randomly fail.
     """
     import numpy as np
-    from speechbrain.alignment.ctc_segmentation import CTCSegmentation
-    from speechbrain.alignment.ctc_segmentation import CTCSegmentationTask
+
+    from speechbrain.alignment.ctc_segmentation import (
+        CTCSegmentation,
+        CTCSegmentationTask,
+    )
 
     # speech either from the test audio file or random
     # example file included in the speechbrain repository

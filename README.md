@@ -49,7 +49,7 @@ python train.py hparams/train.yaml
 - Each model comes with a user-friendly interface for seamless inference. For example, transcribing speech using a pretrained model requires just three lines of code:
 
 ```python
-from speechbrain.pretrained import EncoderDecoderASR
+from speechbrain.inference import EncoderDecoderASR
 
 asr_model = EncoderDecoderASR.from_hparams(source="speechbrain/asr-conformer-transformerlm-librispeech", savedir="pretrained_models/asr-transformer-transformerlm-librispeech")
 asr_model.transcribe_file("speechbrain/asr-conformer-transformerlm-librispeech/example.wav")

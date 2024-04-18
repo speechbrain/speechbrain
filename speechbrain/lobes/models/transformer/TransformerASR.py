@@ -7,19 +7,21 @@ Authors
 """
 
 from dataclasses import dataclass
+from typing import Any, Optional
+
 import torch  # noqa 42
 from torch import nn
-from typing import Any, Optional
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.containers import ModuleList
+
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerInterface,
-    get_lookahead_mask,
-    get_key_padding_mask,
     NormalizedEmbedding,
+    TransformerInterface,
+    get_key_padding_mask,
+    get_lookahead_mask,
 )
 from speechbrain.nnet.activations import Swish
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.nnet.containers import ModuleList
+from speechbrain.nnet.linear import Linear
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 
 

@@ -1,11 +1,12 @@
+import math
+
 import torch
 import torch.nn
-import math
 
 
 def test_metric_stats(device):
-    from speechbrain.utils.metric_stats import MetricStats
     from speechbrain.nnet.losses import l1_loss
+    from speechbrain.utils.metric_stats import MetricStats
 
     l1_stats = MetricStats(metric=l1_loss)
     l1_stats.append(
@@ -46,6 +47,75 @@ def test_error_rate_stats(device):
     assert summary["deletions"] == 0
     assert wer_stats.scores[0]["ref_tokens"] == ["the", "world"]
     assert wer_stats.scores[0]["hyp_tokens"] == ["the", "world", "hello"]
+
+
+def test_weighted_error_rate_stats():
+    from speechbrain.utils.metric_stats import (
+        ErrorRateStats,
+        WeightedErrorRateStats,
+    )
+
+    # simple example where a and a' substitution get matched as similar
+    def test_cost(edit, a, b):
+        if edit != "S":
+            return 1.0
+
+        a_syms = ["a", "a'"]
+        if a in a_syms and b in a_syms:
+            return 0.1  # high similarity
+        return 1.0  # low similarity
+
+    wer_stats = ErrorRateStats()
+    weighted_wer_stats = WeightedErrorRateStats(
+        wer_stats, cost_function=test_cost
+    )
+
+    predict = [["d", "b", "c"], ["a'", "b", "c"]]
+    refs = [["a", "b", "c"]] * 2
+
+    wer_stats.append(
+        ids=["utterance1", "utterance2"], predict=predict, target=refs
+    )
+    summary = weighted_wer_stats.summarize()
+
+    assert math.isclose(summary["weighted_wer"], 18.33333, abs_tol=1e-3)
+    assert math.isclose(summary["weighted_substitutions"], 1.0 + 0.1)
+
+
+def test_synonym_dict_error_rate_stats():
+    from speechbrain.utils.dictionaries import SynonymDictionary
+    from speechbrain.utils.metric_stats import ErrorRateStats
+
+    syn_dict = SynonymDictionary()
+    syn_dict.add_synonym_set({"a", "a'"})
+    syn_dict.add_synonym_set({"b", "b'"})  # unused syn to check for correctness
+
+    wer_stats = ErrorRateStats(equality_comparator=syn_dict)
+
+    predict = [["a'", "b", "c", "e"]]
+    refs = [["a", "b", "c", "d"]]
+
+    wer_stats.append(ids=["utterance1"], predict=predict, target=refs)
+    summary = wer_stats.summarize()
+
+    assert math.isclose(summary["WER"], 25.0)
+
+
+def test_embedding_error_rate_stats(device):
+    from speechbrain.utils.metric_stats import EmbeddingErrorRateSimilarity
+
+    def test_word_embedding(sentence):
+        if sentence == "a":
+            return torch.tensor([1.0, 0.0], device=device)
+        if sentence == "b":
+            return torch.tensor([0.0, 1.0], device=device)
+        if sentence == "c":
+            return torch.tensor([0.9, 0.1], device=device)
+
+    ember = EmbeddingErrorRateSimilarity(test_word_embedding, 1.0, 0.1, 0.4)
+
+    assert ember("S", "a", "b") == 1.0  # low similarity
+    assert ember("S", "a", "c") == 0.1  # high similarity
 
 
 def test_binary_metrics(device):
@@ -121,6 +191,7 @@ def test_minDCF(device):
 
 def test_classification_stats():
     import pytest
+
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()
@@ -137,6 +208,7 @@ def test_classification_stats():
 
 def test_categorized_classification_stats():
     import pytest
+
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()
@@ -170,6 +242,7 @@ def test_categorized_classification_stats():
 
 def test_classification_stats_report():
     from io import StringIO
+
     from speechbrain.utils.metric_stats import ClassificationStats
 
     stats = ClassificationStats()

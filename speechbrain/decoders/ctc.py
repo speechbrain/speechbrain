@@ -7,16 +7,18 @@ Authors
  * Adel Moumen 2023, 2024
 """
 
-from itertools import groupby
-from speechbrain.dataio.dataio import length_to_mask
-import math
 import dataclasses
-import numpy as np
 import heapq
 import logging
-import torch
+import math
 import warnings
-from typing import Dict, List, Optional, Union, Any, Tuple
+from itertools import groupby
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+import torch
+
+from speechbrain.dataio.dataio import length_to_mask
 
 logger = logging.getLogger(__name__)
 

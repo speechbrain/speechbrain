@@ -4,8 +4,9 @@ Author:
     * Titouan Parcollet 2024
 """
 
-from torch import profiler
 import os
+
+from torch import profiler
 
 
 def prepare_profiler(

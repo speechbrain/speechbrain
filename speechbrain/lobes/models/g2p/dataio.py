@@ -7,12 +7,14 @@ Authors
  * Artem Ploujnikov 2021 (minor refactoring only)
 """
 
-from functools import reduce
-from speechbrain.wordemb.util import expand_to_chars
-from torch import nn
-import speechbrain as sb
-import torch
 import re
+from functools import reduce
+
+import torch
+from torch import nn
+
+import speechbrain as sb
+from speechbrain.wordemb.util import expand_to_chars
 
 RE_MULTI_SPACE = re.compile(r"\s{2,}")
 

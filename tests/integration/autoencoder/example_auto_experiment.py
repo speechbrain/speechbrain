@@ -7,8 +7,10 @@ training data  (with a validation performance that stays high).
 """
 
 import pathlib
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class AutoBrain(sb.Brain):

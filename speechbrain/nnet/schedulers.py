@@ -8,12 +8,13 @@ Authors
  * Shucong Zhang 2023
 """
 
-import math
-import torch
 import logging
+import math
+
+import torch
+from torch import nn
 
 from speechbrain.utils import checkpoints
-from torch import nn
 
 logger = logging.getLogger(__name__)
 

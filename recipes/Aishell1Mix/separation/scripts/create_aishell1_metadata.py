@@ -1,8 +1,9 @@
-import os
 import argparse
-import soundfile as sf
-import pandas as pd
 import glob
+import os
+
+import pandas as pd
+import soundfile as sf
 from tqdm import tqdm
 
 # Global parameter

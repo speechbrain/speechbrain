@@ -9,15 +9,17 @@ To run this recipe, do the following:
  * Pooneh Mousavi 2022
 """
 
-import sys
-import torch
 import logging
+import sys
+
+import torch
 import torchaudio
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from speechbrain.utils.data_utils import undo_padding
 from hyperpyyaml import load_hyperpyyaml
 from transformers.models.whisper.tokenization_whisper import LANGUAGES
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 

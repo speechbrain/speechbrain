@@ -6,19 +6,17 @@ Authors
  * Jarod DURET 2023
 """
 
-import os
 import csv
 import json
 import logging
-import random
-import tqdm
+import os
 import pathlib as pl
+import random
 
 import torchaudio
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+import tqdm
+
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 
 OPT_FILE = "opt_cvss_prepare.pkl"
 

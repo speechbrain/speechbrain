@@ -14,23 +14,25 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import logging
 import hashlib
+import logging
 import sys
 import warnings
+from types import SimpleNamespace
+
 import torch
 import torchaudio
-from types import SimpleNamespace
-from torch.nn import SyncBatchNorm
-from torch.nn import DataParallel as DP
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.fetching import fetch
-from speechbrain.dataio.preprocess import AudioNormalizer
+from torch.nn import DataParallel as DP
+from torch.nn import SyncBatchNorm
 from torch.nn.parallel import DistributedDataParallel as DDP
+
+from speechbrain.dataio.batch import PaddedBatch, PaddedData
+from speechbrain.dataio.preprocess import AudioNormalizer
+from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.dataio.batch import PaddedBatch, PaddedData
-from speechbrain.utils.data_pipeline import DataPipeline
+from speechbrain.utils.fetching import fetch
 from speechbrain.utils.superpowers import import_from_path
 
 logger = logging.getLogger(__name__)
@@ -69,7 +71,7 @@ def foreign_class(
     ---------
     source : str or Path or FetchSource
         The location to use for finding the model. See
-        ``speechbrain.pretrained.fetching.fetch`` for details.
+        ``speechbrain.utils.fetching.fetch`` for details.
     hparams_file : str
         The name of the hyperparameters file to use for constructing
         the modules necessary for inference. Must contain two keys:
@@ -391,6 +393,7 @@ class Pretrained(torch.nn.Module):
         revision=None,
         download_only=False,
         huggingface_cache_dir=None,
+        overrides_must_match=True,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -412,7 +415,7 @@ class Pretrained(torch.nn.Module):
         ---------
         source : str
             The location to use for finding the model. See
-            ``speechbrain.pretrained.fetching.fetch`` for details.
+            ``speechbrain.utils.fetching.fetch`` for details.
         hparams_file : str
             The name of the hyperparameters file to use for constructing
             the modules necessary for inference. Must contain two keys:
@@ -442,6 +445,8 @@ class Pretrained(torch.nn.Module):
             If true, class and instance creation is skipped.
         huggingface_cache_dir : str
             Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
+        overrides_must_match : bool
+            Whether the overrides must match the parameters already in the file.
         **kwargs : dict
             Arguments to forward to class constructor.
 
@@ -486,7 +491,9 @@ class Pretrained(torch.nn.Module):
 
         # Load the modules:
         with open(hparams_local_path) as fin:
-            hparams = load_hyperpyyaml(fin, overrides)
+            hparams = load_hyperpyyaml(
+                fin, overrides, overrides_must_match=overrides_must_match
+            )
 
         # Pretraining:
         pretrainer = hparams["pretrainer"]

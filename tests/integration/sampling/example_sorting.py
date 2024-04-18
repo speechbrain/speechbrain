@@ -1,14 +1,16 @@
 """This minimal example checks on sampling with ascending/descending sorting and random shuffling; w/ & w/o DDP.
 """
 
-import os
-import torch
-import pickle
-import pathlib
 import itertools
-import speechbrain as sb
+import os
+import pathlib
+import pickle
+
+import torch
 import torch.multiprocessing as mp
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class SamplingBrain(sb.Brain):

@@ -20,10 +20,10 @@ Credits
     This code is adapted from: https://projets-lium.univ-lemans.fr/sidekit/
 """
 
-import numpy
 import copy
 import pickle
 
+import numpy
 from scipy import linalg
 
 STAT_TYPE = numpy.float64

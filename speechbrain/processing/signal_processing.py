@@ -9,8 +9,9 @@ Authors
  * Sarthak Yadav 2022
 """
 
-import torch
 import math
+
+import torch
 from packaging import version
 
 
