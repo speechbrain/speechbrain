@@ -44,7 +44,7 @@ loss_reduction: batchmean
 valid_search_interval: 1
 avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
-lr_adam: 0.001
+lr_model: 0.001
 weight_decay: 0.0005
 
 # Feature parameters
@@ -176,12 +176,12 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
     reduction: !ref <loss_reduction>
 
 noam_annealing: !new:speechbrain.nnet.schedulers.LinearNoamScheduler
-    lr_initial: !ref <lr_adam>
+    lr_initial: !ref <lr_model>
     n_warmup_steps: 7500
     n_keep_steps: 36000
 
-Adam: !name:torch.optim.AdamW
-    lr: !ref <lr_adam>
+model_opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr_model>
     betas: (0.9, 0.98)
     eps: 0.000000001
     weight_decay: !ref <weight_decay>
