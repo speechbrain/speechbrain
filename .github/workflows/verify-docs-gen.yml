@@ -24,4 +24,4 @@ jobs:
             - name: Generate docs
               run: |
                   cd docs
-                  make html
+                  SPHINXOPTS="-j=auto" make html
