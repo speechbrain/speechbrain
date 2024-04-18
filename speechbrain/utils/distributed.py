@@ -79,7 +79,7 @@ def if_main_process():
     """Checks if the current process is the main process and authorized to run
     I/O commands. By default, the main process is the one with `RANK == 0`.
     If you want to use the local rank as the main process, set the global
-    variable `USE_GLOBAL_RANK` to `False` by using the flag `--local_rank` in
+    variable `USE_LOCAL_RANK` to `True` by using the flag `--local_rank` in
     the command line.
 
     In standard mode, the process will not have `RANK`/`LOCAL_RANK` Unix var and will be
