@@ -16,15 +16,17 @@ Authors
  * Adel Moumen 2024
 """
 
+import logging
 import os
 import sys
-import torch
-import logging
 from pathlib import Path
-import speechbrain as sb
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+
+import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -279,11 +281,18 @@ def dataio_prepare(hparams, tokenizer):
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
         dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
+        dynamic_hparams_val = hparams["dynamic_batch_sampler_val"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
             length_func=lambda x: x["duration"],
             **dynamic_hparams_train,
+        )
+
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            length_func=lambda x: x["duration"],
+            **dynamic_hparams_val,
         )
 
     return (
