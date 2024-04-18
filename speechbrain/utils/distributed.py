@@ -82,19 +82,17 @@ def if_main_process():
     variable `USE_GLOBAL_RANK` to `False` by using the flag `--local_rank` in
     the command line.
 
-    In standard mode, the process will not have `RANK` Unix var and will be
+    In standard mode, the process will not have `RANK`/`LOCAL_RANK` Unix var and will be
     authorized to run the I/O commands.
     """
     global USE_LOCAL_RANK
 
-    # By default, the global rank is used.
-    # In some cases, the local rank can be
-    # used as the main process. For instance,
-    # some compute clusters may have multiples
-    # nodes without shared storage. In this case,
-    # the local rank can be used as the main process
-    # to enable I/O operations on each node rather
-    # than on a single and main node.
+    # By default, the global rank (i.e. `RANK`== 0) is used.
+    # In some cases, the local rank (i.e. `LOCAL_RANK` == 0)
+    # can be used as the main process. For instance, some
+    # compute clusters may have multiples nodes without shared storage.
+    # In this case, the local rank can be used as the main process
+    # to enable I/O operations on each node rather than on a single and main node.
     if not USE_LOCAL_RANK:
         env_name = "RANK"
     else:
