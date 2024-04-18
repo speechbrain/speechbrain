@@ -13,7 +13,7 @@ from functools import wraps
 
 import torch
 
-MAIN_PROC_ONLY = 0
+MAIN_PROC_ONLY: int = 0
 USE_LOCAL_RANK: bool = False
 
 
