@@ -48,11 +48,6 @@ class LazyModule(ModuleType):
         """Ensures that the target module is imported and available as
         `self.lazy_module`, also returning it.
 
-        When the function responsible for the import attempt is found to be
-        `inspect.py`, we raise an `AttributeError` here. This is because some
-        code will inadvertently cause our modules to be imported, such as some
-        of PyTorch's op registering machinery.
-
         Arguments
         ---------
         stacklevel : int
@@ -60,6 +55,14 @@ class LazyModule(ModuleType):
             occur, relative to the **caller** of this function (e.g. if in
             function `f` you call `_ensure_module(1)`, it will refer to the
             function that called `f`).
+
+        Raises
+        ------
+        AttributeError
+            When the function responsible for the import attempt is found to be
+            `inspect.py`, we raise an `AttributeError` here. This is because
+            some code will inadvertently cause our modules to be imported, such
+            as some of PyTorch's op registering machinery.
         """
 
         importer_frame = None
