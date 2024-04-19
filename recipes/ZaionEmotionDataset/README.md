@@ -22,7 +22,7 @@ pip install -r emotion_diarization/extra_requirements.txt
 ## Datasets
 
 ### Test Set
-The test set is Zaion Emotion Dataset (ZED), which can be downloaded [here](https://zaion.ai/en/resources/zaion-lab-blog/zaion-emotion-dataset/).
+The test set is **Zaion Emotion Dataset (ZED)**, which can be downloaded via this dropbox [link](https://www.dropbox.com/scl/fi/2s3ro8tmgt1lir77z3hj5/ZED.zip?rlkey=qkizx7t3ozo02xs7k1tlexb1e&st=9l466c1c&dl=0).
 
 ### Training Set
 1. [RAVDESS](https://zenodo.org/record/1188976)
