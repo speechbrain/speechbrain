@@ -42,7 +42,7 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 | French | 14.0 | conformer_large.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
 
 
-## Whisper Finetuning 
+## Whisper Finetuning
 Following table contains whisper-finetuning results for 1 epoch using Whisper model, freezing encoder and finetuning decoder.
 | Language | Release | Model | commit hash | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:| -----:|-----:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------: |:-----------:| :-----------:|
