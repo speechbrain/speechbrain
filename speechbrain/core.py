@@ -89,7 +89,7 @@ run_opt_defaults = {
     "profile_training": False,
     "profile_warmup": 5,
     "profile_steps": 5,
-    "local_rank": False,
+    "main_rank_local": False,
 }
 
 
