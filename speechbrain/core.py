@@ -465,7 +465,7 @@ def parse_arguments(arg_list=None):
         help="Number of steps of logging for the profiler",
     )
     parser.add_argument(
-        "--local_rank",
+        "--main_rank_local",
         default=False,
         action="store_true",
         help="This flag is used to modify the behaviour of `if_main_process`. "
@@ -495,7 +495,7 @@ def parse_arguments(arg_list=None):
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
 
     # we override the local rank if it is set
-    sb.utils.distributed.USE_LOCAL_RANK = run_opts["local_rank"]
+    sb.utils.distributed.USE_LOCAL_RANK = run_opts["main_rank_local"]
 
     return param_file, run_opts, overrides
 
