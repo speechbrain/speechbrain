@@ -17,21 +17,13 @@ You can download KsponSpeech at [Link](https://aihub.or.kr/aihubdata/data/view.d
 Run following script to unzip the downloaded file
 
 ```bash
-./unzip_ksponspeech.sh "PATH_TO_DOWNLOADED/한국어 음성" PATH_TO_UNZIPPED
+./unzip_ksponspeech.sh "PATH_TO_DOWNLOADED" PATH_TO_UNZIPPED
 ```
 
 pcm files need to be converted to wav for training. Run following script for the conversion.
 
 ```bash
 python convert_to_wav.py --dirpath PATH_TO_UNZIPPED --nj num_processes
-```
-
-## Installing Extra Dependencies
-
-Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
-
-```
-pip install -r extra_requirements.txt
 ```
 
 ## How to run an ASR experiment with KsponSpeech

@@ -12,13 +12,15 @@ Also, set data_folder in the yaml file to the result of ksponspeech_prepare.py.
 Run the following to start training the language model.
 
 ```bash
-python train.py hparams/transformer.yaml
+python train.py hparams/transformer.yaml # transformerLM
+python train.py hparams/RNNLM.yaml # RNNLM
 ```
 # Results
 
 | Release | hyperparams file | eval clean loss | eval other loss | Model link | GPUs |Training time|
 |:----:|:----:|:----:|:----:|:----:|:----:|:----:|
 |01-23-23|transformer.yaml|4.40|4.67|[Dropbox](https://www.dropbox.com/sh/egv5bdn8b5i45eo/AAB7a8gFt2FqbnO4yhL6DQ8na?dl=0)|1xA100 80GB|17 hours 2 mins|
+|04-16-24|RNNLM.yaml|4.59|4.94|[Dropbox](https://www.dropbox.com/sh/egv5bdn8b5i45eo/AAB7a8gFt2FqbnO4yhL6DQ8na?dl=0)|1xA100 80GB|50 mins|
 
 # About SpeechBrain
 - Website: https://speechbrain.github.io/
