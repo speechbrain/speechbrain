@@ -292,7 +292,7 @@ class InterpreterBrain(sb.core.Brain):
             self.train_stats = {
                 "loss": self.train_loss,
                 "acc": self.acc_metric.summarize("average"),
-                "rec_error": self.recons_err.summarize("average"),
+                # "rec_error": self.recons_err.summarize("average"),
             }
             if self.hparams.use_mask_output:
                 self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
