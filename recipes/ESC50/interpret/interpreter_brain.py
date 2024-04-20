@@ -270,10 +270,7 @@ class InterpreterBrain(sb.core.Brain):
         self.recons_err = sb.utils.metric_stats.MetricStats(
             metric=compute_rec_error
         )
-        if self.hparams.use_mask_output:
-            self.mask_ll = sb.utils.metric_stats.MetricStats(
-                metric=compute_bern_ll
-            )
+
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
