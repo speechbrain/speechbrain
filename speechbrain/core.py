@@ -1418,6 +1418,9 @@ class Brain:
                 self.avg_train_loss = self.update_average(
                     loss, self.avg_train_loss
                 )
+                # TODO: need to benchmark the effect of this communication
+                # sync the avg_loss across all processes 
+                self.avg_train_loss = self.sync_average_loss(self.avg_train_loss)
                 t.set_postfix(train_loss=self.avg_train_loss)
 
                 if self.profiler is not None:
@@ -1442,7 +1445,8 @@ class Brain:
                     steps_since_ckpt = 0
 
         # Run train "on_stage_end" on all processes
-        self.zero_grad(set_to_none=True)  # flush gradients
+        # flush gradients
+        self.zero_grad(set_to_none=True)
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
@@ -1500,6 +1504,8 @@ class Brain:
                         break
 
                 self.step = 0
+                # sync the avg_loss across all processes
+                avg_valid_loss = self.sync_average_loss(avg_valid_loss)
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
@@ -1776,12 +1782,8 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
             
-            # sync avg_test_Loss
-            if torch.distributed.is_initialized():
-                avg_test_loss = torch.tensor([avg_test_loss], dtype=torch.float32, device="cuda")
-                torch.distributed.all_reduce(avg_test_loss, op=torch.distributed.ReduceOp.AVG, async_op=False)
-                avg_test_loss = avg_test_loss.item()
-                
+            # sync the avg_loss across all processes
+            avg_test_loss = self.sync_average_loss(avg_test_loss)
             self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
         return avg_test_loss
@@ -1804,6 +1806,13 @@ class Brain:
         if torch.isfinite(loss):
             avg_loss -= avg_loss / self.step
             avg_loss += float(loss) / self.step
+        return avg_loss
+    
+    def sync_average_loss(self, avg_loss):
+        if torch.distributed.is_initialized():
+            avg_loss = torch.tensor([avg_loss], dtype=torch.float32, device=self.device)
+            torch.distributed.all_reduce(avg_loss, op=torch.distributed.ReduceOp.AVG, async_op=False)
+            avg_loss = avg_loss.item()    
         return avg_loss
 
     @contextmanager
