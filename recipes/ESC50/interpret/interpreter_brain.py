@@ -101,7 +101,7 @@ class InterpreterBrain(sb.core.Brain):
         """Computation steps to get the interpretation spectrogram."""
 
     def extra_metrics(self):
-        pass
+        return {}
 
     # def viz_ints(self, X_stft, xhat, X_stft_logpower, batch, wavs):
     # """Helper function to visualize images."""
