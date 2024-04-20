@@ -16,8 +16,10 @@ import logging
 import os
 import shutil
 
+import torch
 import torchaudio
 
+import speechbrain as sb
 from speechbrain.dataio.dataio import load_data_csv, read_audio
 from speechbrain.utils.fetching import fetch
 
@@ -386,3 +388,80 @@ def removesuffix(some_string, suffix):
         return some_string[: -1 * len(suffix)]
     else:
         return some_string
+
+
+def dataio_prep(hparams):
+    "Creates the datasets and their data processing pipelines."
+
+    data_audio_folder = hparams["audio_data_folder"]
+    config_sample_rate = hparams["sample_rate"]
+    label_encoder = sb.dataio.encoder.CategoricalEncoder()
+    hparams["resampler"] = torchaudio.transforms.Resample(
+        new_freq=config_sample_rate
+    )
+
+    # 2. Define audio pipeline:
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def audio_pipeline(wav):
+        """Load the signal, and pass it and its length to the corruption class.
+        This is done on the CPU in the `collate_fn`."""
+
+        wave_file = data_audio_folder + "/{:}".format(wav)
+
+        sig, read_sr = torchaudio.load(wave_file)
+
+        # If multi-channels, downmix it to a mono channel
+        sig = torch.squeeze(sig)
+        if len(sig.shape) > 1:
+            sig = torch.mean(sig, dim=0)
+
+        # Convert sample rate to required config_sample_rate
+        if read_sr != config_sample_rate:
+            # Re-initialize sampler if source file sample rate changed compared to last file
+            if read_sr != hparams["resampler"].orig_freq:
+                hparams["resampler"] = torchaudio.transforms.Resample(
+                    orig_freq=read_sr, new_freq=config_sample_rate
+                )
+            # Resample audio
+            sig = hparams["resampler"].forward(sig)
+
+        sig = sig.float()
+        sig = sig / sig.max()
+        return sig
+
+    # 3. Define label pipeline:
+    @sb.utils.data_pipeline.takes("class_string")
+    @sb.utils.data_pipeline.provides("class_string", "class_string_encoded")
+    def label_pipeline(class_string):
+        yield class_string
+        class_string_encoded = label_encoder.encode_label_torch(class_string)
+        yield class_string_encoded
+
+    # Define datasets. We also connect the dataset with the data processing
+    # functions defined above.
+    datasets = {}
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
+        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
+            json_path=data_info[dataset],
+            replacements={"data_root": hparams["data_folder"]},
+            dynamic_items=[audio_pipeline, label_pipeline],
+            output_keys=["id", "sig", "class_string_encoded"],
+        )
+
+    # Load or compute the label encoder (with multi-GPU DDP support)
+    # Please, take a look into the lab_enc_file to see the label to index
+    # mappinng.
+    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
+    label_encoder.load_or_create(
+        path=lab_enc_file,
+        from_didatasets=[datasets["train"]],
+        output_key="class_string",
+    )
+
+    return datasets, label_encoder
