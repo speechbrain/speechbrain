@@ -158,10 +158,7 @@ class L2I(InterpreterBrain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
-
-                self.debug_files(X_stft, net_input, batch, wavs[0:1])
-                self.interpret_sample(wavs[0:1], batch)
-                # self.overlap_test(batch)
+                self.viz_ints(X_stft, net_input, batch, wavs[0:1])
 
         return (reconstructed, psi_out), (predictions, theta_out), wavs
 
