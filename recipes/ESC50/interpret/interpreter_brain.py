@@ -294,8 +294,6 @@ class InterpreterBrain(sb.core.Brain):
                 "acc": self.acc_metric.summarize("average"),
                 # "rec_error": self.recons_err.summarize("average"),
             }
-            if self.hparams.use_mask_output:
-                self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
 
         if stage == sb.Stage.VALID:
             current_fid = self.top_3_fidelity.summarize("average")
