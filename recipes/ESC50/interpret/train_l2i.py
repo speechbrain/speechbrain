@@ -263,6 +263,7 @@ class L2I(InterpreterBrain):
         self.acc_metric.append(
             uttid,
             predict=classification_out,
+            length=lens,
             target=classid,
         )
 
