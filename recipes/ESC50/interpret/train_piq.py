@@ -94,9 +94,8 @@ class PIQ(InterpreterBrain):
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 wavs = wavs[0].unsqueeze(0)
-                self.interpret_sample(wavs, batch)
-                self.overlap_test(batch)
-                self.debug_files(X_stft, xhat, X_stft_logpower, batch, wavs)
+                self.interpret_batch(wavs, batch)
+                self.viz_ints(X_stft, xhat, X_stft_logpower, batch, wavs)
 
         return predictions, xhat, hcat, z_q_x, garbage
 
