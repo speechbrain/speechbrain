@@ -6,17 +6,19 @@ Authors
     * Luca Della Libera 2024
 """
 
-import os
+# import os
 from abc import ABC, abstractmethod
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import torch
-import torchaudio
+
+# import torchaudio
 import torchvision
 from torch.nn import functional as F
 
 import speechbrain as sb
-from speechbrain.processing.NMF import spectral_phase
+
+# from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
@@ -100,90 +102,90 @@ class InterpreterBrain(sb.core.Brain, ABC):
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram."""
 
-    def viz_ints(self, X_stft, xhat, X_stft_logpower, batch, wavs):
-        """Helper function to visualize images."""
-        X_stft_phase = spectral_phase(X_stft)
-        temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
-        Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
-        xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
-
-        Tmax = Xspec_est.shape[1]
-        if self.hparams.use_mask_output:
-            X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
-        else:
-            th = xhat[0].max() * 0.15
-            X_masked = (xhat[0] > th) * X_stft_logpower[0, :Tmax, :]
-
-        X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
-        xhat_tm_masked = self.invert_stft_with_phase(X_est_masked, X_stft_phase)
-
-        plt.figure(figsize=(10, 5), dpi=100)
-
-        plt.subplot(141)
-        X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
-        plt.imshow(X_target, origin="lower")
-        plt.title("input")
-        plt.colorbar(fraction=0.05)
-
-        plt.subplot(142)
-        input_masked = X_target > (
-            X_target.max(keepdim=True, dim=-1)[0].max(keepdim=True, dim=-2)[0]
-            * self.hparams.mask_th
-        )
-        plt.imshow(input_masked, origin="lower")
-        plt.title("input masked")
-        plt.colorbar(fraction=0.05)
-
-        plt.subplot(143)
-        if self.hparams.use_mask_output:
-            mask = xhat[0]
-        else:
-            mask = xhat[0] > th
-        X_masked = mask * X_stft_logpower[0, :Tmax, :]
-        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar(fraction=0.05)
-        plt.title("interpretation")
-
-        plt.subplot(144)
-        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar(fraction=0.05)
-        plt.title("estimated mask")
-
-        out_folder = os.path.join(
-            self.hparams.output_folder,
-            "interpretations",
-            f"{batch.id[0]}",
-        )
-        os.makedirs(
-            out_folder,
-            exist_ok=True,
-        )
-
-        plt.subplots_adjust()
-        plt.tight_layout()
-        plt.savefig(
-            os.path.join(out_folder, "viz.png"),
-            bbox_inches="tight",
-        )
-        plt.close()
-
-        torchaudio.save(
-            os.path.join(out_folder, "xhat.wav"),
-            xhat_tm.data.cpu(),
-            self.hparams.sample_rate,
-        )
-
-        torchaudio.save(
-            os.path.join(out_folder, "int.wav"),
-            xhat_tm_masked.data.cpu(),
-            self.hparams.sample_rate,
-        )
-
-        torchaudio.save(
-            os.path.join(out_folder, "inp.wav"),
-            wavs[0:1].data.cpu(),
-            self.hparams.sample_rate,
-        )
+    # def viz_ints(self, X_stft, xhat, X_stft_logpower, batch, wavs):
+    # """Helper function to visualize images."""
+    # X_stft_phase = spectral_phase(X_stft)
+    # temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
+    # Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
+    # xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
+    #
+    # Tmax = Xspec_est.shape[1]
+    # if self.hparams.use_mask_output:
+    # X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
+    # else:
+    # th = xhat[0].max() * 0.15
+    # X_masked = (xhat[0] > th) * X_stft_logpower[0, :Tmax, :]
+    #
+    # X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
+    # xhat_tm_masked = self.invert_stft_with_phase(X_est_masked, X_stft_phase)
+    #
+    # plt.figure(figsize=(10, 5), dpi=100)
+    #
+    # plt.subplot(141)
+    # X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
+    # plt.imshow(X_target, origin="lower")
+    # plt.title("input")
+    # plt.colorbar(fraction=0.05)
+    #
+    # plt.subplot(142)
+    # input_masked = X_target > (
+    # X_target.max(keepdim=True, dim=-1)[0].max(keepdim=True, dim=-2)[0]
+    # * self.hparams.mask_th
+    # )
+    # plt.imshow(input_masked, origin="lower")
+    # plt.title("input masked")
+    # plt.colorbar(fraction=0.05)
+    #
+    # plt.subplot(143)
+    # if self.hparams.use_mask_output:
+    # mask = xhat[0]
+    # else:
+    # mask = xhat[0] > th
+    # X_masked = mask * X_stft_logpower[0, :Tmax, :]
+    # plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
+    # plt.colorbar(fraction=0.05)
+    # plt.title("interpretation")
+    #
+    # plt.subplot(144)
+    # plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
+    # plt.colorbar(fraction=0.05)
+    # plt.title("estimated mask")
+    #
+    # out_folder = os.path.join(
+    # self.hparams.output_folder,
+    # "interpretations",
+    # f"{batch.id[0]}",
+    # )
+    # os.makedirs(
+    # out_folder,
+    # exist_ok=True,
+    # )
+    #
+    # plt.subplots_adjust()
+    # plt.tight_layout()
+    # plt.savefig(
+    # os.path.join(out_folder, "viz.png"),
+    # bbox_inches="tight",
+    # )
+    # plt.close()
+    #
+    # torchaudio.save(
+    # os.path.join(out_folder, "xhat.wav"),
+    # xhat_tm.data.cpu(),
+    # self.hparams.sample_rate,
+    # )
+    #
+    # torchaudio.save(
+    # os.path.join(out_folder, "int.wav"),
+    # xhat_tm_masked.data.cpu(),
+    # self.hparams.sample_rate,
+    # )
+    #
+    # torchaudio.save(
+    # os.path.join(out_folder, "inp.wav"),
+    # wavs[0:1].data.cpu(),
+    # self.hparams.sample_rate,
+    # )
 
     @abstractmethod
     def compute_forward(self, batch, stage):
