@@ -100,56 +100,6 @@ class InterpreterBrain(sb.core.Brain, ABC):
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram."""
 
-    def interpret_batch(self, wavs, batch=None):
-        """Get the interpretation for a given wav file."""
-
-        # Get the interpretation spectrogram, phase, and the predicted class
-        X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(
-            wavs
-        )
-        X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-
-        if not (batch is None):
-            x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
-
-            # Save reconstructed and original spectrograms
-            os.makedirs(
-                os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
-                ),
-                exist_ok=True,
-            )
-
-            current_class_ind = batch.class_string_encoded.data[0].item()
-            current_class_name = self.hparams.label_encoder.ind2lab[
-                current_class_ind
-            ]
-            predicted_class_name = self.hparams.label_encoder.ind2lab[
-                pred_cl.item()
-            ]
-            torchaudio.save(
-                os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
-                    f"original_tc_{current_class_name}_pc_{predicted_class_name}.wav",
-                ),
-                wavs[0].unsqueeze(0).cpu(),
-                self.hparams.sample_rate,
-            )
-
-            torchaudio.save(
-                os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
-                    f"interpretation_tc_{current_class_name}_pc_{predicted_class_name}.wav",
-                ),
-                x_int_sb.cpu(),
-                self.hparams.sample_rate,
-            )
-
-        return X_int
-
     def viz_ints(self, X_stft, xhat, X_stft_logpower, batch, wavs):
         """Helper function to visualize images."""
         X_stft_phase = spectral_phase(X_stft)
@@ -201,7 +151,7 @@ class InterpreterBrain(sb.core.Brain, ABC):
 
         out_folder = os.path.join(
             self.hparams.output_folder,
-            "reconstructions",
+            "interpretations",
             f"{batch.id[0]}",
         )
         os.makedirs(
@@ -212,25 +162,25 @@ class InterpreterBrain(sb.core.Brain, ABC):
         plt.subplots_adjust()
         plt.tight_layout()
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"),
+            os.path.join(out_folder, "viz.png"),
             bbox_inches="tight",
         )
         plt.close()
 
         torchaudio.save(
-            os.path.join(out_folder, "reconstruction.wav"),
+            os.path.join(out_folder, "xhat.wav"),
             xhat_tm.data.cpu(),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
-            os.path.join(out_folder, "reconstruction_masked.wav"),
+            os.path.join(out_folder, "int.wav"),
             xhat_tm_masked.data.cpu(),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
-            os.path.join(out_folder, "true.wav"),
+            os.path.join(out_folder, "inp.wav"),
             wavs[0:1].data.cpu(),
             self.hparams.sample_rate,
         )
