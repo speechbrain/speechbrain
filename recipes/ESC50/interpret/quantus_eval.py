@@ -1,40 +1,19 @@
-#!/usr/bin/python3
-"""This recipe to train PIQ to interepret audio classifiers.
+""" Evaluation metrics for interpretability
 
 Authors
-    * Cem Subakan 2022, 2023
-    * Francesco Paissan 2022, 2023
+    * Francesco Paissan 2023, 2024
+    * Cem Subakan 2023, 2024
 """
+
 import copy
 import os
-import random
-import sys
-from os import makedirs
 
-import gradient_based
-import matplotlib.pyplot as plt
 import numpy as np
 import quantus
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchaudio
-from esc50_prepare import prepare_esc50
-from hyperpyyaml import load_hyperpyyaml
-from quantus.helpers.utils import (
-    blur_at_indices,
-    expand_indices,
-    get_baseline_value,
-    get_leftover_shape,
-    offset_coordinates,
-)
-from tqdm import tqdm
-from wham_prepare import WHAMDataset, combine_batches
-
-import speechbrain as sb
-from speechbrain.processing.NMF import spectral_phase
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.metric_stats import MetricStats
+from quantus.helpers.utils import expand_indices
 
 eps = 1e-9
 
@@ -86,103 +65,6 @@ def wrap_gradient_based(explain_fn, forw=True):
         return ex
 
     return fn
-
-
-class MosaicDataset:
-    """Generate mosaics to compute Focus!"""
-
-    def __init__(self, dataset_test, hparams):
-        self.hparams = hparams
-        self.dataset = dataset_test  # used to sample
-
-    def generate_mosaic(self, elements):
-        labels = [1, 1, 0, 0]
-
-        # apply same randomization to two lists
-        temp = list(zip(elements, labels))
-        random.shuffle(temp)
-        elements, labels = zip(*temp)
-        elements, labels = list(elements), list(labels)
-
-        mosaic = torch.zeros(elements[0].shape[1] * 2, elements[0].shape[2] * 2)
-
-        mosaic[0:417, 0:513] = elements[0]
-        mosaic[0:417, 513:] = elements[1]
-        mosaic[417:, 0:513] = elements[2]
-        mosaic[417:, 513:] = elements[3]
-
-        return mosaic[None], labels
-
-    def sample_wlabel(self, label):
-        remove_from_pool = []
-        not_ok_labels = [label]
-        pool = [i for i in range(len(self.dataset))]
-        negative_idx = []
-        for wanted in [True, False, False]:
-            for el in remove_from_pool:
-                pool.remove(el)
-                remove_from_pool.remove(el)
-
-            if wanted:
-                s_label = label + 1  # not equal
-                while s_label != label:
-                    s = np.random.choice(pool)
-                    s_label = self.dataset[s]["class_string_encoded"]
-
-                m21_idx = s  # second positive sample
-                remove_from_pool.append(s)
-
-            else:
-                s_label = label
-                while s_label in not_ok_labels:
-                    s = np.random.choice(pool)
-                    s_label = self.dataset[s]["class_string_encoded"]
-
-                negative_idx.append(s)  # append negative examples
-                remove_from_pool.append(s)
-
-        return m21_idx, negative_idx[0], negative_idx[1]
-
-    def preprocess(self, sample):
-        """Pre-process wavs."""
-        wavs = sample["sig"][None]
-        X_stft = self.hparams["compute_stft"](wavs)
-        X_stft_power = sb.processing.features.spectral_magnitude(
-            X_stft, power=self.hparams["spec_mag_power"]
-        )
-
-        if not self.hparams["use_melspectra"]:
-            X_stft_logpower = torch.log1p(X_stft_power)
-        else:
-            X_stft_power = self.hparams["compute_fbank"](X_stft_power)
-            X_stft_logpower = torch.log1p(X_stft_power)
-
-        return X_stft_logpower[:, :425, :]
-
-    def __call__(self, batch, c_m):
-        mosaics = []
-        mosaic_labels = []
-        for sample in batch:
-            # returns sample with same label, and two different labels
-            idx_cm, idx_n1, idx_n2 = self.sample_wlabel(c_m)
-
-            m12 = self.preprocess(self.dataset[idx_cm])
-            m21 = self.preprocess(self.dataset[idx_n1])
-            m22 = self.preprocess(self.dataset[idx_n2])
-
-            temp = self.generate_mosaic(
-                [sample[None][:, :417, :], m12, m21, m22]
-            )
-
-            mosaics.append(temp[0])
-            mosaic_labels.append(torch.Tensor(temp[1]))
-
-        mosaics = torch.stack(mosaics)
-        mosaic_labels = torch.stack(mosaic_labels)
-
-        mosaics = mosaics[:, :, :833, :1025]
-
-        return mosaics, mosaic_labels
 
 
 @torch.no_grad()
@@ -275,6 +157,7 @@ def compute_AG(theta_out, predictions):
     return temp
 
 
+@torch.no_grad()
 def truncated_gaussian_noise(
     arr,
     indices,
@@ -326,7 +209,6 @@ def truncated_gaussian_noise(
 class Evaluator:
     def __init__(self, hparams, X_shape=(1, 431, 513)):
         self.hparams = hparams
-        self.first = True
 
         self.max_sensitivity = quantus.MaxSensitivity(
             nr_samples=10,
@@ -360,7 +242,7 @@ class Evaluator:
             abs=True,
         )
 
-    def compute_ours(self, X, model, method, explain_fn):
+    def get_faith_metrics(self, X, model, method, explain_fn):
         model = model.eval()
         metrics = {}
 
@@ -370,7 +252,7 @@ class Evaluator:
         predictions = predictions.softmax(1)
         y = predictions.argmax(1)
 
-        if not "mask" in method and "ao" != method:
+        if "mask" not in method and "ao" != method:
             inter = explain_fn(X, y, model)
         else:
             inter = explain_fn(X, y, model)
@@ -391,14 +273,6 @@ class Evaluator:
             maskout_preds = maskout_preds[0]
         maskout_preds = maskout_preds.softmax(1)
 
-        if self.first:
-            gradient_based.save_ints(
-                [X.squeeze()],
-                [inter.squeeze()],
-                [method],
-                fname=f"{method}.png",
-            )
-
         metrics["AI"] = compute_AI(maskin_preds, predictions).item()
         metrics["AD"] = compute_AD(maskin_preds, predictions).item()
         metrics["AG"] = compute_AG(maskin_preds, predictions).item()
@@ -412,7 +286,6 @@ class Evaluator:
     def __call__(
         self,
         model,
-        explain_fn,
         X,
         X_mosaic,
         y_mosaic,
@@ -425,6 +298,8 @@ class Evaluator:
         """computes quantus metrics sample-wise"""
         if model.training:
             model.eval()
+
+        explain_fn = None  # TODO: modify
 
         out_folder = os.path.join(
             self.hparams["eval_outdir"],
@@ -440,17 +315,8 @@ class Evaluator:
         )
         os.makedirs(out_folder, exist_ok=True)
 
-        metrics, inter, y_pred = self.compute_ours(X, model, method, explain_fn)
-
-        self.debug_files(
-            y,
-            y_pred,
-            X_stft,
-            X,
-            inter,
-            id_,
-            out_folder,
-            wavs=not self.hparams["use_melspectra"],
+        metrics, inter, y_pred = self.get_faith_metrics(
+            X, model, method, explain_fn
         )
 
         X = X.clone().detach().cpu().numpy()
@@ -473,114 +339,13 @@ class Evaluator:
             "device": device,
             "explain_func": wrap_explain_fn,
         }
-        # metrics["max_sensitivity"] = self.max_sensitivity(**quantus_inp)
-        # metrics["avg_sensitivity"] = self.avg_sensitivity(**quantus_inp)
+        metrics["max_sensitivity"] = self.max_sensitivity(**quantus_inp)
+        metrics["avg_sensitivity"] = self.avg_sensitivity(**quantus_inp)
+
         metrics["average"] = inter.mean().item()
         if method != "allones":
             metrics["sparseness"] = self.sparseness(**quantus_inp)
             metrics["complexity"] = self.complexity(**quantus_inp)
         metrics["accuracy"] = (y.item() == y_pred.item()) * 100
-        # if method != "l2i" and False:
-        #    quantus_inp[
-        #        "x_batch"
-        #    ] = X_mosaic  # quantus expects the batch dim_mosaic
-        #    quantus_inp["a_batch"] = None
-        #    metrics["focus"] = self.focus(
-        #        custom_batch=y_mosaic,  # look here https://github.com/understandable-machine-intelligence-lab/Quantus/blob/c32da2b6e39f41b50572d1e4a4ddfc061e0bb8b2/quantus/metrics/localisation/focus.py#L307
-        #        **quantus_inp,
-        #    )
-
-        if self.first:
-            self.first = not self.first
 
         return metrics
-
-    @torch.no_grad()
-    def debug_files(
-        self,
-        y,
-        y_hat,
-        X_stft,
-        X_logpower,
-        interpretation,
-        fname="test",
-        out_folder=".",
-        wavs=True,
-    ):
-        """The helper function to create debugging images"""
-        X_stft_phase = spectral_phase(X_stft[None])
-
-        if wavs:
-            X = torch.expm1(X_logpower)[0, ..., None]
-            x_inp = self.invert_stft_with_phase(X, X_stft_phase)
-
-            with open(os.path.join(out_folder, "predictions.txt"), "w") as f:
-                f.write(f"GT={int(y)} prediction={y_hat.item()}")
-
-            torchaudio.save(
-                f"{os.path.join(out_folder, fname)}_original.wav",
-                x_inp.cpu(),
-                sample_rate=16000,
-            )
-
-            X_logpower = X_logpower[
-                :, :, : interpretation.shape[2], : interpretation.shape[3]
-            ]
-            int_ = torch.expm1(
-                X_logpower[0, ..., None] * interpretation[0, ..., None]
-            )
-            x_int = self.invert_stft_with_phase(int_, X_stft_phase)
-
-            torchaudio.save(
-                f"{os.path.join(out_folder, fname)}_int.wav",
-                x_int.cpu(),
-                sample_rate=16000,
-            )
-
-        plt.figure(figsize=(11, 10), dpi=100)
-
-        plt.subplot(311)
-        torch.save(X_logpower, os.path.join(out_folder, "x_logpower.pt"))
-        plt.imshow(X_logpower.squeeze().t().cpu(), origin="lower")
-        plt.title("input")
-        plt.colorbar()
-
-        plt.subplot(312)
-        torch.save(
-            interpretation, os.path.join(out_folder, "interpretation.pt")
-        )
-        X_masked = interpretation.squeeze().transpose(-1, -2).cpu()
-        plt.imshow(X_masked.data.cpu(), origin="lower")
-        plt.colorbar()
-        plt.title("mask")
-
-        X_logpower = X_logpower[:, :, : X_masked.shape[-1], :]
-        plt.subplot(313)
-        plt.imshow(
-            (X_logpower.squeeze().t().cpu() * X_masked).cpu(), origin="lower"
-        )
-        plt.colorbar()
-        plt.title("masked")
-
-        out_fname_plot = os.path.join(out_folder, f"{fname}.png")
-
-        plt.savefig(out_fname_plot)
-        plt.close()
-
-    def invert_stft_with_phase(self, X_int, X_stft_phase):
-        """Inverts STFT spectra given phase."""
-        X_stft_phase_sb = torch.cat(
-            (
-                torch.cos(X_stft_phase).unsqueeze(-1),
-                torch.sin(X_stft_phase).unsqueeze(-1),
-            ),
-            dim=-1,
-        )
-
-        X_stft_phase_sb = X_stft_phase_sb[:, : X_int.shape[1], :, :]
-        if X_int.ndim == 3:
-            X_int = X_int.unsqueeze(-1)
-        X_wpsb = X_int * X_stft_phase_sb
-        x_int_sb = self.hparams["compute_istft"](X_wpsb)
-
-        return x_int_sb
