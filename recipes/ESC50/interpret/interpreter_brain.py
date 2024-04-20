@@ -7,7 +7,6 @@ Authors
 """
 
 # import os
-from abc import ABC, abstractmethod
 
 # import matplotlib.pyplot as plt
 import torch
@@ -24,7 +23,7 @@ from speechbrain.utils.metric_stats import MetricStats
 eps = 1e-10
 
 
-class InterpreterBrain(sb.core.Brain, ABC):
+class InterpreterBrain(sb.core.Brain):
     """Class for interpreter training."""
 
     def invert_stft_with_phase(self, X_int, X_stft_phase):
@@ -98,7 +97,6 @@ class InterpreterBrain(sb.core.Brain, ABC):
 
         return hcat, embeddings, predictions, class_pred
 
-    @abstractmethod
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram."""
 
@@ -187,11 +185,9 @@ class InterpreterBrain(sb.core.Brain, ABC):
     # self.hparams.sample_rate,
     # )
 
-    @abstractmethod
     def compute_forward(self, batch, stage):
         """Interpreter training forward step."""
 
-    @abstractmethod
     def compute_objectives(self, pred, batch, stage):
         """Defines and computes the optimization objectives."""
 
