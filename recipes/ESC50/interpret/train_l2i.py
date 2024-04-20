@@ -297,7 +297,6 @@ class L2I(InterpreterBrain):
 
         return loss_nmf + loss_fdi
 
-    @torch.no_grad()
     def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
         """The helper function to create debugging images"""
         X_int, X_stft_phase, pred_cl, _ = self.interpret_computation_steps(wavs)
