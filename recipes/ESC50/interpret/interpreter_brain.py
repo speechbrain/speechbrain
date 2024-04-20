@@ -100,6 +100,9 @@ class InterpreterBrain(sb.core.Brain):
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram."""
 
+    def extra_metrics(self):
+        pass
+
     # def viz_ints(self, X_stft, xhat, X_stft_logpower, batch, wavs):
     # """Helper function to visualize images."""
     # X_stft_phase = spectral_phase(X_stft)
@@ -271,6 +274,13 @@ class InterpreterBrain(sb.core.Brain):
             metric=compute_rec_error
         )
 
+        for metric_name, metric_fn in self.extra_metrics():
+            setattr(
+                self,
+                metric_name,
+                sb.utils.metric_stats.MetricStats(metric=metric_fn),
+            )
+
         return super().on_stage_start(stage, epoch)
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -305,8 +315,6 @@ class InterpreterBrain(sb.core.Brain):
                     self.faithfulness.scores
                 ).mean(),
             }
-            if self.hparams.use_mask_output:
-                valid_stats["mask_ll"] = self.mask_ll.summarize("average")
 
             # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(

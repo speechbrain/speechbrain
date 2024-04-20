@@ -270,13 +270,13 @@ class L2I(InterpreterBrain):
         X_stft_logpower = X_stft_logpower[:, : reconstructions.shape[1], :]
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
-        self.rec_loss.append(uttid, loss_nmf)
+        # self.recons_err.append(uttid, loss_nmf)
 
         loss_nmf = self.hparams.alpha * loss_nmf
-        prev = loss_nmf.clone().detach()
+        # prev = loss_nmf.clone().detach()
 
         loss_nmf += self.hparams.beta * (time_activations).abs().mean()
-        self.reg_loss.append(uttid, loss_nmf - prev)
+        # self.reg_loss.append(uttid, loss_nmf - prev)
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -291,7 +291,7 @@ class L2I(InterpreterBrain):
             * theta_out
         ).mean()
 
-        self.fid_loss.append(uttid, loss_fdi)
+        # self.fid_loss.append(uttid, loss_fdi)
 
         return loss_nmf + loss_fdi
 
