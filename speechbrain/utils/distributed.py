@@ -79,11 +79,11 @@ def if_main_process():
     In standard mode, the process will not have `LOCAL_RANK` Unix var and will be
     authorized to run the I/O commands.
     """
-    if "LOCAL_RANK" in os.environ:
-        if os.environ["LOCAL_RANK"] == "":
+    if "RANK" in os.environ:
+        if os.environ["RANK"] == "":
             return False
         else:
-            if int(os.environ["LOCAL_RANK"]) == 0:
+            if int(os.environ["RANK"]) == 0:
                 return True
             return False
     return True

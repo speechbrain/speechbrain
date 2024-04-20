@@ -12,7 +12,9 @@ from typing import Callable, Optional
 
 import torch
 from joblib import Parallel, delayed
+from typing import Any, Mapping
 
+import speechbrain as sb
 from speechbrain.dataio.dataio import (
     extract_concepts_values,
     merge_char,
@@ -352,11 +354,15 @@ class ErrorRateStats(MetricStats):
 
         self.scores.extend(scores)
 
+
     def summarize(self, field=None):
         """Summarize the error_rate and return relevant statistics.
 
         * See MetricStats.summarize()
         """
+        if torch.distributed.is_initialized():
+            self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
+
         self.summary = wer_summary(self.scores)
 
         # Add additional, more generic key

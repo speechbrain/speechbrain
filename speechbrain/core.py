@@ -1002,10 +1002,10 @@ class Brain:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
         # This commented-out code block is useful when one can ensure
         # metric reporting is DDP-valid for VALID & EVAL datasets.
-        # elif self.distributed_launch:
-        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
-        #         self.distributed_launch, self.rank, dataset, loader_kwargs
-        #     )
+        elif self.distributed_launch:
+            loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+                self.distributed_launch, self.rank, dataset, loader_kwargs
+            )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
@@ -1746,6 +1746,9 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
@@ -1762,7 +1765,7 @@ class Brain:
             for batch in tqdm(
                 test_set,
                 dynamic_ncols=True,
-                disable=not progressbar,
+                disable=not enable,
                 colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
@@ -1772,7 +1775,13 @@ class Brain:
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
                     break
-
+            
+            # sync avg_test_Loss
+            if torch.distributed.is_initialized():
+                avg_test_loss = torch.tensor([avg_test_loss], dtype=torch.float32, device="cuda")
+                torch.distributed.all_reduce(avg_test_loss, op=torch.distributed.ReduceOp.AVG, async_op=False)
+                avg_test_loss = avg_test_loss.item()
+                
             self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
         return avg_test_loss
