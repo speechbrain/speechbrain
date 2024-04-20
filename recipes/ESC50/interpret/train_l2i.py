@@ -258,7 +258,7 @@ class L2I(InterpreterBrain):
                 maskout_preds,
             )
 
-        self.l2i_fid.append(uttid, theta_out, classid)
+        # self.l2i_fid.append(uttid, theta_out, classid)
 
         self.acc_metric.append(
             uttid,
