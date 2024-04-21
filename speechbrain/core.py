@@ -1418,9 +1418,6 @@ class Brain:
                 self.avg_train_loss = self.update_average(
                     loss, self.avg_train_loss
                 )
-                # TODO: need to benchmark the effect of this communication
-                # sync the avg_loss across all processes 
-                self.avg_train_loss = self.sync_average_loss(self.avg_train_loss)
                 t.set_postfix(train_loss=self.avg_train_loss)
 
                 if self.profiler is not None:
@@ -1447,6 +1444,8 @@ class Brain:
         # Run train "on_stage_end" on all processes
         # flush gradients
         self.zero_grad(set_to_none=True)
+        # sync the avg_loss across all processes 
+        self.avg_train_loss = self.sync_average_loss(self.avg_train_loss)
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0

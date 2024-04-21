@@ -83,6 +83,11 @@ class MetricStats:
         self.ids = []
         self.summary = {}
 
+    def synchronize(self):
+        """Synchronize the internal states across all processes."""
+        self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
+        self.ids = sb.utils.distributed_metrics.gather_for_metrics(self.ids)
+
     def append(self, ids, *args, **kwargs):
         """Store a particular set of metric scores.
 
@@ -132,14 +137,17 @@ class MetricStats:
             Returns a float if ``field`` is provided, otherwise
             returns a dictionary containing all computed stats.
         """
-        min_index = torch.argmin(torch.tensor(self.scores))
-        max_index = torch.argmax(torch.tensor(self.scores))
+        scores = self.scores
+        ids = self.ids
+
+        min_index = torch.argmin(torch.tensor(scores))
+        max_index = torch.argmax(torch.tensor(scores))
         self.summary = {
-            "average": float(sum(self.scores) / len(self.scores)),
-            "min_score": float(self.scores[min_index]),
-            "min_id": self.ids[min_index],
-            "max_score": float(self.scores[max_index]),
-            "max_id": self.ids[max_index],
+            "average": float(sum(scores) / len(scores)),
+            "min_score": float(scores[min_index]),
+            "min_id": ids[min_index],
+            "max_score": float(scores[max_index]),
+            "max_id": ids[max_index],
         }
 
         if field is not None:
@@ -354,14 +362,21 @@ class ErrorRateStats(MetricStats):
 
         self.scores.extend(scores)
 
+    def synchronize(self):
+        """Synchronize the internal states across all processes."""
+        self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
+        self.ids = sb.utils.distributed_metrics.gather_for_metrics(self.ids)
+        # if you call `synchronize` multiple times, the ids and scores will
+        # be duplicated. In order to avoid this, we remove duplicates.
+        self.ids = list(set(self.ids))
+        self.scores = [score for score in self.scores if score["key"] in self.ids]
 
     def summarize(self, field=None):
         """Summarize the error_rate and return relevant statistics.
 
         * See MetricStats.summarize()
         """
-        if torch.distributed.is_initialized():
-            self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
+        self.synchronize()
 
         self.summary = wer_summary(self.scores)
 
@@ -477,6 +492,7 @@ class WeightedErrorRateStats(MetricStats):
         weighted_deletions = 0.0
         total = 0.0
 
+    
         for i, utterance in enumerate(self.base_stats.scores):
             utt_weighted_insertions = 0.0
             utt_weighted_substitutions = 0.0
