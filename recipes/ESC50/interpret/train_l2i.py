@@ -9,6 +9,7 @@ import os
 import sys
 from os import makedirs
 
+import icecream as ic
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
@@ -298,18 +299,16 @@ class L2I(InterpreterBrain):
     def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
         """The helper function to create debugging images"""
         X_int, X_stft_phase, pred_cl, _ = self.interpret_computation_steps(wavs)
-        print("X_int.shape=", X_int.shape)
-        print("X_stft_phase.shape=", X_stft_phase.shape)
-        print("pred_cl.shape=", pred_cl.shape)
+        ic(X_int.shape)
+        ic(X_stft_phase.shape)
 
         X_int = X_int[None, ..., None]
         X_int = X_int.permute(0, 2, 1, 3)
 
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
 
-        print("X_int.shape=", X_int.shape)
-        print("X_stft_phase.shape=", X_stft_phase.shape)
-        print("pred_cl.shape=", pred_cl.shape)
+        ic(X_int.shape)
+        ic(X_stft_phase.shape)
 
         xhat_tm = self.invert_stft_with_phase(X_int, X_stft_phase)
 
