@@ -7,6 +7,9 @@ Authors:
 from typing import Any, Mapping
 
 import torch
+from packaging import version
+
+import speechbrain as sb
 
 
 def is_torch_tensor(tensor):
@@ -108,13 +111,18 @@ def recursively_apply(
 def _gpu_gather_object(object: Any):
     output_objects = [None for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather_object(output_objects, object)
-    # return output_objects
-    # # all_gather_object returns a list of lists, so we need to flatten it
+    # all_gather_object returns a list of lists, so we need to flatten it
     return [x for y in output_objects for x in y]
 
 
 def _gpu_gather(tensor):
-    gather_op = torch.distributed.all_gather_into_tensor
+    state = sb.core.DistributedState()
+    print(state)
+    exit()
+    if version.parse(torch.__version__) >= version.parse("1.13"):
+        gather_op = torch.distributed.all_gather_into_tensor
+    else:
+        gather_op = torch.distributed.all_gather_into_tensor
 
     def _gpu_gather_one(tensor):
         if tensor.ndim == 0:
