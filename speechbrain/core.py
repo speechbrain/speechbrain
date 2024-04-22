@@ -1865,14 +1865,12 @@ class Brain:
 
     def sync_average_loss(self, avg_loss):
         """Sync the average loss across all processes."""
-        if torch.distributed.is_initialized():
-            avg_loss = torch.tensor(
-                [avg_loss], dtype=torch.float32, device=self.device
-            )
-            torch.distributed.all_reduce(
-                avg_loss, op=torch.distributed.ReduceOp.AVG, async_op=False
-            )
-            avg_loss = avg_loss.item()
+        avg_loss = torch.tensor(
+            [avg_loss], dtype=torch.float32, device=self.device
+        )
+        avg_loss = sb.utils.distributed_metrics.gather(avg_loss)
+        # compute the average loss across all processes
+        avg_loss = avg_loss.mean().item()
         return avg_loss
 
     @contextmanager
