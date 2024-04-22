@@ -135,8 +135,12 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
             ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
-            predicted_words = sb.utils.distributed_metrics.gather_for_metrics(predicted_words)
-            target_words = sb.utils.distributed_metrics.gather_for_metrics(target_words)
+            predicted_words = sb.utils.distributed_metrics.gather_for_metrics(
+                predicted_words
+            )
+            target_words = sb.utils.distributed_metrics.gather_for_metrics(
+                target_words
+            )
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 

@@ -1,15 +1,23 @@
 from typing import Any, Mapping
-import torch 
+
+import torch
+
 
 def is_torch_tensor(tensor):
     return isinstance(tensor, torch.Tensor)
+
 
 def is_namedtuple(data):
     """
     Checks if `data` is a `namedtuple` or not. Can have false positives, but only if a user is trying to mimic a
     `namedtuple` perfectly.
     """
-    return isinstance(data, tuple) and hasattr(data, "_asdict") and hasattr(data, "_fields")
+    return (
+        isinstance(data, tuple)
+        and hasattr(data, "_asdict")
+        and hasattr(data, "_fields")
+    )
+
 
 def honor_type(obj, generator):
     """
@@ -21,7 +29,15 @@ def honor_type(obj, generator):
     else:
         return type(obj)(generator)
 
-def recursively_apply(func, data, *args, test_type=is_torch_tensor, error_on_other_type=False, **kwargs):
+
+def recursively_apply(
+    func,
+    data,
+    *args,
+    test_type=is_torch_tensor,
+    error_on_other_type=False,
+    **kwargs,
+):
     """
     Recursively apply a function on a data structure that is a nested list/tuple/dictionary of a given base type.
 
@@ -48,7 +64,12 @@ def recursively_apply(func, data, *args, test_type=is_torch_tensor, error_on_oth
             data,
             (
                 recursively_apply(
-                    func, o, *args, test_type=test_type, error_on_other_type=error_on_other_type, **kwargs
+                    func,
+                    o,
+                    *args,
+                    test_type=test_type,
+                    error_on_other_type=error_on_other_type,
+                    **kwargs,
                 )
                 for o in data
             ),
@@ -57,7 +78,12 @@ def recursively_apply(func, data, *args, test_type=is_torch_tensor, error_on_oth
         return type(data)(
             {
                 k: recursively_apply(
-                    func, v, *args, test_type=test_type, error_on_other_type=error_on_other_type, **kwargs
+                    func,
+                    v,
+                    *args,
+                    test_type=test_type,
+                    error_on_other_type=error_on_other_type,
+                    **kwargs,
                 )
                 for k, v in data.items()
             }
@@ -71,6 +97,7 @@ def recursively_apply(func, data, *args, test_type=is_torch_tensor, error_on_oth
         )
     return data
 
+
 def _gpu_gather_object(object: Any):
     output_objects = [None for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather_object(output_objects, object)
@@ -78,9 +105,10 @@ def _gpu_gather_object(object: Any):
     # # all_gather_object returns a list of lists, so we need to flatten it
     return [x for y in output_objects for x in y]
 
+
 def _gpu_gather(tensor):
     gather_op = torch.distributed.all_gather_into_tensor
-    
+
     def _gpu_gather_one(tensor):
         if tensor.ndim == 0:
             tensor = tensor.clone()[None]
@@ -90,10 +118,10 @@ def _gpu_gather(tensor):
             tensor = tensor.contiguous()
 
         # if state.backend is not None and state.backend != "gloo":
-            # We use `empty` as `all_gather_into_tensor` slightly
-            # differs from `all_gather` for better efficiency,
-            # and we rely on the number of items in the tensor
-            # rather than its direct shape
+        # We use `empty` as `all_gather_into_tensor` slightly
+        # differs from `all_gather` for better efficiency,
+        # and we rely on the number of items in the tensor
+        # rather than its direct shape
         output_tensors = torch.empty(
             torch.distributed.get_world_size() * tensor.numel(),
             dtype=tensor.dtype,
@@ -112,15 +140,16 @@ def _gpu_gather(tensor):
 
     return recursively_apply(_gpu_gather_one, tensor, error_on_other_type=True)
 
+
 def gather_for_metrics(input_data):
     # found = False
     # for lst in input_data:
     #     if lst["key"] == "6930-75918-0017":
-    #         import os 
+    #         import os
     #         print("found key "+ os.environ["RANK"])
-    #         found = True 
+    #         found = True
     # if not found:
-    #     import os 
+    #     import os
     #     print("not found key "+ os.environ["RANK"])
     try:
         recursively_apply(lambda x: x, input_data, error_on_other_type=True)
@@ -137,7 +166,7 @@ def gather_for_metrics(input_data):
     # print(data[0]["key"])
     # for lst in data:
     #     if lst["key"] == "6930-75918-0017":
-    #         import os 
+    #         import os
     #         print("found key "+ os.environ["RANK"])
-    
+
     return data

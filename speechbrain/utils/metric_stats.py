@@ -6,15 +6,14 @@ Authors:
  * Mirco Ravanelli 2020
  * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
+ * Sylvain de Langen 2024
 """
 
 from typing import Callable, Optional
 
 import torch
 from joblib import Parallel, delayed
-from typing import Any, Mapping
 
-import speechbrain as sb
 from speechbrain.dataio.dataio import (
     extract_concepts_values,
     merge_char,
@@ -132,17 +131,14 @@ class MetricStats:
             Returns a float if ``field`` is provided, otherwise
             returns a dictionary containing all computed stats.
         """
-        scores = self.scores
-        ids = self.ids
-
-        min_index = torch.argmin(torch.tensor(scores))
-        max_index = torch.argmax(torch.tensor(scores))
+        min_index = torch.argmin(torch.tensor(self.scores))
+        max_index = torch.argmax(torch.tensor(self.scores))
         self.summary = {
-            "average": float(sum(scores) / len(scores)),
-            "min_score": float(scores[min_index]),
-            "min_id": ids[min_index],
-            "max_score": float(scores[max_index]),
-            "max_id": ids[max_index],
+            "average": float(sum(self.scores) / len(self.scores)),
+            "min_score": float(self.scores[min_index]),
+            "min_id": self.ids[min_index],
+            "max_score": float(self.scores[max_index]),
+            "max_id": self.ids[max_index],
         }
 
         if field is not None:
@@ -356,15 +352,6 @@ class ErrorRateStats(MetricStats):
         )
 
         self.scores.extend(scores)
-
-    def synchronize(self):
-        """Synchronize the internal states across all processes."""
-        self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
-        self.ids = sb.utils.distributed_metrics.gather_for_metrics(self.ids)
-        # if you call `synchronize` multiple times, the ids and scores will
-        # be duplicated. In order to avoid this, we remove duplicates.
-        self.ids = list(set(self.ids))
-        self.scores = [score for score in self.scores if score["key"] in self.ids]
 
     def summarize(self, field=None):
         """Summarize the error_rate and return relevant statistics.
@@ -687,16 +674,6 @@ class BinaryMetricStats(MetricStats):
         self.scores = []
         self.labels = []
         self.summary = {}
-
-    def synchronize(self):
-        """Synchronize the internal states across all processes."""
-        self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
-        self.labels = sb.utils.distributed_metrics.gather_for_metrics(self.labels)
-        self.ids = sb.utils.distributed_metrics.gather_for_metrics(self.ids)
-        # if you call `synchronize` multiple times, the ids and scores will
-        # be duplicated. In order to avoid this, we remove duplicates.
-        self.ids = list(set(self.ids))
-        self.scores = [score for score in self.scores if score["key"] in self.ids]
 
     def append(self, ids, scores, labels):
         """Appends scores and labels to internal lists.

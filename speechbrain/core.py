@@ -1444,7 +1444,7 @@ class Brain:
         # Run train "on_stage_end" on all processes
         # flush gradients
         self.zero_grad(set_to_none=True)
-        # sync the avg_loss across all processes 
+        # sync the avg_loss across all processes
         self.avg_train_loss = self.sync_average_loss(self.avg_train_loss)
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
@@ -1780,7 +1780,7 @@ class Brain:
                 # Debug mode only runs a few batches
                 if self.debug and self.step == self.debug_batches:
                     break
-            
+
             # sync the avg_loss across all processes
             avg_test_loss = self.sync_average_loss(avg_test_loss)
             self.on_stage_end(Stage.TEST, avg_test_loss, None)
@@ -1806,12 +1806,16 @@ class Brain:
             avg_loss -= avg_loss / self.step
             avg_loss += float(loss) / self.step
         return avg_loss
-    
+
     def sync_average_loss(self, avg_loss):
         if torch.distributed.is_initialized():
-            avg_loss = torch.tensor([avg_loss], dtype=torch.float32, device=self.device)
-            torch.distributed.all_reduce(avg_loss, op=torch.distributed.ReduceOp.AVG, async_op=False)
-            avg_loss = avg_loss.item()    
+            avg_loss = torch.tensor(
+                [avg_loss], dtype=torch.float32, device=self.device
+            )
+            torch.distributed.all_reduce(
+                avg_loss, op=torch.distributed.ReduceOp.AVG, async_op=False
+            )
+            avg_loss = avg_loss.item()
         return avg_loss
 
     @contextmanager
