@@ -208,9 +208,9 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskin_preds = (
-                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            )
+            # maskin_preds = (
+            # self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            # )
 
             X_stft_logpower = X_stft_logpower[:, : interpretations.shape[-2], :]
             if self.hparams.use_melspectra:
@@ -228,36 +228,9 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskout_preds = (
-                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            )
-
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            self.inp_fid.append(
-                uttid,
-                maskin_preds,
-                classification_out.softmax(1),
-            )
-            self.AD.append(
-                uttid,
-                maskin_preds,
-                classification_out.softmax(1),
-            )
-            self.AI.append(
-                uttid,
-                maskin_preds,
-                classification_out.softmax(1),
-            )
-            self.AG.append(
-                uttid,
-                maskin_preds,
-                classification_out.softmax(1),
-            )
-            self.faithfulness.append(
-                uttid,
-                classification_out.softmax(1),
-                maskout_preds,
-            )
+            # maskout_preds = (
+            # self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            # )
 
         # self.l2i_fid.append(uttid, theta_out, classid)
 
