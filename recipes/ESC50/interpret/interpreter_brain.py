@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import torch
 import torchaudio
 import torchvision
+from icecream import ic
 from torch.nn import functional as F
 
 import speechbrain as sb
@@ -103,7 +104,17 @@ class InterpreterBrain(sb.core.Brain):
 
     def viz_ints(self, X_stft, xhat, X_stft_logpower, batch, wavs):
         """Helper function to visualize images."""
+        x1, x2, _, _ = self.interpret_computation_steps(wavs)
+
         X_stft_phase = spectral_phase(X_stft)
+
+        ic(xhat.shape)
+        ic(X_stft_phase.shape)
+        print("----")
+        ic(x1.shape)
+        ic(x2.shape)
+        breakpoint()
+
         temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
         Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
         xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
@@ -286,6 +297,8 @@ class InterpreterBrain(sb.core.Brain):
         """Gets called at the end of an epoch.
         Plots in subplots the values of `self.batch_to_plot` and saves the
         plot to the experiment folder `self.hparams.output_folder`."""
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
+            return
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {
