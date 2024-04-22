@@ -9,13 +9,13 @@ import os
 import sys
 from os import makedirs
 
-import icecream as ic
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 import torchaudio
 from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
+from icecream import ic
 from interpreter_brain import InterpreterBrain
 from wham_prepare import combine_batches, prepare_wham
 
