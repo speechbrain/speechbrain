@@ -873,7 +873,10 @@ class Brain:
                         "all other subprocess were killed."
                     )
 
-        DistributedState(self.device, self.distributed_backend)
+        if self.device == "cpu" and self.distributed_backend == "nccl":
+            DistributedState(self.device)
+        else:
+            DistributedState(self.device, self.distributed_backend)
 
         # Prepare iterating variables
         self.avg_train_loss = 0.0
