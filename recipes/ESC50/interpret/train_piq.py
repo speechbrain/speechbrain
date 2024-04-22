@@ -149,8 +149,6 @@ class PIQ(InterpreterBrain):
         self.recons_err.append(
             uttid, xhat, X_stft_logpower[:, : xhat.shape[1], :]
         )
-        if self.hparams.use_mask_output:
-            self.mask_ll.append(uttid, xhat, target_mask)
 
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.inp_fid.append(
