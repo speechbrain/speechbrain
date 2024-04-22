@@ -264,7 +264,7 @@ class InterpreterBrain(sb.core.Brain):
             ).mean((-2, -1))
             return rec_loss
 
-        self.top_3_fidelity = MetricStats(metric=compute_fidelity)
+        self.inp_fid = MetricStats(metric=compute_fidelity)
         self.faithfulness = MetricStats(metric=compute_faithfulness)
         self.acc_metric = sb.utils.metric_stats.MetricStats(
             metric=accuracy_value, n_jobs=1

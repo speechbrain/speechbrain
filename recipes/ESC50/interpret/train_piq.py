@@ -153,7 +153,7 @@ class PIQ(InterpreterBrain):
             self.mask_ll.append(uttid, xhat, target_mask)
 
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            self.top_3_fidelity.append(
+            self.inp_fid.append(
                 [batch.id] * theta_out.shape[0], theta_out, predictions
             )
             self.faithfulness.append(batch.id, wavs, predictions)
