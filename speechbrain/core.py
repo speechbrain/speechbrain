@@ -1808,6 +1808,7 @@ class Brain:
         return avg_loss
 
     def sync_average_loss(self, avg_loss):
+        """Sync the average loss across all processes."""
         if torch.distributed.is_initialized():
             avg_loss = torch.tensor(
                 [avg_loss], dtype=torch.float32, device=self.device

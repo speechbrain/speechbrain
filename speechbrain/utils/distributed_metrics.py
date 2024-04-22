@@ -1,9 +1,16 @@
+"""SpeechBrain utility functions for distributed metrics.
+
+Authors:
+ * Adel Moumen 2024
+"""
+
 from typing import Any, Mapping
 
 import torch
 
 
 def is_torch_tensor(tensor):
+    """Check if `tensor` is a `torch.Tensor` or not."""
     return isinstance(tensor, torch.Tensor)
 
 
@@ -142,6 +149,9 @@ def _gpu_gather(tensor):
 
 
 def gather_for_metrics(input_data):
+    """
+    inchallah this will work
+    """
     # found = False
     # for lst in input_data:
     #     if lst["key"] == "6930-75918-0017":
