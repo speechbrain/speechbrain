@@ -83,11 +83,6 @@ class MetricStats:
         self.ids = []
         self.summary = {}
 
-    def synchronize(self):
-        """Synchronize the internal states across all processes."""
-        self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
-        self.ids = sb.utils.distributed_metrics.gather_for_metrics(self.ids)
-
     def append(self, ids, *args, **kwargs):
         """Store a particular set of metric scores.
 
@@ -376,8 +371,6 @@ class ErrorRateStats(MetricStats):
 
         * See MetricStats.summarize()
         """
-        self.synchronize()
-
         self.summary = wer_summary(self.scores)
 
         # Add additional, more generic key
@@ -492,7 +485,6 @@ class WeightedErrorRateStats(MetricStats):
         weighted_deletions = 0.0
         total = 0.0
 
-    
         for i, utterance in enumerate(self.base_stats.scores):
             utt_weighted_insertions = 0.0
             utt_weighted_substitutions = 0.0
@@ -695,6 +687,16 @@ class BinaryMetricStats(MetricStats):
         self.scores = []
         self.labels = []
         self.summary = {}
+
+    def synchronize(self):
+        """Synchronize the internal states across all processes."""
+        self.scores = sb.utils.distributed_metrics.gather_for_metrics(self.scores)
+        self.labels = sb.utils.distributed_metrics.gather_for_metrics(self.labels)
+        self.ids = sb.utils.distributed_metrics.gather_for_metrics(self.ids)
+        # if you call `synchronize` multiple times, the ids and scores will
+        # be duplicated. In order to avoid this, we remove duplicates.
+        self.ids = list(set(self.ids))
+        self.scores = [score for score in self.scores if score["key"] in self.ids]
 
     def append(self, ids, scores, labels):
         """Appends scores and labels to internal lists.

@@ -102,7 +102,9 @@ class ASR(sb.Brain):
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
             target_words = self.tokenizer(target_words, task="decode_from_list")
-
+            ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
+            predicted_words = sb.utils.distributed_metrics.gather_for_metrics(predicted_words)
+            target_words = sb.utils.distributed_metrics.gather_for_metrics(target_words)
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 

@@ -127,11 +127,14 @@ class ASR(sb.Brain):
 
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
+                ids = sb.utils.distributed_metrics.gather_for_metrics(batch.id)
+                predicted_words = sb.utils.distributed_metrics.gather_for_metrics(predicted_words)
+                target_words = sb.utils.distributed_metrics.gather_for_metrics(target_words)
                 self.wer_metrics[k].append(
-                    batch.id, predicted_words, target_words
+                    ids, predicted_words, target_words
                 )
                 self.cer_metrics[k].append(
-                    batch.id, predicted_words, target_words
+                    ids, predicted_words, target_words
                 )
             # For TEST and VALID stages, the loss value is not exact.
             # The <UNK> words have a target length (e.g., number of phones or characters) of 1.

@@ -74,7 +74,8 @@ def recursively_apply(func, data, *args, test_type=is_torch_tensor, error_on_oth
 def _gpu_gather_object(object: Any):
     output_objects = [None for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather_object(output_objects, object)
-    # all_gather_object returns a list of lists, so we need to flatten it
+    # return output_objects
+    # # all_gather_object returns a list of lists, so we need to flatten it
     return [x for y in output_objects for x in y]
 
 def _gpu_gather(tensor):
