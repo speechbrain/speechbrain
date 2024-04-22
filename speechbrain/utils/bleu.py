@@ -4,6 +4,7 @@ Authors
  * Mirco Ravanelli 2021
 """
 
+import speechbrain as sb
 from speechbrain.utils.metric_stats import MetricStats
 
 
@@ -83,6 +84,9 @@ class BLEUStats(MetricStats):
             Callable that maps from indices to labels, operating on batches,
             for writing alignments.
         """
+        ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
+        predict = sb.utils.distributed_metrics.gather_for_metrics(predict)
+        targets = sb.utils.distributed_metrics.gather_for_metrics(targets)
         self.ids.extend(ids)
 
         if ind2lab is not None:
