@@ -5,14 +5,10 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023, 2024
 """
-import os
 import sys
-from os import makedirs
 
-import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
-import torchaudio
 from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from icecream import ic
@@ -69,6 +65,10 @@ class L2I(InterpreterBrain):
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         pred_cl = torch.argmax(predictions, dim=1)[0].item()
 
+        ic(predictions.shape)
+        ic(pred_cl.shape)
+        breakpoint()
+
         nmf_dictionary = self.hparams.nmf_decoder.return_W()
 
         # computes time activations per component
@@ -79,12 +79,16 @@ class L2I(InterpreterBrain):
 
         # some might be negative, relevance of component
         r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()
+        ic(r_c_x)
+        breakpoint()
         # define selected components by thresholding
         L = (
             torch.arange(r_c_x.shape[0])
             .to(r_c_x.device)[r_c_x > self.hparams.relevance_th]
             .tolist()
         )
+        ic(L)
+        breakpoint()
 
         # get the log power spectra, this is needed as NMF is trained on log-power spectra
         X_stft_power_log = (
@@ -97,12 +101,9 @@ class L2I(InterpreterBrain):
         X_stft_power_log = X_stft_power_log[..., : Xhat.shape[1]]
 
         # need the eps for the denominator
-        eps = 1e-10
         X_int = (X_withselected / (Xhat + eps)) * X_stft_power_log
 
-        # get back to the standard stft
-        X_int = torch.exp(X_int) - 1
-        return X_int, X_stft_phase, pred_cl, Xhat
+        return X_int, X_stft_phase
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -189,9 +190,10 @@ class L2I(InterpreterBrain):
                 X_stft_logpower.device
             )
             for i in range(interpretations.shape[0]):
-                tmp, _, _, _ = self.interpret_computation_steps(
+                tmp, _ = self.interpret_computation_steps(
                     wavs[0:1]
-                )  # returns expm1
+                )  # returns log1p
+                tmp = torch.expm1(tmp)
                 interpretations[i] = tmp.t()
 
             if self.hparams.use_melspectra:
@@ -268,61 +270,6 @@ class L2I(InterpreterBrain):
         # self.fid_loss.append(uttid, loss_fdi)
 
         return loss_nmf + loss_fdi
-
-    def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
-        """The helper function to create debugging images"""
-        X_int, X_stft_phase, pred_cl, _ = self.interpret_computation_steps(wavs)
-        ic(X_int.shape)
-        ic(X_stft_phase.shape)
-
-        X_int = X_int[None, ..., None]
-        X_int = X_int.permute(0, 2, 1, 3)
-
-        X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-
-        ic(X_int.shape)
-        ic(X_stft_phase.shape)
-
-        xhat_tm = self.invert_stft_with_phase(X_int, X_stft_phase)
-
-        plt.figure(figsize=(10, 5), dpi=100)
-
-        plt.subplot(121)
-        plt.imshow(X_stft_logpower[0].squeeze().cpu().t(), origin="lower")
-        plt.title("input")
-        plt.colorbar()
-
-        plt.subplot(122)
-        plt.imshow(X_int.squeeze().cpu().t(), origin="lower")
-        plt.colorbar()
-        plt.title("interpretation")
-
-        out_folder = os.path.join(
-            self.hparams.output_folder,
-            "reconstructions/" f"{batch.id[0]}",
-        )
-        makedirs(
-            out_folder,
-            exist_ok=True,
-        )
-
-        plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"),
-            format="png",
-        )
-        plt.close()
-
-        torchaudio.save(
-            os.path.join(out_folder, "interpretation.wav"),
-            xhat_tm.data.cpu(),
-            self.hparams.sample_rate,
-        )
-
-        torchaudio.save(
-            os.path.join(out_folder, "original.wav"),
-            wavs.data.cpu(),
-            self.hparams.sample_rate,
-        )
 
 
 if __name__ == "__main__":

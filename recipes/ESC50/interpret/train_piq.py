@@ -57,7 +57,7 @@ class PIQ(InterpreterBrain):
             th = xhat.max() * self.hparams.mask_th
             X_int = (xhat > th) * X_stft_logpower[:, :Tmax, :]
 
-        return X_int, X_stft_phase, class_pred, X_stft_logpower, xhat
+        return X_int.permute(0, 2, 1), X_stft_phase
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on an encoder + sound classifier."""
@@ -93,7 +93,7 @@ class PIQ(InterpreterBrain):
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 wavs = wavs[0].unsqueeze(0)
-                self.viz_ints(X_stft, xhat, X_stft_logpower, batch, wavs)
+                self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
         return predictions, xhat, hcat, z_q_x, garbage
 

@@ -12,11 +12,9 @@ import matplotlib.pyplot as plt
 import torch
 import torchaudio
 import torchvision
-from icecream import ic
 from torch.nn import functional as F
 
 import speechbrain as sb
-from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
@@ -102,99 +100,55 @@ class InterpreterBrain(sb.core.Brain):
     def extra_metrics(self):
         return {}
 
-    def viz_ints(self, X_stft, xhat, X_stft_logpower, batch, wavs):
-        """Helper function to visualize images."""
-        x1, x2, _, _ = self.interpret_computation_steps(wavs)
+    def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
+        """The helper function to create debugging images"""
+        X_int, X_stft_phase = self.interpret_computation_steps(wavs)
 
-        X_stft_phase = spectral_phase(X_stft)
+        X_int = torch.expm1(X_int)
 
-        ic(xhat.shape)
-        ic(X_stft_phase.shape)
-        print("----")
-        ic(x1.shape)
-        ic(x2.shape)
-        breakpoint()
+        X_int = X_int[..., None]
+        X_int = X_int.permute(0, 2, 1, 3)
 
-        temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
-        Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
-        xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
+        X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
 
-        Tmax = Xspec_est.shape[1]
-        if self.hparams.use_mask_output:
-            X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
-        else:
-            th = xhat[0].max() * 0.15
-            X_masked = (xhat[0] > th) * X_stft_logpower[0, :Tmax, :]
-
-        X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
-        xhat_tm_masked = self.invert_stft_with_phase(X_est_masked, X_stft_phase)
+        xhat_tm = self.invert_stft_with_phase(X_int, X_stft_phase)
 
         plt.figure(figsize=(10, 5), dpi=100)
 
-        plt.subplot(141)
-        X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
-        plt.imshow(X_target, origin="lower")
+        plt.subplot(121)
+        plt.imshow(X_stft_logpower[0].squeeze().cpu().t(), origin="lower")
         plt.title("input")
-        plt.colorbar(fraction=0.05)
+        plt.colorbar()
 
-        plt.subplot(142)
-        input_masked = X_target > (
-            X_target.max(keepdim=True, dim=-1)[0].max(keepdim=True, dim=-2)[0]
-            * self.hparams.mask_th
-        )
-        plt.imshow(input_masked, origin="lower")
-        plt.title("input masked")
-        plt.colorbar(fraction=0.05)
-
-        plt.subplot(143)
-        if self.hparams.use_mask_output:
-            mask = xhat[0]
-        else:
-            mask = xhat[0] > th
-
-        X_masked = mask * X_stft_logpower[0, :Tmax, :]
-        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar(fraction=0.05)
+        plt.subplot(122)
+        plt.imshow(X_int.squeeze().cpu().t(), origin="lower")
+        plt.colorbar()
         plt.title("interpretation")
-
-        plt.subplot(144)
-        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar(fraction=0.05)
-        plt.title("estimated mask")
 
         out_folder = os.path.join(
             self.hparams.output_folder,
-            "interpretations",
-            f"{batch.id[0]}",
+            "reconstructions/" f"{batch.id[0]}",
         )
         os.makedirs(
             out_folder,
             exist_ok=True,
         )
 
-        plt.subplots_adjust()
-        plt.tight_layout()
         plt.savefig(
-            os.path.join(out_folder, "viz.png"),
-            bbox_inches="tight",
+            os.path.join(out_folder, "reconstructions.png"),
+            format="png",
         )
         plt.close()
 
         torchaudio.save(
-            os.path.join(out_folder, "xhat.wav"),
+            os.path.join(out_folder, "interpretation.wav"),
             xhat_tm.data.cpu(),
             self.hparams.sample_rate,
         )
 
         torchaudio.save(
-            os.path.join(out_folder, "int.wav"),
-            xhat_tm_masked.data.cpu(),
-            self.hparams.sample_rate,
-        )
-
-        torchaudio.save(
-            os.path.join(out_folder, "inp.wav"),
-            wavs[0:1].data.cpu(),
+            os.path.join(out_folder, "original.wav"),
+            wavs.data.cpu(),
             self.hparams.sample_rate,
         )
 
