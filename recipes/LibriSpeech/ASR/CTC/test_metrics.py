@@ -83,16 +83,6 @@ class ASR(sb.Brain):
         elif stage == sb.Stage.TEST:
             p_tokens = test_searcher(p_ctc, wav_lens)
 
-            if hasattr(self.hparams, "rescorer"):
-                candidates = []
-                scores = []
-
-                for batch in p_tokens:
-                    candidates.append([hyp.text for hyp in batch])
-                    scores.append([hyp.score for hyp in batch])
-
-                p_tokens, _ = self.hparams.rescorer.rescore(candidates, scores)
-
         return p_ctc, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -123,14 +113,10 @@ class ASR(sb.Brain):
                 for utt_seq in predicted_tokens
             ]
         elif stage == sb.Stage.TEST:
-            if hasattr(self.hparams, "rescorer"):
-                predicted_words = [
-                    hyp[0].split(" ") for hyp in predicted_tokens
-                ]
-            else:
-                predicted_words = [
-                    hyp[0].text.split(" ") for hyp in predicted_tokens
-                ]
+
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
+            ]
 
         if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
@@ -144,10 +130,6 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
-
-        if stage == sb.Stage.TEST:
-            if hasattr(self.hparams, "rescorer"):
-                self.hparams.rescorer.move_rescorers_to_device()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -390,15 +372,6 @@ if __name__ == "__main__":
     test_searcher = CTCBeamSearcher(
         **hparams["test_beam_search"],
         vocab_list=vocab_list,
-    )
-
-    # Training
-    asr_brain.fit(
-        asr_brain.hparams.epoch_counter,
-        train_data,
-        valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
     )
 
     # Testing

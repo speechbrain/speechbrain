@@ -100,7 +100,7 @@ class DistributedState:
 
     _shared_state = dict()
 
-    def __init__(self, device, distributed_backend=None):
+    def __init__(self, device: str = "cpu", distributed_backend=None):
         self.__dict__ = self._shared_state
 
         if not self.initialized:
@@ -132,13 +132,13 @@ class DistributedState:
 
     @property
     def initialized(self) -> bool:
-        "Returns whether the `PartialState` has been initialized"
+        "Returns whether the `DistributedState` has been initialized"
         return self._shared_state != {}
 
     @property
     def use_distributed(self):
         """
-        Whether the Accelerator is configured for distributed training
+        Whether the Trainer is configured for distributed training
         """
         return self.num_processes > 1
 

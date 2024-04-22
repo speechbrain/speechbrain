@@ -1,5 +1,10 @@
 """SpeechBrain utility functions for distributed metrics.
 
+This file is heavily inspired by the `huggingface accelerate` library, which is licensed under
+the Apache License 2.0. The original code can be found at: https://github.com/huggingface/accelerate/tree/main
+
+The code has been adapted to work with SpeechBrain and only for CPU and GPU training.
+
 Authors:
  * Adel Moumen 2024
 """
@@ -9,7 +14,7 @@ from typing import Any, Mapping
 import torch
 from packaging import version
 
-import speechbrain as sb
+from speechbrain.core import DistributedState
 
 
 def is_torch_tensor(tensor):
@@ -51,22 +56,24 @@ def recursively_apply(
     """
     Recursively apply a function on a data structure that is a nested list/tuple/dictionary of a given base type.
 
-    Args:
-        func (`callable`):
-            The function to recursively apply.
-        data (nested list/tuple/dictionary of `main_type`):
-            The data on which to apply `func`
-        *args:
-            Positional arguments that will be passed to `func` when applied on the unpacked data.
-        main_type (`type`, *optional*, defaults to `torch.Tensor`):
-            The base type of the objects to which apply `func`.
-        error_on_other_type (`bool`, *optional*, defaults to `False`):
-            Whether to return an error or not if after unpacking `data`, we get on an object that is not of type
-            `main_type`. If `False`, the function will leave objects of types different than `main_type` unchanged.
-        **kwargs (additional keyword arguments, *optional*):
-            Keyword arguments that will be passed to `func` when applied on the unpacked data.
+    Arguments
+    ---------
+    func (`callable`):
+        The function to recursively apply.
+    data (nested list/tuple/dictionary of `main_type`):
+        The data on which to apply `func`
+    *args:
+        Positional arguments that will be passed to `func` when applied on the unpacked data.
+    main_type (`type`, *optional*, defaults to `torch.Tensor`):
+        The base type of the objects to which apply `func`.
+    error_on_other_type (`bool`, *optional*, defaults to `False`):
+        Whether to return an error or not if after unpacking `data`, we get on an object that is not of type
+        `main_type`. If `False`, the function will leave objects of types different than `main_type` unchanged.
+    **kwargs (additional keyword arguments, *optional*):
+        Keyword arguments that will be passed to `func` when applied on the unpacked data.
 
-    Returns:
+    Returns
+    -------
         The same data structure as `data` with `func` applied to every object of type `main_type`.
     """
     if isinstance(data, (tuple, list)):
@@ -109,6 +116,7 @@ def recursively_apply(
 
 
 def _gpu_gather_object(object: Any):
+    """Gathers an object from all processes and returns a list containing the object from each process."""
     output_objects = [None for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather_object(output_objects, object)
     # all_gather_object returns a list of lists, so we need to flatten it
@@ -116,9 +124,8 @@ def _gpu_gather_object(object: Any):
 
 
 def _gpu_gather(tensor):
-    state = sb.core.DistributedState()
-    print(state)
-    exit()
+    """Gathers a tensor from all processes and returns a tensor containing the gathered tensors."""
+    state = DistributedState()
     if version.parse(torch.__version__) >= version.parse("1.13"):
         gather_op = torch.distributed.all_gather_into_tensor
     else:
@@ -132,59 +139,71 @@ def _gpu_gather(tensor):
         if not tensor.is_contiguous():
             tensor = tensor.contiguous()
 
-        # if state.backend is not None and state.backend != "gloo":
-        # We use `empty` as `all_gather_into_tensor` slightly
-        # differs from `all_gather` for better efficiency,
-        # and we rely on the number of items in the tensor
-        # rather than its direct shape
-        output_tensors = torch.empty(
-            torch.distributed.get_world_size() * tensor.numel(),
-            dtype=tensor.dtype,
-            device=tensor.device,
-        )
-        gather_op(output_tensors, tensor)
-        return output_tensors.view(-1, *tensor.size()[1:])
-        # TODO: deal with CPU case
-        # else:
-        #     # a backend of `None` is always CPU
-        #     # also gloo does not support `all_gather_into_tensor`,
-        #     # which will result in a larger memory overhead for the op
-        #     output_tensors = [torch.empty_like(tensor) for _ in range(state.num_processes)]
-        #     torch.distributed.all_gather(output_tensors, tensor)
-        #     return torch.cat(output_tensors, dim=0)
+        if (
+            state.distributed_backend is not None
+            and state.distributed_backend != "gloo"
+        ):
+            # We use `empty` as `all_gather_into_tensor` slightly
+            # differs from `all_gather` for better efficiency,
+            # and we rely on the number of items in the tensor
+            # rather than its direct shape
+            output_tensors = torch.empty(
+                torch.distributed.get_world_size() * tensor.numel(),
+                dtype=tensor.dtype,
+                device=tensor.device,
+            )
+            gather_op(output_tensors, tensor)
+            return output_tensors.view(-1, *tensor.size()[1:])
+        else:
+            # a backend of `None` is always CPU
+            # also gloo does not support `all_gather_into_tensor`,
+            # which will result in a larger memory overhead for the op
+            output_tensors = [
+                torch.empty_like(tensor) for _ in range(state.num_processes)
+            ]
+            torch.distributed.all_gather(output_tensors, tensor)
+            return torch.cat(output_tensors, dim=0)
 
     return recursively_apply(_gpu_gather_one, tensor, error_on_other_type=True)
 
 
+def gather(tensor):
+    """Gathers a tensor from all processes and returns a tensor containing the gathered tensors."""
+    if DistributedState().use_distributed:
+        return _gpu_gather(tensor)
+    else:
+        return tensor
+
+
+def gather_object(object: Any):
+    """Gathers an object from all processes and returns a list containing the object from each process."""
+    if DistributedState().use_distributed:
+        return _gpu_gather_object(object)
+    else:
+        return object
+
+
 def gather_for_metrics(input_data):
+    """Gathers the input data from all processes and returns a list containing the data from each process.
+
+    Arguments
+    ---------
+    input_data (nested list/tuple/dictionary of `torch.Tensor` or obj):
+        The data to gather.
+
+    Returns
+    -------
+        The same data structure as `input_data` with the data from all processes gathered.
     """
-    inchallah this will work
-    """
-    # found = False
-    # for lst in input_data:
-    #     if lst["key"] == "6930-75918-0017":
-    #         import os
-    #         print("found key "+ os.environ["RANK"])
-    #         found = True
-    # if not found:
-    #     import os
-    #     print("not found key "+ os.environ["RANK"])
     try:
         recursively_apply(lambda x: x, input_data, error_on_other_type=True)
         all_tensors = True
     except TypeError:
         all_tensors = False
 
-    # print(all_tensors)
-
     if not all_tensors:
-        data = _gpu_gather_object(input_data)
+        data = gather_object(input_data)
     else:
-        data = _gpu_gather(input_data)
-    # print(data[0]["key"])
-    # for lst in data:
-    #     if lst["key"] == "6930-75918-0017":
-    #         import os
-    #         print("found key "+ os.environ["RANK"])
+        data = gather(input_data)
 
     return data
