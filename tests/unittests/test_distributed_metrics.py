@@ -8,7 +8,7 @@ import torch.nn
 import speechbrain as sb
 
 
-def test_ddp(rank, size, backend="gloo"):
+def _test_ddp(rank, size, backend="gloo"):  # noqa
     """Initialize the distributed environment."""
     os.environ["WORLD_SIZE"] = f"{size}"
     os.environ["RANK"] = f"{rank}"
@@ -43,6 +43,16 @@ def test_ddp(rank, size, backend="gloo"):
         assert gathered == [{"rank": i} for i in range(size)]
 
     test_gather_object()
+
+    def test_gather_object_and_tensor():
+        obj = [{"rank": rank, "tensor": torch.tensor([rank])}]
+        gathered = sb.utils.distributed_metrics.gather_for_metrics(obj)
+
+        assert gathered == [
+            {"rank": i, "tensor": torch.tensor([i])} for i in range(size)
+        ]
+
+    test_gather_object_and_tensor()
 
     def test_metric_stats():
         from speechbrain.nnet.losses import l1_loss
@@ -149,21 +159,186 @@ def test_ddp(rank, size, backend="gloo"):
 
     test_weighted_error_rate_stats()
 
+    def test_embedding_error_rate_stats(device):
+        from speechbrain.utils.metric_stats import EmbeddingErrorRateSimilarity
+
+        def test_word_embedding(sentence):
+            if sentence == "a":
+                return torch.tensor([1.0, 0.0], device=device)
+            if sentence == "b":
+                return torch.tensor([0.0, 1.0], device=device)
+            if sentence == "c":
+                return torch.tensor([0.9, 0.1], device=device)
+
+        ember = EmbeddingErrorRateSimilarity(test_word_embedding, 1.0, 0.1, 0.4)
+
+        assert ember("S", "a", "b") == 1.0  # low similarity
+        assert ember("S", "a", "c") == 0.1  # high similarity
+
+    # in ddp, this function doesn't change
+    test_embedding_error_rate_stats("cpu")
+
+    def test_binary_metrics(device):
+        from speechbrain.utils.metric_stats import BinaryMetricStats
+
+        binary_stats = BinaryMetricStats()
+        binary_stats.append(
+            ids=[
+                f"utt1_{rank}",
+                f"utt2_{rank}",
+                f"utt3_{rank}",
+                f"utt4_{rank}",
+                f"utt5_{rank}",
+                f"utt6_{rank}",
+            ],
+            scores=torch.tensor([0.1, 0.4, 0.8, 0.2, 0.3, 0.6], device=device),
+            labels=torch.tensor([1, 0, 1, 0, 1, 0], device=device),
+        )
+
+        assert binary_stats.ids == [
+            "utt1_0",
+            "utt2_0",
+            "utt3_0",
+            "utt4_0",
+            "utt5_0",
+            "utt6_0",
+            "utt1_1",
+            "utt2_1",
+            "utt3_1",
+            "utt4_1",
+            "utt5_1",
+            "utt6_1",
+        ]
+
+        summary = binary_stats.summarize(threshold=0.5)
+        assert summary["TP"] == 2
+        assert summary["TN"] == 4
+        assert summary["FP"] == 2
+        assert summary["FN"] == 4
+
+        summary = binary_stats.summarize(threshold=None)
+        assert summary["threshold"] >= 0.3 and summary["threshold"] < 0.4
+
+        summary = binary_stats.summarize(threshold=None, max_samples=1)
+        assert summary["threshold"] >= 0.1 and summary["threshold"] < 0.2
+
+    test_binary_metrics("cpu")
+
+    def test_categorized_classification_stats():
+        import pytest
+
+        from speechbrain.utils.metric_stats import ClassificationStats
+
+        stats = ClassificationStats()
+        stats.append(
+            ids=[f"1_{rank}", f"2_{rank}"],
+            predictions=["B", "A"],
+            targets=["B", "A"],
+            categories=["C1", "C2"],
+        )
+        stats.append(
+            ids=[f"3_{rank}", f"4_{rank}"],
+            predictions=["A", "B"],
+            targets=["B", "C"],
+            categories=["C2", "C1"],
+        )
+        stats.append(
+            ids=[f"5_{rank}", f"6_{rank}"],
+            predictions=["A", "C"],
+            targets=["B", "C"],
+            categories=["C2", "C1"],
+        )
+
+        assert stats.ids == [
+            "1_0",
+            "2_0",
+            "1_1",
+            "2_1",
+            "3_0",
+            "4_0",
+            "3_1",
+            "4_1",
+            "5_0",
+            "6_0",
+            "5_1",
+            "6_1",
+        ]
+        summary = stats.summarize()
+        assert pytest.approx(summary["accuracy"], 0.01) == 0.5
+        classwise_accuracy = summary["classwise_accuracy"]
+        assert pytest.approx(classwise_accuracy["C1", "B"]) == 1.0
+        assert pytest.approx(classwise_accuracy["C1", "C"]) == 0.5
+        assert pytest.approx(classwise_accuracy["C2", "A"]) == 1.0
+        assert pytest.approx(classwise_accuracy["C2", "B"]) == 0.0
+
+    test_categorized_classification_stats()
+
+    def test_classification_stats_report():
+        from io import StringIO
+
+        from speechbrain.utils.metric_stats import ClassificationStats
+
+        stats = ClassificationStats()
+        stats.append(
+            ids=[f"1_{rank}", f"2_{rank}"],
+            predictions=["B", "A"],
+            targets=["B", "A"],
+        )
+        stats.append(
+            ids=[f"3_{rank}", f"4_{rank}"],
+            predictions=["A", "B"],
+            targets=["B", "C"],
+        )
+
+        assert stats.ids == [
+            "1_0",
+            "2_0",
+            "1_1",
+            "2_1",
+            "3_0",
+            "4_0",
+            "3_1",
+            "4_1",
+        ]
+
+        report_file = StringIO()
+        stats.write_stats(report_file)
+        report_file.seek(0)
+        report = report_file.read()
+        ref_report = """Overall Accuracy: 50%
+
+Class-Wise Accuracy
+-------------------
+A: 2 / 2 (100.00%)
+B: 2 / 4 (50.00%)
+C: 0 / 2 (0.00%)
+
+Confusion
+---------
+Target: A
+  -> A: 2 / 2 (100.00%)
+Target: B
+  -> A: 2 / 4 (50.00%)
+  -> B: 2 / 4 (50.00%)
+Target: C
+  -> B: 2 / 2 (100.00%)
+"""
+        assert report == ref_report
+
+    test_classification_stats_report()
+
 
 def test_ddp_metrics():
     size = 2
     processes = []
+
     mp.set_start_method("spawn", force=True)
-    os.makedirs("tests/tmp", exist_ok=True)
+
     for rank in range(size):
-        p = mp.Process(target=test_ddp, args=(rank, size))
+        p = mp.Process(target=_test_ddp, args=(rank, size))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
         assert p.exitcode == 0
-
-
-if __name__ == "__main__":
-    test_ddp_metrics()
