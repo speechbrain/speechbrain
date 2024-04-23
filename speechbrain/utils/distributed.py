@@ -276,6 +276,17 @@ def reduce(tensor, reduction="mean"):
     Returns
     -------
         The same data structure as `data` with all the tensors reduced.
+
+    Example
+    -------
+    >>> tensor = torch.arange(2) + 1 + 2 * rank  # doctest: +SKIP
+    >>> tensor  # doctest: +SKIP
+    tensor([1, 2]) # Rank 0
+    tensor([3, 4]) # Rank 1
+    >>> reduce(tensor, reduction="sum")  # doctest: +SKIP
+    tensor([4, 6]) # Rank 0 and 1 combined
+    >>> reduce(tensor, reduction="mean")  # doctest: +SKIP
+    tensor([2, 3]) # Rank 0 and 1 combined
     """
 
     def _reduce_across_processes(tensor, reduction="mean"):

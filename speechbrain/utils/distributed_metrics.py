@@ -85,7 +85,7 @@ def gather(tensor):
 
     Example
     -------
-    >>> tensor = torch.arange(2, dtype=torch.int64) + 1 + 2 * rank  # doctest: +SKIP
+    >>> tensor = torch.arange(2) + 1 + 2 * rank  # doctest: +SKIP
     >>> tensor  # doctest: +SKIP
     tensor([1, 2]) # Rank 0
     tensor([3, 4]) # Rank 1
