@@ -11,7 +11,7 @@
 ###################################
 seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/hifi_gan/<seed>
+output_folder: !ref ./results/hifi_gan_multi_multi/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
@@ -31,13 +31,14 @@ splits: ["train", "valid", "test"]
 split_ratio: [80, 10, 10]
 skip_prep: False
 
-kmeans_folder: speechbrain/SSL_Quantization
+kmeans_folder: poonehmousavi/SSL_Quantization
 kmeans_dataset: LibriSpeech-100-360-500
-num_clusters: 1000
 codes_folder: !ref <save_folder>/codes
 encoder_type: HuBERT # one of [HuBERT, Wav2Vec2, WavLM]
 encoder_hub: facebook/hubert-large-ll60k
-layer: [12]
+layer: [3, 7, 12, 18, 23]
+num_clusters: [1000, 1000, 2000, 2000, 2000]
+
 
 ################################
 # Audio Parameters             #
@@ -46,7 +47,7 @@ layer: [12]
 segment_size: 8960
 code_hop_size: 320
 sample_rate: 16000
-layer_drop: False
+layer_drop: True
 
 hop_length: 256
 win_length: 1024
@@ -88,7 +89,7 @@ test_dataloader_opts:
 duration_predictor: False
 
 # embedding params
-num_embeddings: 1001 # K-means size + 1 for padding 128x3
+num_embeddings: 3001 # K-means size * num layer + 1 for padding 1000x3+1
 embedding_dim: 128
 
 # generator params

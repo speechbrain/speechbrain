@@ -27,7 +27,7 @@ from speechbrain.lobes.models.huggingface_transformers.discrete_ssl import (
     DiscreteSSL,
 )
 
-OPT_FILE = "opt_ljspeech_extract_code.pkl"
+OPT_FILE = "opt_libritts_extract_code.pkl"
 TRAIN_JSON = "train.json"
 VALID_JSON = "valid.json"
 TEST_JSON = "test.json"
@@ -102,7 +102,7 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def extract_ljspeech(
+def extract_libritts(
     data_folder,
     splits,
     kmeans_folder,
@@ -116,12 +116,12 @@ def extract_ljspeech(
     skip_extract=False,
 ):
     """
-    Extract speech units for HiFi-GAN training on the LJspeech datasets.
+    Extract speech units for HiFi-GAN training on the LibriTTS datasets.
 
     Arguments
     ---------
     data_folder : str
-        Path to the folder where the original LJspeech dataset is stored.
+        Path to the folder where the original LibriTTS dataset is stored.
     splits : list
         List of splits to prepare.
     kmeans_folder: str
@@ -139,14 +139,14 @@ def extract_ljspeech(
     save_folder: str
         Path to the folder where the speech units are stored.
     sample_rate: int
-        LjSpeech dataset sample rate
+        LibriTTS dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
 
     Example
     -------
-    >>> from recipes.LJSpeech.TTS.vocoder.hifi_gan_unit.extract_code import extract_ljspeech
-    >>> data_folder = 'data/LJspeech/'
+    >>> from recipes.LibriTTS.TTS.vocoder.hifigan_unit.extract_code import extract_libritts
+    >>> data_folder = 'data/LibriTTS/'
     >>> splits = ['train', 'valid']
     >>> kmeans_folder = 'speechbrain/SSL_Quantization'
     >>> kmeans_dataset = LibriSpeech-100-360-500
@@ -154,7 +154,7 @@ def extract_ljspeech(
     >>> encoder_source = facebook/hubert-large-ll60k
     >>> layer = [7]
     >>> save_folder = 'save/'
-    >>> extract_ljspeech(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
+    >>> extract_libritts(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
     """
     logger = setup_logger()
 
@@ -207,7 +207,6 @@ def extract_ljspeech(
         kmeans_dataset=kmeans_dataset,
         kmeans_repo_id=kmeans_folder,
         num_clusters=num_clusters,
-        layers_num=layer,
     )
 
     for split in splits:

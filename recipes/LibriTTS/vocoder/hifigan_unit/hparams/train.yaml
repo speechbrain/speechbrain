@@ -1,7 +1,7 @@
 ############################################################################
 # Model: Unit HiFi-GAN
 # Tokens: discrete speech units (K-means)
-# Training: LJSpeech (English)
+# Training: LibriTTS (English)
 # Authors: Jarod Duret, Yingzhi Wang
 # ############################################################################
 
@@ -11,7 +11,7 @@
 ###################################
 seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/hifi_gan/<seed>
+output_folder: !ref ./results/hifigan/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
@@ -22,22 +22,30 @@ use_tensorboard: False
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: !PLACEHOLDER # e.g, /datasets/ljspeech
+data_folder: !PLACEHOLDER # e.g, /datasets/LibriTTS
+# Data will be automatically downloaded in the data folder
+# (and resampled to the specified sampling rate)
+train_split: [train-clean-100]
+valid_split: [dev-clean]
+test_split: [test-clean]
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
-
+libritts_subsets: null #[train-clean-100]
 splits: ["train", "valid", "test"]
-split_ratio: [80, 10, 10]
+split_ratio: null #[90, 10]
 skip_prep: False
 
-kmeans_folder: speechbrain/SSL_Quantization
+kmeans_folder: poonehmousavi/SSL_Quantization
 kmeans_dataset: LibriSpeech-100-360-500
 num_clusters: 1000
 codes_folder: !ref <save_folder>/codes
 encoder_type: HuBERT # one of [HuBERT, Wav2Vec2, WavLM]
 encoder_hub: facebook/hubert-large-ll60k
-layer: [12]
+layer: [1, 3, 7, 12, 18, 23]
+
+speaker_embeddings_folder: !ref <save_folder>/speaker_embeddings
+speaker_encoder_hub: speechbrain/spkrec-ecapa-voxceleb-mel-spec
 
 ################################
 # Audio Parameters             #
@@ -92,12 +100,15 @@ num_embeddings: 1001 # K-means size + 1 for padding 128x3
 embedding_dim: 128
 
 # generator params
-in_channels: 128
+in_channels: 320
 out_channels: 1
 
 var_pred_hidden_dim: 128
 var_pred_kernel_size: 3
 var_pred_dropout: 0.5
+
+multi_speaker: True
+normalize_speaker_embeddings: False
 
 ###########################################################################################################################################################
 # version | resblock_type | upsample_kernel_sizes | upsample_factors | resblock_kernel_sizes | upsample_initial_channel | resblock_dilation_sizes
@@ -148,6 +159,8 @@ generator: !new:speechbrain.lobes.models.HifiGAN.UnitHifiganGenerator
   var_pred_hidden_dim: !ref <var_pred_hidden_dim>
   var_pred_kernel_size: !ref <var_pred_kernel_size>
   var_pred_dropout: !ref <var_pred_dropout>
+  multi_speaker: !ref <multi_speaker>
+  normalize_speaker_embeddings: !ref <normalize_speaker_embeddings>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
 
