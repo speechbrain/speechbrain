@@ -12,6 +12,9 @@ import os
 from functools import wraps
 
 import torch
+from sb.utils.distributed_utils import DistributedState
+
+from speechbrain.utils.distributed_utils import recursively_apply
 
 MAIN_PROC_ONLY = 0
 
@@ -224,13 +227,11 @@ def reduce(tensor, reduction="mean"):
     -------
         The same data structure as `data` with all the tensors reduced.
     """
-    from speechbrain.utils.distributed_metrics import recursively_apply
 
     def _reduce_across_processes(tensor, reduction="mean"):
-        import speechbrain as sb
-
-        state = sb.core.DistributedState()
+        state = DistributedState()
         cloned_tensor = tensor.clone()
+
         if not state.use_distributed:
             return cloned_tensor
         else:

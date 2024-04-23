@@ -92,57 +92,6 @@ run_opt_defaults = {
 }
 
 
-class DistributedState:
-    """
-    Singleton class that has information about the current training environment and functions to help with process
-    control.
-    """
-
-    _shared_state = dict()
-
-    def __init__(self, device: str = "cpu", distributed_backend=None):
-        self.__dict__ = self._shared_state
-
-        if not self.initialized:
-            self.device = device
-            self.distributed_backend = distributed_backend
-
-            if self.distributed_backend is None:
-                self.num_processes = 1
-                self.process_index = 0
-                self.local_process_index = 0
-            else:
-                self.num_processes = torch.distributed.get_world_size()
-                self.process_index = torch.distributed.get_rank()
-                self.local_process_index = int(os.environ.get("LOCAL_RANK", -1))
-
-    def __repr__(self) -> str:
-        return (
-            f"Distributed environment: {('  Backend: ' + self.distributed_backend) if self.distributed_backend else ''}\n"
-            f"Num processes: {self.num_processes}\n"
-            f"Process index: {self.process_index}\n"
-            f"Local process index: {self.local_process_index}\n"
-            f"Device: {self.device}\n"
-        )
-
-    @staticmethod
-    def _reset_state():
-        "Resets `_shared_state`, is used internally and should not be called"
-        DistributedState._shared_state.clear()
-
-    @property
-    def initialized(self) -> bool:
-        "Returns whether the `DistributedState` has been initialized"
-        return self._shared_state != {}
-
-    @property
-    def use_distributed(self):
-        """
-        Whether the Trainer is configured for distributed training
-        """
-        return self.num_processes > 1
-
-
 @dataclass
 class AMPConfig:
     """Configuration for automatic mixed precision (AMP).
@@ -874,9 +823,11 @@ class Brain:
                     )
 
         if self.device == "cpu" and self.distributed_backend == "nccl":
-            DistributedState(self.device)
+            sb.utils.distributed_utils.DistributedState(self.device)
         else:
-            DistributedState(self.device, self.distributed_backend)
+            sb.utils.distributed_utils.DistributedState(
+                self.device, self.distributed_backend
+            )
 
         # Prepare iterating variables
         self.avg_train_loss = 0.0

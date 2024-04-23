@@ -4,6 +4,7 @@ import os
 import torch
 import torch.multiprocessing as mp
 import torch.nn
+from sb.utils.distributed_utils import DistributedState
 
 import speechbrain as sb
 
@@ -22,7 +23,7 @@ def _test_ddp(rank, size, backend="gloo"):  # noqa
 
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    sb.core.DistributedState(device="cpu", distributed_backend=backend)
+    DistributedState(device="cpu", distributed_backend=backend)
 
     def test_gather_tensor():
         tensor = torch.tensor([rank])
