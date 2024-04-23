@@ -4,9 +4,9 @@ import os
 import torch
 import torch.multiprocessing as mp
 import torch.nn
-from sb.utils.distributed_utils import DistributedState
 
 import speechbrain as sb
+from speechbrain.utils.distributed import DistributedState
 
 
 def _test_ddp(rank, size, backend="gloo"):  # noqa

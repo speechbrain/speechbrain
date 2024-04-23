@@ -13,8 +13,8 @@ from typing import Any
 
 import torch
 from packaging import version
-from sb.utils.distributed_utils import DistributedState
 
+from speechbrain.utils.distributed import DistributedState
 from speechbrain.utils.distributed_utils import recursively_apply
 
 
