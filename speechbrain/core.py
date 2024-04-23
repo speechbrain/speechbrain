@@ -1453,7 +1453,7 @@ class Brain:
         self.zero_grad(set_to_none=True)
         # sync the avg_loss across all processes
         self.avg_train_loss = sb.utils.distributed.reduce(
-            torch.tensor(self.avg_train_loss)
+            torch.tensor(self.avg_train_loss, device=self.device)
         ).item()
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
@@ -1514,7 +1514,7 @@ class Brain:
                 self.step = 0
                 # sync the avg_loss across all processes
                 avg_valid_loss = sb.utils.distributed.reduce(
-                    torch.tensor(avg_valid_loss)
+                    torch.tensor(avg_valid_loss, device=self.device)
                 ).item()
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
@@ -1806,7 +1806,7 @@ class Brain:
 
             # sync the avg_loss across all processes
             avg_test_loss = sb.utils.distributed.reduce(
-                torch.tensor(avg_test_loss)
+                torch.tensor(avg_test_loss, device=self.device)
             ).item()
             self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
