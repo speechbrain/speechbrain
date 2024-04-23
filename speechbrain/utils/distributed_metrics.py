@@ -174,7 +174,29 @@ def _gpu_gather(tensor):
 
 
 def gather(tensor):
-    """Gathers a tensor from all processes and returns a tensor containing the gathered tensors."""
+    """Gather the values in *tensor* across all processes and concatenate them on the first dimension. Useful to
+    regroup the predictions from all processes when doing evaluation.
+
+    Arguments
+    ---------
+    tensor (`torch.Tensor`, or a nested tuple/list/dictionary of `torch.Tensor`):
+        The tensors to gather across all processes.
+
+    Returns
+    -------
+        `torch.Tensor`, or a nested tuple/list/dictionary of `torch.Tensor`: The gathered tensor(s). Note that the
+        first dimension of the result is *num_processes* multiplied by the first dimension of the input tensors.
+
+    Example
+    -------
+    >>> tensor = torch.arange(2, dtype=torch.int64) + 1 + 2 * rank  # doctest: +SKIP
+    >>> tensor  # doctest: +SKIP
+    tensor([1, 2]) # Rank 0
+    tensor([3, 4]) # Rank 1
+    >>> sync_tensor = gather(tensor)  # doctest: +SKIP
+    >>> sync_tensor  # doctest: +SKIP
+    tensor([1, 2, 3, 4]) # Rank 0 and 1 combined
+    """
     if DistributedState().use_distributed:
         return _gpu_gather(tensor)
     else:
@@ -182,7 +204,17 @@ def gather(tensor):
 
 
 def gather_object(object: Any):
-    """Gathers an object from all processes and returns a list containing the object from each process."""
+    """Recursively gather object in a nested list/tuple/dictionary of objects from all devices.
+
+    Arguments
+    ---------
+    object (nested list/tuple/dictionary of picklable object):
+        The data to gather.
+
+    Returns
+    -------
+        The same data structure as `object` with all the objects sent to every device.
+    """
     if DistributedState().use_distributed:
         return _gpu_gather_object(object)
     else:
@@ -191,17 +223,31 @@ def gather_object(object: Any):
 
 def gather_for_metrics(input_data):
     """Gathers the input data from all processes and returns a list containing the data from each process.
+    Should be used for gathering the inputs and targets for metric calculation.
 
     Arguments
     ---------
-    input_data (nested list/tuple/dictionary of `torch.Tensor` or obj):
-        The data to gather.
+    input_data (`torch.Tensor`, `object`, a nested tuple/list/dictionary of `torch.Tensor`, or a nested tuple/list/dictionary of `object`):
+        The tensors or objects for calculating metrics across all processes
 
     Returns
     -------
         The same data structure as `input_data` with the data from all processes gathered.
         If this is a tuple of tensors, the return will be a tuple of gathered tensors.
         If this is a list/tuple/dict of object, the return will be a list of gathered objects.
+
+    Example
+    -------
+    >>> tensor_list = [torch.zeros(2, dtype=torch.int64) for _ in range(2)]  # doctest: +SKIP
+    >>> tensor_list  # doctest: +SKIP
+    [tensor([0, 0]), tensor([0, 0])] # Rank 0 and 1
+    >>> tensor = torch.arange(2, dtype=torch.int64) + 1 + 2 * rank  # doctest: +SKIP
+    >>> tensor  # doctest: +SKIP
+    tensor([1, 2]) # Rank 0
+    tensor([3, 4]) # Rank 1
+    >>> sync_tensor = gather_for_metrics(tensor)  # doctest: +SKIP
+    >>> sync_tensor  # doctest: +SKIP
+    tensor([1, 2, 3, 4]) # Rank 0 and 1 combined
     """
     try:
         recursively_apply(lambda x: x, input_data, error_on_other_type=True)

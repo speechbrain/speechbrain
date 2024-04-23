@@ -37,12 +37,16 @@ def _test_ddp(rank, size, backend="gloo"):  # noqa
 
     test_gather_tensor()
 
-    def test_gather_object():
+    def test_gather_object_list():
         obj = [{"rank": rank}]
         gathered = sb.utils.distributed_metrics.gather_object(obj)
         assert gathered == [{"rank": i} for i in range(size)]
 
-    test_gather_object()
+        obj = [{"test": [{"rank": rank}]}]
+        gathered = sb.utils.distributed_metrics.gather_object(obj)
+        assert gathered == [{"test": [{"rank": i}]} for i in range(size)]
+
+    test_gather_object_list()
 
     def test_gather_object_and_tensor():
         obj = [{"rank": rank, "tensor": torch.tensor([rank])}]
@@ -342,3 +346,7 @@ def test_ddp_metrics():
     for p in processes:
         p.join()
         assert p.exitcode == 0
+
+
+if __name__ == "__main__":
+    test_ddp_metrics()

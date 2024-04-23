@@ -1501,7 +1501,9 @@ class Brain:
         # flush gradients
         self.zero_grad(set_to_none=True)
         # sync the avg_loss across all processes
-        self.avg_train_loss = self.sync_average_loss(self.avg_train_loss)
+        self.avg_train_loss = sb.utils.distributed.reduce(
+            torch.tensor(self.avg_train_loss)
+        ).item()
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
@@ -1560,7 +1562,9 @@ class Brain:
 
                 self.step = 0
                 # sync the avg_loss across all processes
-                avg_valid_loss = self.sync_average_loss(avg_valid_loss)
+                avg_valid_loss = sb.utils.distributed.reduce(
+                    torch.tensor(avg_valid_loss)
+                ).item()
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
@@ -1838,7 +1842,9 @@ class Brain:
                     break
 
             # sync the avg_loss across all processes
-            avg_test_loss = self.sync_average_loss(avg_test_loss)
+            avg_test_loss = sb.utils.distributed.reduce(
+                torch.tensor(avg_test_loss)
+            ).item()
             self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
         return avg_test_loss
@@ -1861,16 +1867,6 @@ class Brain:
         if torch.isfinite(loss):
             avg_loss -= avg_loss / self.step
             avg_loss += float(loss) / self.step
-        return avg_loss
-
-    def sync_average_loss(self, avg_loss):
-        """Sync the average loss across all processes."""
-        avg_loss = torch.tensor(
-            [avg_loss], dtype=torch.float32, device=self.device
-        )
-        avg_loss = sb.utils.distributed_metrics.gather(avg_loss)
-        # compute the average loss across all processes
-        avg_loss = avg_loss.mean().item()
         return avg_loss
 
     @contextmanager

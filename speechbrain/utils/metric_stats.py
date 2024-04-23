@@ -840,6 +840,12 @@ def EER(positive_scores, negative_scores):
     >>> val_eer
     0.0
     """
+    positive_scores, negative_scores = (
+        sb.utils.distributed_metrics.gather_for_metrics(
+            (positive_scores, negative_scores)
+        )
+    )
+
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
@@ -914,6 +920,12 @@ def minDCF(
     >>> val_minDCF
     0.0
     """
+    positive_scores, negative_scores = (
+        sb.utils.distributed_metrics.gather_for_metrics(
+            (positive_scores, negative_scores)
+        )
+    )
+
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)

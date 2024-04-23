@@ -4,6 +4,7 @@ Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
  * Peter Plantinga 2023
+ * Adel Moumen 2024
 """
 
 import datetime
@@ -205,4 +206,46 @@ def ddp_init_group(run_opts):
         backend=run_opts["distributed_backend"],
         rank=rank,
         timeout=datetime.timedelta(seconds=7200),
+    )
+
+
+def reduce(tensor, reduction="mean"):
+    """Recursively reduce the tensors in a nested list/tuple/dictionary of lists of tensors
+    across all processes by the mean of a given operation.
+
+    Arguments
+    ---------
+        tensor (nested list/tuple/dictionary of `torch.Tensor`):
+            The data to reduce.
+        reduction (`str`, *optional*, defaults to `"mean"`):
+            A reduction method. Can be of "mean", or "sum".
+
+    Returns
+    -------
+        The same data structure as `data` with all the tensors reduced.
+    """
+    from speechbrain.utils.distributed_metrics import recursively_apply
+
+    def _reduce_across_processes(tensor, reduction="mean"):
+        import speechbrain as sb
+
+        state = sb.core.DistributedState()
+        cloned_tensor = tensor.clone()
+        if not state.use_distributed:
+            return cloned_tensor
+        else:
+            from torch.distributed import ReduceOp
+
+            torch.distributed.all_reduce(cloned_tensor, ReduceOp.SUM)
+
+        if reduction == "mean":
+            cloned_tensor /= state.num_processes
+
+        return cloned_tensor
+
+    return recursively_apply(
+        _reduce_across_processes,
+        tensor,
+        error_on_other_type=True,
+        reduction=reduction,
     )
