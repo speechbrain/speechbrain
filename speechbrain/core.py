@@ -1608,10 +1608,14 @@ class Brain:
         # Iterate epochs
         for epoch in epoch_counter:
             self._fit_train(
-                train_set=train_set, epoch=epoch, enable=enable_progressbar
+                train_set=train_set,
+                epoch=epoch,
+                enable_progressbar=enable_progressbar,
             )
             self._fit_valid(
-                valid_set=valid_set, epoch=epoch, enable=enable_progressbar
+                valid_set=valid_set,
+                epoch=epoch,
+                enable_progressbar=enable_progressbar,
             )
 
             # Debug mode only runs a few epochs
