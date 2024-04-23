@@ -56,6 +56,13 @@ def recursively_apply(
     """
     Recursively apply a function on a data structure that is a nested list/tuple/dictionary of a given base type.
 
+    This function is useful when you want to explore a nested data structure and apply a function to every object of a
+    given type. For example, you may want to apply a function to every `torch.Tensor` in a nested data structure as
+    synchronizing those tensors requires a different function than synchronizing other objects.
+
+    In `gather_for_metrics`, we use this function to first discover the type of the data structure and then apply the
+    appropriate function to gather the data (object vs tensor).
+
     Arguments
     ---------
     func (`callable`):
@@ -193,6 +200,8 @@ def gather_for_metrics(input_data):
     Returns
     -------
         The same data structure as `input_data` with the data from all processes gathered.
+        If this is a tuple of tensors, the return will be a tuple of gathered tensors.
+        If this is a list/tuple/dict of object, the return will be a list of gathered objects.
     """
     try:
         recursively_apply(lambda x: x, input_data, error_on_other_type=True)
