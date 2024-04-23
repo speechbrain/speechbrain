@@ -1389,7 +1389,7 @@ class Brain:
             loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
-    def _fit_train(self, train_set, epoch, enable):
+    def _fit_train(self, train_set, epoch, enable_progressbar):
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
         self.modules.train()
@@ -1410,7 +1410,7 @@ class Brain:
             train_set,
             initial=self.step,
             dynamic_ncols=True,
-            disable=not enable,
+            disable=not enable_progressbar,
             colour=self.tqdm_barcolor["train"],
         ) as t:
             if self.profiler is not None:
@@ -1490,7 +1490,7 @@ class Brain:
             torch.distributed.broadcast_object_list(broadcast_list, src=0)
             return broadcast_list[0]
 
-    def _fit_valid(self, valid_set, epoch, enable):
+    def _fit_valid(self, valid_set, epoch, enable_progressbar):
         # Validation stage
         if valid_set is not None:
             self.on_stage_start(Stage.VALID, epoch)
@@ -1500,7 +1500,7 @@ class Brain:
                 for batch in tqdm(
                     valid_set,
                     dynamic_ncols=True,
-                    disable=not enable,
+                    disable=not enable_progressbar,
                     colour=self.tqdm_barcolor["valid"],
                 ):
                     self.step += 1
@@ -1601,12 +1601,18 @@ class Brain:
             progressbar = not self.noprogressbar
 
         # Only show progressbar if requested and main_process
-        enable = progressbar and sb.utils.distributed.if_main_process()
+        enable_progressbar = (
+            progressbar and sb.utils.distributed.if_main_process()
+        )
 
         # Iterate epochs
         for epoch in epoch_counter:
-            self._fit_train(train_set=train_set, epoch=epoch, enable=enable)
-            self._fit_valid(valid_set=valid_set, epoch=epoch, enable=enable)
+            self._fit_train(
+                train_set=train_set, epoch=epoch, enable=enable_progressbar
+            )
+            self._fit_valid(
+                valid_set=valid_set, epoch=epoch, enable=enable_progressbar
+            )
 
             # Debug mode only runs a few epochs
             if (
@@ -1763,7 +1769,9 @@ class Brain:
             progressbar = not self.noprogressbar
 
         # Only show progressbar if requested and main_process
-        enable = progressbar and sb.utils.distributed.if_main_process()
+        enable_progressbar = (
+            progressbar and sb.utils.distributed.if_main_process()
+        )
 
         if not (
             isinstance(test_set, DataLoader)
@@ -1781,7 +1789,7 @@ class Brain:
             for batch in tqdm(
                 test_set,
                 dynamic_ncols=True,
-                disable=not enable,
+                disable=not enable_progressbar,
                 colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
