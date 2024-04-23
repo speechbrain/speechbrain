@@ -129,7 +129,7 @@ def _gpu_gather(tensor):
     if version.parse(torch.__version__) >= version.parse("1.13"):
         gather_op = torch.distributed.all_gather_into_tensor
     else:
-        gather_op = torch.distributed.all_gather_into_tensor
+        gather_op = torch.distributed._all_gather_base
 
     def _gpu_gather_one(tensor):
         if tensor.ndim == 0:
@@ -155,8 +155,7 @@ def _gpu_gather(tensor):
             gather_op(output_tensors, tensor)
             return output_tensors.view(-1, *tensor.size()[1:])
         else:
-            # a backend of `None` is always CPU
-            # also gloo does not support `all_gather_into_tensor`,
+            # Gloo backend does not support `all_gather_into_tensor`,
             # which will result in a larger memory overhead for the op
             output_tensors = [
                 torch.empty_like(tensor) for _ in range(state.num_processes)
