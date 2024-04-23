@@ -823,9 +823,9 @@ class Brain:
                     )
 
         if self.device == "cpu" and self.distributed_backend == "nccl":
-            sb.utils.distributed_utils.DistributedState(self.device)
+            sb.utils.distributed.DistributedState(self.device)
         else:
-            sb.utils.distributed_utils.DistributedState(
+            sb.utils.distributed.DistributedState(
                 self.device, self.distributed_backend
             )
 
