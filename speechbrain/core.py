@@ -1007,8 +1007,6 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
-        # This commented-out code block is useful when one can ensure
-        # metric reporting is DDP-valid for VALID & EVAL datasets.
         elif self.distributed_launch:
             loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
                 self.distributed_launch, self.rank, dataset, loader_kwargs
