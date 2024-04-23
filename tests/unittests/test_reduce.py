@@ -36,11 +36,20 @@ def _test_reduce_ddp(rank, size, backend="gloo"):  # noqa
 
     # test reduce
     tensor = torch.arange(2) + 1 + 2 * rank
-    out_tensor = sb.utils.distributed.reduce(tensor, reduction="sum")
+    out_tensor = sb.utils.distributed.reduce(tensor.float(), reduction="sum")
     assert (out_tensor == torch.Tensor([4, 6])).all()
 
-    out_tensor = sb.utils.distributed.reduce(tensor, reduction="mean")
+    out_tensor = sb.utils.distributed.reduce(tensor.float(), reduction="mean")
     assert (out_tensor == torch.Tensor([2, 3])).all()
+
+    obj = [{"a": [(torch.arange(2) + 1 + 2 * rank).float() for _ in range(4)]}]
+    out_obj = sb.utils.distributed.reduce(obj, reduction="sum")
+    for i in range(4):
+        assert (out_obj[0]["a"][i] == torch.Tensor([4, 6])).all()
+
+    out_obj = sb.utils.distributed.reduce(obj, reduction="mean")
+    for i in range(4):
+        assert (out_obj[0]["a"][i] == torch.Tensor([2, 3])).all()
 
 
 def test_ddp_reduce():
@@ -57,7 +66,3 @@ def test_ddp_reduce():
     for p in processes:
         p.join()
         assert p.exitcode == 0
-
-
-if __name__ == "__main__":
-    test_reduce("cpu")

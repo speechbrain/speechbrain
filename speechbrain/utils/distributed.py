@@ -266,6 +266,10 @@ def reduce(tensor, reduction="mean"):
     """Recursively reduce the tensors in a nested list/tuple/dictionary of lists of tensors
     across all processes by the mean of a given operation.
 
+    For instance, if you have a list of tensors on each process such as a loss, you can use this function to
+    synchronize the tensors across all processes and then reduce them by the mean or sum. This is particularly
+    useful when you want to calculate the mean loss across all processes.
+
     Arguments
     ---------
         tensor (nested list/tuple/dictionary of `torch.Tensor`):
@@ -287,6 +291,13 @@ def reduce(tensor, reduction="mean"):
     tensor([4, 6]) # Rank 0 and 1 combined
     >>> reduce(tensor, reduction="mean")  # doctest: +SKIP
     tensor([2, 3]) # Rank 0 and 1 combined
+    >>> obj = [{"a": [(torch.arange(2) + 1 + 2 * rank).float() for _ in range(4)]}] # doctest: +SKIP
+    [{'a': [tensor([1., 2.]), tensor([1., 2.]), tensor([1., 2.]), tensor([1., 2.])]}] # Rank 0
+    [{'a': [tensor([3., 4.]), tensor([3., 4.]), tensor([3., 4.]), tensor([3., 4.])]}] # Rank 1
+    >>> reduce(obj, reduction="sum")  # doctest: +SKIP
+    [{'a': [tensor([4., 6.]), tensor([4., 6.]), tensor([4., 6.]), tensor([4., 6.])]}] # Rank 0 and 1 combined
+    >>> reduce(obj, reduction="mean")  # doctest: +SKIP
+    [{'a': [tensor([2., 3.]), tensor([2., 3.]), tensor([2., 3.]), tensor([2., 3.])]}] # Rank 0 and 1 combined
     """
 
     def _reduce_across_processes(tensor, reduction="mean"):
@@ -300,6 +311,7 @@ def reduce(tensor, reduction="mean"):
 
             torch.distributed.all_reduce(cloned_tensor, ReduceOp.SUM)
 
+        # we cannot use 'ReduceOp.AVG` since it is unavailable for gloo backend
         if reduction == "mean":
             cloned_tensor /= state.num_processes
 

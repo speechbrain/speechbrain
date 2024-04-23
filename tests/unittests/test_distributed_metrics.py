@@ -347,7 +347,3 @@ def test_ddp_metrics():
     for p in processes:
         p.join()
         assert p.exitcode == 0
-
-
-if __name__ == "__main__":
-    test_ddp_metrics()
