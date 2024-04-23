@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""This recipe to train PIQ to interepret audio classifiers.
+"""This recipe to train PIQ to interpret audio classifiers.
 
 Authors
     * Cem Subakan 2022, 2023, 2024
@@ -16,7 +16,7 @@ import torchaudio
 from esc50_prepare import prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from urbansound8k_prepare import prepare_urban_sound_8k
-from wham_prepare import WHAMDataset, combine_batches
+from wham_prepare import combine_batches
 
 import speechbrain as sb
 from speechbrain.processing.NMF import spectral_phase
@@ -66,9 +66,6 @@ class InterpreterESC50Brain(sb.core.Brain):
             X_stft, power=self.hparams.spec_mag_power
         )
 
-        # if self.hparams.use_stft2mel:
-        #    X_stft_logpower = X_stft_power
-        # else:
         if not self.hparams.use_melspectra:
             X_stft_logpower = torch.log1p(X_stft_power)
         else:
@@ -110,10 +107,9 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         # we should remove this...
         if self.hparams.use_vq:
-            xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
+            xhat, hcat, _ = self.modules.psi(hcat, class_pred)
         else:
             xhat = self.modules.psi(hcat, class_pred)
-            z_q_x = None
         xhat = xhat.squeeze(1)
 
         Tmax = xhat.shape[1]
@@ -281,8 +277,8 @@ class InterpreterESC50Brain(sb.core.Brain):
         X_stft_phase = spectral_phase(X_stft)
         temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
         Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
-        if not self.hparams.use_melspectra:
-            xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
+        # if not self.hparams.use_melspectra:
+        # xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
 
         Tmax = Xspec_est.shape[1]
         X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
@@ -1042,7 +1038,7 @@ if __name__ == "__main__":
     if hparams["finetuning"]:
         if hparams["pretrained_PIQ"] is None:
             raise AssertionError(
-                "You should specificy pretrained model for finetuning."
+                "You should specify pretrained model for finetuning."
             )
 
     Interpreter_brain = InterpreterESC50Brain(

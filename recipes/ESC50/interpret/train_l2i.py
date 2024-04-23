@@ -25,85 +25,85 @@ eps = 1e-10
 class L2I(InterpreterBrain):
     """Class for sound class embedding training" """
 
-    def interpret_computation_steps(self, wavs):
+    def interpret_computation_steps(self, wavs_batch):
         """computation steps to get the interpretation spectrogram"""
-        # compute stft and logmel, and phase
-        X_stft = self.modules.compute_stft(wavs)
-        X_stft_phase = spectral_phase(X_stft)
-        X_stft_power = sb.processing.features.spectral_magnitude(
-            X_stft, power=self.hparams.spec_mag_power
-        )
-        if self.hparams.use_melspectra:
-            net_input = self.modules.compute_fbank(X_stft_power)
-        else:
-            net_input = torch.log1p(X_stft_power)
+        X_stft = self.modules.compute_stft(wavs_batch[0:1])
+        ret_X_int = torch.empty(
+            wavs_batch.shape[0], X_stft.shape[2], X_stft.shape[1]
+        ).to(wavs_batch.device)
+        ret_X_stft_phase = torch.empty(
+            wavs_batch.shape[0], X_stft.shape[1], X_stft.shape[2]
+        ).to(wavs_batch.device)
+        for idx, wavs in enumerate(wavs_batch):
+            # compute stft and logmel, and phase
+            wavs = wavs[None]
+            X_stft_logpower, net_input, X_stft, X_stft_power = self.preprocess(
+                wavs
+            )
+            X_stft_phase = spectral_phase(X_stft)
 
-        # get the classifier embeddings
-        temp = self.hparams.embedding_model(net_input)
+            # get the classifier embeddings
+            temp = self.hparams.embedding_model(net_input)
 
-        if isinstance(
-            temp, tuple
-        ):  # if embeddings are not used for interpretation
-            embeddings, f_I = temp
-        else:
-            embeddings, f_I = temp, temp
+            if isinstance(
+                temp, tuple
+            ):  # if embeddings are not used for interpretation
+                embeddings, f_I = temp
+            else:
+                embeddings, f_I = temp, temp
 
-        # get the nmf activations
-        psi_out = self.modules.psi(f_I)
+            # get the nmf activations
+            psi_out = self.modules.psi(f_I)
 
-        if isinstance(psi_out, tuple):
-            psi_out = psi_out[0]
-            psi_out = psi_out.squeeze(1).permute(0, 2, 1)
+            if isinstance(psi_out, tuple):
+                psi_out = psi_out[0]
+                psi_out = psi_out.squeeze(1).permute(0, 2, 1)
 
-        # cut the length of psi in case necessary
-        psi_out = psi_out[:, :, : X_stft_power.shape[1]]
+            # cut the length of psi in case necessary
+            psi_out = psi_out[:, :, : net_input.shape[1]]
 
-        # get the classifier output
-        if embeddings.ndim == 4:
-            embeddings = embeddings.mean((-1, -2))
+            # get the classifier output
+            if embeddings.ndim == 4:
+                embeddings = embeddings.mean((-1, -2))
 
-        predictions = self.hparams.classifier(embeddings).squeeze(1)
-        pred_cl = torch.argmax(predictions, dim=1)[0].item()
+            predictions = self.hparams.classifier(embeddings).squeeze(1)
+            pred_cl = torch.argmax(predictions, dim=1)[0].item()
 
-        ic(predictions.shape)
-        ic(pred_cl.shape)
-        breakpoint()
+            nmf_dictionary = self.hparams.nmf_decoder.return_W()
 
-        nmf_dictionary = self.hparams.nmf_decoder.return_W()
+            # computes time activations per component
+            # FROM NOW ON WE FOLLOW THE PAPER'S NOTATION
+            psi_out = psi_out.squeeze()
+            z = self.modules.theta.hard_att(psi_out).squeeze()
+            theta_c_w = self.modules.theta.classifier[0].weight[pred_cl]
 
-        # computes time activations per component
-        # FROM NOW ON WE FOLLOW THE PAPER'S NOTATION
-        psi_out = psi_out.squeeze()
-        z = self.modules.theta.hard_att(psi_out).squeeze()
-        theta_c_w = self.modules.theta.classifier[0].weight[pred_cl]
+            # some might be negative, relevance of component
+            r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()
 
-        # some might be negative, relevance of component
-        r_c_x = theta_c_w * z / torch.abs(theta_c_w * z).max()
-        ic(r_c_x)
-        breakpoint()
-        # define selected components by thresholding
-        L = (
-            torch.arange(r_c_x.shape[0])
-            .to(r_c_x.device)[r_c_x > self.hparams.relevance_th]
-            .tolist()
-        )
-        ic(L)
-        breakpoint()
+            # define selected components by thresholding
+            L = (
+                torch.arange(r_c_x.shape[0])
+                .to(r_c_x.device)[r_c_x > self.hparams.relevance_th]
+                .tolist()
+            )
 
-        # get the log power spectra, this is needed as NMF is trained on log-power spectra
-        X_stft_power_log = (
-            torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
-        )
+            # get the log power spectra, this is needed as NMF is trained on log-power spectra
+            X_stft_power_log = (
+                torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
+            )
 
-        X_withselected = nmf_dictionary[:, L] @ psi_out[L, :]
-        Xhat = nmf_dictionary @ psi_out
+            X_withselected = nmf_dictionary[:, L] @ psi_out[L, :]
+            Xhat = nmf_dictionary @ psi_out
 
-        X_stft_power_log = X_stft_power_log[..., : Xhat.shape[1]]
+            X_stft_power_log = X_stft_power_log[..., : Xhat.shape[1]]
 
-        # need the eps for the denominator
-        X_int = (X_withselected / (Xhat + eps)) * X_stft_power_log
+            # need the eps for the denominator
+            X_int = (X_withselected / (Xhat + eps)) * X_stft_power_log
 
-        return X_int, X_stft_phase
+            ret_X_int[idx] = X_int
+            ret_X_stft_phase[idx] = X_stft_phase
+
+        return ret_X_int, ret_X_stft_phase
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -117,15 +117,7 @@ class L2I(InterpreterBrain):
             # augment batch with WHAM!
             wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
-        X_stft = self.modules.compute_stft(wavs)
-        X_stft_power = sb.processing.features.spectral_magnitude(
-            X_stft, power=self.hparams.spec_mag_power
-        )
-        if self.hparams.use_melspectra:
-            net_input = self.modules.compute_fbank(X_stft_power)
-            net_input = torch.log1p(net_input)
-        else:
-            net_input = torch.log1p(X_stft_power)
+        X_stft_logpower, net_input, X_stft, _ = self.preprocess(wavs)
 
         # Embeddings + sound classifier
         temp = self.hparams.embedding_model(net_input)
@@ -146,7 +138,7 @@ class L2I(InterpreterBrain):
             psi_out = psi_out.squeeze(1).permute(0, 2, 1)
 
         # cut the length of psi
-        psi_out = psi_out[:, :, : X_stft_power.shape[1]]
+        psi_out = psi_out[:, :, : net_input.shape[1]]
 
         #  generate log-mag spectrogram
         reconstructed = self.hparams.nmf_decoder(psi_out).transpose(1, 2)
@@ -160,7 +152,7 @@ class L2I(InterpreterBrain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
-                self.viz_ints(X_stft, net_input, batch, wavs[0:1])
+                self.viz_ints(X_stft, net_input, batch, wavs)
 
         return (reconstructed, psi_out), (predictions, theta_out), wavs
 
@@ -189,14 +181,12 @@ class L2I(InterpreterBrain):
             interpretations = torch.empty(wavs.shape[0], 431, 513).to(
                 X_stft_logpower.device
             )
-            for i in range(interpretations.shape[0]):
-                tmp, _ = self.interpret_computation_steps(
-                    wavs[0:1]
-                )  # returns log1p
-                tmp = torch.expm1(tmp)
-                interpretations[i] = tmp.t()
+            tmp, _ = self.interpret_computation_steps(wavs)  # returns log1p
+            ic(tmp.shape)
+            interpretations = torch.expm1(tmp).transpose(2, 1)
+            ic(interpretations.shape)
 
-            if self.hparams.use_melspectra:
+            if self.hparams.use_melspectra_log1p:
                 interpretations = self.hparams.compute_fbank(interpretations)
                 interpretations = torch.log1p(interpretations)
 
@@ -215,7 +205,7 @@ class L2I(InterpreterBrain):
             # )
 
             X_stft_logpower = X_stft_logpower[:, : interpretations.shape[-2], :]
-            if self.hparams.use_melspectra:
+            if self.hparams.use_melspectra_log1p:
                 xx_temp = torch.log1p(self.hparams.compute_fbank(X_stft_power))
                 temp = self.hparams.embedding_model(xx_temp - interpretations)
             else:

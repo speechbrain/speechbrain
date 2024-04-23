@@ -47,9 +47,15 @@ class InterpreterBrain(sb.core.Brain):
         X_stft_power = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
+
+        X_mel, X_mel_log1p = [None] * 2
+        if self.hparams.use_melspectra_log1p:
+            X_mel = self.hparams.compute_fbank(X_stft_power)
+            X_mel_log1p = torch.log1p(X_mel)
+
         X_stft_logpower = torch.log1p(X_stft_power)
 
-        return X_stft_logpower, X_stft, X_stft_power
+        return X_stft_logpower, X_mel_log1p, X_stft, X_stft_power
 
     @torch.no_grad()
     def classifier_forward(self, X_stft_logpower):
@@ -121,13 +127,13 @@ class InterpreterBrain(sb.core.Brain):
         plt.colorbar()
 
         plt.subplot(122)
-        plt.imshow(X_int.squeeze().cpu().t(), origin="lower")
+        plt.imshow(X_int[0].squeeze().cpu().t(), origin="lower")
         plt.colorbar()
         plt.title("interpretation")
 
         out_folder = os.path.join(
             self.hparams.output_folder,
-            "reconstructions/" f"{batch.id[0]}",
+            "interpretations/" f"{batch.id[0]}",
         )
         os.makedirs(
             out_folder,
@@ -135,7 +141,7 @@ class InterpreterBrain(sb.core.Brain):
         )
 
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"),
+            os.path.join(out_folder, "spectra.png"),
             format="png",
         )
         plt.close()

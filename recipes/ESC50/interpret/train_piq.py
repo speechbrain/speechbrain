@@ -31,7 +31,7 @@ class PIQ(InterpreterBrain):
 
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram."""
-        X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
         X_stft_phase = spectral_phase(X_stft)
 
         hcat, embeddings, predictions, class_pred = self.classifier_forward(
@@ -64,7 +64,7 @@ class PIQ(InterpreterBrain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
 
         # Embeddings + sound classifier
         hcat, embeddings, predictions, class_pred = self.classifier_forward(
@@ -92,7 +92,6 @@ class PIQ(InterpreterBrain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
-                wavs = wavs[0].unsqueeze(0)
                 self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
         return predictions, xhat, hcat, z_q_x, garbage
@@ -107,7 +106,7 @@ class PIQ(InterpreterBrain):
         uttid = batch.id
         classid, _ = batch.class_string_encoded
 
-        X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
 
         Tmax = xhat.shape[1]
 
