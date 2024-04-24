@@ -11,7 +11,9 @@ on:    # yamllint disable-line rule:truthy
 jobs:
     tests:
         name: Tests
-        runs-on: ubuntu-latest
+        # We currently pin the Ubuntu version to 20.04 due to broken CI issues with azure ubuntu mirrors circa may 2024.
+        # This is only applied to the unit tests and can be reverted later.
+        runs-on: ubuntu-20.04
         strategy:
             matrix:
                 python-version: [3.8, 3.12]
