@@ -60,9 +60,9 @@ class BaseSemDistStats(MetricStats):
         ---------
         ids: list
             the string IDs for the samples
-        predictions: list
+        predict: list
             the model's predictions in tokenizable format
-        targets: list
+        target: list
             the ground truths in tokenizable format
         """
         ids = sb.utils.distributed_metrics.gather_for_metrics(ids)

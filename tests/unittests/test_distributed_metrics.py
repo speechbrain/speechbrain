@@ -8,7 +8,7 @@ import torch.nn
 import speechbrain as sb
 
 
-def _test_ddp(rank, size, backend="gloo"):  # noqa
+def _test_ddp(tmpdir, rank, size, backend="gloo"):  # noqa
     """Initialize the distributed environment."""
     os.environ["WORLD_SIZE"] = f"{size}"
     os.environ["RANK"] = f"{rank}"
@@ -331,22 +331,163 @@ Target: C
 
     test_classification_stats_report()
 
+    def test_SemDistStats():
+        from speechbrain.lobes.models.huggingface_transformers import (
+            TextEncoder,
+        )
+        from speechbrain.utils.semdist import SemDistStats
 
-def test_ddp_metrics():
+        semdist_model_name = "almanach/camembert-base"
+        semdist_stats = SemDistStats(
+            lm=TextEncoder(
+                source=semdist_model_name,
+                save_path=tmpdir,
+                device="cpu",
+            ),
+            method="meanpool",
+        )
+
+        semdist_stats.clear()
+        semdist_stats.append(
+            ids=[f"1_{rank}", f"2_{rank}"],
+            predict=["bonjor", "mondo"],
+            target=["bonjour", "monde"],
+        )
+
+        assert semdist_stats.ids == [
+            "1_0",
+            "2_0",
+            "1_1",
+            "2_1",
+        ]
+
+        summary = semdist_stats.summarize()
+
+        assert math.isclose(summary["semdist"], 15.41, rel_tol=0.01)
+
+    test_SemDistStats()
+
+    def test_BleuStats():
+        from speechbrain.utils.bleu import BLEUStats
+
+        bleu = BLEUStats()
+        i2l = {0: "a", 1: "b"}
+        bleu.append(
+            ids=[f"utterance_{rank}"],
+            predict=[[0, 1, 1]],
+            targets=[[[0, 1, 0]], [[0, 1, 1]], [[1, 1, 0]]],
+            ind2lab=lambda batch: [[i2l[int(x)] for x in seq] for seq in batch],
+        )
+
+        assert bleu.ids == ["utterance_0", "utterance_1"]
+        assert len(bleu.predicts) == 2
+        assert len(bleu.targets) == 6
+
+        stats = bleu.summarize()
+
+        assert stats["BLEU"] == 0.0
+
+    test_BleuStats()
+
+    def test_BERTScoreStats():
+        from speechbrain.lobes.models.huggingface_transformers import (
+            TextEncoder,
+        )
+        from speechbrain.utils.bertscore import BERTScoreStats
+
+        bert_model_name = "almanach/camembert-base"
+        bertscore_stats = BERTScoreStats(
+            lm=TextEncoder(
+                source=bert_model_name,
+                save_path=tmpdir,
+                device="cpu",
+                num_layers=2,
+            ),
+        )
+
+        bertscore_stats.clear()
+        bertscore_stats.append(
+            ids=[f"1_{rank}", f"2_{rank}"],
+            predict=["bonjor", "mondo"],
+            target=["bonjour", "monde"],
+        )
+
+        assert bertscore_stats.ids == [
+            "1_0",
+            "2_0",
+            "1_1",
+            "2_1",
+        ]
+
+        summary = bertscore_stats.summarize()
+
+        assert math.isclose(summary["bertscore-recall"], 0.8472, rel_tol=0.01)
+        assert math.isclose(
+            summary["bertscore-precision"], 0.9699, rel_tol=0.01
+        )
+        assert math.isclose(summary["bertscore-f1"], 0.9044, rel_tol=0.01)
+
+    test_BERTScoreStats()
+
+    def test_MultiMetricStats():
+        from speechbrain.utils.metric_stats import MultiMetricStats
+
+        def metric(a, b):
+            return {"sum": a + b, "diff": a - b, "sum_sq": a**2 + b**2}
+
+        multi_metric = MultiMetricStats(metric, batch_eval=True)
+
+        multi_metric.append(
+            [f"utt1_{rank}", f"utt2_{rank}"],
+            a=torch.tensor([2.0, 1.0]),
+            b=torch.tensor([1.0, 2.0]),
+        )
+
+        assert multi_metric.ids == [
+            "utt1_0",
+            "utt2_0",
+            "utt1_1",
+            "utt2_1",
+        ]
+
+        summary = multi_metric.summarize()
+
+        assert math.isclose(summary["sum"]["average"], 3.0, rel_tol=1e-5)
+        assert math.isclose(summary["diff"]["average"], 0.0, rel_tol=1e-5)
+        assert math.isclose(summary["sum_sq"]["average"], 5.0, rel_tol=1e-5)
+
+    test_MultiMetricStats()
+
+    def test_Accuracy():
+        from speechbrain.utils.Accuracy import AccuracyStats
+
+        probs = torch.tensor([[0.9, 0.1], [0.1, 0.9], [0.8, 0.2]]).unsqueeze(0)
+
+        stats = AccuracyStats()
+        stats.append(
+            torch.log(probs),
+            torch.tensor([1, 1, 0]).unsqueeze(0),
+            torch.tensor([2 / 3]),
+        )
+
+        acc = stats.summarize()
+
+        assert math.isclose(acc, 0.5, rel_tol=1e-5)
+
+    test_Accuracy()
+
+
+def test_ddp_metrics(tmpdir):
     size = 2
     processes = []
 
     mp.set_start_method("spawn", force=True)
 
     for rank in range(size):
-        p = mp.Process(target=_test_ddp, args=(rank, size))
+        p = mp.Process(target=_test_ddp, args=(tmpdir, rank, size))
         p.start()
         processes.append(p)
 
     for p in processes:
         p.join()
         assert p.exitcode == 0
-
-
-if __name__ == "__main__":
-    test_ddp_metrics()

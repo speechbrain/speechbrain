@@ -57,7 +57,7 @@ class BLEUStats(MetricStats):
         try:
             from sacrebleu.metrics import BLEU
         except ImportError:
-            print(
+            raise ImportError(
                 "Please install sacrebleu (https://pypi.org/project/sacrebleu/) in order to use the BLEU metric"
             )
 
