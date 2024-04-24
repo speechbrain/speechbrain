@@ -77,8 +77,6 @@ In this setup:
 
 In practice, using `torchrun` ensures that the right environment variables are set (`LOCAL_RANK` and `RANK`), so you don't have to bother with it.
 
-Important: By default, our DDP implementation will use `RANK == 0` to determine the main process. If for some reason you need to change this, and use `LOCAL_RANK == 0` (meaning that the first process on each node is the main one), you can set the flag `--main_rank_local` when calling `torchrun`.
-
 #### Multi-node setup with Slurm
 
 If you have access to a compute cluster using Slurm, you can automate this process. We will create two scripts:

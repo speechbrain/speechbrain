@@ -14,7 +14,6 @@ from functools import wraps
 import torch
 
 MAIN_PROC_ONLY: int = 0
-USE_LOCAL_RANK: bool = False
 
 
 def run_on_main(
@@ -77,32 +76,15 @@ def run_on_main(
 
 def if_main_process():
     """Checks if the current process is the main process and authorized to run
-    I/O commands. By default, the main process is the one with `RANK == 0`.
-    If you want to use the local rank as the main process, set the global
-    variable `USE_LOCAL_RANK` to `True` by using the flag `--main_rank_local` in
-    the command line.
-
-    In standard mode, the process will not have `RANK`/`LOCAL_RANK` Unix var and will be
+    I/O commands. The main process is the one with `RANK == 0`. In standard mode,
+    the process will not have `RANK`/`LOCAL_RANK` Unix var and will be
     authorized to run the I/O commands.
     """
-    global USE_LOCAL_RANK
-
-    # By default, the global rank (i.e. `RANK`== 0) is used.
-    # In some cases, the local rank (i.e. `LOCAL_RANK` == 0)
-    # can be used as the main process. For instance, some
-    # compute clusters may have multiples nodes without shared storage.
-    # In this case, the local rank can be used as the main process
-    # to enable I/O operations on each node rather than on a single and main node.
-    if not USE_LOCAL_RANK:
-        env_name = "RANK"
-    else:
-        env_name = "LOCAL_RANK"
-
-    if env_name in os.environ:
-        if os.environ[env_name] == "":
+    if "RANK" in os.environ:
+        if os.environ["RANK"] == "":
             return False
         else:
-            if int(os.environ[env_name]) == 0:
+            if int(os.environ["RANK"]) == 0:
                 return True
             return False
     return True

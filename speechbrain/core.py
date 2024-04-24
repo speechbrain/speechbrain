@@ -89,7 +89,6 @@ run_opt_defaults = {
     "profile_training": False,
     "profile_warmup": 5,
     "profile_steps": 5,
-    "main_rank_local": False,
 }
 
 
@@ -464,14 +463,6 @@ def parse_arguments(arg_list=None):
         type=int,
         help="Number of steps of logging for the profiler",
     )
-    parser.add_argument(
-        "--main_rank_local",
-        default=False,
-        action="store_true",
-        help="This flag is used to modify the behaviour of `if_main_process`. "
-        "If set, the `LOCAL_RANK` is used instead of `RANK` to determine the main process."
-        "This is useful for multi-node training where each node has its own filesystem.",
-    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -493,9 +484,6 @@ def parse_arguments(arg_list=None):
     local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is not None and "cuda" in run_opts["device"]:
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
-
-    # we override the local rank if it is set
-    sb.utils.distributed.USE_LOCAL_RANK = run_opts["main_rank_local"]
 
     return param_file, run_opts, overrides
 
@@ -1005,10 +993,10 @@ class Brain:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
         # This commented-out code block is useful when one can ensure
         # metric reporting is DDP-valid for VALID & EVAL datasets.
-        # elif self.distributed_launch:
-        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
-        #         self.distributed_launch, self.rank, dataset, loader_kwargs
-        #     )
+        elif self.distributed_launch:
+            loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+                self.distributed_launch, self.rank, dataset, loader_kwargs
+            )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
