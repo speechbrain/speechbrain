@@ -10,6 +10,7 @@ Authors
  * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
  * Sylvain de Langen 2022
+ * Adel Moumen 2024
 """
 
 import csv
@@ -20,6 +21,7 @@ import os
 import pickle
 import re
 import time
+from typing import Union, List, Dict
 
 import numpy as np
 import torch
@@ -31,7 +33,7 @@ check_torchaudio_backend()
 logger = logging.getLogger(__name__)
 
 
-def load_data_json(json_path, replacements={}):
+def load_data_json(json_path: str, replacements: Dict = {}, target_columns: Union[List, None] = None):
     """Loads JSON and recursively formats string values.
 
     Arguments
@@ -41,6 +43,9 @@ def load_data_json(json_path, replacements={}):
     replacements : dict
         (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}.
         This is used to recursively format all string values in the data.
+    target_columns : (Optional list), default: None
+        List of column/key names where replacements should be applied. 
+        If None, replacements will be applied to all columns.
 
     Returns
     -------
@@ -66,32 +71,34 @@ def load_data_json(json_path, replacements={}):
     """
     with open(json_path, "r") as f:
         out_json = json.load(f)
-    _recursive_format(out_json, replacements)
+    _recursive_format(out_json, replacements, target_columns)
     return out_json
 
 
-def _recursive_format(data, replacements):
+def _recursive_format(data, replacements, target_columns=None):
     # Data: dict or list, replacements : dict
     # Replaces string keys in replacements by their values
     # at all levels of data (in str values)
     # Works in-place.
     if isinstance(data, dict):
         for key, item in data.items():
-            if isinstance(item, dict) or isinstance(item, list):
-                _recursive_format(item, replacements)
-            elif isinstance(item, str):
-                data[key] = item.format_map(replacements)
-            # If not dict, list or str, do nothing
+            if target_columns is None or key in target_columns:
+                if isinstance(item, dict) or isinstance(item, list):
+                    _recursive_format(item, replacements)
+                elif isinstance(item, str):
+                    data[key] = item.format_map(replacements)
+                # If not dict, list or str, do nothing
     if isinstance(data, list):
         for i, item in enumerate(data):
-            if isinstance(item, dict) or isinstance(item, list):
-                _recursive_format(item, replacements)
-            elif isinstance(item, str):
-                data[i] = item.format_map(replacements)
-            # If not dict, list or str, do nothing
+            if target_columns is None or i in target_columns:
+                if isinstance(item, dict) or isinstance(item, list):
+                    _recursive_format(item, replacements)
+                elif isinstance(item, str):
+                    data[i] = item.format_map(replacements)
+                # If not dict, list or str, do nothing
 
 
-def load_data_csv(csv_path, replacements={}):
+def load_data_csv(csv_path: str, replacements: Dict = {}, target_columns: Union[List, None] = None):
     """Loads CSV and formats string values.
 
     Uses the SpeechBrain legacy CSV data format, where the CSV must have an
@@ -109,6 +116,9 @@ def load_data_csv(csv_path, replacements={}):
     replacements : dict
         (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}
         This is used to recursively format all string values in the data.
+    target_columns : (Optional list), default: None
+        List of column/key names where replacements should be applied. 
+        If None, replacements will be applied to all columns.
 
     Returns
     -------
@@ -147,15 +157,16 @@ def load_data_csv(csv_path, replacements={}):
                 raise ValueError(f"Duplicate id: {data_id}")
             # Replacements:
             for key, value in row.items():
-                try:
-                    row[key] = variable_finder.sub(
-                        lambda match: str(replacements[match[1]]), value
-                    )
-                except KeyError:
-                    raise KeyError(
-                        f"The item {value} requires replacements "
-                        "which were not supplied."
-                    )
+                if target_columns is None or key in target_columns:
+                    try:
+                        row[key] = variable_finder.sub(
+                            lambda match: str(replacements[match[1]]), value
+                        )
+                    except KeyError:
+                        raise KeyError(
+                            f"The item {value} requires replacements "
+                            "which were not supplied."
+                        )
             # Duration:
             if "duration" in row:
                 row["duration"] = float(row["duration"])
