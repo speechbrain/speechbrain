@@ -365,7 +365,7 @@ Target: C
 
         assert math.isclose(summary["semdist"], 15.41, rel_tol=0.01)
 
-    # test_SemDistStats()
+    test_SemDistStats()
 
     def test_BleuStats():
         from speechbrain.utils.bleu import BLEUStats
@@ -427,7 +427,7 @@ Target: C
         )
         assert math.isclose(summary["bertscore-f1"], 0.9044, rel_tol=0.01)
 
-    # test_BERTScoreStats()
+    test_BERTScoreStats()
 
     def test_MultiMetricStats():
         from speechbrain.utils.metric_stats import MultiMetricStats
