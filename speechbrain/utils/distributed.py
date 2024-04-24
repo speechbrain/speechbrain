@@ -18,55 +18,11 @@ from speechbrain.utils.distributed_utils import recursively_apply
 MAIN_PROC_ONLY = 0
 
 
-class DistributedState:
-    """
-    Singleton class that has information about the current training environment and functions to help with process
-    control.
-    """
-
-    _shared_state = dict()
-
-    def __init__(self, device: str = "cpu", distributed_backend=None):
-        self.__dict__ = self._shared_state
-
-        if not self.initialized:
-            self.device = device
-            self.distributed_backend = distributed_backend
-
-            if self.distributed_backend is None:
-                self.num_processes = 1
-                self.process_index = 0
-                self.local_process_index = 0
-            else:
-                self.num_processes = torch.distributed.get_world_size()
-                self.process_index = torch.distributed.get_rank()
-                self.local_process_index = int(os.environ.get("LOCAL_RANK", -1))
-
-    def __repr__(self) -> str:
-        return (
-            f"Distributed environment: {('  Backend: ' + self.distributed_backend) if self.distributed_backend else ''}\n"
-            f"Num processes: {self.num_processes}\n"
-            f"Process index: {self.process_index}\n"
-            f"Local process index: {self.local_process_index}\n"
-            f"Device: {self.device}\n"
-        )
-
-    @staticmethod
-    def _reset_state():
-        "Resets `_shared_state`, is used internally and should not be called"
-        DistributedState._shared_state.clear()
-
-    @property
-    def initialized(self) -> bool:
-        "Returns whether the `DistributedState` has been initialized"
-        return self._shared_state != {}
-
-    @property
-    def use_distributed(self):
-        """
-        Whether the Trainer is configured for distributed training
-        """
-        return self.num_processes > 1
+def distributed_is_initialized() -> bool:
+    """Check if the distributed environment is initialized."""
+    return (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    )
 
 
 def run_on_main(
@@ -301,10 +257,9 @@ def reduce(tensor, reduction="mean"):
     """
 
     def _reduce_across_processes(tensor, reduction="mean"):
-        state = DistributedState()
         cloned_tensor = tensor.clone()
 
-        if not state.use_distributed:
+        if not distributed_is_initialized():
             return cloned_tensor
         else:
             from torch.distributed import ReduceOp
@@ -313,7 +268,7 @@ def reduce(tensor, reduction="mean"):
 
         # we cannot use 'ReduceOp.AVG` since it is unavailable for gloo backend
         if reduction == "mean":
-            cloned_tensor /= state.num_processes
+            cloned_tensor /= torch.distributed.get_world_size()
 
         return cloned_tensor
 

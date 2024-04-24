@@ -5,7 +5,6 @@ import torch.multiprocessing as mp
 import torch.nn
 
 import speechbrain as sb
-from speechbrain.utils.distributed import DistributedState
 
 
 def test_reduce(device):
@@ -31,8 +30,6 @@ def _test_reduce_ddp(rank, size, backend="gloo"):  # noqa
     run_opts["distributed_backend"] = backend
 
     sb.utils.distributed.ddp_init_group(run_opts)
-
-    DistributedState(device="cpu", distributed_backend=backend)
 
     # test reduce
     tensor = torch.arange(2) + 1 + 2 * rank
@@ -66,3 +63,7 @@ def test_ddp_reduce():
     for p in processes:
         p.join()
         assert p.exitcode == 0
+
+
+if __name__ == "__main__":
+    test_ddp_reduce()

@@ -14,7 +14,7 @@ from typing import Any
 import torch
 from packaging import version
 
-from speechbrain.utils.distributed import DistributedState
+from speechbrain.utils.distributed import distributed_is_initialized
 from speechbrain.utils.distributed_utils import recursively_apply
 
 
@@ -28,7 +28,6 @@ def _gpu_gather_object(object: Any):
 
 def _gpu_gather(tensor):
     """Gathers a tensor from all processes and returns a tensor containing the gathered tensors."""
-    state = DistributedState()
     if version.parse(torch.__version__) >= version.parse("1.13"):
         gather_op = torch.distributed.all_gather_into_tensor
     else:
@@ -43,8 +42,8 @@ def _gpu_gather(tensor):
             tensor = tensor.contiguous()
 
         if (
-            state.distributed_backend is not None
-            and state.distributed_backend != "gloo"
+            distributed_is_initialized()
+            and torch.distributed.get_backend() != "gloo"
         ):
             # We use `empty` as `all_gather_into_tensor` slightly
             # differs from `all_gather` for better efficiency,
@@ -61,7 +60,8 @@ def _gpu_gather(tensor):
             # Gloo backend does not support `all_gather_into_tensor`,
             # which will result in a larger memory overhead for the op
             output_tensors = [
-                torch.empty_like(tensor) for _ in range(state.num_processes)
+                torch.empty_like(tensor)
+                for _ in range(torch.distributed.get_world_size())
             ]
             torch.distributed.all_gather(output_tensors, tensor)
             return torch.cat(output_tensors, dim=0)
@@ -93,7 +93,7 @@ def gather(tensor):
     >>> sync_tensor  # doctest: +SKIP
     tensor([1, 2, 3, 4]) # Rank 0 and 1 combined
     """
-    if DistributedState().use_distributed:
+    if distributed_is_initialized():
         return _gpu_gather(tensor)
     else:
         return tensor
@@ -111,7 +111,7 @@ def gather_object(object: Any):
     -------
         The same data structure as `object` with all the objects sent to every device.
     """
-    if DistributedState().use_distributed:
+    if distributed_is_initialized():
         return _gpu_gather_object(object)
     else:
         return object

@@ -6,7 +6,6 @@ import torch.multiprocessing as mp
 import torch.nn
 
 import speechbrain as sb
-from speechbrain.utils.distributed import DistributedState
 
 
 def _test_ddp(rank, size, backend="gloo"):  # noqa
@@ -22,8 +21,6 @@ def _test_ddp(rank, size, backend="gloo"):  # noqa
     run_opts["distributed_backend"] = backend
 
     sb.utils.distributed.ddp_init_group(run_opts)
-
-    DistributedState(device="cpu", distributed_backend=backend)
 
     def test_gather_tensor():
         tensor = torch.tensor([rank])
@@ -347,3 +344,7 @@ def test_ddp_metrics():
     for p in processes:
         p.join()
         assert p.exitcode == 0
+
+
+if __name__ == "__main__":
+    test_ddp_metrics()
