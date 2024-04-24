@@ -36,9 +36,11 @@ def _test_ddp(rank, size, backend="gloo"):  # noqa
     test_gather_tensor()
 
     def test_gather_object_list():
-        obj = [{"rank": rank}]
+        obj = [{"rank": rank, "tensor": torch.tensor([rank])}]
         gathered = sb.utils.distributed_metrics.gather_object(obj)
-        assert gathered == [{"rank": i} for i in range(size)]
+        assert gathered == [
+            {"rank": i, "tensor": torch.tensor([i])} for i in range(size)
+        ]
 
         obj = [{"test": [{"rank": rank}]}]
         gathered = sb.utils.distributed_metrics.gather_object(obj)
