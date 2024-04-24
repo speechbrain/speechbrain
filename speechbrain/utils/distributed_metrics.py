@@ -110,6 +110,16 @@ def gather_object(object: Any):
     Returns
     -------
         The same data structure as `object` with all the objects sent to every device.
+
+    Example
+    -------
+    >>> obj = [{"rank": rank, "tensor": torch.tensor([rank])}]  # doctest: +SKIP
+    >>> obj  # doctest: +SKIP
+    [{'rank': 0, 'tensor': tensor([0])}] # Rank 0
+    [{'rank': 1, 'tensor': tensor([1])}] # Rank 1
+    >>> sync_obj = gather_object(obj)  # doctest: +SKIP
+    >>> sync_obj  # doctest: +SKIP
+    [{'rank': 0, 'tensor': tensor([0])}, {'rank': 1, 'tensor': tensor([1])}] # Rank 0 and 1 combined
     """
     if distributed_is_initialized():
         return _gpu_gather_object(object)
