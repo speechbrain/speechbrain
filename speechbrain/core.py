@@ -993,10 +993,10 @@ class Brain:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
         # This commented-out code block is useful when one can ensure
         # metric reporting is DDP-valid for VALID & EVAL datasets.
-        elif self.distributed_launch:
-            loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
-                self.distributed_launch, self.rank, dataset, loader_kwargs
-            )
+        # elif self.distributed_launch:
+        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+        #         self.distributed_launch, self.rank, dataset, loader_kwargs
+        #     )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )

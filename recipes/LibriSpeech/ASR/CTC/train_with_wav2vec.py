@@ -144,8 +144,6 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
-            print(self.wer_metric)
-            exit()
 
         if stage == sb.Stage.TEST:
             if hasattr(self.hparams, "rescorer"):
