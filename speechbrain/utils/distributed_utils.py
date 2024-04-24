@@ -9,9 +9,24 @@ Authors:
  * Adel Moumen 2024
 """
 
-from typing import Mapping
+from typing import Mapping, Union
 
 import torch
+
+
+def get_distributed_backend() -> Union[str, None]:
+    """Get the distributed backend."""
+    if distributed_is_initialized():
+        return torch.distributed.get_backend()
+    else:
+        return None
+
+
+def distributed_is_initialized() -> bool:
+    """Check if the distributed environment is initialized."""
+    return (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    )
 
 
 def is_torch_tensor(tensor):

@@ -14,15 +14,18 @@ from typing import Any
 import torch
 from packaging import version
 
-from speechbrain.utils.distributed import distributed_is_initialized
-from speechbrain.utils.distributed_utils import recursively_apply
+from speechbrain.utils.distributed_utils import (
+    distributed_is_initialized,
+    get_distributed_backend,
+    recursively_apply,
+)
 
 
 def _gpu_gather_object(object: Any):
     """Gathers an object from all processes and returns a list containing the object from each process."""
     output_objects = [None for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather_object(output_objects, object)
-    # all_gather_object returns a list of lists, so we need to flatten it
+    # `all_gather_object` returns a list of lists, so we need to flatten it
     return [x for y in output_objects for x in y]
 
 
@@ -41,10 +44,7 @@ def _gpu_gather(tensor):
         if not tensor.is_contiguous():
             tensor = tensor.contiguous()
 
-        if (
-            distributed_is_initialized()
-            and torch.distributed.get_backend() != "gloo"
-        ):
+        if get_distributed_backend() != "gloo":
             # We use `empty` as `all_gather_into_tensor` slightly
             # differs from `all_gather` for better efficiency,
             # and we rely on the number of items in the tensor

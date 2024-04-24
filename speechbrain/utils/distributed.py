@@ -13,16 +13,12 @@ from functools import wraps
 
 import torch
 
-from speechbrain.utils.distributed_utils import recursively_apply
+from speechbrain.utils.distributed_utils import (
+    distributed_is_initialized,
+    recursively_apply,
+)
 
 MAIN_PROC_ONLY = 0
-
-
-def distributed_is_initialized() -> bool:
-    """Check if the distributed environment is initialized."""
-    return (
-        torch.distributed.is_available() and torch.distributed.is_initialized()
-    )
 
 
 def run_on_main(
