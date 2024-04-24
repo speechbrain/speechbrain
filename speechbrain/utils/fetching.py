@@ -8,16 +8,14 @@ Authors:
 
 import logging
 import pathlib
+import shutil
 import urllib.error
 import urllib.request
-import urllib.error
-import pathlib
-import shutil
-import logging
+from collections import namedtuple
 from enum import Enum
+
 import huggingface_hub
 from requests.exceptions import HTTPError
-from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 

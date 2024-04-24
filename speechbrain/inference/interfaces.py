@@ -32,7 +32,7 @@ from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import fetch, LocalStrategy
+from speechbrain.utils.fetching import LocalStrategy, fetch
 from speechbrain.utils.superpowers import import_from_path
 
 logger = logging.getLogger(__name__)
