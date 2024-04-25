@@ -42,7 +42,10 @@ def load_data_json(json_path: str, replacements: Dict[str, str] = {}, target_col
         Path to CSV file.
     replacements : dict
         (Optional dict), e.g., {"data_folder": "/home/speechbrain/data"}.
-        This is used to recursively format all string values in the data.
+        Replacements will replace text of the form `{key}` with the
+        associated value.
+        Replacements are applied recursively to all nested values in the
+        input. This excludes keys in dictionaries.
     target_columns : (Optional list), default: None
         List of column/key names where replacements should be applied. 
         If None, replacements will be applied to all columns.
