@@ -217,7 +217,7 @@ class Separation(sb.Brain):
                                 self.nonfinite_count
                             )
                         )
-                        loss.data = torch.tensor(0).to(self.device)
+                        loss.data = torch.tensor(0.).to(self.device)
 
             else:
                 # get the oracle snrs, estimated snrs, and the source estimates
@@ -245,7 +245,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.).to(self.device)
 
         self.optimizer.zero_grad()
 

@@ -183,7 +183,7 @@ class Enhancement(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.).to(self.device)
             else:
                 predictions, clean = self.compute_forward(
                     noisy, clean, sb.Stage.TRAIN, noise
@@ -215,7 +215,7 @@ class Enhancement(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
