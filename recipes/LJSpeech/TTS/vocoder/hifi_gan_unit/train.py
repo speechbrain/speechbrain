@@ -380,7 +380,7 @@ class HifiGanBrain(sb.Brain):
         """
         target_path = pl.Path(self.hparams.progress_sample_path) / str(epoch)
         target_path.mkdir(parents=True, exist_ok=True)
-        file_name = target_path / f"{name}.wav"
+        file_name = str(target_path / f"{name}.wav")
         torchaudio.save(file_name, data.cpu(), 16000)
 
 
