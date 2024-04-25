@@ -18,7 +18,7 @@ from speechbrain.utils.distributed_utils import (
     recursively_apply,
 )
 
-MAIN_PROC_ONLY = 0
+MAIN_PROC_ONLY: int = 0
 
 
 def run_on_main(
@@ -80,10 +80,9 @@ def run_on_main(
 
 
 def if_main_process():
-    """Checks if the current process is the main local process and authorized to run
-    I/O commands. In DDP mode, the main local process is the one with LOCAL_RANK == 0.
-    In standard mode, the process will not have `LOCAL_RANK` Unix var and will be
-    authorized to run the I/O commands.
+    """Checks if the current process is the main process and authorized to run
+    I/O commands. The main process is the one with `RANK == 0`. In standard mode,
+    the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
     """
     if "RANK" in os.environ:
         if os.environ["RANK"] == "":
