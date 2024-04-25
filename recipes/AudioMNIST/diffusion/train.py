@@ -178,7 +178,7 @@ class DiffusionBrain(sb.Brain):
             pred, noise, noisy_sample = train_sample_diffusion
         else:
             pred, noise, noisy_sample = self.modules.diffusion.train_sample(
-                feats, lens=lens, cond_emb=cond_emb
+                feats, cond_emb=cond_emb
             )
 
         pred_done, feats_done, lens_done = None, None, None
