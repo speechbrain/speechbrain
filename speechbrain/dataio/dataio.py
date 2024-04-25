@@ -33,7 +33,7 @@ check_torchaudio_backend()
 logger = logging.getLogger(__name__)
 
 
-def load_data_json(json_path: str, replacements: Dict = {}, target_columns: Union[List, None] = None):
+def load_data_json(json_path: str, replacements: Dict[str, str] = {}, target_columns: Union[List, None] = None):
     """Loads JSON and recursively formats string values.
 
     Arguments
