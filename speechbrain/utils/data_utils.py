@@ -374,15 +374,11 @@ def download_file(
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
                 # shutil unpack_archive does not work with tar.gz files
-                if (
-                    source.endswith(".tar.gz")
-                    or source.endswith(".tgz")
-                    or source.endswith(".gz")
-                ):
-                    out = dest.replace(".gz", "")
-                    with gzip.open(dest, "rb") as f_in:
-                        with open(out, "wb") as f_out:
-                            shutil.copyfileobj(f_in, f_out)
+                if source.endswith((".tar.gz", ".tgz", ".gz")):
+                    import tarfile
+                    tar = tarfile.open(dest, "r:gz")
+                    tar.extractall(dest_unpack, filter='data')
+                    tar.close()
                 else:
                     shutil.unpack_archive(dest, dest_unpack)
                 if write_permissions:
