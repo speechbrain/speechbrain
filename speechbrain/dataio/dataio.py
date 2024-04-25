@@ -101,7 +101,7 @@ def _recursive_format(data, replacements, target_columns=None):
                 # If not dict, list or str, do nothing
 
 
-def load_data_csv(csv_path: str, replacements: Dict = {}, target_columns: Union[List, None] = None):
+def load_data_csv(csv_path: str, replacements: Dict[str, str] = {}, target_columns: Union[List, None] = None):
     """Loads CSV and formats string values.
 
     Uses the SpeechBrain legacy CSV data format, where the CSV must have an
