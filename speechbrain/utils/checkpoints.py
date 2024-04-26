@@ -46,6 +46,7 @@ Example
 
 Authors
  * Aku Rouhe 2020
+ * Adel Moumen 2024
 """
 
 import collections
@@ -57,6 +58,7 @@ import pathlib
 import shutil
 import time
 import warnings
+from typing import Dict
 
 import torch
 import yaml
@@ -76,6 +78,27 @@ CKPT_PREFIX = "CKPT"
 METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
 PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 
+# Some keys names change between versions, so we need to map them
+# to the correct key names.
+STATE_KEY_MAPPING: Dict[str, str] = {
+    "mutihead_attn": "multihead_attn",
+}
+
+
+def _modify_state_dict(state_dict):
+    """Modifies the state_dict to match the current key names stored in `STATE_KEY_MAPPING`"""
+    for key in list(state_dict.keys()):
+        for state_key in STATE_KEY_MAPPING:
+            if state_key in key:
+                old_state = state_dict.pop(key)
+                new_key = key.replace(state_key, STATE_KEY_MAPPING[state_key])
+                state_dict[new_key] = old_state
+                warnings.warn(
+                    f"Key {key} has been renamed to {new_key} in the state_dict."
+                    "Make sure to update your model's state_dict."
+                )
+    return state_dict
+
 
 def torch_recovery(obj, path, end_of_epoch):
     """Loads a torch.nn.Module state_dict from the given path instantly.
@@ -94,10 +117,13 @@ def torch_recovery(obj, path, end_of_epoch):
     """
     del end_of_epoch  # Unused
     device = "cpu"
+
+    state_dict = torch.load(path, map_location=device)
+    state_dict = _modify_state_dict(state_dict)
     try:
-        obj.load_state_dict(torch.load(path, map_location=device), strict=True)
+        obj.load_state_dict(state_dict, strict=True)
     except TypeError:
-        obj.load_state_dict(torch.load(path, map_location=device))
+        obj.load_state_dict(state_dict)
 
 
 @main_process_only
@@ -1247,4 +1273,7 @@ def average_checkpoints(
         parameter_loader(ckpt.paramfiles[recoverable_name], map_location=device)
         for ckpt in checkpoint_list
     )
-    return averager(parameter_iterator)
+    avg_ckpt = averager(parameter_iterator)
+    avg_ckpt = _modify_state_dict(avg_ckpt)
+
+    return avg_ckpt
