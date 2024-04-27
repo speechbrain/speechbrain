@@ -11,7 +11,6 @@ import torch
 import torch.nn.functional as F
 from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
-from icecream import ic
 from interpreter_brain import InterpreterBrain
 from wham_prepare import combine_batches, prepare_wham
 
@@ -182,9 +181,7 @@ class L2I(InterpreterBrain):
                 X_stft_logpower.device
             )
             tmp, _ = self.interpret_computation_steps(wavs)  # returns log1p
-            ic(tmp.shape)
             interpretations = torch.expm1(tmp).transpose(2, 1)
-            ic(interpretations.shape)
 
             if self.hparams.use_melspectra_log1p:
                 interpretations = self.hparams.compute_fbank(interpretations)
@@ -229,7 +226,7 @@ class L2I(InterpreterBrain):
         self.acc_metric.append(
             uttid,
             predict=classification_out,
-            length=lens,
+            # length=lens,
             target=classid,
         )
 

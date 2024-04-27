@@ -168,42 +168,22 @@ class InterpreterBrain(sb.core.Brain):
         """Steps taken before stage start."""
 
         @torch.no_grad()
-        def accuracy_value(predict, target, length):
-            """Computes accuracy."""
-            nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
-                predict.unsqueeze(1), target, length
-            )
-            acc = torch.tensor([nbr_correct / nbr_total])
-            return acc
-
-        @torch.no_grad()
         def compute_fidelity(theta_out, predictions):
-            """Computes top-k fidelity of interpreter."""
-            predictions = F.softmax(predictions, dim=1)
-            theta_out = F.softmax(theta_out, dim=1)
-
+            """Computes top-`k` fidelity of interpreter."""
             pred_cl = torch.argmax(predictions, dim=1)
-            k_top = torch.argmax(theta_out, dim=1)
+            k_top = torch.topk(theta_out, k=1, dim=1)[1]
 
             # 1 element for each sample in batch, is 0 if pred_cl is in top k
-            temp = (k_top == pred_cl).float()
+            temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
 
             return temp
 
         @torch.no_grad()
-        def compute_faithfulness(wavs, predictions):
-            """Computes the faithfulness metric."""
-            X2 = self.interpret_computation_steps(wavs)[0]
-
-            _, _, predictions_masked, _ = self.classifier_forward(X2)
-
-            predictions = F.softmax(predictions, dim=1)
-            predictions_masked = F.softmax(predictions_masked, dim=1)
-
-            # Get the prediction indices
+        def compute_faithfulness(predictions, predictions_masked):
+            # get the prediction indices
             pred_cl = predictions.argmax(dim=1, keepdim=True)
 
-            # Get the corresponding output probabilities
+            # get the corresponding output probabilities
             predictions_selected = torch.gather(
                 predictions, dim=1, index=pred_cl
             )
@@ -213,36 +193,71 @@ class InterpreterBrain(sb.core.Brain):
 
             faithfulness = (
                 predictions_selected - predictions_masked_selected
-            ).squeeze(1)
+            ).squeeze()
 
             return faithfulness
 
         @torch.no_grad()
-        def compute_rec_error(preds, specs, length=None):
-            """Computes the reconstruction error."""
-            if self.hparams.use_mask_output:
-                preds = specs * preds
+        def compute_AD(theta_out, predictions):
+            """Computes top-`k` fidelity of interpreter."""
+            predictions = F.softmax(predictions, dim=1)
+            theta_out = F.softmax(theta_out, dim=1)
 
-            return (specs - preds).pow(2).mean((-2, -1))
+            pc = torch.gather(
+                predictions, dim=1, index=predictions.argmax(1, keepdim=True)
+            ).squeeze()
+            oc = torch.gather(
+                theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
+            ).squeeze()
+
+            # 1 element for each sample in batch, is 0 if pred_cl is in top k
+            temp = (F.relu(pc - oc) / (pc + eps)) * 100
+
+            return temp
 
         @torch.no_grad()
-        def compute_bern_ll(xhat, target_mask, length=None):
-            """Computes Bernoulli likelihood."""
-            eps = 1e-10
-            rec_loss = (
-                -target_mask * torch.log(xhat + eps)
-                - (1 - target_mask) * torch.log(1 - xhat + eps)
-            ).mean((-2, -1))
-            return rec_loss
+        def compute_AI(theta_out, predictions):
+            """Computes top-`k` fidelity of interpreter."""
+            pc = torch.gather(
+                predictions, dim=1, index=predictions.argmax(1, keepdim=True)
+            ).squeeze()
+            oc = torch.gather(
+                theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
+            ).squeeze()
 
+            # 1 element for each sample in batch, is 0 if pred_cl is in top k
+            temp = (pc < oc).float() * 100
+
+            return temp
+
+        @torch.no_grad()
+        def compute_AG(theta_out, predictions):
+            """Computes top-`k` fidelity of interpreter."""
+            pc = torch.gather(
+                predictions, dim=1, index=predictions.argmax(1, keepdim=True)
+            ).squeeze()
+            oc = torch.gather(
+                theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
+            ).squeeze()
+
+            # 1 element for each sample in batch, is 0 if pred_cl is in top k
+            temp = (F.relu(oc - pc) / (1 - pc + eps)) * 100
+
+            return temp
+
+        @torch.no_grad()
+        def accuracy_value(predict, target):
+            """Computes Accuracy"""
+            predict = predict.argmax(1)
+
+            return (predict.unsqueeze(1) == target).float().squeeze()
+
+        self.AD = MetricStats(metric=compute_AD)
+        self.AI = MetricStats(metric=compute_AI)
+        self.AG = MetricStats(metric=compute_AG)
         self.inp_fid = MetricStats(metric=compute_fidelity)
         self.faithfulness = MetricStats(metric=compute_faithfulness)
-        self.acc_metric = sb.utils.metric_stats.MetricStats(
-            metric=accuracy_value, n_jobs=1
-        )
-        self.recons_err = sb.utils.metric_stats.MetricStats(
-            metric=compute_rec_error
-        )
+        self.acc_metric = MetricStats(metric=accuracy_value)
 
         for metric_name, metric_fn in self.extra_metrics():
             setattr(
