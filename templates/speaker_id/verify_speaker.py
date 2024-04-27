@@ -5,7 +5,7 @@ To run this script, execute the following (for example) on the command line:
 > python verify_speaker.py sample1.wav sample2.wav results/4234/save
 
 NOTE: If you changed the hparams in train.yaml, especially w.r.t STFT or
-the enhancement model, make sure the hparams in inference.yaml are the same.
+the verification model, make sure the hparams in inference.yaml are the same.
 
 Authors
  * Peter Plantinga 2024
