@@ -17,6 +17,17 @@ from speechbrain.inference.ASR import EncoderDecoderASR
 
 
 def link_file(filename, source_dir, target_dir):
+    """Create a symbolic link for file between two directories
+
+    Arguments
+    ---------
+    filename : str
+        The name of the file to link
+    source_dir : str
+        The directory containing the source file
+    target_dir : str
+        The directory to put the link into
+    """
     source_path = os.path.join(source_dir, filename)
     target_path = os.path.join(target_dir, filename)
     if os.path.lexists(target_path):
