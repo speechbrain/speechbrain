@@ -219,7 +219,7 @@ class L2I(InterpreterBrain):
                 self.hparams.classifier(embeddings).squeeze(1).softmax(1)
             )
 
-        # self.l2i_fid.append(uttid, theta_out, classid)
+        self.l2i_fid.append(uttid, theta_out, classid)
         self.inp_fid.append(uttid, maskin_preds, classid)
 
         self.acc_metric.append(
@@ -252,13 +252,13 @@ class L2I(InterpreterBrain):
         X_stft_logpower = X_stft_logpower[:, : reconstructions.shape[1], :]
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
-        # self.recons_err.append(uttid, loss_nmf)
+        self.recons_err.append(uttid, loss_nmf)
 
         loss_nmf = self.hparams.alpha * loss_nmf
-        # prev = loss_nmf.clone().detach()
+        prev = loss_nmf.clone().detach()
 
         loss_nmf += self.hparams.beta * (time_activations).abs().mean()
-        # self.reg_loss.append(uttid, loss_nmf - prev)
+        self.reg_loss.append(uttid, loss_nmf - prev)
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -273,9 +273,27 @@ class L2I(InterpreterBrain):
             * theta_out
         ).mean()
 
-        # self.fid_loss.append(uttid, loss_fdi)
+        self.fid_loss.append(uttid, loss_fdi)
 
         return loss_nmf + loss_fdi
+
+    def extra_metrics(self):
+        @torch.no_grad()
+        def l2i_fid(predict, target):
+            """Computes Accuracy"""
+            predict = predict.argmax(1)
+            return (predict.unsqueeze(1) == target).float().squeeze()
+
+        @torch.no_grad()
+        def save(x):
+            return x[None]
+
+        return {
+            "l2i_fid": l2i_fid,
+            "recons_err": save,
+            "reg_loss": save,
+            "fid_loss": save,
+        }
 
 
 if __name__ == "__main__":
