@@ -282,9 +282,6 @@ class InterpreterBrain(sb.core.Brain):
                 "acc": self.acc_metric.summarize("average"),
             }
 
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            return
-
         if stage == sb.Stage.VALID:
             current_fid = torch.Tensor(self.inp_fid.scores).mean()
             old_lr, new_lr = self.hparams.lr_annealing(
