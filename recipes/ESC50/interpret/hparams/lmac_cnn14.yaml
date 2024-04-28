@@ -20,10 +20,6 @@ sample: ""
 true_target: False
 
 dataset: "esc50"
-mrt: False
-mrt_layer: 6
-exp_method: "saliency"
-eval_outdir: ""
 
 l_in_w: 4
 l_out_w: 0.2
@@ -38,7 +34,7 @@ finetuning: False
 guidelosstype: binary
 crosscortype: 'dotp'
 
-experiment_name: stft2mel-cnn14
+experiment_name: LMAC_cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
