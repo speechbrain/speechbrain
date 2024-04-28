@@ -76,7 +76,7 @@ def combine_batches(clean, noise_loader):
 
 def prepare_wham(hparams):
     """Creates WHAM! dataset when needed."""
-    if not "wham_folder" in hparams:
+    if "wham_folder" not in hparams:
         return None
 
     if hparams["wham_folder"] is None:
