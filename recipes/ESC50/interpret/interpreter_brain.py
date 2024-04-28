@@ -92,8 +92,12 @@ class InterpreterBrain(sb.core.Brain):
             else:
                 raise NotImplementedError
         else:
-            hcat = self.hparams.embedding_model(X_stft_logpower)
-            embeddings = hcat.mean((-1, -2))
+            if hasattr(self.hparams, "return_reps"):
+                embeddings, hs = self.hparams.embedding_model(X_stft_logpower)
+                hcat = hs
+            else:
+                hcat = self.hparams.embedding_model(X_stft_logpower)
+                embeddings = hcat.mean((-1, -2))
 
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)

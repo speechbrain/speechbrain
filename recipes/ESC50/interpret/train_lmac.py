@@ -1,27 +1,22 @@
 #!/usr/bin/python3
-"""This recipe to train PIQ to interpret audio classifiers.
+"""This recipe to train L-MAC to interpret audio classifiers.
 
 Authors
-    * Cem Subakan 2022, 2023, 2024
-    * Francesco Paissan 2022, 2023, 2024
+    * Francesco Paissan 2024
+    * Cem Subakan 2024
 """
-import os
 import sys
-from os import makedirs
 
-import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
-import torchaudio
-from esc50_prepare import prepare_esc50
+from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
-from urbansound8k_prepare import prepare_urban_sound_8k
+from interpreter_brain import InterpreterBrain
 from wham_prepare import combine_batches
 
 import speechbrain as sb
 from speechbrain.processing.NMF import spectral_phase
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
 
@@ -38,67 +33,15 @@ def tv_loss(mask, tv_weight=1, power=2, border_penalty=0.3):
     return loss
 
 
-class InterpreterESC50Brain(sb.core.Brain):
-    """Class for sound class embedding training" """
-
-    def invert_stft_with_phase(self, X_int, X_stft_phase):
-        """Inverts STFT spectra given phase."""
-        X_stft_phase_sb = torch.cat(
-            (
-                torch.cos(X_stft_phase).unsqueeze(-1),
-                torch.sin(X_stft_phase).unsqueeze(-1),
-            ),
-            dim=-1,
-        )
-
-        X_stft_phase_sb = X_stft_phase_sb[:, : X_int.shape[1], :, :]
-        if X_int.ndim == 3:
-            X_int = X_int.unsqueeze(-1)
-        X_wpsb = X_int * X_stft_phase_sb
-        x_int_sb = self.modules.compute_istft(X_wpsb)
-
-        return x_int_sb
-
-    def preprocess(self, wavs):
-        """Pre-process wavs."""
-        X_stft = self.modules.compute_stft(wavs)
-        X_stft_power = sb.processing.features.spectral_magnitude(
-            X_stft, power=self.hparams.spec_mag_power
-        )
-
-        if not self.hparams.use_melspectra:
-            X_stft_logpower = torch.log1p(X_stft_power)
-        else:
-            X_stft_power = self.hparams.compute_fbank(X_stft_power)
-            X_stft_logpower = torch.log1p(X_stft_power)
-
-        return X_stft_logpower, X_stft, X_stft_power
-
-    def classifier_forward(self, X_stft_logpower):
-        """The forward pass for the classifier"""
-        if self.hparams.use_stft2mel:
-            X_in = torch.expm1(X_stft_logpower)
-            X_stft_logpower = self.hparams.compute_fbank(X_in)
-            X_stft_logpower = torch.log1p(X_stft_logpower)
-
-        if hasattr(self.hparams, "return_reps"):
-            embeddings, hs = self.hparams.embedding_model(X_stft_logpower)
-            hcat = hs
-        else:
-            hcat = self.hparams.embedding_model(X_stft_logpower)
-            embeddings = hcat.mean((-1, -2))
-        predictions = self.hparams.classifier(embeddings).squeeze(1)
-        class_pred = predictions.argmax(1)
-
-        return hcat, embeddings, predictions, class_pred
+class LMAC(InterpreterBrain):
 
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram"""
-        X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
         X_stft_phase = spectral_phase(X_stft)
 
         hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_stft_logpower
+            X_mel
         )
         if print_probability:
             predictions = F.softmax(predictions, dim=1)
@@ -116,232 +59,10 @@ class InterpreterESC50Brain(sb.core.Brain):
         if self.hparams.use_mask_output:
             xhat = F.sigmoid(xhat)
             X_int = xhat * X_stft_logpower[:, :Tmax, :]
-        else:
-            xhat = F.softplus(xhat)
-            th = xhat.max() * self.hparams.mask_th
-            X_int = (xhat > th) * X_stft_logpower[:, :Tmax, :]
 
-        return X_int, X_stft_phase, class_pred, X_stft_logpower, xhat
-
-    def interpret_sample(self, wavs, batch=None):
-        """Get the interpratation for a given wav file."""
-
-        # get the interpretation spectrogram, phase, and the predicted class
-        X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(
-            wavs
-        )
-        X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-        if not (batch is None) and (not self.hparams.use_melspectra):
-            x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
-
-            # save reconstructed and original spectrograms
-            makedirs(
-                os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
-                ),
-                exist_ok=True,
-            )
-
-            current_class_ind = batch.class_string_encoded.data[0].item()
-            current_class_name = self.hparams.label_encoder.ind2lab[
-                current_class_ind
-            ]
-            predicted_class_name = self.hparams.label_encoder.ind2lab[
-                pred_cl.item()
-            ]
-            torchaudio.save(
-                os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
-                    f"original_tc_{current_class_name}_pc_{predicted_class_name}.wav",
-                ),
-                wavs[0].unsqueeze(0).cpu(),
-                self.hparams.sample_rate,
-            )
-
-            torchaudio.save(
-                os.path.join(
-                    self.hparams.output_folder,
-                    "audios_from_interpretation",
-                    f"interpretation_tc_{current_class_name}_pc_{predicted_class_name}.wav",
-                ),
-                x_int_sb.cpu(),
-                self.hparams.sample_rate,
-            )
-
-        return X_int
-
-    def overlap_test(self, batch):
-        """Interpration test with overlapped audio"""
-        wavs, _ = batch.sig
-        wavs = wavs.to(self.device)
-
-        if wavs.shape[0] <= 1:
-            return
-
-        s1 = wavs[0]
-        s1 = s1 / s1.max()
-        s2 = wavs[1]
-        s2 = s2 / s2.max()
-
-        # create the mixture with s2 being the noise (lower gain)
-        mix = (s1 * 0.8 + (s2 * 0.2)).unsqueeze(0)
-        mix = mix / mix.max()
-
-        # get the interpretation spectrogram, phase, and the predicted class
-        (
-            X_int,
-            X_stft_phase,
-            pred_cl,
-            X_mix,
-            mask,
-        ) = self.interpret_computation_steps(mix)
-        X_int = X_int[0, ...]
-        X_stft_phase = X_stft_phase[0, : X_int.shape[0], ...].unsqueeze(0)
-        pred_cl = pred_cl[0, ...]
-        mask = mask[0, ...]
-
-        if not self.hparams.use_melspectra:
-            temp = torch.expm1(X_int).unsqueeze(0).unsqueeze(-1)
-            x_int_sb = self.invert_stft_with_phase(temp, X_stft_phase)
-
-        # save reconstructed and original spectrograms
-        current_class_ind = batch.class_string_encoded.data[0].item()
-        current_class_name = self.hparams.label_encoder.ind2lab[
-            current_class_ind
-        ]
-        predicted_class_name = self.hparams.label_encoder.ind2lab[
-            pred_cl.item()
-        ]
-
-        noise_class_ind = batch.class_string_encoded.data[1].item()
-        noise_class_name = self.hparams.label_encoder.ind2lab[noise_class_ind]
-
-        out_folder = os.path.join(
-            self.hparams.output_folder,
-            "overlap_test",
-            f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
-        )
-        makedirs(
-            out_folder,
-            exist_ok=True,
-        )
-
-        torchaudio.save(
-            os.path.join(out_folder, "mixture.wav"),
-            mix.data.cpu(),
-            self.hparams.sample_rate,
-        )
-
-        torchaudio.save(
-            os.path.join(out_folder, "source.wav"),
-            s1.unsqueeze(0).data.cpu(),
-            self.hparams.sample_rate,
-        )
-
-        torchaudio.save(
-            os.path.join(out_folder, "noise.wav"),
-            s2.unsqueeze(0).data.cpu(),
-            self.hparams.sample_rate,
-        )
-
-        if not self.hparams.use_melspectra:
-            torchaudio.save(
-                os.path.join(out_folder, "interpretation.wav"),
-                x_int_sb.data.cpu(),
-                self.hparams.sample_rate,
-            )
-
-        plt.figure(figsize=(12, 10), dpi=100)
-
-        plt.subplot(311)
-        X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[0]].cpu()
-        plt.imshow(X_target, origin="lower")
-        plt.colorbar()
-
-        plt.subplot(312)
-        plt.imshow(mask.data.cpu().permute(1, 0), origin="lower")
-        plt.title("Estimated Mask")
-        plt.colorbar()
-
-        plt.subplot(313)
-        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
-        plt.title("masked")
-        plt.savefig(os.path.join(out_folder, "specs.png"))
-        plt.close()
-
-    def debug_files(self, X_stft, xhat, X_stft_logpower, batch, wavs):
-        """The helper function to create debugging images"""
-        X_stft_phase = spectral_phase(X_stft)
-        temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
-        Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
-        # if not self.hparams.use_melspectra:
-        # xhat_tm = self.invert_stft_with_phase(Xspec_est, X_stft_phase)
-
-        Tmax = Xspec_est.shape[1]
-        X_masked = xhat[0] * X_stft_logpower[0, :Tmax, :]
-
-        X_est_masked = torch.expm1(X_masked).unsqueeze(0).unsqueeze(-1)
-        if not self.hparams.use_melspectra:
-            xhat_tm_masked = self.invert_stft_with_phase(
-                X_est_masked, X_stft_phase[0:1]
-            )
-
-        plt.figure(figsize=(11, 10), dpi=100)
-
-        plt.subplot(311)
-        X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
-        plt.imshow(X_target, origin="lower")
-        plt.title("input")
-        plt.colorbar()
-
-        plt.subplot(312)
-        mask = xhat[0]
-        X_masked = mask * X_stft_logpower[0, :Tmax, :]
-        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
-        plt.title("masked")
-
-        plt.subplot(313)
-        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
-        plt.colorbar()
-        plt.title("mask")
-
-        out_folder = os.path.join(
-            self.hparams.output_folder,
-            "reconstructions/" f"{batch.id[0]}",
-        )
-        makedirs(
-            out_folder,
-            exist_ok=True,
-        )
-
-        plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"),
-            format="png",
-        )
-        plt.close()
-
-        if not self.hparams.use_melspectra:
-            torchaudio.save(
-                os.path.join(out_folder, "interpretation.wav"),
-                xhat_tm_masked.data.cpu(),
-                self.hparams.sample_rate,
-            )
-
-        torchaudio.save(
-            os.path.join(out_folder, "original.wav"),
-            wavs[0:1].data.cpu(),
-            self.hparams.sample_rate,
-        )
+        return X_int.transpose(1, 2), X_stft_phase
 
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + sound classifier.
-        Data augmentation and environmental corruption are applied to the
-        input sound.
-        """
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -350,11 +71,11 @@ class InterpreterESC50Brain(sb.core.Brain):
             if self.hparams.add_wham_noise:
                 wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
-        X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
 
         # Embeddings + sound classifier
         hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_stft_logpower
+            X_mel
         )
 
         if self.hparams.use_vq:
@@ -378,11 +99,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
-                # self.interpret_sample(wavs, batch)
-                self.overlap_test(batch)
-                self.debug_files(
-                    X_stft, xhat, X_stft_logpower, batch, wavs[0:1]
-                )
+                self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
         return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
 
@@ -440,10 +157,11 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         (
             X_stft_logpower_clean,
+            X_mel_clean,
             X_stft_clean,
             X_stft_power_clean,
         ) = self.preprocess(wavs_clean)
-        X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
 
         Tmax = xhat.shape[1]
 
@@ -452,6 +170,15 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         mask_in = xhat * X_stft_logpower[:, :Tmax, :]
         mask_out = (1 - xhat) * X_stft_logpower[:, :Tmax, :]
+
+        if self.hparams.use_stft2mel:
+            X_in = torch.expm1(mask_in)
+            mask_in_mel = self.hparams.compute_fbank(X_in)
+            mask_in_mel = torch.log1p(mask_in_mel)
+
+            X_out = torch.expm1(mask_out)
+            mask_out_mel = self.hparams.compute_fbank(X_out)
+            mask_out_mel = torch.log1p(mask_out_mel)
 
         if self.hparams.finetuning:
             crosscor = self.crosscor(X_stft_logpower_clean, mask_in)
@@ -465,44 +192,6 @@ class InterpreterESC50Brain(sb.core.Brain):
             binarized_oracle = (
                 X_stft_logpower_clean >= self.hparams.bin_th * max_batch
             ).float()
-
-            # samples if we apply the binarization threshold on the spectrogram
-            # this is just to debug the cross-correlation
-            # with torch.no_grad():
-            #     maskin_bin = binarized_oracle * X_stft_logpower_clean
-            #     for idx, s in enumerate(
-            #             zip(
-            #                 X_stft_logpower_clean.cpu(),
-            #                 mask_in.cpu(),
-            #                 crosscor.cpu(),
-            #                 binarized_oracle.cpu(),
-            #             )
-            #         ):
-            #         ax = plt.subplot(141)
-            #         plt.imshow(s[0].t(), origin="lower")
-            #         plt.title("Oracle")
-
-            #         plt.subplot(142, sharex=ax)
-            #         plt.imshow(maskin_bin[idx].cpu().t(), origin="lower")
-            #         plt.title("th * oracle")
-
-            #         plt.subplot(143, sharex=ax)
-            #         plt.imshow(s[3].t(), origin="lower")
-            #         plt.title("Binarized Oracle")
-
-            #         plt.subplot(144, sharex=ax)
-            #         plt.imshow(s[1].t(), origin="lower")
-            #         plt.title("Mask in")
-            #         plt.tight_layout()
-            #         plt.suptitle("Cross correlation: %.2f - made the thr: %s" % (s[2].item(), bool(crosscor_mask[idx])))
-            #         plt.savefig(f"batch/{idx}.png")
-            #         torchaudio.save(f"batch/{idx}.wav", wavs_clean[idx][None].cpu(), sample_rate=16000)
-            #         torchaudio.save(f"batch/inp{idx}.wav", wavs[idx][None].cpu(), sample_rate=16000)
-
-            #     #plt.savefig('batch_situation.png')
-            #     #torchaudio.save(f"batch/{idx}.wav", wavs_clean[idx][None].cpu(), sample_rate=16000)
-
-            # import pdb; pdb.set_trace()
 
             if self.hparams.guidelosstype == "binary":
                 rec_loss = (
@@ -532,17 +221,8 @@ class InterpreterESC50Brain(sb.core.Brain):
             rec_loss = 0
             crosscor_mask = torch.zeros(xhat.shape[0], device=self.device)
 
-        # if self.hparams.use_stft2mel:
-        #    import pdb; pdb.set_trace()
-        #    mask_in = self.hparams.compute_fbank(mask_in)
-        #    mask_in = torch.log1p(mask_in)
-
-        #    mask_out = self.hparams.compute_fbank(mask_out)
-        #    mask_out = torch.log1p(mask_out)
-
-        mask_in_preds = self.classifier_forward(mask_in)[2]
-
-        mask_out_preds = self.classifier_forward(mask_out)[2]
+        mask_in_preds = self.classifier_forward(mask_in_mel)[2]
+        mask_out_preds = self.classifier_forward(mask_out_mel)[2]
 
         class_pred = predictions.argmax(1)
         l_in = F.nll_loss(mask_in_preds.log_softmax(1), class_pred)
@@ -590,7 +270,7 @@ class InterpreterESC50Brain(sb.core.Brain):
                 mask_out_preds,
             )
 
-        self.in_masks.append(uttid, c=crosscor_mask)
+        # self.in_masks.append(uttid, c=crosscor_mask)
         self.acc_metric.append(
             uttid,
             predict=predictions,
@@ -603,356 +283,8 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         return ao_loss + r_m + rec_loss
 
-    @torch.no_grad()
-    def accuracy_value(self, predict, target):
-        """Computes Accuracy"""
-        predict = predict.argmax(1)
-
-        return (predict.unsqueeze(1) == target).float().squeeze()
-
-    @torch.no_grad()
-    def compute_fidelity(self, theta_out, predictions):
-        """Computes top-`k` fidelity of interpreter."""
-        # predictions = F.softmax(predictions, dim=1)
-        # theta_out = F.softmax(theta_out, dim=1)
-
-        pred_cl = torch.argmax(predictions, dim=1)
-        k_top = torch.topk(theta_out, k=1, dim=1)[1]
-
-        # 1 element for each sample in batch, is 0 if pred_cl is in top k
-        temp = (k_top - pred_cl.unsqueeze(1) == 0).sum(1)
-
-        return temp
-
-    @torch.no_grad()
-    def compute_faithfulness(self, predictions, predictions_masked):
-        # get the prediction indices
-        pred_cl = predictions.argmax(dim=1, keepdim=True)
-
-        # get the corresponding output probabilities
-        predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
-        predictions_masked_selected = torch.gather(
-            predictions_masked, dim=1, index=pred_cl
-        )
-
-        faithfulness = (
-            predictions_selected - predictions_masked_selected
-        ).squeeze()
-
-        return faithfulness
-
-    @torch.no_grad()
-    def compute_AD(self, theta_out, predictions):
-        """Computes top-`k` fidelity of interpreter."""
-        predictions = F.softmax(predictions, dim=1)
-        theta_out = F.softmax(theta_out, dim=1)
-
-        pc = torch.gather(
-            predictions, dim=1, index=predictions.argmax(1, keepdim=True)
-        ).squeeze()
-        oc = torch.gather(
-            theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
-        ).squeeze()
-
-        # 1 element for each sample in batch, is 0 if pred_cl is in top k
-        temp = (F.relu(pc - oc) / (pc + eps)) * 100
-
-        return temp
-
-    @torch.no_grad()
-    def compute_AI(self, theta_out, predictions):
-        """Computes top-`k` fidelity of interpreter."""
-        # predictions = F.softmax(predictions, dim=1)
-        # theta_out = F.softmax(theta_out, dim=1)
-
-        pc = torch.gather(
-            predictions, dim=1, index=predictions.argmax(1, keepdim=True)
-        ).squeeze()
-        oc = torch.gather(
-            theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
-        ).squeeze()
-
-        # 1 element for each sample in batch, is 0 if pred_cl is in top k
-        temp = (pc < oc).float() * 100
-
-        return temp
-
-    @torch.no_grad()
-    def compute_AG(self, theta_out, predictions):
-        """Computes top-`k` fidelity of interpreter."""
-        # predictions = F.softmax(predictions, dim=1)
-        # theta_out = F.softmax(theta_out, dim=1)
-
-        pc = torch.gather(
-            predictions, dim=1, index=predictions.argmax(1, keepdim=True)
-        ).squeeze()
-        oc = torch.gather(
-            theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
-        ).squeeze()
-
-        # 1 element for each sample in batch, is 0 if pred_cl is in top k
-        temp = (F.relu(oc - pc) / (1 - pc + eps)) * 100
-
-        return temp
-
-    def on_stage_start(self, stage, epoch=None):
-        """Steps taken before stage start"""
-        self.inp_fid = MetricStats(metric=self.compute_fidelity)
-        self.AD = MetricStats(metric=self.compute_AD)
-        self.AI = MetricStats(metric=self.compute_AI)
-        self.AG = MetricStats(metric=self.compute_AG)
-        self.faithfulness = MetricStats(metric=self.compute_faithfulness)
-        self.acc_metric = sb.utils.metric_stats.MetricStats(
-            metric=self.accuracy_value, n_jobs=1
-        )
-
-        def counter(c):
-            return c
-
-        self.in_masks = MetricStats(metric=counter)
-
-        return super().on_stage_start(stage, epoch)
-
-    def on_stage_end(self, stage, stage_loss, epoch=None):
-        """Gets called at the end of an epoch.
-        Plots in subplots the values of `self.batch_to_plot` and saves the
-        plot to the experiment folder. `self.hparams.output_folder`"""
-
-        if stage == sb.Stage.TRAIN:
-            self.train_loss = stage_loss
-            self.train_stats = {
-                "loss": self.train_loss,
-                "acc": self.acc_metric.summarize("average"),
-                "in_masks": sum(self.in_masks.scores),
-            }
-            # if self.hparams.use_mask_output:
-            # self.train_stats["mask_ll"] = self.mask_ll.summarize("average")
-
-        if stage == sb.Stage.VALID:
-            current_fid = self.inp_fid.summarize("average")
-            old_lr, new_lr = self.hparams.lr_annealing(
-                [self.optimizer], epoch, -current_fid
-            )
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-            valid_stats = {
-                "loss": stage_loss,
-                "acc": self.acc_metric.summarize("average"),
-                "input_fid": current_fid,
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
-                "AD": self.AD.summarize("average"),
-                "AI": self.AI.summarize("average"),
-                "AG": self.AG.summarize("average"),
-                "in_masks": sum(self.in_masks.scores),
-            }
-            # if self.hparams.use_mask_output:
-            # valid_stats["mask_ll"] = self.mask_ll.summarize("average")
-
-            # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=valid_stats,
-            )
-
-            # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=valid_stats, max_keys=["top-3_fid"]
-            )
-
-        if stage == sb.Stage.TEST:
-            current_fid = self.inp_fid.summarize("average")
-            test_stats = {
-                "loss": stage_loss,
-                "acc": self.acc_metric.summarize("average"),
-                "input_fid": current_fid,
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
-                "faithfulness_std": torch.Tensor(
-                    self.faithfulness.scores
-                ).std(),
-                "AD": self.AD.summarize("average"),
-                "AI": self.AI.summarize("average"),
-                "AG": self.AG.summarize("average"),
-                # "freche": self.fid.compute(),
-            }
-
-            # The train_logger writes a summary to stdout and to the logfile.
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch}, test_stats=test_stats
-            )
-
-
-def dataio_prep_esc50(hparams):
-    "Creates the datasets and their data processing pipelines."
-
-    data_audio_folder = hparams["audio_data_folder"]
-    config_sample_rate = hparams["sample_rate"]
-    label_encoder = sb.dataio.encoder.CategoricalEncoder()
-    hparams["resampler"] = torchaudio.transforms.Resample(
-        new_freq=config_sample_rate
-    )
-
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        """Load the signal, and pass it and its length to the corruption class.
-        This is done on the CPU in the `collate_fn`."""
-
-        wave_file = data_audio_folder + "/{:}".format(wav)
-
-        sig, read_sr = torchaudio.load(wave_file)
-
-        # If multi-channels, downmix it to a mono channel
-        sig = torch.squeeze(sig)
-        if len(sig.shape) > 1:
-            sig = torch.mean(sig, dim=0)
-
-        # Convert sample rate to required config_sample_rate
-        if read_sr != config_sample_rate:
-            # Re-initialize sampler if source file sample rate changed compared to last file
-            if read_sr != hparams["resampler"].orig_freq:
-                hparams["resampler"] = torchaudio.transforms.Resample(
-                    orig_freq=read_sr, new_freq=config_sample_rate
-                )
-            # Resample audio
-            sig = hparams["resampler"].forward(sig)
-
-        sig = sig.float()
-        sig = sig / sig.max()
-        return sig
-
-    # 3. Define label pipeline:
-    @sb.utils.data_pipeline.takes("class_string")
-    @sb.utils.data_pipeline.provides("class_string", "class_string_encoded")
-    def label_pipeline(class_string):
-        yield class_string
-        class_string_encoded = label_encoder.encode_label_torch(class_string)
-        yield class_string_encoded
-
-    # Define datasets. We also connect the dataset with the data processing
-    # functions defined above.
-    datasets = {}
-    data_info = {
-        "train": hparams["train_annotation"],
-        "valid": hparams["valid_annotation"],
-        "test": hparams["test_annotation"],
-    }
-    for dataset in data_info:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=data_info[dataset],
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline, label_pipeline],
-            output_keys=["id", "sig", "class_string_encoded"],
-        )
-
-    # Load or compute the label encoder (with multi-GPU DDP support)
-    # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
-    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    label_encoder.load_or_create(
-        path=lab_enc_file,
-        from_didatasets=[datasets["train"]],
-        output_key="class_string",
-    )
-
-    return datasets, label_encoder
-
-
-def dataio_prep_us8k(hparams):
-    "Creates the datasets and their data processing pipelines."
-
-    data_audio_folder = hparams["audio_data_folder"]
-    config_sample_rate = hparams["sample_rate"]
-    label_encoder = sb.dataio.encoder.CategoricalEncoder()
-    # TODO  use SB implementation but need to make sure it give the same results as PyTorch
-    # resampler = sb.processing.speech_augmentation.Resample(orig_freq=latest_file_sr, new_freq=config_sample_rate)
-    hparams["resampler"] = torchaudio.transforms.Resample(
-        new_freq=config_sample_rate
-    )
-
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav", "fold")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav, fold):
-        """Load the signal, and pass it and its length to the corruption class.
-        This is done on the CPU in the `collate_fn`."""
-
-        wave_file = data_audio_folder + "/fold{:}/{:}".format(fold, wav)
-
-        sig, read_sr = torchaudio.load(wave_file)
-
-        # If multi-channels, downmix it to a mono channel
-        sig = torch.squeeze(sig)
-        if len(sig.shape) > 1:
-            sig = torch.mean(sig, dim=0)
-
-        # Convert sample rate to required config_sample_rate
-        if read_sr != config_sample_rate:
-            # Re-initialize sampler if source file sample rate changed compared to last file
-            if read_sr != hparams["resampler"].orig_freq:
-                hparams["resampler"] = torchaudio.transforms.Resample(
-                    orig_freq=read_sr, new_freq=config_sample_rate
-                )
-            # Resample audio
-            sig = hparams["resampler"].forward(sig)
-
-            # pad to 4 seconds
-            length = hparams["signal_length_s"] * hparams["sample_rate"]
-            p = length - sig.shape[-1]
-            sig = F.pad(sig, (0, p))
-
-        return sig
-
-    # 3. Define label pipeline:
-    @sb.utils.data_pipeline.takes("class_string")
-    @sb.utils.data_pipeline.provides("class_string", "class_string_encoded")
-    def label_pipeline(class_string):
-        yield class_string
-        class_string_encoded = label_encoder.encode_label_torch(class_string)
-        yield class_string_encoded
-
-    # Define datasets. We also connect the dataset with the data processing
-    # functions defined above.
-    datasets = {}
-    data_info = {
-        "train": hparams["train_annotation"],
-        "valid": hparams["valid_annotation"],
-        "test": hparams["test_annotation"],
-    }
-    for dataset in data_info:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=data_info[dataset],
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline, label_pipeline],
-            output_keys=["id", "sig", "class_string_encoded"],
-        )
-
-    # Load or compute the label encoder (with multi-GPU DDP support)
-    # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
-    lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
-    label_encoder.load_or_create(
-        path=lab_enc_file,
-        from_didatasets=[datasets["train"]],
-        output_key="class_string",
-    )
-
-    return datasets, label_encoder
-
 
 if __name__ == "__main__":
-    # # This flag enables the inbuilt cudnn auto-tuner
-    # torch.backends.cudnn.benchmark = True
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -985,52 +317,27 @@ if __name__ == "__main__":
             hparams["tensorboard_logs_folder"]
         )
 
-    if hparams["dataset"] == "esc50":
-        run_on_main(
-            prepare_esc50,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "audio_data_folder": hparams["audio_data_folder"],
-                "save_json_train": hparams["train_annotation"],
-                "save_json_valid": hparams["valid_annotation"],
-                "save_json_test": hparams["test_annotation"],
-                "train_fold_nums": hparams["train_fold_nums"],
-                "valid_fold_nums": hparams["valid_fold_nums"],
-                "test_fold_nums": hparams["test_fold_nums"],
-                "skip_manifest_creation": hparams["skip_manifest_creation"],
-            },
-        )
+    run_on_main(
+        prepare_esc50,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "audio_data_folder": hparams["audio_data_folder"],
+            "save_json_train": hparams["train_annotation"],
+            "save_json_valid": hparams["valid_annotation"],
+            "save_json_test": hparams["test_annotation"],
+            "train_fold_nums": hparams["train_fold_nums"],
+            "valid_fold_nums": hparams["valid_fold_nums"],
+            "test_fold_nums": hparams["test_fold_nums"],
+            "skip_manifest_creation": hparams["skip_manifest_creation"],
+        },
+    )
 
-        # Dataset IO prep: creating Dataset objects and proper encodings for phones
-        datasets, label_encoder = dataio_prep_esc50(hparams)
-        hparams["label_encoder"] = label_encoder
-    elif hparams["dataset"] == "us8k":
-        run_on_main(
-            prepare_urban_sound_8k,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "audio_data_folder": hparams["audio_data_folder"],
-                "save_json_train": hparams["train_annotation"],
-                "save_json_valid": hparams["valid_annotation"],
-                "save_json_test": hparams["test_annotation"],
-                "train_fold_nums": hparams["train_fold_nums"],
-                "valid_fold_nums": hparams["valid_fold_nums"],
-                "test_fold_nums": hparams["test_fold_nums"],
-                "skip_manifest_creation": hparams["skip_manifest_creation"],
-            },
-        )
+    # Dataset IO prep: creating Dataset objects and proper encodings for phones
+    datasets, label_encoder = dataio_prep(hparams)
+    hparams["label_encoder"] = label_encoder
 
-        # Dataset IO prep: creating Dataset objects and proper encodings for phones
-        datasets, label_encoder = dataio_prep_us8k(hparams)
-        hparams["label_encoder"] = label_encoder
-
-    if hparams["dataset"] == "esc50":
-        assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
-        assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
-    if hparams["dataset"] == "us8k":
-        # assert hparams["signal_length_s"] == 4, "Fix wham sig length!"
-        # removing this, as I am padding to 5s atm
-        assert hparams["out_n_neurons"] == 10, "Fix number of outputs classes!"
+    assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
+    assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
 
     class_labels = list(label_encoder.ind2lab.values())
     print("Class Labels:", class_labels)
@@ -1041,7 +348,7 @@ if __name__ == "__main__":
                 "You should specify pretrained model for finetuning."
             )
 
-    Interpreter_brain = InterpreterESC50Brain(
+    Interpreter_brain = LMAC(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
         hparams=hparams,
@@ -1073,7 +380,6 @@ if __name__ == "__main__":
 
     Interpreter_brain.checkpointer.recover_if_possible(
         min_key="loss",
-        device=torch.device(Interpreter_brain.device),
     )
 
     test_stats = Interpreter_brain.evaluate(
