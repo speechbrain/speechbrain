@@ -57,7 +57,6 @@ class InterpreterBrain(sb.core.Brain):
 
         return X_stft_logpower, X_mel_log1p, X_stft, X_stft_power
 
-    @torch.no_grad()
     def classifier_forward(self, X_stft_logpower):
         """The forward pass for the classifier."""
         if hasattr(self.hparams.embedding_model, "config"):

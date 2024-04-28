@@ -115,8 +115,6 @@ class LMAC(InterpreterBrain):
 
         if self.hparams.use_mask_output:
             xhat = F.sigmoid(xhat)
-        else:
-            xhat = F.softplus(xhat)
 
         if stage == sb.Stage.VALID:
             # save some samples
@@ -234,33 +232,33 @@ class LMAC(InterpreterBrain):
         mask_in_preds = mask_in_preds.softmax(1)
         mask_out_preds = mask_out_preds.softmax(1)
 
-        # if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-        # self.inp_fid.append(
-        # uttid,
-        # mask_in_preds,
-        # predictions.softmax(1),
-        # )
-        # self.AD.append(
-        # uttid,
-        # mask_in_preds,
-        # predictions.softmax(1),
-        # )
-        # self.AI.append(
-        # uttid,
-        # mask_in_preds,
-        # predictions.softmax(1),
-        # )
-        # self.AG.append(
-        # uttid,
-        # mask_in_preds,
-        # predictions.softmax(1),
-        # )
-        # self.faithfulness.append(
-        # uttid,
-        # predictions.softmax(1),
-        # mask_out_preds,
-        # )
-        #
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
+            self.inp_fid.append(
+                uttid,
+                mask_in_preds,
+                predictions.softmax(1),
+            )
+            self.AD.append(
+                uttid,
+                mask_in_preds,
+                predictions.softmax(1),
+            )
+            self.AI.append(
+                uttid,
+                mask_in_preds,
+                predictions.softmax(1),
+            )
+            self.AG.append(
+                uttid,
+                mask_in_preds,
+                predictions.softmax(1),
+            )
+            self.faithfulness.append(
+                uttid,
+                predictions.softmax(1),
+                mask_out_preds,
+            )
+
         # # self.in_masks.append(uttid, c=crosscor_mask)
         self.acc_metric.append(
             uttid,
@@ -272,7 +270,6 @@ class LMAC(InterpreterBrain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        print(ao_loss.item(), r_m.item(), rec_loss)
         return ao_loss + r_m + rec_loss
 
 
