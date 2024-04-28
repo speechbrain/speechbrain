@@ -423,6 +423,10 @@ def dataio_prepare(hparams):
 
         code = np.load(code_folder / f"{utt_id}.npy")
 
+        num_layer = len(hparams["layer"])
+        offsets = np.arange(num_layer) * hparams["num_clusters"]
+        code = code + offsets + 1
+
         if hparams["layer_drop"]:
             num_layers_to_drop = np.random.randint(0, code.shape[1])
             if num_layers_to_drop > 0:
@@ -432,9 +436,6 @@ def dataio_prepare(hparams):
                 code[:, layers_to_drop] = 0
 
         code = torch.IntTensor(code)
-
-        # Maps indices from the range [0, k] to [1, k+1]
-        code = code + 1
 
         # Trim end of audio
         code_length = min(audio.shape[0] // code_hop_size, code.shape[0])
