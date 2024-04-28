@@ -155,7 +155,6 @@ psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft_2d
     shared_keys: 0
     activate_class_partitioning: True
     adapter_reduce_dim: True
-    stft2mel: True
 
 theta: !new:speechbrain.lobes.models.L2I.Theta
     num_classes: !ref <out_n_neurons>

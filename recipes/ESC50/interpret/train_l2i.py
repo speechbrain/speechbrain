@@ -177,9 +177,6 @@ class L2I(InterpreterBrain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            interpretations = torch.empty(wavs.shape[0], 431, 513).to(
-                X_stft_logpower.device
-            )
             tmp, _ = self.interpret_computation_steps(wavs)  # returns log1p
             interpretations = torch.expm1(tmp).transpose(2, 1)
 
@@ -197,9 +194,9 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            # maskin_preds = (
-            # self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            # )
+            maskin_preds = (
+                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            )
 
             X_stft_logpower = X_stft_logpower[:, : interpretations.shape[-2], :]
             if self.hparams.use_melspectra_log1p:
@@ -209,6 +206,7 @@ class L2I(InterpreterBrain):
                 temp = self.hparams.embedding_model(
                     X_stft_logpower - interpretations
                 )
+
             if isinstance(temp, tuple):
                 embeddings, _ = temp
             else:
@@ -217,17 +215,38 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            # maskout_preds = (
-            # self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            # )
+            maskout_preds = (
+                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
+            )
 
         # self.l2i_fid.append(uttid, theta_out, classid)
+        self.inp_fid.append(uttid, maskin_preds, classid)
 
         self.acc_metric.append(
             uttid,
             predict=classification_out,
-            # length=lens,
             target=classid,
+        )
+
+        self.AD.append(
+            uttid,
+            maskin_preds,
+            classification_out.softmax(1),
+        )
+        self.AI.append(
+            uttid,
+            maskin_preds,
+            classification_out.softmax(1),
+        )
+        self.AG.append(
+            uttid,
+            maskin_preds,
+            classification_out.softmax(1),
+        )
+        self.faithfulness.append(
+            uttid,
+            classification_out.softmax(1),
+            maskout_preds,
         )
 
         X_stft_logpower = X_stft_logpower[:, : reconstructions.shape[1], :]

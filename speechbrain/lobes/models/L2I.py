@@ -519,7 +519,6 @@ class CNN14PSI_stft_2d(nn.Module):
         shared_keys=0,
         use_adapter=True,
         adapter_reduce_dim=True,
-        stft2mel=False,
     ):
         super().__init__()
 
@@ -540,8 +539,6 @@ class CNN14PSI_stft_2d(nn.Module):
         self.convt9 = nn.ConvTranspose2d(dim // 8, K, (7, 5), (1, 4), 0)
 
         self.nonl = nn.ReLU(True)
-
-        self.stft2mel = stft2mel
 
     def forward(self, hs, labels=None):
         """
@@ -596,11 +593,8 @@ class CNN14PSI_stft_2d(nn.Module):
 
         xhat = self.convt9(h)
         xhat = self.nonl(xhat)
-        # if self.stft2mel:
-        #    xhat = self.lin(xhat)
 
         xhat = xhat.mean(-1)
-        # xhat = xhat.transpose(1, 2)
 
         # apply ReLU
         xhat = F.relu(xhat)

@@ -272,18 +272,15 @@ class InterpreterBrain(sb.core.Brain):
         """Gets called at the end of an epoch.
         Plots in subplots the values of `self.batch_to_plot` and saves the
         plot to the experiment folder `self.hparams.output_folder`."""
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            return
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {
                 "loss": self.train_loss,
                 "acc": self.acc_metric.summarize("average"),
-                # "rec_error": self.recons_err.summarize("average"),
             }
 
         if stage == sb.Stage.VALID:
-            current_fid = self.top_3_fidelity.summarize("average")
+            current_fid = torch.Tensor(self.inp_fid.scores).mean()
             old_lr, new_lr = self.hparams.lr_annealing(
                 [self.optimizer], epoch, -current_fid
             )
@@ -292,10 +289,9 @@ class InterpreterBrain(sb.core.Brain):
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "input_fidelity": current_fid,
-                "rec_error": self.recons_err.summarize("average"),
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
+                "AI": torch.Tensor(self.AI.scores).mean(),
+                "AD": torch.Tensor(self.AD.scores).mean(),
+                "AG": torch.Tensor(self.AG.scores).mean(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
                 ).mean(),
@@ -310,18 +306,18 @@ class InterpreterBrain(sb.core.Brain):
 
             # Save the current checkpoint and delete previous checkpoints
             self.checkpointer.save_and_keep_only(
-                meta=valid_stats, max_keys=["top-3_fid"]
+                meta=valid_stats, max_keys=["faithfulnesstop-3_fid"]
             )
 
         if stage == sb.Stage.TEST:
-            current_fid = self.top_3_fidelity.summarize("average")
+            current_fid = torch.Tensor(self.inp_fid.scores).mean()
             test_stats = {
                 "loss": stage_loss,
                 "acc": self.acc_metric.summarize("average"),
                 "input_fidelity": current_fid,
-                "faithfulness_median": torch.Tensor(
-                    self.faithfulness.scores
-                ).median(),
+                "AI": torch.Tensor(self.AI.scores).mean(),
+                "AD": torch.Tensor(self.AD.scores).mean(),
+                "AG": torch.Tensor(self.AG.scores).mean(),
                 "faithfulness_mean": torch.Tensor(
                     self.faithfulness.scores
                 ).mean(),
