@@ -18,29 +18,35 @@ from quantus.helpers.utils import expand_indices
 eps = 1e-9
 
 
-class Model(nn.Module):
-    def __init__(self, hparams, embedding_model, classifier, repr_=False):
+class QuantusEvalWrapper(nn.Module):
+    def __init__(
+        self,
+        use_stft2mel,
+        use_melspectra,
+        compute_fbank,
+        repr_=False,
+    ):
         super().__init__()
         self.returnrepr = repr_
-        self.embedding_model = embedding_model
-        self.classifier = classifier
-        self.hparams = hparams
+        self.use_stft2mel = use_stft2mel
+        self.use_melspectra = use_melspectra
+        self.compute_fbank = compute_fbank
 
         self.cnn14 = False
         if str(self.embedding_model.__class__.__name__) == "Cnn14":
             self.cnn14 = True
 
-    def forward(self, x):
+    def forward(self, x, embedding_model, classifier):
         x = x.float()
-        if self.hparams["use_stft2mel"] and not self.hparams["use_melspectra"]:
+        if self.use_stft2mel and not self.use_melspectra:
             x = torch.expm1(x)
-            x = self.hparams["compute_fbank"](x.squeeze(1)).unsqueeze(1)
+            x = self.compute_fbank(x.squeeze(1)).unsqueeze(1)
             x = torch.log1p(x)
 
         if x.ndim == 4:
             x = x.squeeze(1)
 
-        temp = self.embedding_model(x)
+        temp = embedding_model(x)
         if isinstance(temp, tuple):
             embeddings, f_I = temp
         else:
@@ -49,8 +55,7 @@ class Model(nn.Module):
         if embeddings.ndim == 4:
             embeddings = embeddings.mean((-1, -2))
 
-        predictions = self.classifier(embeddings).squeeze(1)
-        # print((predictions.isnan()).sum())
+        predictions = classifier(embeddings).squeeze(1)
 
         if self.returnrepr:
             return predictions, f_I
@@ -70,9 +75,6 @@ def wrap_gradient_based(explain_fn, forw=True):
 @torch.no_grad()
 def compute_fidelity(theta_out, predictions):
     """Computes top-`k` fidelity of interpreter."""
-    # predictions = F.softmax(predictions, dim=1)
-    # theta_out = F.softmax(theta_out, dim=1)
-
     pred_cl = torch.argmax(predictions, dim=1)
     k_top = torch.topk(theta_out, k=1, dim=1)[1]
 
