@@ -1,10 +1,9 @@
 # #################################
-# The recipe for training PIQ on the ESC50 dataset.
+# The recipe for training LMAC on the ESC50 dataset.
 #
 # Author:
-#  * Cem Subakan 2022, 2023
-#  * Francesco Paissan 2022, 2023
-#  (based on the SpeechBrain UrbanSound8k recipe)
+#  * Francesco Paissan 2024
+#  * Cem Subakan 2024
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -70,7 +69,6 @@ number_of_epochs: 200
 batch_size: 16
 lr: 0.0002
 sample_rate: 16000
-use_vq: False
 rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
@@ -120,17 +118,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         counter: !ref <epoch_counter>
 
 
-# embedding_model: !new:custom_models.Conv2dEncoder_v2
-# embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
-#     dim: 256
-
-
-    #classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
-    #input_size:
-    #out_neurons: !ref <out_n_neurons>
-    #lin_blocks: 1
-    #
-
 return_reps: True
 embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
     mel_bins: !ref <n_mels>
@@ -151,7 +138,6 @@ load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
         psi: !ref <pretrained_PIQ>
 
 use_pretrained: True
-
 embedding_model_path: fpaissan/r/embedding_model.ckpt
 classifier_model_path: fpaissan/r/classifier.ckpt
 

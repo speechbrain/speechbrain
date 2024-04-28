@@ -34,75 +34,6 @@ def tv_loss(mask, tv_weight=1, power=2, border_penalty=0.3):
 
 
 class LMAC(InterpreterBrain):
-
-    def interpret_computation_steps(self, wavs, print_probability=False):
-        """Computation steps to get the interpretation spectrogram"""
-        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
-        X_stft_phase = spectral_phase(X_stft)
-
-        hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_mel
-        )
-        if print_probability:
-            predictions = F.softmax(predictions, dim=1)
-            class_prob = predictions[0, class_pred].item()
-            print(f"classifier_prob: {class_prob}")
-
-        # we should remove this...
-        if self.hparams.use_vq:
-            xhat, hcat, _ = self.modules.psi(hcat, class_pred)
-        else:
-            xhat = self.modules.psi(hcat, class_pred)
-        xhat = xhat.squeeze(1)
-
-        Tmax = xhat.shape[1]
-        if self.hparams.use_mask_output:
-            xhat = F.sigmoid(xhat)
-            X_int = xhat * X_stft_logpower[:, :Tmax, :]
-
-        return X_int.transpose(1, 2), X_stft_phase
-
-    def compute_forward(self, batch, stage):
-        batch = batch.to(self.device)
-        wavs, lens = batch.sig
-
-        # augment batch with WHAM!
-        if hasattr(self.hparams, "add_wham_noise"):
-            if self.hparams.add_wham_noise:
-                wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
-
-        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
-
-        # Embeddings + sound classifier
-        hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_mel
-        )
-
-        if self.hparams.use_vq:
-            xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
-        else:
-            xhat = self.modules.psi(hcat, class_pred)
-            z_q_x = None
-
-        xhat = xhat.squeeze(1)
-
-        if self.hparams.use_mask_output:
-            xhat = F.sigmoid(xhat)
-        else:
-            xhat = F.softplus(xhat)
-
-        garbage = 0
-
-        if stage == sb.Stage.VALID:
-            # save some samples
-            if (
-                self.hparams.epoch_counter.current
-                % self.hparams.interpret_period
-            ) == 0 and self.hparams.save_interpretations:
-                self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
-
-        return (wavs, lens), predictions, xhat, hcat, z_q_x, garbage
-
     def crosscor(self, spectrogram, template):
         if self.hparams.crosscortype == "conv":
             spectrogram = spectrogram - spectrogram.mean((-1, -2), keepdim=True)
@@ -142,9 +73,69 @@ class LMAC(InterpreterBrain):
         else:
             raise ValueError("unknown crosscor type!")
 
+    def interpret_computation_steps(self, wavs, print_probability=False):
+        """Computation steps to get the interpretation spectrogram"""
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_phase = spectral_phase(X_stft)
+
+        hcat, embeddings, predictions, class_pred = self.classifier_forward(
+            X_mel
+        )
+        if print_probability:
+            predictions = F.softmax(predictions, dim=1)
+            class_prob = predictions[0, class_pred].item()
+            print(f"classifier_prob: {class_prob}")
+
+        xhat = self.modules.psi(hcat, class_pred).squeeze(1)
+
+        Tmax = xhat.shape[1]
+        if self.hparams.use_mask_output:
+            xhat = F.sigmoid(xhat)
+            X_int = xhat * X_stft_logpower[:, :Tmax, :]
+
+        return X_int.transpose(1, 2), X_stft_phase
+
+    def compute_forward(self, batch, stage):
+        batch = batch.to(self.device)
+        wavs, lens = batch.sig
+
+        # augment batch with WHAM!
+        if hasattr(self.hparams, "add_wham_noise"):
+            if self.hparams.add_wham_noise:
+                wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+
+        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
+
+        # Embeddings + sound classifier
+        hcat, embeddings, predictions, class_pred = self.classifier_forward(
+            X_mel
+        )
+
+        xhat = self.modules.psi(hcat, class_pred).squeeze(1)
+
+        if self.hparams.use_mask_output:
+            xhat = F.sigmoid(xhat)
+        else:
+            xhat = F.softplus(xhat)
+
+        if stage == sb.Stage.VALID:
+            # save some samples
+            if (
+                self.hparams.epoch_counter.current
+                % self.hparams.interpret_period
+            ) == 0 and self.hparams.save_interpretations:
+                self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
+
+        return ((wavs, lens), predictions, xhat, hcat)
+
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
-        batch_sig, predictions, xhat, hcat, z_q_x, garbage = pred
+        (
+            batch_sig,
+            predictions,
+            xhat,
+            hcat,
+        ) = pred
 
         batch = batch.to(self.device)
         wavs_clean, lens_clean = batch.sig
@@ -243,34 +234,34 @@ class LMAC(InterpreterBrain):
         mask_in_preds = mask_in_preds.softmax(1)
         mask_out_preds = mask_out_preds.softmax(1)
 
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            self.inp_fid.append(
-                uttid,
-                mask_in_preds,
-                predictions.softmax(1),
-            )
-            self.AD.append(
-                uttid,
-                mask_in_preds,
-                predictions.softmax(1),
-            )
-            self.AI.append(
-                uttid,
-                mask_in_preds,
-                predictions.softmax(1),
-            )
-            self.AG.append(
-                uttid,
-                mask_in_preds,
-                predictions.softmax(1),
-            )
-            self.faithfulness.append(
-                uttid,
-                predictions.softmax(1),
-                mask_out_preds,
-            )
-
-        # self.in_masks.append(uttid, c=crosscor_mask)
+        # if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
+        # self.inp_fid.append(
+        # uttid,
+        # mask_in_preds,
+        # predictions.softmax(1),
+        # )
+        # self.AD.append(
+        # uttid,
+        # mask_in_preds,
+        # predictions.softmax(1),
+        # )
+        # self.AI.append(
+        # uttid,
+        # mask_in_preds,
+        # predictions.softmax(1),
+        # )
+        # self.AG.append(
+        # uttid,
+        # mask_in_preds,
+        # predictions.softmax(1),
+        # )
+        # self.faithfulness.append(
+        # uttid,
+        # predictions.softmax(1),
+        # mask_out_preds,
+        # )
+        #
+        # # self.in_masks.append(uttid, c=crosscor_mask)
         self.acc_metric.append(
             uttid,
             predict=predictions,
@@ -281,6 +272,7 @@ class LMAC(InterpreterBrain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
+        print(ao_loss.item(), r_m.item(), rec_loss)
         return ao_loss + r_m + rec_loss
 
 
