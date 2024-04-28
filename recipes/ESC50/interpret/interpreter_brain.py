@@ -262,7 +262,7 @@ class InterpreterBrain(sb.core.Brain):
         self.faithfulness = MetricStats(metric=compute_faithfulness)
         self.acc_metric = MetricStats(metric=accuracy_value)
 
-        for metric_name, metric_fn in self.extra_metrics():
+        for metric_name, metric_fn in self.extra_metrics().items():
             setattr(
                 self,
                 metric_name,
@@ -282,6 +282,11 @@ class InterpreterBrain(sb.core.Brain):
                 "acc": self.acc_metric.summarize("average"),
             }
 
+        extra_m = {
+            k: torch.Tensor(getattr(self, k).scores).mean()
+            for k in self.extra_metrics().keys()
+        }
+
         if stage == sb.Stage.VALID:
             current_fid = torch.Tensor(self.inp_fid.scores).mean()
             old_lr, new_lr = self.hparams.lr_annealing(
@@ -299,6 +304,7 @@ class InterpreterBrain(sb.core.Brain):
                     self.faithfulness.scores
                 ).mean(),
             }
+            valid_stats.update(extra_m)
 
             # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(
@@ -325,6 +331,7 @@ class InterpreterBrain(sb.core.Brain):
                     self.faithfulness.scores
                 ).mean(),
             }
+            test_stats.update(extra_m)
 
             # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(

@@ -75,12 +75,10 @@ class LMAC(InterpreterBrain):
 
     def interpret_computation_steps(self, wavs, print_probability=False):
         """Computation steps to get the interpretation spectrogram"""
-        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, _ = self.preprocess(wavs)
         X_stft_phase = spectral_phase(X_stft)
 
-        hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_mel
-        )
+        hcat, _, predictions, class_pred = self.classifier_forward(X_mel)
         if print_probability:
             predictions = F.softmax(predictions, dim=1)
             class_prob = predictions[0, class_pred].item()
@@ -104,12 +102,10 @@ class LMAC(InterpreterBrain):
             if self.hparams.add_wham_noise:
                 wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
-        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, X_mel, X_stft, _ = self.preprocess(wavs)
 
         # Embeddings + sound classifier
-        hcat, embeddings, predictions, class_pred = self.classifier_forward(
-            X_mel
-        )
+        hcat, _, predictions, class_pred = self.classifier_forward(X_mel)
 
         xhat = self.modules.psi(hcat, class_pred).squeeze(1)
 
@@ -126,31 +122,37 @@ class LMAC(InterpreterBrain):
 
         return ((wavs, lens), predictions, xhat, hcat)
 
+    def extra_metrics(self):
+        def counter(c):
+            return c
+
+        return {"in_masks": counter}
+
     def compute_objectives(self, pred, batch, stage):
         """Helper function to compute the objectives"""
         (
             batch_sig,
             predictions,
             xhat,
-            hcat,
+            _,
         ) = pred
 
         batch = batch.to(self.device)
-        wavs_clean, lens_clean = batch.sig
+        wavs_clean, _ = batch.sig
 
         # taking them from forward because they are augmented there!
-        wavs, lens = batch_sig
+        wavs, _ = batch_sig
 
         uttid = batch.id
         labels, _ = batch.class_string_encoded
 
         (
             X_stft_logpower_clean,
-            X_mel_clean,
-            X_stft_clean,
-            X_stft_power_clean,
+            _,
+            _,
+            _,
         ) = self.preprocess(wavs_clean)
-        X_stft_logpower, X_mel, X_stft, X_stft_power = self.preprocess(wavs)
+        X_stft_logpower, _, _, _ = self.preprocess(wavs)
 
         Tmax = xhat.shape[1]
 
@@ -259,7 +261,7 @@ class LMAC(InterpreterBrain):
                 mask_out_preds,
             )
 
-        # # self.in_masks.append(uttid, c=crosscor_mask)
+        self.in_masks.append(uttid, c=crosscor_mask)
         self.acc_metric.append(
             uttid,
             predict=predictions,
