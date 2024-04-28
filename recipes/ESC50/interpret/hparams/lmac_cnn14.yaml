@@ -25,10 +25,10 @@ mrt_layer: 6
 exp_method: "saliency"
 eval_outdir: ""
 
-l_in_w: 0.5
-l_out_w: 0.5
-reg_w_tv: 0.1
-reg_w_l1: 0.3
+l_in_w: 4
+l_out_w: 0.2
+reg_w_tv: 0.0
+reg_w_l1: 0.4
 ao_w: 0.5
 
 g_w: 1 # regularization weight of oracles
@@ -177,7 +177,7 @@ n_fft: 1024
 spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
-use_melspectra_log1p: False
+use_melspectra_log1p: True
 use_stft2mel: True
 
 compute_stft: !new:speechbrain.processing.features.STFT
