@@ -91,7 +91,7 @@ class LMAC(InterpreterBrain):
             xhat = F.sigmoid(xhat)
             X_int = xhat * X_stft_logpower[:, :Tmax, :]
 
-        return X_int.transpose(1, 2), X_stft_phase
+        return X_int.transpose(1, 2), xhat.transpose(1, 2), X_stft_phase
 
     def compute_forward(self, batch, stage):
         batch = batch.to(self.device)
@@ -255,6 +255,8 @@ class LMAC(InterpreterBrain):
                 mask_in_preds,
                 predictions.softmax(1),
             )
+            self.sps.append(uttid, wavs, X_stft_logpower, labels)
+            self.comp.append(uttid, wavs, X_stft_logpower, labels)
             self.faithfulness.append(
                 uttid,
                 predictions.softmax(1),

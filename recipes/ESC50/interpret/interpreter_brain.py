@@ -9,6 +9,7 @@ Authors
 import os
 
 import matplotlib.pyplot as plt
+import quantus
 import torch
 import torchaudio
 import torchvision
@@ -111,7 +112,7 @@ class InterpreterBrain(sb.core.Brain):
 
     def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
         """The helper function to create debugging images"""
-        X_int, X_stft_phase = self.interpret_computation_steps(wavs)
+        X_int, _, X_stft_phase = self.interpret_computation_steps(wavs)
 
         X_int = torch.expm1(X_int)
 
@@ -249,6 +250,68 @@ class InterpreterBrain(sb.core.Brain):
             return temp
 
         @torch.no_grad()
+        def compute_sparseness(wavs, X, y):
+            self.sparseness = quantus.Sparseness(
+                return_aggregate=True, abs=True
+            )
+            device = X.device
+            attr = (
+                self.interpret_computation_steps(wavs)[1]
+                .transpose(1, 2)
+                .unsqueeze(1)
+                .clone()
+                .detach()
+                .cpu()
+                .numpy()
+            )
+            X = X[:, : attr.shape[2], :]
+            X = X.unsqueeze(1)
+            quantus_inp = {
+                "model": self.hparams.eval_wrapper,
+                "x_batch": X.clone()
+                .detach()
+                .cpu()
+                .numpy(),  # quantus expects the batch dim
+                "a_batch": attr,
+                "y_batch": y.squeeze().clone().detach().cpu().numpy(),
+                "softmax": False,
+                "device": device,
+            }
+
+            return torch.Tensor([self.sparseness(**quantus_inp)[0]]).float()
+
+        @torch.no_grad()
+        def compute_complexity(wavs, X, y):
+            self.complexity = quantus.Complexity(
+                return_aggregate=True, abs=True
+            )
+            device = X.device
+            attr = (
+                self.interpret_computation_steps(wavs)[1]
+                .transpose(1, 2)
+                .unsqueeze(1)
+                .clone()
+                .detach()
+                .cpu()
+                .numpy()
+            )
+            X = X[:, : attr.shape[2], :]
+            X = X.unsqueeze(1)
+            quantus_inp = {
+                "model": self.hparams.eval_wrapper,
+                "x_batch": X.clone()
+                .detach()
+                .cpu()
+                .numpy(),  # quantus expects the batch dim
+                "a_batch": attr,
+                "y_batch": y.squeeze().clone().detach().cpu().numpy(),
+                "softmax": False,
+                "device": device,
+            }
+
+            return torch.Tensor([self.complexity(**quantus_inp)[0]]).float()
+
+        @torch.no_grad()
         def accuracy_value(predict, target):
             """Computes Accuracy"""
             predict = predict.argmax(1)
@@ -258,6 +321,8 @@ class InterpreterBrain(sb.core.Brain):
         self.AD = MetricStats(metric=compute_AD)
         self.AI = MetricStats(metric=compute_AI)
         self.AG = MetricStats(metric=compute_AG)
+        self.sps = MetricStats(metric=compute_sparseness)
+        self.comp = MetricStats(metric=compute_complexity)
         self.inp_fid = MetricStats(metric=compute_fidelity)
         self.faithfulness = MetricStats(metric=compute_faithfulness)
         self.acc_metric = MetricStats(metric=accuracy_value)
@@ -287,6 +352,15 @@ class InterpreterBrain(sb.core.Brain):
             for k in self.extra_metrics().keys()
         }
 
+        tmp = {
+            "SPS": torch.Tensor(self.sps.scores).mean(),
+            "COMP": torch.Tensor(self.comp.scores).mean(),
+        }
+        quantus_metrics = {}
+        for m in tmp:
+            if not tmp[m].isnan():
+                quantus_metrics[m] = tmp[m]
+
         if stage == sb.Stage.VALID:
             current_fid = torch.Tensor(self.inp_fid.scores).mean()
             old_lr, new_lr = self.hparams.lr_annealing(
@@ -305,6 +379,7 @@ class InterpreterBrain(sb.core.Brain):
                 ).mean(),
             }
             valid_stats.update(extra_m)
+            valid_stats.update(quantus_metrics)
 
             # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(
@@ -332,6 +407,7 @@ class InterpreterBrain(sb.core.Brain):
                 ).mean(),
             }
             test_stats.update(extra_m)
+            test_stats.update(quantus_metrics)
 
             # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(

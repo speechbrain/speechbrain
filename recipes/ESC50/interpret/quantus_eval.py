@@ -23,6 +23,7 @@ class QuantusEvalWrapper(nn.Module):
         self,
         use_stft2mel,
         use_melspectra,
+        compute_stft,
         compute_fbank,
         repr_=False,
     ):
@@ -31,15 +32,18 @@ class QuantusEvalWrapper(nn.Module):
         self.use_stft2mel = use_stft2mel
         self.use_melspectra = use_melspectra
         self.compute_fbank = compute_fbank
+        self.compute_stft = compute_stft
 
+    def forward(self, x, embedding_model, classifier):
+        print(x.shape)
+        breakpoint()
         self.cnn14 = False
         if str(self.embedding_model.__class__.__name__) == "Cnn14":
             self.cnn14 = True
 
-    def forward(self, x, embedding_model, classifier):
         x = x.float()
+        x = torch.log1p(self.compute_stft(x))
         if self.use_stft2mel and not self.use_melspectra:
-            x = torch.expm1(x)
             x = self.compute_fbank(x.squeeze(1)).unsqueeze(1)
             x = torch.log1p(x)
 

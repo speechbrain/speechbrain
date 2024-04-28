@@ -30,15 +30,16 @@ class L2I(InterpreterBrain):
         ret_X_int = torch.empty(
             wavs_batch.shape[0], X_stft.shape[2], X_stft.shape[1]
         ).to(wavs_batch.device)
+        ret_mask = torch.empty(
+            wavs_batch.shape[0], X_stft.shape[2], X_stft.shape[1]
+        ).to(wavs_batch.device)
         ret_X_stft_phase = torch.empty(
             wavs_batch.shape[0], X_stft.shape[1], X_stft.shape[2]
         ).to(wavs_batch.device)
         for idx, wavs in enumerate(wavs_batch):
             # compute stft and logmel, and phase
             wavs = wavs[None]
-            X_stft_logpower, net_input, X_stft, X_stft_power = self.preprocess(
-                wavs
-            )
+            X_stft_logpower, net_input, X_stft, _ = self.preprocess(wavs)
             X_stft_phase = spectral_phase(X_stft)
 
             # get the classifier embeddings
@@ -87,22 +88,22 @@ class L2I(InterpreterBrain):
             )
 
             # get the log power spectra, this is needed as NMF is trained on log-power spectra
-            X_stft_power_log = (
-                torch.log(X_stft_power + 1).transpose(1, 2).squeeze(0)
-            )
+            X_stft_logpower = X_stft_logpower.transpose(1, 2).squeeze(0)
 
             X_withselected = nmf_dictionary[:, L] @ psi_out[L, :]
             Xhat = nmf_dictionary @ psi_out
 
-            X_stft_power_log = X_stft_power_log[..., : Xhat.shape[1]]
+            X_stft_power_log = X_stft_logpower[..., : Xhat.shape[1]]
 
             # need the eps for the denominator
-            X_int = (X_withselected / (Xhat + eps)) * X_stft_power_log
+            mask = X_withselected / (Xhat + eps)
+            X_int = mask * X_stft_power_log
 
             ret_X_int[idx] = X_int
+            ret_mask[idx] = mask
             ret_X_stft_phase[idx] = X_stft_phase
 
-        return ret_X_int, ret_X_stft_phase
+        return ret_X_int, ret_mask, ret_X_stft_phase
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -177,7 +178,7 @@ class L2I(InterpreterBrain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            tmp, _ = self.interpret_computation_steps(wavs)  # returns log1p
+            tmp, _, _ = self.interpret_computation_steps(wavs)  # returns log1p
             interpretations = torch.expm1(tmp).transpose(2, 1)
 
             if self.hparams.use_melspectra_log1p:
