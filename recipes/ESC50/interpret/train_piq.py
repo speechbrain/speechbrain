@@ -7,7 +7,7 @@ To run this recipe, use the following command:
 
 Authors
     * Cem Subakan 2022, 2023
-    * Francesco Paissan 2022, 2023
+    * Francesco Paissan 2022, 2023, 2024
     * Luca Della Libera 2024
 """
 
@@ -57,7 +57,7 @@ class PIQ(InterpreterBrain):
             th = xhat.max() * self.hparams.mask_th
             X_int = (xhat > th) * X_stft_logpower[:, :Tmax, :]
 
-        return X_int.permute(0, 2, 1), X_stft_phase
+        return X_int.permute(0, 2, 1), xhat, X_stft_phase
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on an encoder + sound classifier."""
@@ -135,6 +135,7 @@ class PIQ(InterpreterBrain):
             rec_loss = (
                 (X_stft_logpower[:, : xhat.shape[1], :] - xhat).pow(2).mean()
             )
+
         if self.hparams.use_vq:
             loss_vq = F.mse_loss(z_q_x, hcat.detach())
             loss_commit = F.mse_loss(hcat, z_q_x.detach())
@@ -154,6 +155,12 @@ class PIQ(InterpreterBrain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
+        print(
+            self.hparams.rec_loss_coef * rec_loss,
+            loss_vq,
+            loss_commit,
+            loss_fid,
+        )
         return (
             self.hparams.rec_loss_coef * rec_loss
             + loss_vq
