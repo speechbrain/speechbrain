@@ -40,7 +40,7 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-wham_folder: /mnt/data/large_audio/WHAM/wham_noise
+wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 
@@ -78,12 +78,6 @@ use_mask_output: True
 mask_th: 0.35
 signal_length_s: 5
 add_wham_noise: False
-
-wham_dataset: !new:wham_prepare.WHAMDataset
-    data_dir: !ref <wham_audio_folder>
-    target_length: !ref <signal_length_s>
-    sample_rate: !ref <sample_rate>
-
 
 device: "cuda"
 
@@ -190,14 +184,6 @@ psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI_stft
     activate_class_partitioning: True
     adapter_reduce_dim: True
     stft2mel: True
-
-eval_wrapper: !new:quantus_eval.QuantusEvalWrapper
-    use_stft2mel: !ref <use_stft2mel>
-    use_melspectra: !ref <use_melspectra_log1p>
-    compute_stft: !ref <compute_stft>
-    compute_fbank: !ref <compute_fbank>
-    repr_: !ref <return_reps>
-
 
 modules:
     compute_stft: !ref <compute_stft>

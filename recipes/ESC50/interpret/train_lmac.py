@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from interpreter_brain import InterpreterBrain
-from wham_prepare import combine_batches
+from wham_prepare import combine_batches, prepare_wham
 
 import speechbrain as sb
 from speechbrain.processing.NMF import spectral_phase
@@ -328,6 +328,9 @@ if __name__ == "__main__":
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
+
+    # create WHAM dataset according to hparams
+    hparams["wham_dataset"] = prepare_wham(hparams)
 
     assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
     assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
