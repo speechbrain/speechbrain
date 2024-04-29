@@ -19,6 +19,8 @@ sample: ""
 true_target: False
 
 dataset: "esc50"
+int_method: "lmac"
+overlap_type: "mixtures"
 
 l_in_w: 4
 l_out_w: 0.2
@@ -61,6 +63,8 @@ train_fold_nums: [1, 2, 3]
 valid_fold_nums: [4]
 test_fold_nums: [5]
 skip_manifest_creation: True
+
+ljspeech_path: null
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 

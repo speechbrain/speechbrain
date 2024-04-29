@@ -13,6 +13,7 @@ import quantus
 import torch
 import torchaudio
 import torchvision
+from numpy import test
 from torch.nn import functional as F
 
 import speechbrain as sb
@@ -413,3 +414,13 @@ class InterpreterBrain(sb.core.Brain):
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch}, test_stats=test_stats
             )
+
+            test_stats = {
+                k: (
+                    test_stats[k].item()
+                    if isinstance(test_stats[k], torch.Tensor)
+                    else test_stats[k]
+                )
+                for k in test_stats
+            }
+            print(test_stats)
