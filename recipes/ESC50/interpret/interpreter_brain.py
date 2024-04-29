@@ -268,7 +268,7 @@ class InterpreterBrain(sb.core.Brain):
             X = X[:, : attr.shape[2], :]
             X = X.unsqueeze(1)
             quantus_inp = {
-                "model": self.hparams.eval_wrapper,
+                "model": None,
                 "x_batch": X.clone()
                 .detach()
                 .cpu()
@@ -299,7 +299,7 @@ class InterpreterBrain(sb.core.Brain):
             X = X[:, : attr.shape[2], :]
             X = X.unsqueeze(1)
             quantus_inp = {
-                "model": self.hparams.eval_wrapper,
+                "model": None,
                 "x_batch": X.clone()
                 .detach()
                 .cpu()
