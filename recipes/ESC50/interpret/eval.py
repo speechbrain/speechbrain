@@ -52,7 +52,7 @@ class LJSPEECH_split(dts.LJSPEECH):
         print("dataset size = ", len(self._flist))
 
 
-class ESCContaminated:
+class ESCContaminated(torch.utils.data.Dataset):
     def __init__(
         self, esc50_ds, cont_d, overlap_multiplier=2, overlap_type="mixtures"
     ):
@@ -75,6 +75,9 @@ class ESCContaminated:
         mix = mix / mix.max()
         return mix
 
+    def __len__(self):
+        return len(self.esc50_ds)
+
     def __getitem__(
         self,
         idx_mix: int,
@@ -82,7 +85,7 @@ class ESCContaminated:
         sample = self.esc50_ds[idx_mix]
 
         if hparams["add_wham_noise"]:
-            return sample
+            return sb.datio.batch.PaddedBatch(sample)
 
         pool = [i for i in range(len(self.cont_d))]
         indices = random.sample(pool, self.overlap_multiplier)
@@ -121,7 +124,7 @@ class ESCContaminated:
             else:
                 raise ValueError("Overlap type not implemented.")
 
-        return samples
+        return sb.dataio.batch.PaddedBatch(samples)
 
 
 if __name__ == "__main__":
@@ -207,5 +210,5 @@ if __name__ == "__main__":
         test_set=ood_dataset,
         min_key="loss",
         progressbar=True,
-        test_loader_kwargs=hparams["dataloader_options"],
+        test_loader_kwargs={"collate_fn": lambda x: x[0], "batch_size": 1},
     )
