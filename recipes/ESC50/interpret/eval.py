@@ -17,6 +17,7 @@ import torchaudio.datasets as dts
 import torchaudio.transforms as T
 from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
+from train_l2i import L2I
 from train_lmac import LMAC
 
 import speechbrain as sb
@@ -174,8 +175,8 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
 
-    hparams["embedding_model"].to(hparams["device"])
-    hparams["classifier"].to(hparams["device"])
+    hparams["embedding_model"].to(run_opts["device"])
+    hparams["classifier"].to(run_opts["device"])
     hparams["embedding_model"].eval()
     hparams["classifier"].eval()
 
@@ -195,6 +196,17 @@ if __name__ == "__main__":
 
     if hparams["int_method"] == "lmac":
         Interpreter = LMAC(
+            modules=hparams["modules"],
+            opt_class=hparams["opt_class"],
+            hparams=hparams,
+            run_opts=run_opts,
+            checkpointer=hparams["checkpointer"],
+        )
+    elif hparams["int_method"] == "l2i":
+        hparams["nmf_decoder"].to(run_opts["device"])
+        hparams["nmf_decoder"].eval()
+
+        Interpreter = L2I(
             modules=hparams["modules"],
             opt_class=hparams["opt_class"],
             hparams=hparams,

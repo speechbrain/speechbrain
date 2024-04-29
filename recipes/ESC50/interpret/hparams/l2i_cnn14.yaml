@@ -12,13 +12,15 @@ seed: 1234
 __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 
 sample: ""
-overlap_type: LJSpeech
+overlap_type: "mixtures"
 
-exp_method: "l2i"
+int_method: "l2i"
 mrt: False
 mrt_layer: 6
 eval_outdir: ""
 use_stft2mel: False
+
+ljspeech_path: null
 
 # Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
