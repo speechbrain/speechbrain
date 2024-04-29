@@ -549,7 +549,7 @@ class WhisperASR(Pretrained):
         return languages, lang_probs
 
     def _get_audio_stream(
-        self, streamer: torchaudio.io.StreamReader, frames_per_chunk: int
+        self, streamer: "torchaudio.io.StreamReader", frames_per_chunk: int
     ):
         """From a :class:`torchaudio.io.StreamReader`, identifies the audio
         stream and returns an iterable stream of chunks (after resampling and
@@ -990,7 +990,7 @@ class StreamingASR(Pretrained):
         self.filter_props = self.hparams.fea_streaming_extractor.properties
 
     def _get_audio_stream(
-        self, streamer: torchaudio.io.StreamReader, frames_per_chunk: int
+        self, streamer: "torchaudio.io.StreamReader", frames_per_chunk: int
     ):
         """From a :class:`torchaudio.io.StreamReader`, identifies the audio
         stream and returns an iterable stream of chunks (after resampling and
