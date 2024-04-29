@@ -19,6 +19,7 @@ from esc50_prepare import dataio_prep, prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from train_l2i import L2I
 from train_lmac import LMAC
+from wham_prepare import prepare_wham
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
@@ -85,9 +86,6 @@ class ESCContaminated(torch.utils.data.Dataset):
     ):
         sample = self.esc50_ds[idx_mix]
 
-        if hparams["add_wham_noise"]:
-            return sb.datio.batch.PaddedBatch(sample)
-
         pool = [i for i in range(len(self.cont_d))]
         indices = random.sample(pool, self.overlap_multiplier)
 
@@ -134,6 +132,10 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    if hparams["add_wham_noise"]:
+        print(
+            "CAREFUL! You are running ID evaluation. If you want to run OOD, use add_wham_noise=False."
+        )
     ljspeech_tr = None
     if hparams["ljspeech_path"] is not None:
         os.makedirs(hparams["ljspeech_path"], exist_ok=True)
@@ -169,6 +171,9 @@ if __name__ == "__main__":
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
 
+    # create WHAM dataset according to hparams
+    hparams["wham_dataset"] = prepare_wham(hparams)
+
     assert hparams["use_pretrained"], "Load a model checkpoint during eval."
     if "pretrained_esc50" in hparams and hparams["use_pretrained"]:
         print("Loading model...")
@@ -193,6 +198,9 @@ if __name__ == "__main__":
     ood_dataset = ESCContaminated(
         datasets["valid"], overlap_dataset, overlap_type=overlap_type
     )
+
+    if hparams["add_wham_noise"]:
+        ood_dataset = datasets["valid"]
 
     if hparams["int_method"] == "lmac":
         Interpreter = LMAC(
@@ -222,5 +230,9 @@ if __name__ == "__main__":
         test_set=ood_dataset,
         min_key="loss",
         progressbar=True,
-        test_loader_kwargs={"collate_fn": lambda x: x[0], "batch_size": 1},
+        test_loader_kwargs=(
+            {"collate_fn": lambda x: x[0], "batch_size": 1}
+            if not hparams["add_wham_noise"]
+            else {"batch_size": 2}
+        ),
     )
