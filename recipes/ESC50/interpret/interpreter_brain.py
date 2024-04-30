@@ -13,7 +13,6 @@ import quantus
 import torch
 import torchaudio
 import torchvision
-from numpy import test
 from torch.nn import functional as F
 
 import speechbrain as sb
