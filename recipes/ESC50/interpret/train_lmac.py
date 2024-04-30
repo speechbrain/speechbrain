@@ -339,7 +339,7 @@ if __name__ == "__main__":
     print("Class Labels:", class_labels)
 
     if hparams["finetuning"]:
-        if hparams["pretrained_PIQ"] is None:
+        if hparams["pretrained_interpreter"] is None:
             raise AssertionError(
                 "You should specify pretrained model for finetuning."
             )
@@ -352,8 +352,8 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    if hparams["pretrained_PIQ"] is not None and hparams["finetuning"]:
-        print("Load pretrained_PIQ for interpreer finetuning...")
+    if hparams["pretrained_interpreter"] is not None and hparams["finetuning"]:
+        print("Load pretrained_interpreter for interpreer finetuning...")
         run_on_main(hparams["load_pretrained"].collect_files)
         hparams["load_pretrained"].load_collected()
 

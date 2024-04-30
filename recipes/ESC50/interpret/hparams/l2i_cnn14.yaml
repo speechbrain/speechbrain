@@ -178,7 +178,6 @@ modules:
     psi: !ref <psi_model>
     theta: !ref <theta>
 
-pretrained_PIQ: null
 embedding_model_path: 'fpaissan/r/embedding_model.ckpt'
 classifier_model_path: 'fpaissan/r/classifier.ckpt'
 

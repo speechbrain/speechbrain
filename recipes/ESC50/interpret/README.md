@@ -33,6 +33,32 @@ pip install -r extra_requirements.txt
 
 ## Supported Methods
 
+### Listenable Maps for Audio Classifiers (LMAC)
+
+LMAC trains an interpreter on the classifier's representations to reconstruct interpretations based on a amortized inference loss.
+
+For more details, refer to our [LMAC paper](https://arxiv.org/abs/2403.13086). You can also find samples on the [companion website](https://anonymous.4open.science/w/audio_interpretability-87B5/).
+
+To train PIQ on a convolutional classifier using the ESC50 dataset, use the `train_lmac.py` script. Run the following command:
+
+```shell
+python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50
+```
+
+Eventually, you can use WHAM! augmentation to boost the interpretations performance, using:
+```shell
+python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 --add_wham_noise True --wham_folder=/yourpath/wham_noise
+```
+
+To run the finetuning stage of the interpreter, use
+```shell
+python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 \
+    --add_wham_noise True --wham_folder=/yourpath/wham_noise \
+    --finetuning True --pretrained_interpreter=/yourLMAC/checkpoint.tar.gz
+```
+
+---------------------------------------------------------------------------------------------------------
+
 ### Posthoc Interpretation via Quantization (PIQ)
 
 PIQ utilizes vector quantization on the classifier's representations to reconstruct predictions.
