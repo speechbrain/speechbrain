@@ -353,6 +353,7 @@ if __name__ == "__main__":
     )
 
     if hparams["pretrained_PIQ"] is not None and hparams["finetuning"]:
+        print("Load pretrained_PIQ for interpreer finetuning...")
         run_on_main(hparams["load_pretrained"].collect_files)
         hparams["load_pretrained"].load_collected()
 
