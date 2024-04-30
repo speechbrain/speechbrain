@@ -496,16 +496,21 @@ class Pretrained(torch.nn.Module):
             )
 
         # Pretraining:
-        pretrainer = hparams["pretrainer"]
-        pretrainer.set_collect_in(savedir)
-        # For distributed setups, have this here:
-        run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
-        # Load on the CPU. Later the params can be moved elsewhere by specifying
-        if not download_only:
-            # run_opts={"device": ...}
-            pretrainer.load_collected()
+        pretrainer = hparams.get("pretrainer", None)
+        if pretrainer is not None:
+            pretrainer.set_collect_in(savedir)
+            # For distributed setups, have this here:
+            run_on_main(
+                pretrainer.collect_files, kwargs={"default_source": source}
+            )
+            # Load on the CPU. Later the params can be moved elsewhere by specifying
+            if not download_only:
+                # run_opts={"device": ...}
+                pretrainer.load_collected()
 
-            # Now return the system
+                # Now return the system
+                return cls(hparams["modules"], hparams, **kwargs)
+        else:
             return cls(hparams["modules"], hparams, **kwargs)
 
 

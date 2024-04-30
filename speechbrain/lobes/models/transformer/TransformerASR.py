@@ -347,6 +347,10 @@ class TransformerASR(TransformerInterface):
             pos_embs=pos_embs_encoder,
         )
 
+        # if encoder only, we return the output of the encoder
+        if tgt is None:
+            return encoder_out, None
+
         tgt = self.custom_tgt_module(tgt)
 
         if self.attention_type == "RelPosMHAXL":

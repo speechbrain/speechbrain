@@ -155,12 +155,6 @@ class PIQ(InterpreterBrain):
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
-        print(
-            self.hparams.rec_loss_coef * rec_loss,
-            loss_vq,
-            loss_commit,
-            loss_fid,
-        )
         return (
             self.hparams.rec_loss_coef * rec_loss
             + loss_vq
@@ -182,6 +176,14 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    print("Inherited hparams:")
+    print("use_melspectra_log1p=", hparams["use_melspectra_log1p"])
+
+    print(
+        "Interpreter class is inheriting the train_logger",
+        hparams["train_logger"],
+    )
 
     # Classifier is fixed here
     hparams["embedding_model"].eval()

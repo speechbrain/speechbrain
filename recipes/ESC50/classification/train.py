@@ -420,6 +420,12 @@ if __name__ == "__main__":
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
 
+    print(
+        "WHAM Configuration - wham_metadata: "
+        + hparams["wham_metadata"]
+        + " wham_audio_folder: "
+        + hparams["wham_audio_folder"]
+    )
     hparams["wham_dataset"] = prepare_wham(hparams)
 
     if hparams["wham_dataset"] is not None:

@@ -489,9 +489,6 @@ class VectorQuantizedPSI_Audio(nn.Module):
         Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
         """
 
-        import pdb
-
-        pdb.set_trace()
         if self.use_adapter:
             hcat = self.adapter(hs)
         else:
@@ -862,6 +859,8 @@ class CNN14PSI_stft(nn.Module):
         `True` to learn an adapter for classifier's representations.
     adapter_reduce_dim : bool
         `True` if adapter should compress representations.
+    outdim : int
+        Defines the number of output channels from the encoder.
 
     Returns
     --------
@@ -869,7 +868,7 @@ class CNN14PSI_stft(nn.Module):
 
     Example:
     --------
-    >>> psi = VectorQuantizedPSI_Audio(dim=256, K=1024)
+    >>> psi = CNN14PSI_stft(dim=256, K=1024)
     >>> x = torch.randn(2, 256, 16, 16)
     >>> labels = torch.Tensor([0, 2])
     >>> logspectra, hcat, z_q_x = psi(x, labels)
@@ -886,7 +885,6 @@ class CNN14PSI_stft(nn.Module):
         shared_keys=0,
         use_adapter=True,
         adapter_reduce_dim=True,
-        stft2mel=False,
         outdim=1,
     ):
         super().__init__()
@@ -909,34 +907,6 @@ class CNN14PSI_stft(nn.Module):
 
         self.nonl = nn.ReLU(True)
 
-        self.stft2mel = stft2mel
-        # if stft2mel:
-        #    self.lin = nn.Linear(80, 513)
-
-        # self.bn1 = nn.BatchNorm2d(dim)
-        # self.bn2 = nn.BatchNorm2d(dim)
-        # self.bn3 = nn.BatchNorm2d(dim)
-        # self.bn4 = nn.BatchNorm2d(dim)
-        # self.bn5 = nn.BatchNorm2d(dim)
-        # self.bn6 = nn.BatchNorm2d(dim)
-        # self.bn7 = nn.BatchNorm2d(dim)
-
-        # decoder = nn.Sequential(
-        #     nn.ConvTranspose2d(dim, dim, 3, (2, 2), 1),
-        #     nn.ReLU(True),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
-        #     nn.ReLU(),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
-        #     nn.ReLU(),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, dim, 4, (2, 2), 1),
-        #     nn.ReLU(),
-        #     nn.BatchNorm2d(dim),
-        #     nn.ConvTranspose2d(dim, 1, 12, 1, 1),
-        # )
-
     def forward(self, hs, labels=None):
         """
         Forward step. Reconstructs log-power based on provided label's keys in VQ dictionary.
@@ -955,38 +925,30 @@ class CNN14PSI_stft(nn.Module):
 
         h1 = self.convt1(hs[0])
         h1 = self.nonl(h1)
-        # h1 = self.bn1(h1)
 
         h2 = self.convt2(hs[1])
         h2 = self.nonl(h2)
-        # h2 = self.bn2(h2)
         h = h1 + h2
 
         h3 = self.convt3(h)
         h3 = self.nonl(h3)
-        # h3 = self.bn3(h3)
 
         h4 = self.convt4(hs[2])
         h4 = self.nonl(h4)
-        # h4 = self.bn4(h4)
         h = h3 + h4
 
         h5 = self.convt5(h)
         h5 = self.nonl(h5)
-        # h5 = self.bn5(h5)
 
         h6 = self.convt6(hs[3])
         h6 = self.nonl(h6)
-        # h6 = self.bn6(h6)
 
         h = h5 + h6
 
         h = self.convt7(h)
         h = self.nonl(h)
-        # h = self.bn7(h)
 
         h = self.convt8(h)
         xhat = self.convt9(h)
-        # if self.stft2mel:
-        #    xhat = self.lin(xhat)
+
         return xhat

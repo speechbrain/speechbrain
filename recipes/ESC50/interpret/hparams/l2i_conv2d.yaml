@@ -15,8 +15,10 @@ __set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
-exp_method: "l2i"
+int_method: "l2i"
 add_wham_noise: False
+overlap_type: "mixtures"
+ljspeech_path: null
 
 experiment_name: L2I
 output_folder: !ref ./results/<experiment_name>/<seed>
@@ -54,15 +56,12 @@ sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
 signal_length_s: 5
-
-use_wham: True
+use_melspectra_log1p: False
 
 device: "cuda"
 
 # Feature parameters
 n_mels: 80
-
-use_melspectra: False
 
 # Number of classes
 out_n_neurons: 50
@@ -147,7 +146,6 @@ nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
-k_fidelity: 3 # top-k fidelity
 
 modules:
     compute_stft: !ref <compute_stft>

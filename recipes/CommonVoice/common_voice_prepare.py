@@ -3,10 +3,11 @@ Data preparation.
 Download: https://commonvoice.mozilla.org/en/datasets
 Author
 ------
-Titouan Parcollet
+Titouan Parcollet 2021, 2022, 2024
 Luca Della Libera 2022
 Pooneh Mousavi 2022
 Salima Mdhaffar 2023
+Adel Moumen 2024
 """
 
 import csv
@@ -22,6 +23,9 @@ from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 
+VERBOSE = False
+SAMPLING_RATE = 16_000
+
 
 def prepare_common_voice(
     data_folder,
@@ -32,6 +36,7 @@ def prepare_common_voice(
     accented_letters=False,
     language="en",
     skip_prep=False,
+    convert_to_wav=False,
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
@@ -55,6 +60,10 @@ def prepare_common_voice(
         transformed to the closest non-accented letters.
     language: str
         Specify the language for text normalization.
+    convert_to_wav: bool
+        If True, mp3 files are converted (duplicated) to .wav. Wav are much
+        faster to read than MP3 so use this if your filesystem is slow.
+        FFMPEG must be installed.
     skip_prep: bool
         If True, skip data preparation.
 
@@ -103,8 +112,7 @@ def prepare_common_voice(
         test_tsv_file = test_tsv_file
 
     # Setting the save folder
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+    os.makedirs(save_folder, exist_ok=True)
 
     # Setting output files
     save_csv_train = save_folder + "/train.csv"
@@ -132,7 +140,14 @@ def prepare_common_voice(
         [save_csv_train, save_csv_dev, save_csv_test],
     )
     for tsv_file, save_csv in file_pairs:
-        create_csv(tsv_file, save_csv, data_folder, accented_letters, language)
+        create_csv(
+            convert_to_wav,
+            tsv_file,
+            save_csv,
+            data_folder,
+            accented_letters,
+            language,
+        )
 
 
 def skip(save_csv_train, save_csv_dev, save_csv_test):
@@ -173,23 +188,53 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 class CVRow:
     snt_id: str
     duration: float
-    mp3_path: str
+    audio_path: str
     spk_id: str
     words: str
 
 
-def process_line(line, data_folder, language, accented_letters):
-    # Path is at index 1 in Common Voice tsv files. And .mp3 files
-    # are located in datasets/lang/clips/
-    mp3_path = data_folder + "/clips/" + line.split("\t")[1]
+def process_line(line, convert_to_wav, data_folder, language, accented_letters):
+    """Process a line of CommonVoice tsv file.
 
-    file_name = mp3_path.split(".")[-2].split("/")[-1]
+    Arguments
+    ---------
+    line : str
+        A line of the CommonVoice tsv file.
+    convert_to_wav : bool
+        If True, mp3 files are converted (duplicated) to .wav. Wav are much
+        faster to read than MP3 so use this if your filesystem is slow.
+        FFMPEG must be installed.
+    data_folder : str
+        Path to the CommonVoice dataset.
+    language : str
+        Language code, e.g. "en"
+    accented_letters : bool
+        Defines if accented letters will be kept as individual letters or
+        transformed to the closest non-accented letters.
+
+    Returns
+    -------
+    CVRow
+        A dataclass containing the information about the line.
+    """
+
+    # Path is at indice 1 in Common Voice tsv files. And .mp3 files
+    # are located in datasets/lang/clips/
+    audio_path = data_folder + "/clips/" + line.split("\t")[1]
+
+    if convert_to_wav:
+        audio_path = convert_mp3_to_wav(audio_path)
+
+    file_name = audio_path.split(".")[-2].split("/")[-1]
     spk_id = line.split("\t")[0]
     snt_id = file_name
 
+    if convert_mp3_to_wav:
+        audio_path = convert_mp3_to_wav(audio_path)
+
     # Reading the signal (to retrieve duration in seconds)
-    if os.path.isfile(mp3_path):
-        info = read_audio_info(mp3_path)
+    if os.path.isfile(audio_path):
+        info = read_audio_info(audio_path)
     else:
         msg = "\tError loading: %s" % (str(len(file_name)))
         logger.info(msg)
@@ -231,11 +276,16 @@ def process_line(line, data_folder, language, accented_letters):
             return None
 
     # Composition of the csv_line
-    return CVRow(snt_id, duration, mp3_path, spk_id, words)
+    return CVRow(snt_id, duration, audio_path, spk_id, words)
 
 
 def create_csv(
-    orig_tsv_file, csv_file, data_folder, accented_letters=False, language="en"
+    convert_to_wav,
+    orig_tsv_file,
+    csv_file,
+    data_folder,
+    accented_letters=False,
+    language="en",
 ):
     """
     Creates the csv file given a list of wav files.
@@ -277,6 +327,7 @@ def create_csv(
 
     line_processor = functools.partial(
         process_line,
+        convert_to_wav=convert_to_wav,
         data_folder=data_folder,
         language=language,
         accented_letters=accented_letters,
@@ -301,7 +352,7 @@ def create_csv(
                 [
                     row.snt_id,
                     str(row.duration),
-                    row.mp3_path,
+                    row.audio_path,
                     row.spk_id,
                     row.words,
                 ]
@@ -316,6 +367,37 @@ def create_csv(
     logger.info(msg)
     msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
     logger.info(msg)
+
+
+def convert_mp3_to_wav(audio_mp3_path):
+    """Convert an mp3 file to a wav file.
+
+    Parameters
+    ----------
+    audio_mp3_path : str
+        The path to the opus file to be converted.
+
+    Returns
+    -------
+    str
+        The path to the converted wav file.
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        If the conversion process fails.
+    """
+    audio_wav_path = audio_mp3_path.replace(".mp3", ".wav")
+
+    if VERBOSE:
+        os.system(
+            f"ffmpeg -y -i {audio_mp3_path} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path}"
+        )
+    else:
+        os.system(
+            f"ffmpeg -y -i {audio_mp3_path} -ac 1 -ar {SAMPLING_RATE} {audio_wav_path} > /dev/null 2>&1"
+        )
+    return audio_wav_path
 
 
 def language_specific_preprocess(language, words):
