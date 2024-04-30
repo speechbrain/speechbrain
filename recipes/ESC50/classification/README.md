@@ -61,6 +61,15 @@ python train.py hparams/vit.yaml --data_folder /yourpath/ESC50
 
 ---------------------------------------------------------------------------------------------------------
 
+### To train with WHAM! noise
+
+In order to train the classifier with WHAM! noise, you can train your classifier with the following command:
+
+```shell
+python train.py hparams/modelofchoice.yaml --data_folder /yourpath/ESC50 --add_wham_noise True --wham_folder /yourpath/wham_noise
+```
+
+
 ## Results
 
 | Hyperparams file | Accuracy (%) |   Training time    |                        HuggingFace link                         |                                                         Model link                                                         |    GPUs     |
