@@ -54,8 +54,9 @@ To run the finetuning stage of the interpreter, use
 ```shell
 python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 \
     --add_wham_noise True --wham_folder=/yourpath/wham_noise \
-    --finetuning True --pretrained_interpreter=/yourLMAC/checkpoint.tar.gz
+    --finetuning True --pretrained_interpreter=/yourLMAC/checkpoint.tar.gz --g_w 4
 ```
+where $g_w$ is the guidance weight for the interpreter.
 
 ---------------------------------------------------------------------------------------------------------
 
