@@ -5,15 +5,16 @@ Author
  * Ha Nguyen, 2023
 """
 
-import sys
-import torch
 import logging
+import sys
 
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+import torch
 from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
 from torch.nn.parallel import DistributedDataParallel
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ class ST(sb.core.Brain):
                 valid_stats=stage_stats,
             )
 
-            # create checkpoing
+            # create checkpoint
             valid_search_interval = self.hparams.valid_search_interval
             if (
                 current_epoch % valid_search_interval == 0
@@ -228,7 +229,8 @@ class ST(sb.core.Brain):
 # Define custom data procedure
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
@@ -254,7 +256,7 @@ def dataio_prepare(hparams, tokenizer):
     # decoder during training, the tokens with EOS for computing the cost function.
     @sb.utils.data_pipeline.takes("trans")
     @sb.utils.data_pipeline.provides(
-        "trans", "tokens_list", "tokens_bos", "tokens_eos",
+        "trans", "tokens_list", "tokens_bos", "tokens_eos"
     )
     def reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
@@ -371,7 +373,8 @@ def dataio_prepare(hparams, tokenizer):
                 sort_key="duration",
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": 1}, key_max_value={"duration": 3},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 3},
             )
 
         hparams["dataloader_options"]["shuffle"] = True
@@ -384,7 +387,6 @@ def dataio_prepare(hparams, tokenizer):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

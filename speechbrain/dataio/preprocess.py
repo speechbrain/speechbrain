@@ -1,5 +1,7 @@
 """Preprocessors for audio"""
+
 import torch
+
 from speechbrain.augment.time_domain import Resample
 
 
@@ -44,11 +46,19 @@ class AudioNormalizer:
 
     def __call__(self, audio, sample_rate):
         """Perform normalization
+
         Arguments
         ---------
-        audio : tensor
+        audio : torch.Tensor
             The input waveform torch tensor. Assuming [time, channels],
             or [time].
+        sample_rate : int
+            Rate the audio was sampled at.
+
+        Returns
+        -------
+        audio : torch.Tensor
+            Channel- and sample-rate-normalized audio.
         """
         if sample_rate not in self._cached_resamplers:
             # Create a Resample instance from this newly seen SR to internal SR

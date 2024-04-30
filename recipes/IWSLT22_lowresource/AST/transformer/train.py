@@ -5,14 +5,16 @@ Author
  * Marcely Zanon Boito, 2022
 """
 
-import sys
-import torch
 import logging
+import sys
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+from sacremoses import MosesDetokenizer
+
 import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-from sacremoses import MosesDetokenizer
 
 
 # Define training procedure
@@ -167,7 +169,7 @@ class ST(sb.core.Brain):
                     valid_stats=stage_stats,
                 )
 
-            # create checkpoing
+            # create checkpoint
             meta = {"BLEU": stage_stats["BLEU"], "epoch": current_epoch}
             name = "checkpoint_epoch" + str(current_epoch)
 
@@ -185,7 +187,8 @@ class ST(sb.core.Brain):
 # Define custom data procedure
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
@@ -353,7 +356,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -396,9 +398,11 @@ if __name__ == "__main__":
     datasets, tokenizer = dataio_prepare(hparams)
 
     # Before training, we drop some of the wav2vec 2.0 Transformer Encoder layers
-    st_brain.modules.wav2vec2.model.encoder.layers = st_brain.modules.wav2vec2.model.encoder.layers[
-        : hparams["keep_n_layers"]
-    ]
+    st_brain.modules.wav2vec2.model.encoder.layers = (
+        st_brain.modules.wav2vec2.model.encoder.layers[
+            : hparams["keep_n_layers"]
+        ]
+    )
 
     # Training
     st_brain.fit(

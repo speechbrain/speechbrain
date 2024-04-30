@@ -4,14 +4,16 @@ Authors
  * Loren Lugosch 2020
 """
 
-import os.path
-import torch
-import logging
 import csv
 import json
+import logging
+import os.path
 from dataclasses import dataclass
 from typing import List
+
 import sentencepiece as spm
+import torch
+
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main
@@ -64,6 +66,10 @@ class SentencePiece:
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     eos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    pad_id : int
+        If -1 the pad_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    unk_id : int
+        The token corresponding to an unknown symbol (not in token set).
     split_by_whitespace : bool
         If False, allow the sentencepiece to extract piece crossing multiple
         words. This feature is important for : Chinese/Japanese/Korean.
@@ -79,9 +85,9 @@ class SentencePiece:
     text_file: str
         An alternate path to the text file (needed when multiple models are trained on
         the same data file)
-
     add_dummy_prefix : bool
         If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
+
     Example
     -------
     >>> import torch
@@ -197,8 +203,7 @@ class SentencePiece:
             )
 
     def _csv2text(self):
-        """Read CSV file and convert specific data entries into text file.
-        """
+        """Read CSV file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train
@@ -238,8 +243,7 @@ class SentencePiece:
         logger.info("Text file created at: " + self.text_file)
 
     def _json2text(self):
-        """Read JSON file and convert specific data entries into text file.
-        """
+        """Read JSON file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train
@@ -317,9 +321,10 @@ class SentencePiece:
 
     def _check_coverage_from_bpe(self, list_annotation_files=[]):
         """Logging the accuracy of the BPE model to recover words from the training text.
+
         Arguments
         ---------
-        annotation_list_to_check : list,
+        list_annotation_files : list,
             List of the annotation file which is used for checking the accuracy of recovering words from the tokenizer.
         """
         for annotation_file in list_annotation_files:
@@ -394,9 +399,7 @@ class SentencePiece:
                     "No accuracy recover checking for" + annotation_file
                 )
 
-    def __call__(
-        self, batch, batch_lens=None, ind2lab=None, task="encode",
-    ):
+    def __call__(self, batch, batch_lens=None, ind2lab=None, task="encode"):
         """This __call__ function implements the tokenizer encoder and decoder
         (restoring the string of word) for BPE, Regularized BPE (with unigram),
         and char (speechbrain/nnet/RNN.py).
@@ -490,8 +493,7 @@ def get_spm_tokens(model_path):
 
 @dataclass
 class SentencePieceDecoderStreamingContext:
-    """Mutable streaming context for a single SentencePiece streaming session.
-    """
+    """Mutable streaming context for a single SentencePiece streaming session."""
 
     emitted_symbol_count: int = 0
     """The number of symbols that have been emitted for this transcription."""
@@ -529,8 +531,8 @@ def spm_decode_preserve_leading_space(
     -------
     str
         Decoded text. Leading spaces are preserved, except at the start of a
-        transcription."""
-
+        transcription.
+    """
     proto = tokenizer.decode([hyps], out_type="immutable_proto")[0]
     text = proto.text
 

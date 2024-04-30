@@ -12,14 +12,15 @@ Authors
  * Jianyuan Zhong 2021
  * Mirco Ravanelli 2021
 """
-import sys
 import logging
+import sys
+
 import torch
 from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,6 @@ class LM(sb.core.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -151,7 +151,6 @@ def dataio_prepare(hparams):
         List containing "train", "valid", and "test" sets that correspond
         to the appropriate DynamicItemDataset object.
     """
-
     logging.info("generating datasets...")
 
     # Prepare datasets
@@ -197,7 +196,8 @@ def dataio_prepare(hparams):
     # 4. Set outputs to add into the batch. The batch variable will contain
     # all these fields (e.g, batch.id, batch.text, batch.tokens.bos,..)
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "text", "tokens_bos", "tokens_eos"],
+        datasets,
+        ["id", "text", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data
 

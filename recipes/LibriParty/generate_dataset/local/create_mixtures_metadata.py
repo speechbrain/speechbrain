@@ -7,12 +7,12 @@ Author
 Samuele Cornell, 2020
 """
 
+import json
+from pathlib import Path
 
 import numpy as np
-from pathlib import Path
-import json
-from tqdm import tqdm
 import torchaudio
+from tqdm import tqdm
 
 
 def _read_metadata(file_path, configs):
@@ -38,10 +38,8 @@ def create_metadata(
     impulsive_noises_list=None,
     background_noises_list=None,
 ):
-
     dataset_metadata = {}
     for n_sess in tqdm(range(n_sessions)):
-
         # we sample randomly n_speakers ids
         c_speakers = np.random.choice(
             list(utterances_dict.keys()), configs["n_speakers"], replace=False

@@ -18,20 +18,22 @@ Authors
  * Jianyuan Zhong 2020
 """
 
+import csv
+import logging
 import os
 import sys
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from tqdm import tqdm
+
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-import numpy as np
-from tqdm import tqdm
-import csv
-import logging
 from speechbrain.core import AMPConfig
+from speechbrain.utils.distributed import run_on_main
 
 
 # Define training procedure
@@ -125,7 +127,7 @@ class Separation(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype, device_type=torch.device(self.device).type
                 ):
                     predictions, targets = self.compute_forward(
                         mixture, targets, sb.Stage.TRAIN, noise
@@ -160,7 +162,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
             else:
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
@@ -192,7 +194,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -227,7 +229,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -254,7 +255,7 @@ class Separation(sb.Brain):
                 )
             else:
                 self.checkpointer.save_and_keep_only(
-                    meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"],
+                    meta={"si-snr": stage_stats["si-snr"]}, min_keys=["si-snr"]
                 )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -311,7 +312,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length withing the mixture.
+        """This function selects a random segment of a given length within the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -362,7 +363,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture, mix_len = batch.mix_sig
                     snt_id = batch.id
@@ -434,13 +434,12 @@ class Separation(sb.Brain):
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
 
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
         for ns in range(self.hparams.num_spks):
-
             # Estimated source
             signal = predictions[0, :, ns]
             signal = signal / signal.abs().max()
@@ -532,7 +531,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -579,8 +577,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if "whamr" in hparams["data_folder"] and hparams["use_speedperturb"]:
-        from prepare_data import create_whamr_rir_csv
         from create_whamr_rirs import create_rirs
+        from prepare_data import create_whamr_rir_csv
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):

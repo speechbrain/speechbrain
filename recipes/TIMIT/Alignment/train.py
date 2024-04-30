@@ -12,9 +12,11 @@ Authors
 """
 import os
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 # Define training procedure
@@ -122,7 +124,8 @@ class AlignBrain(sb.Brain):
                 valid_stats={"loss": stage_loss, "accuracy": acc},
             )
             self.checkpointer.save_and_keep_only(
-                meta={"accuracy": acc}, max_keys=["accuracy"],
+                meta={"accuracy": acc},
+                max_keys=["accuracy"],
             )
 
         elif stage == sb.Stage.TEST:
@@ -134,7 +137,8 @@ class AlignBrain(sb.Brain):
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     data_folder = hparams["data_folder"]
 
@@ -234,7 +238,6 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

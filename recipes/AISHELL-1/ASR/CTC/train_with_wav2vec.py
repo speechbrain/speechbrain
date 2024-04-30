@@ -14,12 +14,14 @@ Authors
  * Yingzhi WANG 2022
 """
 
-import sys
-import torch
 import logging
+import sys
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +111,9 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             target_words_list = [list(wrd) for wrd in batch.wrd]
             self.cer_metric.append(
-                ids=ids, predict=predicted_words_list, target=target_words_list,
+                ids=ids,
+                predict=predicted_words_list,
+                target=target_words_list,
             )
 
         return loss
@@ -154,7 +158,8 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"CER": stage_stats["CER"]}, min_keys=["CER"],
+                meta={"CER": stage_stats["CER"]},
+                min_keys=["CER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -205,11 +210,13 @@ class ASR(sb.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_data"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_data"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -234,12 +241,14 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_data"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_data"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_data"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_data"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -272,7 +281,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "tokens"],
+        datasets,
+        ["id", "sig", "wrd", "tokens"],
     )
 
     # 5. If Dynamic Batching is used, we instantiate the needed samplers.
@@ -284,11 +294,15 @@ def dataio_prepare(hparams):
         dynamic_hparams = hparams["dynamic_batch_sampler"]
 
         train_batch_sampler = DynamicBatchSampler(
-            train_data, **dynamic_hparams, length_func=lambda x: x["duration"],
+            train_data,
+            **dynamic_hparams,
+            length_func=lambda x: x["duration"],
         )
 
         valid_batch_sampler = DynamicBatchSampler(
-            valid_data, **dynamic_hparams, length_func=lambda x: x["duration"],
+            valid_data,
+            **dynamic_hparams,
+            length_func=lambda x: x["duration"],
         )
 
     return (
@@ -302,7 +316,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

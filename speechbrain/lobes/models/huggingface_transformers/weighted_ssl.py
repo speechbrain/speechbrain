@@ -11,9 +11,11 @@ Authors
  * Adel Moumen 2023, 2024
 """
 
-import torch
 import logging
+
+import torch
 import torch.nn.functional as F
+
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
@@ -61,14 +63,19 @@ class WeightedSSLModel(HFTransformersInterface):
         self.layernorm = layernorm
 
     def forward(self, wav, wav_lens=None):
-        """This method outputs a weighted sum of the layers representations of the SSL encoder
+        """This method outputs a weighted sum of the layer representations of the SSL encoder
 
         Arguments
         ---------
-        wav : tensor
+        wav : torch.Tensor
             The wavs
-        wav_lens : tensor
+        wav_lens : torch.Tensor
             The wav lengths
+
+        Returns
+        -------
+        weighted_feats : torch.Tensor
+            The weighted sum of layer representations.
         """
 
         feats = self.model(wav)
@@ -90,16 +97,16 @@ class WeightedSSLModel(HFTransformersInterface):
         return weighted_feats
 
     def override_config(self, config):
-        """If the config needs to be overrided, here is the place
+        """If the config needs to be overridden, here is the place
 
         Arguments
         ---------
         config : Wav2Vec2Config
-            The original config needs to be overrided.
+            The original config needs to be overridden.
 
         Returns
         -------
-        Overridded config
+        Overridden config
         """
         config.output_hidden_states = True
         return config

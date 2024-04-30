@@ -15,14 +15,16 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import sys
-import torch
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
-import jsonlines
 import ast
+import sys
+
+import jsonlines
 import pandas as pd
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 
 # Define training procedure
@@ -125,7 +127,8 @@ class SLU(sb.Brain):
                                     "action": "none",
                                     "entities": [],
                                 }
-                        except SyntaxError:  # need this if the output is not a valid dictionary
+                        # need this if the output is not a valid dictionary
+                        except SyntaxError:
                             _dict = {
                                 "scenario": "none",
                                 "action": "none",
@@ -143,7 +146,7 @@ class SLU(sb.Brain):
         return loss
 
     def log_outputs(self, predicted_semantics, target_semantics):
-        """ TODO: log these to a file instead of stdout """
+        """TODO: log these to a file instead of stdout"""
         for i in range(len(target_semantics)):
             print(" ".join(predicted_semantics[i]).replace("|", ","))
             print(" ".join(target_semantics[i]).replace("|", ","))
@@ -153,7 +156,6 @@ class SLU(sb.Brain):
         """Gets called at the beginning of each epoch"""
 
         if stage != sb.Stage.TRAIN:
-
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
@@ -177,7 +179,8 @@ class SLU(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -191,12 +194,14 @@ class SLU(sb.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -221,12 +226,14 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_valid"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_test"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -270,7 +277,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -306,7 +312,12 @@ if __name__ == "__main__":
     run_on_main(hparams["prepare_rir_data"])
 
     # here we create the datasets objects as well as tokenization and encoding
-    (train_set, valid_set, test_set, tokenizer,) = dataio_prepare(hparams)
+    (
+        train_set,
+        valid_set,
+        test_set,
+        tokenizer,
+    ) = dataio_prepare(hparams)
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)

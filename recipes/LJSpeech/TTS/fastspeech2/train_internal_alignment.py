@@ -10,16 +10,18 @@ Authors
 * Yingzhi Wang 2023
 """
 
+import logging
 import os
 import sys
-import torch
-import logging
-import torchaudio
+from pathlib import Path
+
 import numpy as np
+import torch
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.inference.vocoders import HIFIGAN
-from pathlib import Path
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -29,7 +31,8 @@ logger = logging.getLogger(__name__)
 class FastSpeech2Brain(sb.Brain):
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics
+        """
         self.hparams.progress_sample_logger.reset()
         self.last_epoch = 0
         self.last_batch = None
@@ -190,9 +193,10 @@ class FastSpeech2Brain(sb.Brain):
             # Save the current checkpoint and delete previous checkpoints.
             # UNCOMMENT THIS
             self.checkpointer.save_and_keep_only(
-                meta=self.last_loss_stats[stage], min_keys=["total_loss"],
+                meta=self.last_loss_stats[stage],
+                min_keys=["total_loss"],
             )
-        # We also write statistics about test data spectogramto stdout and to the logfile.
+        # We also write statistics about test data spectogram to stdout and to the logfile.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
@@ -229,6 +233,7 @@ class FastSpeech2Brain(sb.Brain):
     def run_vocoder(self, inference_mel, mel_lens):
         """Uses a pretrained vocoder to generate audio from predicted mel
         spectogram. By default, uses speechbrain hifigan.
+
         Arguments
         ---------
         inference_mel: torch.Tensor
@@ -236,6 +241,10 @@ class FastSpeech2Brain(sb.Brain):
         mel_lens: torch.Tensor
             predicted mel lengths from fastspeech2 inference
             used to mask the noise from padding
+
+        Returns
+        -------
+        None
         """
         if self.last_batch is None:
             return
@@ -258,7 +267,6 @@ class FastSpeech2Brain(sb.Brain):
             inference_mel.transpose(2, 1), mel_lens, self.hparams.hop_length
         )
         for idx, wav in enumerate(waveforms):
-
             path = os.path.join(
                 self.hparams.progress_sample_path,
                 str(self.last_epoch),
@@ -268,14 +276,22 @@ class FastSpeech2Brain(sb.Brain):
 
     def batch_to_device(self, batch, return_metadata=False):
         """Transfers the batch to the target device
+
         Arguments
         ---------
         batch: tuple
             the batch to use
+        return_metadata: bool
+            Whether to additionally return labels and wavs.
+
         Returns
         -------
-        batch: tuple
-            the batch on the correct device
+        x: tuple
+            phonemes, spectrogram, pitch, energy
+        y: tuple
+            spectrogram, pitch, energy, mel_lengths, input_lengths
+        metadata: tuple
+            labels, wavs
         """
 
         (

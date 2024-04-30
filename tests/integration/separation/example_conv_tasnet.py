@@ -4,17 +4,19 @@ The architecture is based on ConvTasnet and expects in input mixtures of two
 speakers.
 """
 
-import torch
 import pathlib
-import speechbrain as sb
+
+import torch
 import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
 class SepBrain(sb.Brain):
     def compute_forward(self, mixture, stage):
-        "Given an input batch it computes the two estimated sources."
+        """Given an input batch it computes the two estimated sources."""
         mixture = mixture.to(self.device)
         mix_w = self.hparams.encoder(mixture)
         est_mask = self.hparams.mask_net(mix_w)
@@ -38,7 +40,7 @@ class SepBrain(sb.Brain):
         return est_source
 
     def compute_objectives(self, predictions, targets):
-        "Given the network predictions and targets computed the PIT loss."
+        """Given the network predictions and targets computed the PIT loss."""
         loss = get_si_snr_with_pitwrapper(targets, predictions)
         return loss
 
@@ -89,8 +91,7 @@ class SepBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=data_folder / "../annotation/separation_train.csv",

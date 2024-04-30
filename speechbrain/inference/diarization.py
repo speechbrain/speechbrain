@@ -13,7 +13,9 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
+
 from speechbrain.inference.interfaces import Pretrained
 
 
@@ -22,8 +24,7 @@ class Speech_Emotion_Diarization(Pretrained):
 
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    See ``Pretrained``
 
     Example
     -------
@@ -34,9 +35,6 @@ class Speech_Emotion_Diarization(Pretrained):
     """
 
     MODULES_NEEDED = ["input_norm", "wav2vec", "output_mlp"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def diarize_file(self, path):
         """Get emotion diarization of a spoken utterance.
@@ -63,9 +61,9 @@ class Speech_Emotion_Diarization(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels].
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
@@ -73,7 +71,7 @@ class Speech_Emotion_Diarization(Pretrained):
 
         Returns
         -------
-        torch.tensor
+        torch.Tensor
             The encoded batch
         """
         if len(wavs.shape) == 1:
@@ -99,14 +97,14 @@ class Speech_Emotion_Diarization(Pretrained):
 
         Arguments
         ---------
-        wavs : torch.tensor
+        wavs : torch.Tensor
             Batch of waveforms [batch, time, channels].
-        wav_lens : torch.tensor
+        wav_lens : torch.Tensor
             Lengths of the waveforms relative to the longest one in the
             batch, tensor of shape [batch]. The longest one should have
             relative length 1.0 and others len(waveform) / max_length.
             Used for ignoring padding.
-        batch_id : torch.tensor
+        batch_id : torch.Tensor
             id of each batch (file names etc.)
 
         Returns
@@ -126,6 +124,13 @@ class Speech_Emotion_Diarization(Pretrained):
     def preds_to_diarization(self, prediction, batch_id):
         """Convert frame-wise predictions into a dictionary of
         diarization results.
+
+        Arguments
+        ---------
+        prediction : torch.Tensor
+            Frame-wise predictions
+        batch_id : str
+            The id for this batch
 
         Returns
         -------

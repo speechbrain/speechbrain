@@ -6,22 +6,25 @@ Authors
  * Sarthak Yadav 2020
  * Sylvain de Langen 2024
 """
+
 from dataclasses import dataclass
-import torch
 from typing import Optional
-from speechbrain.processing.features import (
-    STFT,
-    spectral_magnitude,
-    Filterbank,
-    DCT,
-    Deltas,
-    ContextWindow,
-)
-from speechbrain.utils.autocast import fwd_default_precision
-from speechbrain.utils.filter_analysis import FilterProperties
+
+import torch
+
 from speechbrain.nnet.CNN import GaborConv1d
 from speechbrain.nnet.normalization import PCEN
 from speechbrain.nnet.pooling import GaussianLowpassPooling
+from speechbrain.processing.features import (
+    DCT,
+    STFT,
+    ContextWindow,
+    Deltas,
+    Filterbank,
+    spectral_magnitude,
+)
+from speechbrain.utils.autocast import fwd_default_precision
+from speechbrain.utils.filter_analysis import FilterProperties
 
 
 class Fbank(torch.nn.Module):
@@ -45,11 +48,6 @@ class Fbank(torch.nn.Module):
     f_max : int (default: None)
         Highest frequency for the Mel filters. Note that if f_max is not
         specified it will be set to sample_rate // 2.
-    win_length : float (default: 25)
-        Length (in ms) of the sliding window used to compute the STFT.
-    hop_length : float (default: 10)
-        Length (in ms) of the hop of the sliding window used to compute
-        the STFT.
     n_fft : int (default: 400)
         Number of samples to use in each stft.
     n_mels : int (default: 40)
@@ -73,6 +71,11 @@ class Fbank(torch.nn.Module):
         Number of frames of left context to add.
     right_frames : int (default: 5)
         Number of frames of right context to add.
+    win_length : float (default: 25)
+        Length (in ms) of the sliding window used to compute the STFT.
+    hop_length : float (default: 10)
+        Length (in ms) of the hop of the sliding window used to compute
+        the STFT.
 
     Example
     -------
@@ -129,7 +132,8 @@ class Fbank(torch.nn.Module):
         )
         self.compute_deltas = Deltas(input_size=n_mels)
         self.context_window = ContextWindow(
-            left_frames=left_frames, right_frames=right_frames,
+            left_frames=left_frames,
+            right_frames=right_frames,
         )
 
     @fwd_default_precision(cast_inputs=torch.float32)
@@ -138,8 +142,12 @@ class Fbank(torch.nn.Module):
 
         Arguments
         ---------
-        wav : tensor
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
+
+        Returns
+        -------
+        fbanks : torch.Tensor
         """
         STFT = self.compute_STFT(wav)
         mag = spectral_magnitude(STFT)
@@ -178,11 +186,6 @@ class MFCC(torch.nn.Module):
     f_max : int (default: None)
         Highest frequency for the Mel filters. Note that if f_max is not
         specified it will be set to sample_rate // 2.
-    win_length : float (default: 25)
-        Length (in ms) of the sliding window used to compute the STFT.
-    hop_length : float (default: 10)
-        Length (in ms) of the hop of the sliding window used to compute
-        the STFT.
     n_fft : int (default: 400)
         Number of samples to use in each stft.
     n_mels : int (default: 23)
@@ -208,6 +211,11 @@ class MFCC(torch.nn.Module):
         Number of frames of left context to add.
     right_frames : int (default 5)
         Number of frames of right context to add.
+    win_length : float (default: 25)
+        Length (in ms) of the sliding window used to compute the STFT.
+    hop_length : float (default: 10)
+        Length (in ms) of the hop of the sliding window used to compute
+        the STFT.
 
     Example
     -------
@@ -267,7 +275,8 @@ class MFCC(torch.nn.Module):
         self.compute_dct = DCT(input_size=n_mels, n_out=n_mfcc)
         self.compute_deltas = Deltas(input_size=n_mfcc)
         self.context_window = ContextWindow(
-            left_frames=left_frames, right_frames=right_frames,
+            left_frames=left_frames,
+            right_frames=right_frames,
         )
 
     @fwd_default_precision(cast_inputs=torch.float32)
@@ -276,8 +285,12 @@ class MFCC(torch.nn.Module):
 
         Arguments
         ---------
-        wav : tensor
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
+
+        Returns
+        -------
+        mfccs : torch.Tensor
         """
         STFT = self.compute_STFT(wav)
         mag = spectral_magnitude(STFT)
@@ -309,6 +322,10 @@ class Leaf(torch.nn.Module):
         Stride factor of the filters in milliseconds
     sample_rate : int,
         Sampling rate of the input signals. It is only used for sinc_conv.
+    input_shape : tuple
+        Expected shape of the inputs.
+    in_channels : int
+        Expected number of input channels.
     min_freq : float
         Lowest possible frequency (in Hz) for a filter
     max_freq : float
@@ -319,10 +336,12 @@ class Leaf(torch.nn.Module):
         If True (default), the per-channel energy normalization layer is learnable
     use_legacy_complex: bool
         If False, torch.complex64 data type is used for gabor impulse responses
-        If True, computation is performed on two real-valued tensors
+        If True, computation is performed on two real-valued torch.Tensors
     skip_transpose: bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
+    n_fft: int
+        Number of FFT bins
 
     Example
     -------
@@ -407,6 +426,10 @@ class Leaf(torch.nn.Module):
         ---------
         x : torch.Tensor of shape (batch, time, 1) or (batch, time)
             batch of input signals. 2d or 3d tensors are expected.
+
+        Returns
+        -------
+        outputs : torch.Tensor
         """
 
         if not self.skip_transpose:
@@ -431,14 +454,13 @@ class Leaf(torch.nn.Module):
     def _squared_modulus_activation(self, x):
         x = x.transpose(1, 2)
         output = 2 * torch.nn.functional.avg_pool1d(
-            x ** 2.0, kernel_size=2, stride=2
+            x**2.0, kernel_size=2, stride=2
         )
         output = output.transpose(1, 2)
         return output
 
     def _check_input_shape(self, shape):
-        """Checks the input shape and returns the number of input channels.
-        """
+        """Checks the input shape and returns the number of input channels."""
 
         if len(shape) == 2:
             in_channels = 1
@@ -488,7 +510,6 @@ class StreamingFeatureWrapper(torch.nn.Module):
         The module is assumed to pad its inputs, e.g. the output of a
         convolution with a stride of 1 would end up with the same frame count
         as the input.
-
     properties : FilterProperties
         The effective filter properties of the provided module. This is used to
         determine padding and caching.
@@ -537,7 +558,12 @@ class StreamingFeatureWrapper(torch.nn.Module):
         ---------
         frames_per_chunk : int
             The number of frames per chunk, i.e. the size of the time dimension
-            passed to :meth:`~StreamingFeatureWrapper.forward`."""
+            passed to :meth:`~StreamingFeatureWrapper.forward`.
+
+        Returns
+        -------
+        Recommended number of chunks.
+        """
 
         return (
             upalign_value(self.get_required_padding(), frames_per_chunk)
@@ -577,6 +603,9 @@ class StreamingFeatureWrapper(torch.nn.Module):
         context : StreamingFeatureWrapperContext
             Mutable streaming context object; should be reused for subsequent
             calls in the same streaming session.
+        *extra_args : tuple
+        **extra_kwargs : dict
+            Args to be passed to he module.
 
         Returns
         -------

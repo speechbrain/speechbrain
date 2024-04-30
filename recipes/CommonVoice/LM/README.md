@@ -1,5 +1,5 @@
 
-# Traing KenLM
+# Training KenLM
 This folder contains recipes for training the kenLM-gram model for the CommonVoice Dataset.
 Using Wav2Vec2 in combination with a language model can yield a significant improvement, especially when the model is fine-tuned on small speech datasets. This is a guide to explain how one can create an n-gram language model and combine it with an existing fine-tuned Wav2Vec2.
 

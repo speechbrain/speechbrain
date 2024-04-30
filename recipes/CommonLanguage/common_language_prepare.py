@@ -1,5 +1,5 @@
 """
-Data preparation of CommonLangauge dataset for LID.
+Data preparation of CommonLanguage dataset for LID.
 
 Download: https://zenodo.org/record/5036977#.YNo1mHVKg5k
 
@@ -8,11 +8,13 @@ Author
 Pavlo Ruban 2021
 """
 
-import os
 import csv
 import logging
+import os
+
 import torchaudio
 from tqdm.contrib import tzip
+
 from speechbrain.utils.data_utils import get_all_files
 
 logger = logging.getLogger(__name__)
@@ -62,7 +64,7 @@ LANGUAGES = [
     "Tamil",
     "Tatar",
     "Turkish",
-    "Ukranian",
+    "Ukrainian",
     "Welsh",
 ]
 
@@ -79,10 +81,12 @@ def prepare_common_language(data_folder, save_folder, skip_prep=False):
         This path should include the multi: /datasets/CommonLanguage
     save_folder : str
         The directory where to store the csv files.
-    max_duration : int, optional
-        Max duration (in seconds) of training uterances.
     skip_prep: bool
         If True, skip data preparation.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -102,7 +106,7 @@ def prepare_common_language(data_folder, save_folder, skip_prep=False):
     # Setting the save folder
     os.makedirs(save_folder, exist_ok=True)
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = os.path.join(save_folder, "train.csv")
     save_csv_dev = os.path.join(save_folder, "dev.csv")
     save_csv_test = os.path.join(save_folder, "test.csv")
@@ -140,6 +144,15 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
 
     If the preparation has been done, we can skip it.
 
+    Arguments
+    ---------
+    save_csv_train : str
+        The train csv file
+    save_csv_dev : str
+        The dev csv file
+    save_csv_test : str
+        The test csv file
+
     Returns
     -------
     bool
@@ -165,8 +178,8 @@ def create_sets(data_folder, extension):
     ---------
     data_folder : str
         Path of the CommonLanguage dataset.
-    extension: list of file extentions
-        List of strings with file extentions that correspond to the audio files
+    extension: list of file extensions
+        List of strings with file extensions that correspond to the audio files
         in the CommonLanguage dataset
 
     Returns
@@ -246,7 +259,7 @@ def create_csv(wav_list, csv_file):
         # Actual name of the language
         language = path_parts[-4]
 
-        # Create a row with whole utterences
+        # Create a row with whole utterances
         csv_line = [
             idx,  # ID
             wav_file,  # File name
@@ -264,7 +277,7 @@ def create_csv(wav_list, csv_file):
     # CSV column titles
     csv_header = ["ID", "wav", "wav_format", "duration", "language"]
 
-    # Add titles to the list at indexx 0
+    # Add titles to the list at index 0
     csv_lines.insert(0, csv_header)
 
     # Writing the csv lines
@@ -277,7 +290,7 @@ def create_csv(wav_list, csv_file):
             csv_writer.writerow(line)
 
     # Final prints
-    msg = f"{csv_file} sucessfully created!"
+    msg = f"{csv_file} successfully created!"
     logger.info(msg)
     msg = f"Number of samples: {len(wav_list)}."
     logger.info(msg)
@@ -291,9 +304,10 @@ def check_common_language_folder(data_folder):
 
     If not, raises an error.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        The path to the folder containing the data.
 
     Raises
     ------

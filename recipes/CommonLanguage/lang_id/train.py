@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
+import logging
 import os
 import sys
-import logging
+
 import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
 from common_language_prepare import prepare_common_language
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 """Recipe for training a LID system with CommonLanguage.
 
@@ -32,6 +34,13 @@ class LID(sb.Brain):
             Input signals (tensor) and their relative lengths (tensor).
         stage : sb.Stage
             The current stage of training.
+
+        Returns
+        -------
+        feats : torch.Tensor
+            Computed features.
+        lens : torch.Tensor
+            The length of the corresponding features.
         """
         wavs, lens = wavs
 
@@ -58,8 +67,8 @@ class LID(sb.Brain):
 
         Returns
         -------
-        predictions : Tensor
-            Tensor that contains the posterior probabilities over the N classes.
+        predictions : torch.Tensor
+            torch.Tensor that contains the posterior probabilities over the N classes.
         """
 
         # We first move the batch to the appropriate device.
@@ -151,7 +160,6 @@ class LID(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -174,7 +182,7 @@ class LID(sb.Brain):
 
 
 def dataio_prep(hparams):
-    """ This function prepares the datasets to be used in the brain class.
+    """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
     We expect `prepare_common_language` to have been called before this,
     so that the `train.csv`, `dev.csv`,  and `test.csv` manifest files
@@ -193,7 +201,7 @@ def dataio_prep(hparams):
         to the appropriate DynamicItemDataset object.
     """
 
-    # Initialization of the label encoder. The label encoder assignes to each
+    # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'lang01': 0, 'lang02': 1, ..)
     language_encoder = sb.dataio.encoder.CategoricalEncoder()
 
@@ -229,7 +237,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     language_encoder_file = os.path.join(
         hparams["save_folder"], "language_encoder.txt"
     )
@@ -244,7 +252,6 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -278,7 +285,7 @@ if __name__ == "__main__":
     # Create dataset objects "train", "dev", and "test" and language_encoder
     datasets, language_encoder = dataio_prep(hparams)
 
-    # Fetch and laod pretrained modules
+    # Fetch and load pretrained modules
     sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
 

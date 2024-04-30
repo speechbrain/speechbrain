@@ -5,13 +5,15 @@ Taken from https://github.com/facebookresearch/denoiser/blob/master/scripts/matl
 Authors
  * adiyoss (https://github.com/adiyoss)
 """
-from scipy.linalg import toeplitz
-from tqdm import tqdm
-from pesq import pesq
-import librosa
-import numpy as np
+
 import os
 import sys
+
+import librosa
+import numpy as np
+from pesq import pesq
+from scipy.linalg import toeplitz
+from tqdm import tqdm
 
 
 def eval_composite(ref_wav, deg_wav):
@@ -95,6 +97,7 @@ def lpcoeff(speech_frame, model_order):
 
 # -------------------------------------------------------------------------- #
 
+
 # ---------------------- Speech Quality Metric ----------------------------- #
 def PESQ(ref_wav, deg_wav):
     rate = 16000
@@ -102,9 +105,9 @@ def PESQ(ref_wav, deg_wav):
 
 
 def SSNR(ref_wav, deg_wav, srate=16000, eps=1e-10):
-    """ Segmental Signal-to-Noise Ratio Objective Speech Quality Measure
-        This function implements the segmental signal-to-noise ratio
-        as defined in [1, p. 45] (see Equation 2.12).
+    """Segmental Signal-to-Noise Ratio Objective Speech Quality Measure
+    This function implements the segmental signal-to-noise ratio
+    as defined in [1, p. 45] (see Equation 2.12).
     """
     clean_speech = ref_wav
     processed_speech = deg_wav
@@ -119,9 +122,7 @@ def SSNR(ref_wav, deg_wav, srate=16000, eps=1e-10):
 
     # Signal-to-Noise Ratio
     dif = ref_wav - deg_wav
-    overall_snr = 10 * np.log10(
-        np.sum(ref_wav ** 2) / (np.sum(dif ** 2) + 10e-20)
-    )
+    overall_snr = 10 * np.log10(np.sum(ref_wav**2) / (np.sum(dif**2) + 10e-20))
     # global variables
     winlength = int(np.round(30 * srate / 1000))  # 30 msecs
     skiprate = winlength // 4
@@ -144,7 +145,7 @@ def SSNR(ref_wav, deg_wav, srate=16000, eps=1e-10):
         processed_frame = processed_frame * window
 
         # (2) Compute Segmental SNR
-        signal_energy = np.sum(clean_frame ** 2)
+        signal_energy = np.sum(clean_frame**2)
         noise_energy = np.sum((clean_frame - processed_frame) ** 2)
         segmental_snr.append(
             10 * np.log10(signal_energy / (noise_energy + eps) + eps)
@@ -257,14 +258,14 @@ def wss(ref_wav, deg_wav, srate):
     distortion = []
 
     for frame_count in range(num_frames):
-        # (1) Get the Frames for the test and reference speeech.
+        # (1) Get the Frames for the test and reference speech.
         # Multiply by Hanning window.
         clean_frame = clean_speech[start : start + winlength]
         processed_frame = processed_speech[start : start + winlength]
         clean_frame = clean_frame * window
         processed_frame = processed_frame * window
 
-        # (2) Compuet Power Spectrum of clean and processed
+        # (2) Compute Power Spectrum of clean and processed
         clean_spec = np.abs(np.fft.fft(clean_frame, n_fft)) ** 2
         processed_spec = np.abs(np.fft.fft(processed_frame, n_fft)) ** 2
         clean_energy = [None] * num_crit
@@ -320,8 +321,8 @@ def wss(ref_wav, deg_wav, srate):
                     n -= 1
                 processed_loc_peak.append(processed_energy[n + 1])
 
-        # (6) Compuet the WSS Measure for this frame. This includes
-        # determination of the weighting functino
+        # (6) Compute the WSS Measure for this frame. This includes
+        # determination of the weighting function
         dBMax_clean = max(clean_energy)
         dBMax_processed = max(processed_energy)
 
@@ -359,7 +360,7 @@ def wss(ref_wav, deg_wav, srate):
         )
 
         # this normalization is not part of Klatt's paper, but helps
-        # to normalize the meaasure. Here we scale the measure by the sum of the
+        # to normalize the measure. Here we scale the measure by the sum of the
         # weights
         distortion[frame_count] = distortion[frame_count] / np.sum(W)
         start += int(skiprate)
@@ -389,7 +390,7 @@ def llr(ref_wav, deg_wav, srate):
     distortion = []
 
     for frame_count in range(num_frames):
-        # (1) Get the Frames for the test and reference speeech.
+        # (1) Get the Frames for the test and reference speech.
         # Multiply by Hanning window.
         clean_frame = clean_speech[start : start + winlength]
         processed_frame = processed_speech[start : start + winlength]

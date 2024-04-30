@@ -8,23 +8,24 @@ Authors
  * Pradnya Kandarkar 2023
 """
 
-import os
 import csv
 import json
-import random
 import logging
+import os
+import random
+import re
+
+import numpy as np
+import tgt
 import torch
 import torchaudio
-import numpy as np
 from tqdm import tqdm
-from speechbrain.utils.data_utils import download_file
-from speechbrain.dataio.dataio import load_pkl, save_pkl
-import tgt
-from speechbrain.inference.text import GraphemeToPhoneme
-import re
 from unidecode import unidecode
-from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
+from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
@@ -76,7 +77,7 @@ def prepare_ljspeech(
     pitch_hop_length : int
         Hop length for pitch computation
     pitch_min_f0 : int
-        Minimum f0 for pitch compuation
+        Minimum f0 for pitch computation
     pitch_max_f0 : int
         Max f0 for pitch computation
     skip_prep : bool
@@ -117,7 +118,7 @@ def prepare_ljspeech(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
-    # Setting ouput files
+    # Setting output files
     meta_csv = os.path.join(data_folder, METADATA_CSV)
     wavs_folder = os.path.join(data_folder, WAVS)
 
@@ -131,8 +132,8 @@ def prepare_ljspeech(
     pitch_folder = None
     # Setting up additional folders required for FastSpeech2
     if model_name is not None and "FastSpeech2" in model_name:
-        # This step requires phoneme alignements to be present in the data_folder
-        # We automatically donwload the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
+        # This step requires phoneme alignments to be present in the data_folder
+        # We automatically download the alignments from https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip
         # Download and unzip LJSpeech phoneme alignments from here: https://drive.google.com/drive/folders/1DBRkALpPd6FL9gjHMmMEdHODmkgNIIK4
         alignment_URL = (
             "https://www.dropbox.com/s/v28x5ldqqa288pu/LJSpeech.zip?dl=1"
@@ -141,7 +142,7 @@ def prepare_ljspeech(
             data_folder, "TextGrid", "LJSpeech"
         )
         download_file(
-            alignment_URL, data_folder + "/alligments.zip", unpack=True
+            alignment_URL, data_folder + "/alignments.zip", unpack=True
         )
 
         duration_folder = os.path.join(data_folder, "durations")
@@ -226,6 +227,15 @@ def skip(splits, save_folder, conf):
     Detects if the ljspeech data_preparation has been already done.
     If the preparation has been done, we can skip it.
 
+    Arguments
+    ---------
+    splits : list
+        The portions of data to review.
+    save_folder : str
+        The path to the directory containing prepared files.
+    conf : dict
+        Configuration to match against saved config.
+
     Returns
     -------
     bool
@@ -266,16 +276,18 @@ def split_sets(data_folder, splits, split_ratio):
 
     Arguments
     ---------
-    wav_list : list
-        list of all the signals in the dataset
-    split_ratio: list
+    data_folder : str
+        The path to the directory containing the data.
+    splits : list
+        The list of the selected splits.
+    split_ratio : list
         List composed of three integers that sets split ratios for train,
         valid, and test sets, respectively.
         For instance split_ratio=[80, 10, 10] will assign 80% of the sentences
         to training, 10% for validation, and 10% for test.
 
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
     meta_csv = os.path.join(data_folder, METADATA_CSV)
@@ -368,17 +380,13 @@ def prepare_json(
     pitch_hop_length : int
         Hop length for pitch computation
     pitch_min_f0 : int
-        Minimum f0 for pitch compuation
+        Minimum f0 for pitch computation
     pitch_max_f0 : int
         Max f0 for pitch computation
     use_custom_cleaner : bool
         If True, uses custom cleaner defined for this recipe
     device : str
         Device for to be used for computation (used as required)
-
-    Returns
-    -------
-    None
     """
 
     logger.info(f"preparing {json_file}.")
@@ -499,7 +507,6 @@ def prepare_json(
                 wavs_folder, pitch_folder
             )
             if not os.path.isfile(pitch_file):
-
                 if torchaudio.__version__ < "2.1":
                     pitch = torchaudio.functional.compute_kaldi_pitch(
                         waveform=audio,
@@ -626,9 +633,9 @@ def get_last_phoneme_info(words_seq, phones_seq):
 
     Arguments
     ---------
-    words_seq :
+    words_seq : tier
         word tier from a TextGrid file
-    phones_seq :
+    phones_seq : tier
         phoneme tier from a TextGrid file
 
     Returns
@@ -681,7 +688,7 @@ def custom_clean(text, model_name):
     _abbreviations = [
         (re.compile("\\b%s\\." % x[0], re.IGNORECASE), x[1])
         for x in [
-            ("mrs", "misess"),
+            ("mrs", "missus"),
             ("mr", "mister"),
             ("dr", "doctor"),
             ("st", "saint"),

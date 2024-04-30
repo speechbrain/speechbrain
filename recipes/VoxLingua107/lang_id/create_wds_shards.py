@@ -6,9 +6,9 @@
 # Author(s): Tanel Alumäe, Nik Vaessen
 ################################################################################
 
+import argparse
 import json
 import pathlib
-import argparse
 import random
 import re
 from collections import defaultdict
@@ -40,12 +40,17 @@ def write_shards(
     min_dur: float,
 ):
     """
-    Parameters
-    ----------
-    voxlingua_folder_path: folder where extracted voxceleb data is located
-    shards_path: folder to write shards of data to
-    seed: random seed used to initially shuffle data into shards
-    samples_per_shard: number of data samples to store in each shards.
+    Arguments
+    ---------
+    voxlingua_folder_path: pathlib.Path
+        folder where extracted voxceleb data is located
+    shards_path: pathlib.Path
+        folder to write shards of data to
+    seed: int
+        random seed used to initially shuffle data into shards
+    samples_per_shard: int
+        number of data samples to store in each shards.
+    min_dur: float
     """
     # make sure output folder exist
     shards_path.mkdir(parents=True, exist_ok=True)
@@ -109,7 +114,6 @@ def write_shards(
 
     with wds.ShardWriter(pattern, maxcount=samples_per_shard) as sink:
         for key, language_id, f, duration in data_tuples:
-
             # load the audio tensor
             tensor = load_audio(f)
 

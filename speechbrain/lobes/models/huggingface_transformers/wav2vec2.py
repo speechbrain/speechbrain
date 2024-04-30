@@ -12,18 +12,18 @@ Authors
  * Ha Nguyen 2023
 """
 
-import torch
 import logging
+
 import numpy as np
+import torch
 import torch.nn.functional as F
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    HFTransformersInterface,
-)
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    make_padding_masks,
-)
 import transformers
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices
+
+from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+    HFTransformersInterface,
+    make_padding_masks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +53,8 @@ class Wav2Vec2(HFTransformersInterface):
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     freeze_feature_extractor :  bool (default: False)
-        When freeze = False and freeze_feature_extractor True, the featue_extractor module of the model is Frozen. If False
-        all the wav2vec model will be trained including featue_extractor module.
+        When freeze = False and freeze_feature_extractor True, the feature_extractor module of the model is Frozen. If False
+        all the wav2vec model will be trained including feature_extractor module.
     apply_spec_augment : bool (default: False)
         If True, the model will apply spec augment on the output of feature extractor
         (inside huggingface Wav2VecModel() class).
@@ -104,7 +104,7 @@ class Wav2Vec2(HFTransformersInterface):
         self.output_norm = output_norm
         self.output_all_hiddens = output_all_hiddens
 
-    def _modify_state_dict(self, path, replacables=["wav2vec2"]):
+    def _modify_state_dict(self, path, replaceables=["wav2vec2"]):
         """A custom loading ensures SpeechBrain compatibility for Pretrain and model
         de/serialization. Here, the scope is to remove '.wav2vec2' before loading.
 
@@ -112,7 +112,7 @@ class Wav2Vec2(HFTransformersInterface):
         ---------
         path : str
             Checkpoint path, file name relative to the repo root.
-        replacables : List[str]
+        replaceables : List[str]
             State dict sub-keys that if found, shall be dropped (incl. the 'model.' parent key), elevating key structures.
 
         Returns
@@ -125,7 +125,7 @@ class Wav2Vec2(HFTransformersInterface):
 
         # We remove the .wav2vec2 in the state dict.
         for key, params in orig_state_dict.items():
-            for tag in replacables:
+            for tag in replaceables:
                 if f"{tag}." in key:
                     save_key = key.replace(f"model.{tag}.", "")
                     modified_state_dict[save_key] = params
@@ -138,8 +138,12 @@ class Wav2Vec2(HFTransformersInterface):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
+
+        Returns
+        -------
+        Wav2vec encoded features.
         """
 
         # If we freeze, we simply remove all grads from the graph.
@@ -156,8 +160,13 @@ class Wav2Vec2(HFTransformersInterface):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
+
+        Returns
+        -------
+        out : torch.Tensor
+            Wav2vec encoded features.
         """
 
         padding_mask = make_padding_masks(wav, wav_len=wav_lens)
@@ -188,7 +197,7 @@ class Wav2Vec2(HFTransformersInterface):
 
 class Wav2Vec2Pretrain(HFTransformersInterface):
     """This lobe enables the integration of HuggingFace
-     wav2vec2.0 models to be pretrained.
+    wav2vec2.0 models to be pretrained.
 
     Source paper: https://arxiv.org/abs/2006.11477
     Transformer from HuggingFace needs to be installed:
@@ -210,6 +219,8 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
     mask_length : float (default: 10)
         Length (i.e. number of consecutive masked frames). Default is taken from
         the paper.
+    normalize_wav : bool
+        Whether to normalize input before processing.
 
     Example
     -------
@@ -245,8 +256,12 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
+
+        Returns
+        -------
+        Wav2vec encoded outputs.
         """
         batch_size, raw_sequence_length = wav.shape
 
@@ -264,13 +279,15 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
             mask_length=self.mask_length,
         )
         torch_mask_time_indices = torch.tensor(
-            mask_time_indices, device=wav.device, dtype=torch.long,
+            mask_time_indices,
+            device=wav.device,
+            dtype=torch.long,
         )
         padding_mask = make_padding_masks(wav, wav_len=wav_lens)
 
         # 2. Sample the negative samples from the entire sequence.
         # Fairseq does it only on the masked indices, but this only work if you
-        # have long sentences. For more versatily, we sample on the entire sequence.
+        # have long sentences. For more versatility, we sample on the entire sequence.
         # value.
         full_sentence_indices = np.ones((batch_size, sequence_length))
 
@@ -296,16 +313,16 @@ class Wav2Vec2Pretrain(HFTransformersInterface):
         )
 
     def override_config(self, config):
-        """If the config needs to be overrided, here is the place
+        """If the config needs to be overridden, here is the place
 
         Arguments
         ---------
         config : Wav2Vec2Config
-            The original config needs to be overrided.
+            The original config needs to be overridden.
 
         Returns
         -------
-        Overridded config
+        Overridden config
         """
         config.output_hidden_states = True
         return config

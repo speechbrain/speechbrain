@@ -13,13 +13,15 @@ Authors
  * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
-import sys
 import logging
 import os
-import speechbrain as sb
+import sys
+
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 from train import dataio_prep
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 # The following hyperparameters are used in dataio_prep, shared with the
 # main G2P training script:
@@ -129,7 +131,6 @@ class LM(sb.core.Brain):
 
         # At the end of validation, we can wrote
         if stage == sb.Stage.VALID:
-
             # Update learning rate
             old_lr, new_lr = self.hparams.lr_annealing(stage_loss)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
@@ -154,7 +155,6 @@ class LM(sb.core.Brain):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

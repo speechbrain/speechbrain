@@ -16,12 +16,14 @@ Authors
  * Peter Plantinga 2020
 """
 
+import logging
 import os
 import sys
-import logging
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +96,8 @@ class ASR_Brain(sb.Brain):
                 valid_stats={"loss": stage_loss, "PER": per},
             )
             self.checkpointer.save_and_keep_only(
-                meta={"PER": per}, min_keys=["PER"],
+                meta={"PER": per},
+                min_keys=["PER"],
             )
 
         elif stage == sb.Stage.TEST:
@@ -200,7 +203,6 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

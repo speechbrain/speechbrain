@@ -7,9 +7,11 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
 import pathlib
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
+
 import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class ConformerTransducerBrain(sb.Brain):
@@ -100,7 +102,6 @@ class ConformerTransducerBrain(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (Transducer+(CTC+NLL)) given predictions and targets."""
-
         ids = batch.id
         phn, phn_lens = batch.phn_encoded
         phn_with_eos, phn_with_eos_lens = batch.phn_encoded_eos
@@ -162,7 +163,7 @@ class ConformerTransducerBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
@@ -179,8 +180,7 @@ class ConformerTransducerBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

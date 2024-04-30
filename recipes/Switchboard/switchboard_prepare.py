@@ -18,10 +18,10 @@ Author
 Dominik Wagner 2022
 """
 
-import re
 import csv
 import logging
 import os
+import re
 from collections import defaultdict
 
 from speechbrain.dataio.dataio import merge_csvs
@@ -47,8 +47,8 @@ def prepare_switchboard(
     """
     Main function for Switchboard data preparation.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     data_folder : str
         Path to the folder where the Switchboard (and Fisher) datasets are stored.
         Note that the Fisher data must be stored (or at least symlinked)
@@ -82,6 +82,10 @@ def prepare_switchboard(
         Remove excess utterances once they appear  more than a specified
         number of times with the same transcription, in a data set.
         This is useful for removing utterances like "uh-huh" from training.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -145,8 +149,8 @@ def write_csv(csv_file, csv_lines, utt_id_idx=0, max_utt=300):
     """
     Write utterances to a .csv file.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     csv_file : str
         Full path of the file to save
     csv_lines : list
@@ -182,8 +186,8 @@ def maybe_merge_files(merge_name, merge_lst: list):
 
     Merge multiple .csv files and store the combined data in a new file.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     merge_name : str
         New name to save the combined files under.
     merge_lst  : list
@@ -210,8 +214,8 @@ def check_data_folder(root_folder):
     """
     Check if all directories exist to prepare the Switchboard dataset.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     root_folder : str
         Root directory, where the Switchboard data is located.
         Expects the following subdirectories to exist:
@@ -228,8 +232,8 @@ def download_transcripts(target_folder):
     """
     Download and unpack Switchboard transcripts from OpenSLR.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     target_folder : str
         Desired location to store the transcripts.
     """
@@ -255,6 +259,11 @@ def skip(*filenames):
     """
     Detects if the Switchboard data preparation has already been done.
 
+    Arguments
+    ---------
+    *filenames : tuple
+        List of paths to check for existence.
+
     Returns
     -------
     bool
@@ -275,8 +284,8 @@ def filter_text(
     of the datasets and cleans it using various regular expressions.
     The types of regular expressions applied depend on the dataset.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     transcription : str
         A transcribed sentence
     dataset : str
@@ -326,6 +335,7 @@ def filter_text(
     return transcription.strip()
 
 
+# cspell:ignore WOLMANIZED
 def match_swbd1(text):
     """
     Clean transcripts in the Switchboard-1 training data.
@@ -337,17 +347,18 @@ def match_swbd1(text):
 
     This is similar to Kaldi's swbd1_map_words.pl.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     text : str
         Input text from the Switchboard-1 training data.
 
     Returns
     -------
-     A string containing the cleaned sentence.
+    A string containing the cleaned sentence.
     """
     tokens = text.split()
     parsed_tokens = []
+    # cspell:disable
     for token in tokens:
         # e.g. [LAUGHTER-STORY] -> STORY; elem 1 and 3 relate to preserving trailing "-"
         m = re.match(r"(|-)^\[LAUGHTER-(.+)\](|-)$", token, flags=re.IGNORECASE)
@@ -383,6 +394,7 @@ def match_swbd1(text):
         token = re.sub(r"_\d+$", "", token)
         parsed_tokens.append(token)
     return " ".join(parsed_tokens)
+    # cspell:enable
 
 
 def match_eval2000(text):
@@ -394,15 +406,14 @@ def match_eval2000(text):
 
     This is similar to eval2000_data_prep.sh
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     text : str
         Input text from the eval2000 test data.
 
     Returns
     -------
-     A string containing the cleaned sentence.
-
+    A string containing the cleaned sentence.
     """
     cleaned_text = ""
 
@@ -428,14 +439,14 @@ def match_fisher(text):
 
     This is similar to fisher_data_prep.sh
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     text : str
         Input text from the Fisher data.
 
     Returns
     -------
-     A string containing the cleaned sentence.
+    A string containing the cleaned sentence.
     """
 
     cleaned_text = ""
@@ -475,8 +486,8 @@ def remove_acronym_symbols(text):
     Remove symbols according to the Fisher acronym convention.
     This splits acronyms written as u._c._l._a._ into single characters (e.g. u c l a)
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     text : str
         Input text
 
@@ -496,8 +507,8 @@ def prepare_lexicon(lexicon_file, output_file):
     Prepare the swbd1 lexicon for further processing.
     The lexicon is used to find acronyms and to convert them into Fisher convention.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     lexicon_file : str
         Path to the sw-ms98-dict.text file in the Switchboard corpus
     output_file : str
@@ -536,8 +547,8 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
 
     This is what Kaldi's format_acronyms_dict.py does.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     save_folder : str
         Folder to store the acronym map on disk
     lexicon_file : str
@@ -635,7 +646,7 @@ def make_acronym_map(save_folder, lexicon_file, acronym_map_file):
                         + "\n"
                     )
 
-            # find if words in the form of xxxs is acronym
+            # find if words in the form of xxxs is acronym # cspell:ignore xxxs
             elif word[-1] == "s" and (lexicon[-1] == "s" or lexicon[-1] == "z"):
                 actual_word = word[:-1]
                 actual_lexicon = lexicon[:-2]
@@ -721,8 +732,8 @@ def map_acronyms(dict_acronym, dict_acronym_noi, transcription):
 
     This is what Kaldi's map_acronyms_transcripts.py does.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     dict_acronym : dict
         Mapping from swbd acronyms to acronyms according to the Fisher corpus convention
     dict_acronym_noi : dict
@@ -771,8 +782,8 @@ def make_name_to_disk_dict(mapping_table: str):
     This information is useful to assemble the absolute path to the sph audio
     files.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     mapping_table : str
         String representing the path to the mapping table file "swb1_all.dvd.tbl"
         provided along with the rest of the Switchboard data.
@@ -802,20 +813,20 @@ def swbd1_data_prep(
     """
     Prepare the Switchboard Phase 1 training data (LDC97S62).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     data_folder : str
         Path to the data. Expects the LDC97S62 directory to be located there.
-    save_folder :
+    save_folder : str
         Path where the file output will be stored
     splits : list
         A list of data splits you want to obtain from the Switchboard dataset (usually ["train", "dev"])
     split_ratio : list
         List containing the portions you want to allocate to each of your data splits e.g. [90, 10]
     add_fisher_corpus : bool
-        If True, a separate csv file called "train_lm.csv" will be createdm which contains
+        If True, a separate csv file called "train_lm.csv" will be created which contains
         the Switchboard training data and the Fisher corpus transcripts.
-    max_utt
+    max_utt : int
         Exclude utterances once they appear more than a specified number of times
 
     Returns
@@ -925,7 +936,6 @@ def swbd1_data_prep(
 
                     # Skip empty transcriptions
                     if len(cleaned_transcription) > 0:
-
                         csv_lines.append(
                             [
                                 id,
@@ -960,8 +970,8 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
     of the dataset (test_swbd.csv) and the Callhome portion
     of the dataset (test_callhome.csv).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     data_folder : str
         Path to the folder where the eval2000/Hub5 English data is located.
     save_folder : str
@@ -1075,7 +1085,8 @@ def eval2000_data_prep(data_folder: str, save_folder: str):
     )
 
     glm_dir = os.path.join(
-        data_folder, "LDC2002T43/2000_hub5_eng_eval_tr/reference",
+        data_folder,
+        "LDC2002T43/2000_hub5_eng_eval_tr/reference",
     )
     logger.info("Start parsing mapping rules in en20000405_hub5.glm")
     parse_glm_file(glm_dir, save_folder)
@@ -1089,8 +1100,8 @@ def parse_glm_file(glm_dir, save_folder):
 
     These filtering rules are needed during inference to find valid word alternatives.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     glm_dir : str
         Location of the en20000405_hub5.glm file in the eval2000 test set
     save_folder : str
@@ -1154,8 +1165,8 @@ def fisher_data_prep(data_folder, save_folder):
     The Fisher transcripts are located at
     LDC2004T19/fe_03_p1_tran and LDC2005T19/fe_03_p2_tran.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     data_folder : str
         Path to the folder where the Fisher data is located.
     save_folder : str

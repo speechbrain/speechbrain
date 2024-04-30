@@ -1,44 +1,41 @@
 #!/usr/bin/env/python3
-"""Recipe for training a Transducer ASR system with librispeech.
+"""Recipe for training a Transducer ASR system with CommonVoice.
 The system employs an encoder, a decoder, and an joint network
-between them. Decoding is performed with beamsearch coupled with a neural
-language model.
+between them following Dynamic Chunk Training for streaming speech recognition.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml
-
-With the default hyperparameters, the system employs a CRDNN encoder.
-The decoder is based on a standard  GRU. Beamsearch coupled with a RNN
-language model is used on the top of decoder probabilities.
+> python train.py hparams/conformer_transducer_large.yaml
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
-are used as basic recognition tokens. Training is performed on the full
-LibriSpeech dataset (960 h).
+are used as basic recognition tokens.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
 different encoders, decoders, tokens (e.g, characters instead of BPE),
-training split (e.g, train-clean 100 rather than the full one), and many
-other possible variations.
+training CommonVoice language, different streaming, parameters,
+and many other possible variations.
 
 
 Authors
+ * Titouan Parcollet 2024
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
 """
 
-import sys
-import torch
 import logging
-import speechbrain as sb
+import sys
+
+import torch
 import torchaudio
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from speechbrain.utils.data_utils import undo_padding
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -52,28 +49,53 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
-        # Add waveform augmentation if specified.
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "wav_augment"):
-                wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
-                tokens_with_bos = self.hparams.wav_augment.replicate_labels(
-                    tokens_with_bos
-                )
-
-        # Forward pass
         feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
 
         # Add feature augmentation if specified.
-        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+        if (
+            stage == sb.Stage.TRAIN
+            and hasattr(self.hparams, "fea_augment")
+            and self.optimizer_step > self.hparams.augment_warmup
+        ):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
             tokens_with_bos = self.hparams.fea_augment.replicate_labels(
                 tokens_with_bos
             )
 
-        x = self.modules.enc(feats.detach())
+        current_epoch = self.hparams.epoch_counter.current
+
+        # Old models may not have the streaming hparam, we don't break them in
+        # any other way so just check for its presence
+        if hasattr(self.hparams, "streaming") and self.hparams.streaming:
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
+                stage
+            )
+        else:
+            dynchunktrain_config = None
+
+        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
+
+        src = self.modules.CNN(feats)
+        x = self.modules.enc(
+            src,
+            wav_lens,
+            pad_idx=self.hparams.pad_index,
+            dynchunktrain_config=dynchunktrain_config,
+        )
+        x = self.modules.proj_enc(x)
+
         e_in = self.modules.emb(tokens_with_bos)
+        e_in = torch.nn.functional.dropout(
+            e_in,
+            self.hparams.dec_emb_dropout,
+            training=(stage == sb.Stage.TRAIN),
+        )
         h, _ = self.modules.dec(e_in)
+        h = torch.nn.functional.dropout(
+            h, self.hparams.dec_dropout, training=(stage == sb.Stage.TRAIN)
+        )
+        h = self.modules.proj_dec(h)
+
         # Joint network
         # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
         # add timeseq_dim to the decoder tensor: [B,U,H_dec] => [B,1,U,H_dec]
@@ -84,136 +106,83 @@ class ASR(sb.Brain):
 
         # Compute outputs
         if stage == sb.Stage.TRAIN:
-            return_CTC = False
-            return_CE = False
-            current_epoch = self.hparams.epoch_counter.current
+            p_ctc = None
+            p_ce = None
+
             if (
-                hasattr(self.hparams, "ctc_cost")
+                self.hparams.ctc_weight > 0.0
                 and current_epoch <= self.hparams.number_of_ctc_epochs
             ):
-                return_CTC = True
                 # Output layer for ctc log-probabilities
-                out_ctc = self.modules.enc_lin(x)
+                out_ctc = self.modules.proj_ctc(x)
                 p_ctc = self.hparams.log_softmax(out_ctc)
-            if (
-                hasattr(self.hparams, "ce_cost")
-                and current_epoch <= self.hparams.number_of_ce_epochs
-            ):
-                return_CE = True
+
+            if self.hparams.ce_weight > 0.0:
                 # Output layer for ctc log-probabilities
                 p_ce = self.modules.dec_lin(h)
                 p_ce = self.hparams.log_softmax(p_ce)
-            if return_CE and return_CTC:
-                return p_ctc, p_ce, logits_transducer, wav_lens
-            elif return_CTC:
-                return p_ctc, logits_transducer, wav_lens
-            elif return_CE:
-                return p_ce, logits_transducer, wav_lens
-            else:
-                return logits_transducer, wav_lens
 
-        elif stage == sb.Stage.VALID:
-            best_hyps, scores, _, _ = self.hparams.beam_searcher(x)
-            return logits_transducer, wav_lens, best_hyps
+            return p_ctc, p_ce, logits_transducer, wav_lens
+
         else:
-            (
-                best_hyps,
-                best_scores,
-                nbest_hyps,
-                nbest_scores,
-            ) = self.hparams.beam_searcher(x)
+            best_hyps, scores, _, _ = self.hparams.Greedysearcher(x)
             return logits_transducer, wav_lens, best_hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (Transducer+(CTC+NLL)) given predictions and targets."""
 
         ids = batch.id
-        current_epoch = self.hparams.epoch_counter.current
         tokens, token_lens = batch.tokens
         tokens_eos, token_eos_lens = batch.tokens_eos
 
+        # Train returns 4 elements vs 3 for val and test
+        if len(predictions) == 4:
+            p_ctc, p_ce, logits_transducer, wav_lens = predictions
+        else:
+            logits_transducer, wav_lens, predicted_tokens = predictions
+
         if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "wav_augment"):
-                (
-                    tokens,
-                    token_lens,
-                    tokens_eos,
-                    token_eos_lens,
-                ) = self.hparams.wav_augment.replicate_multiple_labels(
-                    tokens, token_lens, tokens_eos, token_eos_lens
+            if (
+                hasattr(self.hparams, "fea_augment")
+                and self.optimizer_step > self.hparams.augment_warmup
+            ):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                token_lens = self.hparams.fea_augment.replicate_labels(
+                    token_lens
                 )
-            if hasattr(self.hparams, "fea_augment"):
-                (
-                    tokens,
-                    token_lens,
-                    tokens_eos,
-                    token_eos_lens,
-                ) = self.hparams.fea_augment.replicate_multiple_labels(
-                    tokens, token_lens, tokens_eos, token_eos_lens
+                tokens_eos = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos
+                )
+                token_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    token_eos_lens
                 )
 
         if stage == sb.Stage.TRAIN:
-            if len(predictions) == 4:
-                p_ctc, p_ce, logits_transducer, wav_lens = predictions
+            CTC_loss = 0.0
+            CE_loss = 0.0
+            if p_ctc is not None:
                 CTC_loss = self.hparams.ctc_cost(
                     p_ctc, tokens, wav_lens, token_lens
                 )
+            if p_ce is not None:
                 CE_loss = self.hparams.ce_cost(
                     p_ce, tokens_eos, length=token_eos_lens
                 )
-                loss_transducer = self.hparams.transducer_cost(
-                    logits_transducer, tokens, wav_lens, token_lens
-                )
-                loss = (
-                    self.hparams.ctc_weight * CTC_loss
-                    + self.hparams.ce_weight * CE_loss
-                    + (1 - (self.hparams.ctc_weight + self.hparams.ce_weight))
-                    * loss_transducer
-                )
-            elif len(predictions) == 3:
-                # one of the 2 heads (CTC or CE) is still computed
-                # CTC alive
-                if current_epoch <= self.hparams.number_of_ctc_epochs:
-                    p_ctc, p_transducer, wav_lens = predictions
-                    CTC_loss = self.hparams.ctc_cost(
-                        p_ctc, tokens, wav_lens, token_lens
-                    )
-                    loss_transducer = self.hparams.transducer_cost(
-                        logits_transducer, tokens, wav_lens, token_lens
-                    )
-                    loss = (
-                        self.hparams.ctc_weight * CTC_loss
-                        + (1 - self.hparams.ctc_weight) * loss_transducer
-                    )
-                # CE for decoder alive
-                else:
-                    p_ce, logits_transducer, wav_lens = predictions
-                    CE_loss = self.hparams.ce_cost(
-                        p_ce, tokens_eos, length=token_eos_lens
-                    )
-                    # Transducer loss use logits from RNN-T model.
-                    loss_transducer = self.hparams.transducer_cost(
-                        logits_transducer, tokens, wav_lens, token_lens
-                    )
-                    loss = (
-                        self.hparams.ce_weight * CE_loss
-                        + (1 - self.hparams.ctc_weight) * loss_transducer
-                    )
-            else:
-                logits_transducer, wav_lens = predictions
-                # Transducer loss use logits from RNN-T model.
-                loss = self.hparams.transducer_cost(
-                    logits_transducer, tokens, wav_lens, token_lens
-                )
+            loss_transducer = self.hparams.transducer_cost(
+                logits_transducer, tokens, wav_lens, token_lens
+            )
+            loss = (
+                self.hparams.ctc_weight * CTC_loss
+                + self.hparams.ce_weight * CE_loss
+                + (1 - (self.hparams.ctc_weight + self.hparams.ce_weight))
+                * loss_transducer
+            )
         else:
-            logits_transducer, wav_lens, predicted_tokens = predictions
-            # Transducer loss use logits from RNN-T model.
             loss = self.hparams.transducer_cost(
                 logits_transducer, tokens, wav_lens, token_lens
             )
 
         if stage != sb.Stage.TRAIN:
-
             # Decode token terms to words
             predicted_words = self.tokenizer(
                 predicted_tokens, task="decode_from_list"
@@ -228,6 +197,11 @@ class ASR(sb.Brain):
 
         return loss
 
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
+
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
@@ -236,6 +210,7 @@ class ASR(sb.Brain):
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
+
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
@@ -246,17 +221,29 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["loss"])
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+
+            lr = self.hparams.noam_annealing.current_lr
+            steps = self.optimizer_step
+            optimizer = self.optimizer.__class__.__name__
+
+            epoch_stats = {
+                "epoch": epoch,
+                "lr": lr,
+                "steps": steps,
+                "optimizer": optimizer,
+            }
 
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
+                stats_meta=epoch_stats,
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"], "epoch": epoch},
+                min_keys=["WER"],
+                num_to_keep=self.hparams.avg_checkpoints,
             )
+
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
@@ -266,17 +253,27 @@ class ASR(sb.Brain):
                 with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
+            # save the averaged checkpoint at the end of the evaluation stage
+            # delete the rest of the intermediate checkpoints
+            # WER is set to -0.1 so checkpointer only keeps the averaged checkpoint
+            self.checkpointer.save_and_keep_only(
+                meta={"WER": -0.1, "epoch": epoch},
+                min_keys=["WER"],
+                num_to_keep=1,
+            )
 
-# Define custom data procedure
+
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # 1. Define datasets
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -287,32 +284,29 @@ def dataio_prepare(hparams, tokenizer):
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
-
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="duration",
-            reverse=True,
-            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+            sort_key="duration", reverse=True
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
-
     else:
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
-
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
-    # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
+    # test is separate
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # We also sort the test data so it is faster to test
@@ -327,7 +321,8 @@ def dataio_prepare(hparams, tokenizer):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(sig)
         return resampled
 
@@ -342,9 +337,9 @@ def dataio_prepare(hparams, tokenizer):
         yield wrd
         tokens_list = tokenizer.sp.encode_as_ids(wrd)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["blank_index"]] + (tokens_list))
+        tokens_bos = torch.LongTensor([hparams["bos_index"]] + (tokens_list))
         yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["blank_index"]])
+        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -353,13 +348,48 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "wrd", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_data
+
+    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
+    train_batch_sampler = None
+    valid_batch_sampler = None
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        num_buckets = dynamic_hparams["num_buckets"]
+
+        train_batch_sampler = DynamicBatchSampler(
+            train_data,
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
+            length_func=lambda x: x["duration"],
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            dynamic_hparams["max_batch_len_val"],
+            num_buckets=num_buckets,
+            length_func=lambda x: x["duration"],
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
+        )
+
+    return (
+        train_data,
+        valid_data,
+        test_data,
+        tokenizer,
+        train_batch_sampler,
+        valid_batch_sampler,
+    )
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -401,10 +431,19 @@ if __name__ == "__main__":
         annotation_read="wrd",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
+        bos_id=hparams["bos_index"],
+        eos_id=hparams["eos_index"],
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+    (
+        train_data,
+        valid_data,
+        test_data,
+        tokenizer,
+        train_bsampler,
+        valid_bsampler,
+    ) = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -415,19 +454,31 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    # adding objects to trainer:
+    # We dynamically add the tokenizer to our brain class.
+    # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
+    train_dataloader_opts = hparams["train_dataloader_opts"]
+    valid_dataloader_opts = hparams["valid_dataloader_opts"]
+
+    if train_bsampler is not None:
+        train_dataloader_opts = {
+            "batch_sampler": train_bsampler,
+            "num_workers": hparams["num_workers"],
+        }
+
+    if valid_bsampler is not None:
+        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
 
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=train_dataloader_opts,
+        valid_loader_kwargs=valid_dataloader_opts,
     )
 
-    # Test
+    # Testing
     asr_brain.evaluate(
         test_data,
         min_key="WER",

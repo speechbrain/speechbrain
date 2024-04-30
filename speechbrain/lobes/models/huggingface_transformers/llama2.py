@@ -9,17 +9,16 @@ Authors
 """
 
 import logging
-from torch import Tensor
-import torch
 
+import torch
 import torch.nn as nn
-from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
+from bitsandbytes.nn import Linear4bit
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from transformers import BitsAndBytesConfig
+
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
-from transformers import BitsAndBytesConfig
-
-from bitsandbytes.nn import Linear4bit
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +98,6 @@ class LLAMA2(HFTransformersInterface):
         early_stopping: bool = True,
         with_peft: bool = False,
     ) -> None:
-
         self.with_peft = with_peft
         self.max_new_tokens = max_new_tokens
         self.min_length = min_length
@@ -160,25 +158,28 @@ class LLAMA2(HFTransformersInterface):
             self.model = get_peft_model(self.model, config)
         self.print_trainable_parameters(self.model)
 
-    def forward(
-        self, input_ids: Tensor, attention_mask: Tensor,
-    ):
-        """ Takes an input a history of conversation and returns its corresponding reply.
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor):
+        """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
         ---------
-        input_ids : torch.Tensor ()
+        input_ids : torch.Tensor
             A batch of input-id to transform to features.
-        attention_mask : torch.Tensor ()
+        attention_mask : torch.Tensor
             A batch of attention_mask.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Reply to conversation.
         """
         with torch.set_grad_enabled(not self.freeze):
             output = self.model.forward(
-                input_ids, attention_mask=attention_mask,
+                input_ids, attention_mask=attention_mask
             )
         return output
 
-    def _modify_state_dict(self, path, replacables=["base_model"]):
+    def _modify_state_dict(self, path, replaceables=["base_model"]):
         """A custom loading ensures SpeechBrain compatibility for Pretrain and model
         de/serialization. Here, the scope is to remove '.wav2vec2' before loading.
 
@@ -186,7 +187,7 @@ class LLAMA2(HFTransformersInterface):
         ---------
         path : str
             Checkpoint path, file name relative to the repo root.
-        replacables : List[str]
+        replaceables : List[str]
             State dict sub-keys that if found, shall be dropped (incl. the 'model.' parent key), elevating key structures.
 
         Returns
@@ -301,7 +302,7 @@ class LLAMA2(HFTransformersInterface):
         modified_state_dict = {}
         # Matching the state_dict of the ckpt with that of the HF Llama model.
         for key, params in orig_state_dict.items():
-            for tag in replacables:
+            for tag in replaceables:
                 if f"{tag}" in key:
                     save_key = key.replace(f"model.{tag}", f"{tag}")
                     modified_state_dict[save_key] = params
@@ -312,7 +313,7 @@ class LLAMA2(HFTransformersInterface):
 
         Arguments
         ---------
-        module : nn.nodule
+        module : nn.module
             llama2 model.
         """
         for name, child in module.named_children():
@@ -329,18 +330,26 @@ class LLAMA2(HFTransformersInterface):
                 self.replace_linear(child)
 
     def generate(
-        self, input_ids: Tensor, attention_mask: Tensor, decoder_type="greedy",
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        decoder_type="greedy",
     ):
-        """ Takes an input a history of conversation and returns its corresponding reply.
+        """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
-        --------
-        input_ids : torch.Tensor ()
-            A batch of input-id   which are dialogue context tokens
-        # decoder_type : Str
-        #     It shows strategy for autoregressive decoding either beam seach or greedy.
-        # attention_mask : torch.Tensor ()
-        #     A batch of attention_mask.
+        ---------
+        input_ids : torch.Tensor
+            A batch of input-id which are dialogue context tokens
+        attention_mask : torch.Tensor
+            A batch of attention_mask.
+        decoder_type : str
+            It shows strategy for autoregressive decoding either beam search or greedy.
+
+        Returns
+        -------
+        hyp : torch.Tensor
+            Reply to conversation input.
         """
 
         with torch.no_grad():
@@ -376,10 +385,10 @@ class LLAMA2(HFTransformersInterface):
         Arguments
         ---------
         config : HuggingFace config object
-            The orginal config.
+            The original config.
 
         Returns
-        ---------
+        -------
         config : HuggingFace config object
             Overridden config.
         """

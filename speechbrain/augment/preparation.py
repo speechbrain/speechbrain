@@ -7,11 +7,12 @@ Authors:
 
 """
 
-import os
 import logging
+import os
+
 import torchaudio
-from speechbrain.utils.data_utils import download_file
-from speechbrain.utils.data_utils import get_all_files
+
+from speechbrain.utils.data_utils import download_file, get_all_files
 
 # Logger init
 logger = logging.getLogger(__name__)
@@ -23,11 +24,11 @@ def prepare_dataset_from_URL(URL, dest_folder, ext, csv_file, max_length=None):
 
     Arguments
     ---------
-    URL: str
+    URL : str
         The URL of the dataset to download.
     dest_folder : str
         The local folder where the noisy dataset will be downloaded.
-    ext: str
+    ext : str
         File extensions to search for within the downloaded dataset.
     csv_file : str
         The path to store the prepared noise CSV file.
@@ -80,11 +81,11 @@ def write_csv(filelist, csv_file, max_length=None):
 
     Arguments
     ---------
-    filelist: list of str
+    filelist : list of str
         A list containing the paths of audio files of interest.
-    csv_file: str
+    csv_file : str
         The path where to store the prepared noise CSV file.
-    max_lengthL float (optional):
+    max_length : float (optional)
         The maximum recording length in seconds.
         Recordings longer than this will be automatically cut into pieces.
     """
@@ -100,13 +101,13 @@ def _write_csv_row(w, filename, index, max_length):
 
     Arguments
     ---------
-    w: file
+    w : file
         The open CSV file for writing.
-    filename: str
+    filename : str
         The path to the audio file.
-    index: int
+    index : int
         The index of the audio file in the list.
-    max_length: float (optional)
+    max_length : float (optional)
         The maximum recording length in seconds.
     """
     signal, rate = torchaudio.load(filename)
@@ -129,16 +130,16 @@ def _ensure_single_channel(signal, filename, rate):
 
     Arguments
     ---------
-    signal: Tensor
+    signal : torch.Tensor
         The audio signal.
-    filename: str
+    filename : str
         The path to the audio file.
-    rate: int
+    rate : int
         The sampling frequency of the signal.
 
-    Returns:
-    ---------
-        Torch.Tensor
+    Returns
+    -------
+    signal : Torch.Tensor
         The audio signal with a single channel.
     """
     if signal.shape[0] > 1:
@@ -155,24 +156,24 @@ def _handle_long_waveform(
 
     Arguments
     ---------
-        w: file
-            The open CSV file for writing.
-        filename: str
-            The path to the audio file.
-        ID: str
-            The unique identifier for the audio.
-        ext:  str
-            The audio file extension.
-        signal: Tensor
-            The audio signal.
-        rate: int
-            The audio sample rate.
-        duration:  float
-            The duration of the audio in seconds.
-        max_length:  float
-            The maximum recording length in seconds.
-        index: int
-            The index of the audio file in the list.
+    w : file
+        The open CSV file for writing.
+    filename : str
+        The path to the audio file.
+    ID : str
+        The unique identifier for the audio.
+    ext :  str
+        The audio file extension.
+    signal : torch.Tensor
+        The audio signal.
+    rate : int
+        The audio sample rate.
+    duration :  float
+        The duration of the audio in seconds.
+    max_length :  float
+        The maximum recording length in seconds.
+    index : int
+        The index of the audio file in the list.
     """
     os.remove(filename)
     for j in range(int(duration / max_length)):
@@ -198,11 +199,17 @@ def _write_short_waveform_csv(w, ID, ext, duration, filename, index):
 
     Arguments
     ---------
-        w (file): The open CSV file for writing.
-        ID (str): The unique identifier for the audio.
-        ext (str): The audio file extension.
-        duration (float): The duration of the audio in seconds.
-        filename (str): The path to the audio file.
-        index (int): The index of the audio file in the list.
+    w : file
+        The open CSV file for writing.
+    ID : str
+        The unique identifier for the audio.
+    ext : str
+        The audio file extension.
+    duration : float
+        The duration of the audio in seconds.
+    filename : str
+        The path to the audio file.
+    index : int
+        The index of the audio file in the list.
     """
-    w.write(",".join((f"{ID}_{index}", str(duration), filename, ext, "\n",)))
+    w.write(",".join((f"{ID}_{index}", str(duration), filename, ext, "\n")))

@@ -8,8 +8,10 @@ Authors
  * Samuele Cornell 2020
  * Sarthak Yadav 2022
 """
-import torch
+
 import math
+
+import torch
 from packaging import version
 
 
@@ -18,7 +20,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
 
     Arguments
     ---------
-    waveform : tensor
+    waveforms : tensor
         The waveforms used for computing amplitude.
         Shape should be `[time]` or `[batch, time]` or
         `[batch, time, channels]`.
@@ -59,7 +61,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
             out = wav_sum / lengths
     elif amp_type == "rms":
         if lengths is None:
-            out = torch.sqrt(torch.mean(waveforms ** 2, dim=1, keepdim=True))
+            out = torch.sqrt(torch.mean(waveforms**2, dim=1, keepdim=True))
         else:
             wav_sum = torch.sum(
                 input=torch.pow(waveforms, 2), dim=1, keepdim=True
@@ -104,7 +106,6 @@ def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
     waveforms : tensor
         Normalized level waveform.
     """
-
     assert amp_type in ["avg", "peak"]
 
     batch_added = False
@@ -127,7 +128,7 @@ def mean_std_norm(waveforms, dims=1, eps=1e-06):
     waveforms : tensor
         The waveforms to normalize.
         Shape should be `[batch, time]` or `[batch, time, channels]`.
-    dim: int or tuple
+    dims : int or tuple
         The dimension(s) on which mean and std are computed
     eps : float
         A small number to add to the denominator to prevent NaN.
@@ -168,7 +169,6 @@ def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
     waveforms : tensor
         Rescaled waveforms.
     """
-
     assert amp_type in ["peak", "avg"]
     assert scale in ["linear", "dB"]
 
@@ -339,9 +339,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     -------
     waveforms: tensor
         Reverberated signal.
-
     """
-
     orig_shape = waveforms.shape
 
     if len(waveforms.shape) > 3 or len(rir_waveform.shape) > 3:
@@ -399,6 +397,10 @@ def dB_to_amplitude(SNR):
     SNR : float
         The ratio in decibels to convert.
 
+    Returns
+    -------
+    The amplitude ratio
+
     Example
     -------
     >>> round(dB_to_amplitude(SNR=10), 3)
@@ -426,6 +428,10 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     notch_width : float
         Width of the notch, as a fraction of the sampling_rate / 2.
 
+    Returns
+    -------
+    The computed filter
+
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
@@ -434,7 +440,6 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     >>> kernel = notch_filter(0.25)
     >>> notched_signal = convolve1d(signal, kernel)
     """
-
     # Check inputs
     assert 0 < notch_freq <= 1
     assert filter_width % 2 != 0
@@ -446,7 +451,7 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     # Define sinc function, avoiding division by zero
     def sinc(x):
-        "Computes the sinc function."
+        """Computes the sinc function."""
 
         def _sinc(x):
             return torch.sin(x) / x
@@ -477,11 +482,17 @@ def overlap_and_add(signal, frame_step):
     `[..., frames, frame_length]`, offsetting subsequent frames by `frame_step`.
     The resulting tensor has shape `[..., output_size]` where
         output_size = (frames - 1) * frame_step + frame_length
-    Args:
-        signal: A [..., frames, frame_length] Tensor. All dimensions may be unknown, and rank must be at least 2.
-        frame_step: An integer denoting overlap offsets. Must be less than or equal to frame_length.
-    Returns:
-        A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
+
+    Arguments
+    ---------
+    signal: A [..., frames, frame_length] torch.Tensor.
+        All dimensions may be unknown, and rank must be at least 2.
+    frame_step: int
+        An integer denoting overlap offsets. Must be less than or equal to frame_length.
+
+    Returns
+    -------
+    A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
         output_size = (frames - 1) * frame_step + frame_length
     Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
 
@@ -531,8 +542,6 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft, normalize_wavs=True):
         Predicted spectral magnitude, should be three dimensional.
     noisy_inputs : torch.Tensor
         The noisy waveforms before any processing, to extract phase.
-    lengths : torch.Tensor
-        The length of each waveform for normalization.
     stft : torch.nn.Module
         Module for computing the STFT for extracting phase.
     istft : torch.nn.Module
@@ -545,7 +554,6 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft, normalize_wavs=True):
     enhanced_wav : torch.Tensor
         The resynthesized waveforms of the enhanced magnitudes with noisy phase.
     """
-
     # Extract noisy phase from inputs
     noisy_feats = stft(noisy_inputs)
     noisy_phase = torch.atan2(noisy_feats[:, :, :, 1], noisy_feats[:, :, :, 0])
@@ -582,7 +590,7 @@ def gabor_impulse_response(t, center, fwhm):
     gaussian = torch.exp(
         torch.tensordot(
             1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
-            (-(t ** 2.0)).unsqueeze(0),
+            (-(t**2.0)).unsqueeze(0),
             dims=1,
         )
     )
@@ -613,7 +621,7 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
     gaussian = torch.exp(
         torch.tensordot(
             1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
-            (-(t ** 2.0)).unsqueeze(0),
+            (-(t**2.0)).unsqueeze(0),
             dims=1,
         )
     )

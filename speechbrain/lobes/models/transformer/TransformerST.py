@@ -1,25 +1,26 @@
-"""Transformer for ST in the SpeechBrain sytle.
+"""Transformer for ST in the SpeechBrain style.
 
 Authors
 * YAO FEI, CHENG 2021
 """
 
-import torch  # noqa 42
 import logging
-from torch import nn
 from typing import Optional
 
-from speechbrain.nnet.containers import ModuleList
+import torch  # noqa 42
+from torch import nn
+
+from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import (
-    get_lookahead_mask,
-    get_key_padding_mask,
     NormalizedEmbedding,
     TransformerDecoder,
     TransformerEncoder,
+    get_key_padding_mask,
+    get_lookahead_mask,
 )
-from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
 from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
 from speechbrain.nnet.activations import Swish
+from speechbrain.nnet.containers import ModuleList
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class TransformerST(TransformerASR):
     https://arxiv.org/pdf/1706.03762.pdf
 
     Arguments
-    ----------
+    ---------
     tgt_vocab: int
         Size of vocabulary.
     input_size: int
@@ -45,7 +46,7 @@ class TransformerST(TransformerASR):
         The number of sub-encoder-layers in the encoder (default=6).
     num_decoder_layers : int, optional
         The number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn : int, optional
+    d_ffn : int, optional
         The dimension of the feedforward network model (default=2048).
     dropout : int, optional
         The dropout value (default=0.1).
@@ -84,6 +85,7 @@ class TransformerST(TransformerASR):
         The size of the asr target language
     mt_src_vocab: int
         The size of the mt source language
+
     Example
     -------
     >>> src = torch.rand([8, 120, 512])
@@ -206,15 +208,24 @@ class TransformerST(TransformerASR):
         """This method implements a decoding step for asr task
 
         Arguments
-        ----------
-        encoder_out : tensor
+        ---------
+        encoder_out : torch.Tensor
             The representation of the encoder (required).
-        tgt (transcription): tensor
-            The sequence to the decoder (required).
+        src : torch.Tensor
+            Input sequence (required).
+        tgt : torch.Tensor
+            The sequence to the decoder (transcription) (required).
+        wav_len : torch.Tensor
+            Length of input tensors (required).
         pad_idx : int
             The index for <pad> token (default=0).
+
+        Returns
+        -------
+        asr_decoder_out : torch.Tensor
+            One step of asr decoder.
         """
-        # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
+        # reshape the src vector to [Batch, Time, Fea] is a 4d vector is given
         if src.dim() == 4:
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
@@ -252,13 +263,20 @@ class TransformerST(TransformerASR):
         """This method implements a forward step for mt task
 
         Arguments
-        ----------
-        src (transcription): tensor
-            The sequence to the encoder (required).
-        tgt (translation): tensor
-            The sequence to the decoder (required).
+        ---------
+        src : torch.Tensor
+            The sequence to the encoder (transcription) (required).
+        tgt : torch.Tensor
+            The sequence to the decoder (translation) (required).
         pad_idx : int
             The index for <pad> token (default=0).
+
+        Returns
+        -------
+        encoder_out : torch.Tensor
+            Output of encoder
+        decoder_out : torch.Tensor
+            Output of decoder
         """
 
         (
@@ -309,9 +327,9 @@ class TransformerST(TransformerASR):
 
         Arguments
         ----------
-        src (transcription): tensor
+        src (transcription): torch.Tensor
             output features from the w2v2 encoder
-        tgt (translation): tensor
+        tgt (translation): torch.Tensor
             The sequence to the decoder (required).
         pad_idx : int
             The index for <pad> token (default=0).
@@ -352,6 +370,13 @@ class TransformerST(TransformerASR):
             The sequence to the decoder.
         encoder_out : torch.Tensor
             Hidden output of the encoder.
+
+        Returns
+        -------
+        prediction : torch.Tensor
+            The predicted outputs.
+        multihead_attns : torch.Tensor
+            The last step of attention.
         """
         tgt_mask = get_lookahead_mask(tgt)
         tgt = self.custom_tgt_module(tgt)
@@ -365,7 +390,7 @@ class TransformerST(TransformerASR):
             tgt = tgt + self.positional_encoding(tgt)  # add the encodings here
 
         prediction, _, multihead_attns = self.asr_decoder(
-            tgt, encoder_out, tgt_mask=tgt_mask,
+            tgt, encoder_out, tgt_mask=tgt_mask
         )
 
         return prediction, multihead_attns[-1]
@@ -375,12 +400,23 @@ class TransformerST(TransformerASR):
 
         Arguments
         ---------
-        src : tensor
+        src : torch.Tensor
             The sequence to the encoder (required).
-        tgt : tensor
+        tgt : torch.Tensor
             The sequence to the decoder (required).
         pad_idx : int
             The index for <pad> token (default=0).
+
+        Returns
+        -------
+        src_key_padding_mask : torch.Tensor
+            Timesteps to mask due to padding
+        tgt_key_padding_mask : torch.Tensor
+            Timesteps to mask due to padding
+        src_mask : torch.Tensor
+            Timesteps to mask for causality
+        tgt_mask : torch.Tensor
+            Timesteps to mask for causality
         """
         src_key_padding_mask = None
         if self.training:

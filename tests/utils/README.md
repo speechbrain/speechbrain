@@ -29,7 +29,7 @@ Depending on the testing need, `test.yaml` grows - some examples
 1. [ssl-wav2vec2-base-librispeech/test.yaml](https://github.com/speechbrain/speechbrain/blob/hf-interface-testing/updates_pretrained_models/ssl-wav2vec2-base-librispeech/test.yaml) - the play between test sample, interface class, and batch function is handled via HF testing in `tests/utils`
    ```yaml
    sample: example.wav # test audio provided via HF repo
-   cls: WaveformEncoder # existing speechbrain.pretrained.interfraces class
+   cls: WaveformEncoder # existing speechbrain.inference class
    fnx: encode_batch # it's batch-wise function after audio loading
    ```
 2. [asr-wav2vec2-librispeech/test.yaml](https://github.com/speechbrain/speechbrain/blob/hf-interface-testing/updates_pretrained_models/asr-wav2vec2-librispeech/test.yaml) - testing single example & against a dataset test partition
@@ -39,7 +39,7 @@ Depending on the testing need, `test.yaml` grows - some examples
    fnx: transcribe_batch # as above
    dataset: LibriSpeech # which dataset to use -> will create a tests/tmp/LibriSpeech folder
    recipe_yaml: recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec.yaml # the training recipe for dataloader etc
-   overrides: # what of the recipe_yaml needs to be overriden
+   overrides: # what of the recipe_yaml needs to be overridden
      output_folder: !ref tests/tmp/<dataset> # the output folder is at the tmp dataset (data prep & eval tasks only)
    dataio: | # which dataio_prepare to import; copy/paste from train_with_wav2vec.py — pay attention to the last line (their dataio_prepare needs to know how to prepare the recipe dataset)
        from recipes.LibriSpeech.librispeech_prepare import prepare_librispeech

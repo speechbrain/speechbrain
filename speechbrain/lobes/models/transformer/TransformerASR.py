@@ -7,19 +7,21 @@ Authors
 """
 
 from dataclasses import dataclass
+from typing import Any, Optional
+
 import torch  # noqa 42
 from torch import nn
-from typing import Any, Optional
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.containers import ModuleList
+
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.lobes.models.transformer.Transformer import (
-    TransformerInterface,
-    get_lookahead_mask,
-    get_key_padding_mask,
     NormalizedEmbedding,
+    TransformerInterface,
+    get_key_padding_mask,
+    get_lookahead_mask,
 )
 from speechbrain.nnet.activations import Swish
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.nnet.containers import ModuleList
+from speechbrain.nnet.linear import Linear
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 
 
@@ -106,21 +108,34 @@ def make_transformer_src_tgt_masks(
     dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
 ):
     """This function generates masks for training the transformer model,
-    opiniated for an ASR context with encoding masks and, optionally, decoding
+    opinionated for an ASR context with encoding masks and, optionally, decoding
     masks (if specifying `tgt`).
 
     Arguments
     ---------
-    src : tensor
+    src : torch.Tensor
         The sequence to the encoder (required).
-    tgt : tensor
+    tgt : torch.Tensor
         The sequence to the decoder.
+    wav_len : torch.Tensor
+        The lengths of the inputs.
     pad_idx : int
         The index for <pad> token (default=0).
     causal: bool
         Whether strict causality shall be used. See `make_asr_src_mask`
     dynchunktrain_config: DynChunkTrainConfig, optional
         Dynamic Chunk Training configuration. See `make_asr_src_mask`
+
+    Returns
+    -------
+    src_key_padding_mask : torch.Tensor
+        Key padding mask for ignoring padding
+    tgt_key_padding_mask : torch.Tensor
+        Key padding mask for ignoring padding
+    src_mask : torch.Tensor
+        Mask for ignoring invalid (e.g. future) timesteps
+    tgt_mask : torch.Tensor
+        Mask for ignoring invalid (e.g. future) timesteps
     """
     src_key_padding_mask = None
 
@@ -152,7 +167,7 @@ class TransformerASR(TransformerInterface):
     https://arxiv.org/pdf/1706.03762.pdf
 
     Arguments
-    ----------
+    ---------
     tgt_vocab: int
         Size of vocabulary.
     input_size: int
@@ -166,7 +181,7 @@ class TransformerASR(TransformerInterface):
         The number of sub-encoder-layers in the encoder (default=6).
     num_decoder_layers : int, optional
         The number of sub-decoder-layers in the decoder (default=6).
-    dim_ffn : int, optional
+    d_ffn : int, optional
         The dimension of the feedforward network model (default=2048).
     dropout : int, optional
         The dropout value (default=0.1).
@@ -301,7 +316,7 @@ class TransformerASR(TransformerInterface):
             The index for <pad> token (default=0).
         """
 
-        # reshpae the src vector to [Batch, Time, Fea] is a 4d vector is given
+        # reshape the src vector to [Batch, Time, Fea] is a 4d vector is given
         if src.ndim == 4:
             bz, t, ch1, ch2 = src.shape
             src = src.reshape(bz, t, ch1 * ch2)
@@ -331,6 +346,10 @@ class TransformerASR(TransformerInterface):
             src_key_padding_mask=src_key_padding_mask,
             pos_embs=pos_embs_encoder,
         )
+
+        # if encoder only, we return the output of the encoder
+        if tgt is None:
+            return encoder_out, None
 
         tgt = self.custom_tgt_module(tgt)
 
@@ -371,6 +390,10 @@ class TransformerASR(TransformerInterface):
             Hidden output of the encoder.
         enc_len : torch.LongTensor
             The actual length of encoder states.
+
+        Returns
+        -------
+        prediction
         """
         tgt_mask = get_lookahead_mask(tgt)
         src_key_padding_mask = None
@@ -411,11 +434,19 @@ class TransformerASR(TransformerInterface):
         Encoder forward pass
 
         Arguments
-        ----------
+        ---------
         src : torch.Tensor
             The sequence to the encoder.
-        wav_len: torch.Tensor, optional
+        wav_len : torch.Tensor, optional
             Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
+        pad_idx : int
+            The index used for padding.
+        dynchunktrain_config : DynChunkTrainConfig
+            Dynamic chunking config.
+
+        Returns
+        -------
+        encoder_out : torch.Tensor
         """
         # reshape the src vector to [Batch, Time, Fea] if a 4d vector is given
         if src.dim() == 4:
@@ -463,7 +494,6 @@ class TransformerASR(TransformerInterface):
         ---------
         src : torch.Tensor
             The sequence (chunk) to the encoder.
-
         context : TransformerASRStreamingContext
             Mutable reference to the streaming context. This holds the state
             needed to persist across chunk inferences and can be built using
@@ -559,16 +589,20 @@ class TransformerASR(TransformerInterface):
         ---------
         dynchunktrain_config : DynChunkTrainConfig
             Runtime chunkwise attention configuration.
-
         encoder_kwargs : dict
             Parameters to be forward to the encoder's `make_streaming_context`.
             Metadata required for the encoder could differ depending on the
             encoder.
+
+        Returns
+        -------
+        TransformerASRStreamingContext
         """
         return TransformerASRStreamingContext(
             dynchunktrain_config=dynchunktrain_config,
             encoder_context=self.encoder.make_streaming_context(
-                dynchunktrain_config, **encoder_kwargs,
+                dynchunktrain_config,
+                **encoder_kwargs,
             ),
         )
 
@@ -586,9 +620,12 @@ class EncoderWrapper(nn.Module):
     Important: The TransformerASR class must contain a .encode() function.
 
     Arguments
-    ----------
+    ---------
     transformer : sb.lobes.models.TransformerInterface
         A Transformer instance that contains a .encode() function.
+    *args : tuple
+    **kwargs : dict
+        Arguments to forward to parent class.
 
     Example
     -------
@@ -609,8 +646,8 @@ class EncoderWrapper(nn.Module):
         self.make_streaming_context = self.transformer.make_streaming_context
 
     def forward(self, x, wav_lens=None, pad_idx=0, **kwargs):
-        """ Processes the input tensor x and returns an output tensor."""
-        x = self.transformer.encode(x, wav_lens, pad_idx, **kwargs,)
+        """Processes the input tensor x and returns an output tensor."""
+        x = self.transformer.encode(x, wav_lens, pad_idx, **kwargs)
         return x
 
     def forward_streaming(self, x, context):
@@ -621,5 +658,6 @@ class EncoderWrapper(nn.Module):
 
     def make_streaming_context(self, *args, **kwargs):
         """Initializes a streaming context. Forwards all arguments to the
-        underlying transformer. See :meth:`speechbrain.lobes.models.transformer.TransformerASR.make_streaming_context`."""
+        underlying transformer. See :meth:`speechbrain.lobes.models.transformer.TransformerASR.make_streaming_context`.
+        """
         return self.transformer.make_streaming_context(*args, **kwargs)

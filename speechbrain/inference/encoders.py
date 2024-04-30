@@ -13,7 +13,9 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
+
 from speechbrain.inference.interfaces import Pretrained
 
 
@@ -26,6 +28,10 @@ class WaveformEncoder(Pretrained):
     file or from a batch of audio tensors respectively.
 
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
+
+    Arguments
+    ---------
+    See ``Pretrained``
 
     Example
     -------
@@ -40,9 +46,6 @@ class WaveformEncoder(Pretrained):
 
     MODULES_NEEDED = ["encoder"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def encode_file(self, path, **kwargs):
         """Encode the given audiofile into a sequence of embeddings.
 
@@ -50,6 +53,8 @@ class WaveformEncoder(Pretrained):
         ---------
         path : str
             Path to audio file which to encode.
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``
 
         Returns
         -------
@@ -101,7 +106,10 @@ class MelSpectrogramEncoder(Pretrained):
     current TTS pipeline.
 
     This class can be used to encode a single waveform, a single mel-spectrogram, or a batch of mel-spectrograms.
-    ```
+
+    Arguments
+    ---------
+    See ``Pretrained``
 
     Example
     -------
@@ -128,12 +136,8 @@ class MelSpectrogramEncoder(Pretrained):
 
     MODULES_NEEDED = ["normalizer", "embedding_model"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def dynamic_range_compression(self, x, C=1, clip_val=1e-5):
-        """Dynamic range compression for audio signals
-        """
+        """Dynamic range compression for audio signals"""
         return torch.log(torch.clamp(x, min=clip_val) * C)
 
     def mel_spectogram(self, audio):

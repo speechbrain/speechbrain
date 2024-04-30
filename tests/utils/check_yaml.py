@@ -7,6 +7,7 @@ Authors
 
 import os
 import re
+
 from speechbrain.core import run_opt_defaults
 
 
@@ -43,7 +44,7 @@ def get_yaml_var(hparam_file):
             if line.find(":") != -1 or line.find("!ref") != -1:
                 var_name = line[: line.find(":")]
                 # The variables to check are like "key:" (we do not need to check
-                # subvariavles as " key:")
+                # subvariables as " key:")
                 if not (
                     var_name[0] == " "
                     or var_name[0] == "\t"
@@ -126,8 +127,8 @@ def detect_script_vars(script_file, var_lst):
                             detected_var.append(var)
                             continue
 
-                # Chek var types
-                # Chek var types
+                # Check var types
+                # Check var types
                 for var_type in var_types:
                     if var_type + var in line:
                         if var not in detected_var:
@@ -237,7 +238,7 @@ def extract_patterns(lines, start_pattern, end_pattern):
 def check_module_vars(
     hparam_file, script_file, module_key="modules:", module_var="self.modules."
 ):
-    """Checks if the variables self.moduled.var are properly declared in the
+    """Checks if the variables self.modules.var are properly declared in the
     hparam file.
 
     Arguments
@@ -250,6 +251,7 @@ def check_module_vars(
         String that denoted the start of the module in the hparam file.
     module_var: string
         String that denoted the start of the module in the script file.
+
     Returns
     -------
     Bool
@@ -299,7 +301,7 @@ def check_module_vars(
         if avoid in module_var_script:
             module_var_script.remove(avoid)
 
-    # Check Module variavles
+    # Check Module variables
     unused_vars = list(set(module_var_script) - set(module_vars_hparams))
 
     for unused_var in unused_vars:

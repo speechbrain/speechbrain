@@ -3,29 +3,31 @@
 Authors:
  * Aku Rouhe 2021
 """
+
 import bisect
 import random
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Any
+
 from speechbrain.dataio.batch import PaddedBatch
 
 
 @dataclass(order=True)
 class LengthItem:
-    """ Data class for lenghts"""
+    """Data class for lengths"""
 
     length: int
     data: Any = field(compare=False)
 
 
 def total_length_with_padding(lengths):
-    """ Determines how long would batch be (with padding)"""
+    """Determines how long would batch be (with padding)"""
     return len(lengths) * max(lengths)
 
 
 def padding_ratio(lengths):
-    """ Determines how much of batch is padding."""
+    """Determines how much of batch is padding."""
     return 1.0 - sum(lengths) / total_length_with_padding(lengths)
 
 
@@ -64,14 +66,22 @@ def indices_around_random_pivot(
         Target of total batch length including padding, which is simply computed
         as batch size * length of longest example. This function aims to return
         the batch as soon as the gathered length exceeds this. If some limits
-        are encountered first, this may not be satisifed.
+        are encountered first, this may not be satisfied.
     max_batch_size : None, int
         Maximum number of examples to include in the batch, or None to not limit
         by number of examples.
     max_batch_numel : None, int
         Maximum of total batch length including padding, which is simply computed
         as batch size * length of longest example.
+    max_padding_ratio : float
+        Each batch can have at most this much devoted to padding.
+    randint_generator : generator
+        Provide a generator to get reproducible results.
 
+    Returns
+    -------
+    indices : list
+        A list of consecutive indices.
     """
     bufferlen = len(databuffer)
     if max_batch_size is None:
@@ -82,7 +92,7 @@ def indices_around_random_pivot(
 
     # Define index filtering function:
     def possibly_consider(index, to_consider):
-        """Adds an index to the to_consider list, f the index passes all
+        """Adds an index to the to_consider list, if the index passes all
         requirements."""
         if index < 0 or index >= len(databuffer):
             return
@@ -173,6 +183,10 @@ def dynamic_bucketed_batch(
         Note: you can use ``.repeat`` on `webdataset` IterableDatasets to never
         run out of new samples, and then use
         `speechbrain.dataio.dataloader.LoopedLoader` to set a nominal epoch length.
+
+    Yields
+    ------
+    Batches
     """
     databuffer = []
     if sampler_kwargs:
@@ -210,12 +224,11 @@ def dynamic_bucketed_batch(
     # Data stream was exhausted. Data buffer is relatively full at first,
     # but cannot be replenished, so batches might not be efficiently produced.
     # Either stop, or exhaust buffer.
-    if drop_end:
-        return
-    while databuffer:
-        indices = sampler_fn(databuffer)
-        batch_list = []
-        for i in sorted(indices, reverse=True):
-            item = databuffer.pop(i)
-            batch_list.append(item.data)
-        yield collate_fn(batch_list)
+    if not drop_end:
+        while databuffer:
+            indices = sampler_fn(databuffer)
+            batch_list = []
+            for i in sorted(indices, reverse=True):
+                item = databuffer.pop(i)
+                batch_list.append(item.data)
+            yield collate_fn(batch_list)

@@ -21,17 +21,18 @@ Authors
  * Samuele Cornell 2020
 """
 
+import logging
 import os
 import sys
-import torch
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from hyperpyyaml import load_hyperpyyaml
 from collections import defaultdict
 from pathlib import Path
 
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 import speechbrain.k2_integration as sbk2
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +194,8 @@ class ASR(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -244,7 +246,8 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -269,7 +272,8 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -307,7 +311,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "char_list"],
+        datasets,
+        ["id", "sig", "wrd", "char_list"],
     )
 
     return train_data, valid_data, test_datasets
@@ -367,9 +372,11 @@ if __name__ == "__main__":
         kwargs={
             "lang_dir": hparams["lang_dir"],
             "vocab_files": [hparams["vocab_file"]],
-            "extra_csv_files": [hparams["output_folder"] + "/train.csv"]
-            if not hparams["skip_prep"]
-            else [],
+            "extra_csv_files": (
+                [hparams["output_folder"] + "/train.csv"]
+                if not hparams["skip_prep"]
+                else []
+            ),
             "add_word_boundary": hparams["add_word_boundary"],
         },
     )
@@ -433,7 +440,8 @@ if __name__ == "__main__":
 
     lexicon = sbk2.lexicon.Lexicon(hparams["lang_dir"])
     graph_compiler = sbk2.graph_compiler.CtcGraphCompiler(
-        lexicon, device=asr_brain.device,
+        lexicon,
+        device=asr_brain.device,
     )
 
     decoding_params = {}

@@ -15,22 +15,21 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
-
-import logging
-import re
-import os
 import csv
+import logging
+import os
+import re
 from pathlib import Path
-from typing import List, Union, Tuple, Optional
-
-from . import k2  # import k2 from ./__init__.py
+from typing import List, Optional, Tuple, Union
 
 import torch
 
+from . import k2  # import k2 from ./__init__.py
+
 logger = logging.getLogger(__name__)
 
-UNK = "<UNK>"  # unknow word
-UNK_t = "<unk>"  # unknow token
+UNK = "<UNK>"  # unknown word
+UNK_t = "<unk>"  # unknown token
 EOW = "<eow>"  # end of word
 EPS = "<eps>"  # epsilon
 
@@ -76,7 +75,8 @@ class Lexicon(object):
     """
 
     def __init__(
-        self, lang_dir: Path,
+        self,
+        lang_dir: Path,
     ):
         self.lang_dir = lang_dir = Path(lang_dir)
         self.token_table = k2.SymbolTable.from_file(lang_dir / "tokens.txt")
@@ -169,6 +169,11 @@ class Lexicon(object):
         ---------
         LG: k2.Fsa
             The LG graph to be modified
+
+        Returns
+        -------
+        LG: k2.Fsa
+            The modified LG graph
         """
 
         first_token_disambig_id = self.token_table["#0"]
@@ -237,7 +242,9 @@ class Lexicon(object):
         return word_ids
 
     def texts_to_token_ids(
-        self, texts: List[str], log_unknown_warning=True,
+        self,
+        texts: List[str],
+        log_unknown_warning=True,
     ) -> List[List[List[int]]]:
         """
         Convert a list of text sentences into token IDs.
@@ -279,7 +286,9 @@ class Lexicon(object):
         )
 
     def texts_to_token_ids_with_multiple_pronunciation(
-        self, texts: List[str], log_unknown_warning=True,
+        self,
+        texts: List[str],
+        log_unknown_warning=True,
     ) -> List[List[List[List[int]]]]:
         """
         Convert a list of input texts to token IDs with multiple pronunciation variants.

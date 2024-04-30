@@ -33,18 +33,20 @@ Example
 Authors
  * Mirco Ravanelli 2020
 """
-import math
-import torch
+
 import logging
+import math
+
+import torch
+
+from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.checkpoints import (
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
     mark_as_transfer,
     register_checkpoint_hooks,
 )
-from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.filter_analysis import FilterProperties
-
 
 logger = logging.getLogger(__name__)
 
@@ -137,10 +139,13 @@ class STFT(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        x : torch.Tensor
             A batch of audio signals to transform.
-        """
 
+        Returns
+        -------
+        stft : torch.Tensor
+        """
         # Managing multi-channel stft
         or_shape = x.shape
         if len(or_shape) == 3:
@@ -201,6 +206,8 @@ class ISTFT(torch.nn.Module):
     ---------
     sample_rate : int
         Sample rate of the input audio signal (e.g. 16000).
+    n_fft : int
+        Number of points in FFT.
     win_length : float
         Length (in ms) of the sliding window used when computing the STFT.
     hop_length : float
@@ -277,13 +284,16 @@ class ISTFT(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        x : torch.Tensor
             A batch of audio signals in the frequency domain to transform.
         sig_length : int
             The length of the output signal in number of samples. If not
             specified will be equal to: (time_step - 1) * hop_length + n_fft
-        """
 
+        Returns
+        -------
+        istft : torch.Tensor
+        """
         or_shape = x.shape
 
         # Infer n_fft if not provided
@@ -341,6 +351,12 @@ def spectral_magnitude(
         Use power=0.5 for the magnitude spectrogram.
     log : bool
         Whether to apply log to the spectral features.
+    eps : float
+        A small value to prevent square root of zero.
+
+    Returns
+    -------
+    spectr : torch.Tensor
 
     Example
     -------
@@ -388,23 +404,23 @@ class Filterbank(torch.nn.Module):
         Reference value used for the dB scale.
     top_db : float
         Minimum negative cut-off in decibels.
-    freeze : bool
-        If False, it the central frequency and the band of each filter are
-        added into nn.parameters. If True, the standard frozen features
-        are computed.
-    param_change_factor: bool
+    param_change_factor : bool
         If freeze=False, this parameter affects the speed at which the filter
         parameters (i.e., central_freqs and bands) can be changed.  When high
         (e.g., param_change_factor=1) the filters change a lot during training.
         When low (e.g. param_change_factor=0.1) the filter parameters are more
         stable during training
-    param_rand_factor: float
+    param_rand_factor : float
         This parameter can be used to randomly change the filter parameters
         (i.e, central frequencies and bands) during training.  It is thus a
         sort of regularization. param_rand_factor=0 does not affect, while
         param_rand_factor=0.15 allows random variations within +-15% of the
         standard values of the filter parameters (e.g., if the central freq
         is 100 Hz, we can randomly change it from 85 Hz to 115 Hz).
+    freeze : bool
+        If False, it the central frequency and the band of each filter are
+        added into nn.parameters. If True, the standard frozen features
+        are computed.
 
     Example
     -------
@@ -496,8 +512,12 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        spectrogram : torch.Tensor
             A batch of spectrogram tensors.
+
+        Returns
+        -------
+        fbanks : torch.Tensor
         """
         # Computing central frequency and bandwidth of each filter
         f_central_mat = self.f_central.repeat(
@@ -570,8 +590,12 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        x : float
+        hz : float
             The frequency point in Hz.
+
+        Returns
+        -------
+        The mel-frequency value
         """
         return 2595 * math.log10(1 + hz / 700)
 
@@ -582,8 +606,12 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        x : float
+        mel : float
             The frequency point in the mel-scale.
+
+        Returns
+        -------
+        The hz-frequency value
         """
         return 700 * (10 ** (mel / 2595) - 1)
 
@@ -592,14 +620,17 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        all_freqs : Tensor
-            Tensor gathering all the frequency points.
-        f_central : Tensor
-            Tensor gathering central frequencies of each filter.
-        band : Tensor
-            Tensor gathering the bands of each filter.
-        """
+        all_freqs : torch.Tensor
+            torch.Tensor gathering all the frequency points.
+        f_central : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
 
+        Returns
+        -------
+        fbank_matrix : torch.Tensor
+        """
         # Computing the slops of the filters
         slope = (all_freqs - f_central) / band
         left_side = slope + 1.0
@@ -618,14 +649,17 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        all_freqs : Tensor
-            Tensor gathering all the frequency points.
-        f_central : Tensor
-            Tensor gathering central frequencies of each filter.
-        band : Tensor
-            Tensor gathering the bands of each filter.
-        """
+        all_freqs : torch.Tensor
+            torch.Tensor gathering all the frequency points.
+        f_central : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
 
+        Returns
+        -------
+        fbank_matrix : torch.Tensor
+        """
         # cut-off frequencies of the filters
         low_hz = f_central - band
         high_hz = f_central + band
@@ -645,15 +679,19 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        all_freqs : Tensor
-            Tensor gathering all the frequency points.
-        f_central : Tensor
-            Tensor gathering central frequencies of each filter.
-        band : Tensor
-            Tensor gathering the bands of each filter.
-        smooth_factor: Tensor
+        all_freqs : torch.Tensor
+            torch.Tensor gathering all the frequency points.
+        f_central : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
+        smooth_factor: torch.Tensor
             Smoothing factor of the gaussian filter. It can be used to employ
             sharper or flatter filters.
+
+        Returns
+        -------
+        fbank_matrix : torch.Tensor
         """
         fbank_matrix = torch.exp(
             -0.5 * ((all_freqs - f_central) / (band / smooth_factor)) ** 2
@@ -667,13 +705,14 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        f_central : Tensor
-            Tensor gathering central frequencies of each filter.
-        band : Tensor
-            Tensor gathering the bands of each filter.
-        smooth_factor: Tensor
-            Smoothing factor of the gaussian filter. It can be used to employ
-            sharper or flatter filters.
+        f_central_mat : torch.Tensor
+            torch.Tensor gathering central frequencies of each filter.
+        band_mat : torch.Tensor
+            torch.Tensor gathering the bands of each filter.
+
+        Returns
+        -------
+        fbank_matrix : torch.Tensor
         """
         if self.filter_shape == "triangular":
             fbank_matrix = self._triangular_filters(
@@ -697,11 +736,13 @@ class Filterbank(torch.nn.Module):
 
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             A batch of linear FBANK tensors.
 
+        Returns
+        -------
+        x_db : torch.Tensor
         """
-
         x_db = self.multiplier * torch.log10(torch.clamp(x, min=self.amin))
         x_db -= self.multiplier * self.db_multiplier
 
@@ -741,9 +782,7 @@ class DCT(torch.nn.Module):
     torch.Size([10, 101, 20])
     """
 
-    def __init__(
-        self, input_size, n_out=20, ortho_norm=True,
-    ):
+    def __init__(self, input_size, n_out=20, ortho_norm=True):
         super().__init__()
 
         if n_out > input_size:
@@ -752,7 +791,7 @@ class DCT(torch.nn.Module):
                 "(n_out=%i, n_in=%i)" % (n_out, input_size)
             )
 
-        # Generate matix for DCT transformation
+        # Generate matrix for DCT transformation
         n = torch.arange(float(input_size))
         k = torch.arange(float(n_out)).unsqueeze(1)
         dct = torch.cos(math.pi / float(input_size) * (n + 0.5) * k)
@@ -770,8 +809,12 @@ class DCT(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        x : torch.Tensor
             A batch of tensors to transform, usually fbank features.
+
+        Returns
+        -------
+        dct : torch.Tensor
         """
         # Managing multi-channels case
         input_shape = x.shape
@@ -795,7 +838,9 @@ class Deltas(torch.nn.Module):
 
     Arguments
     ---------
-    win_length : int
+    input_size : int
+        The expected size of the inputs for parameter initialization.
+    window_length : int
         Length of the window used to compute the time derivatives.
 
     Example
@@ -807,18 +852,18 @@ class Deltas(torch.nn.Module):
     torch.Size([10, 101, 20])
     """
 
-    def __init__(
-        self, input_size, window_length=5,
-    ):
+    def __init__(self, input_size, window_length=5):
         super().__init__()
         self.n = (window_length - 1) // 2
         self.denom = self.n * (self.n + 1) * (2 * self.n + 1) / 3
 
         self.register_buffer(
             "kernel",
-            torch.arange(-self.n, self.n + 1, dtype=torch.float32,).repeat(
-                input_size, 1, 1
-            ),
+            torch.arange(
+                -self.n,
+                self.n + 1,
+                dtype=torch.float32,
+            ).repeat(input_size, 1, 1),
         )
 
     def forward(self, x):
@@ -826,8 +871,12 @@ class Deltas(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        x : torch.Tensor
             A batch of tensors.
+
+        Returns
+        -------
+        delta_coeff : torch.Tensor
         """
         # Managing multi-channel deltas reshape tensor (batch*channel,time)
         x = x.transpose(1, 2).transpose(2, -1)
@@ -849,7 +898,7 @@ class Deltas(torch.nn.Module):
         # Retrieving the original dimensionality (for multi-channel case)
         if len(or_shape) == 4:
             delta_coeff = delta_coeff.reshape(
-                or_shape[0], or_shape[1], or_shape[2], or_shape[3],
+                or_shape[0], or_shape[1], or_shape[2], or_shape[3]
             )
         delta_coeff = delta_coeff.transpose(1, -1).transpose(2, -1)
 
@@ -880,9 +929,7 @@ class ContextWindow(torch.nn.Module):
     torch.Size([10, 101, 220])
     """
 
-    def __init__(
-        self, left_frames=0, right_frames=0,
-    ):
+    def __init__(self, left_frames=0, right_frames=0):
         super().__init__()
         self.left_frames = left_frames
         self.right_frames = right_frames
@@ -903,17 +950,21 @@ class ContextWindow(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        x : torch.Tensor
             A batch of tensors.
-        """
 
+        Returns
+        -------
+        cw_x : torch.Tensor
+            The context-enriched tensor
+        """
         x = x.transpose(1, 2)
 
         if self.first_call is True:
             self.first_call = False
             self.kernel = (
                 self.kernel.repeat(x.shape[1], 1, 1)
-                .view(x.shape[1] * self.context_len, self.kernel_len,)
+                .view(x.shape[1] * self.context_len, self.kernel_len)
                 .unsqueeze(1)
             )
 
@@ -960,6 +1011,10 @@ class InputNormalization(torch.nn.Module):
     avg_factor : float
          It can be used to manually set the weighting factor between
          current statistics and accumulated ones.
+    requires_grad : bool
+        Whether this module should be updated using the gradient during training.
+    update_until_epoch : int
+        The epoch after which updates to the norm stats should stop.
 
     Example
     -------
@@ -1006,20 +1061,32 @@ class InputNormalization(torch.nn.Module):
 
         Arguments
         ---------
-        x : tensor
+        x : torch.Tensor
             A batch of tensors.
-        lengths : tensor
+        lengths : torch.Tensor
             A batch of tensors containing the relative length of each
             sentence (e.g, [0.7, 0.9, 1.0]). It is used to avoid
             computing stats on zero-padded steps.
-        spk_ids : tensor containing the ids of each speaker (e.g, [0 10 6]).
+        spk_ids : torch.Tensor containing the ids of each speaker (e.g, [0 10 6]).
             It is used to perform per-speaker normalization when
             norm_type='speaker'.
+        epoch : int
+            The epoch count.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The normalized tensor.
         """
         N_batches = x.shape[0]
 
         current_means = []
         current_stds = []
+
+        if self.norm_type == "sentence" or self.norm_type == "speaker":
+            # we will do in-place slice assignments over `out`
+            out = torch.empty_like(x)
+        # otherwise don't assign it yet
 
         for snt_id in range(N_batches):
             # Avoiding padded time steps
@@ -1034,7 +1101,7 @@ class InputNormalization(torch.nn.Module):
             current_stds.append(current_std)
 
             if self.norm_type == "sentence":
-                x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
+                out[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
 
             if self.norm_type == "speaker":
                 spk_id = int(spk_ids[snt_id][0])
@@ -1057,15 +1124,15 @@ class InputNormalization(torch.nn.Module):
                             self.weight = self.avg_factor
 
                         self.spk_dict_mean[spk_id] = (
-                            (1 - self.weight)
-                            * self.spk_dict_mean[spk_id].to(current_mean)
-                            + self.weight * current_mean
-                        )
+                            1 - self.weight
+                        ) * self.spk_dict_mean[spk_id].to(
+                            current_mean
+                        ) + self.weight * current_mean
                         self.spk_dict_std[spk_id] = (
-                            (1 - self.weight)
-                            * self.spk_dict_std[spk_id].to(current_std)
-                            + self.weight * current_std
-                        )
+                            1 - self.weight
+                        ) * self.spk_dict_std[spk_id].to(
+                            current_std
+                        ) + self.weight * current_std
 
                         self.spk_dict_mean[spk_id].detach()
                         self.spk_dict_std[spk_id].detach()
@@ -1080,14 +1147,14 @@ class InputNormalization(torch.nn.Module):
                         speaker_mean = current_mean.data
                         speaker_std = current_std.data
 
-                x[snt_id] = (x[snt_id] - speaker_mean) / speaker_std
+                out[snt_id] = (x[snt_id] - speaker_mean) / speaker_std
 
         if self.norm_type == "batch" or self.norm_type == "global":
             current_mean = torch.mean(torch.stack(current_means), dim=0)
             current_std = torch.mean(torch.stack(current_stds), dim=0)
 
             if self.norm_type == "batch":
-                x = (x - current_mean.data) / (current_std.data)
+                out = (x - current_mean.data) / (current_std.data)
 
             if self.norm_type == "global":
                 if self.training:
@@ -1114,17 +1181,26 @@ class InputNormalization(torch.nn.Module):
 
                     self.count = self.count + 1
 
-                x = (x - self.glob_mean.data.to(x)) / (self.glob_std.data.to(x))
+                out = (x - self.glob_mean.data.to(x)) / (
+                    self.glob_std.data.to(x)
+                )
 
-        return x
+        return out
 
     def _compute_current_stats(self, x):
-        """Returns the tensor with the surrounding context.
+        """Computes mean and std
 
         Arguments
         ---------
-        x : tensor
+        x : torch.Tensor
             A batch of tensors.
+
+        Returns
+        -------
+        current_mean : torch.Tensor
+            The average of x along dimension 0
+        current_std : torch.Tensor
+            The standard deviation of x along dimension 0
         """
         # Compute current mean
         if self.mean_norm:
@@ -1164,6 +1240,10 @@ class InputNormalization(torch.nn.Module):
         ---------
         state : dict
             A dictionary containing the normalization statistics.
+
+        Returns
+        -------
+        state : dict
         """
         self.count = state["count"]
         if isinstance(state["glob_mean"], int):
@@ -1222,6 +1302,9 @@ class InputNormalization(torch.nn.Module):
         ---------
         path : str
             The path of the statistic dictionary
+        end_of_epoch : bool
+            Whether this is the end of an epoch.
+            Here for compatibility, but not used.
         """
         del end_of_epoch  # Unused here.
         device = "cpu"
@@ -1235,7 +1318,7 @@ class GlobalNorm(torch.nn.Module):
     inputs to the desired mean and standard deviation.
 
     This normalization is reversible - it is possible to use the .denormalize()
-    method to reover the original values.
+    method to recover the original values.
 
     Arguments
     ---------
@@ -1409,7 +1492,7 @@ class GlobalNorm(torch.nn.Module):
         return mask
 
     def denormalize(self, x):
-        """Reverses the normalization proces
+        """Reverses the normalization process
 
         Arguments
         ---------
@@ -1476,12 +1559,12 @@ class MinLevelNorm(torch.nn.Module):
         ---------
         x: torch.Tensor
             input features
+
         Returns
         -------
         normalized_features: torch.Tensor
             the normalized features
         """
-
         x = (x - self.min_level_db) / -self.min_level_db
         x *= 2.0
         x = x - 1.0

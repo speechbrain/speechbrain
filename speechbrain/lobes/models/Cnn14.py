@@ -5,9 +5,9 @@
  * Francesco Paissan 2022
 """
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch
 
 
 def init_layer(layer):
@@ -37,8 +37,8 @@ class ConvBlock(nn.Module):
     norm_type : str in ['bn', 'in', 'ln']
         The type of normalization
 
-    Example:
-    --------
+    Example
+    -------
     >>> convblock = ConvBlock(10, 20, 'ln')
     >>> x = torch.rand(5, 10, 20, 30)
     >>> y = convblock(x)
@@ -139,8 +139,8 @@ class Cnn14(nn.Module):
     return_reps: bool (default=False)
         If True the model returns intermediate representations as well for interpretation
 
-    Example:
-    --------
+    Example
+    -------
     >>> cnn14 = Cnn14(120, 256)
     >>> x = torch.rand(3, 400, 120)
     >>> h = cnn14.forward(x)

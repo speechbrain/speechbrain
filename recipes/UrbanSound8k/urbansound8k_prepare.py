@@ -38,13 +38,14 @@ Authors:
  * David Whipps, 2021
 """
 
-import os
 import json
 import logging
 import ntpath
+import os
+
 import torchaudio
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import load_data_csv
+
+from speechbrain.dataio.dataio import load_data_csv, read_audio
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ def prepare_urban_sound_8k(
     """
     Prepares the json files for the UrbanSound8k dataset.
     Prompts to download the dataset if it is not found in the `data_folder`.
+
     Arguments
     ---------
     data_folder : str
@@ -82,15 +84,22 @@ def prepare_urban_sound_8k(
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
-    train_folds: list or int (integers [1,10])
+    train_fold_nums : list or int (integers [1,10])
         A list of integers defining which pre-defined "folds" to use for training. Must be
         exclusive of valid_folds and test_folds.
-    valid_folds: list or int (integers [1,10])
+    valid_fold_nums : list or int (integers [1,10])
         A list of integers defining which pre-defined "folds" to use for validation. Must be
         exclusive of train_folds and test_folds.
-    test_folds: list or int (integers [1,10])
+    test_fold_nums : list or int (integers [1,10])
         A list of integers defining which pre-defined "folds" to use for test. Must be
         exclusive of train_folds and valid_folds.
+    skip_manifest_creation : bool
+        Whether to skip over creation of the manifest files.
+
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/UrbanSound8k'
@@ -166,8 +175,8 @@ def prepare_urban_sound_8k(
         os.path.abspath(data_folder), "metadata/", MODIFIED_METADATA_FILE_NAME
     )
     if not os.path.exists(urban_sound_8k_speechbrain_metadata_csv_path):
-        urban_sound_8k_speechbrain_metadata_csv_path = create_metadata_speechbrain_file(
-            data_folder
+        urban_sound_8k_speechbrain_metadata_csv_path = (
+            create_metadata_speechbrain_file(data_folder)
         )
         # TODO: If it does not exist, we create it, but next step will certainly fail?
 
@@ -189,11 +198,14 @@ def prepare_urban_sound_8k(
 def create_json(metadata, audio_data_folder, folds_list, json_file):
     """
     Creates the json file given a list of wav files.
+
     Arguments
     ---------
-    metadata: dict
+    metadata : dict
         A dictionary containing the UrbanSound8k metadata file modified for the
         SpeechBrain, such that keys are IDs (which are the .wav file names without the file extension).
+    audio_data_folder : str
+        Path to the folder containing audio data
     folds_list : list of int
         The list of folds [1,10] to include in this batch
     json_file : str
@@ -212,7 +224,6 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
                 sample_metadata["slice_file_name"],
             )
             try:
-
                 signal = read_audio(wav_file)
                 file_info = torchaudio.info(wav_file)
 
@@ -255,7 +266,7 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
 
 def folds_overlap(list1, list2):
     """Returns True if any passed lists has incorrect type OR has items in common."""
-    if (type(list1) != list) or (type(list2) != list):
+    if not isinstance(list1, list) or not isinstance(list2, list):
         return True
     if any(item in list1 for item in list2):
         return True
@@ -272,14 +283,18 @@ def check_folders(*folders):
 
 def full_path_to_audio_file(data_folder, slice_file_name, fold_num):
     """Get path to file given slice file name and fold number
+
     Arguments
     ---------
+    data_folder : str
+        Path to folder containing data.
     slice_file_name : str
         Filename.
     fold_num : int
         Fold number.
+
     Returns
-    ------
+    -------
     string containing absolute path to corresponding file
     """
     return os.path.join(
@@ -292,12 +307,14 @@ def full_path_to_audio_file(data_folder, slice_file_name, fold_num):
 
 def create_metadata_speechbrain_file(data_folder):
     """Get path to file given slice file name and fold number
+
     Arguments
     ---------
     data_folder : str
         UrbanSound8k data folder.
+
     Returns
-    ------
+    -------
     string containing absolute path to metadata csv file modified for SpeechBrain or None if source file not found
     """
     import pandas as pd
@@ -333,14 +350,16 @@ def path_leaf(path):
 
 def removesuffix(somestring, suffix):
     """Removed a suffix from a string
+
     Arguments
     ---------
     somestring : str
         Any string.
     suffix : str
         Suffix to be removed from somestring.
+
     Returns
-    ------
+    -------
     string resulting from suffix removed from somestring, if found, unchanged otherwise
     """
     if somestring.endswith(suffix):
@@ -351,6 +370,7 @@ def removesuffix(somestring, suffix):
 
 def prompt_download_urban_sound_8k(destination):
     """Prompt to download dataset
+
     Arguments
     ---------
     destination : str

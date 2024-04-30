@@ -12,15 +12,17 @@ Authors:
 
 # Importing libraries
 import random
+
 import torch
 import torch.nn.functional as F
 import torchaudio
-from speechbrain.dataio.legacy import ExtendedCSVDataset
+
 from speechbrain.dataio.dataloader import make_dataloader
+from speechbrain.dataio.legacy import ExtendedCSVDataset
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
-    dB_to_amplitude,
     convolve1d,
+    dB_to_amplitude,
     notch_filter,
     reverberate,
 )
@@ -61,7 +63,7 @@ class AddNoise(torch.nn.Module):
         containing the noisy sequences are not provided. By default,
         torch.randn_like is used (to sample white noise). In general, it must
         be a function that takes in input the original waveform and returns
-        a tensor with the corresponsing noise to add (e.g., see pink_noise_like).
+        a tensor with the corresponding noise to add (e.g., see pink_noise_like).
     replacements : dict
         A set of string replacements to carry out in the
         csv file. Each time a key is found in the text, it will be replaced
@@ -120,9 +122,9 @@ class AddNoise(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
+        lengths : torch.Tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
@@ -188,7 +190,6 @@ class AddNoise(torch.nn.Module):
 
         # Load a noise batch
         if not hasattr(self, "data_loader"):
-
             if self.noise_sample_rate != self.clean_sample_rate:
                 self.resampler = Resample(
                     self.noise_sample_rate, self.clean_sample_rate
@@ -202,9 +203,9 @@ class AddNoise(torch.nn.Module):
                 dataset = ExtendedCSVDataset(
                     csvpath=self.csv_file,
                     output_keys=self.csv_keys,
-                    sorting=self.sorting
-                    if self.sorting != "random"
-                    else "original",
+                    sorting=(
+                        self.sorting if self.sorting != "random" else "original"
+                    ),
                     replacements=self.replacements,
                 )
                 self.data_loader = make_dataloader(
@@ -369,7 +370,7 @@ class AddReverb(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -418,9 +419,9 @@ class AddReverb(torch.nn.Module):
         if not hasattr(self, "data_loader"):
             dataset = ExtendedCSVDataset(
                 csvpath=self.csv_file,
-                sorting=self.sorting
-                if self.sorting != "random"
-                else "original",
+                sorting=(
+                    self.sorting if self.sorting != "random" else "original"
+                ),
                 replacements=self.replacements,
             )
             self.data_loader = make_dataloader(
@@ -459,6 +460,8 @@ class SpeedPerturb(torch.nn.Module):
     speeds : list
         The speeds that the signal should be changed to, as a percentage of the
         original signal (i.e. `speeds` is divided by 100 to get a ratio).
+    device : str
+        The device to use for the resampling.
 
     Example
     -------
@@ -473,10 +476,11 @@ class SpeedPerturb(torch.nn.Module):
     torch.Size([1, 46956])
     """
 
-    def __init__(self, orig_freq, speeds=[90, 100, 110]):
+    def __init__(self, orig_freq, speeds=[90, 100, 110], device="cpu"):
         super().__init__()
         self.orig_freq = orig_freq
         self.speeds = speeds
+        self.device = device
         # Initialize index of perturbation
         self.samp_index = 0
 
@@ -493,18 +497,21 @@ class SpeedPerturb(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveform : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
         -------
-        Tensor of shape `[batch, time]` or `[batch, time, channels]`.
+        torch.Tensor of shape `[batch, time]` or `[batch, time, channels]`.
         """
 
         # Perform a random perturbation
         self.samp_index = torch.randint(0, len(self.speeds), (1,))
-        perturbed_waveform = self.resamplers[self.samp_index](waveform)
-        return perturbed_waveform
+        perturbed_waveform = self.resamplers[self.samp_index](
+            waveform.to(self.device)
+        )
+        # Move back from host to original device
+        return perturbed_waveform.to(waveform.device)
 
 
 class Resample(torch.nn.Module):
@@ -545,14 +552,14 @@ class Resample(torch.nn.Module):
         self.new_freq = new_freq
 
         self.resampler = torchaudio.transforms.Resample(
-            orig_freq=orig_freq, new_freq=new_freq, *args, **kwargs,
+            orig_freq=orig_freq, new_freq=new_freq, *args, **kwargs
         )
 
     def forward(self, waveforms):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -640,7 +647,7 @@ class DropFreq(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -783,9 +790,9 @@ class DropChunk(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
-        lengths : tensor
+        lengths : torch.Tensor
             Shape should be a single dimension, `[batch]`.
 
         Returns
@@ -930,22 +937,22 @@ class FastDropChunk(torch.nn.Module):
 
     def initialize_masks(self, waveforms):
         """
-        Arguments
-        ---------
-        waveforms : tensor
-            Shape should be `[batch, time]` or `[batch, time, channels]`.
-`.
-        Returns
-        -------
-        dropped_masks: tensor
-            Tensor of size `[n_masks, time]` with the dropped chunks. Dropped
-            regions are assigned to 0.
+                Arguments
+                ---------
+                waveforms : torch.Tensor
+                    Shape should be `[batch, time]` or `[batch, time, channels]`.
+        `.
+                Returns
+                -------
+                dropped_masks : torch.Tensor
+                    Tensor of size `[n_masks, time]` with the dropped chunks. Dropped
+                    regions are assigned to 0.
         """
 
         if self.n_masks < waveforms.shape[0]:
             raise ValueError("n_mask cannot be smaller than the batch size")
 
-        # Initiaizing the drop mask
+        # Initializing the drop mask
         dropped_masks = torch.ones(
             [self.n_masks, self.sig_len], device=waveforms.device
         )
@@ -1002,7 +1009,7 @@ class FastDropChunk(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1069,7 +1076,7 @@ class DoClip(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1091,21 +1098,21 @@ class DoClip(torch.nn.Module):
         # Apply clipping
         clipped_waveform = waveforms.clamp(-clip_value, clip_value)
 
-        # Restore orignal amplitude
+        # Restore original amplitude
         clipped_waveform = clipped_waveform * abs_max / clip_value
 
         return clipped_waveform
 
 
 class RandAmp(torch.nn.Module):
-    """This function multiples the signal by a random amplitude. Firist, the
+    """This function multiples the signal by a random amplitude. First, the
     signal is normalized to have amplitude between -1 and 1. Then it is
     multiplied with a random number.
 
     Arguments
     ---------
     amp_low : float
-        The minumum amplitude multiplication factor.
+        The minimum amplitude multiplication factor.
     amp_high : float
         The maximum amplitude multiplication factor.
 
@@ -1126,7 +1133,7 @@ class RandAmp(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1153,12 +1160,12 @@ class RandAmp(torch.nn.Module):
 
 
 class ChannelDrop(torch.nn.Module):
-    """This function drops random channels in the multi-channel nput waveform.
+    """This function drops random channels in the multi-channel input waveform.
 
     Arguments
     ---------
     drop_rate : float
-        The channel droput factor
+        The channel dropout factor
 
     Example
     -------
@@ -1175,7 +1182,7 @@ class ChannelDrop(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1196,7 +1203,7 @@ class ChannelSwap(torch.nn.Module):
     Arguments
     ---------
     min_swap : int
-        The mininum number of channels to swap.
+        The minimum number of channels to swap.
     max_swap : int
         The maximum number of channels to swap.
 
@@ -1224,7 +1231,7 @@ class ChannelSwap(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1281,7 +1288,7 @@ class CutCat(torch.nn.Module):
         """
         Arguments
         ---------
-        waveforms : tensor
+        waveforms : torch.Tensor
             Shape should be `[batch, time]` or `[batch, time, channels]`.
 
         Returns
@@ -1317,23 +1324,28 @@ class CutCat(torch.nn.Module):
 
 def pink_noise_like(waveforms, alpha_low=1.0, alpha_high=1.0, sample_rate=50):
     """Creates a sequence of pink noise (also known as 1/f). The pink noise
-    is obtained by multipling the spectrum of a white noise sequence by a
+    is obtained by multiplying the spectrum of a white noise sequence by a
     factor (1/f^alpha).
-    The alpha factor controls the decrease factor in the frequnecy domain
-    (alpha=0 adds white noise, alpha>>0 adds low frequnecy noise). It is
+    The alpha factor controls the decrease factor in the frequency domain
+    (alpha=0 adds white noise, alpha>>0 adds low frequency noise). It is
     randomly sampled between alpha_low and alpha_high. With negative alpha this
-    funtion generates blue noise.
+    function generates blue noise.
 
     Arguments
     ---------
     waveforms : torch.Tensor
         The original waveform. It is just used to infer the shape.
     alpha_low : float
-        The minimum value for the alpha spectral smooting factor.
+        The minimum value for the alpha spectral smoothing factor.
     alpha_high : float
-        The maximum value for the alpha spectral smooting factor.
+        The maximum value for the alpha spectral smoothing factor.
     sample_rate : float
         The sample rate of the original signal.
+
+    Returns
+    -------
+    pink_noise : torch.Tensor
+        Pink noise in the shape of the input tensor.
 
     Example
     -------

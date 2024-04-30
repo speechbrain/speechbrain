@@ -19,16 +19,18 @@ Authors
  * Andreas Nautsch 2021
 """
 
+import logging
 import os
 import sys
+
 import torch
-import logging
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+
+import speechbrain as sb
+from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
-from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +98,7 @@ class ASR(sb.Brain):
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens_eos)
             self.per_metrics.append(
-                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim,
+                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim
             )
 
         return loss
@@ -155,7 +157,8 @@ class ASR(sb.Brain):
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(

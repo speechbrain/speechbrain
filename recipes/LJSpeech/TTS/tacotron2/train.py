@@ -9,7 +9,7 @@
  to infer simply load saved model and do
  savemodel.infer(text_Sequence,len(textsequence))
 
- were text_Sequence is the ouput of the text_to_sequence function from
+ were text_Sequence is the output of the text_to_sequence function from
  textToSequence.py (from textToSequence import text_to_sequence)
 
  Authors
@@ -17,13 +17,15 @@
  * Artem Ploujnikov 2021
  * Yingzhi Wang 2022
 """
-import torch
-import speechbrain as sb
-import sys
 import logging
+import sys
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.text_to_sequence import text_to_sequence
+
+import speechbrain as sb
 from speechbrain.utils.data_utils import scalarize
+from speechbrain.utils.text_to_sequence import text_to_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +87,7 @@ class Tacotron2Brain(sb.Brain):
         """
         effective_batch = self.batch_to_device(batch)
         # Hold on to the batch for the inference sample. This is needed because
-        # the infernece sample is run from on_stage_end only, where
+        # the inference sample is run from on_stage_end only, where
         # batch information is not available
         self.last_batch = effective_batch
         # Hold on to a sample (for logging)
@@ -101,8 +103,10 @@ class Tacotron2Brain(sb.Brain):
         ---------
         predictions: tuple
             model predictions
-        targets: tuple
-            ground truth data
+        batch: PaddedBatch
+            Inputs for this training iteration.
+        stage: sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
 
         Returns
         -------
@@ -171,7 +175,7 @@ class Tacotron2Brain(sb.Brain):
 
         Returns
         -------
-        batch: tiuple
+        batch: tuple
             the batch on the correct device
         """
         (
@@ -252,14 +256,16 @@ class Tacotron2Brain(sb.Brain):
                 meta=epoch_metadata,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
             output_progress_sample = (
                 self.hparams.progress_samples

@@ -9,15 +9,15 @@ Authors
 * Titouan Parcollet 2023
 """
 
-import torch
-import torch.nn as nn
 from typing import Optional
 
-from speechbrain.nnet.attention import RelPosMHAXL, MultiheadAttention
-from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
+import torch
+import torch.nn as nn
 
+from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
+from speechbrain.nnet.attention import MultiheadAttention, RelPosMHAXL
 from speechbrain.nnet.hypermixing import HyperMixing
+from speechbrain.nnet.normalization import LayerNorm
 
 
 class ConvolutionBranch(nn.Module):
@@ -27,7 +27,7 @@ class ConvolutionBranch(nn.Module):
     LN -> Channel Proj -> GeLU -> (CNN Spatial Gating) -> Channel Proj -> Dropout
 
     Arguments
-    ----------
+    ---------
     input_size : int
         The expected size of the feature (channel) dimension.
     linear_units: int, optional
@@ -93,7 +93,7 @@ class BranchformerEncoderLayer(nn.Module):
     """This is an implementation of Branchformer encoder layer.
 
     Arguments
-    ----------
+    ---------
     d_model : int
         The expected size of the input embedding.
     nhead : int
@@ -109,7 +109,7 @@ class BranchformerEncoderLayer(nn.Module):
     dropout : int, optional
         Dropout for the encoder.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
     csgu_linear_units: int, optional
         Number of neurons in the hidden linear units of the CSGU Module.
     gate_activation: torch.nn.Module, optional
@@ -256,7 +256,7 @@ class BranchformerEncoder(nn.Module):
     dropout : int, optional
         Dropout for the encoder.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
     csgu_linear_units: int, optional
         Number of neurons in the hidden linear units of the CSGU Module.
     gate_activation: torch.nn.Module, optional

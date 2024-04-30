@@ -8,13 +8,15 @@ tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
 import pathlib
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class seq2seqBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given input chars it computes the phoneme's probabilities"
+        """Given input chars it computes the phoneme's probabilities"""
         batch = batch.to(self.device)
         chars, char_lens = batch.char_encoded
         phns, phn_lens = batch.phn_encoded_bos
@@ -34,7 +36,7 @@ class seq2seqBrain(sb.Brain):
         return outputs, seq
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the NLL loss."
+        """Given the network predictions and targets computed the NLL loss."""
         outputs, seq = predictions
 
         phns, phn_lens = batch.phn_encoded_eos
@@ -46,12 +48,12 @@ class seq2seqBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        "Gets called when a stage (either training, validation, test) ends."
+        """Gets called when a stage (either training, validation, test) ends."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         if stage == sb.Stage.VALID and epoch is not None:
@@ -63,8 +65,7 @@ class seq2seqBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

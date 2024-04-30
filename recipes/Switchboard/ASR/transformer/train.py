@@ -33,18 +33,17 @@ Authors
  * Dominik Wagner 2022
 """
 import functools
+import logging
 import os
 import sys
-
-import torch
-import logging
 from pathlib import Path
 
+import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,6 @@ class ASR(sb.core.Brain):
         checkpointer=None,
         normalize_fn=None,
     ):
-
         self.normalize_fn = normalize_fn
 
         super().__init__(
@@ -90,7 +88,7 @@ class ASR(sb.core.Brain):
         src = self.modules.CNN(feats)
 
         enc_out, pred = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
+            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
         )
 
         # output layer for ctc log-probabilities
@@ -124,7 +122,7 @@ class ASR(sb.core.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        (p_ctc, p_seq, wav_lens, hyps,) = predictions
+        (p_ctc, p_seq, wav_lens, hyps) = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -218,7 +216,6 @@ class ASR(sb.core.Brain):
 
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID:
-
             lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
@@ -266,7 +263,8 @@ class ASR(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model",
+            ckpts,
+            recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -275,11 +273,13 @@ class ASR(sb.core.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -303,7 +303,8 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -344,7 +345,8 @@ def dataio_prepare(hparams):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate,
+                hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -379,7 +381,8 @@ def dataio_prepare(hparams):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate,
+                hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -421,7 +424,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "words", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "words", "tokens_bos", "tokens_eos", "tokens"],
     )
 
     return (
@@ -441,8 +445,8 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    from switchboard_prepare import prepare_switchboard  # noqa
     from normalize_util import normalize_words, read_glm_csv  # noqa
+    from switchboard_prepare import prepare_switchboard  # noqa
 
     # Create experiment directory
     sb.create_experiment_directory(

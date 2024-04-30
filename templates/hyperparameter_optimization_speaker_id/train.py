@@ -33,9 +33,11 @@ Authors
 """
 import os
 import sys
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
+
+import speechbrain as sb
 from speechbrain.utils import hpopt as hp
 
 
@@ -56,10 +58,9 @@ class SpkIdBrain(sb.Brain):
 
         Returns
         -------
-        predictions : Tensor
-            Tensor that contains the posterior probabilities over the N classes.
+        predictions : torch.Tensor
+            torch.Tensor that contains the posterior probabilities over the N classes.
         """
-
         # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
 
@@ -79,6 +80,13 @@ class SpkIdBrain(sb.Brain):
             Input signals (tensor) and their relative lengths (tensor).
         stage : sb.Stage
             The current stage of training.
+
+        Returns
+        -------
+        feats : torch.Tensor
+            The prepared features.
+        lens : torch.Tensor
+            The corresponding feature lengths.
         """
         wavs, lens = wavs
 
@@ -97,7 +105,7 @@ class SpkIdBrain(sb.Brain):
 
         Arguments
         ---------
-        predictions : tensor
+        predictions : torch.Tensor
             The output tensor from `compute_forward`.
         batch : PaddedBatch
             This batch object contains all the relevant tensors for computation.
@@ -109,7 +117,6 @@ class SpkIdBrain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-
         _, lens = batch.sig
         spkid, _ = batch.spk_id_encoded
 
@@ -142,7 +149,6 @@ class SpkIdBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
             metric=sb.nnet.losses.nll_loss
@@ -165,7 +171,6 @@ class SpkIdBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -224,7 +229,6 @@ def dataio_prep(hparams):
         Contains two keys, "train" and "valid" that correspond
         to the appropriate DynamicItemDataset object.
     """
-
     # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
@@ -234,7 +238,8 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
         """Load the signal, and pass it and its length to the corruption class.
-        This is done on the CPU in the `collate_fn`."""
+        This is done on the CPU in the `collate_fn`.
+        """
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 

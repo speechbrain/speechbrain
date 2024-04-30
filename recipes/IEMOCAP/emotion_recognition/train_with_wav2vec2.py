@@ -13,20 +13,21 @@ Authors
 
 import os
 import sys
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class EmoIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + emotion classifier.
-        """
+        """Computation pipeline based on a encoder + emotion classifier."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
         outputs = self.modules.wav2vec2(wavs, lens)
 
-        # last dim will be used for AdaptativeAVG pool
+        # last dim will be used for AdaptiveAVG pool
         outputs = self.hparams.avg_pool(outputs, lens)
         outputs = outputs.view(outputs.shape[0], -1)
 
@@ -35,8 +36,7 @@ class EmoIdBrain(sb.Brain):
         return outputs
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         emoid, _ = batch.emo_encoded
 
         """to meet the input form of nll loss"""
@@ -93,7 +93,6 @@ class EmoIdBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(stats["error_rate"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -170,7 +169,7 @@ def dataio_prep(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    # Initialization of the label encoder. The label encoder assignes to each
+    # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
@@ -199,7 +198,7 @@ def dataio_prep(hparams):
         )
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
@@ -213,7 +212,6 @@ def dataio_prep(hparams):
 
 # RECIPE BEGINS!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

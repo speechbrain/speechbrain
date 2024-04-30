@@ -5,13 +5,15 @@ Authors:
  * Samuele Cornell 2021
  * Andreas Nautsch 2022, 2023
 """
-import urllib.request
-import urllib.error
-import pathlib
+
 import logging
-from enum import Enum
-import huggingface_hub
+import pathlib
+import urllib.error
+import urllib.request
 from collections import namedtuple
+from enum import Enum
+
+import huggingface_hub
 from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
@@ -91,7 +93,7 @@ def fetch(
         The filename to use for saving this file. Defaults to filename if not
         given.
     use_auth_token : bool (default: False)
-        If true Hugginface's auth_token will be used to load private models from the HuggingFace Hub,
+        If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because majority of models are public.
     revision : str
         The model revision corresponding to the HuggingFace Hub model revision.

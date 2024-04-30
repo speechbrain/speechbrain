@@ -5,12 +5,14 @@ Author
  * Ha Nguyen, 2023
 """
 
-import sys
-import torch
 import logging
-from hyperpyyaml import load_hyperpyyaml
-import speechbrain as sb
+import sys
+
+import torch
 import torch.nn.functional as F
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
@@ -40,7 +42,7 @@ class ST(sb.core.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
-        (uttr_embeddings, text_embeddings,) = predictions
+        (uttr_embeddings, text_embeddings) = predictions
 
         B, S = uttr_embeddings.shape
         loss = 0.0
@@ -125,7 +127,7 @@ class ST(sb.core.Brain):
                 stats_meta["lr_wav2vec"] = old_lr_wav2vec
 
             if not self.hparams.labse_frozen:
-                (old_lr_labse, new_lr_labse,) = self.hparams.lr_annealing_labse(
+                (old_lr_labse, new_lr_labse) = self.hparams.lr_annealing_labse(
                     stage_stats["loss"]
                 )
                 sb.nnet.schedulers.update_learning_rate(
@@ -139,7 +141,7 @@ class ST(sb.core.Brain):
                 valid_stats=stage_stats,
             )
 
-            # create checkpoing
+            # create checkpoint
             meta = {"loss": stage_stats["loss"], "epoch": current_epoch}
             name = "checkpoint_epoch" + str(current_epoch)
 
@@ -157,7 +159,8 @@ class ST(sb.core.Brain):
 # Define custom data procedure
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
@@ -270,7 +273,8 @@ def dataio_prepare(hparams):
                 sort_key="duration",
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": 1}, key_max_value={"duration": 5},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 5},
             )
 
         hparams["dataloader_options"]["shuffle"] = True
@@ -283,7 +287,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

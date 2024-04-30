@@ -30,17 +30,16 @@ Authors
  * Artem Ploujnikov 2022
 """
 
-from abc import abstractmethod
-
-from speechbrain.utils.data_utils import pad_divisible
-from .autoencoders import NormalizingAutoencoder
-
-
 import math
+from abc import abstractmethod
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from speechbrain.utils.data_utils import pad_divisible
+
+from .autoencoders import NormalizingAutoencoder
 
 
 def fixup(module, use_fixup_init=True):
@@ -54,6 +53,10 @@ def fixup(module, use_fixup_init=True):
     use_fixup_init: bool
         whether to zero out the parameters. If set to
         false, the function is a no-op
+
+    Returns
+    -------
+    The fixed module
     """
     if use_fixup_init:
         for p in module.parameters():
@@ -69,8 +72,13 @@ def conv_nd(dims, *args, **kwargs):
     ---------
     dims: int
         The number of dimensions
+    *args: tuple
+    **kwargs: dict
+        Any remaining arguments are passed to the constructor
 
-    Any remaining arguments are passed to the constructor
+    Returns
+    -------
+    The constructed Conv layer
     """
     if dims == 1:
         return nn.Conv1d(*args, **kwargs)
@@ -166,7 +174,7 @@ class AttentionPool2d(nn.Module):
     ):
         super().__init__()
         self.positional_embedding = nn.Parameter(
-            torch.randn(embed_dim, spatial_dim ** 2 + 1) / embed_dim ** 0.5
+            torch.randn(embed_dim, spatial_dim**2 + 1) / embed_dim**0.5
         )
         self.qkv_proj = conv_nd(1, embed_dim, 3 * embed_dim, 1)
         self.c_proj = conv_nd(1, embed_dim, output_dim or embed_dim, 1)
@@ -257,7 +265,12 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
         x: torch.Tensor
             the data tensor
         emb: torch.Tensor
-            timestep embeddings"""
+            timestep embeddings
+
+        Returns
+        -------
+        The processed input
+        """
         for layer in self:
             if isinstance(layer, TimestepBlock):
                 x = layer(x, emb)
@@ -279,6 +292,8 @@ class Upsample(nn.Module):
     dims: int
         determines if the signal is 1D, 2D, or 3D. If 3D, then
         upsampling occurs in the inner-two dimensions.
+    out_channels: int
+        Number of output channels. If None, same as input channels.
 
     Example
     -------
@@ -308,7 +323,7 @@ class Upsample(nn.Module):
         x: torch.Tensor
             layer inputs
 
-        Results
+        Returns
         -------
         result: torch.Tensor
             upsampled outputs"""
@@ -337,6 +352,8 @@ class Downsample(nn.Module):
     dims: int
         determines if the signal is 1D, 2D, or 3D. If 3D, then
         downsampling occurs in the inner-two dimensions.
+    out_channels: int
+        Number of output channels. If None, same as input channels.
 
     Example
     -------
@@ -468,7 +485,11 @@ class ResBlock(TimestepBlock):
 
         if emb_channels is not None:
             self.emb_layers = nn.Sequential(
-                nn.SiLU(), nn.Linear(emb_channels, self.out_channels,),
+                nn.SiLU(),
+                nn.Linear(
+                    emb_channels,
+                    self.out_channels,
+                ),
             )
         else:
             self.emb_layers = None
@@ -495,7 +516,7 @@ class ResBlock(TimestepBlock):
 
     def forward(self, x, emb=None):
         """
-        Apply the block to a Tensor, conditioned on a timestep embedding.
+        Apply the block to a torch.Tensor, conditioned on a timestep embedding.
 
         Arguments
         ---------
@@ -611,6 +632,11 @@ class QKVAttention(nn.Module):
     """
     A module which performs QKV attention and splits in a different order.
 
+    Arguments
+    ---------
+    n_heads : int
+        Number of attention heads.
+
     Example
     -------
     >>> attn = QKVAttention(4)
@@ -636,7 +662,7 @@ class QKVAttention(nn.Module):
         qkv: torch.Tensor
             an [N x (3 * H * C) x T] tensor of Qs, Ks, and Vs.
 
-        Results
+        Returns
         -------
         result: torch.Tensor
             an [N x (H * C) x T] tensor after attention.
@@ -666,12 +692,10 @@ def build_emb_proj(emb_config, proj_dim=None, use_emb=None):
     ---------
     emb_config: dict
         a configuration dictionary
-
     proj_dim: int
         the target projection dimension
-
-    use_cond_emb: dict
-        an optional dictioanry of "switches" to turn
+    use_emb: dict
+        an optional dictionary of "switches" to turn
         embeddings on and off
 
     Returns
@@ -699,11 +723,11 @@ class UNetModel(nn.Module):
     Arguments
     ---------
     in_channels: int
-        channels in the input Tensor.
+        channels in the input torch.Tensor.
     model_channels: int
         base channel count for the model.
     out_channels: int
-        channels in the output Tensor.
+        channels in the output torch.Tensor.
     num_res_blocks: int
         number of residual blocks per downsample.
     attention_resolutions: int
@@ -718,6 +742,8 @@ class UNetModel(nn.Module):
     conv_resample: bool
         if True, use learned convolutions for upsampling and
         downsampling
+    dims: int
+        determines if the signal is 1D, 2D, or 3D.
     emb_dim: int
         time embedding dimension (defaults to model_channels * 4)
     cond_emb: dict
@@ -740,19 +766,18 @@ class UNetModel(nn.Module):
 
         Example:
         {"speaker": False, "label": True}
-    dims: int
-        determines if the signal is 1D, 2D, or 3D.
     num_heads: int
         the number of attention heads in each attention layer.
-    num_heads_channels: int
+    num_head_channels: int
         if specified, ignore num_heads and instead use
-                               a fixed channel width per attention head.
+        a fixed channel width per attention head.
     num_heads_upsample: int
         works with num_heads to set a different number
-                               of heads for upsampling. Deprecated.
+        of heads for upsampling. Deprecated.
+    norm_num_groups: int
+        Number of groups in the norm, default 32
     resblock_updown: bool
         use residual blocks for up/downsampling.
-
     use_fixup_init: bool
         whether to use FixUp initialization
 
@@ -968,7 +993,7 @@ class UNetModel(nn.Module):
             ),
         )
 
-    def forward(self, x, timesteps, cond_emb=None, **kwargs):
+    def forward(self, x, timesteps, cond_emb=None):
         """Apply the model to an input batch.
 
         Arguments
@@ -980,6 +1005,7 @@ class UNetModel(nn.Module):
         cond_emb: dict
             a string -> tensor dictionary of conditional
             embeddings (multiple embeddings are supported)
+
         Returns
         -------
         result: torch.Tensor
@@ -1016,11 +1042,11 @@ class EncoderUNetModel(nn.Module):
     Arguments
     ---------
     in_channels: int
-        channels in the input Tensor.
+        channels in the input torch.Tensor.
     model_channels: int
         base channel count for the model.
     out_channels: int
-        channels in the output Tensor.
+        channels in the output torch.Tensor.
     num_res_blocks: int
         number of residual blocks per downsample.
     attention_resolutions: int
@@ -1035,46 +1061,29 @@ class EncoderUNetModel(nn.Module):
     conv_resample: bool
         if True, use learned convolutions for upsampling and
         downsampling
-    emb_dim: int
-        time embedding dimension (defaults to model_channels * 4)
-    cond_emb: dict
-        embeddings on which the model will be conditioned
-
-        Example:
-        {
-            "speaker": {
-                "emb_dim": 256
-            },
-            "label": {
-                "emb_dim": 12
-            }
-        }
-    use_cond_emb: dict
-        a dictionary with keys corresponding to keys in cond_emb
-        and values corresponding to Booleans that turn embeddings
-        on and off. This is useful in combination with hparams files
-        to turn embeddings on and off with simple switches
-
-        Example:
-        {"speaker": False, "label": True}
     dims: int
         determines if the signal is 1D, 2D, or 3D.
     num_heads: int
         the number of attention heads in each attention layer.
-    num_heads_channels: int
+    num_head_channels: int
         if specified, ignore num_heads and instead use
-                               a fixed channel width per attention head.
+        a fixed channel width per attention head.
     num_heads_upsample: int
         works with num_heads to set a different number
-                               of heads for upsampling. Deprecated.
+        of heads for upsampling. Deprecated.
+    norm_num_groups: int
+        Number of groups in the norm, default 32.
     resblock_updown: bool
         use residual blocks for up/downsampling.
-
-    use_fixup_init: bool
-        whether to use FixUp initialization
-
+    pool: str
+        Type of pooling to use, one of:
+        ["adaptive", "attention", "spatial", "spatial_v2"].
+    attention_pool_dim: int
+        The dimension on which to apply attention pooling.
     out_kernel_size: int
         the kernel size of the output convolution
+    use_fixup_init: bool
+        whether to use FixUp initialization
 
 
     Example
@@ -1206,7 +1215,11 @@ class EncoderUNetModel(nn.Module):
 
         self.middle_block = TimestepEmbedSequential(
             ResBlock(
-                ch, emb_dim, dropout, dims=dims, use_fixup_init=use_fixup_init,
+                ch,
+                emb_dim,
+                dropout,
+                dims=dims,
+                use_fixup_init=use_fixup_init,
             ),
             AttentionBlock(
                 ch,
@@ -1216,7 +1229,11 @@ class EncoderUNetModel(nn.Module):
                 use_fixup_init=use_fixup_init,
             ),
             ResBlock(
-                ch, emb_dim, dropout, dims=dims, use_fixup_init=use_fixup_init,
+                ch,
+                emb_dim,
+                dropout,
+                dims=dims,
+                use_fixup_init=use_fixup_init,
             ),
         )
         self._feature_size += ch
@@ -1287,8 +1304,9 @@ class EncoderUNetModel(nn.Module):
             an [N x C x ...] Tensor of inputs.
         timesteps: torch.Tensor
             a 1-D batch of timesteps.
+
         Returns
-        --------
+        -------
         result: torch.Tensor
             an [N x K] Tensor of outputs.
         """
@@ -1371,11 +1389,11 @@ class DecoderUNetModel(nn.Module):
     Arguments
     ---------
     in_channels: int
-        channels in the input Tensor.
+        channels in the input torch.Tensor.
     model_channels: int
         base channel count for the model.
     out_channels: int
-        channels in the output Tensor.
+        channels in the output torch.Tensor.
     num_res_blocks: int
         number of residual blocks per downsample.
     attention_resolutions: int
@@ -1390,33 +1408,11 @@ class DecoderUNetModel(nn.Module):
     conv_resample: bool
         if True, use learned convolutions for upsampling and
         downsampling
-    emb_dim: int
-        time embedding dimension (defaults to model_channels * 4)
-    cond_emb: dict
-        embeddings on which the model will be conditioned
-
-        Example:
-        {
-            "speaker": {
-                "emb_dim": 256
-            },
-            "label": {
-                "emb_dim": 12
-            }
-        }
-    use_cond_emb: dict
-        a dictionary with keys corresponding to keys in cond_emb
-        and values corresponding to Booleans that turn embeddings
-        on and off. This is useful in combination with hparams files
-        to turn embeddings on and off with simple switches
-
-        Example:
-        {"speaker": False, "label": True}
     dims: int
         determines if the signal is 1D, 2D, or 3D.
     num_heads: int
         the number of attention heads in each attention layer.
-    num_heads_channels: int
+    num_head_channels: int
         if specified, ignore num_heads and instead use
                                a fixed channel width per attention head.
     num_heads_upsample: int
@@ -1424,7 +1420,10 @@ class DecoderUNetModel(nn.Module):
                                of heads for upsampling. Deprecated.
     resblock_updown: bool
         use residual blocks for up/downsampling.
-
+    norm_num_groups: int
+        Number of groups to use in norm, default 32
+    out_kernel_size: int
+        Output kernel size, default 3
     use_fixup_init: bool
         whether to use FixUp initialization
 
@@ -1597,8 +1596,9 @@ class DecoderUNetModel(nn.Module):
             an [N x C x ...] Tensor of inputs.
         timesteps: torch.Tensor
             a 1-D batch of timesteps.
+
         Returns
-        --------
+        -------
         result: torch.Tensor
             an [N x K] Tensor of outputs.
         """
@@ -1714,12 +1714,22 @@ class UNetNormalizingAutoencoder(NormalizingAutoencoder):
         the number of channels in attention heads
     num_heads_upsample: int
         the number of upsampling heads
+    norm_num_groups: int
+        Number of norm groups, default 32
     resblock_updown: bool
         whether to use residual blocks for upsampling and downsampling
     out_kernel_size: int
         the kernel size for output convolution layers (if applicable)
+    len_dim: int
+        Size of the output.
+    out_mask_value: float
+        Value to fill when masking the output.
+    latent_mask_value: float
+        Value to fill when masking the latent variable.
     use_fixup_norm: bool
         whether to use FixUp normalization
+    downsampling_padding: int
+        Amount of padding to apply in downsampling, default 2 ** len(channel_mult)
 
     Example
     -------

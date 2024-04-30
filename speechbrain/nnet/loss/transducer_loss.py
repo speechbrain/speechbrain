@@ -6,12 +6,13 @@ Authors
  * Titouan Parcollet 2023
 """
 
-import torch
-from torch.autograd import Function
-from torch.nn import Module
 import logging
 import math
 import warnings
+
+import torch
+from torch.autograd import Function
+from torch.nn import Module
 
 NUMBA_VERBOSE = 0
 
@@ -34,7 +35,7 @@ try:
         warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
     else:
         logger.info(
-            "Numba verbose is enabled. To desactivate it, set NUMBA_VERBOSE to 0."
+            "Numba verbose is enabled. To deactivate it, set NUMBA_VERBOSE to 0."
         )
 
 except ImportError:
@@ -60,21 +61,21 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    alpha : tensor
+    alpha : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for forward computation.
-    log_p : tensor
+    log_p : torch.Tensor
         1D Tensor of (batch) for forward cost computation.
-    T : tensor
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
-    lock : tensor
+        Blank index.
+    lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
 
@@ -136,21 +137,21 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    beta : tensor
+    beta : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    log_p : tensor
+    log_p : torch.Tensor
         1D Tensor of (batch) for backward cost computation.
-    T : tensor
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
-    lock : tensor
+        Blank index.
+    lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
     # parallelize the forward algorithm over batch and target length dim
@@ -208,22 +209,22 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    beta : tensor
+    alpha : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    log_p : tensor
-        1D Tensor of (batch) for backward cost computation.
-    T : tensor
+    beta : torch.Tensor
+        3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
+    grads : torch.Tensor
+        Grads for backward computation.
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
-    lock : int
-        2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
+        Blank index.
     """
     # parallelize the gradient computation over batch and timeseq length dim
     t = cuda.blockIdx.x
@@ -291,7 +292,7 @@ class Transducer(Function):
             (B,), device=log_probs.device, dtype=log_probs.dtype
         )
         cu_kernel_forward[B, maxU](
-            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
+            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock
         )
         lock = lock * 0
         cu_kernel_backward[B, maxU](
@@ -324,10 +325,17 @@ class TransducerLoss(Module):
     This class implements the Transduce loss computation with forward-backward algorithm.
     Sequence Transduction with naive implementation : https://arxiv.org/pdf/1211.3711.pdf
 
-    The TranducerLoss(nn.Module) use Transducer(autograd.Function)
+    The TransducerLoss(nn.Module) use Transducer(autograd.Function)
     to compute the forward-backward loss and gradients.
 
     Input tensors must be on a cuda device.
+
+    Arguments
+    ---------
+    blank : int
+        Token to use as blank token.
+    reduction : str
+        Type of reduction to use, default "mean"
 
     Example
     -------

@@ -12,23 +12,23 @@ Authors
 import logging
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
-from typing import Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from typing import List
 
 # speechbrain interface
 from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
 
 # imports for CTC segmentation
 try:
-    from ctc_segmentation import ctc_segmentation
-    from ctc_segmentation import CtcSegmentationParameters
-    from ctc_segmentation import determine_utterance_segments
-    from ctc_segmentation import prepare_text
-    from ctc_segmentation import prepare_token_list
+    from ctc_segmentation import (
+        CtcSegmentationParameters,
+        ctc_segmentation,
+        determine_utterance_segments,
+        prepare_text,
+        prepare_token_list,
+    )
 except ImportError:
     print(
         "ImportError: "
@@ -141,7 +141,7 @@ class CTCSegmentation:
     If needed, parameters for CTC segmentation can be set with ``set_config(·)``.
     Then call the instance as function to align text within an audio file.
 
-    Attributes
+    Arguments
     ---------
     asr_model : EncoderDecoderASR
         Speechbrain ASR interface. This requires a model that has a
@@ -196,7 +196,7 @@ class CTCSegmentation:
     (2) ``prepare_segmentation_task``: prepare the task, and
     (3) ``get_segments``: perform CTC segmentation.
     Note that the function `get_segments` is a staticmethod and therefore
-    independent of an already initialized CTCSegmentation obj́ect.
+    independent of an already initialized CTCSegmentation object.
 
     References
     ----------
@@ -205,7 +205,6 @@ class CTCSegmentation:
     https://arxiv.org/abs/2007.09127
 
     More parameters are described in https://github.com/lumaku/ctc-segmentation
-
     """
 
     fs = 16000
@@ -226,7 +225,6 @@ class CTCSegmentation:
         time_stamps: str = "auto",
         **ctc_segmentation_args,
     ):
-        """Initialize the CTCSegmentation module."""
         # Prepare ASR model
         if (
             isinstance(asr_model, EncoderDecoderASR)
@@ -250,9 +248,26 @@ class CTCSegmentation:
             )
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
+
         if isinstance(asr_model, EncoderDecoderASR):
-            # Assumption: log-softmax is already included in ctc_forward_step
-            self._ctc = self.asr_model.mods.decoder.ctc_forward_step
+            if not hasattr(self.asr_model.hparams, "scorer"):
+                raise AttributeError(
+                    "``ScorerBuilder`` module is required for CTC segmentation."
+                )
+
+            if "ctc" not in self.asr_model.hparams.scorer.full_scorers:
+                raise AttributeError(
+                    "``CTCScorer`` module is required for CTC segmentation."
+                )
+
+            def ctc_forward_step(x: torch.Tensor) -> torch.Tensor:
+                """Forward step for CTC module."""
+                module = self.asr_model.hparams.scorer.full_scorers["ctc"]
+                logits = module.ctc_fc(x)
+                log_probs = module.softmax(logits)
+                return log_probs
+
+            self._ctc = ctc_forward_step
         else:
             # Apply log-softmax to encoder output
             self._ctc = self.asr_model.hparams.log_softmax
@@ -601,7 +616,7 @@ class CTCSegmentation:
             Dictionary with alignments. Combine this with the task
             object to obtain a human-readable segments representation.
         """
-        assert type(task) == CTCSegmentationTask
+        assert isinstance(task, CTCSegmentationTask)
         assert task.config is not None
         config = task.config
         lpz = task.lpz

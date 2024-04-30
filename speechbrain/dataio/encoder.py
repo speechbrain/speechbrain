@@ -4,15 +4,18 @@ Authors
   * Samuele Cornell 2020
   * Aku Rouhe 2020
 """
+
 import ast
-import torch
 import collections
 import itertools
 import logging
+
+import torch
+
 import speechbrain as sb
 from speechbrain.utils.checkpoints import (
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
     register_checkpoint_hooks,
 )
 
@@ -385,7 +388,7 @@ class CategoricalEncoder:
 
         Arguments
         ---------
-        label : hashable, optional
+        unk_label : hashable, optional
             Most often labels are str, but anything that can act as dict key is
             supported. Note that default save/load only supports Python
             literals. Default: <unk>. This can be None, as well!
@@ -473,6 +476,10 @@ class CategoricalEncoder:
         ---------
         label : hashable
             Label to encode, must exist in the mapping.
+        allow_unk : bool
+            If given, that label is not in the label set
+            AND unk_label has been added with add_unk(),
+            allows encoding to unk_label's index.
 
         Returns
         -------
@@ -487,8 +494,12 @@ class CategoricalEncoder:
 
         Arguments
         ---------
-        x : iterable
+        sequence : iterable
             Labels to encode, must exist in the mapping.
+        allow_unk : bool
+            If given, that label is not in the label set
+            AND unk_label has been added with add_unk(),
+            allows encoding to unk_label's index.
 
         Returns
         -------
@@ -503,8 +514,12 @@ class CategoricalEncoder:
 
         Arguments
         ---------
-        x : iterable
+        sequence : iterable
             Labels to encode, must exist in the mapping.
+        allow_unk : bool
+            If given, that label is not in the label set
+            AND unk_label has been added with add_unk(),
+            allows encoding to unk_label's index.
 
         Returns
         -------
@@ -619,6 +634,8 @@ class CategoricalEncoder:
         ---------
         path : str, Path
             Where to load from.
+        end_of_epoch : bool
+            Whether the checkpoint was end-of-epoch or not.
 
         Returns
         -------
@@ -902,7 +919,9 @@ class TextEncoder(CategoricalEncoder):
         )
 
     def add_bos_eos(
-        self, bos_label=DEFAULT_BOS, eos_label=DEFAULT_EOS,
+        self,
+        bos_label=DEFAULT_BOS,
+        eos_label=DEFAULT_EOS,
     ):
         """Add sentence boundary markers in the label set.
 
@@ -953,7 +972,7 @@ class TextEncoder(CategoricalEncoder):
             bos_label, will just use one sentence-boundary label.
         bos_index : int
             Where to insert bos_label. eos_index = bos_index + 1
-        bos_index : optional, int
+        eos_index : optional, int
             Where to insert eos_label. Default: eos_index = bos_index + 1
         """
         if bos_label == eos_label:

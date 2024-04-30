@@ -4,16 +4,18 @@ Adapted from the original WHAMR script to obtain the Room Impulse ResponsesRoom 
 Authors
     * Cem Subakan 2021
 """
-import os
-import pandas as pd
-import argparse
-import torchaudio
 
-from wham_room import WhamRoom
-from scipy.signal import resample_poly
+import argparse
+import os
+
+import pandas as pd
 import torch
-from speechbrain.utils.fetching import fetch
+import torchaudio
+from scipy.signal import resample_poly
 from tqdm import tqdm
+from wham_room import WhamRoom
+
+from speechbrain.utils.fetching import fetch
 
 
 def create_rirs(output_dir, sr=8000):
@@ -60,12 +62,11 @@ def create_rirs(output_dir, sr=8000):
         metafilesdir, "data", "reverb_params_{}.csv"
     )
 
-    for splt in SPLITS:
-
-        wsjmix_path = FILELIST_STUB.format(splt)
+    for split in SPLITS:
+        wsjmix_path = FILELIST_STUB.format(split)
         wsjmix_df = pd.read_csv(wsjmix_path)
 
-        reverb_param_path = reverb_param_stub.format(splt)
+        reverb_param_path = reverb_param_stub.format(split)
         reverb_param_df = pd.read_csv(reverb_param_path)
 
         utt_ids = wsjmix_df.output_filename.values
@@ -115,7 +116,7 @@ def create_rirs(output_dir, sr=8000):
 
                     torchaudio.save(
                         os.path.join(
-                            output_dir, "{}_{}_".format(i, j) + output_name,
+                            output_dir, "{}_{}_".format(i, j) + output_name
                         ),
                         h_torch,
                         sr,

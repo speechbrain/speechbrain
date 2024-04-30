@@ -6,21 +6,21 @@ Authors
  * Adel Moumen 2023
 """
 
-import os
 import csv
-import logging
-import torchaudio
 import functools
+import logging
+import os
+
+import torchaudio
+
 from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 
 
-def make_splits(
-    sph_file, stm_file, utt_save_folder, avoid_if_shorter_than,
-):
+def make_splits(sph_file, stm_file, utt_save_folder, avoid_if_shorter_than):
     """
-    This function splits the .sph Ted-talk recording into utterences based on the .stm annotation.
+    This function splits the .sph Ted-talk recording into utterances based on the .stm annotation.
 
     Arguments
     ---------
@@ -29,9 +29,14 @@ def make_splits(
     stm_file : str
         Path to the stm file containing Ted-talk annotation.
     utt_save_folder: str
-        The folder stores the clipped individual utterences.
+        The folder stores the clipped individual utterances.
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
+
+    Returns
+    -------
+    entry : list
+        Contents of annotation files.
     """
     # the annotation for JillSobuleMANHATTANINJANUARY_2006.sph is not useful
     if "JillSobuleMANHATTANINJANUARY_2006" in sph_file:
@@ -47,7 +52,7 @@ def make_splits(
 
     entry = []
 
-    # process the annotation utterence by utterance
+    # process the annotation utterance by utterance
     for i, line in enumerate(annotations):
         line = line.strip("\n")
         line = line.split(" ")
@@ -55,11 +60,11 @@ def make_splits(
         talk_id = line[0]
         spk_id = line[2]
 
-        # start and end point of the utterences in the recording
+        # start and end point of the utterances in the recording
         start = float(line[3])
         end = float(line[4])
         duration = -start + end
-        # we skip short utterences in case of CNN padding issues
+        # we skip short utterances in case of CNN padding issues
         if duration < avoid_if_shorter_than:
             continue
 
@@ -108,7 +113,7 @@ def make_splits(
 def process_line(
     talk_sph, avoid_if_shorter_than, utt_save_folder_split, data_folder, split
 ):
-    """ This function processes a single Ted-talk recording.
+    """This function processes a single Ted-talk recording.
 
     Arguments
     ---------
@@ -117,11 +122,15 @@ def process_line(
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
     utt_save_folder_split: str
-        The folder stores the clipped individual utterences.
+        The folder stores the clipped individual utterances.
     data_folder: str
         The folder stores the original Ted-talk recordings.
     split: str
         The split of the dataset, e.g., train, dev, test.
+
+    Returns
+    -------
+    See ``make_splits``
     """
     talk_name = talk_sph[:-4]
     talk_sph_path = os.path.join(data_folder, split, "sph", talk_sph)
@@ -142,7 +151,7 @@ def prepare_tedlium2(
     skip_prep=False,
     avoid_if_shorter_than=1,
 ):
-    """ This function prepares the Tedlium2 dataset.
+    """This function prepares the Tedlium2 dataset.
     Download link: https://lium.univ-lemans.fr/ted-lium2/
 
     Arguments
@@ -150,13 +159,17 @@ def prepare_tedlium2(
     data_folder : str
         Path to the folder where the original Tedlium2 dataset is stored.
     utt_save_folder : list
-        Path where to save the clipped utterence-leve recordings.
+        Path where to save the clipped utterance-level recordings.
     csv_save_folder: str
         Path where to save the generated .csv files.
     skip_prep: bool
         If True, data preparation is skipped.
     avoid_if_shorter_than: int
         Any utterance shorter than this will be discarded.
+
+    Returns
+    -------
+    None
 
     Example
     -------

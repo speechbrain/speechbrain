@@ -13,19 +13,21 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
-import re
+
 import logging
+import random
+import re
+
 import torch
 import torchaudio
-import random
-import speechbrain
-from speechbrain.utils.fetching import fetch
-from speechbrain.inference.interfaces import Pretrained
-from speechbrain.utils.text_to_sequence import text_to_sequence
-from speechbrain.inference.text import GraphemeToPhoneme
-from speechbrain.inference.encoders import MelSpectrogramEncoder
-from speechbrain.inference.classifiers import EncoderClassifier
 
+import speechbrain
+from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.encoders import MelSpectrogramEncoder
+from speechbrain.inference.interfaces import Pretrained
+from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.utils.fetching import fetch
+from speechbrain.utils.text_to_sequence import text_to_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +38,9 @@ class Tacotron2(Pretrained):
 
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -52,7 +55,7 @@ class Tacotron2(Pretrained):
     >>> mel_outputs, mel_lengths, alignments = tacotron2.encode_batch(items)
 
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder)
@@ -127,6 +130,11 @@ class MSTacotron2(Pretrained):
     For voice cloning: (text, reference_audio) -> (mel_spec).
     For generating a random speaker voice: (text) -> (mel_spec).
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -137,7 +145,7 @@ class MSTacotron2(Pretrained):
     >>> input_text = "Mary had a little lamb."
     >>> mel_output, mel_length, alignment = mstacotron2.clone_voice(input_text, reference_audio_path) # doctest: +SKIP
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-libritts-22050Hz", savedir=tmpdir_vocoder) # doctest: +SKIP
@@ -174,8 +182,7 @@ class MSTacotron2(Pretrained):
             )
 
     def __text_to_seq(self, txt):
-        """Encodes raw text into a tensor with a customer text-to-equence fuction
-        """
+        """Encodes raw text into a tensor with a customer text-to-sequence function"""
         sequence = text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
@@ -296,7 +303,7 @@ class MSTacotron2(Pretrained):
 
             assert lens == sorted(
                 lens, reverse=True
-            ), "ipnut lengths must be sorted in decreasing order"
+            ), "input lengths must be sorted in decreasing order"
             input_lengths = torch.tensor(lens, device=self.device)
 
             mel_outputs_postnet, mel_lengths, alignments = self.infer(
@@ -345,10 +352,13 @@ class MSTacotron2(Pretrained):
 class FastSpeech2(Pretrained):
     """
     A ready-to-use wrapper for Fastspeech2 (text -> mel_spec).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
@@ -362,7 +372,7 @@ class FastSpeech2(Pretrained):
     >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items) # doctest: +SKIP
     >>>
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
@@ -547,6 +557,7 @@ class FastSpeech2(Pretrained):
         self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0
     ):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         tokens_padded : torch.Tensor
@@ -557,6 +568,13 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        post_mel_outputs : torch.Tensor
+        durations : torch.Tensor
+        pitch : torch.Tensor
+        energy : torch.Tensor
         """
         with torch.no_grad():
             (
@@ -582,6 +600,7 @@ class FastSpeech2(Pretrained):
 
     def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         text : str
@@ -592,6 +611,10 @@ class FastSpeech2(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        Encoded text
         """
         return self.encode_text(
             [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate
@@ -601,10 +624,13 @@ class FastSpeech2(Pretrained):
 class FastSpeech2InternalAlignment(Pretrained):
     """
     A ready-to-use wrapper for Fastspeech2 with internal alignment(text -> mel_spec).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> tmpdir_tts = getfixture('tmpdir') / "tts"
@@ -617,7 +643,7 @@ class FastSpeech2InternalAlignment(Pretrained):
     ... ]
     >>> mel_outputs, durations, pitch, energy = fastspeech2.encode_text(items) # doctest: +SKIP
     >>> # One can combine the TTS model with a vocoder (that generates the final waveform)
-    >>> # Intialize the Vocoder (HiFIGAN)
+    >>> # Initialize the Vocoder (HiFIGAN)
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> from speechbrain.inference.vocoders import HIFIGAN
     >>> hifi_gan = HIFIGAN.from_hparams(source="speechbrain/tts-hifigan-ljspeech", savedir=tmpdir_vocoder) # doctest: +SKIP
@@ -726,7 +752,7 @@ class FastSpeech2InternalAlignment(Pretrained):
         except IndexError:
             # sometimes the g2p model cannot split the words correctly
             logger.warning(
-                f"Do g2p word by word because of unexpected ouputs from g2p for text: {text}"
+                f"Do g2p word by word because of unexpected outputs from g2p for text: {text}"
             )
 
             for i in all_:
@@ -793,6 +819,7 @@ class FastSpeech2InternalAlignment(Pretrained):
         self, tokens_padded, pace=1.0, pitch_rate=1.0, energy_rate=1.0
     ):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         tokens_padded : torch.Tensor
@@ -803,6 +830,13 @@ class FastSpeech2InternalAlignment(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        post_mel_outputs : torch.Tensor
+        durations : torch.Tensor
+        pitch : torch.Tensor
+        energy : torch.Tensor
         """
         with torch.no_grad():
             (
@@ -832,6 +866,7 @@ class FastSpeech2InternalAlignment(Pretrained):
 
     def forward(self, text, pace=1.0, pitch_rate=1.0, energy_rate=1.0):
         """Batch inference for a tensor of phoneme sequences
+
         Arguments
         ---------
         text : str
@@ -842,6 +877,10 @@ class FastSpeech2InternalAlignment(Pretrained):
             scaling factor for phoneme pitches
         energy_rate : float
             scaling factor for phoneme energies
+
+        Returns
+        -------
+        Encoded text
         """
         return self.encode_text(
             [text], pace=pace, pitch_rate=pitch_rate, energy_rate=energy_rate

@@ -13,12 +13,14 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
 import torchaudio
+
 import speechbrain
-from speechbrain.utils.fetching import fetch
-from speechbrain.utils.data_utils import split_path
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.utils.data_utils import split_path
+from speechbrain.utils.fetching import fetch
 
 
 class EncoderClassifier(Pretrained):
@@ -33,7 +35,10 @@ class EncoderClassifier(Pretrained):
 
     The class can be used either to run only the encoder (encode_batch()) to
     extract embeddings or to run a classification step (classify_batch()).
-    ```
+
+    Arguments
+    ---------
+    See ``Pretrained``
 
     Example
     -------
@@ -61,9 +66,6 @@ class EncoderClassifier(Pretrained):
         "embedding_model",
         "classifier",
     ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def encode_batch(self, wavs, wav_lens=None, normalize=False):
         """Encodes the input audio into a single vector embedding.
@@ -156,16 +158,18 @@ class EncoderClassifier(Pretrained):
         ---------
         path : str
             Path to audio file to classify.
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``.
 
         Returns
         -------
-        out_prob
+        out_prob : torch.Tensor
             The log posterior probabilities of each class ([batch, N_class])
-        score:
+        score : torch.Tensor
             It is the value of the log-posterior for the best class ([batch,])
-        index
+        index : torch.Tensor
             The indexes of the best class ([batch,])
-        text_lab:
+        text_lab : list of str
             List with the text labels corresponding to the indexes.
             (label encoder should be provided).
         """
@@ -196,7 +200,10 @@ class AudioClassifier(Pretrained):
 
     The class can be used either to run only the encoder (encode_batch()) to
     extract embeddings or to run a classification step (classify_batch()).
-    ```
+
+    Arguments
+    ---------
+    See ``Pretrained``.
 
     Example
     -------
@@ -212,9 +219,6 @@ class AudioClassifier(Pretrained):
     >>> print(prediction.shape)
     torch.Size([1, 1, 50])
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def classify_batch(self, wavs, wav_lens=None):
         """Performs classification on the top of the encoded features.
@@ -235,13 +239,13 @@ class AudioClassifier(Pretrained):
 
         Returns
         -------
-        out_prob
+        out_prob : torch.Tensor
             The log posterior probabilities of each class ([batch, N_class])
-        score:
+        score : torch.Tensor
             It is the value of the log-posterior for the best class ([batch,])
-        index
+        index : torch.Tensor
             The indexes of the best class ([batch,])
-        text_lab:
+        text_lab : list of str
             List with the text labels corresponding to the indexes.
             (label encoder should be provided).
         """
@@ -273,6 +277,8 @@ class AudioClassifier(Pretrained):
         ---------
         path : str
             Path to audio file to classify.
+        savedir : str
+            Path to folder for caching downloads.
 
         Returns
         -------

@@ -4,6 +4,7 @@
  * Cem Subakan 2023
  * Francesco Paissan 2023
 """
+
 import torch
 import torch.nn as nn
 from torch.autograd import Function
@@ -14,8 +15,8 @@ def get_irrelevant_regions(labels, K, num_classes, N_shared=5, stage="TRAIN"):
 
     Arguments
     ---------
-    labels : torch.tensor
-        1 dimensional torch.tensor of size [B]
+    labels : torch.Tensor
+        1 dimensional tensor of size [B]
     K : int
         Number of keys in the dictionary
     num_classes : int
@@ -25,8 +26,12 @@ def get_irrelevant_regions(labels, K, num_classes, N_shared=5, stage="TRAIN"):
     stage : str
         "TRAIN" or else
 
-    Example:
-    --------
+    Returns
+    -------
+    irrelevant_regions : torch.Tensor
+
+    Example
+    -------
     >>> labels = torch.Tensor([1, 0, 2])
     >>> irrelevant_regions = get_irrelevant_regions(labels, 20, 3, 5)
     >>> print(irrelevant_regions.shape)
@@ -104,6 +109,8 @@ class VectorQuantization(Function):
 
         Arguments
         ---------
+        ctx : torch context
+            The context object for storing info for backwards.
         inputs : torch.Tensor
             Hidden representations to quantize. Expected shape is `torch.Size([B, W, H, C])`.
         codebook : torch.Tensor
@@ -120,11 +127,11 @@ class VectorQuantization(Function):
             `True` if stage is TRAIN.
 
         Returns
-        --------
+        -------
         Codebook's indices for quantized representation : torch.Tensor
 
-        Example:
-        --------
+        Example
+        -------
         >>> inputs = torch.ones(3, 14, 25, 256)
         >>> codebook = torch.randn(1024, 256)
         >>> labels = torch.Tensor([1, 0, 2])
@@ -148,8 +155,8 @@ class VectorQuantization(Function):
                 stage="TRAIN" if training else "VALID",
             )
 
-            codebook_sqr = torch.sum(codebook ** 2, dim=1)
-            inputs_sqr = torch.sum(inputs_flatten ** 2, dim=1, keepdim=True)
+            codebook_sqr = torch.sum(codebook**2, dim=1)
+            inputs_sqr = torch.sum(inputs_flatten**2, dim=1, keepdim=True)
 
             # Compute the distances to the codebook
             distances = torch.addmm(
@@ -172,7 +179,7 @@ class VectorQuantization(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        """Handles error in case grad() is called on the VQ operation. """
+        """Handles error in case grad() is called on the VQ operation."""
         raise RuntimeError(
             "Trying to call `.grad()` on graph containing "
             "`VectorQuantization`. The function `VectorQuantization` "
@@ -201,6 +208,8 @@ class VectorQuantizationStraightThrough(Function):
 
         Arguments
         ---------
+        ctx : torch context
+            The context object for storing info for backwards.
         inputs : torch.Tensor
             Hidden representations to quantize. Expected shape is `torch.Size([B, W, H, C])`.
         codebook : torch.Tensor
@@ -217,11 +226,11 @@ class VectorQuantizationStraightThrough(Function):
             `True` if stage is TRAIN.
 
         Returns
-        --------
+        -------
         Quantized representation and codebook's indices for quantized representation : tuple
 
-        Example:
-        --------
+        Example
+        -------
         >>> inputs = torch.ones(3, 14, 25, 256)
         >>> codebook = torch.randn(1024, 256)
         >>> labels = torch.Tensor([1, 0, 2])
@@ -291,12 +300,8 @@ class Conv2dEncoder_v2(nn.Module):
     dim : int
         Number of channels of the extracted embeddings.
 
-    Returns
-    --------
-    Latent representations to feed inside classifier and/or intepreter.
-
-    Example:
-    --------
+    Example
+    -------
     >>> inputs = torch.ones(3, 431, 513)
     >>> model = Conv2dEncoder_v2()
     >>> print(model(inputs).shape)
@@ -304,9 +309,6 @@ class Conv2dEncoder_v2(nn.Module):
     """
 
     def __init__(self, dim=256):
-        """
-        Extracts embeddings from logspectrograms.
-        """
         super().__init__()
         self.conv1 = nn.Conv2d(1, dim, 4, 2, 1)
         self.bn1 = nn.BatchNorm2d(dim)
@@ -323,15 +325,15 @@ class Conv2dEncoder_v2(nn.Module):
     def forward(self, x):
         """
         Computes forward pass.
+
         Arguments
-        --------
+        ---------
         x : torch.Tensor
             Log-power spectrogram. Expected shape `torch.Size([B, T, F])`.
 
         Returns
-        --------
+        -------
         Embeddings : torch.Tensor
-
         """
         x = x.unsqueeze(1)
         h1 = self.conv1(x)
@@ -359,16 +361,12 @@ class ResBlockAudio(nn.Module):
     """This class implements a residual block.
 
     Arguments
-    --------
+    ---------
     dim : int
-    Input channels of the tensor to process. Matches output channels of the residual block.
-
-    Returns
-    --------
-    Residual block output : torch.Tensor
+        Input channels of the tensor to process. Matches output channels of the residual block.
 
     Example
-    --------
+    -------
     >>> res = ResBlockAudio(128)
     >>> x = torch.randn(2, 128, 16, 16)
     >>> print(x.shape)
@@ -376,7 +374,6 @@ class ResBlockAudio(nn.Module):
     """
 
     def __init__(self, dim):
-        """Implements a residual block."""
         super().__init__()
         self.block = nn.Sequential(
             nn.Conv2d(dim, dim, 3, 1, 1),
@@ -390,12 +387,12 @@ class ResBlockAudio(nn.Module):
         """Forward step.
 
         Arguments
-        --------
+        ---------
         x : torch.Tensor
             Tensor to process. Expected shape is `torch.Size([B, C, H, W])`.
 
         Returns
-        --------
+        -------
         Residual block output : torch.Tensor
         """
         return x + self.block(x)
@@ -422,12 +419,8 @@ class VectorQuantizedPSI_Audio(nn.Module):
     adapter_reduce_dim : bool
         `True` if adapter should compress representations.
 
-    Returns
-    --------
-    Reconstructed log-power spectrograms, adapted classifier's representations, quantized classifier's representations. : tuple
-
-    Example:
-    --------
+    Example
+    -------
     >>> psi = VectorQuantizedPSI_Audio(dim=256, K=1024)
     >>> x = torch.randn(2, 256, 16, 16)
     >>> labels = torch.Tensor([0, 2])
@@ -485,14 +478,14 @@ class VectorQuantizedPSI_Audio(nn.Module):
         Forward step. Reconstructs log-power based on provided label's keys in VQ dictionary.
 
         Arguments
-        --------
+        ---------
         hs : torch.Tensor
             Classifier's representations.
         labels : torch.Tensor
             Predicted labels for classifier's representations.
 
         Returns
-        --------
+        -------
         Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
         """
         if self.use_adapter:
@@ -510,6 +503,88 @@ class VectorQuantizedPSI_Audio(nn.Module):
         return x_tilde, hcat, z_q_x
 
 
+class VectorQuantizedPSIFocalNet_Audio(VectorQuantizedPSI_Audio):
+    """
+    This class reconstructs log-power spectrograms from a FocalNet classifier's representations.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of VQ vectors.
+    kwargs : dict
+        See documentation of `VectorQuantizedPSI_Audio`.
+
+    Example
+    -------
+    >>> psi = VectorQuantizedPSIFocalNet_Audio(dim=256, K=1024)
+    >>> x = torch.randn(2, 256, 16, 16)
+    >>> labels = torch.Tensor([0, 2])
+    >>> logspectra, hcat, z_q_x = psi(x, labels)
+    >>> print(logspectra.shape, hcat.shape, z_q_x.shape)
+    torch.Size([2, 1, 495, 593]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
+    """
+
+    def __init__(self, dim=1024, **kwargs):
+        super().__init__(dim=dim, **kwargs)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
+        )
+        self.apply(weights_init)
+
+
+class VectorQuantizedPSIViT_Audio(VectorQuantizedPSI_Audio):
+    """
+    This class reconstructs log-power spectrograms from a ViT classifier's representations.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of VQ vectors.
+    kwargs : dict
+        See documentation of `VectorQuantizedPSI_Audio`.
+
+    Example
+    -------
+    >>> psi = VectorQuantizedPSIViT_Audio(dim=256, K=1024)
+    >>> x = torch.randn(2, 256, 16, 16)
+    >>> labels = torch.Tensor([0, 2])
+    >>> logspectra, hcat, z_q_x = psi(x, labels)
+    >>> print(logspectra.shape, hcat.shape, z_q_x.shape)
+    torch.Size([2, 1, 495, 593]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
+    """
+
+    def __init__(self, dim=768, **kwargs):
+        super().__init__(dim=dim, **kwargs)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
+        )
+        self.apply(weights_init)
+
+
 class VQEmbedding(nn.Module):
     """
     Implements VQ Dictionary. Wraps `VectorQuantization` and `VectorQuantizationStraightThrough`. For more details refer to the specific class.
@@ -520,7 +595,7 @@ class VQEmbedding(nn.Module):
         Number of elements of VQ dictionary.
     D : int
         Dimensionality of VQ vectors.
-    num_classes : int
+    numclasses : int
         Number of possible classes
     activate_class_partitioning : bool
         `True` if latent space should be quantized for different classes.
@@ -554,13 +629,15 @@ class VQEmbedding(nn.Module):
         ---------
         z_e_x : torch.Tensor
             Input tensor to be quantized.
+        labels : torch.Tensor
+            Predicted class for input representations (used for latent space quantization).
 
         Returns
-        --------
+        -------
         Codebook's indices for quantized representation : torch.Tensor
 
-        Example:
-        --------
+        Example
+        -------
         >>> inputs = torch.ones(3, 256, 14, 25)
         >>> codebook = VQEmbedding(1024, 256)
         >>> labels = torch.Tensor([1, 0, 2])
@@ -585,11 +662,11 @@ class VQEmbedding(nn.Module):
             Predicted class for input representations (used for latent space quantization).
 
         Returns
-        --------
-        Straigth through quantized representation and quantized representation : tuple
+        -------
+        Straight through quantized representation and quantized representation : tuple
 
-        Example:
-        --------
+        Example
+        -------
         >>> inputs = torch.ones(3, 256, 14, 25)
         >>> codebook = VQEmbedding(1024, 256)
         >>> labels = torch.Tensor([1, 0, 2])

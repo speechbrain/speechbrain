@@ -5,13 +5,12 @@ Authors
 """
 
 import math
+from typing import Callable
+
 import torch
-from typing import Callable, List
 
 
-def split_fixed_chunks(
-    x: torch.Tensor, chunk_size: int, dim: int = -1
-) -> List[torch.Tensor]:
+def split_fixed_chunks(x, chunk_size, dim=-1):
     """Split an input tensor `x` into a list of chunk tensors of size
     `chunk_size` alongside dimension `dim`.
     Useful for splitting up sequences with chunks of fixed sizes.
@@ -33,7 +32,7 @@ def split_fixed_chunks(
 
     Returns
     -------
-    List[torch.Tensor]
+    List[Tensor]
         A chunk list of tensors, see description and example.
         Guarantees `.size(dim) <= chunk_size`.
 
@@ -50,15 +49,12 @@ def split_fixed_chunks(
     >>> chunks[-1].shape
     torch.Size([16, 16, 80])
     """
-
     num_chunks = math.ceil(x.size(dim) / chunk_size)
     split_at_indices = [(i + 1) * chunk_size for i in range(num_chunks - 1)]
     return torch.tensor_split(x, split_at_indices, dim=1)
 
 
-def split_wav_lens(
-    chunk_lens: List[int], wav_lens: torch.Tensor
-) -> List[torch.Tensor]:
+def split_wav_lens(chunk_lens, wav_lens):
     """Converts a single `wav_lens` tensor into a list of `chunk_count` tensors,
     typically useful when chunking signals with `split_fixed_chunks`.
 
@@ -81,7 +77,7 @@ def split_wav_lens(
 
     Returns
     -------
-    List[torch.Tensor]
+    List[Tensor]
         A list of chunked wav_lens, see description and example.
 
     Example
@@ -99,7 +95,6 @@ def split_wav_lens(
     [tensor([1., 1., 1.]), tensor([1.0000, 0.6250, 1.0000]), tensor([1.0000, 0.0000, 0.2500])]
     >>> # wav 1 covers 62.5% (5/8) of the second chunk's frames
     """
-
     chunk_wav_lens = []
 
     seq_size = sum(chunk_lens)
@@ -152,7 +147,7 @@ def infer_dependency_matrix(
 
     Returns
     -------
-    dependencies : torch.BoolTensor
+    dependencies : BoolTensor
         Matrix representing whether an output is dependent on an input; index
         using `[in_frame_idx, out_frame_idx]`. `True` indicates a detected
         dependency.
@@ -207,9 +202,13 @@ def plot_dependency_matrix(deps):
 
     Arguments
     ---------
-    deps : torch.BoolTensor
+    deps : BoolTensor
         Matrix returned by `infer_dependency_matrix` or one in a compatible
         format.
+
+    Returns
+    -------
+    matplotlib figure of a dependency matrix.
     """
     import matplotlib.pyplot as plt
     from matplotlib.colors import ListedColormap

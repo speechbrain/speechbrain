@@ -12,14 +12,15 @@ Authors
  * Ju-Chieh Chou 2020
  * Dongwon Kim, Dongwoo Kim 2023
 """
-import sys
 import logging
+import sys
 from pathlib import Path
+
 import torch
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,8 @@ class LM(sb.core.Brain):
             self.hparams.train_logger, sb.utils.train_logger.TensorboardLogger
         ):
             self.hparams.train_logger.log_stats(
-                stats_meta={"step": self.step}, train_stats={"loss": loss},
+                stats_meta={"step": self.step},
+                train_stats={"loss": loss},
             )
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -89,7 +91,8 @@ class LM(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta=stage_stats, min_keys=["loss"],
+                meta=stage_stats,
+                min_keys=["loss"],
             )
 
         elif stage == sb.Stage.TEST:
@@ -106,11 +109,13 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # test is separate
@@ -128,6 +133,7 @@ def dataio_prepare(hparams):
     tokenizer = hparams["tokenizer"]
 
     """Define text pipeline"""
+
     # TODO: implement text augmentations pipelines
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides("wrd", "tokens_bos", "tokens_eos")
@@ -143,7 +149,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "wrd", "tokens_bos", "tokens_eos"],
+        datasets,
+        ["id", "wrd", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_datasets
 

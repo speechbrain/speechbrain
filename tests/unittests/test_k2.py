@@ -1,11 +1,13 @@
+import logging
 import os
-import pytest
-import tempfile
 import shutil
-import torch
+import tempfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import logging
+
+import pytest
+import torch
+
 from speechbrain.k2_integration import k2
 
 logger = logging.getLogger(__name__)
@@ -395,7 +397,10 @@ world w o r l d"""
         # Create a graph compiler
         from speechbrain.k2_integration.graph_compiler import CtcGraphCompiler
 
-        graph_compiler = CtcGraphCompiler(lexicon, device=log_probs.device,)
+        graph_compiler = CtcGraphCompiler(
+            lexicon,
+            device=log_probs.device,
+        )
 
         # Create a random batch of texts
         texts = ["hello world", "world hello", "hello", "world"]

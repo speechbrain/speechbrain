@@ -13,7 +13,9 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
+
 from speechbrain.inference.interfaces import Pretrained
 
 
@@ -23,6 +25,12 @@ class EncoderDecoderS2UT(Pretrained):
     The class can be used  to  run the entire encoder-decoder S2UT model
     (translate_file()) to translate speech. The given YAML must contains the fields
     specified in the *_NEEDED[] lists.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------

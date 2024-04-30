@@ -12,16 +12,18 @@
  * Yingzhi Wang 2022
  * Pradnya Kandarkar 2023
 """
-import torch
-import speechbrain as sb
-import sys
 import logging
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.text_to_sequence import text_to_sequence
-from speechbrain.utils.data_utils import scalarize
 import os
-from speechbrain.inference.vocoders import HIFIGAN
+import sys
+
+import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.inference.vocoders import HIFIGAN
+from speechbrain.utils.data_utils import scalarize
+from speechbrain.utils.text_to_sequence import text_to_sequence
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
@@ -32,7 +34,8 @@ class Tacotron2Brain(sb.Brain):
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp and initializes statistics"""
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics
+        """
         self.hparams.progress_sample_logger.reset()
         self.last_epoch = 0
         self.last_batch = None
@@ -111,7 +114,7 @@ class Tacotron2Brain(sb.Brain):
         """
         effective_batch = self.batch_to_device(batch)
         # Hold on to the batch for the inference sample.
-        # This is needed because the infernece sample is run from on_stage_end only,
+        # This is needed because the inference sample is run from on_stage_end only,
         # where batch information is not available
         self.last_batch = effective_batch
         self.last_preds = predictions
@@ -276,6 +279,10 @@ class Tacotron2Brain(sb.Brain):
         epoch : int
             The currently-starting epoch. This is passed
             `None` during the test stage.
+
+        Returns
+        -------
+        None
         """
 
         # Logs training samples every 10 epochs
@@ -381,14 +388,16 @@ class Tacotron2Brain(sb.Brain):
                 meta=epoch_metadata,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
             output_progress_sample = (
                 self.hparams.progress_samples
@@ -539,7 +548,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -638,8 +646,10 @@ if __name__ == "__main__":
         )
 
     if hparams["use_tensorboard"]:
-        tacotron2_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
-            save_dir=hparams["output_folder"] + "/tensorboard"
+        tacotron2_brain.tensorboard_logger = (
+            sb.utils.train_logger.TensorboardLogger(
+                save_dir=hparams["output_folder"] + "/tensorboard"
+            )
         )
 
     # Training

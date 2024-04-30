@@ -15,13 +15,15 @@ Author
     * Nauman Dawalatabad 2020
 """
 import os
-import sys
 import random
+import sys
+
 import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -164,7 +166,9 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file, from_didatasets=[train_data], output_key="spk_id",
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="spk_id",
     )
 
     # 4. Set output:
@@ -187,7 +191,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         hparams["save_folder"], os.path.basename(hparams["verification_file"])
     )

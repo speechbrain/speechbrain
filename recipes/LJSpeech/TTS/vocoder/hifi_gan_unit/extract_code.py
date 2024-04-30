@@ -5,20 +5,18 @@ Authors
  * Jarod Duret 2023
 """
 
-import logging
 import json
+import logging
 import pathlib as pl
 
 import joblib
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
 from tqdm import tqdm
+
 import speechbrain as sb
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
 
 OPT_FILE = "opt_ljspeech_extract.pkl"
@@ -56,6 +54,15 @@ def skip(splits, save_folder, conf):
     """
     Detects if the ljspeech data_extraction has been already done.
     If the extraction has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits : list
+        List of splits to check.
+    save_folder : str
+        The path to the directory with generated files.
+    conf : dict
+        Configuration to check against saved configuration.
 
     Returns
     -------
@@ -121,6 +128,10 @@ def extract_ljspeech(
         LjSpeech dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -190,7 +201,8 @@ def extract_ljspeech(
                 info = torchaudio.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
-                    info.sample_rate, sample_rate,
+                    info.sample_rate,
+                    sample_rate,
                 )(audio)
                 audio = audio.unsqueeze(0).to(device)
                 feats = encoder.extract_features(audio)

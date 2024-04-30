@@ -10,22 +10,24 @@ Authors
  * Andreas Nautsch, 2022, 2023
 """
 
-import os
-import sys
-from tqdm import tqdm
-import yaml
-import torch  # noqa
 import importlib  # noqa
+import os
 import subprocess
-import speechbrain  # noqa
-from glob import glob
+import sys
 from copy import deepcopy
-from torch.utils.data import DataLoader
+from glob import glob
+
+import torch  # noqa
+import yaml
 from hyperpyyaml import load_hyperpyyaml
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+import speechbrain  # noqa
+from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
+from speechbrain.inference.interfaces import foreign_class  # noqa
 from speechbrain.utils.distributed import run_on_main  # noqa
 from speechbrain.utils.train_logger import FileTrainLogger
-from speechbrain.inference.interfaces import foreign_class  # noqa
-from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
 
 
 def init(
@@ -37,8 +39,8 @@ def init(
 
     Skip if the path as of `new_interfaces_local_dir` exists (e.g. by DIY init instead of via this script).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     new_interfaces_git: str
         Your git repo (or default: `https://github.com/speechbrain/speechbrain`);
         can be specified in tests/utils/overrides.yaml
@@ -79,8 +81,8 @@ def init(
 def get_model(repo, values, updates_dir=None, run_opts=None):
     """Fetches a pretrained model with the option the re-specify its hyperparameters & interface.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     repo: str
         Source of pretrained model (assuming its within the HF speechbrain collection).
     values: dict
@@ -116,7 +118,8 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
         if "foreign" in values.keys():
             os.unlink(custom)
             os.symlink(
-                f'{updates_dir}/{repo}/{values["foreign"]}', custom,
+                f'{updates_dir}/{repo}/{values["foreign"]}',
+                custom,
             )
     else:
         # re:testing on develop? => simply unlink anything before and re:link from cached HF hub
@@ -147,8 +150,8 @@ def get_model(repo, values, updates_dir=None, run_opts=None):
 def get_prediction(repo, values, updates_dir=None):
     """Gets the prediction for one predefined audio example, pattern: {repo}/{values["sample"]} (see HF model card).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     repo: str
         Source of pretrained model (assuming its within the HF speechbrain collection).
     values: dict
@@ -202,8 +205,8 @@ def gather_expected_results(
 ):
     """Before refactoring HF YAMLs and/or code, gather prediction results.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     glob_filter: str
         Filter for a repo subset or a specific repo.
     new_interfaces_git: str
@@ -228,7 +231,7 @@ def gather_expected_results(
     updates_dir = init(
         new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
     )
-    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"),)
+    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"))
     for repo in repos:
         # skip if results are there
         if repo not in results.keys():
@@ -254,8 +257,8 @@ def gather_refactoring_results(
 ):
     """After refactoring HF YAMLs and/or code, gather prediction results.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     glob_filter: str
         Filter for a repo subset or a specific repo.
     new_interfaces_git: str
@@ -277,7 +280,7 @@ def gather_refactoring_results(
     updates_dir = init(
         new_interfaces_git, new_interfaces_branch, new_interfaces_local_dir
     )
-    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"),)
+    repos = map(os.path.basename, glob(f"{updates_dir}/{glob_filter}"))
     for repo in repos:
         # skip if results are there
         if "after" not in results[repo].keys():
@@ -307,8 +310,8 @@ def test_performance(
 ):
     """Runs the evaluation partition of a recipe dataset for a pretrained model.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     repo: str
         Source of pretrained model (assuming its within the HF speechbrain collection).
     values: dict
@@ -402,7 +405,7 @@ def test_performance(
         for metric, specs in reporting.items():
             stats[k][metric] = specs["tracker"].summarize(specs["field"])
         logger.log_stats(
-            stats_meta=stats_meta | {"set": k}, test_stats=stats[k],
+            stats_meta=stats_meta | {"set": k}, test_stats=stats[k]
         )
 
     return stats

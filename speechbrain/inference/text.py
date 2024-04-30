@@ -13,11 +13,14 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
-import torch
+
 from itertools import chain
+
+import torch
+
 from speechbrain.inference.interfaces import (
-    Pretrained,
     EncodeDecodePipelineMixin,
+    Pretrained,
 )
 
 
@@ -25,6 +28,12 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
     """
     A pretrained model implementation for Grapheme-to-Phoneme (G2P) models
     that take raw natural language text as an input and
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -126,6 +135,12 @@ class ResponseGenerator(Pretrained):
     The class can be used to generate and continue dialogue given the user input.
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
     It needs to be used with custom.py to load the expanded  model with added tokens like bos,eos, and speaker's tokens.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
     """
 
     MODULES_NEEDED = ["model"]
@@ -180,6 +195,12 @@ class GPTResponseGenerator(ResponseGenerator):
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
     It needs to be used with custom.py to load the expanded GPT model with added tokens like bos,eos, and speaker's tokens.
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> from speechbrain.inference.text import GPTResponseGenerator
@@ -206,11 +227,12 @@ class GPTResponseGenerator(ResponseGenerator):
     def generate(self, inputs):
         """
         Complete a dialogue given the user's input.
+
         Arguments
         ---------
         inputs: tuple
             history_bos which is the tokenized history+input values with appropriate speaker token appended before each turn and history_token_type which determines
-            the type of each token basd on who is uttered that token (either User or Sytem).
+            the type of each token based on who is uttered that token (either User or System).
 
         Returns
         -------
@@ -233,17 +255,14 @@ class GPTResponseGenerator(ResponseGenerator):
     def prepare_input(self):
         """Convert user input and previous histories to the format acceptable for  GPT model.
             It appends all previous history and input and truncates it based on max_history value.
-            It then tokenizes the input and generates additional input that determines the type of each token (Sytem or User).
-
-        Arguments
-        ---------
+            It then tokenizes the input and generates additional input that determines the type of each token (System or User).
 
         Returns
         -------
-        history_bos:
+        history_bos: torch.Tensor
             Tokenized history+input values with appropriate speaker token appended before each turn.
-        history_token_type:
-            Type of each token basd on who is uttered that token (either User or Sytem)
+        history_token_type: torch.LongTensor
+            Type of each token based on who is uttered that token (either User or System)
         """
         history_tokens_lists = [
             self.model.tokenizer.encode(turn) for turn in self.history
@@ -292,6 +311,12 @@ class Llama2ResponseGenerator(ResponseGenerator):
     The given YAML must contain the fields specified in the *_NEEDED[] lists.
     It needs to be used with custom.py to load the expanded Llama2 model with added tokens like bos,eos, and speaker's tokens.
 
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> from speechbrain.inference.text import Llama2ResponseGenerator
@@ -314,7 +339,7 @@ class Llama2ResponseGenerator(ResponseGenerator):
         Arguments
         ---------
         inputs: prompt_bos
-            prompted imputs to be passed to llama2 model for generation.
+            prompted inputs to be passed to llama2 model for generation.
 
         Returns
         -------
@@ -326,21 +351,20 @@ class Llama2ResponseGenerator(ResponseGenerator):
             prompt_bos, pad_idx=self.tokenizer.pad_token_id
         )
         hyps = self.model.generate(
-            prompt_bos.detach(), padding_mask.detach(), "beam",
+            prompt_bos.detach(),
+            padding_mask.detach(),
+            "beam",
         )
         return hyps
 
     def prepare_input(self):
         """Convert user input and previous histories to the format acceptable for  Llama2 model.
             It appends all previous history and input and truncates it based on max_history value.
-            It then tokenizes the input and add propmts.
-
-        Arguments
-        ---------
+            It then tokenizes the input and add prompts.
 
         Returns
         -------
-        prompt_bos:
+        prompt_bos: torch.Tensor
             Tokenized history+input values with appropriate prompt.
         """
 
@@ -349,12 +373,13 @@ class Llama2ResponseGenerator(ResponseGenerator):
 
             Arguments
             ---------
-            idx_and_item:
+            idx_and_item: tuple
                 id and its corresponding text. If the id is even, it is user turn and [ INST] is added.
+
             Returns
             -------
-            prompt_bos:
-                prompted text  for one item.
+            prompt_bos: torch.LongTensor
+                prompted text for one item.
             """
             index, item = idx_and_item
             if index % 2 == 0:
@@ -365,9 +390,9 @@ class Llama2ResponseGenerator(ResponseGenerator):
         prompts = list(map(generate_prompt, enumerate(self.history)))
 
         # encode each turn of the history
-        propmt_tokens_lists = [self.tokenizer.encode(turn) for turn in prompts]
+        prompt_tokens_lists = [self.tokenizer.encode(turn) for turn in prompts]
 
-        prompt_ids = propmt_tokens_lists[-self.history_window :]
+        prompt_ids = prompt_tokens_lists[-self.history_window :]
         # concatenate every token into a single list
         # list(chain(*[[1, 2], [3, 4], [5]]))
         # >>> [1, 2, 3, 4, 5]

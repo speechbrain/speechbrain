@@ -1,16 +1,17 @@
-"""ResNet PreActived for speaker verification
+"""ResNet PreActivated for speaker verification
 
 Authors
  * Mickael Rouvier 2022
 """
+
 import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -43,6 +44,8 @@ class SEBlock(nn.Module):
         The number of channels.
     reduction : int
         The reduction factor of channels.
+    activation : Callable
+        The function to apply between layers.
 
     Example
     -------
@@ -79,7 +82,7 @@ class BasicBlock(nn.Module):
     """An implementation of ResNet Block.
 
     Arguments
-    ----------
+    ---------
     in_channels : int
         Number of input channels.
     out_channels : int
@@ -152,11 +155,13 @@ class SEBasicBlock(nn.Module):
     """An implementation of Squeeze-and-Excitation ResNet Block.
 
     Arguments
-    ----------
+    ---------
     in_channels : int
         Number of input channels.
     out_channels : int
         The number of output channels.
+    reduction : int
+        The reduction factor of channels.
     stride : int
         Factor that reduce the spatial dimensionality
     downsample : torch function
@@ -232,6 +237,8 @@ class ResNet(nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        Expected size of the input dimension.
     device : str
         Device used, e.g., "cpu" or "cuda".
     activation : torch class
@@ -326,6 +333,11 @@ class ResNet(nn.Module):
             Number of ResNet blocks for the network.
         stride : int
             Factor that reduce the spatial dimensionality. Default is 1
+
+        Returns
+        -------
+        se_block : nn.Sequential
+            Squeeze-and-excitation block
         """
         downsample = None
         if stride != 1 or in_channels != out_channels:
@@ -363,6 +375,11 @@ class ResNet(nn.Module):
             Number of ResNet blocks for the network.
         stride : int
             Factor that reduce the spatial dimensionality. Default is 1
+
+        Returns
+        -------
+        block : nn.Sequential
+            ResNet block
         """
         downsample = None
         if stride != 1 or in_channels != out_channels:
@@ -391,6 +408,13 @@ class ResNet(nn.Module):
         ---------
         x : torch.Tensor
             Tensor of shape (batch, time, channel).
+        lengths : torch.Tensor
+            Corresponding relative lengths of the inputs.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The embedding vector.
         """
         x = x.unsqueeze(1)
 
@@ -409,9 +433,7 @@ class ResNet(nn.Module):
         w = self.attention(x)
 
         mu = torch.sum(x * w, dim=2)
-        sg = torch.sqrt(
-            (torch.sum((x ** 2) * w, dim=2) - mu ** 2).clamp(min=1e-5)
-        )
+        sg = torch.sqrt((torch.sum((x**2) * w, dim=2) - mu**2).clamp(min=1e-5))
         x = torch.cat([mu, sg], dim=1)
         x = self.norm_stats(x)
 
@@ -426,6 +448,8 @@ class Classifier(torch.nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        Expected size of the inputs.
     device : str
         Device used, e.g., "cpu" or "cuda".
     lin_blocks : int
@@ -480,6 +504,11 @@ class Classifier(torch.nn.Module):
         ---------
         x : torch.Tensor
             Torch tensor.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output probabilities over speakers.
         """
         for layer in self.blocks:
             x = layer(x)

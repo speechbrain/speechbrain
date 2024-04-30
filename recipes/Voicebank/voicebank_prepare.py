@@ -10,17 +10,19 @@ Authors:
  * Peter Plantinga, 2020
 """
 
-import os
 import json
-import string
-import urllib
-import shutil
 import logging
+import os
+import shutil
+import string
 import tempfile
+import urllib
+
 import torchaudio
 from torchaudio.transforms import Resample
-from speechbrain.utils.data_utils import get_all_files, download_file
+
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import download_file, get_all_files
 
 logger = logging.getLogger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
@@ -59,6 +61,7 @@ TRAIN_SPEAKERS = [
     "p286",
 ]
 # Lexicon missing entries
+# cspell:disable
 MISSING_LEXICON = {
     "CRUCIALLY": "K R UW SH AH L IY",
     "PAEDOPHILES": "P EH D OW F AY L S",
@@ -150,6 +153,7 @@ MISSING_LEXICON = {
     "HELPLINE": "HH EH L P L AY N",
     "CLEARCUT": "K L IY R K UH T",
 }
+# cspell:enable
 
 
 def prepare_voicebank(
@@ -172,6 +176,10 @@ def prepare_voicebank(
     skip_prep: bool
         If True, skip data preparation.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/datasets/Voicebank'
@@ -180,7 +188,7 @@ def prepare_voicebank(
     """
     if skip_prep:
         return
-    # Setting ouput files
+    # Setting output files
     save_json_train = os.path.join(save_folder, TRAIN_JSON)
     save_json_valid = os.path.join(save_folder, VALID_JSON)
     save_json_test = os.path.join(save_folder, TEST_JSON)
@@ -247,6 +255,11 @@ def skip(*filenames):
     Detects if the Voicebank data_preparation has been already done.
     If the preparation has been done, we can skip it.
 
+    Arguments
+    ---------
+    *filenames : tuple
+        List of paths to check for existence.
+
     Returns
     -------
     bool
@@ -272,6 +285,11 @@ def create_lexicon(lexicon_save_filepath):
     ---------
     lexicon_save_filepath : str
         Path to save the lexicon when downloading
+
+    Returns
+    -------
+    lexicon : dict
+        Mapping from word string to list of phonemes.
     """
     if not os.path.isfile(lexicon_save_filepath):
         download_file(LEXICON_URL, lexicon_save_filepath)
@@ -314,13 +332,14 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
         The location of parallel clean samples.
     txt_folder : str
         The location of the transcript files.
+    lexicon : dict
+        Mapping from word string to list of phonemes.
     """
     logger.debug(f"Creating json lists in {json_file}")
 
     # Processing all the wav files in the list
     json_dict = {}
     for wav_file in wav_lst:  # ex:p203_122.wav
-
         # Example wav_file: p232_001.wav
         noisy_path, filename = os.path.split(wav_file)
         _, noisy_dir = os.path.split(noisy_path)

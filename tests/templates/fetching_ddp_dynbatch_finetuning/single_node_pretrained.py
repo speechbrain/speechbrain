@@ -8,11 +8,11 @@ Authors:
     * Andreas Nautsch 2023
 """
 import logging
-import speechbrain as sb
 from copy import deepcopy
+
+import speechbrain as sb
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.utils.fetching import FetchFrom, FetchSource
-
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def run_hf_repo_single_node(run_options):
 
     # Instantiate pretrained HF model
     pretrained_hf_asr = EncoderDecoderASR.from_hparams(
-        source=repo, run_opts=deepcopy(run_options),
+        source=repo, run_opts=deepcopy(run_options)
     )
 
     # From HF model card

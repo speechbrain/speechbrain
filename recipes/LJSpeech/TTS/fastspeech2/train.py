@@ -11,18 +11,20 @@ synthesis' paper
  * Pradnya Kandarkar 2023
 """
 
+import logging
 import os
 import sys
-import torch
-import logging
-import torchaudio
-import numpy as np
-import speechbrain as sb
-from speechbrain.inference.vocoders import HIFIGAN
 from pathlib import Path
+
+import numpy as np
+import torch
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_utils import scalarize
+
+import speechbrain as sb
 from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.inference.vocoders import HIFIGAN
+from speechbrain.utils.data_utils import scalarize
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
@@ -245,9 +247,10 @@ class FastSpeech2Brain(sb.Brain):
             # Save the current checkpoint and delete previous checkpoints.
             # UNCOMMENT THIS
             self.checkpointer.save_and_keep_only(
-                meta=self.last_loss_stats[stage], min_keys=["total_loss"],
+                meta=self.last_loss_stats[stage],
+                min_keys=["total_loss"],
             )
-        # We also write statistics about test data spectogramto stdout and to the logfile.
+        # We also write statistics about test data spectogram to stdout and to the logfile.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 {"Epoch loaded": self.hparams.epoch_counter.current},
@@ -370,6 +373,7 @@ class FastSpeech2Brain(sb.Brain):
     def run_vocoder(self, inference_mel, mel_lens, sample_type=""):
         """Uses a pretrained vocoder to generate audio from predicted mel
         spectogram. By default, uses speechbrain hifigan.
+
         Arguments
         ---------
         inference_mel: torch.Tensor
@@ -379,6 +383,10 @@ class FastSpeech2Brain(sb.Brain):
             used to mask the noise from padding
         sample_type: str
             used for logging the type of the inference sample being generated
+
+        Returns
+        -------
+        None
         """
         if self.last_batch is None:
             return

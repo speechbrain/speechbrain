@@ -17,19 +17,21 @@ import sys
 import time
 from functools import partial
 
-import speechbrain as sb
 import torch
 import torch.nn.functional as F
-from torch.nn.parallel import DistributedDataParallel
 from hyperpyyaml import load_hyperpyyaml
+from torch.nn.parallel import DistributedDataParallel
 
+import speechbrain as sb
 from speechbrain import Stage
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.core import AMPConfig
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
-from speechbrain.lobes.models.wav2vec import w2v_mask_collate_fn
-from speechbrain.lobes.models.wav2vec import sample_negatives
-from speechbrain.core import AMPConfig
+from speechbrain.lobes.models.wav2vec import (
+    sample_negatives,
+    w2v_mask_collate_fn,
+)
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +49,15 @@ class W2V2Brain(sb.core.Brain):
         )
         batch_size = wavs.size(0)
 
-        # Mormalisation already done in dataloader
+        # Normalisation already done in dataloader
         # 1. Go through features extractor
         latents = self.modules.latent_extractor(wavs, normalize_signal=False)
 
         # 2. Go through latent (Transformer).
         results = self.modules.latent_encoder(
-            latents, mask=mask, wav_lens=wav_lens,
+            latents,
+            mask=mask,
+            wav_lens=wav_lens,
         )
 
         embeddings = results["embeddings"]
@@ -74,8 +78,7 @@ class W2V2Brain(sb.core.Brain):
         return results
 
     def compute_objectives(self, forward_outputs, batch, stage):
-        """Samples negatives, computes contrastive loss and accuracy.
-        """
+        """Samples negatives, computes contrastive loss and accuracy."""
 
         embeddings = forward_outputs["embeddings"]
         targets = forward_outputs["targets"]
@@ -128,7 +131,8 @@ class W2V2Brain(sb.core.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
                 ):
                     outputs = self.compute_forward(batch, Stage.TRAIN)
                     objectives = self.compute_objectives(
@@ -153,7 +157,7 @@ class W2V2Brain(sb.core.Brain):
         return objectives["backprop_loss"].detach()
 
     def on_fit_batch_end(self, objectives):
-        """ Called after fit_batch(), updates learning rate and does per-step logging. """
+        """Called after fit_batch(), updates learning rate and does per-step logging."""
         if isinstance(self.modules.target_quantiser, DistributedDataParallel):
             w2v_model = self.modules.target_quantiser.module
         else:
@@ -168,7 +172,6 @@ class W2V2Brain(sb.core.Brain):
             hasattr(self.hparams, "log_interval")
             and self.optimizer_step % self.hparams.log_interval == 0
         ):
-
             # Create a dictionary and fill it with everything we
             # want to log such as contrastive loss, diversity loss,
             # learning rate etc.
@@ -187,10 +190,12 @@ class W2V2Brain(sb.core.Brain):
             self.time_last_log = time.time()
 
             if sb.utils.distributed.if_main_process():
-                self.hparams.train_steps_logger.log_stats(stats_meta=log_dct,)
+                self.hparams.train_steps_logger.log_stats(
+                    stats_meta=log_dct,
+                )
 
     def evaluate_batch(self, batch, stage):
-        """ Returns accuracy on contrastive objective. """
+        """Returns accuracy on contrastive objective."""
         out = self.compute_forward(batch, stage=stage)
         objectives = self.compute_objectives(out, batch, stage=stage)
         return objectives["backprop_loss"].detach().cpu()
@@ -201,7 +206,6 @@ class W2V2Brain(sb.core.Brain):
             self.acc_metric = []
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
@@ -233,7 +237,8 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # We remove longer and shorter files from the train.
@@ -244,14 +249,15 @@ def dataio_prepare(hparams):
     )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
 
     datasets = [train_data, valid_data]
 
     def get_output_lengths(input_lengths):
-        """ Function to get the output length of the feature extractor this is
-            necessery to compute the masks of wav2vec2.
+        """Function to get the output length of the feature extractor this is
+        necessary to compute the masks of wav2vec2.
         """
 
         def _conv_out_length(input_length, kernel_size, stride):
@@ -282,7 +288,9 @@ def dataio_prepare(hparams):
     dynamic_hparams = hparams["dynamic_batch_sampler_train"]
 
     train_sampler = DynamicBatchSampler(
-        train_data, **dynamic_hparams, length_func=lambda x: x["duration"],
+        train_data,
+        **dynamic_hparams,
+        length_func=lambda x: x["duration"],
     )
 
     # We define the custom collation function that is necessary for w2v2 to

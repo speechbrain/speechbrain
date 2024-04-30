@@ -13,12 +13,14 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
-import torchaudio
 import torch.nn.functional as F
-from speechbrain.utils.fetching import fetch
-from speechbrain.utils.data_utils import split_path
+import torchaudio
+
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.utils.data_utils import split_path
+from speechbrain.utils.fetching import fetch
 
 
 class SepformerSeparation(Pretrained):

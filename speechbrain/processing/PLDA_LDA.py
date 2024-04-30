@@ -20,10 +20,10 @@ Credits
     This code is adapted from: https://projets-lium.univ-lemans.fr/sidekit/
 """
 
-import numpy
 import copy
 import pickle
 
+import numpy
 from scipy import linalg
 
 STAT_TYPE = numpy.float64
@@ -44,10 +44,10 @@ class StatObject_SB:
         Index of the first frame of the segment.
     stop : int
         Index of the last frame of the segment.
-    stat0 : tensor
+    stat0 : torch.Tensor
         An ndarray of float64. Each line contains 0-th order statistics
         from the corresponding session.
-    stat1 : tensor
+    stat1 : torch.Tensor
         An ndarray of float64. Each line contains 1-st order statistics
         from the corresponding session.
     """
@@ -89,7 +89,7 @@ class StatObject_SB:
         return ch
 
     def save_stat_object(self, filename):
-        """Saves stats in picke format.
+        """Saves stats in pickle format.
 
         Arguments
         ---------
@@ -106,6 +106,10 @@ class StatObject_SB:
         ---------
         mod_id : str
             ID of the model for which segments will be returned.
+
+        Returns
+        -------
+        segments
         """
         return self.segset[self.modelset == mod_id]
 
@@ -116,6 +120,10 @@ class StatObject_SB:
         ---------
         mod_id : str
             ID of the model for which start will be returned.
+
+        Returns
+        -------
+        start of segment
         """
         return self.start[self.modelset == mod_id]
 
@@ -126,18 +134,21 @@ class StatObject_SB:
         ---------
         mod_id : str
             ID of the model which stop will be returned.
+
+        Returns
+        -------
+        stop of segment
         """
         return self.stop[self.modelset == mod_id]
 
     def get_mean_stat1(self):
-        """Return the mean of first order statistics.
-        """
+        """Return the mean of first order statistics."""
         mu = numpy.mean(self.stat1, axis=0)
         return mu
 
     def get_total_covariance_stat1(self):
         """Compute and return the total covariance matrix of the first-order
-            statistics.
+        statistics.
         """
         C = self.stat1 - self.stat1.mean(axis=0)
         return numpy.dot(C.transpose(), C) / self.stat1.shape[0]
@@ -149,6 +160,10 @@ class StatObject_SB:
         ---------
         mod_id : str
             ID of the model which stat0 will be returned.
+
+        Returns
+        -------
+        Zero-order statistics.
         """
         S = self.stat0[self.modelset == mod_id, :]
         return S
@@ -160,16 +175,22 @@ class StatObject_SB:
         ---------
         mod_id : str
             ID of the model which stat1 will be returned.
+
+        Returns
+        -------
+        First-order statistics.
         """
         return self.stat1[self.modelset == mod_id, :]
 
     def sum_stat_per_model(self):
         """Sum the zero- and first-order statistics per model and store them
         in a new StatObject_SB.
-        Returns a StatObject_SB object with the statistics summed per model
+
+        Returns
+        -------
+        a StatObject_SB object with the statistics summed per model
         and a numpy array with session_per_model.
         """
-
         sts_per_model = StatObject_SB()
         sts_per_model.modelset = numpy.unique(
             self.modelset
@@ -211,7 +232,6 @@ class StatObject_SB:
         mu : array
             Array to center on.
         """
-
         dim = self.stat1.shape[1] / self.stat0.shape[1]
         index_map = numpy.repeat(numpy.arange(self.stat0.shape[1]), dim)
         self.stat1 = self.stat1 - (
@@ -219,9 +239,7 @@ class StatObject_SB:
         )
 
     def norm_stat1(self):
-        """Divide all first-order statistics by their Euclidean norm.
-        """
-
+        """Divide all first-order statistics by their Euclidean norm."""
         vect_norm = numpy.clip(
             numpy.linalg.norm(self.stat1, axis=1), 1e-08, numpy.inf
         )
@@ -252,7 +270,6 @@ class StatObject_SB:
         isSqrInvSigma : bool
             True if the input Sigma matrix is the inverse of the square root of a covariance matrix.
         """
-
         if sigma.ndim == 1:
             self.center_stat1(mu)
             self.stat1 = self.stat1 / numpy.sqrt(sigma.astype(STAT_TYPE))
@@ -345,8 +362,11 @@ class StatObject_SB:
         ---------
         rank : int
             Rank of the LDA matrix to return.
-        """
 
+        Returns
+        -------
+        L : matrix
+        """
         vect_size = self.stat1.shape[1]
         unique_speaker = numpy.unique(self.modelset)
 
@@ -387,14 +407,14 @@ class StatObject_SB:
 
 
 def diff(list1, list2):
-    """Difference beteween lists."""
+    """Difference between lists."""
     c = [item for item in list1 if item not in list2]
     c.sort()
     return c
 
 
 def ismember(list1, list2):
-    """Cheks if the elements if list1 are contained in list2."""
+    """Checks if the elements if list1 are contained in list2."""
     c = [item in list2 for item in list1]
     return c
 
@@ -407,24 +427,17 @@ class Ndx:
 
     Arguments
     ---------
-    modelset : list
+    ndx_file_name : str
+        Name of the file to load.
+    models : list
         List of unique models in a ndarray.
-    segset : list
+    testsegs : list
         List of unique test segments in a ndarray.
-    trialmask : 2D ndarray of bool.
-        Rows correspond to the models and columns to the test segments. True, if the trial is of interest.
     """
 
     def __init__(
         self, ndx_file_name="", models=numpy.array([]), testsegs=numpy.array([])
     ):
-        """Initialize a Ndx object by loading information from a file.
-
-        Arguments
-        ---------
-        ndx_file_name : str
-            Name of the file to load.
-        """
         self.modelset = numpy.empty(0, dtype="|O")
         self.segset = numpy.empty(0, dtype="|O")
         self.trialmask = numpy.array([], dtype="bool")
@@ -482,11 +495,15 @@ class Ndx:
         Arguments
         ---------
         modlist : array
-            A cell array of strings which will be compared with the modelset of 'inndx'.
+            A cell array of strings which will be compared with the modelset of 'inNdx'.
         seglist : array
-            A cell array of strings which will be compared with the segset of 'inndx'.
+            A cell array of strings which will be compared with the segset of 'inNdx'.
         keep : bool
             Indicating whether modlist and seglist are the models to keep or discard.
+
+        Returns
+        -------
+        outNdx : Ndx
         """
         if keep:
             keepmods = modlist
@@ -498,27 +515,27 @@ class Ndx:
         keepmodidx = numpy.array(ismember(self.modelset, keepmods))
         keepsegidx = numpy.array(ismember(self.segset, keepsegs))
 
-        outndx = Ndx()
-        outndx.modelset = self.modelset[keepmodidx]
-        outndx.segset = self.segset[keepsegidx]
+        outNdx = Ndx()
+        outNdx.modelset = self.modelset[keepmodidx]
+        outNdx.segset = self.segset[keepsegidx]
         tmp = self.trialmask[numpy.array(keepmodidx), :]
-        outndx.trialmask = tmp[:, numpy.array(keepsegidx)]
+        outNdx.trialmask = tmp[:, numpy.array(keepsegidx)]
 
-        assert outndx.validate, "Wrong Ndx format"
+        assert outNdx.validate, "Wrong Ndx format"
 
-        if self.modelset.shape[0] > outndx.modelset.shape[0]:
+        if self.modelset.shape[0] > outNdx.modelset.shape[0]:
             print(
                 "Number of models reduced from %d to %d"
                 % self.modelset.shape[0],
-                outndx.modelset.shape[0],
+                outNdx.modelset.shape[0],
             )
-        if self.segset.shape[0] > outndx.segset.shape[0]:
+        if self.segset.shape[0] > outNdx.segset.shape[0]:
             print(
                 "Number of test segments reduced from %d to %d",
                 self.segset.shape[0],
-                outndx.segset.shape[0],
+                outNdx.segset.shape[0],
             )
-        return outndx
+        return outNdx
 
     def validate(self):
         """Checks that an object of type Ndx obeys certain rules that
@@ -547,25 +564,21 @@ class Scores:
 
     Arguments
     ---------
-    modelset : list
-        List of unique models in a ndarray.
-    segset : list
-        List of unique test segments in a ndarray.
-    scoremask : 2D ndarray of bool
-        Indicates the trials of interest, i.e.,
-        the entry i,j in scoremat should be ignored if scoremask[i,j] is False.
-    scoremat : 2D ndarray
-        Scores matrix.
+    scores_file_name : str
+        Name of a HDF5 file containing the following fields
+
+        modelset : list
+            list of unique models in a ndarray.
+        segset : list
+            list of unique test segments in a ndarray.
+        scoremask : 2d ndarray of bool
+            indicates the trials of interest, i.e.,
+            the entry i,j in scoremat should be ignored if scoremask[i,j] is false.
+        scoremat : 2d ndarray
+            scores matrix.
     """
 
     def __init__(self, scores_file_name=""):
-        """ Initialize a Scores object by loading information from a file HDF5 format.
-
-        Arguments
-        ---------
-        scores_file_name : str
-            Name of the file to load.
-        """
         self.modelset = numpy.empty(0, dtype="|O")
         self.segset = numpy.empty(0, dtype="|O")
         self.scoremask = numpy.array([], dtype="bool")
@@ -595,7 +608,13 @@ class Scores:
 
 
 def fa_model_loop(
-    batch_start, mini_batch_indices, factor_analyser, stat0, stat1, e_h, e_hh,
+    batch_start,
+    mini_batch_indices,
+    factor_analyser,
+    stat0,
+    stat1,
+    e_h,
+    e_hh,
 ):
     """A function for PLDA estimation.
 
@@ -607,13 +626,13 @@ def fa_model_loop(
         Indices of the elements in the list (should start at zero).
     factor_analyser : instance of PLDA class
         PLDA class object.
-    stat0 : tensor
+    stat0 : torch.Tensor
         Matrix of zero-order statistics.
-    stat1: tensor
+    stat1: torch.Tensor
         Matrix of first-order statistics.
-    e_h : tensor
+    e_h : torch.Tensor
         An accumulator matrix.
-    e_hh: tensor
+    e_hh: torch.Tensor
         An accumulator matrix.
     """
     rank = factor_analyser.F.shape[1]
@@ -664,8 +683,6 @@ def fast_PLDA_scoring(
     mu,
     F,
     Sigma,
-    test_uncertainty=None,
-    Vtrans=None,
     p_known=0.0,
     scaling_factor=1.0,
     check_missing=True,
@@ -684,18 +701,23 @@ def fast_PLDA_scoring(
         An Ndx object defining the list of trials to perform.
     mu : double
         The mean vector of the PLDA gaussian.
-    F : tensor
+    F : torch.Tensor
         The between-class co-variance matrix of the PLDA.
-    Sigma: tensor
+    Sigma : torch.Tensor
         The residual covariance matrix.
     p_known : float
         Probability of having a known speaker for open-set
         identification case (=1 for the verification task and =0 for the
         closed-set case).
+    scaling_factor : float
+        Factor to multiply statistics.
     check_missing : bool
         If True, check that all models and segments exist.
-    """
 
+    Returns
+    -------
+    scores : Scores
+    """
     enroll_ctr = copy.deepcopy(enroll)
     test_ctr = copy.deepcopy(test)
 
@@ -781,14 +803,9 @@ class LDA:
     """A class to perform Linear Discriminant Analysis.
 
     It returns the low dimensional representation as per LDA.
-
-    Arguments
-    ---------
-    reduced_dim : int
-        The dimension of the output representation.
     """
 
-    def __init__(self,):
+    def __init__(self):
         self.transform_mat = None
 
     def do_lda(self, stat_server=None, reduced_dim=2, transform_mat=None):
@@ -800,8 +817,13 @@ class LDA:
             Contains vectors and meta-information to perform LDA.
         reduced_dim : int
             Dimension of the reduced space.
-        """
+        transform_mat : matrix
+            Transformation matrix.
 
+        Returns
+        -------
+        new_train_obj : speechbrain.processing.PLDA_LDA.StatObject_SB
+        """
         # Get transformation matrix and project
         if transform_mat is None:
             self.transform_mat = stat_server.get_lda_matrix_stat1(reduced_dim)
@@ -823,12 +845,18 @@ class PLDA:
 
     Arguments
     ---------
-    mean : tensor
+    mean : torch.Tensor
         Mean of the vectors.
-    F : tensor
+    F : torch.Tensor
         Eigenvoice matrix.
-    Sigma : tensor
+    Sigma : torch.Tensor
         Residual matrix.
+    rank_f : int
+        Rank (default 100).
+    nb_iter : int
+        Number of iterations (default 10).
+    scaling_factor : int
+        Factor to use for scaling statistics (default 1.0).
 
     Example
     -------
@@ -911,16 +939,13 @@ class PLDA:
         ---------
         stat_server : speechbrain.processing.PLDA_LDA.StatObject_SB
             Contains vectors and meta-information to perform PLDA
-        rank_f : int
-            Rank of the between-class covariance matrix.
-        nb_iter : int
-            Number of iterations to run.
-        scaling_factor : float
-            Scaling factor to downscale statistics (value between 0 and 1).
         output_file_name : str
             Name of the output file where to store PLDA model.
+        whiten : bool
+            Whether to perform whitening.
+        w_stat_server : speechbrain.processing.PLDA_LDA.StatObject_SB
+            Contains whitening vectors and meta-information.
         """
-
         # Dimension of the vector (x-vectors stored in stat1)
         vect_size = stat_server.stat1.shape[1]  # noqa F841
 

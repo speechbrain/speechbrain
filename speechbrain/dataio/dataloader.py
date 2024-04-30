@@ -34,23 +34,24 @@ Example
 Authors:
   * Aku Rouhe 2020
 """
-from torch.utils.data import DataLoader
-from torch.utils.data import IterableDataset
-from torch.utils.data.dataloader import _BaseDataLoaderIter
+
+import functools
 import logging
 import warnings
-import functools
-from torch.utils.data import DistributedSampler
-from speechbrain.dataio.batch import PaddedBatch, BatchsizeGuesser
+
+from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
+from torch.utils.data.dataloader import _BaseDataLoaderIter
+
+from speechbrain.dataio.batch import BatchsizeGuesser, PaddedBatch
 from speechbrain.dataio.dataset import DynamicItemDataset
 from speechbrain.dataio.sampler import (
-    ReproducibleRandomSampler,
     DistributedSamplerWrapper,
+    ReproducibleRandomSampler,
 )
 from speechbrain.utils.checkpoints import (
-    register_checkpoint_hooks,
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
 )
 
 # Optional support for webdataset
@@ -76,15 +77,15 @@ def distributed_loader_specifics(
 ):
     """Prepare loader_kwargs for DDP when necessary.
 
-    Parameters
-    ----------
-    distributed_launch (bool)
+    Arguments
+    ---------
+    distributed_launch : bool
         DDP flag
-    rank (int)
+    rank : int
         node rank in DDP
-    dataset: Dataset
+    dataset : Dataset
         The dataset to make a DataLoader for.
-    **loader_kwargs : dict
+    loader_kwargs : dict
         Keyword args to DataLoader, see PyTorch DataLoader for
         options.
 
@@ -103,7 +104,10 @@ def distributed_loader_specifics(
         # DistributedSampler obj.
         if sampler is not None:
             sampler = DistributedSamplerWrapper(
-                sampler, rank=rank, drop_last=drop_last, shuffle=shuffle,
+                sampler,
+                rank=rank,
+                drop_last=drop_last,
+                shuffle=shuffle,
             )
 
             # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -112,7 +116,9 @@ def distributed_loader_specifics(
         elif loader_kwargs.get("batch_sampler") is None:
             # no sampler and batch-sampler
             sampler = DistributedSampler(
-                dataset, rank=rank, drop_last=drop_last,
+                dataset,
+                rank=rank,
+                drop_last=drop_last,
             )
 
             # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -120,7 +126,8 @@ def distributed_loader_specifics(
             loader_kwargs["sampler"] = sampler
         else:  # batch_sampler was specified
             sampler = DistributedSamplerWrapper(
-                loader_kwargs.get("batch_sampler", None), rank=rank,
+                loader_kwargs.get("batch_sampler", None),
+                rank=rank,
             )
             loader_kwargs["batch_sampler"] = sampler
     elif distributed_launch and isinstance(dataset, IterableDataset):
@@ -349,6 +356,8 @@ class LoopedLoader:
     epoch_length : int
         The length of the nominal epoch. After this many steps, raises
         StopIteration
+    batchsize_fn : callable
+        Function for determining batch size, default ``BatchsizeGuesser``
     """
 
     def __init__(self, loader, epoch_length, batchsize_fn=None):

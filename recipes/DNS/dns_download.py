@@ -21,18 +21,19 @@ Authors
     * Sangeet Sagar 2022
 """
 
-import os
-import ssl
-import shutil
-import zipfile
-import tarfile
-import certifi
 import argparse
 import fileinput
-import requests
+import os
+import shutil
+import ssl
+import tarfile
 import urllib.request
-from tqdm.auto import tqdm
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
+
+import certifi
+import requests
+from tqdm.auto import tqdm
 
 BLOB_NAMES = [
     "clean_fullband/datasets_fullband.clean_fullband.VocalSet_48kHz_mono_000_NA_NA.tar.bz2",
@@ -167,7 +168,7 @@ AZURE_URL = (
     "https://dns4public.blob.core.windows.net/dns4archive/datasets_fullband"
 )
 
-# Impulse reponse and Blind testset
+# Impulse response and Blind testset
 OTHER_URLS = {
     "impulse_responses": [
         "https://www.openslr.org/resources/26/sim_rir_16k.zip",
@@ -308,7 +309,7 @@ def download_file(
         Split name of the file being downloaded
         e.g. read_speech
     filename : str
-        Fielname of the file being downloaded
+        Filename of the file being downloaded
     resume_byte_pos: (int, optional)
         Starting byte position for resuming the download.
         Default is None, which means a fresh download.
@@ -427,6 +428,12 @@ def decompress_file(file, decompress_path, split_name):
         Path to the compressed downloaded file
     decompress_path : str
         Path to store the decompressed audio files
+    split_name : str
+        The portion of the data to decompress
+
+    Returns
+    -------
+    True if decompression skipped.
     """
     for _, dirs, _ in os.walk(decompress_path):
         if split_name in dirs:
@@ -572,7 +579,7 @@ if __name__ == "__main__":
     else:
         prepare_download()
 
-    # Modfy contents inside RIR_simple_table.csv
+    # Modify contents inside RIR_simple_table.csv
     file_path = os.path.join(
         DECOMPRESSED_PATH, "impulse_responses", "RIR_table_simple.csv"
     )

@@ -1,6 +1,8 @@
-import os
 import logging
+import os
+
 import torchaudio
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import get_all_files
 
@@ -14,8 +16,12 @@ def prepare_musan(folder, music_csv, noise_csv, speech_csv, max_noise_len=None):
     ---------
     folder : str
         The location of the folder containing the dataset.
+    music_csv : str
+        Filename for storing the prepared music csv.
     noise_csv : str
         Filename for storing the prepared noise csv.
+    speech_csv : str
+        Filename for storing the prepared speech csv.
     max_noise_len : float
         The maximum noise length in seconds. Noises longer
         than this will be cut into pieces.
@@ -35,13 +41,14 @@ def prepare_musan(folder, music_csv, noise_csv, speech_csv, max_noise_len=None):
 
 def _prepare_csv(folder, filelist, csv_file, max_length=None):
     """Iterate a set of wavs and write the corresponding csv file.
+
     Arguments
     ---------
     folder : str
         The folder relative to which the files in the list are listed.
     filelist : str
         The location of a file listing the files to be used.
-    csvfile : str
+    csv_file : str
         The location to use for writing the csv file.
     max_length : float
         The maximum length in seconds. Waveforms longer
@@ -52,7 +59,6 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
             with open(csv_file, "w") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
                 for line in filelist:
-
                     # Read file for duration/channel info
                     filename = os.path.join(folder, line.split()[-1])
                     signal, rate = torchaudio.load(filename)

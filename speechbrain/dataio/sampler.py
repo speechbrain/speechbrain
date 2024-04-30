@@ -10,20 +10,23 @@ Authors:
   * Andreas Nautsch 2021, 2023
   * Adel Moumen 2023
 """
-import torch
+
 import logging
-from operator import itemgetter
-from torch.utils.data import (
-    RandomSampler,
-    WeightedRandomSampler,
-    DistributedSampler,
-    Sampler,
-)
-import numpy as np
-from typing import List
-from speechbrain.dataio.dataset import DynamicItemDataset
 from collections import Counter
+from operator import itemgetter
+from typing import List
+
+import numpy as np
+import torch
 from scipy.stats import lognorm
+from torch.utils.data import (
+    DistributedSampler,
+    RandomSampler,
+    Sampler,
+    WeightedRandomSampler,
+)
+
+from speechbrain.dataio.dataset import DynamicItemDataset
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,8 @@ class ReproducibleRandomSampler(RandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------
@@ -135,6 +140,8 @@ class ReproducibleWeightedRandomSampler(WeightedRandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------
@@ -389,8 +396,8 @@ class DynamicBatchSampler(Sampler):
     batch_ordering : string
         If ``random``, batches are randomly permuted; otherwise ``ascending`` or ``descending`` sorted by length.
     max_batch_ex: int
-        If set, it limits the maximum number of examples that can be in a batch superseeding max_batch_length
-        in instances where the amount of examples will exceeed the value specified here.
+        If set, it limits the maximum number of examples that can be in a batch superseding max_batch_length
+        in instances where the amount of examples will exceed the value specified here.
         E.g. you have a lot of short examples and the batch size for those will be too high, you can use this argument
         to limit the batch size for these short examples.
     bucket_boundaries : list
@@ -401,6 +408,8 @@ class DynamicBatchSampler(Sampler):
         in the dataset. This argument must be set when the dataset is a plain
         Pytorch Dataset object and not a DynamicItemDataset object as length_func
         cannot be used on Pytorch Datasets.
+    seed : int
+        Random seed.
     epoch : int
         The epoch to start at.
     drop_last : bool
@@ -503,7 +512,9 @@ class DynamicBatchSampler(Sampler):
         return [self._ex_lengths[str(idx)] for idx in batch]
 
     def _get_boundaries_through_warping(
-        self, max_batch_length: int, num_quantiles: int,
+        self,
+        max_batch_length: int,
+        num_quantiles: int,
     ) -> List[int]:
 
         # NOTE: the following lines do not cover that there is only one example in the dataset
@@ -513,7 +524,9 @@ class DynamicBatchSampler(Sampler):
         num_boundaries = num_quantiles + 1
         # create latent linearly equal spaced buckets
         latent_boundaries = np.linspace(
-            1 / num_boundaries, num_quantiles / num_boundaries, num_quantiles,
+            1 / num_boundaries,
+            num_quantiles / num_boundaries,
+            num_quantiles,
         )
         # get quantiles using lognormal distribution
         quantiles = lognorm.ppf(latent_boundaries, 1)
@@ -707,7 +720,7 @@ class DynamicBatchSampler(Sampler):
         return len(self._batches)
 
 
-# Heavily inspired by Catalyst, which is under Apache 2.0 licence.
+# Heavily inspired by Catalyst, which is under Apache 2.0 license.
 # https://github.com/catalyst-team/catalyst/blob/51428d7756e62b9b8ee5379f38e9fd576eeb36e5/catalyst/data/sampler.py#L522
 class DistributedSamplerWrapper(DistributedSampler):
     """This wrapper allows using any sampler (for example batch) with Distributed Data Parallel (DDP)
@@ -753,9 +766,9 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
 
     Arguments
     ---------
-    dataset: DynamicItemDataset
+    dataset : DynamicItemDataset
         the dataset form which samples will be drawn
-    key: str
+    key : str
         the key from which samples will be taken
     num_samples : int
         Number of samples to draw
@@ -766,6 +779,8 @@ class BalancingDataSampler(ReproducibleWeightedRandomSampler):
         to use a value which has a good mix of 0 and 1 bits.
     epoch : int
         The epoch to start at.
+    **kwargs : dict
+        Arguments to pass to parent class.
 
     Example
     -------

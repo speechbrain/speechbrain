@@ -17,18 +17,18 @@ Author
 """
 import os
 import sys
+
 import torch
 import torchaudio
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 
+import speechbrain as sb
 import speechbrain.nnet.CNN
 from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for GSC training"
-    """
+    """Class for GSC training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + command classifier.
@@ -58,15 +58,14 @@ class SpeakerBrain(sb.core.Brain):
         embeddings = self.modules.embedding_model(feats)
         outputs = self.modules.classifier(embeddings)
 
-        # Ecapa model uses softmax outside of its classifer
+        # Ecapa model uses softmax outside of its classifier
         if "softmax" in self.modules.keys():
             outputs = self.modules.softmax(outputs)
 
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using command-id as label.
-        """
+        """Computes the loss using command-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         command, _ = batch.command_encoded
@@ -177,7 +176,9 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file, from_didatasets=[train_data], output_key="command",
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="command",
     )
 
     # 4. Set output:
@@ -189,7 +190,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 

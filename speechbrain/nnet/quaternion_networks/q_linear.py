@@ -4,16 +4,18 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import torch
 import logging
+
+import torch
+
 from speechbrain.nnet.quaternion_networks.q_ops import (
+    QuaternionLinearCustomBackward,
     affect_init,
-    unitary_init,
+    check_quaternion_input,
     quaternion_init,
     quaternion_linear_op,
-    check_quaternion_input,
     quaternion_linear_rotation_op,
-    QuaternionLinearCustomBackward,
+    unitary_init,
 )
 
 logger = logging.getLogger(__name__)
@@ -176,6 +178,10 @@ class QLinear(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input to transform linearly.
+
+        Returns
+        -------
+        The linearly transformed input.
         """
 
         if self.autograd:
@@ -200,7 +206,6 @@ class QLinear(torch.nn.Module):
                     self.b,
                 )
         else:
-
             # The custom backward needs an input with 2D at most!
             input_dim = x.dim()
             if input_dim == 3:

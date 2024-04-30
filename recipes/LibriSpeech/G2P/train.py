@@ -8,38 +8,40 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
-from speechbrain.dataio.dataset import (
-    FilteredSortedDynamicItemDataset,
-    DynamicItemDataset,
-)
-from speechbrain.dataio.sampler import BalancingDataSampler
-from speechbrain.utils.data_utils import undo_padding
-import datasets
 import logging
 import os
 import random
-import speechbrain as sb
 import sys
-from enum import Enum
 from collections import namedtuple
-from hyperpyyaml import load_hyperpyyaml
+from enum import Enum
 from functools import partial
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.pretrained import save_for_pretrained
+from io import StringIO
+
+import datasets
+import numpy as np
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.dataio.dataset import (
+    DynamicItemDataset,
+    FilteredSortedDynamicItemDataset,
+)
+from speechbrain.dataio.sampler import BalancingDataSampler
+from speechbrain.dataio.wer import print_alignments
 from speechbrain.lobes.models.g2p.dataio import (
+    add_bos_eos,
     enable_eos_bos,
+    get_sequence_key,
     grapheme_pipeline,
     phoneme_pipeline,
-    tokenizer_encode_pipeline,
-    add_bos_eos,
-    get_sequence_key,
     phonemes_to_label,
+    tokenizer_encode_pipeline,
 )
-from speechbrain.dataio.wer import print_alignments
-from speechbrain.wordemb.util import expand_to_chars
-from io import StringIO
 from speechbrain.utils import hpopt as hp
-import numpy as np
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.pretrained import save_for_pretrained
+from speechbrain.wordemb.util import expand_to_chars
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +53,7 @@ G2PPredictions = namedtuple(
 
 
 class TrainMode(Enum):
-    """An enumeration that represents the trainining mode
+    """An enumeration that represents the training mode
 
     NORMAL: trains the sequence-to-sequence model
     HOMOGRAPH: fine-tunes a trained model on homographs"""
@@ -62,13 +64,19 @@ class TrainMode(Enum):
 
 # Define training procedure
 class G2PBrain(sb.Brain):
-    def __init__(self, train_step_name, *args, **kwargs):
-        """Class constructor
+    """Class constructor
 
-        Arguments
-        ---------
-        train_step_name: the name of the training step, for curriculum learning
-        """
+    Arguments
+    ---------
+    train_step_name: str
+        the name of the training step, for curriculum learning
+    *args: tuple
+        Arguments to forward to ``Brain``
+    **kwargs: dict
+        Arguments to forward to ``Brain``
+    """
+
+    def __init__(self, train_step_name, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.train_step_name = train_step_name
         self.train_step = next(
@@ -142,11 +150,11 @@ class G2PBrain(sb.Brain):
 
         Arguments
         ---------
-        max_key : str
-            Key to use for finding best checkpoint (higher is better).
-            By default, passed to ``self.checkpointer.recover_if_possible()``.
         min_key : str
             Key to use for finding best checkpoint (lower is better).
+            By default, passed to ``self.checkpointer.recover_if_possible()``.
+        max_key : str
+            Key to use for finding best checkpoint (higher is better).
             By default, passed to ``self.checkpointer.recover_if_possible()``.
         """
         if self.checkpointer is not None:
@@ -159,12 +167,12 @@ class G2PBrain(sb.Brain):
             )
             if result is None:
                 logger.info(
-                    "No checkpoint fount for step %s, "
+                    "No checkpoint found for step %s, "
                     "attempting to recover any checkpoint",
                     step,
                 )
                 result = self.checkpointer.recover_if_possible(
-                    min_key=min_key, max_key=max_key,
+                    min_key=min_key, max_key=max_key
                 )
                 if result:
                     logger.info(
@@ -225,7 +233,6 @@ class G2PBrain(sb.Brain):
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets.
 
-
         Arguments
         ---------
         predictions: G2PPredictions
@@ -234,6 +241,11 @@ class G2PBrain(sb.Brain):
             a raw G2P data batch
         stage: speechbrain.Stage
             the training stage
+
+        Returns
+        -------
+        loss : torch.Tensor
+            Computed loss for this batch.
         """
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
@@ -377,6 +389,11 @@ class G2PBrain(sb.Brain):
         ---------
         stage: speechbrain.Stage
             the training stage
+
+        Returns
+        -------
+        active : bool
+            Whether CTC is active for this epoch
         """
         if stage != sb.Stage.TRAIN:
             return False
@@ -407,9 +424,9 @@ class G2PBrain(sb.Brain):
 
         if self.mode == TrainMode.HOMOGRAPH:
             self._set_word_separator()
-        self.grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
-            " "
-        ]
+        self.grapheme_word_separator_idx = (
+            self.hparams.grapheme_encoder.lab2ind[" "]
+        )
         if self.hparams.use_word_emb:
             self.modules.word_emb = self.hparams.word_emb().to(self.device)
 
@@ -419,9 +436,9 @@ class G2PBrain(sb.Brain):
             word_separator_idx = self.hparams.token_space_index
             word_separator_base_idx = self.phoneme_encoder.lab2ind[" "]
         else:
-            word_separator_base_idx = (
-                word_separator_idx
-            ) = self.phoneme_encoder.lab2ind[" "]
+            word_separator_base_idx = word_separator_idx = (
+                self.phoneme_encoder.lab2ind[" "]
+            )
 
         self.hparams.homograph_cost.word_separator = word_separator_idx
         self.hparams.homograph_cost.word_separator_base = (
@@ -449,7 +466,8 @@ class G2PBrain(sb.Brain):
             ):
                 old_lr, new_lr = self.hparams.lr_annealing(per)
             elif isinstance(
-                self.hparams.lr_annealing, sb.nnet.schedulers.ReduceLROnPlateau,
+                self.hparams.lr_annealing,
+                sb.nnet.schedulers.ReduceLROnPlateau,
             ):
                 old_lr, new_lr = self.hparams.lr_annealing(
                     optim_list=[self.optimizer],
@@ -549,6 +567,11 @@ class G2PBrain(sb.Brain):
             the epoch number
         file_path: str
             the raw report path
+
+        Returns
+        -------
+        file_path: str
+            Path to interim report
         """
         output_path = os.path.join(
             self.hparams.output_folder,
@@ -575,8 +598,8 @@ class G2PBrain(sb.Brain):
             whether or not this si the final report. If
             final is false, an epoch number will be inserted into the path
 
-        Arguments
-        ---------
+        Returns
+        -------
         file_name: str
             the report file name
         """
@@ -592,15 +615,9 @@ class G2PBrain(sb.Brain):
         ---------
         epoch: int
             the epoch number
-
         final: bool
             whether or not the reports are final (i.e.
             after the final epoch)
-
-        Returns
-        -------
-        file_name: str
-            the report file name
         """
         wer_file_name = self._get_report_path(epoch, "wer_file", final)
         self._write_wer_file(wer_file_name)
@@ -649,7 +666,7 @@ class G2PBrain(sb.Brain):
             a statistics dictionary
 
         Returns
-        ---------
+        -------
         stats: dict
             a prefixed statistics dictionary
         """
@@ -668,19 +685,19 @@ class G2PBrain(sb.Brain):
 
     @property
     def tb_global_step(self):
-        """Returns the global step number in the Tensorboard writer"""
+        """Returns the global step number in the TensorBoard writer"""
         global_step = self.hparams.tensorboard_train_logger.global_step
         prefix = self.train_step["name"]
         return global_step["valid"][f"{prefix}_loss"]
 
     def save_samples(self):
-        """Saves attention alignment and text samples to the Tensorboard
+        """Saves attention alignment and text samples to the TensorBoard
         writer"""
         self._save_attention_alignment()
         self._save_text_alignments()
 
     def _save_text_alignments(self):
-        """Saves text predictions aligned with lables (a sample, for progress
+        """Saves text predictions aligned with labels (a sample, for progress
         tracking)"""
         if not self.hparams.enable_metrics:
             return
@@ -738,7 +755,7 @@ class G2PBrain(sb.Brain):
         Arguments
         ---------
         tag: str
-            the tag - for Tensorboard
+            the tag - for TensorBoard
         metrics_sample:  list
             List of wer details by utterance,
             see ``speechbrain.utils.edit_distance.wer_details_by_utterance``
@@ -812,7 +829,7 @@ def filter_origins(data, hparams):
     hparams: dict
         the hyperparameters data
 
-    Results
+    Returns
     -------
     data: speechbrain.dataio.dataset.DynamicItemDataset
         the filtered data
@@ -831,10 +848,10 @@ def filter_homograph_positions(dataset):
 
     Arguments
     ---------
-    data: speechbrain.dataio.dataset.DynamicItemDataset
+    dataset: speechbrain.dataio.dataset.DynamicItemDataset
         the data to be filtered
 
-    Results
+    Returns
     -------
     data: speechbrain.dataio.dataset.DynamicItemDataset
         the filtered data
@@ -1000,7 +1017,8 @@ def dataio_prep(hparams, train_step=None):
         )
     else:
         phoneme_pipeline_item = partial(
-            phoneme_pipeline, phoneme_encoder=phoneme_encoder,
+            phoneme_pipeline,
+            phoneme_encoder=phoneme_encoder,
         )
 
     phn_bos_eos_pipeline_item = partial(add_bos_eos, encoder=phoneme_encoder)
@@ -1016,7 +1034,7 @@ def dataio_prep(hparams, train_step=None):
             "takes": ["char"],
             "provides": [
                 "grapheme_list",
-                "grpaheme_encoded_list",
+                "grapheme_encoded_list",
                 "grapheme_encoded",
             ],
         },
@@ -1051,7 +1069,8 @@ def dataio_prep(hparams, train_step=None):
         # A raw tokenizer is needed to determine the correct
         # word boundaries from data
         phoneme_raw_pipeline = partial(
-            phoneme_pipeline, phoneme_encoder=phoneme_encoder,
+            phoneme_pipeline,
+            phoneme_encoder=phoneme_encoder,
         )
         dynamic_items.append(
             {
@@ -1093,7 +1112,8 @@ def dataio_prep(hparams, train_step=None):
         output_keys.append("phn_raw_encoded")
 
     sb.dataio.dataset.set_output_keys(
-        datasets, output_keys,
+        datasets,
+        output_keys,
     )
     if "origins" in hparams:
         datasets = [filter_origins(dataset, hparams) for dataset in datasets]
@@ -1131,9 +1151,9 @@ def check_tensorboard(hparams):
     """
     if hparams["use_tensorboard"]:
         try:
-            from speechbrain.utils.train_logger import TensorboardLogger
+            from speechbrain.utils.train_logger import TensorBoardLogger
 
-            hparams["tensorboard_train_logger"] = TensorboardLogger(
+            hparams["tensorboard_train_logger"] = TensorBoardLogger(
                 hparams["tensorboard_logs"]
             )
         except ImportError:
@@ -1218,7 +1238,7 @@ if __name__ == "__main__":
             g2p_brain.phoneme_encoder = phoneme_encoder
 
             # NOTE: This gets modified after the first run and causes a double
-            # agument issue
+            # argument issue
             dataloader_opts = train_step.get(
                 "dataloader_opts", hparams.get("dataloader_opts", {})
             )

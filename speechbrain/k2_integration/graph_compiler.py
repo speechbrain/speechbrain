@@ -10,12 +10,12 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
-
+import abc
+import logging
 import os
 from typing import List, Optional, Tuple
-import abc
+
 import torch
-import logging
 
 from . import k2  # import k2 from ./__init__.py
 from . import lexicon
@@ -217,7 +217,7 @@ class CtcGraphCompiler(GraphCompiler):
 
     Arguments
     ---------
-    lexicon: Lexicon
+    _lexicon: Lexicon
         It is built from `data/lang/lexicon.txt`.
     device: torch.device
         The device to use for operations compiling transcripts to FSAs.
@@ -244,7 +244,7 @@ class CtcGraphCompiler(GraphCompiler):
     >>> log_probs.requires_grad = True
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
-    >>> # Create a samll lexicon containing only two words and write it to a file.
+    >>> # Create a small lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
     >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
@@ -342,10 +342,10 @@ class CtcGraphCompiler(GraphCompiler):
         word2tids = self.lexicon.texts_to_token_ids(
             texts, log_unknown_warning=is_training
         )
-        scentence_ids = [sum(inner, []) for inner in word2tids]
+        sentence_ids = [sum(inner, []) for inner in word2tids]
 
         target_lens = torch.tensor(
-            [len(t) for t in scentence_ids], dtype=torch.long
+            [len(t) for t in sentence_ids], dtype=torch.long
         )
 
         word_fsa_with_self_loops = k2.add_epsilon_self_loops(

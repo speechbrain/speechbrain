@@ -3,8 +3,10 @@
 Authors
  * Mirco Ravanelli 2020
 """
-import torch  # noqa: F401
+
 import logging
+
+import torch  # noqa: F401
 import torch.nn as nn
 
 logger = logging.getLogger(__name__)
@@ -14,10 +16,9 @@ class Dropout2d(nn.Module):
     """This function implements dropout 2d. It randomly put zeros on
     entire channels.
 
-
     Arguments
     ---------
-    dropout_rate : float
+    drop_rate : float
         It is the dropout factor (between 0 and 1).
     inplace : bool
         If True, it uses inplace operations.
@@ -31,9 +32,7 @@ class Dropout2d(nn.Module):
     torch.Size([10, 50, 40])
     """
 
-    def __init__(
-        self, drop_rate, inplace=False,
-    ):
+    def __init__(self, drop_rate, inplace=False):
         super().__init__()
         self.drop_rate = drop_rate
         self.inplace = inplace
@@ -46,6 +45,11 @@ class Dropout2d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
+
+        Returns
+        -------
+        x_drop : torch.Tensor
+            The tensor with channels zeroed out.
         """
 
         # time must be the last

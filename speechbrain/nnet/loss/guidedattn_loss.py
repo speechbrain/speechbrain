@@ -20,7 +20,7 @@ class GuidedAttentionLoss(nn.Module):
     near-diagonal, imposing progressively larger penalties for paying
     attention to regions far away from the diagonal). It is useful
     for sequence-to-sequence models in which the sequence of outputs
-    is expected to corrsespond closely to the sequence of inputs,
+    is expected to correspond closely to the sequence of inputs,
     such as TTS or G2P
 
     https://arxiv.org/abs/1710.08969
@@ -33,7 +33,7 @@ class GuidedAttentionLoss(nn.Module):
 
     Arguments
     ---------
-    sigma:
+    sigma: float
         the guided attention weight
 
     Example
@@ -69,7 +69,7 @@ class GuidedAttentionLoss(nn.Module):
     def __init__(self, sigma=0.2):
         super().__init__()
         self.sigma = sigma
-        self.weight_factor = 2 * (sigma ** 2)
+        self.weight_factor = 2 * (sigma**2)
 
     def forward(
         self,

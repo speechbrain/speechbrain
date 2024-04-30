@@ -21,25 +21,27 @@ Authors
  * Heitor Guimarães 2022
  * Ha Nguyen 2023
 """
-import os
-import torch
-import logging
-import pathlib
-from torch import nn
-from huggingface_hub import model_info
-from speechbrain.utils.fetching import fetch
-from speechbrain.dataio.dataio import length_to_mask
 
+import logging
+import os
+import pathlib
+
+import torch
+from huggingface_hub import model_info
+from torch import nn
 from transformers import (
     AutoConfig,
-    AutoTokenizer,
     AutoFeatureExtractor,
-    AutoModelForPreTraining,
     AutoModel,
-    AutoModelWithLMHead,
-    AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
+    AutoModelForPreTraining,
+    AutoModelForSeq2SeqLM,
+    AutoModelWithLMHead,
+    AutoTokenizer,
 )
+
+from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.fetching import fetch
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,10 @@ class HFTransformersInterface(nn.Module):
         alongside with the rest of the pipeline.
     cache_dir : str or Path (default: None)
         Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
+    device : any, optional
+        Device to migrate the model to.
+    **kwargs
+        Extra keyword arguments passed to the `from_pretrained` function.
 
     Example
     -------
@@ -98,13 +104,16 @@ class HFTransformersInterface(nn.Module):
         quantization_config=None,
         freeze=False,
         cache_dir="pretrained_models",
-        **kwarg,
+        device=None,
+        **kwargs,
     ):
         super().__init__()
 
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
-            source, cache_dir=save_path, return_unused_kwargs=True,
+            source,
+            cache_dir=save_path,
+            return_unused_kwargs=True,
         )
 
         self.config = self.override_config(self.config)
@@ -125,7 +134,11 @@ class HFTransformersInterface(nn.Module):
 
         # Download model
         self._from_pretrained(
-            source, save_path=save_path, cache_dir=cache_dir,
+            source,
+            save_path=save_path,
+            cache_dir=cache_dir,
+            device=device,
+            **kwargs,
         )
 
         # Prepare for training, fine-tuning, or inference
@@ -140,7 +153,12 @@ class HFTransformersInterface(nn.Module):
             self.model.train()
 
     def _from_pretrained(
-        self, source, save_path, cache_dir,
+        self,
+        source,
+        save_path,
+        cache_dir,
+        device=None,
+        **kwargs,
     ):
         """This function manages the source checking and loading of the params.
 
@@ -156,6 +174,10 @@ class HFTransformersInterface(nn.Module):
             Path (dir) of the downloaded model.
         cache_dir : str
             Path (dir) in which a downloaded pretrained model configuration should be cached.
+        device : any, optional
+            Device to migrate the model to.
+        **kwargs
+            Extra keyword arguments passed to `from_pretrained` function.
         """
         is_sb, ckpt_file, is_local = self._check_model_source(source, save_path)
 
@@ -166,7 +188,9 @@ class HFTransformersInterface(nn.Module):
             self.model.gradient_checkpointing_disable()  # Required by DDP
             # fetch the checkpoint file
             ckpt_full_path = fetch(
-                filename=ckpt_file, source=source, savedir=save_path,
+                filename=ckpt_file,
+                source=source,
+                savedir=save_path,
             )
             # We transfer the parameters from the checkpoint.
             self._load_sb_pretrained_parameters(ckpt_full_path)
@@ -176,7 +200,11 @@ class HFTransformersInterface(nn.Module):
                 config=self.config,
                 cache_dir=save_path,
                 quantization_config=self.quantization_config,
+                **kwargs,
             )
+
+        if device is not None:
+            self.model.to(device)
 
     def _check_model_source(self, path, save_path):
         """Checks if the pretrained model has been trained with SpeechBrain and
@@ -276,8 +304,10 @@ class HFTransformersInterface(nn.Module):
         ---------
         path : str
             Checkpoint path, file name relative to the repo root.
+        **kwargs : dict
+            Args to forward
         """
-        return None
+        pass
 
     def _load_sb_pretrained_parameters(self, path):
         """Loads the parameter of a HuggingFace model pretrained with SpeechBrain
@@ -332,14 +362,14 @@ class HFTransformersInterface(nn.Module):
         raise NotImplementedError
 
     def encode(self, **kwargs):
-        """Customed encoding for inference
+        """Custom encoding for inference
         Users should modify this function according to their own tasks."""
         raise NotImplementedError
 
     def freeze_model(self, model):
         """
         Freezes parameters of a model.
-        This should be overrided too, depending on users' needs, for example, adapters use.
+        This should be overridden too, depending on users' needs, for example, adapters use.
 
         Arguments
         ---------
@@ -356,10 +386,10 @@ class HFTransformersInterface(nn.Module):
         Arguments
         ---------
         config : HuggingFace config object
-            The orginal config.
+            The original config.
 
         Returns
-        ---------
+        -------
         config : HuggingFace config object
             Overridden config.
         """
@@ -407,7 +437,7 @@ def make_padding_masks(src, wav_len=None, pad_idx=0):
         The index for <pad> token (default=0).
 
     Returns
-    ---------
+    -------
     src_key_padding_mask : tensor
         The padding mask.
     """

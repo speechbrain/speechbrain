@@ -13,20 +13,21 @@ Authors
 """
 
 
-import sys
-import speechbrain as sb
-import torch
-from itertools import chain
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 import math
+import sys
+from itertools import chain
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.distributed import run_on_main
 
 
 class ResGenBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a gpt decoder.
-        """
+        """Computation pipeline based on a gpt decoder."""
         # Get required data from batch
         batch = batch.to(self.device)
         input_ids, _ = batch.input_ids
@@ -43,8 +44,7 @@ class ResGenBrain(sb.Brain):
         return outputs
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the NLL-loss using reply as label.
-        """
+        """Computes the NLL-loss using reply as label."""
         # Get required data from batch
         batch = batch.to(self.device)
         ids = batch.id
@@ -151,7 +151,8 @@ class ResGenBrain(sb.Brain):
             )
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"PPL": stage_stats["PPL"]}, min_keys=["PPL"],
+                meta={"PPL": stage_stats["PPL"]},
+                min_keys=["PPL"],
             )
             if epoch == hparams["number_of_epochs"] - 1:
                 with open(self.hparams.bleu_4_valid_file, "w") as w:
@@ -165,7 +166,6 @@ class ResGenBrain(sb.Brain):
 
         # We also write statistics about test data to stdout and to the logfile.
         elif stage == sb.Stage.TEST:
-
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
@@ -191,7 +191,7 @@ class ResGenBrain(sb.Brain):
         }
 
 
-def add_special_tokens_(model, tokenizer, attr_to_special_token,) -> None:
+def add_special_tokens_(model, tokenizer, attr_to_special_token) -> None:
     orig_num_tokens = len(tokenizer.encoder)
     num_added_tokens = tokenizer.add_special_tokens(
         attr_to_special_token  # type: ignore
@@ -208,11 +208,15 @@ def dataio_prep(hparams, tokenizer):
     functions. We expect `prepare_multiwoz` to have been called before
     this, so that the `train.json`, `dev.json`,  and `test.json` manifest
     files are available.
+
     Arguments
     ---------
     hparams : dict
         This dictionary is loaded from the `train.yaml` file, and it includes
         all the hyperparameters needed for dataset construction and loading.
+    tokenizer : tokenizer
+        Object for converting text to tokens.
+
     Returns
     -------
     datasets : dict
@@ -227,7 +231,7 @@ def dataio_prep(hparams, tokenizer):
     # history_window, i.e. how many user-system exchanges consider as context (+1 to consider at least the last user turn)
     history_window = 2 * hparams["max_history"] + 1
 
-    #  Define histoy pipeline:
+    #  Define history pipeline:
     @sb.utils.data_pipeline.takes("history")
     @sb.utils.data_pipeline.provides(
         "history",
@@ -326,7 +330,6 @@ def dataio_prep(hparams, tokenizer):
         reply_eos,
         reply_token_type,
     ):
-
         # put history and reply together
         # N.B. input_sequence = history_bos + reply_ids, we don't have eos in the input
         input_ids = torch.cat((history_bos, reply_ids), -1)
@@ -337,7 +340,7 @@ def dataio_prep(hparams, tokenizer):
 
         # create the language model label (ground truth) for the current input
         # -100 is a special tokens that is ignored during the loss computation
-        # the idea is to mask everything except the reply (withouth the speaker token)
+        # the idea is to mask everything except the reply (without the speaker token)
         # N.B. we don't have bos in the input
         lm_labels = (
             [hparams["ignore_index"]] * history_ids.shape[0]
@@ -382,7 +385,6 @@ def dataio_prep(hparams, tokenizer):
 
 # RECIPE BEGINS!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

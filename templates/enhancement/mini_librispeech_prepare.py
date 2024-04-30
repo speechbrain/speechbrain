@@ -6,12 +6,13 @@ Authors:
  * Peter Plantinga, 2020
 """
 
-import os
 import json
-import shutil
 import logging
-from speechbrain.utils.data_utils import get_all_files, download_file
+import os
+import shutil
+
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import download_file, get_all_files
 
 logger = logging.getLogger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"
@@ -39,12 +40,15 @@ def prepare_mini_librispeech(
     save_json_test : str
         Path where the test data specification file will be saved.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/mini_librispeech'
     >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
     """
-
     # Check if this phase is already done (if so, skip it)
     if skip(save_json_train, save_json_valid, save_json_test):
         logger.info("Preparation completed in previous run, skipping.")
@@ -108,6 +112,12 @@ def skip(*filenames):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    *filenames : tuple
+        The file paths passed here should already exist
+        in order for the preparation to be considered done.
 
     Returns
     -------

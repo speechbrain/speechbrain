@@ -1,6 +1,8 @@
-black==19.10b0
-click==8.0.4
-flake8==3.7.9
-pycodestyle==2.5.0
+black==24.3.0
+click==8.1.7
+flake8==7.0.0
+isort==5.13.2
+pycodestyle==2.11.0
+pydoclint==0.4.1
 pytest==7.4.0
-yamllint==1.23.0
+yamllint==1.35.1

@@ -7,17 +7,19 @@ Author
 Abdou Mohamed Naira 2022
 """
 
-import os
 import csv
-import re
+import glob
 import logging
-import unicodedata
-from tqdm.contrib import tzip
+import os
 import random
+import re
+import unicodedata
+
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import numpy as np
-import glob
+from tqdm.contrib import tzip
+
 from speechbrain.dataio.dataio import read_audio_info
 
 logger = logging.getLogger(__name__)
@@ -33,7 +35,6 @@ def prepare_dvoice(
     language="fongbe",
     skip_prep=False,
 ):
-
     if skip_prep:
         return
 
@@ -107,14 +108,13 @@ def prepare_dvoice(
         dev.to_csv(f"{data_folder}/dev.csv", index=False, sep="\t")
         test.to_csv(f"{data_folder}/test.csv", index=False, sep="\t")
 
-    # Setting ouput files
+    # Setting output files
     save_csv_train = save_folder + "/train.csv"
     save_csv_dev = save_folder + "/dev.csv"
     save_csv_test = save_folder + "/test.csv"
 
     # If csv already exists, we skip the data preparation
     if skip(save_csv_train, save_csv_dev, save_csv_test):
-
         msg = "%s already exists, skipping data preparation!" % (save_csv_train)
         logger.info(msg)
 
@@ -131,7 +131,6 @@ def prepare_dvoice(
 
     # Creating csv file for training data
     if train_csv_file is not None:
-
         create_csv(
             train_csv_file,
             save_csv_train,
@@ -142,14 +141,16 @@ def prepare_dvoice(
 
     # Creating csv file for dev data
     if dev_csv_file is not None:
-
         create_csv(
-            dev_csv_file, save_csv_dev, data_folder, accented_letters, language,
+            dev_csv_file,
+            save_csv_dev,
+            data_folder,
+            accented_letters,
+            language,
         )
 
     # Creating csv file for test data
     if test_csv_file is not None:
-
         create_csv(
             test_csv_file,
             save_csv_test,
@@ -288,6 +289,16 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
     Detects if the DVoice data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_csv_train : str
+        Path to the train csv
+    save_csv_dev : str
+        Path to the dev csv
+    save_csv_test : str
+        Path to the test csv
+
     Returns
     -------
     bool
@@ -317,18 +328,20 @@ def create_csv(
 ):
     """
     Creates the csv file given a list of wav files.
+
     Arguments
     ---------
     orig_csv_file : str
         Path to the DVoice csv file (standard file).
+    csv_file : str
+        Path to the new DVoice csv file.
     data_folder : str
         Path of the DVoice dataset.
     accented_letters : bool, optional
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
-    Returns
-    -------
-    None
+    language : str
+        Language to prepare.
     """
 
     # Check if the given files exists
@@ -389,7 +402,7 @@ def create_csv(
             ALEF_MADDA = "\u0622"
             ALEF_HAMZA_ABOVE = "\u0623"
             letters = (
-                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"
+                "ابتةثجحخدذرزسشصضطظعغفقكلمنهويءآأؤإئ"  # cspell:disable-line
                 + HAMZA
                 + ALEF_MADDA
                 + ALEF_HAMZA_ABOVE
@@ -444,9 +457,14 @@ def check_dvoice_folders(data_folder, language):
     """
     Check if the data folder actually contains the DVoice dataset.
     If not, raises an error.
-    Returns
-    -------
-    None
+
+    Arguments
+    ---------
+    data_folder : str
+        Path to directory with data.
+    language : str
+        The language to check.
+
     Raises
     ------
     FileNotFoundError
@@ -465,7 +483,6 @@ def check_dvoice_folders(data_folder, language):
 
     # Checking clips
     if not os.path.exists(data_folder + files_str):
-
         err_msg = (
             "the folder %s does not exist (it is expected in "
             "the DVoice dataset)" % (data_folder + files_str)
@@ -474,7 +491,6 @@ def check_dvoice_folders(data_folder, language):
 
 
 def unicode_normalisation(text):
-
     try:
         text = unicode(text, "utf-8")
     except NameError:  # unicode is a default on python 3
@@ -483,7 +499,6 @@ def unicode_normalisation(text):
 
 
 def strip_accents(text):
-
     text = (
         unicodedata.normalize("NFD", text)
         .encode("ascii", "ignore")

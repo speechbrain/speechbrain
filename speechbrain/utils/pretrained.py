@@ -4,8 +4,9 @@ Training utilities for pretrained models
 Authors
 * Artem Ploujnikov 2021
 """
-import os
+
 import logging
+import os
 import shutil
 
 logger = logging.getLogger(__name__)
@@ -28,18 +29,23 @@ def save_for_pretrained(
     ---------
     hparams: dict
         the hyperparameter file
-    max_key: str
-        Key to use for finding best checkpoint (higher is better).
-        By default, passed to ``self.checkpointer.recover_if_possible()``.
     min_key: str
         Key to use for finding best checkpoint (lower is better).
         By default, passed to ``self.checkpointer.recover_if_possible()``.
+    max_key: str
+        Key to use for finding best checkpoint (higher is better).
+        By default, passed to ``self.checkpointer.recover_if_possible()``.
     ckpt_predicate: callable
         a filter predicate to locate checkpoints
+    pretrainer_key: str
+        the key under which the pretrainer is stored
     checkpointer_key: str
         the key under which the checkpointer is stored
-    pretrained_key: str
-        the key under which the pretrainer is stored
+
+    Returns
+    -------
+    saved: bool
+        Whether the save was successful
     """
     if any(key not in hparams for key in [pretrainer_key, checkpointer_key]):
         raise ValueError(

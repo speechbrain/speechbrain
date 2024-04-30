@@ -17,17 +17,19 @@ different encoders, decoders, training tasks (Media , PortMedia),
 and many other possible variations.
 
 Authors
- * Gaelle Laperriere 2023
+ * Gaëlle Laperrière 2023
 """
 
-import sys
-import torch
 import logging
-import speechbrain as sb
+import sys
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+from media_prepare import prepare_media
+
+import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
-from media_prepare import prepare_media
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +107,7 @@ class SLU(sb.core.Brain):
         )
         self.optimizer = self.hparams.opt_class(self.hparams.model.parameters())
 
-        # Add opitmizers to checkpoint recoverables.
+        # Add optimizers to checkpoint recoverables.
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "optimizer_wav2vec", self.optimizer_wav2vec
@@ -159,7 +161,8 @@ class SLU(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"CER": stage_stats["CER"]}, min_keys=["CER"],
+                meta={"CER": stage_stats["CER"]},
+                min_keys=["CER"],
             )
 
         # Same plus write results in txt files.
@@ -181,13 +184,15 @@ class SLU(sb.core.Brain):
 # Define custom data procedure.
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # 1. Define datasets:
     csv_folder = hparams["save_folder"] + "/csv"
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": csv_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": csv_folder},
     )
 
     # We sort training data to speed up training and get better results.
@@ -269,7 +274,8 @@ def dataio_prepare(hparams):
 
     # 5. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "char_encoded"],
+        datasets,
+        ["id", "sig", "char_encoded"],
     )
 
     # 6. Make DataLoaders and shuffle if needed:
@@ -298,7 +304,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

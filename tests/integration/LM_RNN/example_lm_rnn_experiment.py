@@ -8,13 +8,15 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 """
 import math
 import pathlib
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class LMBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input chars it computes the next-char probability."
+        """Given an input chars it computes the next-char probability."""
         batch = batch.to(self.device)
         chars, char_lens = batch.char_encoded_bos
         logits = self.modules.model(chars)
@@ -22,13 +24,13 @@ class LMBrain(sb.Brain):
         return pout
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the NLL loss."
+        """Given the network predictions and targets computed the NLL loss."""
         chars, char_lens = batch.char_encoded_eos
         loss = self.hparams.compute_cost(predictions, chars, length=char_lens)
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         if stage == sb.Stage.VALID:
@@ -36,13 +38,12 @@ class LMBrain(sb.Brain):
             print("Train loss: %.2f" % self.train_loss)
         if stage != sb.Stage.TRAIN:
             print(stage, "loss: %.2f" % stage_loss)
-            perplexity = math.e ** stage_loss
+            perplexity = math.e**stage_loss
             print(stage, "perplexity: %.2f" % perplexity)
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

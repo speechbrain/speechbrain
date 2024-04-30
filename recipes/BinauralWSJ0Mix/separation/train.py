@@ -21,23 +21,25 @@ Authors
  * Zijian Huang 2022
 """
 
+import csv
+import logging
 import os
 import sys
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from pyroomacoustics.experimental.localization import tdoa
+from torch.nn import Conv1d
+from tqdm import tqdm
+
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-import numpy as np
-from tqdm import tqdm
-import csv
-import logging
-from pyroomacoustics.experimental.localization import tdoa
-from speechbrain.processing.features import STFT, spectral_magnitude
-from torch.nn import Conv1d
 from speechbrain.core import AMPConfig
+from speechbrain.processing.features import STFT, spectral_magnitude
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +217,8 @@ class Separation(sb.Brain):
         with self.no_sync(not should_step):
             if self.use_amp:
                 with torch.autocast(
-                    dtype=amp.dtype, device_type=torch.device(self.device).type,
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
                 ):
                     predictions, targets = self.compute_forward(
                         mixture, targets, sb.Stage.TRAIN, noise
@@ -250,7 +253,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
             else:
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
@@ -282,7 +285,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -319,7 +322,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -338,7 +340,8 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"snr": stage_stats["snr"]}, min_keys=["snr"],
+                meta={"snr": stage_stats["snr"]},
+                min_keys=["snr"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -433,7 +436,7 @@ class Separation(sb.Brain):
                 s_target[:, 1, i].cpu().numpy(),
                 fs=self.hparams.sample_rate,
             )
-            * 10 ** 6
+            * 10**6
             for i in range(s_target.shape[-1])
         ]
         ITD_prediction = [
@@ -442,7 +445,7 @@ class Separation(sb.Brain):
                 s_prediction[:, 1, i].cpu().numpy(),
                 fs=self.hparams.sample_rate,
             )
-            * 10 ** 6
+            * 10**6
             for i in range(s_prediction.shape[-1])
         ]
         ITD_error1 = np.mean(
@@ -494,7 +497,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture, mix_len = batch.mix_sig
                     snt_id = batch.id
@@ -562,13 +564,12 @@ class Separation(sb.Brain):
     def save_audio(self, snt_id, mixture, targets, predictions):
         "saves the test audio (mixture, targets, and estimated sources) on disk"
 
-        # Create outout folder
+        # Create output folder
         save_path = os.path.join(self.hparams.save_folder, "audio_results")
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
         for ns in range(self.hparams.num_spks):
-
             # Estimated source
             signal = predictions[0, :, :, ns]
             signal = signal / signal.abs().max(0).values
@@ -677,7 +678,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

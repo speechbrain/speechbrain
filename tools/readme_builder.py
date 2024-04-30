@@ -15,9 +15,10 @@ Authors:
     - Mirco Ravanelli 2023
 """
 
+import argparse
 import csv
 import re
-import argparse
+
 from speechbrain.utils.data_utils import get_all_files
 
 
@@ -30,10 +31,10 @@ def create_table(fid_w, csv_file):
         csv_file (str): Path to the recipe CSV file containing recipe information
                         (e.g., 'tests/recipes/LibriSpeech.csv').
 
-    Returns:
+    Returns
+    -------
         None
     """
-
     # Read CSV file into a list of dictionaries
     with open(csv_file, "r") as file:
         csv_reader = csv.DictReader(file)
@@ -105,7 +106,8 @@ def extract_name_value_pairs(input_string):
     Args:
         input_string (str): The string containing the performance.
 
-    Returns:
+    Returns
+    -------
         dict: A dictionary containing the detected performance metrics and their values.
     """
     pattern = re.compile(r"(\w+(?:-\w+)?)=(\S+)")

@@ -13,7 +13,9 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
+
 from speechbrain.inference.classifiers import EncoderClassifier
 
 
@@ -21,7 +23,12 @@ class SpeakerRecognition(EncoderClassifier):
     """A ready-to-use model for speaker recognition. It can be used to
     perform speaker verification with verify_batch().
 
-    ```
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
+
     Example
     -------
     >>> import torchaudio
@@ -61,20 +68,20 @@ class SpeakerRecognition(EncoderClassifier):
         Arguments
         ---------
         wavs1 : Torch.Tensor
-                Tensor containing the speech waveform1 (batch, time).
-                Make sure the sample rate is fs=16000 Hz.
+            torch.Tensor containing the speech waveform1 (batch, time).
+            Make sure the sample rate is fs=16000 Hz.
         wavs2 : Torch.Tensor
-                Tensor containing the speech waveform2 (batch, time).
-                Make sure the sample rate is fs=16000 Hz.
-        wav1_lens: Torch.Tensor
-                Tensor containing the relative length for each sentence
-                in the length (e.g., [0.8 0.6 1.0])
-        wav2_lens: Torch.Tensor
-                Tensor containing the relative length for each sentence
-                in the length (e.g., [0.8 0.6 1.0])
-        threshold: Float
-                Threshold applied to the cosine distance to decide if the
-                speaker is different (0) or the same (1).
+            torch.Tensor containing the speech waveform2 (batch, time).
+            Make sure the sample rate is fs=16000 Hz.
+        wav1_lens : Torch.Tensor
+            torch.Tensor containing the relative length for each sentence
+            in the length (e.g., [0.8 0.6 1.0])
+        wav2_lens : Torch.Tensor
+            torch.Tensor containing the relative length for each sentence
+            in the length (e.g., [0.8 0.6 1.0])
+        threshold : Float
+            Threshold applied to the cosine distance to decide if the
+            speaker is different (0) or the same (1).
 
         Returns
         -------
@@ -95,6 +102,15 @@ class SpeakerRecognition(EncoderClassifier):
 
         Returns the score and the decision (0 different speakers,
         1 same speakers).
+
+        Arguments
+        ---------
+        path_x : str
+            Path to file x
+        path_y : str
+            Path to file y
+        **kwargs : dict
+            Arguments to ``load_audio``
 
         Returns
         -------

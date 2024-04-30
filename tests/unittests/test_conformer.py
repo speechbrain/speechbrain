@@ -4,16 +4,16 @@ import torch
 @torch.no_grad
 def test_streaming_conformer_layer(device):
     """Test whether the Conformer encoder layer masking code path (used at train
-    time) is equivalent to a real streaming scenario."""
-
+    time) is equivalent to a real streaming scenario.
+    """
     from speechbrain.lobes.models.transformer.Conformer import (
         ConformerEncoderLayer,
     )
-    from speechbrain.nnet.attention import RelPosEncXL
-    from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
     from speechbrain.lobes.models.transformer.TransformerASR import (
         make_transformer_src_mask,
     )
+    from speechbrain.nnet.attention import RelPosEncXL
+    from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 
     TOLERATED_MEAN_ERROR = 1.0e-6
 

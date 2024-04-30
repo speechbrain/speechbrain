@@ -1,11 +1,12 @@
+import numpy as np
 import pytest
 import torch
-import numpy as np
 
 
 def test_batch_pad_right_to(device):
-    from speechbrain.utils.data_utils import batch_pad_right
     import random
+
+    from speechbrain.utils.data_utils import batch_pad_right
 
     n_channels = 40
     batch_lens = [1, 5]

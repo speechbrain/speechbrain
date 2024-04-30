@@ -5,22 +5,20 @@ Authors
  * Jarod Duret 2023
 """
 
-import logging
 import json
+import logging
 import pathlib as pl
 
 import joblib
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
-from tqdm import tqdm
-import speechbrain as sb
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
-from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
 from huggingface_hub import hf_hub_download
+from tqdm import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
 
 OPT_FILE = "opt_cvss_extract.pkl"
 TRAIN_JSON = "train.json"
@@ -58,6 +56,15 @@ def skip(splits, save_folder, conf):
     """
     Detects if the ljspeech data_extraction has been already done.
     If the extraction has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits: list
+        The portions of the data to check.
+    save_folder: str
+        Path to folder with generated files to check.
+    conf: dict
+        Configuration for checking against old config.
 
     Returns
     -------
@@ -128,6 +135,10 @@ def extract_cvss(
         CVSS dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -210,7 +221,8 @@ def extract_cvss(
                 info = torchaudio.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
-                    info.sample_rate, sample_rate,
+                    info.sample_rate,
+                    sample_rate,
                 )(audio)
                 audio = audio.unsqueeze(0).to(device)
                 feats = encoder.extract_features(audio)

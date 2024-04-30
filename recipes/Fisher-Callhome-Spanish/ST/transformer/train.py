@@ -11,18 +11,18 @@ Authors
  * YAO-FEI, CHENG 2021
 """
 
-import sys
-import torch
 import logging
+import sys
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+from sacremoses import MosesDetokenizer
 
 import speechbrain as sb
-
-from sacremoses import MosesDetokenizer
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
-en_detoeknizer = MosesDetokenizer(lang="en")
+en_detokenizer = MosesDetokenizer(lang="en")
 
 
 class ST(sb.core.Brain):
@@ -101,7 +101,7 @@ class ST(sb.core.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
-        (p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps,) = predictions
+        (p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps) = predictions
 
         ids = batch.id
 
@@ -123,25 +123,25 @@ class ST(sb.core.Brain):
 
         # st attention loss
         attention_loss = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens,
+            p_seq, tokens_eos, length=tokens_eos_lens
         )
 
         # asr attention loss
         if self.hparams.ctc_weight < 1 and self.hparams.asr_weight > 0:
             asr_attention_loss = self.hparams.seq_cost(
-                asr_p_seq, transcription_eos, length=transcription_eos_lens,
+                asr_p_seq, transcription_eos, length=transcription_eos_lens
             )
 
         # asr ctc loss
         if self.hparams.ctc_weight > 0 and self.hparams.asr_weight > 0:
             asr_ctc_loss = self.hparams.ctc_cost(
-                p_ctc, transcription_tokens, wav_lens, transcription_lens,
+                p_ctc, transcription_tokens, wav_lens, transcription_lens
             )
 
         # mt attention loss
         if self.hparams.mt_weight > 0:
             mt_loss = self.hparams.seq_cost(
-                mt_p_seq, tokens_eos, length=tokens_eos_lens,
+                mt_p_seq, tokens_eos, length=tokens_eos_lens
             )
 
         asr_loss = (self.hparams.ctc_weight * asr_ctc_loss) + (
@@ -161,7 +161,7 @@ class ST(sb.core.Brain):
             if stage == sb.Stage.TEST:
                 # 4 references bleu score
                 predictions = [
-                    en_detoeknizer.detokenize(
+                    en_detokenizer.detokenize(
                         hparams["tokenizer"].decode_ids(utt_seq).split(" ")
                     )
                     for utt_seq in hyps
@@ -177,7 +177,7 @@ class ST(sb.core.Brain):
                 targets = []
                 for reference in four_references:
                     detokenized_translation = [
-                        en_detoeknizer.detokenize(translation.split(" "))
+                        en_detokenizer.detokenize(translation.split(" "))
                         for translation in reference
                     ]
                     targets.append(detokenized_translation)
@@ -188,14 +188,14 @@ class ST(sb.core.Brain):
                 and stage == sb.Stage.VALID
             ):
                 predictions = [
-                    en_detoeknizer.detokenize(
+                    en_detokenizer.detokenize(
                         hparams["tokenizer"].decode_ids(utt_seq).split(" ")
                     )
                     for utt_seq in hyps
                 ]
 
                 targets = [
-                    en_detoeknizer.detokenize(translation.split(" "))
+                    en_detokenizer.detokenize(translation.split(" "))
                     for translation in batch.translation_0
                 ]
                 self.bleu_metric.append(ids, predictions, [targets])
@@ -323,7 +323,6 @@ class ST(sb.core.Brain):
 
             # Load latest checkpoint to resume training if interrupted
             if self.checkpointer is not None:
-
                 # do not reload the weights if training is interrupted right before stage 2
                 group = current_optimizer.param_groups[0]
                 if "momentum" not in group:
@@ -332,14 +331,14 @@ class ST(sb.core.Brain):
                 self.checkpointer.recover_if_possible()
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
+        """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model",
+            ckpts, recoverable_name="model"
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -348,7 +347,8 @@ class ST(sb.core.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
@@ -375,7 +375,7 @@ def dataio_prepare(hparams):
     # The tokens without BOS or EOS is for computing CTC loss.
     @sb.utils.data_pipeline.takes("translation_0")
     @sb.utils.data_pipeline.provides(
-        "translation_0", "tokens_list", "tokens_bos", "tokens_eos", "tokens",
+        "translation_0", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def one_reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
@@ -390,7 +390,7 @@ def dataio_prepare(hparams):
         yield tokens
 
     @sb.utils.data_pipeline.takes(
-        "translation_0", "translation_1", "translation_2", "translation_3",
+        "translation_0", "translation_1", "translation_2", "translation_3"
     )
     @sb.utils.data_pipeline.provides(
         "translation_0",
@@ -560,7 +560,8 @@ def dataio_prepare(hparams):
                 sort_key="duration",
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": 1}, key_max_value={"duration": 5},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 5},
             )
 
         hparams["train_dataloader_opts"]["shuffle"] = True

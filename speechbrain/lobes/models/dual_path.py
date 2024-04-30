@@ -8,19 +8,21 @@ Authors
  * Jianyuan Zhong 2020
 """
 
+import copy
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import copy
-from speechbrain.nnet.linear import Linear
-from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
-from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
-from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
+
 import speechbrain.nnet.RNN as SBRNN
-
+from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
+from speechbrain.lobes.models.transformer.Transformer import (
+    PositionalEncoding,
+    TransformerEncoder,
+)
 from speechbrain.nnet.activations import Swish
-
+from speechbrain.nnet.linear import Linear
 
 EPS = 1e-8
 
@@ -30,14 +32,16 @@ class GlobalLayerNorm(nn.Module):
 
     Arguments
     ---------
-       dim : (int or list or torch.Size)
-           Input shape from an expected input of size.
-       eps : float
-           A value added to the denominator for numerical stability.
-       elementwise_affine : bool
-          A boolean value that when set to True,
-          this module has learnable per-element affine parameters
-          initialized to ones (for weights) and zeros (for biases).
+    dim : (int or list or torch.Size)
+        Input shape from an expected input of size.
+    shape : tuple
+        Expected shape of the input.
+    eps : float
+        A value added to the denominator for numerical stability.
+    elementwise_affine : bool
+        A boolean value that when set to True,
+        this module has learnable per-element affine parameters
+        initialized to ones (for weights) and zeros (for biases).
 
     Example
     -------
@@ -70,6 +74,11 @@ class GlobalLayerNorm(nn.Module):
         ---------
         x : torch.Tensor
             Tensor of size [N, C, K, S] or [N, C, L].
+
+        Returns
+        -------
+        out : torch.Tensor
+            The normalized outputs.
         """
         # x = N x C x K x S or N x C x L
         # N x 1 x 1
@@ -102,12 +111,14 @@ class GlobalLayerNorm(nn.Module):
 class CumulativeLayerNorm(nn.LayerNorm):
     """Calculate Cumulative Layer Normalization.
 
-       Arguments
-       ---------
-       dim : int
+    Arguments
+    ---------
+    dim : int
         Dimension that you want to normalize.
-       elementwise_affine : True
+    elementwise_affine : bool
         Learnable per-element affine parameters.
+    eps : float
+        A small value to prevent overflow.
 
     Example
     -------
@@ -125,7 +136,12 @@ class CumulativeLayerNorm(nn.LayerNorm):
         Arguments
         ---------
         x : torch.Tensor
-            Tensor size [N, C, K, S] or [N, C, L]
+            torch.Tensor size [N, C, K, S] or [N, C, L]
+
+        Returns
+        -------
+        out : torch.Tensor
+            The normalized outputs.
         """
         # x: N x C x K x S or N x C x L
         # N x K x S x C
@@ -145,8 +161,7 @@ class CumulativeLayerNorm(nn.LayerNorm):
 
 
 def select_norm(norm, dim, shape, eps=1e-8):
-    """Just a wrapper to select the normalization type.
-    """
+    """Just a wrapper to select the normalization type."""
 
     if norm == "gln":
         return GlobalLayerNorm(dim, shape, elementwise_affine=True, eps=eps)
@@ -165,10 +180,10 @@ class Encoder(nn.Module):
     ---------
     kernel_size : int
         Length of filters.
-    in_channels : int
-        Number of  input channels.
     out_channels : int
         Number of output channels.
+    in_channels : int
+        Number of  input channels.
 
     Example
     -------
@@ -198,15 +213,15 @@ class Encoder(nn.Module):
         ---------
         x : torch.Tensor
             Input tensor with dimensionality [B, L].
-        Return
-        ------
+
+        Returns
+        -------
         x : torch.Tensor
             Encoded tensor with dimensionality [B, N, T_out].
-
-        where B = Batchsize
-              L = Number of timepoints
-              N = Number of filters
-              T_out = Number of timepoints at the output of the encoder
+            where B = Batchsize
+                  L = Number of timepoints
+                  N = Number of filters
+                  T_out = Number of timepoints at the output of the encoder
         """
         # B x L -> B x 1 x L
         if self.in_channels == 1:
@@ -223,16 +238,12 @@ class Decoder(nn.ConvTranspose1d):
 
     Arguments
     ---------
-    kernel_size : int
-        Length of filters.
-    in_channels : int
-        Number of  input channels.
-    out_channels : int
-        Number of output channels.
-
+    *args : tuple
+    **kwargs : dict
+        Arguments passed through to nn.ConvTranspose1d
 
     Example
-    ---------
+    -------
     >>> x = torch.randn(2, 100, 1000)
     >>> decoder = Decoder(kernel_size=4, in_channels=100, out_channels=1)
     >>> h = decoder(x)
@@ -253,6 +264,11 @@ class Decoder(nn.ConvTranspose1d):
                 where, B = Batchsize,
                        N = number of filters
                        L = time points
+
+        Returns
+        -------
+        out : torch.Tensor
+            The decoded outputs.
         """
 
         if x.dim() not in [2, 3]:
@@ -270,6 +286,11 @@ class Decoder(nn.ConvTranspose1d):
 
 class IdentityBlock:
     """This block is used when we want to have identity transformation within the Dual_path block.
+
+    Arguments
+    ---------
+    **kwargs : dict
+        Arguments are ignored.
 
     Example
     -------
@@ -359,9 +380,13 @@ class FastTransformerBlock(nn.Module):
             where, B = Batchsize,
                    N = number of filters
                    L = time points
+
+        Returns
+        -------
+        out : torch.Tensor
+            The transformed outputs.
         """
         if self.attention_type == "reformer":
-
             # pad zeros at the end
             pad_size = (self.reformer_bucket_size * 2) - (
                 x.shape[1] % (self.reformer_bucket_size * 2)
@@ -424,6 +449,11 @@ class PyTorchPositionalEncoding(nn.Module):
             where, B = Batchsize,
                    N = number of filters
                    L = time points
+
+        Returns
+        -------
+        out : torch.Tensor
+            The encoded output.
         """
         x = x + self.pe[: x.size(0), :]
         return self.dropout(x)
@@ -442,7 +472,7 @@ class PytorchTransformerBlock(nn.Module):
         Number of attention heads.
     d_ffn : int
         Dimensionality of positional feed forward.
-    Dropout : float
+    dropout : float
         Dropout drop rate.
     activation : str
         Activation function.
@@ -450,7 +480,7 @@ class PytorchTransformerBlock(nn.Module):
         If true we use a positional encoding.
 
     Example
-    ---------
+    -------
     >>> x = torch.randn(10, 100, 64)
     >>> block = PytorchTransformerBlock(64)
     >>> x = block(x)
@@ -496,6 +526,10 @@ class PytorchTransformerBlock(nn.Module):
                    N = number of filters
                    L = time points
 
+        Returns
+        -------
+        out : torch.Tensor
+            The transformed output.
         """
         if self.pos_encoder is not None:
             x = self.pos_encoder(x)
@@ -527,11 +561,13 @@ class SBTransformerBlock(nn.Module):
         Activation function.
     use_positional_encoding : bool
         If true we use a positional encoding.
-    norm_before: bool
+    norm_before : bool
         Use normalization before transformations.
+    attention_type : str
+        Type of attention to use, default "regularMHA"
 
     Example
-    ---------
+    -------
     >>> x = torch.randn(10, 100, 64)
     >>> block = SBTransformerBlock(1, 64, 8)
     >>> x = block(x)
@@ -592,6 +628,10 @@ class SBTransformerBlock(nn.Module):
                    L = time points
                    N = number of filters
 
+        Returns
+        -------
+        out : torch.Tensor
+            The transformed output.
         """
         if self.use_positional_encoding:
             pos_enc = self.pos_enc(x)
@@ -619,7 +659,7 @@ class SBRNNBlock(nn.Module):
         If True, bidirectional.
 
     Example
-    ---------
+    -------
     >>> x = torch.randn(10, 100, 64)
     >>> rnn = SBRNNBlock(64, 100, 1, bidirectional=True)
     >>> x = rnn(x)
@@ -656,6 +696,11 @@ class SBRNNBlock(nn.Module):
             where, B = Batchsize,
                    N = number of filters
                    L = time points
+
+        Returns
+        -------
+        out : torch.Tensor
+            The transformed output.
         """
 
         return self.mdl(x)[0]
@@ -679,22 +724,21 @@ class DPTNetBlock(nn.Module):
 
     Examples
     --------
-        >>> encoder_layer = DPTNetBlock(d_model=512, nhead=8)
-        >>> src = torch.rand(10, 100, 512)
-        >>> out = encoder_layer(src)
-        >>> out.shape
-        torch.Size([10, 100, 512])
+    >>> encoder_layer = DPTNetBlock(d_model=512, nhead=8)
+    >>> src = torch.rand(10, 100, 512)
+    >>> out = encoder_layer(src)
+    >>> out.shape
+    torch.Size([10, 100, 512])
     """
 
     def __init__(
         self, d_model, nhead, dim_feedforward=256, dropout=0, activation="relu"
     ):
-
         from torch.nn.modules.activation import MultiheadAttention
-        from torch.nn.modules.normalization import LayerNorm
         from torch.nn.modules.dropout import Dropout
-        from torch.nn.modules.rnn import LSTM
         from torch.nn.modules.linear import Linear
+        from torch.nn.modules.normalization import LayerNorm
+        from torch.nn.modules.rnn import LSTM
 
         super().__init__()
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
@@ -728,6 +772,9 @@ class DPTNetBlock(nn.Module):
                    N = number of filters
                    L = time points
 
+        Returns
+        -------
+        Encoded outputs.
         """
         src2 = self.self_attn(
             src, src, src, attn_mask=None, key_padding_mask=None
@@ -745,8 +792,7 @@ class DPTNetBlock(nn.Module):
 
 
 def _get_activation_fn(activation):
-    """Just a wrapper to get the activation functions.
-    """
+    """Just a wrapper to get the activation functions."""
 
     if activation == "relu":
         return F.relu
@@ -761,26 +807,26 @@ class Dual_Computation_Block(nn.Module):
     ---------
     intra_mdl : torch.nn.module
         Model to process within the chunks.
-     inter_mdl : torch.nn.module
+    inter_mdl : torch.nn.module
         Model to process across the chunks.
-     out_channels : int
+    out_channels : int
         Dimensionality of inter/intra model.
-     norm : str
+    norm : str
         Normalization type.
-     skip_around_intra : bool
+    skip_around_intra : bool
         Skip connection around the intra layer.
-     linear_layer_after_inter_intra : bool
+    linear_layer_after_inter_intra : bool
         Linear layer or not after inter or intra.
 
     Example
-    ---------
-        >>> intra_block = SBTransformerBlock(1, 64, 8)
-        >>> inter_block = SBTransformerBlock(1, 64, 8)
-        >>> dual_comp_block = Dual_Computation_Block(intra_block, inter_block, 64)
-        >>> x = torch.randn(10, 64, 100, 10)
-        >>> x = dual_comp_block(x)
-        >>> x.shape
-        torch.Size([10, 64, 100, 10])
+    -------
+    >>> intra_block = SBTransformerBlock(1, 64, 8)
+    >>> inter_block = SBTransformerBlock(1, 64, 8)
+    >>> dual_comp_block = Dual_Computation_Block(intra_block, inter_block, 64)
+    >>> x = torch.randn(10, 64, 100, 10)
+    >>> x = dual_comp_block(x)
+    >>> x.shape
+    torch.Size([10, 64, 100, 10])
     """
 
     def __init__(
@@ -833,9 +879,8 @@ class Dual_Computation_Block(nn.Module):
         x : torch.Tensor
             Input tensor of dimension [B, N, K, S].
 
-
-        Return
-        ---------
+        Returns
+        -------
         out: torch.Tensor
             Output tensor of dimension [B, N, K, S].
             where, B = Batchsize,
@@ -919,7 +964,7 @@ class Dual_Path_Model(nn.Module):
         Maximum sequence length.
 
     Example
-    ---------
+    -------
     >>> intra_block = SBTransformerBlock(1, 64, 8)
     >>> inter_block = SBTransformerBlock(1, 64, 8)
     >>> dual_path_model = Dual_Path_Model(64, 64, intra_block, inter_block, num_spks=2)
@@ -1051,15 +1096,20 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-        K : int
-            Chunks of length.
-        P : int
-            Hop size.
         input : torch.Tensor
             Tensor of size [B, N, L].
             where, B = Batchsize,
                    N = number of filters
                    L = time points
+        K : int
+            Chunks of length.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Padded inputs
+        gap : int
+            Size of padding
         """
         B, N, L = input.shape
         P = K // 2
@@ -1086,20 +1136,22 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-        K : int
-            Length of the chunks.
         input : torch.Tensor
             Tensor with dim [B, N, L].
+        K : int
+            Length of the chunks.
 
         Return
-        -------
-        output : torch.tensor
+        ------
+        output : torch.Tensor
             Tensor with dim [B, N, K, S].
             where, B = Batchsize,
                N = number of filters
                K = time points in each chunk
                S = the number of chunks
                L = the number of time points
+        gap : int
+            Size of padding
         """
         B, N, L = input.shape
         P = K // 2
@@ -1118,21 +1170,20 @@ class Dual_Path_Model(nn.Module):
 
         Arguments
         ---------
-        input : torch.tensor
+        input : torch.Tensor
             Tensor with dim [B, N, K, S].
         gap : int
             Padding length.
 
         Return
-        -------
-        output : torch.tensor
+        ------
+        output : torch.Tensor
             Tensor with dim [B, N, L].
             where, B = Batchsize,
                N = number of filters
                K = time points in each chunk
                S = the number of chunks
                L = the number of time points
-
         """
         B, N, K, S = input.shape
         P = K // 2
@@ -1155,44 +1206,43 @@ class SepformerWrapper(nn.Module):
 
     Arguments
     ---------
-
-    encoder_kernel_size: int,
+    encoder_kernel_size: int
         The kernel size used in the encoder
-    encoder_in_nchannels: int,
+    encoder_in_nchannels: int
         The number of channels of the input audio
-    encoder_out_nchannels: int,
+    encoder_out_nchannels: int
         The number of filters used in the encoder.
         Also, number of channels that would be inputted to the intra and inter blocks.
-    masknet_chunksize: int,
+    masknet_chunksize: int
         The chunk length that is to be processed by the intra blocks
-    masknet_numlayers: int,
+    masknet_numlayers: int
         The number of layers of combination of inter and intra blocks
     masknet_norm: str,
         The normalization type to be used in the masknet
         Should be one of 'ln' -- layernorm, 'gln' -- globallayernorm
                          'cln' -- cumulative layernorm, 'bn' -- batchnorm
                          -- see the select_norm function above for more details
-    masknet_useextralinearlayer: bool,
+    masknet_useextralinearlayer: bool
         Whether or not to use a linear layer at the output of intra and inter blocks
-    masknet_extraskipconnection: bool,
+    masknet_extraskipconnection: bool
         This introduces extra skip connections around the intra block
-    masknet_numspks: int,
+    masknet_numspks: int
         This determines the number of speakers to estimate
-    intra_numlayers: int,
+    intra_numlayers: int
         This determines the number of layers in the intra block
-    inter_numlayers: int,
+    inter_numlayers: int
         This determines the number of layers in the inter block
-    intra_nhead: int,
+    intra_nhead: int
         This determines the number of parallel attention heads in the intra block
-    inter_nhead: int,
+    inter_nhead: int
         This determines the number of parallel attention heads in the inter block
-    intra_dffn: int,
+    intra_dffn: int
         The number of dimensions in the positional feedforward model in the inter block
-    inter_dffn: int,
+    inter_dffn: int
         The number of dimensions in the positional feedforward model in the intra block
-    intra_use_positional: bool,
+    intra_use_positional: bool
         Whether or not to use positional encodings in the intra block
-    inter_use_positional: bool,
+    inter_use_positional: bool
         Whether or not to use positional encodings in the inter block
     intra_norm_before: bool
         Whether or not we use normalization before the transformations in the intra block
@@ -1200,7 +1250,7 @@ class SepformerWrapper(nn.Module):
         Whether or not we use normalization before the transformations in the inter block
 
     Example
-    -----
+    -------
     >>> model = SepformerWrapper()
     >>> inp = torch.rand(1, 160)
     >>> result = model.forward(inp)
@@ -1230,7 +1280,6 @@ class SepformerWrapper(nn.Module):
         intra_norm_before=True,
         inter_norm_before=True,
     ):
-
         super().__init__()
         self.encoder = Encoder(
             kernel_size=encoder_kernel_size,
@@ -1289,7 +1338,7 @@ class SepformerWrapper(nn.Module):
                 self.reset_layer_recursively(child_layer)
 
     def forward(self, mix):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         mix_w = self.encoder(mix)
         est_mask = self.masknet(mix_w)
         mix_w = torch.stack([mix_w] * self.num_spks)
@@ -1344,10 +1393,11 @@ class SBConformerEncoderBlock(nn.Module):
         Use bias or not in the convolution part of conformer encoder
     use_positional_encoding : bool
         If true we use a positional encoding.
-
+    attention_type : str
+        The type of attention to use, default "RelPosMHAXL"
 
     Example
-    ---------
+    -------
     >>> x = torch.randn(10, 100, 64)
     >>> block = SBConformerEncoderBlock(1, 64, 8)
     >>> from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
@@ -1421,6 +1471,9 @@ class SBConformerEncoderBlock(nn.Module):
                    L = time points
                    N = number of filters
 
+        Returns
+        -------
+        Transformed output
         """
         if self.attention_type == "RelPosMHAXL":
             pos_enc = self.pos_enc(

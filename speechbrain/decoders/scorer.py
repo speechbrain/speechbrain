@@ -6,8 +6,9 @@ Authors:
  * Sung-Lin Yeh 2021
 """
 
-import torch
 import numpy as np
+import torch
+
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
 
@@ -42,7 +43,7 @@ class BaseScorerInterface:
 
     def score(self, inp_tokens, memory, candidates, attn):
         """This method scores the new beams based on the
-        informations of the current timestep.
+        information of the current timestep.
 
         A score is a tensor of shape (batch_size x beam_size, vocab_size).
         It is the log probability of the next token given the current
@@ -66,13 +67,14 @@ class BaseScorerInterface:
             The attention weight to be used in CoverageScorer or CTCScorer.
 
         Returns
-        ---------
+        -------
         torch.Tensor
             (batch_size x beam_size, vocab_size), Scores for the next tokens.
         memory : No limit
             The memory variables input for this timestep.
         """
         raise NotImplementedError
+        return
 
     def permute_mem(self, memory, index):
         """This method permutes the scorer memory to synchronize
@@ -86,7 +88,7 @@ class BaseScorerInterface:
         index : torch.Tensor
             (batch_size, beam_size). The index of the previous path.
         """
-        return None
+        pass
 
     def reset_mem(self, x, enc_lens):
         """This method should implement the resetting of
@@ -100,7 +102,7 @@ class BaseScorerInterface:
         enc_lens : torch.Tensor
             The speechbrain-style relative length.
         """
-        return None
+        pass
 
 
 class CTCScorer(BaseScorerInterface):
@@ -168,9 +170,7 @@ class CTCScorer(BaseScorerInterface):
     >>> hyps, _, _, _ = searcher(enc, torch.ones(batch_size))
     """
 
-    def __init__(
-        self, ctc_fc, blank_index, eos_index, ctc_window_size=0,
-    ):
+    def __init__(self, ctc_fc, blank_index, eos_index, ctc_window_size=0):
         self.ctc_fc = ctc_fc
         self.blank_index = blank_index
         self.eos_index = eos_index
@@ -196,6 +196,11 @@ class CTCScorer(BaseScorerInterface):
             If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
+
+        Returns
+        -------
+        scores : torch.Tensor
+        memory
         """
         scores, memory = self.ctc_score.forward_step(
             inp_tokens, memory, candidates, attn
@@ -213,6 +218,10 @@ class CTCScorer(BaseScorerInterface):
             The memory variables input for this timestep.
         index : torch.Tensor
             (batch_size, beam_size). The index of the previous path.
+
+        Returns
+        -------
+        r, psi : see ``ctc_score.permute_mem``
         """
         r, psi = self.ctc_score.permute_mem(memory, index)
         return r, psi
@@ -234,7 +243,6 @@ class CTCScorer(BaseScorerInterface):
         self.ctc_score = CTCPrefixScore(
             x, enc_lens, self.blank_index, self.eos_index, self.ctc_window_size
         )
-        return None
 
 
 class RNNLMScorer(BaseScorerInterface):
@@ -335,6 +343,13 @@ class RNNLMScorer(BaseScorerInterface):
             If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
+
+        Returns
+        -------
+        log_probs : torch.Tensor
+            Output probabilities.
+        hs : torch.Tensor
+            LM hidden states.
         """
         with torch.no_grad():
             logits, hs = self.lm(inp_tokens, hx=memory)
@@ -352,6 +367,10 @@ class RNNLMScorer(BaseScorerInterface):
             The memory variables input for this timestep.
         index : torch.Tensor
             (batch_size, beam_size). The index of the previous path.
+
+        Returns
+        -------
+        memory
         """
         if isinstance(memory, tuple):
             memory_0 = torch.index_select(memory[0], dim=1, index=index)
@@ -373,7 +392,7 @@ class RNNLMScorer(BaseScorerInterface):
         enc_lens : torch.Tensor
             The speechbrain-style relative length.
         """
-        return None
+        pass
 
 
 class TransformerLMScorer(BaseScorerInterface):
@@ -480,6 +499,11 @@ class TransformerLMScorer(BaseScorerInterface):
             If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
+
+        Returns
+        -------
+        log_probs : torch.Tensor
+        memory
         """
         with torch.no_grad():
             if memory is None:
@@ -505,6 +529,10 @@ class TransformerLMScorer(BaseScorerInterface):
             The memory variables input for this timestep.
         index : torch.Tensor
             (batch_size, beam_size). The index of the previous path.
+
+        Returns
+        -------
+        memory
         """
         memory = torch.index_select(memory, dim=0, index=index)
         return memory
@@ -521,7 +549,7 @@ class TransformerLMScorer(BaseScorerInterface):
         enc_lens : torch.Tensor
             The speechbrain-style relative length.
         """
-        return None
+        pass
 
 
 class KenLMScorer(BaseScorerInterface):
@@ -548,8 +576,8 @@ class KenLMScorer(BaseScorerInterface):
     token_list : list
         The tokens set.
 
-    # Example
-    # -------
+    Example
+    -------
     # >>> from speechbrain.nnet.linear import Linear
     # >>> from speechbrain.nnet.RNN import AttentionalRNNDecoder
     # >>> from speechbrain.decoders import S2SRNNBeamSearcher, KenLMScorer, ScorerBuilder
@@ -641,6 +669,11 @@ class KenLMScorer(BaseScorerInterface):
             If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
+
+        Returns
+        -------
+        scores : torch.Tensor
+        (new_memory, new_scoring_table) : tuple
         """
         n_bh = inp_tokens.size(0)
         scale = 1.0 / np.log10(np.e)
@@ -686,6 +719,11 @@ class KenLMScorer(BaseScorerInterface):
             The memory variables input for this timestep.
         index : torch.Tensor
             (batch_size, beam_size). The index of the previous path.
+
+        Returns
+        -------
+        state : torch.Tensor
+        scoring_table : torch.Tensor
         """
         state, scoring_table = memory
 
@@ -721,7 +759,6 @@ class KenLMScorer(BaseScorerInterface):
         state = self.kenlm.State()
         self.lm.NullContextWrite(state)
         self.batch_index = np.arange(x.size(0))
-        return None
 
 
 class CoverageScorer(BaseScorerInterface):
@@ -824,6 +861,11 @@ class CoverageScorer(BaseScorerInterface):
             If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
+
+        Returns
+        -------
+        score : torch.Tensor
+        coverage
         """
         n_bh = attn.size(0)
         self.time_step += 1
@@ -857,6 +899,10 @@ class CoverageScorer(BaseScorerInterface):
             The memory variables input for this timestep.
         index : torch.Tensor
             (batch_size, beam_size). The index of the previous path.
+
+        Returns
+        -------
+        coverage
         """
         # Update coverage
         coverage = torch.index_select(coverage, dim=0, index=index)
@@ -875,7 +921,6 @@ class CoverageScorer(BaseScorerInterface):
             The speechbrain-style relative length.
         """
         self.time_step = 0
-        return None
 
 
 class LengthScorer(BaseScorerInterface):
@@ -976,6 +1021,12 @@ class LengthScorer(BaseScorerInterface):
             If None, scorers will score on full vocabulary set.
         attn : torch.Tensor
             The attention weight to be used in CoverageScorer or CTCScorer.
+
+        Returns
+        -------
+        torch.Tensor
+            Scores
+        None
         """
         return (
             torch.tensor(
@@ -986,7 +1037,7 @@ class LengthScorer(BaseScorerInterface):
 
 
 class ScorerBuilder:
-    """ Builds scorer instance for beamsearch.
+    """Builds scorer instance for beamsearch.
 
     The ScorerBuilder class is responsible for building a scorer instance for
     beam search. It takes weights for full and partial scorers, as well as
@@ -1135,7 +1186,7 @@ class ScorerBuilder:
             The beam size.
 
         Returns
-        ---------
+        -------
         log_probs : torch.Tensor
             (batch_size x beam_size, vocab_size). Log probs updated by scorers.
         new_memory : dict[str, scorer memory]
@@ -1178,6 +1229,10 @@ class ScorerBuilder:
             (batch_size x beam_size). The index of the previous path.
         candidates : torch.Tensor
             (batch_size, beam_size). The index of the topk candidates.
+
+        Returns
+        -------
+        memory : dict
         """
         for k, impl in self.full_scorers.items():
             # ctc scorer should always be scored by candidates
@@ -1196,8 +1251,12 @@ class ScorerBuilder:
         ---------
         x : torch.Tensor
             See BaseScorerInterface().
-        wav_len : torch.Tensor
+        enc_lens : torch.Tensor
             See BaseScorerInterface().
+
+        Returns
+        -------
+        memory : dict
         """
         memory = dict()
         for k, impl in {**self.full_scorers, **self.partial_scorers}.items():
@@ -1256,6 +1315,10 @@ class BaseRescorerInterface(BaseScorerInterface):
         ---------
         text : list of str
             The text to be normalized.
+
+        Returns
+        -------
+        Normalized text
         """
         return text
 
@@ -1314,9 +1377,9 @@ class RNNLMRescorer(BaseRescorerInterface):
     pad_index : int
         The index of the padding token.
 
-    NOTE
+    Note
     ----
-    This class is intented to be used with a pretrained TransformerLM model.
+    This class is intended to be used with a pretrained TransformerLM model.
     Please see: https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech
 
     By default, this model is using SentencePiece tokenizer.
@@ -1524,7 +1587,7 @@ class RNNLMRescorer(BaseRescorerInterface):
 
 
 class TransformerLMRescorer(BaseRescorerInterface):
-    """ A wrapper of TransformerLM based on the BaseRescorerInterface.
+    """A wrapper of TransformerLM based on the BaseRescorerInterface.
 
     Arguments
     ---------
@@ -1544,9 +1607,9 @@ class TransformerLMRescorer(BaseRescorerInterface):
     pad_index : int
         The index of the padding token.
 
-    NOTE
+    Note
     ----
-    This class is intented to be used with a pretrained TransformerLM model.
+    This class is intended to be used with a pretrained TransformerLM model.
     Please see: https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech
 
     By default, this model is using SentencePiece tokenizer.
@@ -1761,7 +1824,7 @@ class TransformerLMRescorer(BaseRescorerInterface):
 
 
 class HuggingFaceLMRescorer(BaseRescorerInterface):
-    """ A wrapper of HuggingFace's TransformerLM based on the BaseRescorerInterface.
+    """A wrapper of HuggingFace's TransformerLM based on the BaseRescorerInterface.
 
     Arguments
     ---------
@@ -1793,7 +1856,9 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
     """
 
     def __init__(
-        self, model_name, device="cuda",
+        self,
+        model_name,
+        device="cuda",
     ):
         self.model_name = model_name
         self.device = device
@@ -1857,7 +1922,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         normalized_text : str
             The normalized text.
             In this case we do not apply any normalization. However, this method
-            can be overriden to apply any normalization.
+            can be overridden to apply any normalization.
         """
         return text
 
@@ -1938,9 +2003,9 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
 
 
 class RescorerBuilder:
-    """ Builds rescorer instance for beamsearch.
+    """Builds rescorer instance for beamsearch.
 
-    The RecorerBuilder class is responsible for building a scorer instance for
+    The RescorerBuilder class is responsible for building a scorer instance for
     beam search. It takes weights and rescorers classes. It combines the scorers based
     on the weights specified and provides methods for rescoring text.
 
@@ -1955,7 +2020,9 @@ class RescorerBuilder:
     """
 
     def __init__(
-        self, weights=dict(), rescorers=list(),
+        self,
+        weights=dict(),
+        rescorers=list(),
     ):
         assert len(weights) == len(
             rescorers
@@ -2049,7 +2116,7 @@ class RescorerBuilder:
     def move_rescorers_to_device(self, device=None):
         """Moves rescorers to device.
 
-        Usefull to avoid having on GPU rescorers while being
+        Useful to avoid having on GPU rescorers while being
         on TRAIN and VALID Stages.
 
         Arguments

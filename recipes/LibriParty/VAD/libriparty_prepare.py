@@ -2,7 +2,7 @@
 for training and testing a Voice Activity Detection system with the
 LibriParty dataset.
 
-The dataset contains sequences of 1-minutes of LibiSpeech sentences
+The dataset contains sequences of 1-minutes of LibriSpeech sentences
 corrupted by noise and reverberation. The dataset can be downloaded
 from here:
 
@@ -13,12 +13,12 @@ Authors
   * Arjun V 2021
 """
 
-import numpy as np
-import pandas as pd
 import json
 import logging
 from collections import OrderedDict
 
+import numpy as np
+import pandas as pd
 
 """ Global variables"""
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def load_data_json(path):
 
 
 def clean_dataframe(df):
-    # Drop unecessary columns
+    # Drop unnecessary columns
     df.drop(
         [
             "utt_id",
@@ -237,15 +237,19 @@ def prepare_libriparty(
     ---------
     data_folder : str
         Path to the folder where the original LibriSpeech dataset is stored.
-    data_folder : str
+    save_json_folder : str
         The path where to store the training json file.
-    save_json_valid : str
-        The path where to store the valid json file.
-    save_json_test : str
-        The path where to store the test json file.
+    sample_rate : int
+        Sampling rate for the audio.
+    window_size : int
+        Size of window for creating splits.
     skip_prep: bool
         Default: False
         If True, the data preparation is skipped.
+
+    Returns
+    -------
+    None
 
     Example
     -------

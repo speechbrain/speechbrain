@@ -13,19 +13,27 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
-import torchaudio
 import torch.nn.functional as F
+import torchaudio
+
 import speechbrain
-from speechbrain.utils.fetching import fetch
-from speechbrain.utils.data_utils import split_path
-from speechbrain.processing.NMF import spectral_phase
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.processing.NMF import spectral_phase
+from speechbrain.utils.data_utils import split_path
+from speechbrain.utils.fetching import fetch
 
 
 class PIQAudioInterpreter(Pretrained):
     """
     This class implements the interface for the PIQ posthoc interpreter for an audio classifier.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -89,12 +97,10 @@ class PIQAudioInterpreter(Pretrained):
 
         Returns
         -------
-        x_int_sound_domain
+        x_int_sound_domain : torch.Tensor
             The interpretation in the waveform domain
-        text_lab:
+        text_lab : str
             The text label for the classification
-        fs_model:
-            The sampling frequency of the model. Useful to save the audio.
         """
         wavs = wavs.to(self.device)
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
@@ -134,14 +140,16 @@ class PIQAudioInterpreter(Pretrained):
         ---------
         path : str
             Path to audio file to classify.
+        savedir : str
+            Path to cache directory.
 
         Returns
         -------
-        x_int_sound_domain
+        x_int_sound_domain : torch.Tensor
             The interpretation in the waveform domain
-        text_lab:
+        text_lab : str
             The text label for the classification
-        fs_model:
+        fs_model : int
             The sampling frequency of the model. Useful to save the audio.
         """
         source, fl = split_path(path)

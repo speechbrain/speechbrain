@@ -8,10 +8,11 @@ Authors
  * Ha Nguyen 2023
 """
 
-import torch
 import logging
-import torch.nn.functional as F
 import os
+
+import torch
+import torch.nn.functional as F
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
@@ -54,7 +55,11 @@ class LaBSE(HFTransformersInterface):
     """
 
     def __init__(
-        self, source, save_path, freeze=True, output_norm=True,
+        self,
+        source,
+        save_path,
+        freeze=True,
+        output_norm=True,
     ):
         super().__init__(source=source, save_path=save_path, freeze=freeze)
 

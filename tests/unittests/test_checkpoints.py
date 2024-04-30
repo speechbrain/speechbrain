@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 
 
 def test_checkpointer(tmpdir, device):
@@ -102,10 +102,12 @@ def test_checkpointer(tmpdir, device):
 
 
 def test_recovery_custom_io(tmpdir):
-    from speechbrain.utils.checkpoints import register_checkpoint_hooks
-    from speechbrain.utils.checkpoints import mark_as_saver
-    from speechbrain.utils.checkpoints import mark_as_loader
-    from speechbrain.utils.checkpoints import Checkpointer
+    from speechbrain.utils.checkpoints import (
+        Checkpointer,
+        mark_as_loader,
+        mark_as_saver,
+        register_checkpoint_hooks,
+    )
 
     @register_checkpoint_hooks
     class CustomRecoverable:
@@ -287,7 +289,7 @@ def test_average_ckpts(tmpdir):
 
     recoverer.recover_if_possible()
 
-    checkpoints = recoverer.find_checkpoints(max_num_checkpoints=N_avg,)
+    checkpoints = recoverer.find_checkpoints(max_num_checkpoints=N_avg)
 
     model_state_dict = average_checkpoints(checkpoints, "recoverable")
 
@@ -318,10 +320,12 @@ def test_torch_meta(tmpdir, device):
 
 
 def test_checkpoint_hook_register(tmpdir):
-    from speechbrain.utils.checkpoints import register_checkpoint_hooks
-    from speechbrain.utils.checkpoints import mark_as_saver
-    from speechbrain.utils.checkpoints import mark_as_loader
-    from speechbrain.utils.checkpoints import Checkpointer
+    from speechbrain.utils.checkpoints import (
+        Checkpointer,
+        mark_as_loader,
+        mark_as_saver,
+        register_checkpoint_hooks,
+    )
 
     # First a proper interface:
     @register_checkpoint_hooks
@@ -426,6 +430,7 @@ def test_torch_defaults(tmpdir, device):
 
 def parallel_checkpoint(rank, world_size, tmpdir):
     import os
+
     from speechbrain.utils.checkpoints import Checkpointer
 
     os.environ["RANK"] = str(rank)

@@ -5,16 +5,18 @@ Authors
  * Pradnya Kandarkar 2022
 """
 
-from speechbrain.utils.data_utils import get_all_files, download_file
 import json
-import os
-import shutil
-import random
 import logging
-import torchaudio
+import os
+import random
+import shutil
+
 import torch
+import torchaudio
 from tqdm import tqdm
+
 from speechbrain.inference.txt import GraphemeToPhoneme
+from speechbrain.utils.data_utils import download_file, get_all_files
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 logger = logging.getLogger(__name__)
@@ -51,13 +53,13 @@ def prepare_libritts(
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
+    sample_rate : int
+        The sample rate to be used for the dataset
     split_ratio : list
         List composed of three integers that sets split ratios for train, valid,
         and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
-    sample_rate : int
-        The sample rate to be used for the dataset
     libritts_subsets: list
         List of librispeech subsets to use (e.g., dev-clean, train-clean-100, ...) for the experiment.
         This parameter will be ignored if explicit data splits are provided.
@@ -72,6 +74,10 @@ def prepare_libritts(
         Seed value
     model_name : str
         Model name (used to prepare additional model specific data)
+
+    Returns
+    -------
+    None
     """
 
     # Setting the seed value
@@ -135,7 +141,6 @@ def prepare_split(data_folder, split_list):
 
     # For every subset of the dataset, if it doesn't exist, downloads it
     for subset_name in split_list:
-
         subset_folder = os.path.join(data_folder, subset_name)
         subset_archive = os.path.join(subset_folder, subset_name + ".tar.gz")
 
@@ -192,7 +197,6 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
 
     # Processes all the wav files in the list
     for wav_file in tqdm(wav_list):
-
         # Reads the signal
         signal, sig_sr = torchaudio.load(wav_file)
         duration = signal.shape[1] / sig_sr
@@ -250,6 +254,12 @@ def skip(*filenames):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    *filenames : tuple
+        List of paths to check for existence.
+
     Returns
     -------
     bool
@@ -274,8 +284,9 @@ def split_sets(wav_list, split_ratio):
         and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
+
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
     # Random shuffles the list

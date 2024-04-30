@@ -4,13 +4,16 @@ Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
  * Peter Plantinga 2023
+ * Adel Moumen 2024
 """
+
 import datetime
 import os
-import torch
 from functools import wraps
 
-MAIN_PROC_ONLY = 0
+import torch
+
+MAIN_PROC_ONLY: int = 0
 
 
 def run_on_main(
@@ -72,16 +75,15 @@ def run_on_main(
 
 
 def if_main_process():
-    """Checks if the current process is the main local process and authorized to run
-    I/O commands. In DDP mode, the main local process is the one with LOCAL_RANK == 0.
-    In standard mode, the process will not have `LOCAL_RANK` Unix var and will be
-    authorized to run the I/O commands.
+    """Checks if the current process is the main process and authorized to run
+    I/O commands. The main process is the one with `RANK == 0`. In standard mode,
+    the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
     """
-    if "LOCAL_RANK" in os.environ:
-        if os.environ["LOCAL_RANK"] == "":
+    if "RANK" in os.environ:
+        if os.environ["RANK"] == "":
             return False
         else:
-            if int(os.environ["LOCAL_RANK"]) == 0:
+            if int(os.environ["RANK"]) == 0:
                 return True
             return False
     return True
@@ -158,6 +160,10 @@ def ddp_init_group(run_opts):
     ---------
     run_opts: list
         A list of arguments to parse, most often from `sys.argv[1:]`.
+
+    Returns
+    -------
+    None
     """
     rank = os.environ.get("RANK")
     local_rank = os.environ.get("LOCAL_RANK")
@@ -184,7 +190,7 @@ def ddp_init_group(run_opts):
     else:
         raise ValueError(
             run_opts["distributed_backend"]
-            + " communcation protocol doesn't exist."
+            + " communication protocol doesn't exist."
         )
 
     # rank arg is used to set the right rank of the current process for ddp.

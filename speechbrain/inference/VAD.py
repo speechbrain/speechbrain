@@ -13,16 +13,24 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
 import torchaudio
+
+from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import fetch
-from speechbrain.inference.interfaces import Pretrained
 
 
 class VAD(Pretrained):
     """A ready-to-use class for Voice Activity Detection (VAD) using a
     pre-trained model.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -70,7 +78,7 @@ class VAD(Pretrained):
         large_chunk_size: float
             Size (in seconds) of the large chunks that are read sequentially
             from the input audio file.
-        small_chunk_size:
+        small_chunk_size: float
             Size (in seconds) of the small chunks extracted from the large ones.
             The audio signal is processed in parallel within the small chunks.
             Note that large_chunk_size/small_chunk_size must be an integer.
@@ -81,7 +89,7 @@ class VAD(Pretrained):
         Returns
         -------
         prob_vad: torch.Tensor
-            Tensor containing the frame-level speech probabilities for the
+            torch.Tensor containing the frame-level speech probabilities for the
             input audio file.
         """
         # Getting the total size of the input file
@@ -278,7 +286,7 @@ class VAD(Pretrained):
         Returns
         -------
         vad_th: torch.Tensor
-            Tensor containing 1 for speech regions and 0 for non-speech regions.
+            torch.Tensor containing 1 for speech regions and 0 for non-speech regions.
         """
         vad_activation = (vad_prob >= activation_th).int()
         vad_deactivation = (vad_prob >= deactivation_th).int()
@@ -315,7 +323,7 @@ class VAD(Pretrained):
         Returns
         -------
         boundaries: torch.Tensor
-            Tensor containing the start second (or sample) of speech segments
+            torch.Tensor containing the start second (or sample) of speech segments
             in even positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
              one from 1.0 to 1.5 seconds and another from 5.0 to 6.0 seconds).
@@ -365,7 +373,7 @@ class VAD(Pretrained):
         Arguments
         ---------
         boundaries : str
-            Tensor containing the speech boundaries. It can be derived using the
+            torch.Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         close_th: float
             If the distance between boundaries is smaller than close_th, the
@@ -412,7 +420,7 @@ class VAD(Pretrained):
         Arguments
         ---------
         boundaries : torch.Tensor
-            Tensor containing the speech boundaries. It can be derived using the
+            torch.Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         len_th: float
             If the length of the segment is smaller than close_th, the segments
@@ -445,7 +453,7 @@ class VAD(Pretrained):
         Arguments
         ---------
         boundaries: torch.Tensor
-            Tensor containing the speech boundaries. It can be derived using the
+            torch.Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         save_path: path
             When to store the text file containing the speech/non-speech intervals.
@@ -536,8 +544,8 @@ class VAD(Pretrained):
         audio_file: path
             Path of the audio file containing the recording. The file is read
             with torchaudio.
-        boundaries : torch.Tensor
-            Tensor containing the speech boundaries. It can be derived using the
+        boundaries: torch.Tensor
+            torch.Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
         activation_th: float
             A new speech segment is started it the energy is above activation_th.
@@ -545,7 +553,6 @@ class VAD(Pretrained):
             The segment is considered ended when the energy is <= deactivation_th.
         eps: float
             Small constant for numerical stability.
-
 
         Returns
         -------
@@ -623,17 +630,15 @@ class VAD(Pretrained):
         ---------
         x: torch.Tensor
             Signal to split into chunks.
-        chunk_size : str
+        chunk_size : int
             The size of each chunk.
-        chunk_stride:
+        chunk_stride: int
             The stride (hop) of each chunk.
-
 
         Returns
         -------
         x: torch.Tensor
             A new tensors with the chunks derived from the input signal.
-
         """
         x = x.unfold(1, chunk_size, chunk_stride)
         x = x.reshape(x.shape[0] * x.shape[1], -1)
@@ -657,7 +662,7 @@ class VAD(Pretrained):
         Arguments
         ---------
         vad_out: torch.Tensor
-            Tensor containing 1 for each frame of speech and 0 for each non-speech
+            torch.Tensor containing 1 for each frame of speech and 0 for each non-speech
             frame.
         audio_file: path
             The original audio file used to compute vad_out
@@ -703,7 +708,7 @@ class VAD(Pretrained):
         Arguments
         ---------
         boundaries: torch.Tensor
-            Tensor containing the boundaries of the speech segments.
+            torch.Tensor containing the boundaries of the speech segments.
         audio_file: path
             The original audio file used to compute vad_out
 
@@ -740,7 +745,7 @@ class VAD(Pretrained):
         Arguments
         ---------
         boundaries: torch.Tensor
-            Tensor containing the boundaries of the speech segments.
+            torch.Tensor containing the boundaries of the speech segments.
         audio_file: path
             The original audio file used to compute vad_out.
         speech_th: float
@@ -785,7 +790,7 @@ class VAD(Pretrained):
         Arguments
         ---------
         boundaries: torch.Tensor
-            Tensor containing the boundaries of the speech segments.
+            torch.Tensor containing the boundaries of the speech segments.
         audio_file: path
             The original audio file used to compute vad_out.
         before_margin: float
@@ -853,7 +858,6 @@ class VAD(Pretrained):
             6- Remove segments that are too short.
             7- Double check speech segments (optional).
 
-
         Arguments
         ---------
         audio_file : str
@@ -881,6 +885,12 @@ class VAD(Pretrained):
             speech segments actually contain speech. A threshold on the mean
             posterior probabilities provided by the neural network is applied
             based on the speech_th parameter (see below).
+        close_th: float
+            If the distance between boundaries is smaller than close_th, the
+            segments will be merged.
+        len_th: float
+            If the length of the segment is smaller than close_th, the segments
+            will be merged.
         activation_th:  float
             Threshold of the neural posteriors above which starting a speech segment.
         deactivation_th: float
@@ -895,17 +905,11 @@ class VAD(Pretrained):
             Threshold on the mean posterior probability within the candidate
             speech segment. Below that threshold, the segment is re-assigned to
             a non-speech region. This is active only if double_check is True.
-        close_th: float
-            If the distance between boundaries is smaller than close_th, the
-            segments will be merged.
-        len_th: float
-            If the length of the segment is smaller than close_th, the segments
-            will be merged.
 
         Returns
         -------
         boundaries: torch.Tensor
-            Tensor containing the start second of speech segments in even
+            torch.Tensor containing the start second of speech segments in even
             positions and their corresponding end in odd positions
             (e.g, [1.0, 1.5, 5,.0 6.0] means that we have two speech segment;
              one from 1.0 to 1.5 seconds and another from 5.0 to 6.0 seconds).

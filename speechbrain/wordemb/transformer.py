@@ -6,9 +6,8 @@ Authors
 * Artem Ploujnikov 2021
 """
 
-
-import torch
 import numpy as np
+import torch
 from torch import nn
 
 
@@ -33,7 +32,7 @@ class TransformerWordEmbeddings(nn.Module):
     layers: int|list
         a list of layer indexes from which to construct an embedding or the number of layers
 
-    device:
+    device: str
         a torch device identifier. If provided, the model
         will be transferred onto that device
 
@@ -286,7 +285,7 @@ def _get_model(identifier):
 
 
 def _get_tokenizer(identifier):
-    """Tries to retreive a pretrained tokenizer from HuggingFace"""
+    """Tries to retrieve a pretrained tokenizer from HuggingFace"""
     try:
         from transformers import AutoTokenizer  # noqa
 

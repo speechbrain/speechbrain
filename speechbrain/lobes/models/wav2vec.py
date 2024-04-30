@@ -8,19 +8,20 @@ Authors
 """
 
 import logging
-import torch
-import torch.nn.functional as F
-import torch.nn as nn
 import random
-import numpy as np
 
-from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
-from speechbrain.utils.data_utils import batch_pad_right
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.lobes.models.convolution import ConvolutionFrontEnd
+from speechbrain.lobes.models.transformer.Transformer import PositionalEncoding
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.quantisers import GumbelVectorQuantizer
+from speechbrain.utils.data_utils import batch_pad_right
 
 logger = logging.getLogger()
 
@@ -39,6 +40,8 @@ class W2VLatentExtractor(nn.Module):
         Strides of convolutional layers.
     dropout : float
         Dropout of CNN.
+    conv_init : str
+        Type of initialization to use, default "kaiming"
 
     Example
     -------
@@ -68,7 +71,7 @@ class W2VLatentExtractor(nn.Module):
         # ! Note this does conv, norm, gelu, dropout. while fairseq does conv, dropout, norm, gelu
         # Also fairseq layernorm is forced to fp32
         self.extractor = ConvolutionFrontEnd(
-            (None, 16000, 1,),
+            (None, 16000, 1),
             num_blocks=num_blocks,
             num_layers_per_block=1,
             out_channels=out_channels,
@@ -87,8 +90,7 @@ class W2VLatentExtractor(nn.Module):
         self.norm = nn.LayerNorm(out_channels[-1])
 
     def forward(self, x, normalize_signal=True):
-        """ Calculates latents from audio input.
-        """
+        """Calculates latents from audio input."""
         if normalize_signal:
             x = F.layer_norm(x, x.shape[1:])
         x = x.unsqueeze(2)
@@ -96,7 +98,7 @@ class W2VLatentExtractor(nn.Module):
         return self.norm(latents)
 
     def get_output_lengths(self, input_lengths: torch.LongTensor):
-        """ Calculates output lengths for given input lengths. """
+        """Calculates output lengths for given input lengths."""
 
         def _conv_out_length(input_length, kernel_size, stride):
             return torch.floor((input_length - kernel_size) / stride + 1)
@@ -107,8 +109,21 @@ class W2VLatentExtractor(nn.Module):
 
 
 class W2VTargetQuantiser(nn.Module):
-    """ Wraps ``nnet.quantiser.GumbelVectorQuantizer``, see for documentation on
+    """Wraps ``nnet.quantiser.GumbelVectorQuantizer``, see for documentation on
     arguments.
+
+    Arguments
+    ---------
+    in_dim : int
+        Input dimension (channels).
+    out_dim : int
+        Output dimension
+    quantiser : class
+        Default GumbelVectorQuantizer
+    num_vars : int
+        Number of quantized vectors per group.
+    temperature_decay : tuple
+        Temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor).
 
     Example
     -------
@@ -125,7 +140,7 @@ class W2VTargetQuantiser(nn.Module):
         out_dim=256,
         quantiser=GumbelVectorQuantizer,
         num_vars=320,
-        temperature_decay=(2.0, 0.25, 0.999995,),
+        temperature_decay=(2.0, 0.25, 0.999995),
     ):
         super().__init__()
         self.quantiser = quantiser(
@@ -134,7 +149,7 @@ class W2VTargetQuantiser(nn.Module):
         self.proj = nn.Linear(out_dim, out_dim)
 
     def forward(self, x):
-        """ Returns quantised targets plus meta information. """
+        """Returns quantised targets plus meta information."""
         x = self.quantiser(x)
         targets = self.proj(x["x"])
         code_perplex = x["code_perplexity"]
@@ -155,6 +170,7 @@ class W2VTargetQuantiser(nn.Module):
 class EncoderWrapper(nn.Module):
     """A wrapper that adds positional information,
     masks the input and then runs the latent encoder.
+
     Arguments
     ---------
     in_dim : int
@@ -196,9 +212,7 @@ class EncoderWrapper(nn.Module):
             torch.FloatTensor(embedding_dim).uniform_(), requires_grad=True
         )
 
-    def forward(
-        self, latents, wav_lens=None, padding_mask=None, mask=None,
-    ):
+    def forward(self, latents, wav_lens=None, padding_mask=None, mask=None):
         """
         Arguments
         ---------
@@ -206,10 +220,18 @@ class EncoderWrapper(nn.Module):
             Batch of latent representations (AKA frames) output from latent extractor.
         wav_lens : torch.Tensor, shape (B,)
             The actual (unpadded) relative lengths for each sample of the batch (0<wav_lens<1).
-        padding_mask : Torch.Tensor, shape (B, T,)
+        padding_mask : torch.Tensor, shape (B, T,)
             Can be provided instead of wav_lens.
         mask : torch.Tensor, shape (B, T)
             Boolean mask which decides which latent frames will be masked.
+
+        Returns
+        -------
+        results : dict
+            Has the following terms:
+                "num_masked" : number of masked terms
+                "ratio_masked" : ratio of masked terms
+                "embeddings" : features
         """
         results = {}
         T = latents.size(1)
@@ -236,7 +258,7 @@ class EncoderWrapper(nn.Module):
 
 
 def compute_mask(shape, sample_lens, mask_prob, mask_length):
-    """ This creates the boolean mask for a target shape which respects
+    """This creates the boolean mask for a target shape which respects
     the sample lengths and will half roughly ``mask_prob`` entries set to
     ``True``.
 
@@ -303,13 +325,15 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
 
 
 def sample_negatives(y, num_neg):
-    """ Samples negatives from target tensor y.
+    """Samples negatives from target tensor y.
+
     Arguments
     ---------
     y : torch.Tensor
         Tensor of shape (B, T, C)
     num_neg : int
         Number of negatives to sample.
+
     Returns
     -------
     negs : torch.Tensor
@@ -331,7 +355,7 @@ def sample_negatives(y, num_neg):
 
 
 def w2v_mask_collate_fn(samples_lst, get_out_len_fn, mask_prob, mask_length):
-    """ This creates a batch from a list of samples and also creates
+    """This creates a batch from a list of samples and also creates
     the boolean mask that will be used to mask the inputs of the latent
     encoder. To create the mask we need to know the output shape after the
     latent extractor, therefore the argument `get_out_len_fn`.
@@ -373,7 +397,13 @@ def w2v_mask_collate_fn(samples_lst, get_out_len_fn, mask_prob, mask_length):
 
     batch_time_len = max(latent_length_lst)
     mask = compute_mask(
-        (bs, batch_time_len,), latent_length_lst, mask_prob, mask_length
+        (
+            bs,
+            batch_time_len,
+        ),
+        latent_length_lst,
+        mask_prob,
+        mask_length,
     )
     return (
         torch.as_tensor(wavs_padded),

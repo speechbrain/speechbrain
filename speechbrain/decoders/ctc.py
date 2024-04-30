@@ -6,16 +6,19 @@ Authors
  * Sung-Lin Yeh 2020
  * Adel Moumen 2023, 2024
 """
-from itertools import groupby
-from speechbrain.dataio.dataio import length_to_mask
-import math
+
 import dataclasses
-import numpy as np
 import heapq
 import logging
-import torch
+import math
 import warnings
-from typing import Dict, List, Optional, Union, Any, Tuple
+from itertools import groupby
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+import torch
+
+from speechbrain.dataio.dataio import length_to_mask
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +34,6 @@ class CTCPrefixScore:
         The encoder states.
     enc_lens : torch.Tensor
         The actual length of each enc_states sequence.
-    batch_size : int
-        The size of the batch.
-    beam_size : int
-        The width of beam.
     blank_index : int
         The index of the blank token.
     eos_index : int
@@ -44,9 +43,7 @@ class CTCPrefixScore:
         If 0, no windowing applied.
     """
 
-    def __init__(
-        self, x, enc_lens, blank_index, eos_index, ctc_window_size=0,
-    ):
+    def __init__(self, x, enc_lens, blank_index, eos_index, ctc_window_size=0):
         self.blank_index = blank_index
         self.eos_index = eos_index
         self.batch_size = x.size(0)
@@ -94,6 +91,11 @@ class CTCPrefixScore:
             If given, performing partial ctc scoring.
         attn : torch.Tensor
             (batch_size * beam_size, max_enc_len), The attention weights.
+
+        Returns
+        -------
+        new_psi : torch.Tensor
+        (r, psi, scoring_table) : tuple
         """
 
         n_bh = inp_tokens.size(0)
@@ -117,7 +119,7 @@ class CTCPrefixScore:
             ).unsqueeze(2)
             r_prev = r_prev.view(-1, 2, n_bh)
             psi_prev = torch.full(
-                (n_bh, self.vocab_size), 0.0, device=self.device,
+                (n_bh, self.vocab_size), 0.0, device=self.device
             )
         else:
             r_prev, psi_prev = states
@@ -160,7 +162,7 @@ class CTCPrefixScore:
 
         # Prepare forward probs
         r = torch.full(
-            (self.max_enc_len, 2, n_bh, self.num_candidates,),
+            (self.max_enc_len, 2, n_bh, self.num_candidates),
             self.minus_inf,
             device=self.device,
         )
@@ -213,7 +215,7 @@ class CTCPrefixScore:
         # (Alg.2-13): psi = psi + phi * p(c)
         if candidates is not None:
             psi = torch.full(
-                (n_bh, self.vocab_size), self.minus_inf, device=self.device,
+                (n_bh, self.vocab_size), self.minus_inf, device=self.device
             )
             psi_ = torch.logsumexp(
                 torch.cat((phix[start:end], psi_init), dim=0), dim=0
@@ -286,7 +288,7 @@ class CTCPrefixScore:
             cand_index = score_index + hyp_index * self.num_candidates
 
         r = torch.index_select(
-            r.view(-1, 2, n_bh * self.num_candidates), dim=-1, index=cand_index,
+            r.view(-1, 2, n_bh * self.num_candidates), dim=-1, index=cand_index
         )
         r = r.view(-1, 2, n_bh)
 
@@ -377,7 +379,7 @@ def ctc_greedy_decode(probabilities, seq_lens, blank_id=-1):
 
 @dataclasses.dataclass
 class CTCBeam:
-    """This class handle the CTC beam informations during decoding.
+    """This class handle the CTC beam information during decoding.
 
     Arguments
     ---------
@@ -917,7 +919,7 @@ class CTCBaseSearcher(torch.nn.Module):
             new_beams = list(beams)
 
         scored_beams = self.get_lm_beams(
-            new_beams, cached_lm_scores, cached_p_lm_scores,
+            new_beams, cached_lm_scores, cached_p_lm_scores
         )
         # remove beam outliers
         max_score = max([b.lm_score for b in scored_beams])
@@ -993,7 +995,7 @@ class CTCBaseSearcher(torch.nn.Module):
         It automatically converts the SpeechBrain's relative length of the wav input
         to the absolute length.
 
-        Each tensors is converted to numpy and CPU as it is faster and consummes less memory.
+        Each tensors is converted to numpy and CPU as it is faster and consumes less memory.
 
         Arguments
         ---------
@@ -1022,7 +1024,7 @@ class CTCBaseSearcher(torch.nn.Module):
         force_next_word=False,
         is_end=False,
     ) -> List[CTCBeam]:
-        """ Perform a single step of decoding.
+        """Perform a single step of decoding.
 
         Arguments
         ---------
@@ -1117,7 +1119,7 @@ class CTCBaseSearcher(torch.nn.Module):
 
         # loop over the frames and perform the decoding
         beams = self.partial_decoding(
-            log_probs, wav_len, beams, cached_lm_scores, cached_p_lm_scores,
+            log_probs, wav_len, beams, cached_lm_scores, cached_p_lm_scores
         )
 
         # finalize decoding by adding and scoring the last partial word
@@ -1155,13 +1157,13 @@ class CTCBeamSearcher(CTCBaseSearcher):
     added to the general score, and each beams that share the same text are
     merged together.
 
-    The implementation suppors n-gram scoring on words and SentencePiece tokens. The input
+    The implementation supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     The main advantage of this CTCBeamSearcher over the CTCPrefixBeamSearcher is that it is
     relatively faster, and obtains slightly better results. However, the implementation is
-    based on the one from the PyCTCDecode toolkit, adpated for the SpeechBrain's needs and does
-    not follow a specific paper. We do recommand to use the CTCPrefixBeamSearcher if you want
+    based on the one from the PyCTCDecode toolkit, adapted for the SpeechBrain's needs and does
+    not follow a specific paper. We do recommend to use the CTCPrefixBeamSearcher if you want
     to cite the appropriate paper for the decoding method.
 
     Several heuristics are implemented to speed up the decoding process:
@@ -1175,13 +1177,12 @@ class CTCBeamSearcher(CTCBaseSearcher):
         higher than the blank_skip_threshold
 
     Note: if the Acoustic Model is not trained, the Beam Search will
-    take a lot of time. We do recommand to use Greedy Search during validation
+    take a lot of time. We do recommend to use Greedy Search during validation
     until the model is fully trained and ready to be evaluated on test sets.
 
     Arguments
     ---------
-    **kwargs
-        see CTCBaseSearcher, arguments are directly passed.
+    see CTCBaseSearcher, arguments are directly passed.
 
     Example
     -------
@@ -1196,9 +1197,6 @@ class CTCBeamSearcher(CTCBaseSearcher):
     >>> searcher = CTCBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
     >>> hyps = searcher(probs, lens)
     """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
 
     def get_lm_beams(
         self,
@@ -1274,10 +1272,9 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 word_part = beam.partial_word
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
-
-                        cached_partial_token_scores[
-                            word_part
-                        ] = self.lm.score_partial_token(word_part)
+                        cached_partial_token_scores[word_part] = (
+                            self.lm.score_partial_token(word_part)
+                        )
                     lm_score += cached_partial_token_scores[word_part]
 
                 new_beams.append(
@@ -1358,7 +1355,6 @@ class CTCBeamSearcher(CTCBaseSearcher):
                 token = self.vocab_list[token_index]
 
                 for beam in beams:
-
                     if (
                         token_index == self.blank_index
                         or beam.last_token == token
@@ -1465,7 +1461,7 @@ class CTCBeamSearcher(CTCBaseSearcher):
 
             # kenlm scoring
             scored_beams = self.get_lm_beams(
-                new_beams, cached_lm_scores, cached_p_lm_scores,
+                new_beams, cached_lm_scores, cached_p_lm_scores
             )
 
             # remove beam outliers
@@ -1493,7 +1489,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     by Awni Y. Hannun and al (https://arxiv.org/abs/1408.2873).
 
     The implementation keep tracks of the blank and non-blank probabilities.
-    It also suppors n-gram scoring on words and SentencePiece tokens. The input
+    It also supports n-gram scoring on words and SentencePiece tokens. The input
     is expected to be a log-probabilities tensor of shape [batch, time, vocab_size].
 
     Several heuristics are implemented to speed up the decoding process:
@@ -1511,7 +1507,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     and check the results carefully.
 
     Note: if the Acoustic Model is not trained, the Beam Search will
-    take a lot of time. We do recommand to use Greedy Search during validation
+    take a lot of time. We do recommend to use Greedy Search during validation
     until the model is fully trained and ready to be evaluated on test sets.
 
     Note: This implementation does not provide the time alignment of the
@@ -1519,8 +1515,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
     Arguments
     ---------
-    **kwargs
-        see CTCBaseSearcher, arguments are directly passed.
+    see CTCBaseSearcher, arguments are directly passed.
 
     Example
     -------
@@ -1535,9 +1530,6 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
     >>> searcher = CTCPrefixBeamSearcher(blank_index=blank_index, vocab_list=vocab_list)
     >>> hyps = searcher(probs, lens)
     """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
 
     def get_lm_beams(
         self,
@@ -1620,10 +1612,9 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
                 # we score the partial word
                 if len(word_part) > 0:
                     if word_part not in cached_partial_token_scores:
-
-                        cached_partial_token_scores[
-                            word_part
-                        ] = self.lm.score_partial_token(word_part)
+                        cached_partial_token_scores[word_part] = (
+                            self.lm.score_partial_token(word_part)
+                        )
                     lm_score += cached_partial_token_scores[word_part]
 
                 new_beams.append(
@@ -1888,7 +1879,7 @@ class CTCPrefixBeamSearcher(CTCBaseSearcher):
 
             # kenLM scores
             scored_beams = self.get_lm_beams(
-                beams, cached_lm_scores, cached_p_lm_scores,
+                beams, cached_lm_scores, cached_p_lm_scores
             )
 
             # remove beams outliers
@@ -1930,11 +1921,11 @@ class TorchAudioCTCPrefixBeamSearcher:
     If you want to use the language model, or the lexicon search, please make sure that your
     tokenizer/acoustic model uses the same tokens as the language model/lexicon. Otherwise, the decoding will fail.
 
-    The implementation is compatible with Sentenpiece Tokens.
+    The implementation is compatible with SentencePiece Tokens.
 
     Note: When using CUDA CTC decoder, the blank_index has to be 0. Furthermore, using CUDA CTC decoder
     requires the nightly version of torchaudio and a lot of VRAM memory (if you want to use a lot of beams).
-    Overall, we do recommand to use the CTCBeamSearcher or CTCPrefixBeamSearcher in SpeechBrain if you wants to use
+    Overall, we do recommend to use the CTCBeamSearcher or CTCPrefixBeamSearcher in SpeechBrain if you wants to use
     n-gram + beam search decoding. If you wants to have constraint search, please use the CPU version of torchaudio,
     and if you want to speedup as much as possible the decoding, please use the CUDA version.
 
@@ -2149,9 +2140,7 @@ class TorchAudioCTCPrefixBeamSearcher:
 
         # over batch dim
         for i in range(len(results)):
-
             if self.using_cpu_decoder:
-
                 preds = [
                     results[i][j].tokens.tolist()
                     for j in range(len(results[i]))

@@ -6,19 +6,20 @@ Author
 Samuele Cornell, 2020
 """
 
-
-import os
-import sys
 import json
+import os
 import random
-import numpy as np
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_utils import get_all_files
-from local.create_mixtures_metadata import create_metadata
-from local.create_mixtures_from_metadata import create_mixture
+import sys
 from pathlib import Path
+
+import numpy as np
+from hyperpyyaml import load_hyperpyyaml
+from local.create_mixtures_from_metadata import create_mixture
+from local.create_mixtures_metadata import create_metadata
 from tqdm import tqdm
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import get_all_files
 
 # Load hyperparameters file with command-line overrides
 params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
@@ -36,10 +37,10 @@ def split_list(array, split_factors):
     np.random.shuffle(array)
     pivots = [int(len(array) * x) for x in split_factors]
     out = []
-    indx = 0
+    index = 0
     for i in pivots:
-        out.append(array[indx : i + indx])
-        indx = i
+        out.append(array[index : i + index])
+        index = i
     return out
 
 
@@ -95,7 +96,7 @@ else:
 os.makedirs(os.path.join(params["out_folder"], "metadata"), exist_ok=True)
 
 # we generate metadata for each split
-for indx, split in enumerate(["train", "dev", "eval"]):
+for index, split in enumerate(["train", "dev", "eval"]):
     print("Generating metadata for {} set".format(split))
     # we parse librispeech utterances for current split
     c_libri_folder = params["librispeech_folders"][split]
@@ -107,14 +108,14 @@ for indx, split in enumerate(["train", "dev", "eval"]):
         params,
         c_utterances,
         c_words,
-        rirs[indx],
-        noises[indx],
-        backgrounds[indx],
+        rirs[index],
+        noises[index],
+        backgrounds[index],
     )
 
 # from metadata we generate the actual mixtures
 
-for indx, split in enumerate(["train", "dev", "eval"]):
+for index, split in enumerate(["train", "dev", "eval"]):
     # load metadata
     with open(
         os.path.join(params["out_folder"], "metadata", split + ".json")

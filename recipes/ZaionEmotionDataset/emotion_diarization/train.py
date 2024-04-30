@@ -4,20 +4,21 @@ Authors
  * Yingzhi WANG 2023
 """
 
+import itertools
+import json
 import os
 import sys
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
+
 import torch
-import json
-import itertools
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.EDER import EDER
 
 
 class EmoDiaBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + emotion classifier.
-        """
+        """Computation pipeline based on a encoder + emotion classifier."""
         batch = batch.to(self.device)
 
         self.modules = self.modules.to(self.device)
@@ -34,8 +35,7 @@ class EmoDiaBrain(sb.Brain):
         return outputs
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         emoid, _ = batch.emo_encoded
 
         if stage == sb.Stage.TEST:
@@ -131,7 +131,6 @@ class EmoDiaBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(stats["error_rate"])
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -209,6 +208,7 @@ def dataio_prep(hparams):
         Contains two keys, "train" and "valid" that correspond
         to the appropriate DynamicItemDataset object.
     """
+
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -219,6 +219,7 @@ def dataio_prep(hparams):
         return sig
 
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
+
     # Define label pipeline:
     @sb.utils.data_pipeline.takes("frame_label")
     @sb.utils.data_pipeline.provides("emo_encoded")
@@ -260,14 +261,12 @@ def threshold_tuning(batch_predictions, threshold):
 
 
 def del_adjacent(list):
-    """delete adjacent elements that is the same as the f
-    """
+    """delete adjacent elements that is the same as the f"""
     return [k for k, g in itertools.groupby(list)]
 
 
 # RECIPE BEGINS!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -287,7 +286,7 @@ if __name__ == "__main__":
 
     # Data preparation, to be run on only one process.
     if not hparams["skip_prep"]:
-        from zed_prepare import prepare_train, prepare_test
+        from zed_prepare import prepare_test, prepare_train
 
         sb.utils.distributed.run_on_main(
             prepare_train,

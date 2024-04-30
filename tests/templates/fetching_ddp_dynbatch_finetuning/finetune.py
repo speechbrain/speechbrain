@@ -7,31 +7,29 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
+import logging
 import os
 import sys
-import torch
-import logging
-import speechbrain as sb
 from copy import deepcopy
-from tqdm.contrib import tqdm
-from torch.utils.data import DataLoader
+
+import torch
+from ASR_template_train import ASR, dataio_prepare
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.inference.ASR import EncoderDecoderASR
-from speechbrain.utils.distributed import run_on_main, ddp_barrier
-from speechbrain.utils.data_utils import batch_pad_right
-from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.sampler import DynamicBatchSampler
+from torch.utils.data import DataLoader
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataio import read_audio  # read_audio_multichannel,
 from speechbrain.dataio.dataloader import (
     LoopedLoader,
-    make_dataloader,
     distributed_loader_specifics,
+    make_dataloader,
 )
-from speechbrain.dataio.dataio import (
-    read_audio,
-    # read_audio_multichannel,
-)
-from ASR_template_train import ASR, dataio_prepare
-
+from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.dataio.sampler import DynamicBatchSampler
+from speechbrain.inference.ASR import EncoderDecoderASR
+from speechbrain.utils.data_utils import batch_pad_right
+from speechbrain.utils.distributed import ddp_barrier, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +37,8 @@ logger = logging.getLogger(__name__)
 def eval_reporting(reports, single_node=False):
     """Performance logging independent of who logs what.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     reports: dict
         Maps metric labels to performance trackers (instances) which need summarise certain fields for final reporting.
     single_node: bool
@@ -69,8 +67,8 @@ def eval_test_use_recipe_dataio(
 ):
     """Bypassing speechbrain.inference.interfaces.Pretrained.load_audio with recipe dataio (speechbrain.dataio.dataio.read_audio).
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: dict
@@ -116,8 +114,8 @@ def eval_test_batch_from_scratch(
 ):
     """Relies only on batched audio paths to create batches using the pretrained interface only.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     encoder_decoder_asr: speechbrain.inference.ASR.EncoderDecoderASR
         Pretrained interface (other interfaces will require other functions to be called; this is an example).
     test_set: Dataset, DataLoader
@@ -235,8 +233,8 @@ if __name__ == "__main__":
     # * the tokenizer from URL - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/
     # * the pretrained LM from HuggingFace - HF: speechbrain/asr-crdnn-rnnlm-librispeech
     # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
-    run_on_main(hparams["pretrainer_tokenizer"].collect_files,)
-    run_on_main(hparams["pretrainer_LM"].collect_files,)
+    run_on_main(hparams["pretrainer_tokenizer"].collect_files)
+    run_on_main(hparams["pretrainer_LM"].collect_files)
     hparams["pretrainer_tokenizer"].load_collected(run_opts["device"])
     hparams["pretrainer_LM"].load_collected(run_opts["device"])
     # LOCAL fetching takes sources directly from their location

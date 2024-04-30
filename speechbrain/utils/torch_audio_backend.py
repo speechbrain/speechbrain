@@ -3,10 +3,12 @@
 Authors
  * Mirco Ravanelli 2021
 """
-import platform
+
 import logging
-import torchaudio
+import platform
 from typing import Optional
+
+import torchaudio
 
 logger = logging.getLogger(__name__)
 
@@ -16,14 +18,14 @@ def try_parse_torchaudio_major_version() -> Optional[int]:
 
     Returns
     -------
-    The parsed major version, otherwise ``None``."""
-
+    The parsed major version, otherwise ``None``.
+    """
     if not hasattr(torchaudio, "__version__"):
         return None
 
     version_split = torchaudio.__version__.split(".")
 
-    # expect in format x.y.zwhatever; we care only about x
+    # expect in format x.y.zwhatever; we care only about x # cspell:ignore zwhatever
 
     if len(version_split) <= 2:
         # not sure how to parse this
@@ -41,7 +43,6 @@ def check_torchaudio_backend():
     """Checks the torchaudio backend and sets it to soundfile if
     windows is detected.
     """
-
     torchaudio_major = try_parse_torchaudio_major_version()
 
     if torchaudio_major is None:

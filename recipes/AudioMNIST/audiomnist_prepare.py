@@ -12,25 +12,23 @@ Artem Ploujnikov 2023
 Mirco Ravanelli 2023
 """
 
-import logging
 import csv
-import math
 import json
+import logging
+import math
 import os
-import torchaudio
-import speechbrain as sb
-
-from glob import glob
 from functools import partial
-from tqdm.auto import tqdm
-from torchaudio import functional as F
+from glob import glob
 from subprocess import list2cmdline
-from speechbrain.utils.superpowers import run_shell
+
+import torchaudio
+from torchaudio import functional as F
+from tqdm.auto import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.utils.data_utils import download_file
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+from speechbrain.utils.superpowers import run_shell
 
 DEFAULT_SPLITS = ["train", "valid", "test"]
 DEFAULT_AUDIOMNIST_REPO = "https://github.com/soerenab/AudioMNIST.git"
@@ -72,56 +70,48 @@ def prepare_audiomnist(
     data_folder: str
         the folder where the original dataset exists. It assumes the data are stored
         in data_folder/audiomnist_original. If not, data will be automatically downloaded here.
-
     save_folder: str
         the destination folder
-
     train_json: str
         the destination of the training data manifest JSON file.
-
     valid_json: str
         the destination of the valid data manifest JSON file.
-
     test_json: str
         the destination of the test data manifest JSON file.
-
     metadata_folder: str
         the folder for additional metadata
-
+    splits: list
+        List of splits to prepare.
     download: bool
         whether the dataset and meta info should be auto-downloaded (enabled by default)
-
     audiomnist_repo: str
         the URL of the AudioMNIST repository
-
     metadata_repo: str
         the URL of the repository with meta information (e.g., train, valid, test splits)
-
     src_sample_rate: int
         the source sampling rate
-
     tgt_sample_rate: int
         the target sampling rate
-
     trim: bool
         whether to trim silence from the beginning and the end.
         Ignored if process_audio is provided
-
     trim_threshold: bool
         the trimming threshold, in decibels.
         Ignored if process_audio is provided
-
     norm: bool
         whether to normalize the amplitude between -1. and 1.
         Ignored if process_audio is provided
-
+    highpass: bool
+        Whether to apply a highpass (> 70 Hz) filter
     process_audio: callable
         a custom function used to process audio files - instead of
         the standard transform (resample + normalize + trim)
-
     skip_prep: bool
         whether preparation should be skipped
 
+    Returns
+    -------
+    None
     """
     if skip_prep:
         return
@@ -405,13 +395,13 @@ def convert_value(key, value, conversion_map):
     value: object
         the value
     conversion_map: dict
-        a dictinary with keys corresponding to keys in the original
+        a dictionary with keys corresponding to keys in the original
         dataset and conversion function as values
 
     Returns
     -------
     value: object
-        the converted value (or the original value if no conversin
+        the converted value (or the original value if no conversion
         function is found in the map)
     """
     conv_fn = conversion_map.get(key)
@@ -428,7 +418,7 @@ def convert_speaker_meta_keys(speaker_meta):
     speaker_meta: dict
         raw speaker metadata
 
-    Results
+    Returns
     -------
     result: dict
         Mapped metadata
@@ -447,7 +437,7 @@ def convert_speaker_meta_values(speaker_meta):
     speaker_meta: dict
         raw speaker metadata
 
-    Results
+    Returns
     -------
     result: dict
         the converted metadata
@@ -459,16 +449,16 @@ def convert_speaker_meta_values(speaker_meta):
 
 
 def convert_speaker_meta(speaker_meta):
-    """Converts speaker metdata to the target format
+    """Converts speaker metadata to the target format
 
     Arguments
     ---------
     speaker_meta: dict
         the raw speaker metadata
 
-    Results
+    Returns
     -------
-    result: dict
+    speaker_meta: dict
         the converted metadata
     """
     speaker_meta = convert_speaker_meta_keys(speaker_meta)
@@ -500,15 +490,17 @@ def process_files(wav_files, process_audio, sample_rate):
     ---------
     wav_files: list
         a list of (src_file_name, tgt_file_name) tuples
-
+    process_audio: callable
+        the audio processing function
     sample_rate: int
         the sample rate
 
-    Returns
-    -------
-    results: generator
-        a generator of (file_name, extra metadata) tuples
-
+    Yields
+    ------
+    tgt_file_name: str
+        The name of the file
+    result: dict
+        extra metadata
     """
     folders = set(
         os.path.dirname(tgt_file_name) for _, tgt_file_name in wav_files
@@ -536,6 +528,11 @@ def process_file(src_file_name, tgt_file_name, process_audio, sample_rate):
         the audio processing function
     sample_rate: int
         the sampling rate
+
+    Returns
+    -------
+    metadata : dict
+        Includes the length in samples "len" and in seconds "len_s"
     """
     sig = sb.dataio.dataio.read_audio(src_file_name)
     sig = process_audio(sig)
@@ -560,7 +557,9 @@ def get_item_id(file_name):
     """
     _, file_name = os.path.split(file_name)
     file_base_name = os.path.basename(file_name)
-    file_base_name_noext, _ = os.path.splitext(file_base_name)
+    file_base_name_noext, _ = os.path.splitext(
+        file_base_name
+    )  # cspell:ignore noext
     return file_base_name_noext
 
 
@@ -578,8 +577,8 @@ def get_file_metadata(meta, split, file_list, lookup):
     lookup: dict
         the digit metadata lookup (for text/phoneme transcriptions)
 
-    Returns
-    -------
+    Yields
+    ------
     item_id: str
         the ID of the item
     file_meta: dict
@@ -676,7 +675,7 @@ def convert_dataset(
         and the file list for the split corresponding to the
         key as the value
     json_files: dict
-        a dictionary containing the path where to store the data mafinest files
+        a dictionary containing the path where to store the data manifest files
         for each split
     lookup: dict
         the digit look-up
@@ -717,11 +716,16 @@ def trim_sig(sig, threshold):
     sig: torch.Tensor
         raw audio
     threshold: float
-        the decibel threhold
+        the decibel threshold
+
+    Returns
+    -------
+    sig: torch.Tensor
+        The trimmed signal.
     """
     threshold_amp = math.pow(DB_BASE, threshold * DB_MULTIPLIER)
     sig = sig / sig.abs().max()
-    en_sig = sig ** 2
+    en_sig = sig**2
     sound_pos = (en_sig > threshold_amp).nonzero()
     first, last = sound_pos[0], sound_pos[-1]
     return sig[first:last]
@@ -740,16 +744,25 @@ def process_audio_default(
 
     Arguments
     ---------
-    norm: True
+    sig: torch.Tensor
+        Signal to process
+    norm: bool
         whether to normalize
-    trim: True
+    trim: bool
         whether to trim silence at the beginning and at the end
+    highpass: bool
+        whether to apply a highpass filter (> 70 Hz)
     src_sample_rate: int
         the sample rate at which the files are recorded
     tgt_sample_rate: int
         the target sample rate
     trim_threshold: float
         the decibels threshold for trimming the file
+
+    Returns
+    -------
+    sig : torch.Tensor
+        The processed signal
     """
     # Resample
     if src_sample_rate != tgt_sample_rate:
@@ -783,7 +796,7 @@ def read_digit_lookup(file_name):
     Returns
     -------
     result: dict
-        a dictionary simialr the following
+        a dictionary similar the following
         {
             "2": {
                 "char": "two",

@@ -1,5 +1,6 @@
-from speechbrain.inference.ASR import EncoderDecoderASR
 import pytest
+
+from speechbrain.inference.ASR import EncoderDecoderASR
 
 pytest.importorskip(
     "speechbrain.alignment.ctc_segmentation",
@@ -10,7 +11,6 @@ pytest.importorskip(
 @pytest.fixture()
 def asr_model():
     """Load model for the CTC segmentation test."""
-
     asr_model = EncoderDecoderASR.from_hparams(
         source="speechbrain/asr-transformer-transformerlm-librispeech"
     )
@@ -28,10 +28,12 @@ def test_CTCSegmentation(asr_model: EncoderDecoderASR):
     that with random data, there will be a small chance that this test might
     randomly fail.
     """
-
     import numpy as np
-    from speechbrain.alignment.ctc_segmentation import CTCSegmentation
-    from speechbrain.alignment.ctc_segmentation import CTCSegmentationTask
+
+    from speechbrain.alignment.ctc_segmentation import (
+        CTCSegmentation,
+        CTCSegmentationTask,
+    )
 
     # speech either from the test audio file or random
     # example file included in the speechbrain repository
@@ -50,7 +52,9 @@ def test_CTCSegmentation(asr_model: EncoderDecoderASR):
         "utt_c SMOOTH PLANKS\n"
     )
     aligner = CTCSegmentation(
-        asr_model=asr_model, kaldi_style_text=True, min_window_size=10,
+        asr_model=asr_model,
+        kaldi_style_text=True,
+        min_window_size=10,
     )
     segments = aligner(speech, text)
     # check segments

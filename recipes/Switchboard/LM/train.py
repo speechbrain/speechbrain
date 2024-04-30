@@ -10,10 +10,12 @@ Authors
  * Ju-Chieh Chou 2020
  * Dominik Wagner 2022
 """
-import sys
 import logging
+import sys
+
 import torch
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
@@ -77,7 +79,8 @@ class LM(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta=stage_stats, min_keys=["loss"],
+                meta=stage_stats,
+                min_keys=["loss"],
             )
 
 
@@ -91,15 +94,18 @@ def dataio_prepare(hparams):
     data_folder = hparams["save_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"],
+        replacements={"data_root": data_folder},
     )
 
     datasets = [train_data, valid_data, test_data]
@@ -124,7 +130,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "words", "tokens_bos", "tokens_eos"],
+        datasets,
+        ["id", "words", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data
 

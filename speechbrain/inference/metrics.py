@@ -13,7 +13,9 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
+
 from speechbrain.inference.interfaces import Pretrained
 
 
@@ -89,7 +91,7 @@ class SNREstimator(Pretrained):
 
     def gettrue_snrrange(self, inp):
         """Convert from 0-1 range to true snr range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
-        inp = inp * rnge
+        range = self.hparams.snrmax - self.hparams.snrmin
+        inp = inp * range
         inp = inp + self.hparams.snrmin
         return inp

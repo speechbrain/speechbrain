@@ -11,15 +11,17 @@ Modified by:
 """
 
 
-from . import k2  # import k2 from ./__init__.py
-from .lexicon import read_lexicon, write_lexicon, EPS
+import logging
 import math
 import os
-import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
+
 import torch
+
+from . import k2  # import k2 from ./__init__.py
+from .lexicon import EPS, read_lexicon, write_lexicon
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +316,9 @@ def lexicon_to_fst(
         disambig_token = token2id["#0"]
         disambig_word = word2id["#0"]
         arcs = add_self_loops(
-            arcs, disambig_token=disambig_token, disambig_word=disambig_word,
+            arcs,
+            disambig_token=disambig_token,
+            disambig_word=disambig_word,
         )
 
     final_state = next_state
@@ -390,7 +394,9 @@ def lexicon_to_fst_no_sil(
         disambig_token = token2id["#0"]
         disambig_word = word2id["#0"]
         arcs = add_self_loops(
-            arcs, disambig_token=disambig_token, disambig_word=disambig_word,
+            arcs,
+            disambig_token=disambig_token,
+            disambig_word=disambig_word,
         )
 
     final_state = next_state
@@ -436,6 +442,10 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
         Default is 0.5.
     cache: bool
         Whether or not to load/cache from/to the .pt format.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -529,7 +539,11 @@ def prepare_lang(lang_dir, sil_token="SIL", sil_prob=0.5, cache=True):
             sil_prob=sil_prob,
         )
     else:
-        L = lexicon_to_fst_no_sil(lexicon, token2id=token2id, word2id=word2id,)
+        L = lexicon_to_fst_no_sil(
+            lexicon,
+            token2id=token2id,
+            word2id=word2id,
+        )
 
     if sil_prob != 0:
         L_disambig = lexicon_to_fst(

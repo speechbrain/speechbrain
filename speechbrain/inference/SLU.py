@@ -13,9 +13,11 @@ Authors:
  * Adel Moumen 2023
  * Pradnya Kandarkar 2023
 """
+
 import torch
-from speechbrain.inference.interfaces import Pretrained
+
 from speechbrain.inference.ASR import EncoderDecoderASR
+from speechbrain.inference.interfaces import Pretrained
 
 
 class EndToEndSLU(Pretrained):
@@ -23,6 +25,12 @@ class EndToEndSLU(Pretrained):
 
     The class can be used either to run only the encoder (encode()) to extract
     features or to run the entire model (decode()) to map the speech to its semantics.
+
+    Arguments
+    ---------
+    *args : tuple
+    **kwargs : dict
+        Arguments are forwarded to ``Pretrained`` parent class.
 
     Example
     -------
@@ -55,6 +63,8 @@ class EndToEndSLU(Pretrained):
         ---------
         path : str
             Path to audio file to decode.
+        **kwargs : dict
+            Arguments forwarded to ``load_audio``.
 
         Returns
         -------

@@ -6,13 +6,15 @@ Authors
  * Yingzhi Wang 2022
 """
 
-import torchaudio
 import logging
-import sys
-import torch
-import speechbrain as sb
 import os
+import sys
+
+import torch
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +33,8 @@ class DiffWaveBrain(sb.Brain):
             One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
         Returns
         -------
-        predictions : Tensor
-            Tensor that contains the posterior probabilities over the N classes.
+        predictions : torch.Tensor
+            torch.Tensor that contains the posterior probabilities over the N classes.
         """
 
         # We first move the batch to the appropriate device.
@@ -42,7 +44,9 @@ class DiffWaveBrain(sb.Brain):
         y, _ = batch.sig
 
         pred, noise, noisy_sample = self.modules.diffusion.train_sample(
-            y, timesteps=None, condition=x,
+            y,
+            timesteps=None,
+            condition=x,
         )
 
         return pred, noise, noisy_sample, None
@@ -98,8 +102,7 @@ class DiffWaveBrain(sb.Brain):
         pred, noise, noisy_sample, steps = predictions
 
     def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)
-        """
+        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)"""
         if stage == sb.Stage.VALID:
             lr = self.optimizer.param_groups[0]["lr"]
             self.hparams.train_logger.log_stats(
@@ -125,14 +128,16 @@ class DiffWaveBrain(sb.Brain):
                 end_of_epoch=True,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
 
             if epoch % self.hparams.progress_samples_interval == 0:
@@ -266,6 +271,7 @@ def dataio_prepare(hparams):
 
 def check_tensorboard(hparams):
     """Checks whether Tensorboard is enabled and initializes the logger if it is
+
     Arguments
     ---------
     hparams: dict
@@ -280,14 +286,13 @@ def check_tensorboard(hparams):
             )
         except ImportError:
             logger.warning(
-                "Could not enable TensorBoard logging - TensorBoard is not available"
+                "Could not enable torch.TensorBoard logging - torch.TensorBoard is not available"
             )
             hparams["use_tensorboard"] = False
 
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

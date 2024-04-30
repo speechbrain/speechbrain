@@ -1,10 +1,11 @@
-"""This library contains functions that checks the dosctrings
+"""This library contains functions that checks the docstrings
 
 Authors
  * Mirco Ravanelli 2022
 """
 
 import re
+
 from speechbrain.utils.data_utils import get_all_files
 
 
@@ -13,14 +14,14 @@ def extractName(s, search_class=False):
 
     Arguments
     ---------
-    s: string
+    s: str
         Input string where to search for function or class names.
-    search_clas: bool
+    search_class: bool
         If True, searches for class names.
 
     Returns
     -------
-    string: string
+    string: str
         Name of the function or class detected.
     """
     string = ""
@@ -65,7 +66,7 @@ def check_docstrings(
             continue
         print("Checking %s..." % (libpath))
 
-        # Support variable initalization
+        # Support variable initialization
         fun_name = libpath
         class_name = libpath
         check_line = True

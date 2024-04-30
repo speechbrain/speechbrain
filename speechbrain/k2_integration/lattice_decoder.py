@@ -10,17 +10,17 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
+import logging
+from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-from collections import OrderedDict
-
-from . import k2  # import k2 from ./__init__.py
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.lm.arpa import arpa_to_fst
 
 import torch
-import logging
 
+from speechbrain.lm.arpa import arpa_to_fst
+from speechbrain.utils.distributed import run_on_main
+
+from . import k2  # import k2 from ./__init__.py
 from . import graph_compiler, utils
 
 logger = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ def get_decoding(
         decoding_method: Callable[[k2.Fsa], k2.Fsa]
             A function to call with a decoding lattice `k2.Fsa` (obtained
             after nnet output intersect with a HL or HLG).
-            Retuns an FsaVec containing linear FSAs
+            Returns an FsaVec containing linear FSAs
 
     Example
     -------
@@ -88,7 +88,7 @@ def get_decoding(
     >>> log_probs.requires_grad = True
     >>> # Assume all utterances have the same length so no padding was needed.
     >>> input_lens = torch.ones(batch_size)
-    >>> # Create a samll lexicon containing only two words and write it to a file.
+    >>> # Create a small lexicon containing only two words and write it to a file.
     >>> lang_tmpdir = getfixture('tmpdir')
     >>> lexicon_sample = "hello h e l l o\\nworld w o r l d\\n<UNK> <unk>"
     >>> lexicon_file = lang_tmpdir.join("lexicon.txt")
@@ -232,38 +232,38 @@ def get_lattice(
 
     Arguments
     ---------
-    log_probs_nnet_output:
+    log_probs_nnet_output: torch.Tensor
         It is the output of a neural model of shape `(batch, seq_len, num_tokens)`.
-    input_lens:
+    input_lens: torch.Tensor
         It is an int tensor of shape (batch,). It contains lengths of
         each sequence in `log_probs_nnet_output`.
-    decoder:
+    decoder: k2.Fsa
         It is an instance of :class:`k2.Fsa` that represents the decoding graph.
-    search_beam:
+    search_beam: int
         Decoding beam, e.g. 20.  Ger is faster, larger is more exact
         (less pruning). This is the default value; it may be modified by
         `min_active_states` and `max_active_states`.
-    output_beam:
+    output_beam: int
          Beam to prune output, similar to lattice-beam in Kaldi.  Relative
          to best path of output.
-    min_active_states:
+    min_active_states: int
         Minimum number of FSA states that are allowed to be active on any given
         frame for any given intersection/composition task. This is advisory,
         in that it will try not to have fewer than this number active.
         Set it to zero if there is no constraint.
-    max_active_states:
+    max_active_states: int
         Maximum number of FSA states that are allowed to be active on any given
         frame for any given intersection/composition task. This is advisory,
         in that it will try not to exceed that but may not always succeed.
         You can use a very large number if no constraint is needed.
-    ac_scale:
+    ac_scale: float
         acoustic scale applied to `log_probs_nnet_output`
-    subsampling_factor:
+    subsampling_factor: int
         The subsampling factor of the model.
 
     Returns
     -------
-    lattice:
+    lattice: k2.Fsa
         An FsaVec containing the decoding result. It has axes [utt][state][arc].
     """
 
@@ -296,22 +296,23 @@ def get_lattice(
 
 @torch.no_grad()
 def one_best_decoding(
-    lattice: k2.Fsa, use_double_scores: bool = True,
+    lattice: k2.Fsa,
+    use_double_scores: bool = True,
 ) -> k2.Fsa:
     """
     Get the best path from a lattice.
 
     Arguments
     ---------
-      lattice:
+    lattice: k2.Fsa
         The decoding lattice returned by :func:`get_lattice`.
-      use_double_scores:
+    use_double_scores: bool
         True to use double precision floating point in the computation.
         False to use single precision.
 
     Returns
     -------
-    best_path:
+    best_path: k2.Fsa
         An FsaVec containing linear paths.
     """
     best_path = k2.shortest_path(lattice, use_double_scores=use_double_scores)
@@ -352,10 +353,10 @@ def rescore_with_whole_lattice(
 
     Returns
     -------
-        If `lm_scale_list` is None, return a new lattice which is the intersection
-        result of `lattice` and `G_with_epsilon_loops`.
-        Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
-        value is the decoding result (i.e., an FsaVec containing linear FSAs).
+    If `lm_scale_list` is None, return a new lattice which is the intersection
+    result of `lattice` and `G_with_epsilon_loops`.
+    Otherwise, return a dict whose key is an entry in `lm_scale_list` and the
+    value is the decoding result (i.e., an FsaVec containing linear FSAs).
     """
     assert G_with_epsilon_loops.shape == (1, None, None)
     G_with_epsilon_loops = G_with_epsilon_loops.to(lattice.device)
@@ -416,7 +417,9 @@ def rescore_with_whole_lattice(
                 "decode, you will meet this exception."
             )
             inv_lattice = k2.prune_on_arc_post(
-                inv_lattice, prune_th_list[loop_count], True,
+                inv_lattice,
+                prune_th_list[loop_count],
+                True,
             )
             logger.info(
                 f"num_arcs after pruning: {inv_lattice.arcs.num_elements()}"

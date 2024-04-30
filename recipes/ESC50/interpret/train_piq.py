@@ -1,29 +1,36 @@
 #!/usr/bin/python3
-"""This recipe to train PIQ to interepret audio classifiers.
+
+"""This recipe trains PIQ to interpret an audio classifier.
+
+To run this recipe, use the following command:
+> python train_piq.py hparams/<piq-config>.yaml --data_folder /yourpath/ESC-50-master
 
 Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023
+    * Luca Della Libera 2024
 """
+
 import os
 import sys
+
+import matplotlib.pyplot as plt
 import torch
 import torchaudio
-import speechbrain as sb
+import torchvision
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from esc50_prepare import prepare_esc50
-from speechbrain.utils.metric_stats import MetricStats
-from os import makedirs
-import torch.nn.functional as F
+from torch.nn import functional as F
+
+import speechbrain as sb
 from speechbrain.processing.NMF import spectral_phase
-import matplotlib.pyplot as plt
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 eps = 1e-10
 
 
 class InterpreterESC50Brain(sb.core.Brain):
-    """Class for sound class embedding training" """
+    """Class for interpreter training."""
 
     def invert_stft_with_phase(self, X_int, X_stft_phase):
         """Inverts STFT spectra given phase."""
@@ -53,17 +60,51 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         return X_stft_logpower, X_stft, X_stft_power
 
+    @torch.no_grad()
     def classifier_forward(self, X_stft_logpower):
-        """The forward pass for the classifier"""
-        hcat = self.hparams.embedding_model(X_stft_logpower)
-        embeddings = hcat.mean((-1, -2))
+        """The forward pass for the classifier."""
+        if hasattr(self.hparams.embedding_model, "config"):
+            # Hugging Face model
+            config = self.hparams.embedding_model.config
+            # Resize to match expected resolution
+            net_input = torchvision.transforms.functional.resize(
+                X_stft_logpower, (config.image_size, config.image_size)
+            )
+            # Expand to have 3 channels
+            net_input = net_input[:, None, ...].expand(-1, 3, -1, -1)
+            if config.model_type == "focalnet":
+                hcat = self.hparams.embedding_model(net_input).feature_maps[-1]
+                embeddings = hcat.mean(dim=(-1, -2))
+                # Upsample spatial dimensions by 2x to avoid OOM (otherwise the psi model is too large)
+                hcat = torchvision.transforms.functional.resize(
+                    hcat, (2 * hcat.shape[-2], 2 * hcat.shape[-1])
+                )
+            elif config.model_type == "vit":
+                hcat = self.hparams.embedding_model(
+                    net_input
+                ).last_hidden_state.movedim(-1, -2)
+                embeddings = hcat.mean(dim=-1)
+                # Reshape to have 2 spatial dimensions (remove CLS token)
+                num_patches = (
+                    self.hparams.embedding_model.config.image_size
+                    // self.hparams.embedding_model.config.patch_size
+                )
+                hcat = hcat[..., 1:].reshape(
+                    len(hcat), -1, num_patches, num_patches
+                )
+            else:
+                raise NotImplementedError
+        else:
+            hcat = self.hparams.embedding_model(X_stft_logpower)
+            embeddings = hcat.mean((-1, -2))
+
         predictions = self.hparams.classifier(embeddings).squeeze(1)
         class_pred = predictions.argmax(1)
 
         return hcat, embeddings, predictions, class_pred
 
     def interpret_computation_steps(self, wavs, print_probability=False):
-        """Computation steps to get the interpretation spectrogram"""
+        """Computation steps to get the interpretation spectrogram."""
         X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
         X_stft_phase = spectral_phase(X_stft)
 
@@ -93,20 +134,22 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int, X_stft_phase, class_pred, X_stft_logpower, xhat
 
     def interpret_sample(self, wavs, batch=None):
-        """Get the interpratation for a given wav file."""
+        """Get the interpretation for a given wav file."""
 
-        # get the interpretation spectrogram, phase, and the predicted class
+        # Get the interpretation spectrogram, phase, and the predicted class
         X_int, X_stft_phase, pred_cl, _, _ = self.interpret_computation_steps(
             wavs
         )
         X_stft_phase = X_stft_phase[:, : X_int.shape[1], :]
-        if batch is not None:
+
+        if not (batch is None):
             x_int_sb = self.invert_stft_with_phase(X_int, X_stft_phase)
 
-            # save reconstructed and original spectrograms
-            makedirs(
+            # Save reconstructed and original spectrograms
+            os.makedirs(
                 os.path.join(
-                    self.hparams.output_folder, "audios_from_interpretation",
+                    self.hparams.output_folder,
+                    "audios_from_interpretation",
                 ),
                 exist_ok=True,
             )
@@ -141,7 +184,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return X_int
 
     def overlap_test(self, batch):
-        """Interpration test with overlapped audio"""
+        """Interpration test with overlapped audio."""
         wavs, _ = batch.sig
         wavs = wavs.to(self.device)
 
@@ -153,11 +196,21 @@ class InterpreterESC50Brain(sb.core.Brain):
         s2 = wavs[1]
         s2 = s2 / s2.max()
 
-        # create the mixture with s2 being the noise (lower gain)
-        mix = (s1 * 0.8 + (s2 * 0.2)).unsqueeze(0)
+        # Create the mixture with s2 being the noise (lower gain)
+        if (
+            hasattr(self.hparams, "concat_sources")
+            and self.hparams.concat_sources
+        ):
+            length = min(len(s1), len(s2))
+            mid = length // 2
+            s1[mid:] = 0.0
+            s2[:mid] = 0.0
+            mix = (s1 + s2).unsqueeze(0)
+        else:
+            mix = (s1 * 0.8 + (s2 * 0.2)).unsqueeze(0)
         mix = mix / mix.max()
 
-        # get the interpretation spectrogram, phase, and the predicted class
+        # Get the interpretation spectrogram, phase, and the predicted class
         (
             X_int,
             X_stft_phase,
@@ -173,7 +226,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         temp = torch.expm1(X_int).unsqueeze(0).unsqueeze(-1)
         x_int_sb = self.invert_stft_with_phase(temp, X_stft_phase)
 
-        # save reconstructed and original spectrograms
+        # Save reconstructed and original spectrograms
         current_class_ind = batch.class_string_encoded.data[0].item()
         current_class_name = self.hparams.label_encoder.ind2lab[
             current_class_ind
@@ -190,8 +243,9 @@ class InterpreterESC50Brain(sb.core.Brain):
             "overlap_test",
             f"tc_{current_class_name}_nc_{noise_class_name}_pc_{predicted_class_name}",
         )
-        makedirs(
-            out_folder, exist_ok=True,
+        os.makedirs(
+            out_folder,
+            exist_ok=True,
         )
 
         torchaudio.save(
@@ -218,27 +272,68 @@ class InterpreterESC50Brain(sb.core.Brain):
             self.hparams.sample_rate,
         )
 
-        plt.figure(figsize=(10, 5), dpi=100)
+        plt.figure(figsize=(15, 5), dpi=100)
 
-        plt.subplot(141)
+        plt.subplot(161)
+        (
+            _,
+            _,
+            _,
+            X_s1,
+            _,
+        ) = self.interpret_computation_steps(s1.unsqueeze(0))
+        X_target = X_s1[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
+        plt.imshow(X_target, origin="lower")
+        current_class_ind = batch.class_string_encoded.data[0].item()
+        current_class_name = self.hparams.label_encoder.ind2lab[
+            current_class_ind
+        ]
+        plt.title(current_class_name)
+        plt.colorbar(fraction=0.05)
+
+        plt.subplot(162)
+        (
+            _,
+            _,
+            _,
+            X_s2,
+            _,
+        ) = self.interpret_computation_steps(s2.unsqueeze(0))
+        X_target = X_s2[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
+        plt.imshow(X_target, origin="lower")
+        current_class_ind = batch.class_string_encoded.data[1].item()
+        current_class_name = self.hparams.label_encoder.ind2lab[
+            current_class_ind
+        ]
+        plt.title(current_class_name)
+        plt.colorbar(fraction=0.05)
+
+        plt.subplot(163)
         X_target = X_mix[0].permute(1, 0)[:, : X_int.shape[1]].cpu()
-        plt.imshow(X_target)
-        plt.colorbar()
+        plt.imshow(X_target, origin="lower")
+        predicted_class_name = self.hparams.label_encoder.ind2lab[
+            pred_cl.item()
+        ]
+        plt.title(predicted_class_name)
+        plt.colorbar(fraction=0.05)
 
-        plt.subplot(142)
-        plt.imshow(mask.data.cpu().permute(1, 0))
-        plt.title("Estimated Mask")
-        plt.colorbar()
+        plt.subplot(164)
+        plt.imshow(mask.data.cpu().permute(1, 0), origin="lower")
+        plt.title("estimated mask")
+        plt.colorbar(fraction=0.05)
 
-        plt.subplot(143)
-        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu())
-        plt.colorbar()
-        plt.title("masked")
-        plt.savefig(os.path.join(out_folder, "specs.png"))
+        plt.subplot(165)
+        plt.imshow(X_int.data.cpu().permute(1, 0).data.cpu(), origin="lower")
+        plt.title("interpretation")
+        plt.colorbar(fraction=0.05)
+
+        plt.subplots_adjust()
+        plt.tight_layout()
+        plt.savefig(os.path.join(out_folder, "specs.png"), bbox_inches="tight")
         plt.close()
 
     def debug_files(self, X_stft, xhat, X_stft_logpower, batch, wavs):
-        """The helper function to create debugging images"""
+        """The helper function to create debugging images."""
         X_stft_phase = spectral_phase(X_stft)
         temp = xhat[0].transpose(0, 1).unsqueeze(0).unsqueeze(-1)
         Xspec_est = torch.expm1(temp.permute(0, 2, 1, 3))
@@ -258,42 +353,49 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         plt.subplot(141)
         X_target = X_stft_logpower[0].permute(1, 0)[:, : xhat.shape[1]].cpu()
-        plt.imshow(X_target)
-        plt.colorbar()
+        plt.imshow(X_target, origin="lower")
+        plt.title("input")
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(142)
         input_masked = X_target > (
             X_target.max(keepdim=True, dim=-1)[0].max(keepdim=True, dim=-2)[0]
             * self.hparams.mask_th
         )
-        plt.imshow(input_masked)
+        plt.imshow(input_masked, origin="lower")
         plt.title("input masked")
-        plt.colorbar()
+        plt.colorbar(fraction=0.05)
 
         plt.subplot(143)
         if self.hparams.use_mask_output:
             mask = xhat[0]
         else:
-            mask = xhat[0] > th  # (xhat[0] / xhat[0] + 1e-10)
+            mask = xhat[0] > th
         X_masked = mask * X_stft_logpower[0, :Tmax, :]
-        plt.imshow(X_masked.permute(1, 0).data.cpu())
-        plt.colorbar()
-        plt.title("masked")
+        plt.imshow(X_masked.permute(1, 0).data.cpu(), origin="lower")
+        plt.colorbar(fraction=0.05)
+        plt.title("interpretation")
 
         plt.subplot(144)
-        plt.imshow(mask.permute(1, 0).data.cpu())
-        plt.colorbar()
-        plt.title("mask")
+        plt.imshow(mask.permute(1, 0).data.cpu(), origin="lower")
+        plt.colorbar(fraction=0.05)
+        plt.title("estimated mask")
 
         out_folder = os.path.join(
-            self.hparams.output_folder, "reconstructions/" f"{batch.id[0]}",
+            self.hparams.output_folder,
+            "reconstructions",
+            f"{batch.id[0]}",
         )
-        makedirs(
-            out_folder, exist_ok=True,
+        os.makedirs(
+            out_folder,
+            exist_ok=True,
         )
 
+        plt.subplots_adjust()
+        plt.tight_layout()
         plt.savefig(
-            os.path.join(out_folder, "reconstructions.png"), format="png",
+            os.path.join(out_folder, "reconstructions.png"),
+            bbox_inches="tight",
         )
         plt.close()
 
@@ -316,10 +418,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + sound classifier.
-        Data augmentation and environmental corruption are applied to the
-        input sound.
-        """
+        """Computation pipeline based on an encoder + sound classifier."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -334,7 +433,6 @@ class InterpreterESC50Brain(sb.core.Brain):
             xhat, hcat, z_q_x = self.modules.psi(hcat, class_pred)
         else:
             xhat = self.modules.psi.decoder(hcat)
-
             z_q_x = None
 
         xhat = xhat.squeeze(1)
@@ -347,7 +445,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         garbage = 0
 
         if stage == sb.Stage.VALID:
-            # save some samples
+            # Save some samples
             if (
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
@@ -360,7 +458,7 @@ class InterpreterESC50Brain(sb.core.Brain):
         return predictions, xhat, hcat, z_q_x, garbage
 
     def compute_objectives(self, pred, batch, stage):
-        """Helper function to compute the objectives"""
+        """Helper function to compute the objectives."""
         predictions, xhat, hcat, z_q_x, garbage = pred
 
         batch = batch.to(self.device)
@@ -377,14 +475,12 @@ class InterpreterESC50Brain(sb.core.Brain):
             xhat * X_stft_logpower[:, :Tmax, :]
         )
 
-        # if there is a separator, we need to add sigmoid to the sum
+        # If there is a separator, we need to add sigmoid to the sum
         loss_fid = 0
 
         if self.hparams.use_mask_output:
             eps = 1e-10
             target_spec = X_stft_logpower[:, : xhat.shape[1], :]
-            # target_mask = target_spec > (target_spec.max() * self.hparams.mask_th)
-
             target_mask = target_spec > (
                 target_spec.max(keepdim=True, dim=-1)[0].max(
                     keepdim=True, dim=-2
@@ -434,12 +530,11 @@ class InterpreterESC50Brain(sb.core.Brain):
         )
 
     def on_stage_start(self, stage, epoch=None):
-        """Steps taken before stage start"""
+        """Steps taken before stage start."""
 
         @torch.no_grad()
         def accuracy_value(predict, target, length):
-            """Computes Accuracy"""
-            # predict = predict.argmax(1, keepdim=True)
+            """Computes accuracy."""
             nbr_correct, nbr_total = sb.utils.Accuracy.Accuracy(
                 predict.unsqueeze(1), target, length
             )
@@ -448,7 +543,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_fidelity(theta_out, predictions):
-            """Computes top-`k` fidelity of interpreter."""
+            """Computes top-k fidelity of interpreter."""
             predictions = F.softmax(predictions, dim=1)
             theta_out = F.softmax(theta_out, dim=1)
 
@@ -462,8 +557,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_faithfulness(wavs, predictions):
-            """computes the faithfulness metric"""
-            X_stft_logpower, X_stft, X_stft_power = self.preprocess(wavs)
+            """Computes the faithfulness metric."""
             X2 = self.interpret_computation_steps(wavs)[0]
 
             _, _, predictions_masked, _ = self.classifier_forward(X2)
@@ -471,10 +565,10 @@ class InterpreterESC50Brain(sb.core.Brain):
             predictions = F.softmax(predictions, dim=1)
             predictions_masked = F.softmax(predictions_masked, dim=1)
 
-            # get the prediction indices
+            # Get the prediction indices
             pred_cl = predictions.argmax(dim=1, keepdim=True)
 
-            # get the corresponding output probabilities
+            # Get the corresponding output probabilities
             predictions_selected = torch.gather(
                 predictions, dim=1, index=pred_cl
             )
@@ -490,7 +584,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_rec_error(preds, specs, length=None):
-            """Calculates the reconstruction error"""
+            """Computes the reconstruction error."""
             if self.hparams.use_mask_output:
                 preds = specs * preds
 
@@ -498,7 +592,7 @@ class InterpreterESC50Brain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_bern_ll(xhat, target_mask, length=None):
-            """Computes bernoulli likelihood"""
+            """Computes Bernoulli likelihood."""
             eps = 1e-10
             rec_loss = (
                 -target_mask * torch.log(xhat + eps)
@@ -523,8 +617,7 @@ class InterpreterESC50Brain(sb.core.Brain):
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch.
         Plots in subplots the values of `self.batch_to_plot` and saves the
-        plot to the experiment folder. `self.hparams.output_folder`"""
-
+        plot to the experiment folder `self.hparams.output_folder`."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
             self.train_stats = {
@@ -556,14 +649,14 @@ class InterpreterESC50Brain(sb.core.Brain):
             if self.hparams.use_mask_output:
                 valid_stats["mask_ll"] = self.mask_ll.summarize("average")
 
-            # The train_logger writes a summary to stdout and to the logfile.
+            # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch, "lr": old_lr},
                 train_stats=self.train_stats,
                 valid_stats=valid_stats,
             )
 
-            # Save the current checkpoint and delete previous checkpoints,
+            # Save the current checkpoint and delete previous checkpoints
             self.checkpointer.save_and_keep_only(
                 meta=valid_stats, max_keys=["top-3_fid"]
             )
@@ -582,15 +675,14 @@ class InterpreterESC50Brain(sb.core.Brain):
                 ).mean(),
             }
 
-            # The train_logger writes a summary to stdout and to the logfile.
+            # The train_logger writes a summary to stdout and to the log file
             self.hparams.train_logger.log_stats(
                 stats_meta={"epoch": epoch}, test_stats=test_stats
             )
 
 
 def dataio_prep(hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
@@ -632,7 +724,7 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("class_string")
     @sb.utils.data_pipeline.provides("class_string", "class_string_encoded")
     def label_pipeline(class_string):
-        """the label pipeline"""
+        """The label pipeline."""
         yield class_string
         class_string_encoded = label_encoder.encode_label_torch(class_string)
         yield class_string_encoded
@@ -655,7 +747,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -667,7 +759,7 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-    # # This flag enables the inbuilt cudnn auto-tuner
+    # This flag enables the built-in cuDNN auto-tuner
     # torch.backends.cudnn.benchmark = True
 
     # CLI:
@@ -680,7 +772,7 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # classifier is fixed here
+    # Classifier is fixed here
     hparams["embedding_model"].eval()
     hparams["classifier"].eval()
 
@@ -698,6 +790,8 @@ if __name__ == "__main__":
         hparams["tensorboard_train_logger"] = TensorboardLogger(
             hparams["tensorboard_logs_folder"]
         )
+
+    from esc50_prepare import prepare_esc50
 
     run_on_main(
         prepare_esc50,
@@ -747,7 +841,6 @@ if __name__ == "__main__":
     )
 
     # Load the best checkpoint for evaluation
-
     Interpreter_brain.checkpointer.recover_if_possible(
         max_key="valid_top-3_fid",
     )

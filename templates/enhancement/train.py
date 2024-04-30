@@ -19,10 +19,12 @@ Authors
  * Peter Plantinga 2021
 """
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
+
+import speechbrain as sb
 
 
 # Brain class for speech enhancement training
@@ -44,7 +46,6 @@ class SEBrain(sb.Brain):
         predictions : dict
             A dictionary with keys {"spec", "wav"} with predicted features.
         """
-
         # We first move the batch to the appropriate device, and
         # compute the features necessary for masking.
         batch = batch.to(self.device)
@@ -77,8 +78,12 @@ class SEBrain(sb.Brain):
         ---------
         wavs : torch.Tensor
             The batch of waveforms to convert to log-spectral features.
-        """
 
+        Returns
+        -------
+        feats : torch.Tensor
+            The computed features.
+        """
         # Log-spectral features
         feats = self.hparams.compute_STFT(wavs)
         feats = sb.processing.features.spectral_magnitude(feats, power=0.5)
@@ -105,7 +110,6 @@ class SEBrain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-
         # Prepare clean targets for comparison
         clean_spec = self.compute_feats(self.clean_wavs)
 
@@ -149,7 +153,6 @@ class SEBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
             metric=sb.nnet.losses.mse_loss
@@ -174,7 +177,6 @@ class SEBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -233,7 +235,8 @@ def dataio_prep(hparams):
     @sb.utils.data_pipeline.provides("clean_sig")
     def audio_pipeline(wav):
         """Load the signal, and pass it and its length to the corruption class.
-        This is done on the CPU in the `collate_fn`."""
+        This is done on the CPU in the `collate_fn`.
+        """
         clean_sig = sb.dataio.dataio.read_audio(wav)
         return clean_sig
 

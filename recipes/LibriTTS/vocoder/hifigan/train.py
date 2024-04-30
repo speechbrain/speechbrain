@@ -11,13 +11,15 @@ Authors
  * Pradnya Kandarkar 2022
 """
 
+import os
 import sys
+
 import torch
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import scalarize
-import torchaudio
-import os
 
 
 class HifiGanBrain(sb.Brain):
@@ -33,12 +35,19 @@ class HifiGanBrain(sb.Brain):
         stage: speechbrain.Stage
             the training stage
 
+        Returns
+        -------
+        y_g_hat : torch.Tensor
+        scores_fake : torch.Tensor
+        feats_fake : torch.Tensor
+        scores_real : torch.Tensor
+        feats_real : torch.Tensor
         """
         batch = batch.to(self.device)
         x, _ = batch.mel
         y, _ = batch.sig
 
-        # generate sythesized waveforms
+        # generate synthesized waveforms
         y_g_hat = self.modules.generator(x)[:, :, : y.size(2)]
 
         # get scores and features from discriminator for real and synthesized waveforms
@@ -54,7 +63,7 @@ class HifiGanBrain(sb.Brain):
         y, _ = batch.sig
 
         # Hold on to the batch for the inference sample. This is needed because
-        # the infernece sample is run from on_stage_end only, where
+        # the inference sample is run from on_stage_end only, where
         # batch information is not available
         self.last_batch = (x, y)
 
@@ -200,19 +209,21 @@ class HifiGanBrain(sb.Brain):
                 end_of_epoch=True,
                 min_keys=["loss"],
                 ckpt_predicate=(
-                    lambda ckpt: (
-                        ckpt.meta["epoch"]
-                        % self.hparams.keep_checkpoint_interval
-                        != 0
+                    (
+                        lambda ckpt: (
+                            ckpt.meta["epoch"]
+                            % self.hparams.keep_checkpoint_interval
+                            != 0
+                        )
                     )
-                )
-                if self.hparams.keep_checkpoint_interval is not None
-                else None,
+                    if self.hparams.keep_checkpoint_interval is not None
+                    else None
+                ),
             )
 
             self.run_inference_sample("Valid")
 
-        # We also write statistics about test data to stdout and to the TensorboardLogger.
+        # We also write statistics about test data to stdout and to the torch.TensorboardLogger.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(  # 1#2#
                 {"Epoch loaded": self.hparams.epoch_counter.current},
@@ -396,8 +407,10 @@ if __name__ == "__main__":
     )
 
     if hparams["use_tensorboard"]:
-        hifi_gan_brain.tensorboard_logger = sb.utils.train_logger.TensorboardLogger(
-            save_dir=hparams["output_folder"] + "/tensorboard"
+        hifi_gan_brain.tensorboard_logger = (
+            sb.utils.train_logger.TensorboardLogger(
+                save_dir=hparams["output_folder"] + "/tensorboard"
+            )
         )
 
     # Training

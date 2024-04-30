@@ -2,7 +2,7 @@
 """
 Recipe for training a Voice Activity Detection (VAD) model on LibriParty.
 This code heavily relis on data augmentation with external datasets.
-(e.g, open_rir, musan, CommonLanguge is used as well).
+(e.g, open_rir, musan, CommonLanguage is used as well).
 
 Make sure you download all the datasets before staring the experiment:
 - LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
@@ -22,14 +22,16 @@ Authors
  * Mirco Ravanelli 2021
 """
 
-import sys
-import torch
 import logging
+import sys
+
 import numpy as np
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+import torch
 from data_augment import augment_data
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ class VADBrain(sb.Brain):
             self.lens = lens
             self.targets = targets
 
-        # From wav input to output binary prediciton
+        # From wav input to output binary prediction
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         feats = feats.detach()
@@ -201,7 +203,6 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

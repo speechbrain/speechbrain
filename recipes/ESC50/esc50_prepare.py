@@ -11,13 +11,14 @@ Authors:
  Adapted from the Urbansound8k recipe.
 """
 
-import os
-import shutil
 import json
 import logging
+import os
+import shutil
+
 import torchaudio
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import load_data_csv
+
+from speechbrain.dataio.dataio import load_data_csv, read_audio
 from speechbrain.utils.fetching import fetch
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ def prepare_esc50(
     """
     Prepares the json files for the ESC50 dataset.
     Prompts to download the dataset if it is not found in the `data_folder`.
+
     Arguments
     ---------
     data_folder : str
@@ -91,15 +93,22 @@ def prepare_esc50(
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
-    train_folds: list or int (integers [1,5])
+    train_fold_nums : list or int (integers [1,5])
         A list of integers defining which pre-defined "folds" to use for training. Must be
         exclusive of valid_folds and test_folds.
-    valid_folds: list or int (integers [1,5])
+    valid_fold_nums : list or int (integers [1,5])
         A list of integers defining which pre-defined "folds" to use for validation. Must be
         exclusive of train_folds and test_folds.
-    test_folds: list or int (integers [1,5])
+    test_fold_nums : list or int (integers [1,5])
         A list of integers defining which pre-defined "folds" to use for test. Must be
         exclusive of train_folds and valid_folds.
+    skip_manifest_creation : bool
+        Whether to skip over the manifest creation step.
+
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/ESC-50-master'
@@ -195,6 +204,7 @@ def prepare_esc50(
 def create_json(metadata, audio_data_folder, folds_list, json_file):
     """
     Creates the json file given a list of wav files.
+
     Arguments
     ---------
     metadata: dict
@@ -220,7 +230,6 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
                 sample_metadata["filename"],
             )
             try:
-
                 signal = read_audio(wav_file)
                 file_info = torchaudio.info(wav_file)
 
@@ -265,13 +274,18 @@ def folds_overlap(list1, list2):
     """Returns True if any passed lists has incorrect type OR has items in common.
 
     Arguments
-    ----------
+    ---------
     list1 : list
         First list for comparison.
     list2 : list
         Second list for comparison.
+
+    Returns
+    -------
+    overlap : bool
+        Whether lists overlap.
     """
-    if (type(list1) != list) or (type(list2) != list):
+    if not isinstance(list1, list) or not isinstance(list2, list):
         return True
     if any(item in list1 for item in list2):
         return True
@@ -283,8 +297,12 @@ def check_folders(*folders):
 
     Arguments
     ---------
-    folders: list
+    *folders: list
         Folders to check.
+
+    Returns
+    -------
+    pass: bool
     """
     for folder in folders:
         if not os.path.exists(folder):
@@ -294,16 +312,18 @@ def check_folders(*folders):
 
 def full_path_to_audio_file(data_folder, slice_file_name, fold_num):
     """Get path to file given slice file name and fold number
+
     Arguments
     ---------
-    data_foder : str
+    data_folder : str
         Folder that contains the dataset.
     slice_file_name : str
         Filename.
     fold_num : int
         Fold number.
+
     Returns
-    ------
+    -------
     string containing absolute path to corresponding file
     """
     return os.path.join(
@@ -316,12 +336,14 @@ def full_path_to_audio_file(data_folder, slice_file_name, fold_num):
 
 def create_metadata_speechbrain_file(data_folder):
     """Get path to file given slice file name and fold number
+
     Arguments
     ---------
     data_folder : str
         ESC50 data folder.
+
     Returns
-    ------
+    -------
     string containing absolute path to metadata csv file modified for SpeechBrain or None if source file not found
     """
     import pandas as pd
@@ -348,19 +370,21 @@ def create_metadata_speechbrain_file(data_folder):
     return esc50_speechbrain_metadata_csv_path
 
 
-def removesuffix(somestring, suffix):
+def removesuffix(some_string, suffix):
     """Removed a suffix from a string
+
     Arguments
     ---------
-    somestring : str
+    some_string : str
         Any string.
     suffix : str
-        Suffix to be removed from somestring.
+        Suffix to be removed from some_string.
+
     Returns
-    ------
-    string resulting from suffix removed from somestring, if found, unchanged otherwise
+    -------
+    string resulting from suffix removed from some_string, if found, unchanged otherwise
     """
-    if somestring.endswith(suffix):
-        return somestring[: -1 * len(suffix)]
+    if some_string.endswith(suffix):
+        return some_string[: -1 * len(suffix)]
     else:
-        return somestring
+        return some_string
