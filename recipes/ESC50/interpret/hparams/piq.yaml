@@ -39,13 +39,6 @@ valid_fold_nums: [4]
 test_fold_nums: [5]
 skip_manifest_creation: False
 
-wham_folder: null
-wham_audio_folder: !ref <wham_folder>/tr
-wham_metadata: "metadata/wham_speechbrain.csv"
-add_wham_noise: False
-use_melspectra_log1p: False
-
-
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
@@ -57,6 +50,7 @@ use_vq: True
 rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
+use_melspectra_log1p: False
 
 
 # Feature parameters
@@ -120,7 +114,6 @@ K: 1024
 
 # pre-processing
 n_fft: 1024
-spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
 compute_stft: !new:speechbrain.processing.features.STFT

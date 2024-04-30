@@ -39,7 +39,12 @@ class L2I(InterpreterBrain):
         for idx, wavs in enumerate(wavs_batch):
             # compute stft and logmel, and phase
             wavs = wavs[None]
-            X_stft_logpower, net_input, X_stft, _ = self.preprocess(wavs)
+            X_stft_logpower, X_mel, X_stft, _ = self.preprocess(wavs)
+
+            net_input = X_stft_logpower
+            if self.hparams.use_melspectra_log1p:
+                net_input = X_mel
+
             X_stft_phase = spectral_phase(X_stft)
 
             # get the classifier embeddings
@@ -99,6 +104,10 @@ class L2I(InterpreterBrain):
             mask = X_withselected / (Xhat + eps)
             X_int = mask * X_stft_power_log
 
+            pad_time = X_stft_logpower.shape[1] - Xhat.shape[1]
+            X_int = F.pad(X_int, (0, pad_time))
+            mask = F.pad(mask, (0, pad_time))
+
             ret_X_int[idx] = X_int
             ret_mask[idx] = mask
             ret_X_stft_phase[idx] = X_stft_phase
@@ -117,7 +126,10 @@ class L2I(InterpreterBrain):
             # augment batch with WHAM!
             wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
 
-        X_stft_logpower, net_input, X_stft, _ = self.preprocess(wavs)
+        net_input, X_mel, X_stft, _ = self.preprocess(wavs)
+
+        if self.hparams.use_melspectra_log1p:
+            net_input = X_mel
 
         # Embeddings + sound classifier
         temp = self.hparams.embedding_model(net_input)
@@ -298,8 +310,6 @@ class L2I(InterpreterBrain):
 
 
 if __name__ == "__main__":
-    # # This flag enables the inbuilt cudnn auto-tuner
-    # torch.backends.cudnn.benchmark = True
 
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -310,6 +320,16 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    print("Eval only hparams:")
+    print("overlap_type=", hparams["overlap_type"])
+    print("int_method=", hparams["int_method"])
+    print("ljspeech_path=", hparams["ljspeech_path"])
+
+    print(
+        "Interpreter class is inheriting the train_logger",
+        hparams["train_logger"],
+    )
 
     # classifier is fixed here
     hparams["embedding_model"].eval()
@@ -349,11 +369,20 @@ if __name__ == "__main__":
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
 
+    print(
+        "WHAM Configuration - wham_metadata: "
+        + hparams["wham_metadata"]
+        + " wham_audio_folder: "
+        + hparams["wham_audio_folder"]
+    )
     # create WHAM dataset according to hparams
     hparams["wham_dataset"] = prepare_wham(hparams)
 
     class_labels = list(label_encoder.ind2lab.values())
     print("Class Labels:", class_labels)
+
+    assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
+    assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
 
     Interpreter_brain = L2I(
         modules=hparams["modules"],

@@ -46,7 +46,7 @@ class InterpreterBrain(sb.core.Brain):
         """Pre-process wavs."""
         X_stft = self.modules.compute_stft(wavs)
         X_stft_power = sb.processing.features.spectral_magnitude(
-            X_stft, power=self.hparams.spec_mag_power
+            X_stft, power=0.5
         )
 
         X_mel, X_mel_log1p = [None] * 2

@@ -289,6 +289,19 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    print("Eval only hparams:")
+    print("overlap_type=", hparams["overlap_type"])
+    print("int_method=", hparams["int_method"])
+    print("ljspeech_path=", hparams["ljspeech_path"])
+
+    print("Inherited hparams:")
+    print("use_melspectra_log1p=", hparams["use_melspectra_log1p"])
+
+    print(
+        "Interpreter class is inheriting the train_logger",
+        hparams["train_logger"],
+    )
+
     # classifier is fixed here
     hparams["embedding_model"].eval()
     hparams["classifier"].eval()
@@ -329,6 +342,12 @@ if __name__ == "__main__":
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
 
+    print(
+        "WHAM Configuration - wham_metadata: "
+        + hparams["wham_metadata"]
+        + " wham_audio_folder: "
+        + hparams["wham_audio_folder"]
+    )
     # create WHAM dataset according to hparams
     hparams["wham_dataset"] = prepare_wham(hparams)
 

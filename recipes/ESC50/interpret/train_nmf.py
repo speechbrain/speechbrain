@@ -16,7 +16,6 @@ import torch
 from esc50_prepare import prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from train_l2i import dataio_prep
-from wham_prepare import combine_batches, prepare_wham
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
@@ -33,10 +32,7 @@ class NMFBrain(sb.core.Brain):
         """
 
         batch = batch.to(self.device)
-        wavs, lens = batch.sig
-        # augment batch with WHAM!
-        if self.hparams.use_wham:
-            wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+        wavs, _ = batch.sig
 
         X_stft = self.hparams.compute_stft(wavs)
         X_stft_power = self.hparams.compute_stft_mag(X_stft)
@@ -117,6 +113,8 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
+
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -140,8 +138,6 @@ if __name__ == "__main__":
     )
 
     datasets, _ = dataio_prep(hparams)
-
-    hparams["wham_dataset"] = prepare_wham(hparams)
 
     nmfbrain = NMFBrain(
         modules=hparams["modules"],

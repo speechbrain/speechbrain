@@ -21,11 +21,6 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 save_period: 10
 
-wham_folder: !PLACEHOLDER
-wham_audio_folder: !ref <wham_folder>/tr
-wham_metadata: "metadata/wham_speechbrain.csv"
-
-
 # if true we save the nmf dictionary at the end of training
 save_nmfdictionary: False
 nmf_savepath: nmf_dictionary.pt
@@ -50,12 +45,6 @@ batch_size: 2
 lr: 0.00005
 sample_rate: 44100
 signal_length_s: 5
-
-use_wham: False
-wham_dataset: !new:wham_prepare.WHAMDataset
-    data_dir: !ref <wham_audio_folder>
-    target_length: !ref <signal_length_s>
-    sample_rate: !ref <sample_rate>
 
 shuffle: True
 dataloader_options:
