@@ -22,7 +22,12 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+add_wham_noise: True
 test_only: False
+
+wham_folder: null
+wham_audio_folder: !ref <wham_folder>/tr
+wham_metadata: "metadata/wham_speechbrain.csv"
 
 use_melspectra: False
 use_log1p_mel: False
@@ -53,6 +58,8 @@ base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 16000
+
+signal_length_s: 5
 
 # Number of classes
 out_n_neurons: 50
