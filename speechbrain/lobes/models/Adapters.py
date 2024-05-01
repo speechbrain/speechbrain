@@ -66,11 +66,12 @@ class HoulsbyAdapterLinear(nn.Module):
     Example
     -------
     >>> import torch
-    >>> x = torch.rand((8, 60, 512))
-    >>> adapt = HoulsbyAdapter(512, 64)
-    >>> output = net(x)
+    >>> x = torch.rand((8, 60, 64))
+    >>> base_linear = torch.nn.Linear(64,64)
+    >>> adapt = HoulsbyAdapterLinear(base_linear, 8)
+    >>> output = adapt(x)
     >>> output.shape
-    torch.Size([8, 60, 512])
+    torch.Size([8, 60, 64])
     """
 
     def __init__(
@@ -141,11 +142,12 @@ class LoRALinear(nn.Module):
     Example
     -------
     >>> import torch
-    >>> x = torch.rand((8, 60, 512))
-    >>> adapt = LoRA(512, 4)
-    >>> output = net(x)
+    >>> x = torch.rand((8, 60, 64))
+    >>> base_linear = torch.nn.Linear(64,64)
+    >>> adapt = LoRALinear(base_linear, 64, 4)
+    >>> output = adapt(x)
     >>> output.shape
-    torch.Size([8, 60, 512])
+    torch.Size([8, 60, 64])
     """
 
     def __init__(
