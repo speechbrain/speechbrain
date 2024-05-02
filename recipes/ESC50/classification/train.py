@@ -420,13 +420,14 @@ if __name__ == "__main__":
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
 
-    print(
-        "WHAM Configuration - wham_metadata: "
-        + hparams["wham_metadata"]
-        + " wham_audio_folder: "
-        + hparams["wham_audio_folder"]
-    )
-    hparams["wham_dataset"] = prepare_wham(hparams)
+    if "wham_folder" in hparams:
+        hparams["wham_dataset"] = prepare_wham(
+            hparams["wham_folder"],
+            hparams["add_wham_noise"],
+            hparams["sample_rate"],
+            hparams["signal_length_s"],
+            hparams["wham_audio_folder"],
+        )
 
     if hparams["wham_dataset"] is not None:
         assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
