@@ -437,4 +437,4 @@ if __name__ == "__main__":
             cbak += res["cbak"]
             covl += res["covl"]
             count += 1
-    print(f"CSIG: {csig/count}, CBAK: {cbak/count}, COVL: {covl/count}")
+    print(f"CSIG: {csig / count}, CBAK: {cbak / count}, COVL: {covl / count}")
