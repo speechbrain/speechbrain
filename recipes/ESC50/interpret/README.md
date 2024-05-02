@@ -144,13 +144,25 @@ classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/C
 
 ---------------------------------------------------------------------------------------------------------
 
-## How to Run on Test Sets Only
+## Evaluation
 
-If you want to run it on the test sets only, you can add the flag `--test_only` to the following command:
+## Out of distribution (OOD) tests
 
+If you want to run tests on the OOD setting, you can use
 ```shell
-python train_<method>.py hparams/<method-config>.yaml --data_folder /yourpath/ESC50 --test_only
+python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixture/ljspeech/white_noise> --add_wham_noise False --ljspeech_path /yourpath/ljspeech
 ```
+
+Note that the `ljspeech_path` is required only when you want to generate mixtures with human speech. The mixture setting generates samples using audio files from test and valid sets. White noise adds Gaussian noise to the samples from the test set.
+
+## In distribution (ID) tests
+
+If you want to run tests on the ID setting, you can use
+```shell
+python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_noise True --wham_folder /yourpath/ljspeech
+```
+
+This will evaluate the model using the test set contaminated with WHAM! noise samples.
 
 ---------------------------------------------------------------------------------------------------------
 
