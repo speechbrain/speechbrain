@@ -865,10 +865,13 @@ class Brain:
             )
         elif total_trainable_params == 0:
           logger.warning("The model has no trainable parameters!")
+          formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+              total_parameters
+          )
           logger.info(
               f"{class_name} Model Statistics:\n"
               f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
-              f"* Total Number of Parameters: {total_parameters}\n"
+              f"* Total Number of Parameters: {formatted_total_params}\n"
               f"* Trainable Parameters represent {0:.4f}% of the total size."
           )
         else:
