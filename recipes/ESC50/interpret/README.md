@@ -54,7 +54,7 @@ To run the finetuning stage of the interpreter, use
 ```shell
 python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 \
     --add_wham_noise True --wham_folder=/yourpath/wham_noise \
-    --finetuning True --pretrained_interpreter=/yourLMAC/checkpoint.tar.gz --g_w 4
+    --finetuning True --pretrained_interpreter=/yourLMACcheckpointpath/checkpoint.ckpt --g_w 4
 ```
 where $g_w$ is the guidance weight for the interpreter.
 
@@ -133,12 +133,11 @@ classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/C
 
 If you want to run tests on the OOD setting, you can use
 ```shell
-python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixture/ljspeech/white_noise> --add_wham_noise False --ljspeech_path /yourpath/ljspeech
+python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixtures/ljspeech/white_noise> --add_wham_noise False
 ```
 
 Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `ljspeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting.
 
-Note that the `ljspeech_path` is required only when you want to generate mixtures with human speech. The mixture setting generates samples using audio files from test and valid sets. White noise adds Gaussian noise to the samples from the test set.
 
 ## In distribution (ID) tests
 
