@@ -302,7 +302,7 @@ def gather_refactoring_results(
             with open(yaml_path, "w") as yaml_out:
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
-            print(f"\tsame: {results[repo]['same'] }")
+            print(f"\tsame: {results[repo]['same']}")
 
 
 def test_performance(

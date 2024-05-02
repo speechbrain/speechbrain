@@ -1083,6 +1083,11 @@ class InputNormalization(torch.nn.Module):
         current_means = []
         current_stds = []
 
+        if self.norm_type == "sentence" or self.norm_type == "speaker":
+            # we will do in-place slice assignments over `out`
+            out = torch.empty_like(x)
+        # otherwise don't assign it yet
+
         for snt_id in range(N_batches):
             # Avoiding padded time steps
             actual_size = torch.round(lengths[snt_id] * x.shape[1]).int()
@@ -1096,7 +1101,7 @@ class InputNormalization(torch.nn.Module):
             current_stds.append(current_std)
 
             if self.norm_type == "sentence":
-                x[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
+                out[snt_id] = (x[snt_id] - current_mean.data) / current_std.data
 
             if self.norm_type == "speaker":
                 spk_id = int(spk_ids[snt_id][0])
@@ -1142,14 +1147,14 @@ class InputNormalization(torch.nn.Module):
                         speaker_mean = current_mean.data
                         speaker_std = current_std.data
 
-                x[snt_id] = (x[snt_id] - speaker_mean) / speaker_std
+                out[snt_id] = (x[snt_id] - speaker_mean) / speaker_std
 
         if self.norm_type == "batch" or self.norm_type == "global":
             current_mean = torch.mean(torch.stack(current_means), dim=0)
             current_std = torch.mean(torch.stack(current_stds), dim=0)
 
             if self.norm_type == "batch":
-                x = (x - current_mean.data) / (current_std.data)
+                out = (x - current_mean.data) / (current_std.data)
 
             if self.norm_type == "global":
                 if self.training:
@@ -1176,9 +1181,11 @@ class InputNormalization(torch.nn.Module):
 
                     self.count = self.count + 1
 
-                x = (x - self.glob_mean.data.to(x)) / (self.glob_std.data.to(x))
+                out = (x - self.glob_mean.data.to(x)) / (
+                    self.glob_std.data.to(x)
+                )
 
-        return x
+        return out
 
     def _compute_current_stats(self, x):
         """Computes mean and std

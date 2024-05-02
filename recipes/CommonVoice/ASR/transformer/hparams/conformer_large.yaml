@@ -7,11 +7,10 @@
 # Authors:  Titouan Parcollet and Jianyuan Zhong
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 1234
+seed: 3407
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/transformer_de/<seed>
-test_wer_file: !ref <output_folder>/wer_test.txt
-valid_wer_file: !ref <output_folder>/wer_valid.txt
+output_folder: !ref results/conformer_en/<seed>
+output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -20,12 +19,13 @@ data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
 train_tsv_file: !ref <data_folder>/train.tsv  # Standard CommonVoice .tsv files
 dev_tsv_file: !ref <data_folder>/dev.tsv  # Standard CommonVoice .tsv files
 test_tsv_file: !ref <data_folder>/test.tsv  # Standard CommonVoice .tsv files
-accented_letters: True
-language: de # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
-train_csv: !ref <save_folder>/train.csv
-valid_csv: !ref <save_folder>/dev.csv
-test_csv: !ref <save_folder>/test.csv
+accented_letters: False
+language: en # use 'it' for Italian, 'rw' for Kinyarwanda, 'en' for english
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev.csv
+test_csv: !ref <output_folder>/test.csv
 skip_prep: False # Skip data preparation
+convert_to_wav: False # Switch this to True to convert all mp3 files to wav.
 
 # We remove utterance slonger than 10s in the train/dev/test sets as
 # longer sentences certainly correspond to "open microphones".
@@ -40,12 +40,14 @@ ctc_weight: 0.3
 grad_accumulation_factor: 4
 loss_reduction: 'batchmean'
 sorting: random
+num_workers: 4
 precision: fp32 # bf16, fp16 or fp32
 
 # stages related parameters
-stage_one_epochs: 40
-lr_adam: 1.0
-lr_sgd: 0.00003
+lr_adam: 0.0008
+weight_decay: 0.01
+warmup_steps: 25000
+augment_warmup: 8000
 
 # BPE parameters
 token_type: unigram  # ["unigram", "bpe", "char"]
@@ -56,30 +58,53 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 80
 
+# This setup works well for A100 80GB GPU, adapts it to your needs.
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_length_train: 500
+max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
+num_bucket: 200
+shuffle: True # if true re-creates batches at each epoch shuffling examples.
+batch_ordering: random
+max_batch_ex: 256
+
+dynamic_batch_sampler_train:
+    max_batch_length: !ref <max_batch_length_train>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
+dynamic_batch_sampler_valid:
+    max_batch_length: !ref <max_batch_length_val>
+    num_buckets: !ref <num_bucket>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
+    max_batch_ex: !ref <max_batch_ex>
+
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
     shuffle: True
-    num_workers: 6
+    num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
-    batch_size: !ref <batch_size>
-    num_workers: 6
+    batch_size: 1
 
 test_dataloader_opts:
-    batch_size: !ref <batch_size>
-    num_workers: 6
+    batch_size: 1
+
 
 ####################### Model Parameters ###########################
 # Transformer
-d_model: 768
+d_model: 512
 nhead: 8
 num_encoder_layers: 12
 num_decoder_layers: 6
-d_ffn: 3072
-transformer_dropout: 0.0
+d_ffn: 2048
+transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
-output_neurons: 500
+output_neurons: 5120
 
 # Outputs
 blank_index: 0
@@ -91,8 +116,8 @@ eos_index: 2
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_search_interval: 5
-valid_beam_size: 10
+valid_search_interval: 10
+valid_beam_size: 1 # We do greedy here so it's faster to decode ...
 test_beam_size: 80
 ctc_weight_decode: 0.3
 scorer_beam_scale: 0.3
@@ -101,15 +126,15 @@ scorer_beam_scale: 0.3
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
-    num_blocks: 3
+    num_blocks: 2
     num_layers_per_block: 1
-    out_channels: (128, 200, 256)
-    kernel_sizes: (3, 3, 1)
-    strides: (2, 2, 1)
-    residuals: (False, False, False)
+    out_channels: (64, 32)
+    kernel_sizes: (3, 3)
+    strides: (2, 2)
+    residuals: (False, False)
 
 Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
-    input_size: 5120
+    input_size: 640
     tgt_vocab: !ref <output_neurons>
     d_model: !ref <d_model>
     nhead: !ref <nhead>
@@ -117,8 +142,12 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     num_decoder_layers: !ref <num_decoder_layers>
     d_ffn: !ref <d_ffn>
     dropout: !ref <transformer_dropout>
+    conformer_activation: !ref <activation>
     activation: !ref <activation>
-    normalize_before: False
+    encoder_module: conformer
+    attention_type: RelPosMHAXL
+    normalize_before: True
+    causal: False
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
@@ -138,15 +167,9 @@ model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
 
 # We define two optimizers as we have two stages (training + finetuning)
-Adam: !name:torch.optim.Adam
+Adam: !name:torch.optim.AdamW
     lr: !ref <lr_adam>
-    betas: (0.9, 0.98)
-    eps: 0.000000001
-
-SGD: !name:torch.optim.SGD
-    lr: !ref <lr_sgd>
-    momentum: 0.99
-    nesterov: True
+    weight_decay: !ref <weight_decay>
 
 # Scorer
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
@@ -195,8 +218,7 @@ seq_cost: !name:speechbrain.nnet.losses.kldiv_loss
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr_adam>
-    n_warmup_steps: 25000
-    model_size: !ref <d_model>
+    n_warmup_steps: !ref <warmup_steps>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
@@ -211,7 +233,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
-    update_until_epoch: 3
+    update_until_epoch: 4
 
 ############################## Augmentations ###################################
 
@@ -219,8 +241,10 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
     drop_length_low: 15
     drop_length_high: 25
-    drop_count_low: 5
-    drop_count_high: 5
+    drop_count_low: 3
+    drop_count_high: 3
+    replace: "zeros"
+    dim: 1
 
 # Frequency Drop
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
@@ -228,6 +252,7 @@ freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
     drop_length_high: 35
     drop_count_low: 2
     drop_count_high: 2
+    replace: "zeros"
     dim: 2
 
 # Time warp
