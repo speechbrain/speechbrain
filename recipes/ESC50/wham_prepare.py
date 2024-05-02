@@ -1,10 +1,13 @@
 import os
+import shutil
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
 from torch.utils.data import IterableDataset
+
+from speechbrain.utils.fetching import fetch
 
 np.random.seed(1234)
 
@@ -74,6 +77,38 @@ def combine_batches(clean, noise_loader):
     return combined_batch
 
 
+def download_wham(wham_path: str):
+    if len(os.listdir(wham_path)) != 0:
+        return
+
+    print("WHAM! is missing. Downloading WHAM!. This will take a while...")
+    os.makedirs(wham_path, exist_ok=True)
+
+    temp_path = os.path.join(wham_path, "temp_download_wham")
+
+    # download the data
+    fetch(
+        "wham_noise.zip",
+        "https://my-bucket-a8b4b49c25c811ee9a7e8bba05fa24c7.s3.amazonaws.com",
+        savedir=temp_path,
+    )
+
+    # unpack the .zip file
+    shutil.unpack_archive(os.path.join(temp_path, "wham_noise.zip"), wham_path)
+
+    files = os.listdir(os.path.join(wham_path, "WHAM", "wham_noise"))
+    for fl in files:
+        shutil.move(
+            os.path.join(wham_path, "WHAM", "wham_noise", fl), wham_path
+        )
+
+    # remove the unused datapath
+    shutil.rmtree(temp_path)
+    shutil.rmtree(os.path.join(wham_path, "WHAM"))
+
+    print(f"WHAM! is downloaded in {wham_path}")
+
+
 def prepare_wham(hparams):
     """Creates WHAM! dataset when needed."""
     if "wham_folder" not in hparams:
@@ -85,6 +120,9 @@ def prepare_wham(hparams):
         return None
 
     if hparams["add_wham_noise"]:
+        # download WHAM! in specified folder
+        download_wham(hparams["wham_folder"])
+
         config_sample_rate = hparams["sample_rate"]
         config_target_length = hparams["signal_length_s"]
         data_audio_folder = hparams["wham_audio_folder"]
@@ -97,3 +135,7 @@ def prepare_wham(hparams):
         return dataset
 
     return None
+
+
+if __name__ == "__main__":
+    download_wham("wham_here")
