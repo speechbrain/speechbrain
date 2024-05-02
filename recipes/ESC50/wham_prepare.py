@@ -13,6 +13,18 @@ np.random.seed(1234)
 
 
 class WHAMDataset(IterableDataset):
+    """Implements class for WHAM! dataset.
+
+    Arguments
+    ---------
+    data_dir: str or Path
+        Directory where the dataset is stored.
+    target_length: int
+        Expected audio sample length. Used for padding and cropping.
+    sample_rate: int
+        Sample rate of the audio samples.
+    """
+
     def __init__(self, data_dir, target_length=4, sample_rate=22050):
         self.data_dir = data_dir
         self.target_length = target_length
@@ -22,6 +34,7 @@ class WHAMDataset(IterableDataset):
         self.file_list = [f for f in os.listdir(data_dir) if f.endswith(".wav")]
 
     def generate(self):
+        """Generates viable audio sample from the WHAM set."""
         while True:
             idx = np.random.choice([i for i in range(len(self.file_list))])
             file_path = os.path.join(self.data_dir, self.file_list[idx])
@@ -49,10 +62,24 @@ class WHAMDataset(IterableDataset):
             yield waveform
 
     def __iter__(self):
+        """Iterator constructor."""
         return iter(self.generate())
 
 
 def combine_batches(clean, noise_loader):
+    """Combines waveforms at 0dB.
+
+    Arguments
+    ---------
+    clean: torch.Tensor
+        Original sample.
+    noise_loader: int
+        DataLoader for the contamination dataset.
+
+    Returns
+    -------
+        Mixture. : torch.Tensor
+    """
     batch_size = clean.shape[0]
 
     noise = []
@@ -78,6 +105,14 @@ def combine_batches(clean, noise_loader):
 
 
 def download_wham(wham_path: str):
+    """
+    This function automatically downloads the WHAM! dataset to the specified data path in the wham_path variable
+
+    Arguments
+    ---------
+    wham_path: str or Path
+        Directory used to save the dataset.
+    """
     if len(os.listdir(wham_path)) != 0:
         return
 
@@ -109,33 +144,44 @@ def download_wham(wham_path: str):
     print(f"WHAM! is downloaded in {wham_path}")
 
 
-def prepare_wham(hparams):
-    """Creates WHAM! dataset when needed."""
-    if "wham_folder" not in hparams:
-        return None
+def prepare_wham(
+    wham_folder, add_wham_noise, sample_rate, signal_length_s, wham_audio_folder
+):
+    """Creates WHAM! dataset when needed.
 
-    if hparams["wham_folder"] is None:
-        if hparams["add_wham_noise"]:
+    Arguments
+    ---------
+    wham_folder: str or Path
+        Directory where the dataset is stored.
+        If empty, data will be automatically downloaded.
+    add_wham_noise: bool
+        True when wham contamination is required. When False, returns None.
+    sample_rate: int
+        Sample rate for the mixture.
+    signal_length_s: int
+        Seconds. Expected length of the audio sample.
+    wham_audio_folder: str or Path
+        Points to the wham split. E.g. wham_noise/tr
+
+    Returns
+    -------
+    WHAM Loader or None, depending on configuration. : WHAMDataset
+    """
+    if wham_folder is None:
+        if add_wham_noise:
             raise Exception("You should specify wham_folder to add noise.")
         return None
 
-    if hparams["add_wham_noise"]:
+    if add_wham_noise:
         # download WHAM! in specified folder
-        download_wham(hparams["wham_folder"])
+        download_wham(wham_folder)
 
-        config_sample_rate = hparams["sample_rate"]
-        config_target_length = hparams["signal_length_s"]
-        data_audio_folder = hparams["wham_audio_folder"]
         dataset = WHAMDataset(
-            data_dir=data_audio_folder,
-            target_length=config_target_length,
-            sample_rate=config_sample_rate,
+            data_dir=wham_audio_folder,
+            target_length=signal_length_s,
+            sample_rate=sample_rate,
         )
 
         return dataset
 
     return None
-
-
-if __name__ == "__main__":
-    download_wham("wham_here")
