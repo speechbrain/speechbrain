@@ -153,6 +153,8 @@ If you want to run tests on the OOD setting, you can use
 python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixture/ljspeech/white_noise> --add_wham_noise False --ljspeech_path /yourpath/ljspeech
 ```
 
+Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `ljspeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting. 
+
 Note that the `ljspeech_path` is required only when you want to generate mixtures with human speech. The mixture setting generates samples using audio files from test and valid sets. White noise adds Gaussian noise to the samples from the test set.
 
 ## In distribution (ID) tests
