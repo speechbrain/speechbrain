@@ -41,7 +41,9 @@ if __name__ == "__main__":
     parser.add_argument("save_directory")
     args = parser.parse_args()
 
-    # Link ASR and normalizer in save folder alongside LM and tokenizer
+    # Link ASR and normalizer in save folder alongside LM and tokenizer.
+    # This is done so that trained models and pretrained models are available
+    # in the same directory to be loaded by the inference class.
     source_dir = os.path.abspath(args.save_directory)
     target_dir = os.path.dirname(source_dir)
     link_file("model.ckpt", source_dir, target_dir)
