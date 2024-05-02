@@ -864,30 +864,34 @@ class Brain:
                 f"* Trainable Parameters represent {0:.4f}% of the total size."
             )
         elif total_trainable_params == 0:
-          logger.warning("The model has no trainable parameters!")
-          formatted_total_params = sb.utils.logger.format_order_of_magnitude(
-              total_parameters
-          )
-          logger.info(
-              f"{class_name} Model Statistics:\n"
-              f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
-              f"* Total Number of Parameters: {formatted_total_params}\n"
-              f"* Trainable Parameters represent {0:.4f}% of the total size."
-          )
+            logger.warning("The model has no trainable parameters!")
+            formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+                total_parameters
+            )
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
+                f"* Total Number of Parameters: {formatted_total_params}\n"
+                f"* Trainable Parameters represent {0:.4f}% of the total size."
+            )
         else:
-          percentage_trainable = 100 * total_trainable_params / total_parameters
-          formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
-              total_trainable_params
-          )
-          formatted_total_params = sb.utils.logger.format_order_of_magnitude(
-              total_parameters
-          )
-          logger.info(
-              f"{class_name} Model Statistics:\n"
-              f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
-              f"* Total Number of Parameters: {formatted_total_params}\n"
-              f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
-          )
+            percentage_trainable = (
+                100 * total_trainable_params / total_parameters
+            )
+            formatted_trainable_params = (
+                sb.utils.logger.format_order_of_magnitude(
+                    total_trainable_params
+                )
+            )
+            formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+                total_parameters
+            )
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
+                f"* Total Number of Parameters: {formatted_total_params}\n"
+                f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
+            )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
