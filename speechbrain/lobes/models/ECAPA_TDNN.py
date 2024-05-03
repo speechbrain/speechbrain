@@ -11,7 +11,8 @@ from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.nnet.CNN import Conv1d as _Conv1d
 from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 from speechbrain.nnet.linear import Linear
-
+# Import adapters
+from speechbrain.lobes.models.transformer.Adapter import *
 
 # Skip transpose as much as possible for efficiency
 class Conv1d(_Conv1d):
@@ -363,18 +364,58 @@ class SERes2NetBlock(nn.Module):
                 out_channels=out_channels,
                 kernel_size=1,
             )
+        self.is_adapter = False
+        self.a_type = None
+        #self.out_channels = out_channels
+
+    def add_adapters(self,a_type="conv", hidden_size=512):
+        self.is_adapter = True
+        self.a_type = a_type
+        if a_type in ["conv"]:
+            self.adapter1 = Houlsby_Adapter(self.out_channels, hidden_size)
+            self.adapter2 = Houlsby_Adapter(self.out_channels, hidden_size)
+        elif a_type in ["all"]:
+            self.adapter =  Houlsby_Adapter(self.out_channels, hidden_size)
 
     def forward(self, x, lengths=None):
         """Processes the input tensor x and returns an output tensor."""
         residual = x
+        if self.is_adapter and self.a_type in ["all"]:
+            # Transpose
+            x2 = x.transpose(1, 2)
+            # Adapter
+            x2 = self.adapter(x)
+            # Transpose
+            x2 = x2.transpose(1, 2)
+
         if self.shortcut:
             residual = self.shortcut(x)
-
+        if self.is_adapter and self.a_type in ["conv"]:
+            # Transpose
+            x2 = x.transpose(1, 2)
+            # Adapter
+            x2 = self.adapter1(x2)
+            # Transpose
+            x2 = x2.transpose(1, 2)
         x = self.tdnn1(x)
+        if self.is_adapter and self.a_type in ["conv"]:
+            x = x + x2
         x = self.res2net_block(x)
+        if self.is_adapter and self.a_type in ["conv"]:
+            # Transpose
+            x2 = x.transpose(1, 2)
+            # Adpater
+            x2 = self.adapter2(x2)
+            # Transpose
+            x2 = x2.transpose(1, 2)
+
         x = self.tdnn2(x)
+        if self.is_adapter and self.a_type in ["conv"]:
+            x = x + x2
         x = self.se_block(x, lengths)
 
+        if self.is_adapter and self.a_type in ["all"]:
+            x = x + x2
         return x + residual
 
 
@@ -606,3 +647,4 @@ class Classifier(torch.nn.Module):
         # Need to be normalized
         x = F.linear(F.normalize(x.squeeze(1)), F.normalize(self.weight))
         return x.unsqueeze(1)
+
