@@ -23,9 +23,9 @@ Authors
 
 from __future__ import absolute_import, division, print_function
 
-import datasets
 import re
 
+import datasets
 
 _CITATION = """\
 @inproceedings{panayotov2015librispeech,

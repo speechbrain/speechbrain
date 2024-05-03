@@ -21,20 +21,22 @@ Authors
  * Jianyuan Zhong 2020
 """
 
-import os
 import csv
-import sys
-import torch
-import torchaudio
-import numpy as np
-from tqdm import tqdm
-import speechbrain as sb
-import torch.nn.functional as F
-import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
 import logging
+import os
+import sys
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from tqdm import tqdm
+
+import speechbrain as sb
+import speechbrain.nnet.schedulers as schedulers
 from speechbrain.core import AMPConfig
+from speechbrain.utils.distributed import run_on_main
 
 
 # from: recipes/LibriMix/separation/train.py
@@ -163,7 +165,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
             else:
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
@@ -195,7 +197,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()

@@ -6,12 +6,13 @@ Ownership: Microsoft
     chkarada
 """
 
+import glob
 import os
+import subprocess
+
+import librosa
 import numpy as np
 import soundfile as sf
-import subprocess
-import glob
-import librosa
 
 EPS = np.finfo(float).eps
 np.random.seed(0)

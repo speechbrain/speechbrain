@@ -5,8 +5,9 @@ Author
 """
 
 import torch
+
 import speechbrain as sb
-from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
+from speechbrain.processing.features import ISTFT, STFT, spectral_magnitude
 
 
 class EnhanceResnet(torch.nn.Module):

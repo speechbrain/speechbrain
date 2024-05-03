@@ -18,22 +18,22 @@ data_folder: !PLACEHOLDER # e,g./path/to/LJSpeech-1.1
 train_json: !ref <save_folder>/train.json
 
 splits: ["train"]
-split_ratio: [100]
+split_ratio: [80]
 skip_prep: False
 sample_rate: 16000
 
-ssl_hub: facebook/hubert-base-ls960
+ssl_hub: facebook/hubert-large-ll60k
 freeze_feature_extractor: True
 freeze_ssl: True
 ssl_folder: !ref <save_folder>/hubert_checkpoint
 ssl_layer_num: 7
 batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
-
+checkpoint_interval: 100
 
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>
-
+   drop_last: True
 ssl_model: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
    source: !ref <ssl_hub>
    output_norm: False

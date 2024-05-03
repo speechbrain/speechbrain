@@ -4,11 +4,12 @@ import torch.nn
 
 def test_make_transformer_src_tgt_masks(device):
 
+    from numpy import inf
+
     from speechbrain.lobes.models.transformer.TransformerASR import (
         make_transformer_src_tgt_masks,
     )
     from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
-    from numpy import inf
 
     config = DynChunkTrainConfig(chunk_size=4, left_context_size=3)
 
@@ -67,10 +68,11 @@ def test_make_transformer_src_mask(device):
 
 def test_get_lookahead_mask(device):
 
+    from numpy import inf
+
     from speechbrain.lobes.models.transformer.Transformer import (
         get_lookahead_mask,
     )
-    from numpy import inf
 
     # fmt: off
     # flake8: noqa

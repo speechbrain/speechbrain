@@ -5,11 +5,15 @@ Authors
  * Davide Borra 2021
 """
 
-from .checkpoints import register_checkpoint_hooks
-from .checkpoints import mark_as_saver
-from .checkpoints import mark_as_loader
 import logging
+
 import yaml
+
+from .checkpoints import (
+    mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
+)
 
 logger = logging.getLogger(__name__)
 

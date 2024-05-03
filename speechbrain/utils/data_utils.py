@@ -8,19 +8,21 @@ Authors
  * Pierre Champion 2023
 """
 
+import collections.abc
+import csv
+import gzip
 import math
 import os
+import pathlib
 import re
-import csv
 import shutil
 import urllib.request
-import collections.abc
+from numbers import Number
+
 import torch
 import tqdm
-import pathlib
+
 import speechbrain as sb
-from numbers import Number
-import gzip
 
 
 def undo_padding(batch, lengths):

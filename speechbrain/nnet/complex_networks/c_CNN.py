@@ -4,16 +4,18 @@ Authors
  * Titouan Parcollet 2020
 """
 
+import logging
+
 import torch
 import torch.nn as nn
-import logging
 import torch.nn.functional as F
+
 from speechbrain.nnet.CNN import get_padding_elem
 from speechbrain.nnet.complex_networks.c_ops import (
-    unitary_init,
-    complex_init,
     affect_conv_init,
     complex_conv_op,
+    complex_init,
+    unitary_init,
 )
 
 logger = logging.getLogger(__name__)

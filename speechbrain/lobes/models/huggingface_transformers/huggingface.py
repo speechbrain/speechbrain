@@ -22,25 +22,26 @@ Authors
  * Ha Nguyen 2023
 """
 
-import os
-import torch
 import logging
+import os
 import pathlib
-from torch import nn
-from huggingface_hub import model_info
-from speechbrain.utils.fetching import fetch
-from speechbrain.dataio.dataio import length_to_mask
 
+import torch
+from huggingface_hub import model_info
+from torch import nn
 from transformers import (
     AutoConfig,
-    AutoTokenizer,
     AutoFeatureExtractor,
-    AutoModelForPreTraining,
     AutoModel,
-    AutoModelWithLMHead,
-    AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
+    AutoModelForPreTraining,
+    AutoModelForSeq2SeqLM,
+    AutoModelWithLMHead,
+    AutoTokenizer,
 )
+
+from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.fetching import fetch
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,10 @@ class HFTransformersInterface(nn.Module):
         alongside with the rest of the pipeline.
     cache_dir : str or Path (default: None)
         Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
+    device : any, optional
+        Device to migrate the model to.
+    **kwargs
+        Extra keyword arguments passed to the `from_pretrained` function.
 
     Example
     -------
@@ -99,6 +104,8 @@ class HFTransformersInterface(nn.Module):
         quantization_config=None,
         freeze=False,
         cache_dir="pretrained_models",
+        device=None,
+        **kwargs,
     ):
         super().__init__()
 
@@ -130,6 +137,8 @@ class HFTransformersInterface(nn.Module):
             source,
             save_path=save_path,
             cache_dir=cache_dir,
+            device=device,
+            **kwargs,
         )
 
         # Prepare for training, fine-tuning, or inference
@@ -148,6 +157,8 @@ class HFTransformersInterface(nn.Module):
         source,
         save_path,
         cache_dir,
+        device=None,
+        **kwargs,
     ):
         """This function manages the source checking and loading of the params.
 
@@ -163,6 +174,10 @@ class HFTransformersInterface(nn.Module):
             Path (dir) of the downloaded model.
         cache_dir : str
             Path (dir) in which a downloaded pretrained model configuration should be cached.
+        device : any, optional
+            Device to migrate the model to.
+        **kwargs
+            Extra keyword arguments passed to `from_pretrained` function.
         """
         is_sb, ckpt_file, is_local = self._check_model_source(source, save_path)
 
@@ -185,7 +200,11 @@ class HFTransformersInterface(nn.Module):
                 config=self.config,
                 cache_dir=save_path,
                 quantization_config=self.quantization_config,
+                **kwargs,
             )
+
+        if device is not None:
+            self.model.to(device)
 
     def _check_model_source(self, path, save_path):
         """Checks if the pretrained model has been trained with SpeechBrain and

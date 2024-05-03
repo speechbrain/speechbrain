@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import os
-import sys
 import site
-import setuptools
+import sys
 from distutils.core import setup
 
+import setuptools
 
 # Editable install in user site directory can be allowed with this hack:
 # https://github.com/pypa/pip/issues/7953.
@@ -28,7 +28,9 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",
     ],
-    packages=setuptools.find_packages(),
+    # we don't want to ship the tests package. for future proofing, also
+    # exclude any tests subpackage (if we ever define __init__.py there)
+    packages=setuptools.find_packages(exclude=["tests", "tests.*"]),
     package_data={"speechbrain": ["version.txt", "log-config.yaml"]},
     install_requires=[
         "hyperpyyaml",
@@ -42,6 +44,6 @@ setup(
         "tqdm",
         "huggingface_hub",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     url="https://speechbrain.github.io/",
 )

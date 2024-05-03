@@ -10,38 +10,39 @@ Authors
  * Adel Moumen 2023
 """
 
-import os
-import sys
-import yaml
-import time
-import torch
-import shutil
-import logging
-import inspect
-import pathlib
 import argparse
+import inspect
+import logging
+import os
+import pathlib
+import shutil
+import sys
 import tempfile
+import time
 import warnings
 from contextlib import contextmanager
-import speechbrain as sb
+from dataclasses import dataclass
 from datetime import date
 from enum import Enum, auto
-from tqdm.contrib import tqdm
 from types import SimpleNamespace
-from torch.nn import SyncBatchNorm
-from torch.utils.data import DataLoader
-from torch.nn import DataParallel as DP
-from torch.utils.data import IterableDataset
-from torch.utils.data import DistributedSampler
-from torch.nn.parallel import DistributedDataParallel as DDP
+
+import torch
+import yaml
 from hyperpyyaml import resolve_references
+from torch.nn import DataParallel as DP
+from torch.nn import SyncBatchNorm
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataloader import LoopedLoader, SaveableDataLoader
+from speechbrain.dataio.sampler import (
+    DistributedSamplerWrapper,
+    ReproducibleRandomSampler,
+)
 from speechbrain.utils.optimizers import rm_vector_weight_decay
-from speechbrain.dataio.dataloader import LoopedLoader
-from speechbrain.dataio.dataloader import SaveableDataLoader
-from speechbrain.dataio.sampler import DistributedSamplerWrapper
-from speechbrain.dataio.sampler import ReproducibleRandomSampler
 from speechbrain.utils.profiling import prepare_profiler
-from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -854,19 +855,43 @@ class Brain:
             if parameter.requires_grad:
                 total_trainable_params += parameter.numel()
         class_name = self.__class__.__name__
-        percentage_trainable = 100 * total_trainable_params / total_parameters
-        formatted_trainable_params = sb.utils.logger.format_order_of_magnitude(
-            total_trainable_params
-        )
-        formatted_total_params = sb.utils.logger.format_order_of_magnitude(
-            total_parameters
-        )
-        logger.info(
-            f"{class_name} Model Statistics:\n"
-            f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
-            f"* Total Number of Parameters: {formatted_total_params}\n"
-            f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
-        )
+        if total_parameters == 0:
+            logger.warning("The model has no parameters!")
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
+                f"* Total Number of Parameters: {total_parameters}\n"
+                f"* Trainable Parameters represent {0:.4f}% of the total size."
+            )
+        elif total_trainable_params == 0:
+            logger.warning("The model has no trainable parameters!")
+            formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+                total_parameters
+            )
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
+                f"* Total Number of Parameters: {formatted_total_params}\n"
+                f"* Trainable Parameters represent {0:.4f}% of the total size."
+            )
+        else:
+            percentage_trainable = (
+                100 * total_trainable_params / total_parameters
+            )
+            formatted_trainable_params = (
+                sb.utils.logger.format_order_of_magnitude(
+                    total_trainable_params
+                )
+            )
+            formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+                total_parameters
+            )
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
+                f"* Total Number of Parameters: {formatted_total_params}\n"
+                f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
+            )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.

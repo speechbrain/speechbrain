@@ -26,8 +26,8 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # *****************************************************************************
-import re
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 

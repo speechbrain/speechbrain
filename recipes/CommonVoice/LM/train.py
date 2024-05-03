@@ -8,14 +8,15 @@ Author
  * Pooneh Mousavi 2023
 """
 
-import os
 import csv
-import sys
 import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+import os
+import sys
+
 from hyperpyyaml import load_hyperpyyaml
 
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
         for line in read_file:
             if not has_added_eos and "ngram 1=" in line:
                 count = line.strip().split("=")[-1]
-                write_file.write(line.replace(f"{count}", f"{int(count)+1}"))
+                write_file.write(line.replace(f"{count}", f"{int(count) + 1}"))
             elif not has_added_eos and "<s>" in line:
                 write_file.write(line)
                 write_file.write(line.replace("<s>", "</s>"))

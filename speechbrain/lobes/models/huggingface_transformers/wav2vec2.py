@@ -12,18 +12,18 @@ Authors
  * Ha Nguyen 2023
 """
 
-import torch
 import logging
+
 import numpy as np
+import torch
 import torch.nn.functional as F
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    HFTransformersInterface,
-)
-from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    make_padding_masks,
-)
 import transformers
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices
+
+from speechbrain.lobes.models.huggingface_transformers.huggingface import (
+    HFTransformersInterface,
+    make_padding_masks,
+)
 
 logger = logging.getLogger(__name__)
 

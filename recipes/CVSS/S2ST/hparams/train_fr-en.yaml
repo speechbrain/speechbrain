@@ -203,7 +203,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
+valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearcher
     modules: [!ref <transformer>, !ref <seq_lin>, null]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>

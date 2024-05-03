@@ -1,0 +1,211 @@
+# ###################################################
+# This mostly contains copies from train.yaml so that
+# the model can be re-loaded for performing inference
+# ###################################################
+
+# Language model (LM) pretraining
+# NB: To avoid mismatch, the speech recognizer must be trained with the same
+# tokenizer used for LM training. Here, we download everything from the
+# speechbrain HuggingFace repository. However, a local path pointing to a
+# directory containing the lm.ckpt and tokenizer.ckpt may also be specified
+# instead. E.g if you want to use your own LM / tokenizer.
+pretrained_path: speechbrain/asr-crdnn-rnnlm-librispeech
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 40
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+dropout: 0.15
+cnn_blocks: 2
+cnn_channels: (128, 256)
+inter_layer_pooling_size: (2, 2)
+cnn_kernelsize: (3, 3)
+time_pooling_size: 4
+rnn_class: !name:speechbrain.nnet.RNN.LSTM
+rnn_layers: 4
+rnn_neurons: 1024
+rnn_bidirectional: True
+dnn_blocks: 2
+dnn_neurons: 512
+emb_size: 128
+dec_neurons: 1024
+output_neurons: 1000  # Number of tokens (same as LM)
+blank_index: 0
+bos_index: 0
+eos_index: 0
+
+# Decoding parameters
+min_decode_ratio: 0.0
+max_decode_ratio: 1.0
+valid_beam_size: 8
+test_beam_size: 80
+eos_threshold: 1.5
+using_max_attn_shift: True
+max_attn_shift: 240
+lm_weight: 0.50
+ctc_weight_decode: 0.0
+coverage_penalty: 1.5
+temperature: 1.25
+temperature_lm: 1.25
+
+# Feature extraction
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+# Feature normalization (mean and std)
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+# The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, !ref <n_mels>]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    inter_layer_pooling_size: !ref <inter_layer_pooling_size>
+    time_pooling: True
+    using_2d_pooling: False
+    time_pooling_size: !ref <time_pooling_size>
+    rnn_class: !ref <rnn_class>
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    rnn_re_init: True
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+    use_rnnp: False
+
+# Embedding (from indexes to an embedding space of dimension emb_size).
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+
+# Attention-based RNN decoder.
+dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: !ref <dnn_neurons>
+    input_size: !ref <emb_size>
+    rnn_type: gru
+    attn_type: location
+    hidden_size: !ref <dec_neurons>
+    attn_dim: 1024
+    num_layers: 1
+    scaling: 1.0
+    channels: 10
+    kernel_size: 100
+    re_init: True
+    dropout: !ref <dropout>
+
+# Linear transformation on the top of the encoder.
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <output_neurons>
+
+# Linear transformation on the top of the decoder.
+seq_lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dec_neurons>
+    n_neurons: !ref <output_neurons>
+
+# Final softmax (for log posteriors computation).
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+# Tokenizer initialization
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+# We compose the inference (encoder) pipeline.
+encoder: !new:speechbrain.nnet.containers.LengthsCapableSequential
+    input_shape: [null, null]
+    compute_features: !ref <compute_features>
+    normalize: !ref <normalize>
+    model: !ref <enc>
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class
+modules:
+    encoder: !ref <encoder>
+    decoder: !ref <decoder>
+    normalize: !ref <normalize>
+    lm_model: !ref <lm_model>
+
+# Gathering all the submodels in a single model object.
+asr_model: !new:torch.nn.ModuleList
+    - [!ref <enc>, !ref <emb>, !ref <dec>, !ref <ctc_lin>, !ref <seq_lin>]
+
+# This is the RNNLM that is used according to the Huggingface repository
+# NB: It has to match the pre-trained RNNLM!!
+lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <output_neurons>
+    embedding_dim: !ref <emb_size>
+    activation: !name:torch.nn.LeakyReLU
+    dropout: 0.0
+    rnn_layers: 2
+    rnn_neurons: 2048
+    dnn_blocks: 1
+    dnn_neurons: 512
+    return_hidden: True  # For inference
+
+# Define scorers for beam search
+
+# If coverage_scorer is set, coverage penalty is applied based on accumulated
+# attention weights during beamsearch.
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+    vocab_size: !ref <output_neurons>
+
+# If the lm_scorer is set, a language model
+# is applied (with a weight specified in scorer).
+rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
+    language_model: !ref <lm_model>
+    temperature: !ref <temperature_lm>
+
+# Gathering all scorers in a scorer instance for beamsearch:
+# - full_scorers are scorers which score on full vocab set, while partial_scorers
+# are scorers which score on pruned tokens.
+# - The number of pruned tokens is decided by scorer_beam_scale * beam_size.
+# - For some scorers like ctc_scorer, ngramlm_scorer, putting them
+# into full_scorers list would be too heavy. partial_scorers are more
+# efficient because they score on pruned tokens at little cost of
+# performance drop. For other scorers, please see the speechbrain.decoders.scorer.
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <rnnlm_scorer>, !ref <coverage_scorer>]
+    weights:
+        rnnlm: !ref <lm_weight>
+        coverage: !ref <coverage_penalty>
+
+# Beamsearch is applied on the top of the decoder. For a description of
+# the other parameters, please see the speechbrain.decoders.S2SRNNBeamSearcher.
+#
+# The final decoding on the test set can be more computationally demanding.
+# In this case, we use the LM + CTC probabilities during decoding as well,
+# which are defined in scorer.
+# Please, remove scorer if you need a faster decoder.
+decoder: !new:speechbrain.decoders.S2SRNNBeamSearcher
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <seq_lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <test_beam_size>
+    eos_threshold: !ref <eos_threshold>
+    using_max_attn_shift: !ref <using_max_attn_shift>
+    max_attn_shift: !ref <max_attn_shift>
+    temperature: !ref <temperature>
+    #scorer: !ref <scorer>
+
+# This object is used to pretrain the language model and the tokenizers
+# (defined above). In this case, we also pretrain the ASR model (to make
+# sure the model converges on a small amount of data)
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        lm: !ref <lm_model>
+        tokenizer: !ref <tokenizer>
+        model: !ref <asr_model>
+        normalizer: !ref <normalize>

@@ -10,14 +10,15 @@ Author
 Yingzhi Wang 2023
 """
 
-import numpy as np
+import json
+import logging
 import os
 import random
-from pydub import AudioSegment
-import json
-from datasets.vad import vad_for_folder
 from pathlib import Path
-import logging
+
+import numpy as np
+from datasets.vad import vad_for_folder
+from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
 repos = [

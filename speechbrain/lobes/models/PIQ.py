@@ -503,6 +503,88 @@ class VectorQuantizedPSI_Audio(nn.Module):
         return x_tilde, hcat, z_q_x
 
 
+class VectorQuantizedPSIFocalNet_Audio(VectorQuantizedPSI_Audio):
+    """
+    This class reconstructs log-power spectrograms from a FocalNet classifier's representations.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of VQ vectors.
+    kwargs : dict
+        See documentation of `VectorQuantizedPSI_Audio`.
+
+    Example
+    -------
+    >>> psi = VectorQuantizedPSIFocalNet_Audio(dim=256, K=1024)
+    >>> x = torch.randn(2, 256, 16, 16)
+    >>> labels = torch.Tensor([0, 2])
+    >>> logspectra, hcat, z_q_x = psi(x, labels)
+    >>> print(logspectra.shape, hcat.shape, z_q_x.shape)
+    torch.Size([2, 1, 495, 593]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
+    """
+
+    def __init__(self, dim=1024, **kwargs):
+        super().__init__(dim=dim, **kwargs)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
+        )
+        self.apply(weights_init)
+
+
+class VectorQuantizedPSIViT_Audio(VectorQuantizedPSI_Audio):
+    """
+    This class reconstructs log-power spectrograms from a ViT classifier's representations.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of VQ vectors.
+    kwargs : dict
+        See documentation of `VectorQuantizedPSI_Audio`.
+
+    Example
+    -------
+    >>> psi = VectorQuantizedPSIViT_Audio(dim=256, K=1024)
+    >>> x = torch.randn(2, 256, 16, 16)
+    >>> labels = torch.Tensor([0, 2])
+    >>> logspectra, hcat, z_q_x = psi(x, labels)
+    >>> print(logspectra.shape, hcat.shape, z_q_x.shape)
+    torch.Size([2, 1, 495, 593]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
+    """
+
+    def __init__(self, dim=768, **kwargs):
+        super().__init__(dim=dim, **kwargs)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(dim, dim, 3, (4, 5), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 1), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, dim, (4, 2), (2, 2), 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(dim),
+            nn.ConvTranspose2d(dim, 1, (10, 8), 1, 1),
+        )
+        self.apply(weights_init)
+
+
 class VQEmbedding(nn.Module):
     """
     Implements VQ Dictionary. Wraps `VectorQuantization` and `VectorQuantizationStraightThrough`. For more details refer to the specific class.

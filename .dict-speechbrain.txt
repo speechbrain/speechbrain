@@ -469,6 +469,8 @@ labse
 langengullís
 lbrain
 ldir
+lemma
+lemmatize
 lerp
 levdb
 libeigen
@@ -508,6 +510,8 @@ miniters
 misversioned
 mlps
 mnist
+modelize
+modelizes
 modernisation
 msed
 mseg
@@ -714,6 +718,7 @@ snrlevels
 snrs
 snts
 soxi
+spacy
 specif
 spectr
 sphs
@@ -769,6 +774,7 @@ tocoo
 tocsr
 todia
 toeplitz
+tokenizable
 tokenizes
 topk
 topo

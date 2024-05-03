@@ -5,14 +5,16 @@ Author
  * Marcely Zanon Boito, 2022
 """
 
-import sys
-import torch
 import logging
+import sys
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+from sacremoses import MosesDetokenizer
+
 import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-from sacremoses import MosesDetokenizer
 
 
 # Define training procedure
