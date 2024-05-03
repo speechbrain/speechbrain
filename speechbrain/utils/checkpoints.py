@@ -87,8 +87,12 @@ def map_old_state_dict_weights(
     state_dict: Dict[str, torch.Tensor], mapping: Dict[str, str]
 ) -> Dict[str, torch.Tensor]:
     """
-    Maps the keys in the old state dictionary according to the provided mapping,
-    under the given prefix.
+    Maps the keys in the old state dictionary according to the provided mapping.
+
+    NOTE: This function will remap all state_dict keys that contain the old key.
+    For instance, if the state_dict is {'model.encoder.layer.0.atn.self.query.weight': ...}
+    and the mapping is {'atn': 'attn'}, the resulting state_dict will be
+    {'model.encoder.layer.0.attn.self.query.weight': ...}.
 
     Parameters
     ----------
@@ -114,6 +118,30 @@ def map_old_state_dict_weights(
     return state_dict
 
 
+def hook_on_loading_state_dict_checkpoint(
+    state_dict: Dict[str, torch.Tensor]
+) -> Dict[str, torch.Tensor]:
+    """Hook to be called when loading a state_dict checkpoint.
+
+    This hook is called when loading a state_dict checkpoint. It can be used
+    to modify the state_dict before it is loaded into the model.
+
+    By default, this hook will map the old state_dict keys to the new ones.
+
+    Arguments
+    ---------
+    state_dict : dict
+        The state_dict to be loaded.
+
+    Returns
+    -------
+    dict
+        The modified state_dict.
+    """
+    altered_state_dict = map_old_state_dict_weights(state_dict, KEYS_MAPPING)
+    return altered_state_dict
+
+
 def torch_recovery(obj, path, end_of_epoch):
     """Loads a torch.nn.Module state_dict from the given path instantly.
 
@@ -133,7 +161,7 @@ def torch_recovery(obj, path, end_of_epoch):
     device = "cpu"
 
     state_dict = torch.load(path, map_location=device)
-    state_dict = map_old_state_dict_weights(state_dict, KEYS_MAPPING)
+    state_dict = hook_on_loading_state_dict_checkpoint(state_dict)
     try:
         obj.load_state_dict(state_dict, strict=True)
     except TypeError:
@@ -1288,7 +1316,7 @@ def average_checkpoints(
         for ckpt in checkpoint_list
     )
     parameter_iterator = (
-        map_old_state_dict_weights(state_dict, KEYS_MAPPING)
+        hook_on_loading_state_dict_checkpoint(state_dict)
         for state_dict in parameter_iterator
     )
 
