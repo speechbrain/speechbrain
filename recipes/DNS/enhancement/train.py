@@ -183,7 +183,7 @@ class Enhancement(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
             else:
                 predictions, clean = self.compute_forward(
                     noisy, clean, sb.Stage.TRAIN, noise
@@ -215,7 +215,7 @@ class Enhancement(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -712,7 +712,7 @@ def dataio_prep(hparams):
     train_samples = meta_loader(hparams["train_data"])
     logger.info(f"Training data- Number of samples: {train_samples}")
     logger.info(
-        f"Training data - Total duration: {train_samples * audio_length/ 3600:.2f} hours"
+        f"Training data - Total duration: {train_samples * audio_length / 3600:.2f} hours"
     )
 
     valid_data = create_combined_dataset(
@@ -721,7 +721,7 @@ def dataio_prep(hparams):
     valid_samples = meta_loader(hparams["valid_data"])
     logger.info(f"Valid data- Number of samples: {valid_samples}")
     logger.info(
-        f"Valid data - Total duration: {valid_samples * audio_length  / 3600:.2f} hours"
+        f"Valid data - Total duration: {valid_samples * audio_length / 3600:.2f} hours"
     )
 
     baseline_data = (

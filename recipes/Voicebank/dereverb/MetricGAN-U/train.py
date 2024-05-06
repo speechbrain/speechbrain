@@ -45,7 +45,7 @@ if AUTH_KEY == "":
 # Set the content type
 headers = {"Content-Type": "application/json"}
 # If authentication is enabled, set the authorization header
-headers["Authorization"] = f"Basic {AUTH_KEY }"
+headers["Authorization"] = f"Basic {AUTH_KEY}"
 
 
 def sigmoid(x):
