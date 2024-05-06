@@ -169,7 +169,7 @@ def fetch(
     use_auth_token=False,
     revision=None,
     huggingface_cache_dir=None,
-    local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
+    local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
 ):
     """Ensures you have a local copy of the file and returns its path.
 
