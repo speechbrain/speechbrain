@@ -19,7 +19,12 @@ from speechbrain.utils.checkpoints import (
     get_default_hook,
 )
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import FetchFrom, FetchSource, fetch, LocalStrategy
+from speechbrain.utils.fetching import (
+    FetchFrom,
+    FetchSource,
+    LocalStrategy,
+    fetch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -170,8 +175,12 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(self, default_source=None, internal_ddp_handling=False
-    ,local_strategy: LocalStrategy = LocalStrategy.NO_LINK):
+    def collect_files(
+        self,
+        default_source=None,
+        internal_ddp_handling=False,
+        local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
+    ):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a

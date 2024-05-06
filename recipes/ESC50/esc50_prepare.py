@@ -19,7 +19,7 @@ import shutil
 import torchaudio
 
 from speechbrain.dataio.dataio import load_data_csv, read_audio
-from speechbrain.utils.fetching import fetch, LocalStrategy
+from speechbrain.utils.fetching import LocalStrategy, fetch
 
 logger = logging.getLogger(__name__)
 

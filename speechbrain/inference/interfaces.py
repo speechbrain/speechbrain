@@ -410,7 +410,7 @@ class Pretrained(torch.nn.Module):
         download_only=False,
         huggingface_cache_dir=None,
         overrides_must_match=True,
-        local_strategy : LocalStrategy = LocalStrategy.NO_LINK,
+        local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file

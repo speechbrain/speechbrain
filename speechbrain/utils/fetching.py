@@ -12,9 +12,9 @@ import platform
 import shutil
 import urllib.error
 import urllib.request
+import warnings
 from collections import namedtuple
 from enum import Enum
-import warnings
 
 import huggingface_hub
 from requests.exceptions import HTTPError
