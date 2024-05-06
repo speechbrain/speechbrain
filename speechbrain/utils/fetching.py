@@ -8,11 +8,13 @@ Authors:
 
 import logging
 import pathlib
+import platform
 import shutil
 import urllib.error
 import urllib.request
 from collections import namedtuple
 from enum import Enum
+import warnings
 
 import huggingface_hub
 from requests.exceptions import HTTPError
@@ -126,6 +128,13 @@ def link_with_strategy(
         return dst
 
     if local_strategy == LocalStrategy.SYMLINK:
+        if platform.system() == "Windows":
+            warnings.warn(
+                "Using SYMLINK strategy on Windows for fetching potentially "
+                "requires elevated privileges and is not recommended. See "
+                "`LocalStrategy` documentation."
+            )
+
         logging.info(
             "Fetch: Local file found, creating symlink '%s' -> '%s'", src, dst
         )
