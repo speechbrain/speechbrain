@@ -19,7 +19,7 @@ from speechbrain.utils.checkpoints import (
     get_default_hook,
 )
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import FetchFrom, FetchSource, fetch
+from speechbrain.utils.fetching import FetchFrom, FetchSource, fetch, LocalStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,8 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(self, default_source=None, internal_ddp_handling=False):
+    def collect_files(self, default_source=None, internal_ddp_handling=False
+    ,local_strategy: LocalStrategy = LocalStrategy.NO_LINK):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -190,6 +191,10 @@ class Pretrainer:
         internal_ddp_handling : bool
             Whether/not the function should handle DDP i.e. `run_on_main`.
             (Default: False)
+        local_strategy : speechbrain.utils.fetching.LocalStrategy
+            The fetching strategy to use, which controls the behavior of remote file
+            fetching with regards to symlinking and copying.
+            See :func:`speechbrain.utils.fetching.fetch` for further details.
 
         Returns
         -------
@@ -228,6 +233,7 @@ class Pretrainer:
                         "save_filename": save_filename,
                         "use_auth_token": False,
                         "revision": None,
+                        "local_strategy": local_strategy,
                     },
                 )
 
@@ -240,6 +246,7 @@ class Pretrainer:
                     save_filename=save_filename,
                     use_auth_token=False,
                     revision=None,
+                    local_strategy=local_strategy,
                 )
             else:
                 # main node is the only one calling this, so path is available
@@ -251,6 +258,7 @@ class Pretrainer:
                     save_filename=save_filename,
                     use_auth_token=False,
                     revision=None,
+                    local_strategy=local_strategy,
                 )
             loadable_paths[name] = path
             fetch_from = None
