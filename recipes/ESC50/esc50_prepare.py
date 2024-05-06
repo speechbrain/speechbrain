@@ -19,7 +19,7 @@ import shutil
 import torchaudio
 
 from speechbrain.dataio.dataio import load_data_csv, read_audio
-from speechbrain.utils.fetching import fetch
+from speechbrain.utils.fetching import fetch, LocalStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,16 @@ def download_esc50(data_path):
         temp_path = os.path.join(data_path, "temp_download")
 
         # download the data
-        fetch(
+        archive_path = fetch(
             "master.zip",
             "https://github.com/karoldvl/ESC-50/archive/",
             savedir=temp_path,
+            # URL, so will be fetched directly in the savedir anyway
+            local_strategy=LocalStrategy.COPY_SKIP_CACHE,
         )
 
         # unpack the .zip file
-        shutil.unpack_archive(os.path.join(temp_path, "master.zip"), data_path)
+        shutil.unpack_archive(archive_path, data_path)
 
         # move the files up to the datapath
         files = os.listdir(os.path.join(data_path, "ESC-50-master"))
