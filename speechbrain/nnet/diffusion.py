@@ -9,6 +9,7 @@ Authors
  * Artem Ploujnikov 2022
 """
 
+import inspect
 from collections import namedtuple
 
 import torch
@@ -49,6 +50,46 @@ class Diffuser(nn.Module):
             self.noise = _NOISE_FUNCTIONS[noise]()
         else:
             self.noise = noise
+        self._model_kwargs = self._build_model_args_filter()
+
+    def _build_model_args_filter(self):
+        """Inspects the model's forward method and constructs
+        a whitelist of arguments
+
+        Returns
+        -------
+        whitelist : set
+            the list of arguments the model can accept
+        """
+        if not hasattr(self.model, "forward"):
+            return None
+        spec = inspect.getfullargspec(self.model.forward)
+        if spec.varkw is not None:
+            return None
+        return {*spec.args, *spec.kwonlyargs} - {"self"}
+
+    def _filter_model_kwargs(self, kwargs):
+        """Filters keyword arguments, removing any that the underlying
+        model cannot accept
+
+        Arguments
+        ---------
+        kwargs : dict
+            Raw arguments
+
+        Returns
+        -------
+        model_kwargs : dict
+            A subset of the original dictionary with only supported
+            keys
+        """
+        if self._model_kwargs is None:
+            return kwargs
+        return {
+            key: value
+            for key, value in kwargs.items()
+            if key in self._model_kwargs
+        }
 
     def distort(self, x, timesteps=None):
         """Adds noise to a batch of data
@@ -98,10 +139,13 @@ class Diffuser(nn.Module):
         noisy_sample, noise = self.distort(x, timesteps=timesteps, **kwargs)
 
         # in case that certain models do not have any condition as input
+        model_kwargs = self._filter_model_kwargs(kwargs)
         if condition is None:
-            pred = self.model(noisy_sample, timesteps, **kwargs)
+            pred = self.model(noisy_sample, timesteps, **model_kwargs)
         else:
-            pred = self.model(noisy_sample, timesteps, condition, **kwargs)
+            pred = self.model(
+                noisy_sample, timesteps, condition, **model_kwargs
+            )
         return pred, noise, noisy_sample
 
     def sample(self, shape, **kwargs):
@@ -334,7 +378,8 @@ class DenoisingDiffusion(Diffuser):
         predicted_sample: torch.Tensor
             the predicted sample (denoised by one step`)
         """
-        model_out = self.model(sample, timestep, **kwargs)
+        model_kwargs = self._filter_model_kwargs(kwargs)
+        model_out = self.model(sample, timestep, **model_kwargs)
         noise = self.noise(sample)
         sample_start = (
             unsqueeze_as(self.sample_pred_model_coefficient[timestep], sample)
