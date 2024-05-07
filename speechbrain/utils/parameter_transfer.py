@@ -270,16 +270,12 @@ class Pretrainer:
                     local_strategy=local_strategy,
                 )
             loadable_paths[name] = path
-            fetch_from = None
             if isinstance(source, FetchSource):
-                fetch_from, source = source
-            if fetch_from is FetchFrom.LOCAL or (
-                pathlib.Path(path).resolve()
-                == pathlib.Path(source).resolve() / filename
-            ):
-                logger.info(f"Set local path in self.paths[{name}] = {path}")
-                self.paths[name] = str(path)
-                self.is_local.append(name)
+                _fetch_from, source = source
+
+            logger.info(f"Set local path in self.paths[{name}] = {path}")
+            self.paths[name] = str(path)
+            self.is_local.append(name)
         return loadable_paths
 
     def is_loadable(self, name):
