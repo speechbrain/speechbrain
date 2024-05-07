@@ -20,7 +20,6 @@ from speechbrain.utils.checkpoints import (
 )
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.fetching import (
-    FetchFrom,
     FetchSource,
     LocalStrategy,
     fetch,
