@@ -19,11 +19,7 @@ from speechbrain.utils.checkpoints import (
     get_default_hook,
 )
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import (
-    FetchSource,
-    LocalStrategy,
-    fetch,
-)
+from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
 
 logger = logging.getLogger(__name__)
 
