@@ -366,8 +366,7 @@ def apply_fx(sound_path, speed):
     s = fx(s)
     # Write the file
     sf.write(
-        f"""{sound_path.replace(
-        '.wav',f"sp{str(speed).replace('.','')}" +'.wav')}""",
+        f"""{sound_path.replace('.wav', f"sp{str(speed).replace('.', '')}" + '.wav')}""",
         s,
         rate,
     )
