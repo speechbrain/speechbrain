@@ -1,4 +1,4 @@
-"""This lobe enables the integration of huggingface pretrained LLAMA2-chat model.
+"""This lobe enables the integration of huggingface pretrained LLAMA series model.
 
 Transformer from HuggingFace needs to be installed:
 https://huggingface.co/transformers/installation.html
@@ -6,6 +6,7 @@ https://huggingface.co/transformers/installation.html
 Authors
  * Pooneh Mousavi 2023
  * Ha Nguyen 2023
+ * Yingzhi Wang 2024
 """
 
 import logging
@@ -48,7 +49,7 @@ class LLAMA2(HFTransformersInterface):
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
     max_new_tokens: int (default: 200)
-    use_4bit: bool (default: True)
+    use_4bit: bool (default: False)
     bnb_4bit_compute_dtype: str (default: "float16")
         This sets the computational type which might be different than the input time. For example, inputs might be fp32, but computation can be set to bf16 for speedups.
     bnb_4bit_quant_type: str (default:"nf4")
@@ -61,8 +62,12 @@ class LLAMA2(HFTransformersInterface):
         The number of highest probability vocabulary tokens to keep for top-k-filtering.
     top_p: float (default: 0.9)
         If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to top_p or higher are kept for generation.
+    temperature: float (default: 0.1)
+        Ranging from 0 to 1, it defines the randomness of LLM responses. The higher the temperature, the more diverse and creative the output would be.
+    repetition_penalty=1.1,
+        Penalize tokens based on how frequently they occur, help the model generate more diverse content instead of repeating previous phrases.
     num_beams: int (default: 8)
-         Number of beams for beam search. 1 means no beam search.
+        Number of beams for beam search. 1 means no beam search.
     early_stopping: bool (default: True)
         Controls the stopping condition for beam-based methods, like beam-search. It accepts the following values:
         - True, where the generation stops as soon as there are num_beams complete candidates
@@ -70,6 +75,28 @@ class LLAMA2(HFTransformersInterface):
         - "never", where the beam search procedure only stops when there cannot be better candidates (canonical beam search algorithm).
     with_peft: bool (default:False)
         If set to True, the peft model (model + adaptors) are loaded. If set to False, the original model is loaded.
+    lora_alpha: int (default: 16)
+        The alpha parameter for Lora scaling.
+    lora_dropout: float (default: 0.1)
+        The dropout probability for Lora layers.
+    r: int (default: 64)
+        Lora attention dimension (the “rank”).
+    bias: str (default: "none")
+        Bias type for LoRA. Can be "none", "all" or "lora_only". If "all" or "lora_only", the corresponding biases will be updated
+        during training. Be aware that this means that, even when disabling the adapters, the model will not produce the same output
+        as the base model would have without adaptation.
+    task_type: str (default: "CAUSAL_LM")
+        Task type that belongs to ["CAUSAL_LM", "FEATURE_EXTRACTION", "QUESTION_ANS", "SEQ_2_SEQ_LM", "SEQ_CLS", "TOKEN_CLS"].
+    lora_target_modules: str or list (default: ["q_proj", "v_proj"])
+        The names of the modules to apply the adapter to. If this is specified, only the modules with the specified
+        names will be replaced. When passing a string, a regex match will be performed. When passing a list of
+        strings, either an exact match will be performed or it is checked if the name of the module ends with any
+        of the passed strings. If this is specified as 'all-linear', then all linear/Conv1D modules are chosen,
+        excluding the output layer. If this is not specified, modules will be chosen according to the model
+        architecture. If the architecture is not known, an error will be raised -- in this case, you should specify
+        the target modules manually.
+    gradient_checkpointing: bool (default: False)
+        Whether to use gradient checkpointing to balance memory and time.
 
     Example
     -------
@@ -83,33 +110,58 @@ class LLAMA2(HFTransformersInterface):
 
     def __init__(
         self,
-        source: str,
-        save_path: str,
-        freeze: bool = False,
-        max_new_tokens: int = 200,
-        use_4bit: bool = True,
-        bnb_4bit_compute_dtype: str = "float16",
-        bnb_4bit_quant_type: str = "nf4",
-        use_nested_quant: bool = False,
-        min_length: int = 1,
-        top_k: int = 45,
-        top_p: float = 0.9,
-        num_beams: int = 8,
-        early_stopping: bool = True,
-        with_peft: bool = False,
+        source,
+        save_path,
+        freeze=False,
+        max_new_tokens=200,
+        use_4bit=False,
+        bnb_4bit_compute_dtype="float16",
+        bnb_4bit_quant_type="nf4",
+        use_nested_quant=False,
+        min_length=1,
+        top_k=45,
+        top_p=0.9,
+        temperature=0.1,
+        repetition_penalty=1.1,
+        num_beams=8,
+        early_stopping=True,
+        with_peft=False,
+        lora_alpha=16,
+        lora_dropout=0.1,
+        r=64,
+        bias="none",
+        task_type="CAUSAL_LM",
+        lora_target_modules=[
+            "q_proj",
+            "v_proj",
+        ],
+        gradient_checkpointing=False,
     ) -> None:
         self.with_peft = with_peft
         self.max_new_tokens = max_new_tokens
         self.min_length = min_length
         self.top_k = top_k
         self.top_p = top_p
+        self.temperature = temperature
+        self.repetition_penalty = repetition_penalty
         self.num_beams = num_beams
         self.early_stopping = early_stopping
         self.source = source
         self.save_path = save_path
-        self.is_sb = False
+
+        self.use_4bit = use_4bit
+        self.bnb_4bit_compute_dtype = bnb_4bit_compute_dtype
+        self.bnb_4bit_quant_type = bnb_4bit_quant_type
+        self.use_nested_quant = use_nested_quant
+
+        self.lora_alpha = lora_alpha
+        self.lora_dropout = lora_dropout
+        self.r = (r,)
+        self.bias = (bias,)
+        self.task_type = (task_type,)
 
         compute_dtype = getattr(torch, bnb_4bit_compute_dtype)
+        self.is_sb = False
         self.bnb_config = None
         if with_peft:
             self.bnb_config = BitsAndBytesConfig(
@@ -148,17 +200,28 @@ class LLAMA2(HFTransformersInterface):
             self.model = prepare_model_for_kbit_training(self.model)
 
             config = LoraConfig(
-                lora_alpha=16,
-                lora_dropout=0.1,
-                r=64,
-                bias="none",
-                task_type="CAUSAL_LM",
+                r=r,
+                lora_alpha=lora_alpha,
+                target_modules=lora_target_modules,
+                lora_dropout=lora_dropout,
+                bias=bias,
+                task_type=task_type,
             )
 
             self.model = get_peft_model(self.model, config)
+
+        if gradient_checkpointing:
+            self.model.gradient_checkpointing_enable()
+            self.model.config.use_cache = False
+
         self.print_trainable_parameters(self.model)
 
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor):
+    def forward(
+        self,
+        input_ids=None,
+        inputs_embeds=None,
+        attention_mask=None,
+    ):
         """Takes an input a history of conversation and returns its corresponding reply.
 
         Arguments
@@ -167,16 +230,24 @@ class LLAMA2(HFTransformersInterface):
             A batch of input-id to transform to features.
         attention_mask : torch.Tensor
             A batch of attention_mask.
+        inputs_embeds : torch.Tensor
+            Optionally, instead of passing `input_ids` you can choose to directly pass
+            an embedded representation. This is useful if you want more control over how
+            to convert `input_ids` indices into associated vectors than the model's
+            internal embedding lookup matrix. In our case we need it when we also need
+            to input audio embeddings.
 
         Returns
         -------
         output : torch.Tensor
             Reply to conversation.
         """
-        with torch.set_grad_enabled(not self.freeze):
-            output = self.model.forward(
-                input_ids, attention_mask=attention_mask
-            )
+
+        output = self.model.forward(
+            input_ids=input_ids,
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+        )
         return output
 
     def _modify_state_dict(self, path, replaceables=["base_model"]):
@@ -263,14 +334,20 @@ class LLAMA2(HFTransformersInterface):
             self.model.is_loaded_in_8bit = False
 
             quantization_config = {}
-            quantization_config["bnb_4bit_compute_dtype"] = "float16"
-            quantization_config["bnb_4bit_quant_type"] = "nf4"
-            quantization_config["bnb_4bit_use_double_quant"] = False
+            quantization_config["bnb_4bit_compute_dtype"] = (
+                self.bnb_4bit_compute_dtype
+            )
+            quantization_config["bnb_4bit_quant_type"] = (
+                self.bnb_4bit_quant_type
+            )
+            quantization_config["bnb_4bit_use_double_quant"] = (
+                self.use_nested_quant
+            )
             quantization_config["llm_int8_enable_fp32_cpu_offload"] = False
             quantization_config["llm_int8_has_fp16_weight"] = False
             quantization_config["llm_int8_skip_modules"] = None
             quantization_config["llm_int8_threshold"] = 6.0
-            quantization_config["load_in_4bit"] = True
+            quantization_config["load_in_4bit"] = self.use_4bit
             quantization_config["load_in_8bit"] = False
             quantization_config["quant_method"] = "bitsandbytes"
 
@@ -290,11 +367,11 @@ class LLAMA2(HFTransformersInterface):
             self.model = prepare_model_for_kbit_training(self.model)
 
             lora_config = LoraConfig(
-                lora_alpha=16,
-                lora_dropout=0.1,
-                r=64,
-                bias="none",
-                task_type="CAUSAL_LM",
+                lora_alpha=self.lora_alpha,
+                lora_dropout=self.lora_dropout,
+                r=self.r,
+                bias=self.bias,
+                task_type=self.task_type,
             )
 
             self.model = get_peft_model(self.model, lora_config)
@@ -331,8 +408,9 @@ class LLAMA2(HFTransformersInterface):
 
     def generate(
         self,
-        input_ids: torch.Tensor,
-        attention_mask: torch.Tensor,
+        input_ids=None,
+        inputs_embeds=None,
+        attention_mask=None,
         decoder_type="greedy",
     ):
         """Takes an input a history of conversation and returns its corresponding reply.
@@ -341,6 +419,12 @@ class LLAMA2(HFTransformersInterface):
         ---------
         input_ids : torch.Tensor
             A batch of input-id which are dialogue context tokens
+        inputs_embeds : torch.Tensor
+            Optionally, instead of passing `input_ids` you can choose to directly pass
+            an embedded representation. This is useful if you want more control over how
+            to convert `input_ids` indices into associated vectors than the model's
+            internal embedding lookup matrix. In our case we need it when we also need
+            to input audio embeddings.
         attention_mask : torch.Tensor
             A batch of attention_mask.
         decoder_type : str
@@ -357,16 +441,17 @@ class LLAMA2(HFTransformersInterface):
                 # beam decoding based on the input_ids which are dialogue context tokens (here only history)
                 hyp = self.model.generate(
                     input_ids=input_ids,
+                    inputs_embeds=inputs_embeds,
                     attention_mask=attention_mask,
                     do_sample=True,
                     max_new_tokens=self.max_new_tokens,
                     min_length=self.min_length,
                     top_k=self.top_k,
                     top_p=self.top_p,
-                    temperature=1.0,
+                    temperature=self.temperature,
                     num_beams=self.num_beams,
                     num_return_sequences=1,
-                    repetition_penalty=1.0,
+                    repetition_penalty=self.repetition_penalty,
                     length_penalty=1,
                     early_stopping=self.early_stopping,
                 )
@@ -374,8 +459,15 @@ class LLAMA2(HFTransformersInterface):
                 # greedy decoding based on the input_ids which are dialogue context tokens (here only history)
                 hyp = self.model.generate(
                     input_ids=input_ids,
-                    max_new_tokens=self.max_new_tokens,
+                    inputs_embeds=inputs_embeds,
                     attention_mask=attention_mask,
+                    do_sample=True,
+                    max_new_tokens=self.max_new_tokens,
+                    temperature=self.temperature,
+                    top_k=self.top_k,
+                    top_p=self.top_p,
+                    repetition_penalty=self.repetition_penalty,
+                    num_return_sequences=1,
                 )
         return hyp
 
@@ -411,5 +503,5 @@ class LLAMA2(HFTransformersInterface):
             if param.requires_grad:
                 trainable_params += param.numel()
         logger.info(
-            f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
+            f"llama trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
         )

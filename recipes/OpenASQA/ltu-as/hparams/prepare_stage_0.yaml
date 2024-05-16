@@ -1,0 +1,45 @@
+seed: 1995 # The seed needs to be the same for all the stages
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+# Datasets, use "null" if a certain dataset is not used
+audioset_folder: !PLACEHOLDER # e,g./path/to/audioset
+vggsound_folder: !PLACEHOLDER # e,g./path/to/vggsound
+fsd50k_folder: !PLACEHOLDER # e,g./path/to/fsd50k
+audiocaps_folder: !PLACEHOLDER # e,g./path/to/audiocaps
+clotho_folder: !PLACEHOLDER # e,g./path/to/clotho
+iemocap_folder: !PLACEHOLDER # e,g./path/to/iemocap
+libritts_folder: !PLACEHOLDER # e,g./path/to/libritts
+voxceleb2_folder: !PLACEHOLDER # e,g./path/to/voxceleb2
+mosei_folder: !PLACEHOLDER # e,g./path/to/mosei
+fma_folder: !PLACEHOLDER # e,g./path/to/fma
+
+output_folder: !ref results/with_llama3-stage0/<seed>
+save_folder: !ref <output_folder>/save
+
+classification_json: !ref <output_folder>/classification.json # training data for stage 1 and 2
+all_json: !ref <output_folder>/all.json # training data for stage 3
+
+whisper_feature_folder: !PLACEHOLDER # where to save the whisper features
+pretrained_tltr_path: !ref <output_folder>/tltr-whisper-large-v1.pth
+
+sample_rate: 16000
+
+# average pooling
+pooling_kernel: 20
+
+# URL for the whisper model.
+whisper_hub: openai/whisper-large
+whisper_folder: !ref <save_folder>/whisper_checkpoint
+freeze_whisper: True
+whisper_output_dim: 1280
+
+whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+    source: !ref <whisper_hub>
+    freeze: !ref <freeze_whisper>
+    save_path: !ref <whisper_folder>
+    encoder_only: True
+    output_all_hiddens: True
+
+avg_pool: !new:speechbrain.nnet.pooling.Pooling1d
+    pool_type: "avg"
+    kernel_size: !ref <pooling_kernel>
