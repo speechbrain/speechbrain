@@ -1,25 +1,25 @@
 #!/usr/bin/env/python3
-"""Recipe for training a wav2vec-based ctc ASR system with librispeech.
+"""Recipe for training a wav2vec-based ctc ASR system.
 The system employs wav2vec as its encoder. Decoding is performed with
 k2 through the use of a decoding graph and, optionally, a rescoring LM.
-To run this recipe, do the following:
-> python train_with_wav2vec.py hparams/train_{hf,sb}_wav2vec.yaml
 The neural network is trained on CTC likelihood target and character units
 are used as basic recognition tokens.
 
+To run this recipe, do the following:
+> python train_with_wav2vec_k2.py hparams/train_hf_wav2vec_k2.yaml --data_folder /corpus # multi corpus support
+
 Authors
  * Pierre Champion 2023
- * Zeyu Zhao 2023
- * Georgios Karakasidis 2023
- * Rudolf A Braun 2022
- * Titouan Parcollet 2022
- * Sung-Lin Yeh 2021
- * Ju-Chieh Chou 2020
- * Mirco Ravanelli 2020
- * Abdel Heba 2020
- * Peter Plantinga 2020
- * Samuele Cornell 2020
 """
+
+try:
+    # Hack to make phonemizer work!
+    # If torch is instanced before phonemizer it does not work
+    import phonemizer
+
+    phonemizer.phonemize("c'est", language="fr-fr")
+except Exception:
+    pass
 
 import logging
 import os
@@ -96,6 +96,7 @@ class ASR(sb.Brain):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
         p_ctc, wav_lens, paths = predictions
+        ids = batch.id.copy()
 
         # Sort batch to be descending by length of wav files, which is required
         # by `k2.intersect_dense` called in `k2.ctc_loss`
@@ -103,6 +104,7 @@ class ASR(sb.Brain):
         p_ctc = p_ctc[indices]
         wav_lens = wav_lens[indices]
         texts = [batch.wrd[i] for i in indices]
+        ids = [ids[i] for i in indices]
 
         is_training = stage == sb.Stage.TRAIN
         loss = self.hparams.ctc_cost(
@@ -119,14 +121,10 @@ class ASR(sb.Brain):
                     path, self.lexicon.word_table
                 )
 
-                predicted_words = [wrd.split(" ") for wrd in predicted_texts]
-                target_words = [wrd.split(" ") for wrd in batch.wrd]
-                self.wer_metrics[k].append(
-                    batch.id, predicted_words, target_words
-                )
-                self.cer_metrics[k].append(
-                    batch.id, predicted_words, target_words
-                )
+            predicted_words = [wrd.split(" ") for wrd in predicted_texts]
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            self.wer_metrics[k].append(batch.id, predicted_words, target_words)
+            self.cer_metrics[k].append(batch.id, predicted_words, target_words)
             # For TEST and VALID stages, the loss value is not exact.
             # The <UNK> words have a target length (e.g., number of phones or characters) of 1.
             # As such, sentences with <UNK> have a higher loss during CTC loss 'mean' reduction mode.
@@ -246,13 +244,21 @@ def dataio_prepare(hparams):
 
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
+        train_data = train_data.filtered_sorted(
+            sort_key="duration",
+            reverse=False,
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+            key_min_value={"duration": hparams["avoid_if_smaller_than"]},
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
+            sort_key="duration",
+            reverse=True,
+            key_max_value={"duration": hparams["avoid_if_longer_than"]},
+            key_min_value={"duration": hparams["avoid_if_smaller_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
@@ -269,44 +275,53 @@ def dataio_prepare(hparams):
         csv_path=hparams["valid_csv"],
         replacements={"data_root": data_folder},
     )
-    valid_data = valid_data.filtered_sorted(sort_key="duration")
+    valid_data = valid_data.filtered_sorted(
+        sort_key="duration",
+        key_min_value={"duration": hparams["avoid_if_smaller_than"]},
+    )
 
     # test is separate
     test_datasets = {}
+    if not isinstance(hparams["test_csv"], list):
+        hparams["test_csv"] = [hparams["test_csv"]]
     for csv_file in hparams["test_csv"]:
         name = Path(csv_file).stem
         test_datasets[name] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=csv_file, replacements={"data_root": data_folder}
+            csv_path=os.path.join(hparams["output_folder"], csv_file),
+            replacements={"data_root": data_folder},
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration"
+            sort_key="duration",
+            key_min_value={"duration": hparams["avoid_if_smaller_than"]},
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
 
     # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.takes("file", "startTime", "endTime", "wrd")
     @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav):
-        sig = sb.dataio.dataio.read_audio(wav)
+    def audio_pipeline(wav, start, stop, wrd):
+        start = int(float(start) * hparams["sample_rate"])
+        stop = int(float(stop) * hparams["sample_rate"])
+        sig = sb.dataio.dataio.read_audio(
+            {"file": wav, "start": start, "stop": stop}
+        )
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
-    @sb.utils.data_pipeline.provides("wrd", "char_list")
+    @sb.utils.data_pipeline.provides("wrd")
     def text_pipeline(wrd):
         yield wrd
-        char_list = list(wrd)
-        yield char_list
 
     sb.dataio.dataset.add_dynamic_item(datasets, text_pipeline)
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
         datasets,
-        ["id", "sig", "wrd", "char_list"],
+        ["id", "sig", "wrd"],
     )
 
     return train_data, valid_data, test_datasets
@@ -323,6 +338,13 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    hparams["train_csv"] = os.path.join(
+        hparams["output_folder"], hparams["train_csv"]
+    )
+    hparams["valid_csv"] = os.path.join(
+        hparams["output_folder"], hparams["valid_csv"]
+    )
+
     # env_corrupt is not supported with k2 yet
     if hparams.get("env_corrupt", None):
         raise NotImplementedError("env_corrupt is not supported with k2 yet")
@@ -334,46 +356,69 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Dataset prep (parsing Librispeech)
-    import librispeech_prepare
+    # Dataset prep (using glob pattern matching from data_folder)
+    import stm_prepare  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        librispeech_prepare.prepare_librispeech,
+        stm_prepare.prepare_stm,
         kwargs={
-            "data_folder": hparams["data_folder"],
+            "stm_directory": hparams["stm_directory"],
+            "wav_directory": hparams["wav_directory"],
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
             "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "merge_train_csv": hparams["merge_train_csv"].split("+"),
+            "train_csv": hparams["train_csv"],
             "skip_prep": hparams["skip_prep"],
+            "new_word_on_apostrophe": hparams["token_type"] in ["char"],
         },
-    )
-
-    # Download the vocabulary file for librispeech
-    librispeech_prepare.download_librispeech_vocab_text(
-        destination=hparams["vocab_file"]
     )
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams)
 
     # Create the lexicon.txt for k2
-    run_on_main(
-        sbk2.lexicon.prepare_char_lexicon,
-        kwargs={
-            "lang_dir": hparams["lang_dir"],
-            "vocab_files": [hparams["vocab_file"]],
-            "csv_files": (
-                [hparams["output_folder"] + "/train.csv"]
-                if not hparams["skip_prep"]
-                else []
-            ),
-            "add_word_boundary": hparams["add_word_boundary"],
-        },
-    )
+    if hparams["token_type"] == "char":
+        run_on_main(
+            sbk2.lexicon.prepare_char_lexicon,
+            kwargs={
+                "skip_prep": hparams["skip_token_prep"],
+                "lang_dir": hparams["lang_dir"],
+                "vocab_files": [],
+                # "vocab_files": [hparams["vocab_file"]],
+                "csv_files": (
+                    [hparams["output_folder"] + "/train.csv"]
+                    if not hparams["skip_prep"]
+                    else []
+                ),
+                "add_word_boundary": hparams["add_word_boundary"],
+                "column_text_key": "wrd",
+            },
+        )
+    elif hparams["token_type"] == "phone":
+        run_on_main(
+            sbk2.lexicon.prepare_phone_lexicon_espeak,
+            kwargs={
+                "skip_prep": hparams["skip_token_prep"],
+                "lang_dir": hparams["lang_dir"],
+                "vocab_files": [],
+                # "vocab_files": [hparams["vocab_file"]],
+                "csv_files": (
+                    [hparams["output_folder"] + "/train.csv"]
+                    if not hparams["skip_prep"]
+                    else []
+                ),
+                "add_word_boundary": hparams["add_word_boundary"],
+                "column_text_key": "wrd",
+                "lang": "fr-fr",
+            },
+        )
+    else:
+        raise NotImplementedError(
+            f"token_type={hparams['token_type']} not not implemented"
+        )
 
     caching = (
         {"cache": False}
@@ -390,39 +435,6 @@ if __name__ == "__main__":
             **caching,
         },
     )
-
-    # OpenSLR ngram models
-    if (
-        hparams["G_arpa"] + ".gz"
-        in librispeech_prepare.OPEN_SLR_11_NGRAM_MODELs
-        and hparams["G_rescoring_arpa"] + ".gz"
-        in librispeech_prepare.OPEN_SLR_11_NGRAM_MODELs
-        and (
-            hparams["compose_HL_with_G"]
-            or hparams["decoding_method"] == "whole-lattice-rescoring"
-        )
-    ):
-        librispeech_prepare.download_openslr_librispeech_lm(
-            destination=hparams["lm_dir"],
-            rescoring_lm=(
-                hparams["decoding_method"] == "whole-lattice-rescoring"
-            ),
-        )
-    # SB ngram models
-    elif (
-        "sb" in hparams["G_arpa"]
-        and "sb" in hparams["G_rescoring_arpa"]
-        and (
-            hparams["compose_HL_with_G"]
-            or hparams["decoding_method"] == "whole-lattice-rescoring"
-        )
-    ):
-        librispeech_prepare.download_sb_librispeech_lm(
-            destination=hparams["lm_dir"],
-            rescoring_lm=(
-                hparams["decoding_method"] == "whole-lattice-rescoring"
-            ),
-        )
 
     # Trainer initialization
     asr_brain = ASR(
@@ -478,12 +490,10 @@ if __name__ == "__main__":
 
     # Testing
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
-        wer_dir = os.path.join(hparams["output_wer_folder"], f"metric_{k}")
+        wer_dir = os.path.join(hparams["output_folder"], f"metric_{k}")
         os.makedirs(wer_dir, exist_ok=True)
         exp = "HLG" if hparams["compose_HL_with_G"] else "HL"
         asr_brain.hparams.wer_file = os.path.join(wer_dir, f"wer_{exp}")
         asr_brain.evaluate(
-            test_datasets[k],
-            test_loader_kwargs=hparams["test_dataloader_opts"],
-            min_key="WER",
+            test_datasets[k], test_loader_kwargs=hparams["test_dataloader_opts"]
         )

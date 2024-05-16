@@ -96,17 +96,14 @@ def ctc_k2(
     """
     input_lens = (input_lens * log_probs.shape[1]).round().int()
 
-    batch_size = log_probs.shape[0]
-
-    supervision_segments = torch.tensor(
-        [[i, 0, input_lens[i]] for i in range(batch_size)],
-        device="cpu",
-        dtype=torch.int32,
+    decoding_graph, target_lens, mask = graph_compiler.compile(
+        texts, is_training=is_training, max_len=input_lens
     )
 
-    decoding_graph, target_lens = graph_compiler.compile(
-        texts, is_training=is_training
-    )
+    # Remove computation when output label length is greater than input length.
+    # (CTC requirement).
+    log_probs = log_probs[mask]
+    input_lens = input_lens[mask]
 
     # An introduction to DenseFsaVec:
     # https://k2-fsa.github.io/k2/core_concepts/index.html#dense-fsa-vector
@@ -114,12 +111,17 @@ def ctc_k2(
     # whose weight on the arcs are initialized with log_probs.
     # The goal of converting tensor-type to fsa-type is using
     # fsa related functions in k2. e.g. k2.ctc_loss.
+    supervision_segments = torch.tensor(
+        [[i, 0, input_lens[i]] for i in range(input_lens.shape[0])],
+        device="cpu",
+        dtype=torch.int32,
+    )
     dense_fsa_vec = k2.DenseFsaVec(log_probs, supervision_segments)
 
     loss = k2.ctc_loss(
-        decoding_graph=decoding_graph.to(log_probs.device),
+        decoding_graph=decoding_graph,
         dense_fsa_vec=dense_fsa_vec,
-        target_lengths=target_lens.to(log_probs.device),
+        target_lengths=target_lens,
         output_beam=beam_size,
         reduction=reduction,
         use_double_scores=use_double_scores,

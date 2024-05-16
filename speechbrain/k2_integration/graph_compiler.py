@@ -51,8 +51,11 @@ class GraphCompiler(abc.ABC):
 
     @abc.abstractmethod
     def compile(
-        self, texts: List[str], is_training: bool = True
-    ) -> Tuple[k2.Fsa, torch.Tensor]:
+        self,
+        texts: List[str],
+        is_training: bool = True,
+        max_len: torch.float = torch.inf,
+    ) -> Tuple[k2.Fsa, torch.Tensor, Optional[torch.Tensor]]:
         """
         Compile the graph for the given texts.
 
@@ -68,6 +71,11 @@ class GraphCompiler(abc.ABC):
         is_training: bool
             Indictating whether this is for training or not
             (OOV warning in training).
+
+        max_len: torch.float
+            When compiling, check the some topo assumption. Like in the CTC
+            where the output label length can not be greater than the input
+            length.
         Returns
         -------
         graph: GraphCompiler
@@ -76,6 +84,9 @@ class GraphCompiler(abc.ABC):
         target_lens: Torch.tensor
             It is an long tensor of shape (batch,). It contains lengths of
             each target sequence.
+        mask: Torch.tensor
+            The possible inputs to remove as they don't comply with the
+            loss requirement.
         """
         pass
 
@@ -306,8 +317,11 @@ class CtcGraphCompiler(GraphCompiler):
         return self._device
 
     def compile(
-        self, texts: List[str], is_training: bool = True
-    ) -> Tuple[k2.Fsa, torch.Tensor]:
+        self,
+        texts: List[str],
+        is_training: bool = True,
+        max_len: torch.float = torch.inf,
+    ) -> Tuple[k2.Fsa, torch.Tensor, Optional[torch.Tensor]]:
         """
         Build decoding graphs by composing ctc_topo with given transcripts.
 
@@ -324,6 +338,10 @@ class CtcGraphCompiler(GraphCompiler):
             Indictating whether this is for training or not
             (OOV warning in training).
 
+        max_len: torch.float
+            When compiling, check the assumption of CTC is that the output
+            label length is not greater than that of the input length. If so,
+            (output > max_len) drop the problematic segment from the batch.
         Returns
         -------
         graph: GraphCompiler
@@ -332,6 +350,9 @@ class CtcGraphCompiler(GraphCompiler):
         target_lens: Torch.tensor
             It is an long tensor of shape (batch,). It contains lengths of
             each target sequence.
+        mask: Torch.tensor
+            The possible inputs to remove as they don't comply with the
+            loss requirement.
         """
 
         word_idx = self.lexicon.texts_to_word_ids(
@@ -345,8 +366,17 @@ class CtcGraphCompiler(GraphCompiler):
         sentence_ids = [sum(inner, []) for inner in word2tids]
 
         target_lens = torch.tensor(
-            [len(t) for t in sentence_ids], dtype=torch.long
+            [len(t) for t in sentence_ids], dtype=torch.long, device=self.device
         )
+
+        mask = target_lens < max_len - 2
+        if torch.any(~mask):
+            logger.debug(
+                "Removing elements from batch for CTC loss.\n"
+                "Output label length is greater than input length."
+            )
+        target_lens = target_lens[mask]
+        word_idx = [id for i, id in enumerate(word_idx) if mask[i]]
 
         word_fsa_with_self_loops = k2.add_epsilon_self_loops(
             k2.linear_fsa(word_idx, self.device)
@@ -376,4 +406,4 @@ class CtcGraphCompiler(GraphCompiler):
 
         assert graph.requires_grad is False
 
-        return graph, target_lens
+        return graph, target_lens, mask

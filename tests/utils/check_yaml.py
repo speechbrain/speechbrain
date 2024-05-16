@@ -7,6 +7,7 @@ Authors
 
 import os
 import re
+import sys
 
 from speechbrain.core import run_opt_defaults
 
@@ -109,7 +110,8 @@ def detect_script_vars(script_file, var_lst):
                     if re_match.group(1) in var:
                         print(
                             "\t\tWARNING: potential inconsistency %s maybe used in %s (or not)."
-                            % (var, re_match.group(0))
+                            % (var, re_match.group(0)),
+                            file=sys.stderr,
                         )
                         if var not in detected_var:
                             detected_var.append(var)
@@ -121,7 +123,8 @@ def detect_script_vars(script_file, var_lst):
                     if re_match.group(1) in var:
                         print(
                             "\t\tWARNING: potential inconsistency %s maybe used in %s (or not)."
-                            % (var, re_match.group(0))
+                            % (var, re_match.group(0)),
+                            file=sys.stderr,
                         )
                         if var not in detected_var:
                             detected_var.append(var)
@@ -169,11 +172,11 @@ def check_yaml_vs_script(hparam_file, script_file):
 
     # Check if files exist
     if not os.path.exists(hparam_file):
-        print("File %s not found!" % (hparam_file,))
+        print("File %s not found!" % (hparam_file,), file=sys.stderr)
         return False
 
     if not os.path.exists(script_file):
-        print("File %s not found!" % (script_file,))
+        print("File %s not found!" % (script_file,), file=sys.stderr)
         return False
 
     # Getting list of variables declared in yaml
@@ -192,7 +195,9 @@ def check_yaml_vs_script(hparam_file, script_file):
     )
     for unused_var in unused_vars:
         print(
-            '\tERROR: variable "%s" not used in %s!' % (unused_var, script_file)
+            '\tERROR: variable "%s" not used in %s!'
+            % (unused_var, script_file),
+            file=sys.stderr,
         )
 
     return len(unused_vars) == 0
@@ -307,6 +312,7 @@ def check_module_vars(
     for unused_var in unused_vars:
         print(
             '\tERROR: variable "self.modules.%s" used in %s, but not listed in the "modules:" section of %s'
-            % (unused_var, script_file, hparam_file)
+            % (unused_var, script_file, hparam_file),
+            file=sys.stderr,
         )
     return len(unused_vars) == 0

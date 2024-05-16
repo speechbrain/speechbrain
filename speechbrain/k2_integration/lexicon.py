@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import torch
+from tqdm import tqdm
 
 from . import k2  # import k2 from ./__init__.py
 
@@ -412,12 +413,13 @@ class Lexicon(object):
 def prepare_char_lexicon(
     lang_dir,
     vocab_files,
-    extra_csv_files=[],
+    csv_files=[],
     column_text_key="wrd",
     add_word_boundary=True,
+    skip_prep=False,
 ):
     """
-    Read extra_csv_files to generate a $lang_dir/lexicon.txt for k2 training.
+    Read csv_files to generate a $lang_dir/lexicon.txt for k2 training.
     This usually includes the csv files of the training set and the dev set in the
     output_folder. During training, we need to make sure that the lexicon.txt contains
     all (or the majority of) the words in the training set and the dev set.
@@ -447,13 +449,15 @@ def prepare_char_lexicon(
     vocab_files: List[str]
         A list of extra vocab files. For example, for librispeech this could be the
         librispeech-vocab.txt file.
-    extra_csv_files: List[str]
+    csv_files: List[str]
         A list of csv file paths
     column_text_key: str
         The column name of the transcription in the csv file. By default, it is "wrd".
     add_word_boundary: bool
         whether to add word boundary symbols <eow> at the end of each line to the
         lexicon for every word.
+    skip_prep: bool
+        skip this step
 
     Example
     -------
@@ -473,15 +477,17 @@ def prepare_char_lexicon(
     >>> with open(csv_file, "w", newline="") as f:
     ...    writer = csv.writer(f)
     ...    writer.writerows(data)
-    >>> extra_csv_files = [csv_file]
+    >>> csv_files = [csv_file]
     >>> lang_dir = getfixture('tmpdir')
     >>> vocab_files = []
-    >>> prepare_char_lexicon(lang_dir, vocab_files, extra_csv_files=extra_csv_files, add_word_boundary=False)
+    >>> prepare_char_lexicon(lang_dir, vocab_files, csv_files=csv_files, add_word_boundary=False)
     """
+    if skip_prep:
+        return
     # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
     lexicon = dict()
-    if len(extra_csv_files) != 0:
-        for file in extra_csv_files:
+    if len(csv_files) != 0:
+        for file in csv_files:
             with open(file, "r") as f:
                 csv_reader = csv.DictReader(f)
                 for row in csv_reader:
@@ -511,6 +517,116 @@ def prepare_char_lexicon(
         fc = f"{UNK} {UNK_t}\n"
         for word in lexicon:
             fc += word + " " + " ".join(lexicon[word]) + "\n"
+        f.write(fc)
+
+
+def prepare_phone_lexicon_espeak(
+    lang_dir,
+    vocab_files,
+    lang,
+    csv_files=[],
+    column_text_key="wrd",
+    add_word_boundary=True,
+    skip_prep=False,
+):
+    """
+    Read csv_files to generate a $lang_dir/lexicon.txt for k2 training.
+    This usually includes the csv files of the training set and the dev set in the
+    output_folder. During training, we need to make sure that the lexicon.txt contains
+    all (or the majority of) the words in the training set and the dev set.
+
+    Also note that in each csv_file, the first line is the header, and the remaining
+    lines are in the following format:
+
+    ID, duration, wav, spk_id, wrd (transcription)
+
+    We only need the transcription in this function.
+
+    Writes out $lang_dir/lexicon.txt
+
+    Note that the lexicon.txt is a text file with the following format:
+    word1 phone1 phone2 phone3 ...
+    word2 phone1 phone2 phone3 ...
+
+    In this code, we simply use the characters in the word as the phones.
+    You can use other phone sets, e.g., phonemes, BPEs, to train a better model.
+
+    Arguments
+    ---------
+    lang_dir: str
+        The directory to store the lexicon.txt
+    vocab_files: List[str]
+        A list of extra vocab files. For example, for librispeech this could be the
+        librispeech-vocab.txt file.
+    lang: str
+        Lang code (i.e.: fr-fr)
+        All code `$ espeak-ng --voices` https://github.com/espeak-ng/espeak-ng
+    csv_files: List[str]
+        A list of csv file paths
+    add_word_boundary: bool
+        whether to add word boundary symbols <eow> at the end of each line to the
+        lexicon for every word.
+    """
+    if skip_prep:
+        return
+    try:
+        from phonemizer.backend import EspeakBackend
+        from phonemizer.separator import Separator
+
+        logging.getLogger("phonemizer").setLevel(logging.CRITICAL)
+        logging.getLogger("phonemizer").propagate = False
+    except ImportError:
+        raise ImportError(
+            "Optional dependencies must be installed to use phonemizer.\n"
+            "Checkout https://github.com/bootphon/phonemizer / https://github.com/espeak-ng/espeak-ng"
+        )
+
+    separator = Separator(phone=" ", word=None)
+    backend = EspeakBackend("fr-fr")
+
+    # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
+    lexicon = dict()
+    if len(csv_files) != 0:
+        for file in csv_files:
+            with open(file, "r") as f:
+                csv_reader = csv.DictReader(f)
+                for row in tqdm(csv_reader, desc="Running phonemizer G2P"):
+                    # Split the transcription into words
+                    words = row[column_text_key].split()
+                    phones = backend.phonemize(
+                        words, separator=separator, strip=True
+                    )
+                    for word, phone in zip(words, phones):
+                        phone = re.sub(
+                            r"\([^)]*\)", "", phone
+                        ).strip()  # remove code switching
+                        if add_word_boundary:
+                            lexicon[word] = phone + " " + EOW
+                        else:
+                            lexicon[word] = phone + " " + EOW
+
+    for file in vocab_files:
+        with open(file) as f:
+            for line in tqdm(f, desc="Running phonemizer G2P on vocab_files"):
+                # Split the line
+                words = line.strip().split()[0]
+                phones = backend.phonemize(
+                    words, separator=separator, strip=True
+                )
+                for word, phone in zip(words, phones):
+                    phone = re.sub(
+                        r"\([^)]*\)", "", phone
+                    ).strip()  # remove code switching
+                    if add_word_boundary:
+                        lexicon[word] = phone + " " + EOW
+                    else:
+                        lexicon[word] = phone + " " + EOW
+    # Write the lexicon to lang_dir/lexicon.txt
+    os.makedirs(lang_dir, exist_ok=True)
+    with open(os.path.join(lang_dir, "lexicon.txt"), "w") as f:
+        fc = f"{UNK} {UNK_t}\n"
+        for word in lexicon:
+            fc += word + " " + lexicon[word] + "\n"
         f.write(fc)
 
 

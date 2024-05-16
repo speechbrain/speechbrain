@@ -68,12 +68,6 @@ class ASR(sb.Brain):
         p_tokens = None
         logits = self.modules.ctc_lin(x)
 
-        # Upsample the inputs if they have been highly downsampled
-        if hasattr(self.hparams, "upsampling") and self.hparams.upsampling:
-            logits = logits.view(
-                logits.shape[0], -1, self.hparams.output_neurons
-            )
-
         p_ctc = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:

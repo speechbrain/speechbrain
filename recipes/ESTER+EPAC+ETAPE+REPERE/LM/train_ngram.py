@@ -2,7 +2,7 @@
 Recipe to train kenlm ngram model.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder=/path/to/LibriSpeech
+> python train.py hparams/train.yaml --data_folder=/path/to/corpus (**/*.stm)
 
 Authors
  * Adel Moumen 2024
@@ -17,25 +17,10 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 import speechbrain.k2_integration as sbk2
-from speechbrain.utils.data_utils import download_file, get_list_from_csv
+from speechbrain.utils.data_utils import get_list_from_csv
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
-OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"
-
-
-def download_librispeech_lm_training_text(destination):
-    """Download librispeech lm training and unpack it.
-
-    Arguments
-    ---------
-    destination : str
-        Place to put dataset.
-    """
-    f = "librispeech-lm-norm.txt.gz"
-    download_file(
-        OPEN_SLR_11_LINK + f, os.path.join(destination, f), unpack=True
-    )
 
 
 def dataprep_lm_training(
@@ -73,9 +58,8 @@ def dataprep_lm_training(
         For example, --prune 0 disables pruning (the default) while --prune 0 0 1 prunes singletons for orders three and higher.
         Please refer to https://kheafield.com/code/kenlm/estimation/ for more details.
     """
-    download_librispeech_lm_training_text(lm_dir)
     column_text_key = "wrd"  # defined in librispeech_prepare.py
-    lm_corpus = os.path.join(lm_dir, "libri_lm_corpus.txt")
+    lm_corpus = os.path.join(lm_dir, "lm_corpus.txt")
     line_seen = set()
     with open(lm_corpus, "w") as corpus:
         for file in csv_files:
@@ -90,7 +74,7 @@ def dataprep_lm_training(
     prune_level = " ".join(map(str, prune_level))
     cmd = f"lmplz -o {arpa_order} --prune {prune_level} --limit_vocab_file {vocab_file} < {lm_corpus} | sed  '1,20s/<unk>/<UNK>/1' > {output_arpa}"
     logger.critical(
-        "RUN the following kenlm command to build a 3-gram arpa LM (https://github.com/kpu/kenlm):"
+        f"RUN the following kenlm command to build a {arpa_order}-gram arpa LM (https://github.com/kpu/kenlm):"
     )
     logger.critical(f"$ {cmd}")
     sys.exit(0)
@@ -110,27 +94,24 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Dataset prep (parsing Librispeech)
-    import librispeech_prepare
+    # Dataset prep
+    import stm_prepare
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
-        librispeech_prepare.prepare_librispeech,
+        stm_prepare.prepare_stm,
         kwargs={
-            "data_folder": hparams["data_folder"],
+            "stm_directory": hparams["stm_directory"],
+            "wav_directory": hparams["wav_directory"],
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
             "save_folder": hparams["output_folder"],
-            "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "merge_train_csv": hparams["merge_train_csv"].split(","),
+            "train_csv": hparams["train_csv"],
             "skip_prep": hparams["skip_prep"],
+            "new_word_on_apostrophe": hparams["for_token_type"] in ["char"],
         },
-    )
-
-    # Download the vocabulary file for librispeech
-    librispeech_prepare.download_librispeech_vocab_text(
-        destination=hparams["vocab_file"]
     )
 
     # Create the lexicon.txt for k2
@@ -168,9 +149,7 @@ if __name__ == "__main__":
         lm_dir=hparams["output_folder"],
         output_arpa=hparams["output_arpa"],
         csv_files=[hparams["train_csv"]],
-        external_lm_corpus=[
-            os.path.join(hparams["output_folder"], "librispeech-lm-norm.txt")
-        ],
+        external_lm_corpus=[],
         vocab_file=os.path.join(hparams["lang_dir"], "words.txt"),
         arpa_order=hparams["arpa_order"],
         prune_level=hparams["prune_level"],

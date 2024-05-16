@@ -1,0 +1,4 @@
+ftfy
+# k2 # It is better to install k2 with the procedure listed here: https://k2-fsa.github.io/k2/installation/from_wheels.html
+num2words
+soundfile
