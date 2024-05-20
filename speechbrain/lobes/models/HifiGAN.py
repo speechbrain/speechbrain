@@ -685,6 +685,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         var_pred_dropout=0.5,
         multi_speaker=False,
         normalize_speaker_embeddings=False,
+        skip_token_embedding=False,
     ):
         super().__init__(
             in_channels,
@@ -715,6 +716,7 @@ class UnitHifiganGenerator(HifiganGenerator):
             )
         self.multi_speaker = multi_speaker
         self.normalize_speaker_embeddings = normalize_speaker_embeddings
+        self.skip_token_embedding = skip_token_embedding
 
     @staticmethod
     def _upsample(x, max_frames):
@@ -735,7 +737,10 @@ class UnitHifiganGenerator(HifiganGenerator):
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
         """
-        u = self.unit_embedding(x)
+        if self.skip_token_embedding:
+            u = x
+        else:
+            u = self.unit_embedding(x)
 
         batch_size, time, channel, emb_size = u.shape
         u_ = u.view(batch_size * time, channel, emb_size)
@@ -775,7 +780,8 @@ class UnitHifiganGenerator(HifiganGenerator):
         x : torch.Tensor (batch, time)
             feature input tensor.
         """
-        x = self.unit_embedding(x)
+        if not self.skip_token_embedding:
+            x = self.unit_embedding(x)
 
         batch_size, time, channel, emb_size = x.shape
         x_ = x.view(batch_size * time, channel, emb_size)
@@ -1250,7 +1256,6 @@ class L1SpecLoss(nn.Module):
         y : torch.tensor
             real waveform tensor
         """
-
         y_hat_M = mel_spectogram(
             self.sample_rate,
             self.hop_length,
