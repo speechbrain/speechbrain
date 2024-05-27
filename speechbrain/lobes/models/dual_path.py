@@ -306,6 +306,89 @@ class IdentityBlock:
         return x
 
 
+class MambaEncoder(torch.nn.Module):
+    def __init__(self, out_channels,
+                 num_layers=6,
+                 dropout=0.0,
+                 d_state=16,
+                 bidirectional=True,
+                 expand=2,
+                 d_conv=4,
+                 fused_add_norm=False,
+                 rms_norm=True,
+                 use_simple_block=False,
+                 residual_in_fp32=False,
+                 use_pos_encoding=True,
+                 pos_enc_max_len=20000,
+                 ):
+        super(MambaEncoder, self).__init__()
+        from speechbrain.nnet.mamba.mamba_blocks import MambaBlocksSequential
+        self.use_pos_enc = use_pos_encoding
+        self.net = MambaBlocksSequential(
+            n_mamba=num_layers,
+            bidirectional=bidirectional,
+            d_model=self.emb_dim,
+            d_state=d_state,
+            expand=expand,
+            d_conv=d_conv,
+            fused_add_norm=fused_add_norm,
+            rms_norm=rms_norm,
+            use_simple_block=use_simple_block,
+            residual_in_fp32=residual_in_fp32,
+            conv_bias=True,
+            bias=False)
+
+        if self.use_pos_enc:
+            from speechbrain.nnet.flash_attention import FlashPositionalEncoding
+            self.pos_encoding = FlashPositionalEncoding(out_channels,
+                                                        dropout, max_len=pos_enc_max_len)
+
+    def forward(self, inp):
+
+        if self.use_pos_enc:
+            inp = self.pos_encoding(inp)
+
+        inp = self.net(inp)
+
+        return inp
+
+
+class FlashTransformerEncoder(torch.nn.Module):
+    def __init__(self, out_channels,
+        num_layers=6,
+        nhead=8,
+        d_ffn=2048,
+        dropout=0.0,
+        dropout_att=0.0,
+        activation="relu",
+        use_positional_encoding=True,
+        pos_enc_max_len=20000):
+        super(FlashTransformerEncoder, self).__init__()
+        self.use_pos_enc = use_positional_encoding
+        self.net = torch.nn.ModuleList([])
+        from speechbrain.nnet.flash_attention import FlashResidualAttentionBlock, \
+            FlashPositionalEncoding
+        for x in range(num_layers):
+            self.net.append(FlashResidualAttentionBlock(out_channels, nhead,
+                                                        cross_attention=False,
+                                                   ff_dim=d_ffn, dropout=dropout,
+                                                        dropout_att=dropout_att,
+                                                        activation=activation))
+        if self.use_pos_enc:
+            self.pos_encoding = FlashPositionalEncoding(out_channels,
+                                                        dropout, max_len=pos_enc_max_len)
+
+    def forward(self, inp):
+
+        if self.use_pos_enc:
+            inp = self.pos_encoding(inp)
+
+        for l in self.net:
+            inp = l(inp)
+
+        return inp
+
+
 class FastTransformerBlock(nn.Module):
     """This block is used to implement fast transformer models with efficient attention.
 
