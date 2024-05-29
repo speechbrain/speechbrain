@@ -20,7 +20,6 @@ import os
 import sys
 from pathlib import Path
 
-import peft
 import torch
 from hyperpyyaml import load_hyperpyyaml
 
@@ -251,26 +250,6 @@ def dataio_prepare(hparams, tokenizer):
     return train_data, valid_data, test_datasets
 
 
-def collect_linear(model):
-    """Returns a list of linear layers from a given model
-
-    Arguments
-    ---------
-    model : torch.nn.Module
-        A torch model to collect the layer names from.
-
-    Returns
-    -------
-    layers : list
-        A list of layer names for linear layers.
-    """
-    layers = []
-    for layer_name, layer in model.named_modules():
-        if isinstance(layer, torch.nn.Linear):
-            layers.append(layer_name)
-    return layers
-
-
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
@@ -318,12 +297,9 @@ if __name__ == "__main__":
         hparams["pretrainer"].load_collected(run_opts["device"])
 
     # Add LoRA to the pretrained model
-    if "lora_config" in hparams:
-        lora_layers = collect_linear(hparams["whisper"])
-        model_config = hparams["lora_config"](target_modules=lora_layers)
-        hparams["whisper"] = peft.get_peft_model(
-            model=hparams["whisper"], peft_config=model_config
-        )
+    if "add_adapters" in hparams:
+        hparams["add_adapters"](hparams["whisper"])
+    print(hparams["whisper"])
 
     # Trainer initialization
     asr_brain = ASR(

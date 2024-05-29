@@ -61,10 +61,10 @@ test_beam_size: 8
 
 # Lora configuration
 lora_rank: 16
-lora_config: !name:peft.LoraConfig
-    r: !ref <lora_rank>
-    lora_alpha: !ref <lora_rank> * 2
-    lora_dropout: 0.1
+add_adapters: !name:speechbrain.nnet.adapters.add_adapters_to_model
+    adapter_class: !name:speechbrain.nnet.adapters.LoRALinear
+    rank: !ref <lora_rank>
+    target_layers: all_linear
 
 ####################### Model Parameters #######################################
 
