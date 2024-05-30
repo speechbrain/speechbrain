@@ -25,6 +25,8 @@ Authors
 import logging
 import os
 import pathlib
+from typing import Optional, Tuple
+import glob
 
 import torch
 from huggingface_hub import model_info
@@ -83,6 +85,10 @@ class HFTransformersInterface(nn.Module):
         Location of HuggingFace cache for storing pre-trained models, to which symlinks are created.
     device : any, optional
         Device to migrate the model to.
+    model_path : str, optional
+        Within the HF repository, the path to the file. This is useful when
+        the usual file extension heuristics falls apart (unknown file extension
+        or multiple file candidates).
     **kwargs
         Extra keyword arguments passed to the `from_pretrained` function.
 
@@ -105,6 +111,7 @@ class HFTransformersInterface(nn.Module):
         freeze=False,
         cache_dir="pretrained_models",
         device=None,
+        model_path: Optional[str] = None,
         **kwargs,
     ):
         super().__init__()
@@ -138,6 +145,7 @@ class HFTransformersInterface(nn.Module):
             save_path=save_path,
             cache_dir=cache_dir,
             device=device,
+            model_path=model_path,
             **kwargs,
         )
 
@@ -158,6 +166,7 @@ class HFTransformersInterface(nn.Module):
         save_path,
         cache_dir,
         device=None,
+        model_path: Optional[str] = None,
         **kwargs,
     ):
         """This function manages the source checking and loading of the params.
@@ -176,10 +185,14 @@ class HFTransformersInterface(nn.Module):
             Path (dir) in which a downloaded pretrained model configuration should be cached.
         device : any, optional
             Device to migrate the model to.
+        model_path : str, optional
+            Within the HF repository, the path to the file. This is useful when
+            the usual file extension heuristics falls apart (unknown file extension
+            or multiple file candidates).
         **kwargs
             Extra keyword arguments passed to `from_pretrained` function.
         """
-        is_sb, ckpt_file, is_local = self._check_model_source(source, save_path)
+        is_sb, ckpt_file, is_local = self._check_model_source(source, save_path, model_path=model_path)
 
         if is_sb or self.for_pretraining:
             self.model = self.auto_class.from_config(self.config)
@@ -206,7 +219,59 @@ class HFTransformersInterface(nn.Module):
         if device is not None:
             self.model.to(device)
 
-    def _check_model_source(self, path, save_path):
+    def _is_model_path_sb_ckpt(self, path: str):
+        """Returns whether the specified path is likely a SpeechBrain checkpoint
+        file.
+        
+        Arguments
+        ---------
+        path: str
+            Path relative to the root of the directory.
+        
+        Returns
+        -------
+        bool
+            `True` if the file extension is `.ckpt`"""
+        
+        return path.endswith(".ckpt")
+
+    def _is_model_path_generic_model(self, path: str):
+        """Returns whether the specified path is likely a model path of some
+        sort.
+        
+        Arguments
+        ---------
+        path: str
+            Path relative to the root of the directory.
+        
+        Returns
+        -------
+        bool
+            `True` if the file name or file extension is among a list of common
+            model filenames."""
+
+        candidate_extensions = (".bin", ".safetensors")
+        return any(path.endswith(ext) for ext in candidate_extensions)
+
+    def _check_model_source_in_list(self, files, model_path: Optional[str] = None) -> Optional[Tuple[bool, str]]:
+        # is it the path the user has passed explicitly?
+        if model_path is not None:
+            for file in files:
+                if file == model_path:
+                    is_sb = self._is_model_path_sb_ckpt(file)
+                    return is_sb, file
+
+        for file in files:
+            if self._is_model_path_sb_ckpt(file):
+                return True, file
+
+        for file in files:
+            if self._is_model_path_generic_model(file):
+                return False, file
+
+        return None
+
+    def _check_model_source(self, path, save_path, model_path: Optional[str] = None):
         """Checks if the pretrained model has been trained with SpeechBrain and
         is hosted locally or on a HuggingFace hub.
         Called as static function in HFTransformersInterface._from_pretrained.
@@ -217,6 +282,10 @@ class HFTransformersInterface(nn.Module):
             Used as "source"; local path or HuggingFace hub name: e.g "facebook/wav2vec2-large-lv60"
         save_path : str
             norm_output (dir) of the downloaded model.
+        model_path : str, optional
+            Within the HF repository, the path to the file. This bypasses the
+            normal file extension heuristic but otherwise performs as normal.
+            Still, if the file extension is `.ckpt`, `is_sb` will be `True`.
 
         Returns
         -------
@@ -232,7 +301,6 @@ class HFTransformersInterface(nn.Module):
         ValueError
             If file is not found
         """
-        checkpoint_filename = ""
         source = pathlib.Path(path)
         is_local = True
 
@@ -244,53 +312,35 @@ class HFTransformersInterface(nn.Module):
         sink = pathlib.Path(
             save_path + "/models--" + path.replace("/", "--") + "/snapshots"
         )
+
         if sink.exists():
-            sink = (
-                sink / os.listdir(str(sink))[0]
-            )  # there's a hash-id subfolder
-            if any(
-                File.endswith(".bin") or File.endswith(".ckpt")
-                for File in os.listdir(str(sink))
-            ):
-                is_local = True
-                local_path = str(sink)
-            else:
-                local_path = path
-        else:
-            local_path = path
+            # there's a hash-id subfolder
+            sink = sink / os.listdir(str(sink))[0]
 
-        if is_local:
-            # Test for HuggingFace model
-            if any(File.endswith(".bin") for File in os.listdir(local_path)):
-                is_sb = False
-                return is_sb, checkpoint_filename, is_local
+            # discover all files (including in subfolders for consistency)
+            files = glob.glob("**", root_dir=sink, recursive=True)
+            candidates = self._check_model_source_in_list(files, model_path)
 
-            # Test for SpeechBrain model and get the filename.
-            for File in os.listdir(local_path):
-                if File.endswith(".ckpt"):
-                    checkpoint_filename = os.path.join(path, File)
-                    is_sb = True
-                    return is_sb, checkpoint_filename, is_local
-        else:
-            files = model_info(
-                path
-            ).siblings  # get the list of files of the Hub
+            if candidates is not None:
+                is_local = True  # found match locally
 
-            # Test if it's an HuggingFace model or a SB one
-            for File in files:
-                if File.rfilename.endswith(".ckpt"):
-                    checkpoint_filename = File.rfilename
-                    is_sb = True
-                    return is_sb, checkpoint_filename, is_local
+        # no match found locally (even if sink exists?)
+        if not is_local:
+            # get the list of files from the Hub and try with that
+            files = [sibling.rfilename for sibling in model_info(path).siblings]
+            candidates = self._check_model_source_in_list(files, model_path)
 
-            for File in files:
-                if File.rfilename.endswith(".bin"):
-                    checkpoint_filename = File.rfilename
-                    is_sb = False
-                    return is_sb, checkpoint_filename, is_local
+        if candidates is not None:
+            is_sb, file = candidates
+            return is_sb, file, is_local
 
-        err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
-        raise FileNotFoundError(err_msg)
+        raise FileNotFoundError(
+            f"{path} does not contain a SpeechBrain `.ckpt` checkpoint or any "
+            "other non-SpeechBrain known model name or file extension! If the "
+            "model is using a path SB does not know about, consider passing "
+            "`model_path` to the constructor, or if you are extending this "
+            "class, update `_is_path_generic_model`."
+        )
 
     def _modify_state_dict(self, path, **kwargs):
         """A custom loading ensures SpeechBrain compatibility for pretrain and model.
