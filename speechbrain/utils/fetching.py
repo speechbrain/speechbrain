@@ -6,13 +6,14 @@ Authors:
  * Andreas Nautsch 2022, 2023
 """
 
-import urllib.request
-import urllib.error
-import pathlib
 import logging
-from enum import Enum
-import huggingface_hub
+import pathlib
+import urllib.error
+import urllib.request
 from collections import namedtuple
+from enum import Enum
+
+import huggingface_hub
 from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)

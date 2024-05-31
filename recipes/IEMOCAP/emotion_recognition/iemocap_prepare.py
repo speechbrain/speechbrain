@@ -9,11 +9,12 @@ Authors:
  * Yingzhi Wang, 2022
 """
 
-import os
-import re
 import json
-import random
 import logging
+import os
+import random
+import re
+
 from speechbrain.dataio.dataio import read_audio
 
 logger = logging.getLogger(__name__)

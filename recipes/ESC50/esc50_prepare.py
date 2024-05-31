@@ -11,13 +11,14 @@ Authors:
  Adapted from the Urbansound8k recipe.
 """
 
-import os
-import shutil
 import json
 import logging
+import os
+import shutil
+
 import torchaudio
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import load_data_csv
+
+from speechbrain.dataio.dataio import load_data_csv, read_audio
 from speechbrain.utils.fetching import fetch
 
 logger = logging.getLogger(__name__)

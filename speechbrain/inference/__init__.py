@@ -1,7 +1,6 @@
 """Importing all the inference interfaces"""
 
 from . import *  # noqa
-
 from .ASR import *  # noqa
 from .classifiers import *  # noqa
 from .diarization import *  # noqa

@@ -58,3 +58,9 @@ except ModuleNotFoundError:
     collect_ignore.append(
         "speechbrain/lobes/models/huggingface_transformers/vocos.py"
     )
+try:
+    from speechtokenizer import SpeechTokenizer  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append(
+        "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
+    )

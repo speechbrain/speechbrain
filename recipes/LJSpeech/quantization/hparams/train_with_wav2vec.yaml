@@ -18,7 +18,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/LJSpeech-1.1
 
 train_json: !ref <save_folder>/train.json
 splits: ["train"]
-split_ratio: [100]
+split_ratio: [80]
 skip_prep: False
 sample_rate: 16000
 

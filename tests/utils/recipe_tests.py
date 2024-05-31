@@ -5,14 +5,16 @@ Authors
  * Andreas Nautsch 2022, 2023
 """
 
-import os
-import re
 import csv
-import sys
+import os
 import pydoc
-from time import time
+import re
 import subprocess as sp
+import sys
+from time import time
+
 from hyperpyyaml import load_hyperpyyaml
+
 from speechbrain.utils.data_utils import download_file  # noqa: F401
 
 __skip_list = ["README.md", "setup"]
@@ -138,7 +140,7 @@ def prepare_test(
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
-                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2:02d}"
+                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id + 2:02d}"
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):

@@ -18,7 +18,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/LJSpeech-1.1
 train_json: !ref <save_folder>/train.json
 
 splits: ["train"]
-split_ratio: [100]
+split_ratio: [80]
 skip_prep: False
 sample_rate: 16000
 
@@ -29,7 +29,6 @@ ssl_folder: !ref <save_folder>/hubert_checkpoint
 ssl_layer_num: 7
 batch_size: 128 # batch_size for loading and extracting features. It is different from kmeans_batch_size.
 checkpoint_interval: 100
-
 
 # Dataloader options
 train_dataloader_opts:

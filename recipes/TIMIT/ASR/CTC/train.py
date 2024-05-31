@@ -16,12 +16,14 @@ Authors
  * Peter Plantinga 2020
 """
 
+import logging
 import os
 import sys
-import logging
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 

@@ -9,17 +9,16 @@ Authors
  * Pierre Champion 2023
 """
 
+import logging
 import os
 import sys
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 import speechbrain.k2_integration as sbk2
-from speechbrain.utils.data_utils import (
-    download_file,
-    get_list_from_csv,
-)
+from speechbrain.utils.data_utils import download_file, get_list_from_csv
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"

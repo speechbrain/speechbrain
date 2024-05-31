@@ -10,22 +10,24 @@ Authors
  * Andreas Nautsch, 2022, 2023
 """
 
-import os
-import sys
-from tqdm import tqdm
-import yaml
-import torch  # noqa
 import importlib  # noqa
+import os
 import subprocess
-import speechbrain  # noqa
-from glob import glob
+import sys
 from copy import deepcopy
-from torch.utils.data import DataLoader
+from glob import glob
+
+import torch  # noqa
+import yaml
 from hyperpyyaml import load_hyperpyyaml
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+import speechbrain  # noqa
+from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
+from speechbrain.inference.interfaces import foreign_class  # noqa
 from speechbrain.utils.distributed import run_on_main  # noqa
 from speechbrain.utils.train_logger import FileTrainLogger
-from speechbrain.inference.interfaces import foreign_class  # noqa
-from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
 
 
 def init(
@@ -300,7 +302,7 @@ def gather_refactoring_results(
             with open(yaml_path, "w") as yaml_out:
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
-            print(f"\tsame: {results[repo]['same'] }")
+            print(f"\tsame: {results[repo]['same']}")
 
 
 def test_performance(

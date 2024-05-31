@@ -11,14 +11,15 @@ Author
 Gaëlle Laperrière 2023
 """
 
-import xml.dom.minidom as DOM
-from tqdm import tqdm
-import logging
-import subprocess
 import csv
-import os
 import glob
+import logging
+import os
 import re
+import subprocess
+import xml.dom.minidom as DOM
+
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 

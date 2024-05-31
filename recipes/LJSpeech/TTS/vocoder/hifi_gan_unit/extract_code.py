@@ -5,14 +5,14 @@ Authors
  * Jarod Duret 2023
 """
 
-import logging
 import json
+import logging
 import pathlib as pl
 
 import torch
 import torchaudio
-import numpy as np
 from tqdm import tqdm
+
 import speechbrain as sb
 from speechbrain.dataio.dataio import (
     load_pkl,

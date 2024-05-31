@@ -58,15 +58,16 @@ Authors
 import itertools
 import math
 import os
-import speechbrain as sb
 import sys
 import traceback
-
-from cmd import Cmd
 from argparse import ArgumentParser
+from cmd import Cmd
+
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.inference.text import GraphemeToPhoneme
 from tqdm.auto import tqdm
+
+import speechbrain as sb
+from speechbrain.inference.text import GraphemeToPhoneme
 
 MSG_MODEL_NOT_FOUND = "Model path not found"
 MSG_HPARAMS_NOT_FILE = "Hyperparameters file not found"

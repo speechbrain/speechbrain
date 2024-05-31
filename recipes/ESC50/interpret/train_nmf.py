@@ -11,12 +11,14 @@ Authors
 
 
 import sys
+
 import torch
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 from esc50_prepare import prepare_esc50
+from hyperpyyaml import load_hyperpyyaml
 from train_l2i import dataio_prep
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 class NMFBrain(sb.core.Brain):

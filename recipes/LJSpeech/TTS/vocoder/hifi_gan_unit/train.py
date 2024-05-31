@@ -11,17 +11,18 @@ Authors
  * Yingzhi WANG 2022
 """
 
-import sys
 import copy
-import random
 import pathlib as pl
+import random
+import sys
 
-from hyperpyyaml import load_hyperpyyaml
-import speechbrain as sb
-from speechbrain.utils.data_utils import scalarize
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import scalarize
 
 
 class HifiGanBrain(sb.Brain):

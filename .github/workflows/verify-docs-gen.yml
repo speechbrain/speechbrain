@@ -11,19 +11,22 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
-            - name: Setup Python 3.9
-              uses: actions/setup-python@v2
+            - uses: actions/cache@v4
+              id: cache-uv
               with:
-                  python-version: '3.9'
+                  path: ~/.cache/uv
+                  key: ${{ runner.os }}-python-docs-uv
+            - name: Setup Python 3.8
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.8'
             - name: Full dependencies
               run: |
-                  # up to k2 compatible torch version
-                  pip install torch==2.1.2 torchaudio==2.1.2
-                  pip install -r requirements.txt
-                  pip install --editable .
-                  pip install -r docs/docs-requirements.txt
-                  pip install k2==1.24.4.dev20231220+cpu.torch2.1.2 -f https://k2-fsa.github.io/k2/cpu.html
+                  pip install uv
+                  uv pip install --system ctc-segmentation  # ctc-segmentation is funky with uv due to their oldest-supported-numpy dependency
+                  uv pip install --system -r requirements.txt -r docs/docs-requirements.txt torch==2.2.1+cpu torchaudio==2.2.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu k2==1.24.4.dev20240223+cpu.torch2.2.1 --find-links https://k2-fsa.github.io/k2/cpu.html kaldilm==1.15.1 spacy==3.7.4 flair==0.13.1
+                  uv pip install --system --editable . --no-deps  # already installed pinned deps from requirements.txt, we're good
             - name: Generate docs
               run: |
                   cd docs
-                  make html
+                  SPHINXOPTS="-j=auto" make html

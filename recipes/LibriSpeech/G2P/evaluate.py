@@ -8,20 +8,22 @@ Authors
  * Artem Ploujnikov 2022
 """
 
+import itertools
+import logging
+import math
+import sys
+from types import SimpleNamespace
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+from tqdm.auto import tqdm
+from train import dataio_prep, load_dependencies
+
+import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
 from speechbrain.utils import hpopt as hp
 from speechbrain.wordemb.util import expand_to_chars
-from train import dataio_prep, load_dependencies
-from types import SimpleNamespace
-from tqdm.auto import tqdm
-import math
-import itertools
-import speechbrain as sb
-import torch
-import sys
-import logging
 
 logger = logging.getLogger(__name__)
 
