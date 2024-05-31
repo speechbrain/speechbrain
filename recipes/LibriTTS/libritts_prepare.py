@@ -152,16 +152,6 @@ def prepare_split(data_folder, split_list):
                     f"No archive file found for {subset_name}. Downloading and unpacking."
                 )
                 quit()
-            #     subset_url = LIBRITTS_URL_PREFIX + subset_name + ".tar.gz"
-            #     download_file(subset_url, subset_archive)
-            #     logger.info(f"Downloaded data for subset {subset_name}.")
-            # else:
-            #     logger.info(
-            #         f"Found an archive file for {subset_name}. Unpacking."
-            #     )
-
-            # shutil.unpack_archive(subset_archive, subset_folder)
-
         # Collects all files matching the provided extension
         wav_list.extend(get_all_files(subset_folder, match_and=extension))
 
@@ -213,12 +203,16 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         normalized_text_path = os.path.join(
             "/", *path_parts[:-1], uttid + ".normalized.txt"
         )
-        with open(normalized_text_path) as f:
-            normalized_text = f.read()
-            if normalized_text.__contains__("{"):
-                normalized_text = normalized_text.replace("{", "")
-            if normalized_text.__contains__("}"):
-                normalized_text = normalized_text.replace("}", "")
+        try:
+            with open(normalized_text_path) as f:
+                normalized_text = f.read()
+                if normalized_text.__contains__("{"):
+                    normalized_text = normalized_text.replace("{", "")
+                if normalized_text.__contains__("}"):
+                    normalized_text = normalized_text.replace("}", "")
+        except FileNotFoundError:
+            print(f"Warning: The file {normalized_text_path} does not exist.")
+            continue
 
         # Resamples the audio file if required
         if sig_sr != sample_rate:
