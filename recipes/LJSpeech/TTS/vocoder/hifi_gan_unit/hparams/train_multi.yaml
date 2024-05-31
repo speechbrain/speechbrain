@@ -11,7 +11,7 @@
 ###################################
 seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/hifi_gan_multi_multi/<seed>
+output_folder: !ref ./results/hifi_gan_multi_multi_v2/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
@@ -36,8 +36,8 @@ kmeans_dataset: LibriSpeech-100-360-500
 codes_folder: !ref <save_folder>/codes
 encoder_type: HuBERT # one of [HuBERT, Wav2Vec2, WavLM]
 encoder_hub: facebook/hubert-large-ll60k
-layer: [3, 7, 12, 18, 23]
-num_clusters: [1000, 1000, 2000, 2000, 2000]
+layer: [1, 3, 7, 12, 18, 23]
+num_clusters: 1000
 
 
 ################################
@@ -89,7 +89,7 @@ test_dataloader_opts:
 duration_predictor: False
 
 # embedding params
-num_embeddings: 3001 # K-means size * num layer + 1 for padding 1000x3+1
+num_embeddings: 6001 # K-means size * num layer + 1 for padding 1000x6+1
 embedding_dim: 128
 
 # generator params
