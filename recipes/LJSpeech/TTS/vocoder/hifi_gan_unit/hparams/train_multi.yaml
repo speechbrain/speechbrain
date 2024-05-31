@@ -11,7 +11,7 @@
 ###################################
 seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/hifi_gan_multi_multi_v2/<seed>
+output_folder: !ref ./results/hifi_gan_multi/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
@@ -38,6 +38,7 @@ encoder_type: HuBERT # one of [HuBERT, Wav2Vec2, WavLM]
 encoder_hub: facebook/hubert-large-ll60k
 layer: [1, 3, 7, 12, 18, 23]
 num_clusters: 1000
+skip_extract: False
 
 
 ################################

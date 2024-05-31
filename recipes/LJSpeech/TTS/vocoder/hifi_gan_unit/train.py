@@ -512,7 +512,7 @@ if __name__ == "__main__":
             "layer": hparams["layer"],
             "save_folder": hparams["save_folder"],
             "sample_rate": hparams["sample_rate"],
-            "skip_extract": hparams["skip_prep"],
+            "skip_extract": hparams["skip_extract"],
         },
     )
 
