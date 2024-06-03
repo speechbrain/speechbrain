@@ -72,11 +72,11 @@ batch_size: 12
 test_batch_size: 4
 sorting: ascending
 
-dataloader_opts:
+dataloader_options:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
-test_dataloader_opts:
+test_dataloader_options:
     batch_size: !ref <test_batch_size>
     num_workers: 6
 
