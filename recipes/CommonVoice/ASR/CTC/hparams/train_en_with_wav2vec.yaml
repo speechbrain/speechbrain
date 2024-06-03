@@ -35,7 +35,7 @@ avoid_if_longer_than: 10.0
 ####################### Training Parameters ####################################
 
 number_of_epochs: 30
-optimizer_step_limit: 50000
+optimizer_step_limit: 75000
 lr: 1.0
 lr_wav2vec: 0.0001
 precision: fp16 # bf16, fp16 or fp32
@@ -45,8 +45,8 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # We use Dynamic Batching here as CV english is quite big.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_length_train: 300
-max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
+max_batch_length_train: 200
+max_batch_length_val: 50 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.
 batch_ordering: random
@@ -111,12 +111,11 @@ test_beam_search:
     beam_size: 100
     beam_prune_logp: -12.0
     token_prune_min_logp: -1.2
-    prune_history: True
+    prune_history: False
     topk: 1
     alpha: 1.0
     beta: 0.5
-    # To use n-gram LM for decoding, follow steps in README.md.
-    # kenlm_model_path: none
+    kenlm_model_path: results/CommonVoice/ngrams/en/1986/en_5gram.arpa
 
 #
 # Functions and classes
