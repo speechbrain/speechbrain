@@ -38,7 +38,7 @@ on the transcription of the training data.(Refer to LM recipe: recipes/CommonVoi
 # Results
 | Language | CommonVoice Release | hyperparams file | LM | Val. CER | Val. WER | Test CER | Test WER | HuggingFace link | Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:| :-----------:|
-| English | 2024-01-05 | train_en_with_wav2vec.yaml | 5-gram | 3.79 | 10.79 | 4.96 | 11.37 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-en) | [model]() | 4xA40 46GB |
+| English | 2024-01-05 | train_en_with_wav2vec.yaml | 5-gram | 3.79 | 10.79 | 4.96 | 11.37 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-en) | [model](https://www.dropbox.com/scl/fo/gx0szpbectig2r6r6p9vk/APdoN_wWWq_wP4My7w6SvMo?rlkey=v8fhd887bn947yjb45i99wm8p&st=6muft51b&dl=0) | 4xA40 46GB |
 | German | 2023-08-15 | train_de_with_wav2vec.yaml | No | 1.74 | 7.40 | 2.18 | 8.39 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-de) | [model](https://www.dropbox.com/sh/dn7plq4wfsujsi1/AABS1kqB_uqLJVkg-bFkyPpVa?dl=0) | 1xV100 32GB |
 | French | 2023-08-15 | train_fr_with_wav2vec.yaml | No | 2.59 | 8.47 | 3.36 | 9.71 | [model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-fr) | [model](https://www.dropbox.com/sh/0i7esfa8jp3rxpp/AAArdi8IuCRmob2WAS7lg6M4a?dl=0) | 1xV100 32GB |
 | Italian | 2023-08-15 | train_it_with_wav2vec.yaml | No | 2.10 | 7.77 |  2.30 | 7.99 |[model](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-it) | [model](https://www.dropbox.com/sh/hthxqzh5boq15rn/AACftSab_FM6EFWWPgHpKw82a?dl=0) | 1xV100 32GB |
