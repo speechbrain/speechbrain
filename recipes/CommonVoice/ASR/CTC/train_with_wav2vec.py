@@ -214,7 +214,7 @@ def dataio_prepare(hparams, tokenizer):
             key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+        hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
@@ -223,7 +223,7 @@ def dataio_prepare(hparams, tokenizer):
             key_max_value={"duration": hparams["avoid_if_longer_than"]},
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
-        hparams["train_dataloader_opts"]["shuffle"] = False
+        hparams["dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
         pass
@@ -391,8 +391,8 @@ if __name__ == "__main__":
     )
 
     # Manage dynamic batching
-    train_dataloader_opts = hparams["train_dataloader_opts"]
-    valid_dataloader_opts = hparams["valid_dataloader_opts"]
+    train_dataloader_opts = hparams["dataloader_opts"]
+    valid_dataloader_opts = hparams["test_dataloader_opts"]
     if train_bsampler is not None:
         collate_fn = None
         if "collate_fn" in train_dataloader_opts:
