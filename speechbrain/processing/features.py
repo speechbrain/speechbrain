@@ -769,7 +769,7 @@ class Filterbank(torch.nn.Module):
         if self.filter_shape == "triangularclassic":
             fbank_matrix = self._triangular_classic_filters()
 
-        if self.filter_shape == "triangular":
+        elif self.filter_shape == "triangular":
             fbank_matrix = self._triangular_fixed_band_filters(
                 self.all_freqs_mat, f_central_mat, band_mat
             )
