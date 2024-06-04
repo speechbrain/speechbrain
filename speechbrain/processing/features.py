@@ -636,7 +636,7 @@ class Filterbank(torch.nn.Module):
         """
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def _triangular_classic_filters(self, all_freqs, f_central):
+    def _triangular_classic_filters(self):
         """Returns fbank matrix using triangular filters, using the more
         conventional definition.
 
@@ -664,8 +664,6 @@ class Filterbank(torch.nn.Module):
             zero, torch.min(left_side, right_side)
         ).transpose(0, 1)
 
-        self.fbank_matrix = fbank_matrix
-
         return fbank_matrix
 
 
@@ -685,7 +683,6 @@ class Filterbank(torch.nn.Module):
         -------
         fbank_matrix : torch.Tensor
         """
-
         # Computing the slops of the filters
         slope = (all_freqs - f_central) / band
         left_side = slope + 1.0
@@ -696,8 +693,6 @@ class Filterbank(torch.nn.Module):
         fbank_matrix = torch.max(
             zero, torch.min(left_side, right_side)
         ).transpose(0, 1)
-
-        self.fbank_matrix = fbank_matrix
 
         return fbank_matrix
 
@@ -772,9 +767,7 @@ class Filterbank(torch.nn.Module):
         fbank_matrix : torch.Tensor
         """
         if self.filter_shape == "triangularclassic":
-            fbank_matrix = self._triangular_classic_filters(
-                self.all_freqs_mat, f_central_mat
-            )
+            fbank_matrix = self._triangular_classic_filters()
 
         if self.filter_shape == "triangular":
             fbank_matrix = self._triangular_fixed_band_filters(
