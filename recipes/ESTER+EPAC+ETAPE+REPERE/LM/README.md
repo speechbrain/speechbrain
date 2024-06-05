@@ -45,12 +45,12 @@ python train_ngram.py hparams/train_ngram.yaml  --data_folder=your/data/folder
 ## ls your/data/folder/ETAPE -> dev  test  tools  train
 ```
 
-| Release | hyperparams file | Test PP | Model link | GPUs |
-| :---     | :---: | :---: | :---: | :---: |
-| 24-03-12 | 3-for-char-gram.arpa - train_ngram.yaml | --.-- | [link](https://www.dropbox.com/TODO) | --.-- |
-| 24-03-12 | 4-for-char-gram.arpa - train_ngram.yaml | --.-- | [link](https://www.dropbox.com/TODO) | --.-- |
-| 24-03-12 | 3-for-phone-gram.arpa - train_ngram.yaml | --.-- | [link](https://www.dropbox.com/TODO) | --.-- |
-| 24-03-12 | 4-for-phone-gram.arpa - train_ngram.yaml | --.-- | [link](https://www.dropbox.com/TODO) | --.-- |
+| Release  | hyperparams file                         | Test PP | GPUs  |
+| :---     | :---:                                    | :---:   | :---: |
+| 24-03-12 | 3-for-char-gram.arpa  - train_ngram.yaml | --.--   | --.-- |
+| 24-03-12 | 4-for-char-gram.arpa  - train_ngram.yaml | --.--   | --.-- |
+| 24-03-12 | 3-for-phone-gram.arpa - train_ngram.yaml | --.--   | --.-- |
+| 24-03-12 | 4-for-phone-gram.arpa - train_ngram.yaml | --.--   | --.-- |
 
 
 # **About SpeechBrain**

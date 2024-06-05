@@ -393,12 +393,14 @@ def normalize_text(text, new_word_on_apostrophe=True):
     text = re.sub(r"«", "", text)
     text = re.sub(r"»", "", text)
 
+    text = re.sub(r"°c", "degré", text)
+    text = re.sub(r"°C", "degré", text)
     text = re.sub(r"°", "degré", text)
 
     text = re.sub(r"²", "", text)
 
     # remove html tag
-    text = re.sub(r"<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});", "", text)
+    text = re.sub(r"<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});", " ", text)
 
     # Replace curly braces with square brackets
     text = text.replace("{", "[").replace("}", "]")
