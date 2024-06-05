@@ -168,13 +168,32 @@ def torch_recovery(obj, path, end_of_epoch):
     del end_of_epoch  # Unused
     device = "cpu"
 
-    state_dict = torch.load(path, map_location=device)
-    state_dict = hook_on_loading_state_dict_checkpoint(state_dict)
+    state_dict = torch_patched_state_dict_load(path, device)
     try:
         obj.load_state_dict(state_dict, strict=True)
     except TypeError:
         obj.load_state_dict(state_dict)
 
+
+def torch_patched_state_dict_load(path, device="cpu"):
+    """Loads a `state_dict` from the given path using :func:`torch.load` and
+    calls the SpeechBrain `state_dict` loading hooks, e.g. to apply key name
+    patching rules for compatibility.
+
+    The `state_dict` sees no further preprocessing and is not applied into a
+    model, see :func:`~torch_recovery` or :func:`~torch_parameter_transfer`.
+
+    Arguments
+    ---------
+    path : str, pathlib.Path
+        Path where to load from.
+    device
+        Device where the loaded `state_dict` tensors should reside. This is
+        forwarded to :func:`torch.load`; see its documentation for details.
+    """
+    state_dict = torch.load(path, map_location=device)
+    state_dict = hook_on_loading_state_dict_checkpoint(state_dict)
+    return state_dict
 
 @main_process_only
 def torch_save(obj, path):
@@ -212,9 +231,8 @@ def torch_parameter_transfer(obj, path):
         Path where to load from.
     """
     device = "cpu"
-    incompatible_keys = obj.load_state_dict(
-        torch.load(path, map_location=device), strict=False
-    )
+    state_dict = torch_patched_state_dict_load(path, device)
+    incompatible_keys = obj.load_state_dict(state_dict, strict=False)
     for missing_key in incompatible_keys.missing_keys:
         logger.warning(
             f"During parameter transfer to {obj} loading from "
