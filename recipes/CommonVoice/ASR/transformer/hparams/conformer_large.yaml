@@ -31,6 +31,12 @@ convert_to_wav: False # Switch this to True to convert all mp3 files to wav.
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 10.0
 
+# THIS IS TERRIBLE BUT WE HAVE NO CHOICE.
+# Some version of the CV dataset may contain one or two files of more than
+# 2 min in the validation and or test. This is an error by design of the dataset
+# as these files contain 90% of silence. We exclude them.
+avoid_if_longer_than_val_test: 90.0
+
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 ####################### Training Parameters ####################################
