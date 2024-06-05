@@ -106,14 +106,18 @@ def map_old_state_dict_weights(
     dict
         The modified state dictionary with mapped keys.
     """
-    for checkpoint_name, attribute_name in mapping.items():
-        for full_checkpoint_name in list(state_dict.keys()):
-            if checkpoint_name in full_checkpoint_name:
-                full_attribute_name = full_checkpoint_name.replace(
-                    checkpoint_name, attribute_name
-                )
-                state_dict[full_attribute_name] = state_dict.pop(
-                    full_checkpoint_name
+    for replacement_old, replacement_new in mapping.items():
+        for old_key in list(state_dict.keys()):
+            if replacement_old in old_key:
+                new_key = old_key.replace(replacement_old, replacement_new)
+                state_dict[new_key] = state_dict.pop(old_key)
+                logger.info(
+                    "Due to replacement compatibility rule '%s'->'%s', renamed "
+                    "`state_dict['%s']`->`state_dict['%s']`",
+                    replacement_old,
+                    replacement_new,
+                    old_key,
+                    new_key,
                 )
     return state_dict
 
