@@ -94,6 +94,10 @@ def map_old_state_dict_weights(
     and the mapping is {'.atn': '.attn'}, the resulting state_dict will be
     {'model.encoder.layer.0.attn.self.query.weight': ...}.
 
+    Since this effectively works as a mass substring replacement, partial key
+    matches (e.g. in the middle of one layer name) will also work, so be
+    careful to avoid false positives.
+
     Parameters
     ----------
     state_dict : dict
