@@ -85,7 +85,9 @@ class AdaptedModel(nn.Module):
     @checkpoints.mark_as_saver
     def saver(self, path):
         """Saves only the trainable parameters."""
-        state_dict = {n: p for n, p in self.state_dict().items() if p.requires_grad}
+        state_dict = {
+            n: p for n, p in self.state_dict().items() if p.requires_grad
+        }
         torch.save(state_dict, path)
 
     @checkpoints.mark_as_loader
