@@ -195,6 +195,7 @@ def torch_patched_state_dict_load(path, device="cpu"):
     state_dict = hook_on_loading_state_dict_checkpoint(state_dict)
     return state_dict
 
+
 @main_process_only
 def torch_save(obj, path):
     """Saves the obj's parameters to path.
