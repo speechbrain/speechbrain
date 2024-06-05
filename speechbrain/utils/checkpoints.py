@@ -79,7 +79,7 @@ METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
 PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 # some keys have been renamed in the new version of the code
 KEYS_MAPPING: Dict[str, str] = {
-    "mutihead_attn": "multihead_attn",  # see PR #2489
+    ".mutihead_attn": ".multihead_attn",  # see PR #2489
 }
 
 
@@ -91,7 +91,7 @@ def map_old_state_dict_weights(
 
     NOTE: This function will remap all state_dict keys that contain the old key.
     For instance, if the state_dict is {'model.encoder.layer.0.atn.self.query.weight': ...}
-    and the mapping is {'atn': 'attn'}, the resulting state_dict will be
+    and the mapping is {'.atn': '.attn'}, the resulting state_dict will be
     {'model.encoder.layer.0.attn.self.query.weight': ...}.
 
     Parameters
