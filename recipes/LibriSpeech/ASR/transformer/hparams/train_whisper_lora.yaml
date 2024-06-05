@@ -33,7 +33,7 @@ test_csv:
     #- !ref <output_folder>/test-clean.csv
     #- !ref <output_folder>/test-other.csv
 
-ckpt_interval_minutes: 10 # save checkpoint every N min
+ckpt_interval_minutes: 1 # save checkpoint every N min
 
 ############################## Training Parameters #############################
 freeze_encoder: True
@@ -61,10 +61,6 @@ test_beam_size: 8
 
 # Lora configuration
 lora_rank: 16
-add_adapters: !name:speechbrain.nnet.adapters.add_adapters_to_model
-    adapter_class: !name:speechbrain.nnet.adapters.LoRALinear
-    rank: !ref <lora_rank>
-    target_layers: all_linear
 
 ####################### Model Parameters #######################################
 
@@ -116,13 +112,19 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 ############################## Models ##########################################
 
-whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
+whisper_pretrained: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     source: !ref <whisper_hub>
     freeze_encoder: !ref <freeze_encoder>
     save_path: !ref <whisper_folder>
     language: "english"
     task: "transcribe"
     sampling_rate: !ref <sampling_rate>
+
+whisper: !new:speechbrain.nnet.adapters.AdaptedModel
+    model_to_adapt: !ref <whisper_pretrained>
+    adapter_class: !name:speechbrain.nnet.adapters.LoRA
+    rank: !ref <lora_rank>
+    target_layers: [all-linear]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

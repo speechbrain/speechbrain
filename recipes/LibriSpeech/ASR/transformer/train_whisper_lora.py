@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Recipe for training a whisper-based ASR system with librispeech.
+"""Recipe for training a whisper-based ASR system with adapters on librispeech.
 The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pdf).
 This recipe take the whisper encoder-decoder to fine-tune on the NLL.
+
+In addition, the recipe freezes the pre-trained parameters and adds a small
+number of new parameters to reach nearly equivalent performance as full fine-tuning.
 
 If you want to only use the whisper encoder system, please refer to the recipe
 speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
 
 To run this recipe, do the following:
-> python train_with_whisper.py hparams/train_hf_whisper.yaml
+> python train_whisper_lora.py hparams/train_whisper_lora.yaml
 
 Authors
  * Peter Plantinga 2024
@@ -295,11 +298,6 @@ if __name__ == "__main__":
     if "pretrainer" in hparams.keys():
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(run_opts["device"])
-
-    # Add LoRA to the pretrained model
-    if "add_adapters" in hparams:
-        hparams["add_adapters"](hparams["whisper"])
-    print(hparams["whisper"])
 
     # Trainer initialization
     asr_brain = ASR(

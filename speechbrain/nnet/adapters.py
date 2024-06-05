@@ -3,55 +3,108 @@ LoRA, Houlsby
 
 Authors
  * Titouan Parcollet 2024
+ * Peter Plantinga 2024
 """
+
+from fnmatch import fnmatch
 
 import torch
 import torch.nn as nn
 
 from speechbrain.nnet.activations import Swish
+from speechbrain.utils import checkpoints
 
 
-def add_adapters_to_model(
-    model: nn.Module,
-    adapter_class: nn.Module,
-    target_layers=["all-linear"],
-    unfrozen_layers=[],
-    **kwargs,
-):
+@checkpoints.register_checkpoint_hooks
+class AdaptedModel(nn.Module):
     """Given any torch model, e.g. asr_brain.modules.Transformer, and an adapter
-    class, e.g. HoulsbyAdapter, this method will replace the target layers
+    class, e.g. HoulsbyAdapter, this class will replace the target layers
     with this new adapter class (while preserving the parameters).
 
     Arguments
     ---------
-    model: nn.Module
-        The base PyTorch model.
-    adapter_class: nn.Module
-        A Module corresponding to one of the adapter of this (not initialized)
-        SpeechBrain library.
+    model_to_adapt: nn.Module
+        The base PyTorch model to add adapters to.
+    adapter_class: class
+        An (uninitialized) adapter of this SpeechBrain library.
     target_layers: list of str
         A list of module names in the given model that should be replaced.
         If the list includes "all-linear" then all linear layers will be
         replaced, and similarly for "all-conv" for convolution layers.
+        Supports Unix shell-style wildcards `(*, ?, [seq], [!seq])` with `fnmatch`.
     unfrozen_layers: list of str
         List of layers to be unfrozen during training.
+        Supports Unix shell-style wildcards `(*, ?, [seq], [!seq])` with `fnmatch`.
     **kwargs: dict
         Ensemble of parameters that should be given to the adapter.
+
+    Example
+    -------
+    >>> model = torch.nn.Sequential(
+    ...   torch.nn.Linear(10, 20),
+    ...   torch.nn.Linear(20, 20),
+    ...   torch.nn.Linear(20, 10),
+    ... )
+    >>> lora_model = AdaptedModel(
+    ...   model=model, adapter_class=LoRA, target_layers=["*.1"], unfrozen_layers=["*.[02]"]
+    ... )
+    >>> lora_model
     """
 
-    # Collect and freeze layers
-    replace_layers = []
-    for name, module in model.named_modules():
-        if is_layer_adaptable(name, module, target_layers):
-            replace_layers.append(name)
-        elif name not in unfrozen_layers:
-            module.requires_grad = False
+    def __init__(
+        self,
+        model_to_adapt: nn.Module,
+        adapter_class: nn.Module,
+        target_layers=["all-linear"],
+        unfrozen_layers=[],
+        **kwargs,
+    ):
+        super().__init__()
 
-    # Replace the collected layer names
-    for name in replace_layers:
-        module = model.get_submodule(name)
-        new_module = adapter_class(module, **kwargs)
-        replace_module(model, name, new_module)
+        # Collect and freeze layers
+        replace_layers = []
+        for name, module in model_to_adapt.named_modules():
+            if is_layer_adaptable(name, module, target_layers):
+                replace_layers.append(name)
+            elif not any(fnmatch(name, layer) for layer in unfrozen_layers):
+                for param in module.parameters():
+                    param.requires_grad = False
+
+        # Replace the collected layer names
+        for name in replace_layers:
+            module = model_to_adapt.get_submodule(name)
+            new_module = adapter_class(module, **kwargs)
+            replace_module(model_to_adapt, name, new_module)
+
+        self.adapted_model = model_to_adapt
+
+    def forward(self, *args, **kwargs):
+        """Pass arguments to adapted model."""
+        return self.adapted_model(*args, **kwargs)
+
+    @checkpoints.mark_as_saver
+    def saver(self, path):
+        """Saves only the trainable parameters."""
+        state_dict = {n: p for n, p in self.state_dict().items() if p.requires_grad}
+        torch.save(state_dict, path)
+
+    @checkpoints.mark_as_loader
+    def loader(self, path, end_of_epoch):
+        """Loads the base model plus trained params."""
+        del end_of_epoch
+        state_dict = torch.load(path, map_location="cpu")
+        self.load_state_dict(state_dict, strict=False)
+
+    def __getattr__(self, item):
+        """Override getattr to fix item accesses."""
+
+        # Have to use super to get adapted model to avoid recursion
+        model = super().__getattr__("adapted_model")
+        if hasattr(model, item):
+            return getattr(model, item)
+
+        # Normal access
+        return super().__getattr__(item)
 
 
 def is_layer_adaptable(name, module, target_layers):
@@ -77,7 +130,7 @@ def is_layer_adaptable(name, module, target_layers):
         module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)
     ):
         return True
-    if name and name in target_layers:
+    if name and any(fnmatch(name, layer) for layer in target_layers):
         return True
     return False
 
@@ -219,8 +272,10 @@ class LoRA(nn.Module):
         input_size = target_module.weight.data.shape[1]
         output_size = target_module.weight.data.shape[0]
 
+        # Disable gradient for pretrained module
         self.pretrained_module = target_module
-        self.pretrained_module.requires_grad = False
+        for param in self.pretrained_module.parameters():
+            param.requires_grad = False
         device = target_module.weight.device
 
         self.adapter_down_proj = nn.Linear(
