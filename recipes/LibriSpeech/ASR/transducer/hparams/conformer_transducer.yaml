@@ -70,6 +70,7 @@ avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 sample_rate: 16000
 n_fft: 512
 n_mels: 80
+filter_shape: triangular
 win_length: 32
 
 # Streaming & dynamic chunk training options
@@ -164,6 +165,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    sample_rate: !ref <sample_rate>
    n_fft: !ref <n_fft>
    n_mels: !ref <n_mels>
+   filter_shape: !ref <filter_shape>
    win_length: !ref <win_length>
 
 ############################## Augmentations ###################################
