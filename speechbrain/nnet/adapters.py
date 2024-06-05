@@ -40,15 +40,37 @@ class AdaptedModel(nn.Module):
 
     Example
     -------
+    >>> from collections import OrderedDict
     >>> model = torch.nn.Sequential(
-    ...   torch.nn.Linear(10, 20),
-    ...   torch.nn.Linear(20, 20),
-    ...   torch.nn.Linear(20, 10),
+    ...   OrderedDict([
+    ...     ("layer1", torch.nn.Linear(10, 20)),
+    ...     ("layer2", torch.nn.Linear(20, 20)),
+    ...     ("layer3", torch.nn.Linear(20, 10)),
+    ...   ])
     ... )
     >>> lora_model = AdaptedModel(
-    ...   model=model, adapter_class=LoRA, target_layers=["*.1"], unfrozen_layers=["*.[02]"]
+    ...   model_to_adapt=model,
+    ...   adapter_class=LoRA,
+    ...   target_layers=["layer[13]"],
+    ...   unfrozen_layers=["layer2"],
+    ...   rank=2,
     ... )
     >>> lora_model
+    AdaptedModel(
+      (adapted_model): Sequential(
+        (layer1): LoRA(
+          (pretrained_module): Linear(in_features=10, out_features=20, bias=True)
+          (adapter_down_proj): Linear(in_features=10, out_features=2, bias=False)
+          (adapter_up_proj): Linear(in_features=2, out_features=20, bias=False)
+        )
+        (layer2): Linear(in_features=20, out_features=20, bias=True)
+        (layer3): LoRA(
+          (pretrained_module): Linear(in_features=20, out_features=10, bias=True)
+          (adapter_down_proj): Linear(in_features=20, out_features=2, bias=False)
+          (adapter_up_proj): Linear(in_features=2, out_features=10, bias=False)
+        )
+      )
+    )
     """
 
     def __init__(
@@ -153,8 +175,13 @@ def replace_module(model: nn.Module, name: str, new_module: nn.Module):
         New module made of the old plus the new parameters.
     """
 
-    parent_name, target_name = name.rsplit(".", 1)
-    parent_module = model.get_submodule(parent_name)
+    # If the model is only one level deep, just use the model
+    try:
+        parent_name, target_name = name.rsplit(".", 1)
+        parent_module = model.get_submodule(parent_name)
+    except ValueError:
+        parent_module = model
+        target_name = name
 
     setattr(parent_module, target_name, new_module)
 
@@ -196,7 +223,7 @@ class HoulsbyAdapterLinear(nn.Module):
     ):
         super().__init__()
 
-        if not isinstance(target_linear, nn.linear):
+        if not isinstance(target_linear, nn.Linear):
             raise ValueError(
                 "HoulsbyLinear currently only supports linear layers, "
                 f"but instead got {type(target_linear)}."
