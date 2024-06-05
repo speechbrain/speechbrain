@@ -146,7 +146,11 @@ class SpectrogramDrop(torch.nn.Module):
             device=spectrogram.device,
         )
 
-        # Randomly sample the lengths of the chunks to drop
+	# If the number of chunks to drop is 0, return the spectrogram unchanged
+	if n_masks == 0:
+	    return spectrogram
+        
+	# Randomly sample the lengths of the chunks to drop
         mask_len = torch.randint(
             low=self.drop_length_low,
             high=self.drop_length_high,
