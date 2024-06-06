@@ -27,15 +27,17 @@ class AdaptedModel(nn.Module):
         The base PyTorch model to add adapters to.
     adapter_class: class
         An (uninitialized) adapter of this SpeechBrain library.
+    all_linear: bool
+        Whether to add the adapter to all linear layers (default: False)
+    all_conv: bool
+        Whether to add the adapter to all conv layers (default: False)
     target_layers: list of str
         A list of module names in the given model that should be replaced.
-        If the list includes "all-linear" then all linear layers will be
-        replaced, and similarly for "all-conv" for convolution layers.
         Supports Unix shell-style wildcards `(*, ?, [seq], [!seq])` with `fnmatch`.
     unfrozen_layers: list of str
         List of layers to be unfrozen during training.
         Supports Unix shell-style wildcards `(*, ?, [seq], [!seq])` with `fnmatch`.
-    **kwargs: dict
+    adapter_kwargs: dict
         Ensemble of parameters that should be given to the adapter.
 
     Example
@@ -53,7 +55,7 @@ class AdaptedModel(nn.Module):
     ...   adapter_class=LoRA,
     ...   target_layers=["layer[13]"],
     ...   unfrozen_layers=["layer2"],
-    ...   rank=2,
+    ...   adapter_kwargs={"rank": 2},
     ... )
     >>> lora_model
     AdaptedModel(
@@ -77,16 +79,20 @@ class AdaptedModel(nn.Module):
         self,
         model_to_adapt: nn.Module,
         adapter_class: nn.Module,
-        target_layers=["all-linear"],
+        all_linear: bool = False,
+        all_conv: bool = False,
+        target_layers=[],
         unfrozen_layers=[],
-        **kwargs,
+        adapter_kwargs={},
     ):
         super().__init__()
 
         # Collect and freeze layers
         replace_layers = []
         for name, module in model_to_adapt.named_modules():
-            if is_layer_adaptable(name, module, target_layers):
+            if is_layer_adaptable(
+                name, module, all_linear, all_conv, target_layers
+            ):
                 replace_layers.append(name)
             elif not any(fnmatch(name, layer) for layer in unfrozen_layers):
                 for param in module.parameters():
@@ -95,7 +101,7 @@ class AdaptedModel(nn.Module):
         # Replace the collected layer names
         for name in replace_layers:
             module = model_to_adapt.get_submodule(name)
-            new_module = adapter_class(module, **kwargs)
+            new_module = adapter_class(module, **adapter_kwargs)
             replace_module(model_to_adapt, name, new_module)
 
         self.adapted_model = model_to_adapt
@@ -120,7 +126,7 @@ class AdaptedModel(nn.Module):
         self.load_state_dict(state_dict, strict=False)
 
     def __getattr__(self, item):
-        """Override getattr to fix item accesses."""
+        """Override getattr to pass item accesses to pre-adapted model."""
 
         # Have to use super to get adapted model to avoid recursion
         model = super().__getattr__("adapted_model")
@@ -131,7 +137,7 @@ class AdaptedModel(nn.Module):
         return super().__getattr__(item)
 
 
-def is_layer_adaptable(name, module, target_layers):
+def is_layer_adaptable(name, module, all_linear, all_conv, target_layers):
     """Check if layer is among list of layers to be adapted.
 
     Arguments
@@ -140,6 +146,10 @@ def is_layer_adaptable(name, module, target_layers):
         The name of the module to check.
     module: torch.nn.Module
         The module to check.
+    all_linear: bool
+        Whether all linear layers should be adapted.
+    all_conv: bool
+        Whether all conv layers should be adapted.
     target_layers: str or list of str
         See `add_adapters_to_model`
 
@@ -148,15 +158,14 @@ def is_layer_adaptable(name, module, target_layers):
     bool
         Whether the layer is to be adapted or not.
     """
-    if "all-linear" in target_layers and isinstance(module, nn.Linear):
-        return True
-    if "all-conv" in target_layers and isinstance(
-        module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)
-    ):
-        return True
-    if name and any(fnmatch(name, layer) for layer in target_layers):
-        return True
-    return False
+    return (
+        all_linear
+        and isinstance(module, nn.Linear)
+        or all_conv
+        and isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d))
+        or name
+        and any(fnmatch(name, layer) for layer in target_layers)
+    )
 
 
 def replace_module(model: nn.Module, name: str, new_module: nn.Module):

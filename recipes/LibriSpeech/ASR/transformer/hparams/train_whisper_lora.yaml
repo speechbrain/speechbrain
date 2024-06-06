@@ -123,8 +123,9 @@ whisper_pretrained: !new:speechbrain.lobes.models.huggingface_transformers.whisp
 whisper: !new:speechbrain.nnet.adapters.AdaptedModel
     model_to_adapt: !ref <whisper_pretrained>
     adapter_class: !name:speechbrain.nnet.adapters.LoRA
-    rank: !ref <lora_rank>
-    target_layers: [all-linear]
+    all_linear: True
+    adapter_kwargs:
+        rank: !ref <lora_rank>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True
