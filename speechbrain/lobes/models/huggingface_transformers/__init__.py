@@ -21,4 +21,3 @@ from .wav2vec2 import *  # noqa
 from .wavlm import *  # noqa
 from .weighted_ssl import *  # noqa
 from .whisper import *  # noqa
-from .snac import *  # noqa

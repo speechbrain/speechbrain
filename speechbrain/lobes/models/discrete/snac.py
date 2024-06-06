@@ -48,6 +48,7 @@ class SNAC(nn.Module):
 
     Example
     -------
+    >>> from speechbrain.lobes.models.discrete.snac import SNAC
     >>> model = SNAC("hubertsiuzdak/snac_32khz", "savedir")
     >>> audio = torch.randn(1, 1, 32000)
     >>> # audio_hat, codes = model(audio)
