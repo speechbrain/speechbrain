@@ -121,10 +121,18 @@ def link_with_strategy(
     dst = dst.absolute()
 
     if src == dst:
+        if src.is_symlink():
+            raise ValueError(
+                f"Fetch: Found local symlink '{src}' pointing to itself. "
+                "This may require manual removal to recover. "
+                "Did you maybe incorrectly call fetch() with `source==savedir`?"
+            )
+
         logging.info(
             "Fetch: Source and destination '%s' are identical, returning assuming this is intended",
             src,
         )
+
         return dst
 
     if local_strategy == LocalStrategy.SYMLINK:
