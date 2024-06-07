@@ -317,7 +317,7 @@ def fetch(
         if local_strategy == LocalStrategy.COPY_SKIP_CACHE:
             logger.info(
                 "Fetch %s: Fetching from HuggingFace Hub '%s' to '%s'",
-                filename,
+                str(filename),
                 str(source),
                 str(destination),
             )
@@ -337,7 +337,11 @@ def fetch(
             return pathlib.Path(fetched_file).absolute()
 
         # Otherwise, normal fetch to cache
-        logger.info("Fetch %s: Fetching from HuggingFace Hub '%s'")
+        logger.info(
+            "Fetch %s: Fetching from HuggingFace Hub '%s'",
+            str(filename),
+            str(source),
+        )
         fetched_file = huggingface_hub.hf_hub_download(
             **kwargs,
             cache_dir=huggingface_cache_dir,
