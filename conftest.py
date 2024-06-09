@@ -64,3 +64,7 @@ except ModuleNotFoundError:
     collect_ignore.append(
         "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
     )
+try:
+    from snac import SNAC as _SNAC
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/lobes/models/discrete/snac.py")
