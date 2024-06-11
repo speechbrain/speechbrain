@@ -301,7 +301,7 @@ class UnitHIFIGAN(Pretrained):
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
     >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech", savedir=tmpdir_vocoder)
-    >>> codes = torch.randint(0, 99, (100,))
+    >>> codes = torch.randint(0, 99, (100, 1))
     >>> waveform = hifi_gan.decode_unit(codes)
     """
 
