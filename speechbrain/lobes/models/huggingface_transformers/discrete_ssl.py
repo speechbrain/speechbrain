@@ -189,6 +189,8 @@ class DiscreteSSL(nn.Module):
             len(layer_ids) > 0
         ), f"There is no trained k-means model available for {repo_id}/{encoder_name}/*_k{num_clusters[i]}_L*"
 
+        if isinstance(num_clusters, int):
+            num_clusters = [num_clusters for i in layer_ids]
         layer_ids, kmeans_models, num_clusters = zip(
             *sorted(zip(layer_ids, kmeans_models, num_clusters))
         )
