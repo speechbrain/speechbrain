@@ -642,7 +642,7 @@ class UnitHifiganGenerator(HifiganGenerator):
 
     Example
     -------
-    >>> inp_tensor = torch.randint(0, 100, (4, 10))
+    >>> inp_tensor = torch.randint(0, 100, (4, 10, 1))
     >>> unit_hifigan_generator= UnitHifiganGenerator(
     ...    in_channels = 128,
     ...    out_channels = 1,
@@ -733,7 +733,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         """
         Arguments
         ---------
-        x : torch.Tensor (batch, time)
+        x : torch.Tensor (batch, time, channel)
             feature input tensor.
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
@@ -778,7 +778,7 @@ class UnitHifiganGenerator(HifiganGenerator):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, time)
+        x : torch.Tensor (batch, time, channel)
             feature input tensor.
         """
         if not self.skip_token_embedding:
