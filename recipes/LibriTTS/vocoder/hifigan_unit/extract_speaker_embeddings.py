@@ -5,19 +5,17 @@ Authors
  * Jarod Duret 2023
 """
 
-import logging
 import json
+import logging
 import pathlib as pl
 
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
 from tqdm import tqdm
+
 import speechbrain as sb
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.encoders import MelSpectrogramEncoder
 
 OPT_FILE = "opt_libritts_extract_speaker.pkl"
@@ -131,7 +129,7 @@ def extract_libritts_embeddings(
 
     if skip_extract:
         return
-    # Create configuration for easily skipping code extraction stage
+    # Create configuration for easily skipping extraction stage
     conf = {
         "data_folder": data_folder,
         "splits": splits,
