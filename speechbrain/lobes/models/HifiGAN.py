@@ -288,10 +288,10 @@ class ResBlock1(torch.nn.Module):
 
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
-        for l in self.convs1:
-            l.remove_weight_norm()
-        for l in self.convs2:
-            l.remove_weight_norm()
+        for layer in self.convs1:
+            layer.remove_weight_norm()
+        for layer in self.convs2:
+            layer.remove_weight_norm()
 
 
 class ResBlock2(torch.nn.Module):
@@ -352,8 +352,8 @@ class ResBlock2(torch.nn.Module):
 
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
-        for l in self.convs:
-            l.remove_weight_norm()
+        for layer in self.convs:
+            layer.remove_weight_norm()
 
 
 class HifiganGenerator(torch.nn.Module):
@@ -501,10 +501,10 @@ class HifiganGenerator(torch.nn.Module):
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
 
-        for l in self.ups:
-            l.remove_weight_norm()
-        for l in self.resblocks:
-            l.remove_weight_norm()
+        for layer in self.ups:
+            layer.remove_weight_norm()
+        for layer in self.resblocks:
+            layer.remove_weight_norm()
         self.conv_pre.remove_weight_norm()
         self.conv_post.remove_weight_norm()
 
@@ -914,8 +914,8 @@ class DiscriminatorP(torch.nn.Module):
             t = t + n_pad
         x = x.view(b, c, t // self.period, self.period)
 
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
@@ -964,7 +964,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
     """HiFiGAN Scale Discriminator.
     It is similar to `MelganDiscriminator` but with a specific architecture explained in the paper.
-    SpeechBrain CNN wrappers are not used here beacause spectral_norm is not often used
+    SpeechBrain CNN wrappers are not used here because spectral_norm is not often used
 
     Arguments
     ---------
@@ -1001,8 +1001,8 @@ class DiscriminatorS(torch.nn.Module):
         """
 
         feat = []
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
