@@ -8,16 +8,14 @@ Authors
 import json
 import logging
 import pathlib as pl
+
 import numpy as np
 import torch
 import torchaudio
 from tqdm import tqdm
 
 import speechbrain as sb
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.lobes.models.huggingface_transformers import (
     hubert,
     wav2vec2,
