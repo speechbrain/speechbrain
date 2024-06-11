@@ -5,15 +5,17 @@ Authors
  * Pradnya Kandarkar 2022
 """
 
-from speechbrain.utils.data_utils import get_all_files
 import json
+import logging
 import os
 import random
-import logging
-import torchaudio
+
 import torch
+import torchaudio
 from tqdm import tqdm
+
 from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.utils.data_utils import get_all_files
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ def prepare_libritts(
     test_split=None,
     seed=1234,
     model_name=None,
+    skip_prep=False,
 ):
     """
     Prepares the json files for the LibriTTS dataset.
@@ -71,7 +74,12 @@ def prepare_libritts(
         Seed value
     model_name : str
         Model name (used to prepare additional model specific data)
+    skip_prep: Bool
+        If True, skip preparation.
     """
+
+    if skip_prep:
+        return
 
     # Setting the seed value
     random.seed(seed)

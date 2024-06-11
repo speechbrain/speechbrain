@@ -499,6 +499,7 @@ if __name__ == "__main__":
             "valid_split": hparams["valid_split"],
             "test_split": hparams["test_split"],
             "model_name": "HiFi-GAN",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 
