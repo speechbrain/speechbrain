@@ -13,6 +13,11 @@ from functools import wraps
 
 import torch
 
+from speechbrain.utils.distributed_utils import (
+    distributed_is_initialized,
+    recursively_apply,
+)
+
 MAIN_PROC_ONLY: int = 0
 
 
@@ -205,4 +210,66 @@ def ddp_init_group(run_opts):
         backend=run_opts["distributed_backend"],
         rank=rank,
         timeout=datetime.timedelta(seconds=7200),
+    )
+
+
+def reduce(tensor, reduction="mean"):
+    """Recursively reduce the tensors in a nested list/tuple/dictionary of lists of tensors
+    across all processes by the mean of a given operation.
+
+    For instance, if you have a list of tensors on each process such as a loss, you can use this function to
+    synchronize the tensors across all processes and then reduce them by the mean or sum. This is particularly
+    useful when you want to calculate the mean loss across all processes.
+
+    Arguments
+    ---------
+        tensor (nested list/tuple/dictionary of `torch.Tensor`):
+            The data to reduce.
+        reduction (`str`, *optional*, defaults to `"mean"`):
+            A reduction method. Can be of "mean", or "sum".
+
+    Returns
+    -------
+        The same data structure as `data` with all the tensors reduced.
+
+    Example
+    -------
+    >>> tensor = torch.arange(2) + 1 + 2 * rank  # doctest: +SKIP
+    >>> tensor  # doctest: +SKIP
+    tensor([1, 2]) # Rank 0
+    tensor([3, 4]) # Rank 1
+    >>> reduce(tensor, reduction="sum")  # doctest: +SKIP
+    tensor([4, 6]) # Rank 0 and 1 combined
+    >>> reduce(tensor, reduction="mean")  # doctest: +SKIP
+    tensor([2, 3]) # Rank 0 and 1 combined
+    >>> obj = [{"a": [(torch.arange(2) + 1 + 2 * rank).float() for _ in range(4)]}] # doctest: +SKIP
+    [{'a': [tensor([1., 2.]), tensor([1., 2.]), tensor([1., 2.]), tensor([1., 2.])]}] # Rank 0
+    [{'a': [tensor([3., 4.]), tensor([3., 4.]), tensor([3., 4.]), tensor([3., 4.])]}] # Rank 1
+    >>> reduce(obj, reduction="sum")  # doctest: +SKIP
+    [{'a': [tensor([4., 6.]), tensor([4., 6.]), tensor([4., 6.]), tensor([4., 6.])]}] # Rank 0 and 1 combined
+    >>> reduce(obj, reduction="mean")  # doctest: +SKIP
+    [{'a': [tensor([2., 3.]), tensor([2., 3.]), tensor([2., 3.]), tensor([2., 3.])]}] # Rank 0 and 1 combined
+    """
+
+    def _reduce_across_processes(tensor, reduction="mean"):
+        cloned_tensor = tensor.clone()
+
+        if not distributed_is_initialized():
+            return cloned_tensor
+        else:
+            from torch.distributed import ReduceOp
+
+            torch.distributed.all_reduce(cloned_tensor, ReduceOp.SUM)
+
+        # we cannot use 'ReduceOp.AVG` since it is unavailable for gloo backend
+        if reduction == "mean":
+            cloned_tensor /= torch.distributed.get_world_size()
+
+        return cloned_tensor
+
+    return recursively_apply(
+        _reduce_across_processes,
+        tensor,
+        error_on_other_type=True,
+        reduction=reduction,
     )

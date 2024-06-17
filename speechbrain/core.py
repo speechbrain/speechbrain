@@ -7,7 +7,7 @@ Authors
  * Aku Rouhe 2021
  * Andreas Nautsch 2022
  * Sylvain de Langen 2023
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 
 import argparse
@@ -1015,12 +1015,10 @@ class Brain:
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
-        # This commented-out code block is useful when one can ensure
-        # metric reporting is DDP-valid for VALID & EVAL datasets.
-        # elif self.distributed_launch:
-        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
-        #         self.distributed_launch, self.rank, dataset, loader_kwargs
-        #     )
+        elif self.distributed_launch:
+            loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+                self.distributed_launch, self.rank, dataset, loader_kwargs
+            )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
@@ -1397,7 +1395,7 @@ class Brain:
             loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
 
-    def _fit_train(self, train_set, epoch, enable):
+    def _fit_train(self, train_set, epoch, enable_progressbar):
         # Training stage
         self.on_stage_start(Stage.TRAIN, epoch)
         self.modules.train()
@@ -1418,7 +1416,7 @@ class Brain:
             train_set,
             initial=self.step,
             dynamic_ncols=True,
-            disable=not enable,
+            disable=not enable_progressbar,
             colour=self.tqdm_barcolor["train"],
         ) as t:
             if self.profiler is not None:
@@ -1457,7 +1455,12 @@ class Brain:
                     steps_since_ckpt = 0
 
         # Run train "on_stage_end" on all processes
-        self.zero_grad(set_to_none=True)  # flush gradients
+        # flush gradients
+        self.zero_grad(set_to_none=True)
+        # sync the avg_loss across all processes
+        self.avg_train_loss = sb.utils.distributed.reduce(
+            torch.tensor(self.avg_train_loss, device=self.device)
+        ).item()
         self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
         self.avg_train_loss = 0.0
         self.step = 0
@@ -1493,7 +1496,7 @@ class Brain:
             torch.distributed.broadcast_object_list(broadcast_list, src=0)
             return broadcast_list[0]
 
-    def _fit_valid(self, valid_set, epoch, enable):
+    def _fit_valid(self, valid_set, epoch, enable_progressbar):
         # Validation stage
         if valid_set is not None:
             self.on_stage_start(Stage.VALID, epoch)
@@ -1503,7 +1506,7 @@ class Brain:
                 for batch in tqdm(
                     valid_set,
                     dynamic_ncols=True,
-                    disable=not enable,
+                    disable=not enable_progressbar,
                     colour=self.tqdm_barcolor["valid"],
                 ):
                     self.step += 1
@@ -1515,6 +1518,10 @@ class Brain:
                         break
 
                 self.step = 0
+                # sync the avg_loss across all processes
+                avg_valid_loss = sb.utils.distributed.reduce(
+                    torch.tensor(avg_valid_loss, device=self.device)
+                ).item()
                 self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
@@ -1600,12 +1607,22 @@ class Brain:
             progressbar = not self.noprogressbar
 
         # Only show progressbar if requested and main_process
-        enable = progressbar and sb.utils.distributed.if_main_process()
+        enable_progressbar = (
+            progressbar and sb.utils.distributed.if_main_process()
+        )
 
         # Iterate epochs
         for epoch in epoch_counter:
-            self._fit_train(train_set=train_set, epoch=epoch, enable=enable)
-            self._fit_valid(valid_set=valid_set, epoch=epoch, enable=enable)
+            self._fit_train(
+                train_set=train_set,
+                epoch=epoch,
+                enable_progressbar=enable_progressbar,
+            )
+            self._fit_valid(
+                valid_set=valid_set,
+                epoch=epoch,
+                enable_progressbar=enable_progressbar,
+            )
 
             # Debug mode only runs a few epochs
             if (
@@ -1761,6 +1778,11 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable_progressbar = (
+            progressbar and sb.utils.distributed.if_main_process()
+        )
+
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
@@ -1777,7 +1799,7 @@ class Brain:
             for batch in tqdm(
                 test_set,
                 dynamic_ncols=True,
-                disable=not progressbar,
+                disable=not enable_progressbar,
                 colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
@@ -1788,6 +1810,10 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
+            # sync the avg_loss across all processes
+            avg_test_loss = sb.utils.distributed.reduce(
+                torch.tensor(avg_test_loss, device=self.device)
+            ).item()
             self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
         return avg_test_loss

@@ -30,7 +30,7 @@ jobs:
               run: |
                   pip install uv
                   uv pip install --system ctc-segmentation  # ctc-segmentation is funky with uv due to their oldest-supported-numpy dependency
-                  uv pip install --system -r requirements.txt torch==2.2.1+cpu torchaudio==2.2.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu k2==1.24.4.dev20240223+cpu.torch2.2.1 --find-links https://k2-fsa.github.io/k2/cpu.html kaldilm==1.15.1 spacy==3.7.4 flair==0.13.1
+                  uv pip install --system -r requirements.txt torch==2.2.1+cpu torchaudio==2.2.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu k2==1.24.4.dev20240223+cpu.torch2.2.1 --find-links https://k2-fsa.github.io/k2/cpu.html kaldilm==1.15.1 spacy==3.7.4 flair==0.13.1 sacrebleu
                   uv pip install --system --editable . --no-deps  # already installed pinned deps from requirements.txt, we're good
             - name: Install sox
               run: |

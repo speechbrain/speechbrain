@@ -6,6 +6,8 @@ Authors:
  * Mirco Ravanelli 2020
  * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
+ * Sylvain de Langen 2024
+ * Adel Moumen 2024
 """
 
 from typing import Callable, Optional
@@ -13,6 +15,7 @@ from typing import Callable, Optional
 import torch
 from joblib import Parallel, delayed
 
+import speechbrain as sb
 from speechbrain.dataio.dataio import (
     extract_concepts_values,
     merge_char,
@@ -93,6 +96,7 @@ class MetricStats:
         **kwargs : dict
             Arguments to pass to the metric function.
         """
+        ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
         self.ids.extend(ids)
 
         # Batch evaluation
@@ -112,7 +116,7 @@ class MetricStats:
                 scores = multiprocess_evaluation(
                     metric=self.metric, n_jobs=self.n_jobs, **kwargs
                 )
-
+        scores = sb.utils.distributed_metrics.gather_for_metrics(scores)
         self.scores.extend(scores)
 
     def summarize(self, field=None):
@@ -306,6 +310,7 @@ class ErrorRateStats(MetricStats):
             Callable that maps from indices to labels, operating on batches,
             for writing alignments.
         """
+        ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
         self.ids.extend(ids)
 
         if predict_len is not None:
@@ -350,6 +355,7 @@ class ErrorRateStats(MetricStats):
             equality_comparator=self.equality_comparator,
         )
 
+        scores = sb.utils.distributed_metrics.gather_for_metrics(scores)
         self.scores.extend(scores)
 
     def summarize(self, field=None):
@@ -689,6 +695,9 @@ class BinaryMetricStats(MetricStats):
         labels : list
             The labels corresponding to the ids.
         """
+        ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
+        scores = sb.utils.distributed_metrics.gather_for_metrics(scores)
+        labels = sb.utils.distributed_metrics.gather_for_metrics(labels)
         self.ids.extend(ids)
         self.scores.extend(scores.detach())
         self.labels.extend(labels.detach())
@@ -831,6 +840,12 @@ def EER(positive_scores, negative_scores):
     >>> val_eer
     0.0
     """
+    positive_scores, negative_scores = (
+        sb.utils.distributed_metrics.gather_for_metrics(
+            (positive_scores, negative_scores)
+        )
+    )
+
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
@@ -905,6 +920,12 @@ def minDCF(
     >>> val_minDCF
     0.0
     """
+    positive_scores, negative_scores = (
+        sb.utils.distributed_metrics.gather_for_metrics(
+            (positive_scores, negative_scores)
+        )
+    )
+
     # Computing candidate thresholds
     thresholds, _ = torch.sort(torch.cat([positive_scores, negative_scores]))
     thresholds = torch.unique(thresholds)
@@ -1028,10 +1049,18 @@ class ClassificationStats(MetricStats):
             samples. If available, the categories will
             be combined with targets
         """
+        ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
+        predictions = sb.utils.distributed_metrics.gather_for_metrics(
+            predictions
+        )
+        targets = sb.utils.distributed_metrics.gather_for_metrics(targets)
         self.ids.extend(ids)
         self.predictions.extend(predictions)
         self.targets.extend(targets)
         if categories is not None:
+            categories = sb.utils.distributed_metrics.gather_for_metrics(
+                categories
+            )
             self.categories.extend(categories)
 
     def summarize(self, field=None):
@@ -1334,6 +1363,7 @@ class MultiMetricStats:
         **kwargs : dict
             Arguments to pass to the metric function.
         """
+        ids = sb.utils.distributed_metrics.gather_for_metrics(ids)
         self.ids.extend(ids)
 
         # Batch evaluation
@@ -1360,6 +1390,7 @@ class MultiMetricStats:
                 for key in keys
             }
 
+        scores = sb.utils.distributed_metrics.gather_for_metrics(scores)
         for key, metric_scores in scores.items():
             if key not in self.metrics:
                 self.metrics[key] = MetricStats(lambda x: x, batch_eval=True)

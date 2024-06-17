@@ -45,7 +45,7 @@ sample_rate: 16000
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
-test_batch_size: 8
+test_batch_size: 1
 
 # Dataloader options
 train_dataloader_opts:

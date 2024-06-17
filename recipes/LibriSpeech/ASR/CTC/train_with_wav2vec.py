@@ -83,14 +83,14 @@ class ASR(sb.Brain):
         elif stage == sb.Stage.TEST:
             p_tokens = test_searcher(p_ctc, wav_lens)
 
-            candidates = []
-            scores = []
-
-            for batch in p_tokens:
-                candidates.append([hyp.text for hyp in batch])
-                scores.append([hyp.score for hyp in batch])
-
             if hasattr(self.hparams, "rescorer"):
+                candidates = []
+                scores = []
+
+                for batch in p_tokens:
+                    candidates.append([hyp.text for hyp in batch])
+                    scores.append([hyp.score for hyp in batch])
+
                 p_tokens, _ = self.hparams.rescorer.rescore(candidates, scores)
 
         return p_ctc, wav_lens, p_tokens

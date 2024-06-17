@@ -7,6 +7,7 @@ Authors
 import torch
 
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.distributed_metrics import gather_for_metrics
 
 
 def Accuracy(log_probabilities, targets, length=None):
@@ -86,6 +87,10 @@ class AccuracyStats:
         length : torch.Tensor
             Length of target (batch_size,).
         """
+        log_probabilities = gather_for_metrics(log_probabilities)
+        targets = gather_for_metrics(targets)
+        if length is not None:
+            length = gather_for_metrics(length)
         numerator, denominator = Accuracy(log_probabilities, targets, length)
         self.correct += numerator
         self.total += denominator

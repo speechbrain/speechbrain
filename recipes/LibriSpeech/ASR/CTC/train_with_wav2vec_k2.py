@@ -127,12 +127,9 @@ class ASR(sb.Brain):
 
                 predicted_words = [wrd.split(" ") for wrd in predicted_texts]
                 target_words = [wrd.split(" ") for wrd in batch.wrd]
-                self.wer_metrics[k].append(
-                    batch.id, predicted_words, target_words
-                )
-                self.cer_metrics[k].append(
-                    batch.id, predicted_words, target_words
-                )
+                ids = batch.id
+                self.wer_metrics[k].append(ids, predicted_words, target_words)
+                self.cer_metrics[k].append(ids, predicted_words, target_words)
             # For TEST and VALID stages, the loss value is not exact.
             # The <UNK> words have a target length (e.g., number of phones or characters) of 1.
             # As such, sentences with <UNK> have a higher loss during CTC loss 'mean' reduction mode.
