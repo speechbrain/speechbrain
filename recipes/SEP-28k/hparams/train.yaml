@@ -6,28 +6,29 @@ ckpt_enable: True
 batch_size: 256
 number_of_epochs: 5
 #---------------------------------- Classes -----------------------------------
-# Choose the classes to consider in the training. The minimal example handles only
-# a binary classification, even if multiple classes are selected.
+# Choose the classes to consider in the training. The minimal example handles
+# only a binary classification, even if multiple classes are selected.
 # TODO: Handle multi-class classification
-Prolongation: False
-Block: False
-SoundRep: False
-WordRep: False
+Prolongation: True
+Block: True
+SoundRep: True
+WordRep: True
 Interjection: True
 #----------------------------------- Feats ------------------------------------
-# Here, it is planned to fill with elements related to the dataset, "remove_unsure", 
-# will remove samples that don't match the pre-requisite of having at least a value of 
-# "annot_value" in the 5 stuttering class + "NoStutteredWords"
+# Here, it is planned to fill with elements related to the dataset,
+#"remove_unsure", will remove samples that don't match the pre-requisite of
+# having at least a value of "annot_value" in the 5 stuttering class (+fluent)
 annot_value: 2
 remove_unsure: False
 #----------------------------------- Loss -------------------------------------
-#The parameter positive is used as a weight for the bce loss. The value should 
+#The parameter positive is used as a weight for the bce loss. The value should
 #be equal to "number of negative examples/number of positive examples".
 positive: 1
 #----------------------------------- Model ------------------------------------
-# The proposed model here is a simple example based on Wav2Vec2 and a classification layer.
+# The proposed model here is a simple example based on Wav2Vec2 and a
+# classification layer.
 dropout: 0.2
-wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+w2v2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: facebook/wav2vec2-base-960h
     save_path: !ref <data_folder>/pretrained_model
     freeze_feature_extractor: True
@@ -44,7 +45,7 @@ layer2: !new:torch.nn.Linear
 
 bn1: !new:speechbrain.nnet.normalization.BatchNorm1d
     input_size: !ref <size_i>
-    
+
 bn2: !new:speechbrain.nnet.normalization.BatchNorm1d
     input_size: !ref <size_h>
 
@@ -52,17 +53,17 @@ do: !new:torch.nn.Dropout
     p: !ref <dropout>
 
 model: !new:torch.nn.Sequential
-  #- !ref <wav2vec2>
-  - !new:torch.nn.Flatten  
-  - !ref <bn1>
-  - !ref <do>
-  - !ref <layer1>
-  - !new:torch.nn.LeakyReLU
-  - !ref <bn2>
-  - !ref <do>
-  - !ref <layer2>
+    #- !ref <w2v2>
+    - !new:torch.nn.Flatten
+    - !ref <bn1>
+    - !ref <do>
+    - !ref <layer1>
+    - !new:torch.nn.LeakyReLU
+    - !ref <bn2>
+    - !ref <do>
+    - !ref <layer2>
 
-    
+
 #-------------------------------- Scheduling ----------------------------------
 dataloader_opts:
     batch_size: !ref <batch_size>
