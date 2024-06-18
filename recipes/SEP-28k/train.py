@@ -11,12 +11,11 @@ from eval_utils import *
 from speechbrain.dataio.batch import PaddedBatch
 import torchaudio
 import numpy as np
-from data_prep_utils import *
 from speechbrain.utils import hpopt as hp
 
 class SEP28kBrain(sb.Brain):
-    """Use attentional model to predict words in segments"""
     def compute_feats(self, wavs, lens, stage):
+        """Verify wavs length (although padding and lens handles it)"""
         #All clips should be 16Khz and 3 seconds long thus size 48000
         if(wavs.shape[1]>48000):
                     wavs = wavs[:,:48000]
@@ -26,6 +25,7 @@ class SEP28kBrain(sb.Brain):
         return wavs
 
     def compute_forward(self, batch, stage):
+        """ Input waveform into the model and outputs binary classification"""
         batch = batch.to(self.device)
         waveforms, lens = batch.waveform
         waveforms = self.compute_feats(waveforms, lens, stage)
@@ -34,6 +34,7 @@ class SEP28kBrain(sb.Brain):
                
 
     def compute_objectives(self, predictions, batch, stage):
+        """ Computes the loss (Binary Cross Entropy) given predictions and targets."""
         labels = batch.label.data
         loss = sb.nnet.losses.bce_loss(predictions["bin_pred"].squeeze(1).float(), labels.squeeze(1).float(), pos_weight=torch.Tensor([self.hparams.positive]).to("cuda:0"))
         binary_preds = torch.round(torch.sigmoid(predictions["bin_pred"])) #torch.argmax(, axis=1)
@@ -71,7 +72,6 @@ class SEP28kBrain(sb.Brain):
                     self.best_loss = stage_loss
                     self.best_fscore = self.fscore
                     self.best_epoch = epoch
-                stage_stats["best_macro"] = 1-self.best_fscore
                 self.hparams.train_logger.log_stats(
                     stats_meta={"epoch": epoch},
                     train_stats={"loss": self.train_loss},
@@ -87,15 +87,9 @@ class SEP28kBrain(sb.Brain):
                 self.test_fscore = self.fscore
 
     def compute_metrics(self, epoch, stage, stage_loss):
-        curr_stage = stage.name.split('.')[-1].lower()
-        print(f"******{curr_stage}******")
         self.accuracy, self.fscore, self.missrate, self.cf_matrix, _, _= my_confusion_matrix(self.y_true_binary, self.y_preds_binary)
-        print(self.cf_matrix)
         self.hparams.train_logger.log_stats(stats_meta={"\nbin fscore": np.round(self.fscore,4)})
-        print("---------------")
-        if(self.hparams.num_class>1):
-            print(self.cf_multi_matrix)
-            self.hparams.train_logger.log_stats(stats_meta={ "\nmulti-fscores": np.round(self.fscores,4)})
+        self.hparams.train_logger.log_stats(stats_meta={ "confusion matrix": self.cf_matrix})
 
 def dataio_prep(hparams):
     @sb.utils.data_pipeline.takes("Show","EpId", "ClipId")
@@ -114,7 +108,7 @@ def dataio_prep(hparams):
 
     datasets={}
     for dataset in ["train", "valid", "test"]:
-        print(f"----------- Processing {dataset} ------------------------")
+        hparams["train_logger"].log_stats(stats_meta={ "Processing": dataset})
         csv_path=f'{hparams["data_folder"]}/SEP28k-E_{dataset}.csv'
         datasets[f"{dataset}"] = sb.dataio.dataset.DynamicItemDataset.from_csv(
                 csv_path=csv_path,
@@ -129,7 +123,7 @@ def dataio_prep(hparams):
                     counter_u +=1
             d = datasets[dataset].filtered_sorted(sort_key="unsure", reverse=True, select_n=len(datasets[dataset])-counter_u)
             datasets[dataset] = d
-        print(len(datasets[dataset]))
+        hparams["train_logger"].log_stats(stats_meta={ f"{dataset} samples": len(datasets[dataset])})
     return datasets
 
 def get_labels(p,b,sr,wr,inter,f):
@@ -185,7 +179,6 @@ if __name__ == "__main__":
             valid_loader_kwargs=hparams["dataloader_opts"],
         )
         
-        print("*"*20, "Evaluation", "*"*20)
         detect_brain.evaluate(
             datasets[f"test"],
             test_loader_kwargs=hparams["dataloader_opts"],

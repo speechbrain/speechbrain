@@ -1,7 +1,6 @@
 """
 Creates data manifest files for SEP-28k
 If the data does not exist, we download the data automatically.
-https://github.com/apple/ml-stuttering-events-dataset
 
 Authors:
  * Ilias Maoudj 2024
@@ -14,17 +13,9 @@ import os
 import shutil
 import pandas as pd
 from tqdm import tqdm
-import sys
-
-from os import listdir
-from os.path import isfile, join
-from speechbrain.utils.data_utils import download_file
-from speechbrain.dataio.dataio import load_data_csv, read_audio
-from speechbrain.utils.fetching import fetch
 import requests
 
 logger = logging.getLogger(__name__)
-
 
 def download_dropbox(url, podcast):
     headers = {'user-agent': 'Wget/1.16 (linux-gnu)'}
@@ -63,23 +54,6 @@ def download_sep28k(data_path):
     if not os.path.exists(os.path.join(data_path, "SEP28k-data")):
         shutil.unpack_archive(os.path.join(data_path, "SEP28k-data.zip"), data_path)
     print(f"SEP-28k is downloaded in {data_path}")
-
-def check_folders(*folders):
-    """Returns False if any passed folder does not exist.
-
-    Arguments
-    ---------
-    *folders: list
-        Folders to check.
-
-    Returns
-    -------
-    pass: bool
-    """
-    for folder in folders:
-        if not os.path.exists(folder):
-            return False
-    return True
 
 def prepare_sep28k(data_folder, split_type="SEP28k-E"):
     """
