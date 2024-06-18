@@ -50,6 +50,7 @@ remove_unsure: False
 #----------------------------------- Loss -------------------------------------
 #The parameter positive is used as a weight for the bce loss. The value should
 #be equal to "number of negative examples/number of positive examples".
+# This depends on the distribution of the class.
 positive: 1
 #----------------------------------- Model ------------------------------------
 # The proposed model here is a simple example based on Wav2Vec2 and a
