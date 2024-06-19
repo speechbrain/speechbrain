@@ -1,5 +1,5 @@
 seed: 0
-data_folder: !PLACEHOLDER
+data_folder: /home/ilias-m/Documents/GitHub/experiment
 hpopt_mode: orion
 hpopt: hpopt.yaml
 ckpt_enable: True
@@ -14,6 +14,7 @@ Block: True
 SoundRep: True
 WordRep: True
 Interjection: True
+num_class: !!python/object/apply:eval [ !ref <Prolongation> + <Block> + <SoundRep> + <WordRep> + <Interjection>]
 #----------------------------------- Feats ------------------------------------
 # Here, it is planned to fill with elements related to the dataset,
 #"remove_unsure", will remove samples that don't match the pre-requisite of
