@@ -74,6 +74,8 @@ def prepare_sep28k(data_folder, split_type="SEP28k-E"):
 
     Arguments
     ---------
+    data_folder: str
+        Where to save the dataset
     split_type: str
         Which partitioning to use (can be either SEP12k, SEP28k-E [default], SEP28k-T, SEP28k-D)
 
