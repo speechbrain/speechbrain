@@ -60,7 +60,7 @@ where $g_w$ is the guidance weight for the interpreter.
 
 #### Specifying the pretrained classifier
 
-The pretrained classifier to be interpreted is specified with the variables `embedding_model_path`, and `classifier_model_path`. The default model is a model we trained on ESC50, however, if you would like to specify your own model just use paths that point to your own model. 
+The pretrained classifier to be interpreted is specified with the variables `embedding_model_path`, and `classifier_model_path`. The default model is a model we trained on ESC50, however, if you would like to specify your own model just use paths that point to your own model.
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -211,3 +211,5 @@ If you use **SpeechBrain**, please cite:
 - HuggingFace: https://huggingface.co/speechbrain/
 
 ---------------------------------------------------------------------------------------------------------
+
+
