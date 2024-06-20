@@ -37,7 +37,7 @@ pip install -r extra_requirements.txt
 
 LMAC trains an interpreter on the classifier's representations to reconstruct interpretations based on a amortized inference loss.
 
-For more details, refer to our [LMAC paper](https://arxiv.org/abs/2403.13086). You can also find samples on the [companion website](https://anonymous.4open.science/w/audio_interpretability-87B5/).
+For more details, refer to our [LMAC paper](https://arxiv.org/abs/2403.13086). You can also find samples on the [companion website](https://francescopaissan.it/lmac/).
 
 To train PIQ on a convolutional classifier using the ESC50 dataset, use the `train_lmac.py` script. Run the following command:
 
@@ -57,6 +57,10 @@ python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 \
     --finetuning True --pretrained_interpreter=/yourLMACcheckpointpath/checkpoint.ckpt --g_w 4
 ```
 where $g_w$ is the guidance weight for the interpreter.
+
+#### Specifying the pretrained classifier
+
+The pretrained classifier to be interpreted is specified with the variables `embedding_model_path`, and `classifier_model_path`. The default model is a model we trained on ESC50, however, if you would like to specify your own model just use paths that point to your own model. 
 
 ---------------------------------------------------------------------------------------------------------
 
