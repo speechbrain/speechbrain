@@ -133,7 +133,7 @@ classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/C
 
 ## Evaluation
 
-## Out of distribution (OOD) tests
+### Out of distribution (OOD) tests
 
 If you want to run tests on the OOD setting, you can use
 ```shell
@@ -142,8 +142,10 @@ python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_typ
 
 Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `ljspeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting.
 
+Note also that `add_wham_noise` should be set to `False`.
 
-## In distribution (ID) tests
+
+### In distribution (ID) tests
 
 If you want to run tests on the ID setting, you can use
 ```shell

@@ -172,7 +172,16 @@ if __name__ == "__main__":
     hparams["label_encoder"] = label_encoder
 
     # create WHAM dataset according to hparams
-    hparams["wham_dataset"] = prepare_wham(hparams)
+    if "wham_folder" in hparams:
+        hparams["wham_dataset"] = prepare_wham(
+            hparams["wham_folder"],
+            hparams["add_wham_noise"],
+            hparams["sample_rate"],
+            hparams["signal_length_s"],
+            hparams["wham_audio_folder"],
+        )
+        assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
+        assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
 
     assert hparams["use_pretrained"], "Load a model checkpoint during eval."
     if "pretrained_esc50" in hparams and hparams["use_pretrained"]:

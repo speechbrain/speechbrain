@@ -352,8 +352,8 @@ if __name__ == "__main__":
             hparams["wham_audio_folder"],
         )
 
-    assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
-    assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
+        assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
+        assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
 
     class_labels = list(label_encoder.ind2lab.values())
     print("Class Labels:", class_labels)
