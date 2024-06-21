@@ -13,17 +13,17 @@ train_log: !ref <output_folder>/train_log.txt
 valid_file: !ref <output_folder>/valid.txt
 
 # pre-trained model for audio projection
-stage2_model_path: !PLACEHOLDER # results/with_llama3-stage2/1995/save/CKPT+2024-04-29+02-16-21+00/model.ckpt
-stage2_llama_path: !PLACEHOLDER # results/with_llama3-stage2/1995/save/CKPT+2024-04-29+02-16-21+00/llama3.ckpt
+stage2_model_path: !PLACEHOLDER # /path/to/results/with_llama3-stage2/1995/save/CKPT+2024-04-29+02-16-21+00/model.ckpt
+stage2_llama_path: !PLACEHOLDER # /path/to/results/with_llama3-stage2/1995/save/CKPT+2024-04-29+02-16-21+00/llama3.ckpt
 
 precision: fp16
 
 # URL for the LLAMA3 model and its save folder
 llama_hub: meta-llama/Meta-Llama-3-8B-Instruct # lmsys/vicuna-7b-v1.5
-llama3_folder: results/with_llama3-stage1/1995/save/llama3_checkpoint # same as the llama3 folder of stage 1
+llama3_folder: !PLACEHOLDER # same as the llama3 folder of stage 1
 
-train_annotation: results/with_llama3-stage0/1995/all.json # all json from stage 0
-valid_annotation: null
+train_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/all.json
+valid_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/valid.json
 
 num_workers: 8
 ckpt_interval_minutes: 30 # save checkpoint every N min
@@ -45,7 +45,7 @@ with_peft: True # activate lora
 freeze_tltr: False # unfreeze tltr
 
 # LLAMA3 tokenizer
-cutoff_len: 200
+cutoff_len: 180 # adjust based on memory allowed
 
 ################################################################################
 # LLAMA3
@@ -133,7 +133,7 @@ ce_loss: !new:torch.nn.CrossEntropyLoss
 lr_annealing: !new:speechbrain.nnet.schedulers.LinearWarmupScheduler
    initial_value: !ref <lr>
    num_warmup_steps: 100
-   num_training_steps: !PLACEHOLDER # num_epochs * data_len / grad_accumulation_factor
+   num_training_steps: 40000 # 1 epochs * 9M QA pairs / 256 total batch size
 
 ############################## Logging and Pretrainer ##########################
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

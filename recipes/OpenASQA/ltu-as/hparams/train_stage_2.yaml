@@ -13,16 +13,16 @@ train_log: !ref <output_folder>/train_log.txt
 valid_file: !ref <output_folder>/valid.txt
 
 # pre-trained model for audio projection
-stage1_model_path: !PLACEHOLDER # results/with_llama3-stage1/1995/save/CKPT+2024-04-27+13-58-08+00/model.ckpt
+stage1_model_path: !PLACEHOLDER # /path/to/results/with_llama3-stage1/1995/save/CKPT+2024-04-27+13-58-08+00/model.ckpt
 
 precision: fp16
 
 # URL for the LLAMA3 model and its save folder
-llama_hub: meta-llama/Meta-Llama-3-8B-Instruct # lmsys/vicuna-7b-v1.5
-llama3_folder: results/with_llama3-stage1/1995/save/llama3_checkpoint # same as the llama3 folder of stage 1
+llama_hub: meta-llama/Meta-Llama-3-8B-Instruct
+llama3_folder: !PLACEHOLDER # same as the llama3 folder of stage 1
 
-train_annotation: results/with_llama3-stage0/1995/classification.json # classification json from stage 0
-valid_annotation: null
+train_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/classification.json
+valid_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/valid.json
 
 num_workers: 8
 ckpt_interval_minutes: 30 # save checkpoint every N min
@@ -44,7 +44,7 @@ with_peft: True # activate lora
 freeze_tltr: False # unfreeze tltr
 
 # LLAMA3 tokenizer
-cutoff_len: 200
+cutoff_len: 180
 
 ################################################################################
 # LLAMA3
@@ -132,7 +132,7 @@ ce_loss: !new:torch.nn.CrossEntropyLoss
 lr_annealing: !new:speechbrain.nnet.schedulers.LinearWarmupScheduler
    initial_value: !ref <lr>
    num_warmup_steps: 100
-   num_training_steps: !PLACEHOLDER # num_epochs * data_len / grad_accumulation_factor
+   num_training_steps: 16000 # 2 epochs * 2M QA pairs / 256 total batch size
 
 ############################## Logging and Pretrainer ##########################
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

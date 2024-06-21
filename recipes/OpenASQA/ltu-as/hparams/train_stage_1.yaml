@@ -13,7 +13,7 @@ train_log: !ref <output_folder>/train_log.txt
 valid_file: !ref <output_folder>/valid.txt
 
 # pre-trained weights for TLTR (to be put into preparation script with auto-download)
-tltr_pretrained_weights: /home/ywang/ltu-as/TLTR/large-v1_ori.pth
+tltr_pretrained_weights: !PLACEHOLDER # saved in stage0
 
 precision: fp16
 
@@ -21,8 +21,8 @@ precision: fp16
 llama_hub: meta-llama/Meta-Llama-3-8B-Instruct # lmsys/vicuna-7b-v1.5
 llama3_folder: !ref <save_folder>/llama3_checkpoint
 
-train_annotation: results/with_llama3-stage0/1995/classification.json # classification json from stage 0
-valid_annotation: null
+train_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/classification.json
+valid_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/valid.json
 
 num_workers: 8
 ckpt_interval_minutes: 30 # save checkpoint every N min
@@ -44,7 +44,7 @@ with_peft: False # deactivate lora
 freeze_tltr: True # freeze tltr
 
 # LLAMA3 tokenizer
-cutoff_len: 200 # 108
+cutoff_len: 200 # more if memory allows
 
 ################################################################################
 # LLAMA3
@@ -134,7 +134,7 @@ ce_loss: !new:torch.nn.CrossEntropyLoss
 lr_annealing: !new:speechbrain.nnet.schedulers.LinearWarmupScheduler
    initial_value: !ref <lr>
    num_warmup_steps: 100
-   num_training_steps: !PLACEHOLDER # num_epochs * data_len / grad_accumulation_factor
+   num_training_steps: 16000 # 2 epochs * 2M QA pairs / 256 total batch size
 
 ############################## Logging and Pretrainer ##########################
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer

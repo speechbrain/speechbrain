@@ -75,9 +75,17 @@ class ASLLMBrain(sb.Brain):
             text_padding_mask = text_padding_mask.long()
             audio_padding_mask = torch.ones([text_padding_mask.shape[0], 25], device = self.device)
             input_mask = torch.concat([audio_padding_mask, text_padding_mask], dim=1)
-            hyps = self.modules.llama3.module.generate(
-                inputs_embeds = input_embed.detach(), attention_mask = input_mask.detach()
-            )
+
+            if self.hparams.has_key("stage2_llama_path"):
+                # stage3
+                hyps = self.modules.llama3.module.generate(
+                    inputs_embeds = input_embed.detach(), attention_mask = input_mask.detach()
+                )
+            else:
+                # stage1 & 2
+                hyps = self.modules.llama3.generate(
+                    inputs_embeds = input_embed.detach(), attention_mask = input_mask.detach()
+                )
 
             predicted_words = tokenizer.batch_decode(
                 hyps,
@@ -144,7 +152,7 @@ class ASLLMBrain(sb.Brain):
                         w.write("target: " + str(self.references[i]) + "\n")
                         w.write("predicted:" + str(self.hyps[i]) + "\n")
                         w.write(
-                            "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n"
+                            "+++++++++++++++++++++++++++++++++++++++++++++++\n"
                         )
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
@@ -296,30 +304,16 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Load pretrained model if pretrained_separator is present in the yaml
-    if "pretrained_models" in hparams:
-        sb.utils.distributed.run_on_main(
-            hparams["pretrained_models"].collect_files
-        )
-        hparams["pretrained_models"].load_collected()
-        logger.info("Pretrained models from previous stage loaded, this stage should not be stage1")
-    else:
-        hparams["tltr"].load_state_dict(
-            torch.load(hparams["tltr_pretrained_weights"]),
-            strict=True,
-        )
-        logger.info("TLTR loaded with pretrained weights, this stage should be stage1")
-
-    hparams["tltr"] = hparams["tltr"].to(
-        device=run_opts["device"]
-    )
-
     # Load tokenizer and add special tokens
     tokenizer = hparams["llama3"].tokenizer
     # tokenizer.add_bos_token = False # does not work for llama3 tokenizer
 
     #  Load pretrained LLAMA3
     hparams["llama3"] = hparams["llama3"].to(
+        device=run_opts["device"]
+    )
+    
+    hparams["tltr"] = hparams["tltr"].to(
         device=run_opts["device"]
     )
 
@@ -366,19 +360,27 @@ if __name__ == "__main__":
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
-    
-    asllm_brain.embedding_layer = hparams["llama3"].model.get_input_embeddings()
-
-    # We load the pretrained whisper model
-    if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
-        hparams["pretrainer"].load_collected(asllm_brain.device)
 
     # The `fit()` method iterates the training loop, calling the methods
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-    
+        # Load pretrained model if pretrained_separator is present in the yaml
+    if "pretrained_models" in hparams:
+        sb.utils.distributed.run_on_main(
+            hparams["pretrained_models"].collect_files
+        )
+        hparams["pretrained_models"].load_collected()
+        logger.info("Pretrained models from previous stage loaded, this stage should not be stage1")
+    else:
+        hparams["tltr"].load_state_dict(
+            torch.load(hparams["tltr_pretrained_weights"]),
+            strict=True,
+        )
+        logger.info("TLTR loaded with pretrained weights, this stage should be stage1")
+
+    asllm_brain.embedding_layer = hparams["llama3"].model.get_input_embeddings()
+
     asllm_brain.fit(
         epoch_counter=asllm_brain.hparams.epoch_counter,
         train_set=datasets["train"],
