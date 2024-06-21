@@ -312,17 +312,17 @@ class LinearWarmupScheduler:
 
     Example
     -------
-    >>> scheduler = LinearWarmupScheduler(1.0, 2, 4)
-    >>> scheduler.get_next_value()
+    >>> scheduler = LinearWarmupScheduler(1.0, 2, 10)
+    >>> scheduler.calculate_lr(0)
     0.0
-    >>> scheduler.get_next_value()
+    >>> scheduler.calculate_lr(1)
     0.5
-    >>> scheduler.get_next_value()
+    >>> scheduler.calculate_lr(2)
     1.0
-    >>> scheduler.get_next_value()
-    0.5
-    >>> scheduler.get_next_value()
-    0.0
+    >>> scheduler.calculate_lr(3)
+    0.875
+    >>> scheduler.calculate_lr(4)
+    0.75
     """
 
     def __init__(self, initial_value, num_warmup_steps, num_training_steps):
