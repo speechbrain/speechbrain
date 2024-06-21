@@ -26,7 +26,6 @@ class LTU_AS(Pretrained):
         self.whisper = self.whisper.to(self.device)
 
         # whisper pad/trim all the audios to 10 seconds
-        self.whisper._n_samples = 160000
         chunked_embed_positions_weight = torch.nn.Parameter(self.whisper.model.encoder.embed_positions.weight[:500, :])
         self.whisper.model.encoder.embed_positions.weight = chunked_embed_positions_weight
         
@@ -61,7 +60,7 @@ class LTU_AS(Pretrained):
         resampled = resampled.unsqueeze(0).to(self.device)
         
         # get audio embedding
-        audio_embs = self.whisper.forward_encoder(resampled)[1:]
+        audio_embs = self.whisper(resampled, n_samples=160000)[1:]
         audio_embs = audio_embs.squeeze()
         audio_embs = self.avg_pool(audio_embs)
         audio_embs = audio_embs.unsqueeze(0)
