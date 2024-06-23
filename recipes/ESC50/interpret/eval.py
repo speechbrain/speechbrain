@@ -217,7 +217,6 @@ if __name__ == "__main__":
             opt_class=hparams["opt_class"],
             hparams=hparams,
             run_opts=run_opts,
-            checkpointer=hparams["checkpointer"],
         )
     elif hparams["int_method"] == "l2i":
         hparams["nmf_decoder"].to(run_opts["device"])
@@ -228,7 +227,6 @@ if __name__ == "__main__":
             opt_class=hparams["opt_class"],
             hparams=hparams,
             run_opts=run_opts,
-            checkpointer=hparams["checkpointer"],
         )
 
     Interpreter.checkpointer.recover_if_possible(
