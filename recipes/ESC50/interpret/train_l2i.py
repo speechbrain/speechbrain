@@ -166,6 +166,10 @@ class L2I(InterpreterBrain):
             ) == 0 and self.hparams.save_interpretations:
                 self.viz_ints(X_stft, net_input, batch, wavs)
 
+        if stage == sb.Stage.TEST and self.hparams.save_interpretations:
+            # During TEST save always, if required
+            self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
+
         return (reconstructed, psi_out), (predictions, theta_out), wavs
 
     def compute_objectives(self, pred, batch, stage):

@@ -120,6 +120,10 @@ class LMAC(InterpreterBrain):
             ) == 0 and self.hparams.save_interpretations:
                 self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
+        if stage == sb.Stage.TEST and self.hparams.save_interpretations:
+            # During TEST save always, if required
+            self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
+
         return ((wavs, lens), predictions, xhat, hcat)
 
     def extra_metrics(self):
