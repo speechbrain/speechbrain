@@ -20,6 +20,8 @@ add_wham_noise: False
 overlap_type: "mixtures"
 ljspeech_path: null
 
+pretrained_interpreter: null
+
 experiment_name: L2I
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save

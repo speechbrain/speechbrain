@@ -211,6 +211,10 @@ if __name__ == "__main__":
     if hparams["add_wham_noise"]:
         ood_dataset = datasets["valid"]
 
+    hparams["psi_model"].load_state_dict(
+        torch.load(hparams["pretrained_interpreter"], map_location="cpu")
+    )
+
     if hparams["int_method"] == "lmac":
         Interpreter = LMAC(
             modules=hparams["modules"],
@@ -219,6 +223,9 @@ if __name__ == "__main__":
             run_opts=run_opts,
         )
     elif hparams["int_method"] == "l2i":
+        hparams["nmf_decoder"].load_state_dict(
+            torch.load(hparams["nmf_decoder_path"], map_location="cpu")
+        )
         hparams["nmf_decoder"].to(run_opts["device"])
         hparams["nmf_decoder"].eval()
 

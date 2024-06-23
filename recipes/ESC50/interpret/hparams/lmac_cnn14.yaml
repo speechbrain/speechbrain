@@ -18,6 +18,8 @@ audio_data_folder: !ref <data_folder>/audio
 int_method: "lmac"
 overlap_type: "mixtures"
 
+pretrained_interpreter: null
+
 l_in_w: 4
 l_out_w: 0.2
 reg_w_tv: 0.0
