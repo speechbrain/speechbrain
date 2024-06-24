@@ -87,14 +87,16 @@ Read more about L2I in the [L2I paper](https://arxiv.org/abs/2202.11479v2).
 To train an NMF model on the ESC50 dataset, use the `train_nmf.py` script. Run the command below:
 
 ```shell
-python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50
+python train_nmf.py hparams/nmf.yaml --data_folder /yourpath/ESC50 --save_period 30
 ```
+Note that the variable `save_period` determines the period with which the reconstructions are saved for debugging purposes.
 
 Additionally, we provide an L2I interpretation method for a convolutional classifier. To train this method on the ESC50 dataset, use the following command:
 
 ```shell
 python train_l2i.py hparams/l2i_conv2d.yaml --data_folder /yourpath/ESC50
 ```
+Note that the default l2i script uses the NMF dictionary specified in the hparams yaml file.
 
 Lastly, we offer the training script for the L2I interpretation method on CNN14. To run this, execute the following command:
 
