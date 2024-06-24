@@ -32,7 +32,7 @@ class ASLLMBrain(sb.Brain):
         audio_embs = self.modules.audio_proj(audio_embs)  # [b, 25, 4096]
 
         # compute text embedding and concatenate
-        input_embed = self.embedding_layer(input_ids)  
+        input_embed = self.embedding_layer(input_ids)
         input_embed = torch.concat([audio_embs, input_embed], dim=1)
 
         # compute padding mask for audio and text, then concatenate
@@ -41,7 +41,7 @@ class ASLLMBrain(sb.Brain):
         )
         text_padding_mask = text_padding_mask.long()
         audio_padding_mask = torch.ones(
-            [text_padding_mask.shape[0], 25], device = self.device
+            [text_padding_mask.shape[0], 25], device=self.device
         )
         input_mask = torch.concat(
             [audio_padding_mask, text_padding_mask], dim=1
@@ -80,7 +80,7 @@ class ASLLMBrain(sb.Brain):
             )
             text_padding_mask = text_padding_mask.long()
             audio_padding_mask = torch.ones(
-                [text_padding_mask.shape[0], 25], device = self.device
+                [text_padding_mask.shape[0], 25], device=self.device
             )
             input_mask = torch.concat(
                 [audio_padding_mask, text_padding_mask], dim=1
@@ -89,13 +89,14 @@ class ASLLMBrain(sb.Brain):
             if self.hparams.has_key("stage2_llama_path"):
                 # stage3
                 hyps = self.modules.llama3.module.generate(
-                    inputs_embeds = input_embed.detach(),
-                    attention_mask = input_mask.detach(),
+                    inputs_embeds=input_embed.detach(),
+                    attention_mask=input_mask.detach(),
                 )
             else:
                 # stage1 & 2
                 hyps = self.modules.llama3.generate(
-                    inputs_embeds = input_embed.detach(), attention_mask = input_mask.detach()
+                    inputs_embeds=input_embed.detach(),
+                    attention_mask=input_mask.detach(),
                 )
 
             predicted_words = tokenizer.batch_decode(

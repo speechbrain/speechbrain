@@ -95,7 +95,7 @@ class LTU_AS(Pretrained):
         )
         text_padding_mask = text_padding_mask.long()
         audio_padding_mask = torch.ones(
-            [text_padding_mask.shape[0], 25], device = self.device
+            [text_padding_mask.shape[0], 25], device=self.device
         )
         input_mask = torch.concat(
             [audio_padding_mask, text_padding_mask], dim=1

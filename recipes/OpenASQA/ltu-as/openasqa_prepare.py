@@ -53,7 +53,7 @@ def prepare_openasqa(
 ):
     """
     Prepare the necessary traning data and pre-trained model weights.
-    
+
     Arguments
     ---------
     whisper_feature_folder : str
@@ -210,7 +210,7 @@ def prepare_openasqa_eval(
 ):
     """
     Prepare the necessary evaluation data.
-    
+
     Arguments
     ---------
     eval_whisper_feature_folder : str
@@ -311,7 +311,7 @@ def prepare_openasqa_eval(
                         f"{audio_id} does not exist, please check the audio path"
                     )
                     continue
-                
+
                 feature_path.format(
                     eval_whisper_feature_folder=eval_whisper_feature_folder
                 )
@@ -324,12 +324,12 @@ def prepare_openasqa_eval(
                     )
                 # update new dictionary with selected items
                 new_dict[key] = data[key]
-        
+
         # Add the last item of each dataset into valid set
         valid_dict[key] = data[key]
 
-        with open(eval_iemocap_emo_json, 'w') as fout:
-            json.dump(new_dict,fout)
+        with open(eval_iemocap_emo_json, "w") as fout:
+            json.dump(new_dict, fout)
         logger.info(f"{eval_iemocap_emo_json} successfully created.")
 
     if voxceleb2_test_folder is not None:
@@ -399,9 +399,11 @@ def prepare_openasqa_eval(
                 )
 
                 if not os.path.exists(audio_id):
-                    logger.info(f"{audio_id} does not exist, please check the audio path")
+                    logger.info(
+                        f"{audio_id} does not exist, please check the audio path"
+                    )
                     continue
-                
+
                 feature_path.format(
                     eval_whisper_feature_folder=eval_whisper_feature_folder
                 )
@@ -448,7 +450,7 @@ def extract_whisper_features(
 ):
     """
     Extract whisper feature via a whisper model.
-    
+
     Arguments
     ---------
     model :

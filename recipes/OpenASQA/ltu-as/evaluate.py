@@ -14,7 +14,7 @@ from statistics import mean
 import jiwer
 import torch
 from hyperpyyaml import load_hyperpyyaml
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import speechbrain as sb
 from speechbrain.inference.multimodal import LTU_AS
@@ -178,7 +178,7 @@ def eval_librispeech_asr(model, hparams):
     def process_text(text):
         text = text.lower()
         text = (
-            text.split("spoken text: ")[-1].replace("spoken text:","").lstrip()
+            text.split("spoken text: ")[-1].replace("spoken text:", "").lstrip()
         )
         return text
 
@@ -194,7 +194,7 @@ def eval_librispeech_asr(model, hparams):
         metric.append(
             [key],
             [preprocess_text(process_text(pred))],
-            [preprocess_text(process_text(data[key]["output"]))]        
+            [preprocess_text(process_text(data[key]["output"]))],
         )
     return metric.summarize()["WER"]
 

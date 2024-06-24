@@ -235,7 +235,8 @@ class ResidualAttentionBlock(nn.Module):
         x = x + self.attn(self.attn_ln(x), mask=mask, kv_cache=kv_cache)[0]
         if self.cross_attn:
             x = (
-                x + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[
+                x
+                + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[
                     0
                 ]
             )
@@ -290,9 +291,9 @@ class TLTR(nn.Module):
             audio_rep.shape[3],
         )
         assert (
-            num_layer==self.n_layer
+            num_layer == self.n_layer
         ), "Please verify the layer_num of the audio representation."
-        
+
         audio_rep = audio_rep.reshape(
             [B * num_layer, audio_len, rep_dim]
         )  # [B*32, 25, 1280]
