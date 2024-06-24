@@ -7,14 +7,15 @@ Authors
 * Yingzhi Wang 2024
 """
 
-import sys
-import torch
 import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.batch import PaddedBatch
+import sys
+
 import numpy as np
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.dataio.batch import PaddedBatch
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +26,13 @@ class ASLLMBrain(sb.Brain):
         batch = batch.to(self.device)
         audio_embs, _ = batch.audio_embs
         input_ids, _ = batch.input_ids
-        
+
         # compute audio embedding
-        audio_embs = self.modules.tltr(audio_embs) # [b, 25, 1280]
-        audio_embs = self.modules.audio_proj(audio_embs) # [b, 25, 4096]
-        
+        audio_embs = self.modules.tltr(audio_embs)  # [b, 25, 1280]
+        audio_embs = self.modules.audio_proj(audio_embs)  # [b, 25, 4096]
+
         # compute text embedding and concatenate
-        input_embed = self.embedding_layer(input_ids)        
+        input_embed = self.embedding_layer(input_ids)  
         input_embed = torch.concat([audio_embs, input_embed], dim=1)
 
         # compute padding mask for audio and text, then concatenate
@@ -39,12 +40,17 @@ class ASLLMBrain(sb.Brain):
             input_ids, pad_idx=0
         )
         text_padding_mask = text_padding_mask.long()
-        audio_padding_mask = torch.ones([text_padding_mask.shape[0], 25], device = self.device)
-        input_mask = torch.concat([audio_padding_mask, text_padding_mask], dim=1)
+        audio_padding_mask = torch.ones(
+            [text_padding_mask.shape[0], 25], device = self.device
+        )
+        input_mask = torch.concat(
+            [audio_padding_mask, text_padding_mask], dim=1
+        )
 
         # forward llama
         outputs = self.modules.llama3(
-            inputs_embeds=input_embed, attention_mask=input_mask,
+            inputs_embeds=input_embed,
+            attention_mask=input_mask,
         ).logits[:, 25:, :]
 
         return outputs
@@ -67,19 +73,24 @@ class ASLLMBrain(sb.Brain):
             batch = batch.to(self.device)
             audio_embs = self.modules.tltr(audio_embs)
             audio_embs = self.modules.audio_proj(audio_embs)
-            input_embed = self.embedding_layer(prompt_bos)        
+            input_embed = self.embedding_layer(prompt_bos)
             input_embed = torch.concat([audio_embs, input_embed], dim=1)
             text_padding_mask = ~self.hparams.text_padding_mask(
                 prompt_bos, pad_idx=0
             )
             text_padding_mask = text_padding_mask.long()
-            audio_padding_mask = torch.ones([text_padding_mask.shape[0], 25], device = self.device)
-            input_mask = torch.concat([audio_padding_mask, text_padding_mask], dim=1)
+            audio_padding_mask = torch.ones(
+                [text_padding_mask.shape[0], 25], device = self.device
+            )
+            input_mask = torch.concat(
+                [audio_padding_mask, text_padding_mask], dim=1
+            )
 
             if self.hparams.has_key("stage2_llama_path"):
                 # stage3
                 hyps = self.modules.llama3.module.generate(
-                    inputs_embeds = input_embed.detach(), attention_mask = input_mask.detach()
+                    inputs_embeds = input_embed.detach(),
+                    attention_mask = input_mask.detach(),
                 )
             else:
                 # stage1 & 2
@@ -98,7 +109,7 @@ class ASLLMBrain(sb.Brain):
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
-    
+
             if stage != sb.Stage.TRAIN:
                 self.hyps.extend(predicted_words)
                 self.references.extend(target_words)
@@ -202,6 +213,7 @@ def dataio_prep(hparams, tokenizer):
         Contains two keys, "train" and "valid" (if needed) that correspond
         to the appropriate DynamicItemDataset object.
     """
+
     @sb.utils.data_pipeline.takes("feature_path")
     @sb.utils.data_pipeline.provides("audio_embs")
     def audio_pipeline(feature_path):
@@ -209,12 +221,16 @@ def dataio_prep(hparams, tokenizer):
         return torch.from_numpy(audio_emb)
 
     @sb.utils.data_pipeline.takes("instruction", "input", "output")
-    @sb.utils.data_pipeline.provides("user_prompt_bos", "res_eos", "input_ids", "lm_labels")
+    @sb.utils.data_pipeline.provides(
+        "user_prompt_bos", "res_eos", "input_ids", "lm_labels"
+    )
     def text_pipeline_llama3(instruction, input, output):
         # the llama3 template
         user_prompt = f"<|start_header_id|>system<|end_header_id|>\n\nYou are an assistant that understands audio and speech.<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{instruction} The transcript of the audio is:{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-        
-        user_prompt_tokens = tokenize(tokenizer, user_prompt, hparams["cutoff_len"])[1:]
+
+        user_prompt_tokens = tokenize(
+            tokenizer, user_prompt, hparams["cutoff_len"]
+        )[1:]
         user_prompt_bos = torch.cat(
             (
                 torch.tensor([tokenizer.bos_token_id]),
@@ -231,7 +247,7 @@ def dataio_prep(hparams, tokenizer):
             )
         )
         yield res_eos
-        
+
         input_ids = torch.cat(
             (
                 torch.tensor([tokenizer.bos_token_id]),
@@ -239,8 +255,7 @@ def dataio_prep(hparams, tokenizer):
             )
         )
         yield input_ids
-    
-        
+
         if not hparams["train_on_input"]:
             user_prompt_len = len(user_prompt_tokens)
             labels = torch.cat(
@@ -309,13 +324,8 @@ if __name__ == "__main__":
     # tokenizer.add_bos_token = False # does not work for llama3 tokenizer
 
     #  Load pretrained LLAMA3
-    hparams["llama3"] = hparams["llama3"].to(
-        device=run_opts["device"]
-    )
-    
-    hparams["tltr"] = hparams["tltr"].to(
-        device=run_opts["device"]
-    )
+    hparams["llama3"] = hparams["llama3"].to(device=run_opts["device"])
+    hparams["tltr"] = hparams["tltr"].to(device=run_opts["device"])
 
     class CustomPaddedBatch(PaddedBatch):
         """PaddedBatch with custom padding values.
@@ -365,19 +375,23 @@ if __name__ == "__main__":
     # necessary to update the parameters of the model. Since all objects
     # with changing state are managed by the Checkpointer, training can be
     # stopped at any point, and will be resumed on next call.
-        # Load pretrained model if pretrained_separator is present in the yaml
+    # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_models" in hparams:
         sb.utils.distributed.run_on_main(
             hparams["pretrained_models"].collect_files
         )
         hparams["pretrained_models"].load_collected()
-        logger.info("Pretrained models from previous stage loaded, this stage should not be stage1")
+        logger.info(
+            "Pretrained models from previous stage loaded, this stage should not be stage1"
+        )
     else:
         hparams["tltr"].load_state_dict(
             torch.load(hparams["tltr_pretrained_weights"]),
             strict=True,
         )
-        logger.info("TLTR loaded with pretrained weights, this stage should be stage1")
+        logger.info(
+            "TLTR loaded with pretrained weights, this stage should be stage1"
+        )
 
     asllm_brain.embedding_layer = hparams["llama3"].model.get_input_embeddings()
 

@@ -10,17 +10,19 @@ Authors
 # https://github.com/YuanGongND/ltu/blob/main/src/ltu_as/hf-dev/transformers-main/src/transformers/models/llama/modeling_llama.py
 # *****************************************************************************
 
+
+import logging
+
 import torch
-from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class LayerNorm(nn.LayerNorm):
     """A wrapper of torch layer normalisation"""
+
     def forward(self, x):
         """Computes the forward pass
         Arguments
@@ -37,6 +39,7 @@ class LayerNorm(nn.LayerNorm):
 
 class Linear(nn.Linear):
     """A wrapper of torch linear layer"""
+
     def forward(self, x):
         """Computes the forward pass
         Arguments
@@ -53,11 +56,11 @@ class Linear(nn.Linear):
             self.weight.to(x.dtype),
             None if self.bias is None else self.bias.to(x.dtype),
         )
-        
+
 
 class MultiHeadAttention(nn.Module):
     """The class is a wrapper of MultiHead Attention.
-    
+
     Arguments
     ---------
     n_state : int
@@ -65,6 +68,7 @@ class MultiHeadAttention(nn.Module):
     n_head : int
         parallel attention heads.
     """
+
     def __init__(self, n_state, n_head):
         super().__init__()
         self.n_head = n_head
@@ -102,7 +106,7 @@ class MultiHeadAttention(nn.Module):
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
         kv_cache : torch.Tensor
-        
+
         Returns
         -------
         attn_output : torch.Tensor
@@ -121,9 +125,7 @@ class MultiHeadAttention(nn.Module):
         wv, qk = self.qkv_attention(q, k, v, mask)
         return self.out(wv), qk
 
-    def qkv_attention(
-        self, q, k, v, mask=None
-    ):
+    def qkv_attention(self, q, k, v, mask=None):
         """Compute attention.
 
         Arguments
@@ -148,7 +150,7 @@ class MultiHeadAttention(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
-        
+
         Returns
         -------
         attn_output : torch.Tensor
@@ -171,7 +173,7 @@ class MultiHeadAttention(nn.Module):
 
 class ResidualAttentionBlock(nn.Module):
     """Transformer with residual attention block.
-    
+
     Arguments
     ---------
     n_state : int
@@ -181,6 +183,7 @@ class ResidualAttentionBlock(nn.Module):
     cross_attention: bool (default: False)
         Whether to do cross-attention.
     """
+
     def __init__(self, n_state, n_head, cross_attention: bool = False):
         super().__init__()
 
@@ -224,14 +227,18 @@ class ResidualAttentionBlock(nn.Module):
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
         kv_cache : torch.Tensor
-        
+
         Returns
         -------
         attn_output : torch.Tensor
         """
         x = x + self.attn(self.attn_ln(x), mask=mask, kv_cache=kv_cache)[0]
         if self.cross_attn:
-            x = x + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[0]
+            x = (
+                x + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[
+                    0
+                ]
+            )
         x = x + self.mlp(self.mlp_ln(x))
         return x
 
@@ -248,6 +255,7 @@ class TLTR(nn.Module):
     rep_dim: int
         feature size of the audio representation.
     """
+
     def __init__(self, n_layer=32, rep_dim=1280):
         super().__init__()
         self.n_layer = n_layer
@@ -257,30 +265,45 @@ class TLTR(nn.Module):
         self.num_latt_head = 8
         self.time_tr = ResidualAttentionBlock(self.rep_dim, self.num_tatt_head)
         self.layer_tr = ResidualAttentionBlock(self.rep_dim, self.num_latt_head)
-        self.mlp_layer = nn.Sequential(nn.LayerNorm(self.rep_dim), nn.Linear(self.rep_dim, 527))
+        self.mlp_layer = nn.Sequential(
+            nn.LayerNorm(self.rep_dim), nn.Linear(self.rep_dim, 527)
+        )
 
     def forward(self, audio_rep):
         """Compute the TLTR representation.
-    
+
         Arguments
         ---------
         audio_rep: torch.Tensor
             Input audio representation tensor
-        
+
         Returns
         -------
         audio_rep : torch.Tensor
             Audio representation after tltr
         """
         # input audio_rep in shape (B, #layer, #time steps, rep_dim), e.g., (B, 32, 25, 1280) # for 10 seconds, 25 = 500 / 20 (downsampling)
-        B, num_layer, audio_len, rep_dim = audio_rep.shape[0], audio_rep.shape[1], audio_rep.shape[2], audio_rep.shape[3]
-        assert num_layer==self.n_layer, "Please verify the layer_num of the audio representation."
+        B, num_layer, audio_len, rep_dim = (
+            audio_rep.shape[0],
+            audio_rep.shape[1],
+            audio_rep.shape[2],
+            audio_rep.shape[3],
+        )
+        assert (
+            num_layer==self.n_layer
+        ), "Please verify the layer_num of the audio representation."
         
-        audio_rep = audio_rep.reshape([B * num_layer, audio_len, rep_dim])  # [B*32, 25, 1280]
+        audio_rep = audio_rep.reshape(
+            [B * num_layer, audio_len, rep_dim]
+        )  # [B*32, 25, 1280]
         audio_rep = self.time_tr(audio_rep)  # [B*32, 25, 1280]
-        audio_rep = audio_rep.reshape([B, num_layer, audio_len, rep_dim]) # [B, 32, 25, 1280]
-        audio_rep = audio_rep.permute([0, 2, 1, 3]) # [B, 25, 32, 1280]
-        audio_rep = audio_rep.reshape([B * audio_len, num_layer, rep_dim]) # [B*25, 32, 1280]
+        audio_rep = audio_rep.reshape(
+            [B, num_layer, audio_len, rep_dim]
+        )  # [B, 32, 25, 1280]
+        audio_rep = audio_rep.permute([0, 2, 1, 3])  # [B, 25, 32, 1280]
+        audio_rep = audio_rep.reshape(
+            [B * audio_len, num_layer, rep_dim]
+        )  # [B*25, 32, 1280]
         audio_rep = self.layer_tr(audio_rep)  # [B*25, 32, 1280]
         audio_rep = torch.mean(audio_rep, dim=1)  # [B*25, 1280]
         audio_rep = audio_rep.reshape([B, audio_len, rep_dim])
@@ -289,7 +312,7 @@ class TLTR(nn.Module):
 
 class AT_MODEL(nn.Module):
     """A wrapper of the TLTR class, in order to match the dict keys to load the pretrained model weights.
-    
+
     Arguments
     ---------
     n_layer: int
@@ -299,6 +322,7 @@ class AT_MODEL(nn.Module):
     freeze: bool (default: False)
         whether to freeze the TLTR model.
     """
+
     def __init__(
         self,
         n_layer,
@@ -308,7 +332,7 @@ class AT_MODEL(nn.Module):
         super().__init__()
         self.at_model = TLTR(n_layer=n_layer, rep_dim=rep_dim)
         self.freeze = freeze
-        
+
         for param in self.at_model.mlp_layer.parameters():
             param.requires_grad = False
 
@@ -318,20 +342,21 @@ class AT_MODEL(nn.Module):
             logger.warning(
                 "speechbrain.lobes.models.huggingface_transformers.TLTR - TLTR is frozen."
             )
-        
+
     def forward(self, audio_rep):
         """Compute the TLTR representation.
-    
+
         Arguments
         ---------
         audio_rep: torch.Tensor
             Input audio representation tensor
-        
+
         Returns
         -------
         output : torch.Tensor
             Audio representation after tltr
         """
+
         with torch.set_grad_enabled(not self.freeze):
             output = self.at_model.forward(audio_rep)
         return output
@@ -339,7 +364,7 @@ class AT_MODEL(nn.Module):
 
 class AudioProjection(nn.Module):
     """Project an audio ambedding to another dimension.
-    
+
     Arguments
     ---------
     input_size: int
@@ -347,14 +372,15 @@ class AudioProjection(nn.Module):
     hidden_size: int
         target feature size, in order to meet the text embedding size for LLMs.
     """
+
     def __init__(self, input_size, hidden_size):
         super().__init__()
         self.ln = nn.LayerNorm(input_size, elementwise_affine=False)
         self.proj = nn.Linear(input_size, hidden_size)
-    
+
     def forward(self, x):
         """Compute projected audio embedding.
-    
+
         Arguments
         ---------
         x: torch.Tensor
@@ -365,4 +391,5 @@ class AudioProjection(nn.Module):
         output : torch.Tensor
             Projected audio embedding
         """
+
         return self.proj(self.ln(x))

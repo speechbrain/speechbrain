@@ -4,17 +4,20 @@ openasqa data preparation
 Authors
  * Yingzhi Wang 2024
 """
-import speechbrain as sb
-from speechbrain.utils.data_utils import download_file
+
+import json
+import logging
+import os
 import sys
+
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
-import json
-import shutil
-import os
-import logging
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import download_file
+
 logger = logging.getLogger(__name__)
 
 # to be added
@@ -49,13 +52,45 @@ def prepare_openasqa(
     fma_folder=None,
 ):
     """
-    To be done
-    download json files, tltr pretrained weights
-    modfify audio path
-    extract whisper features
-    For the ready-to-use json ["dataset"] IEMOCAP and FMA should br lower-cased,
-    audioset should be as_
-    all the audioset based datasets should be merged
+    Prepare the necessary traning data and pre-trained model weights.
+    
+    Arguments
+    ---------
+    whisper_feature_folder : str
+        path to save the pre-extracted whisper features.
+    pretrained_tltr_path : str
+        path to save the downloaded tltr model weights, a tltr pre-trained on
+        AudioSet is used for training ltu-as.
+    classification_json : str
+        path to save the training annotations for classification tasks, this
+        json file is used for stage 1 and 2.
+    all_json : str
+        path to save the training annotations for all the tasks, this json
+        file is only used for stage 3.
+    whisper_model :
+        the whisper model used to extract acoustic features.
+    average_pooling :
+        average pooling function to reduct audio emd size.
+    audioset_folder : str
+        path to the AudioSet dataset.
+    vggsound_folder : str
+        path to the VGG-SOUND dataset.
+    fsd50k_folder : str
+        path to the FSD50k dataset.
+    audiocaps_folder : str
+        path to the AudioCaps dataset.
+    clotho_folder : str
+        path to the Clotho dataset.
+    iemocap_folder : str
+        path to the IEMOCAP dataset.
+    libritts_folder : str
+        path to the LibriTTS dataset.
+    voxceleb2_folder : str
+        path to the Voxceleb2 dataset.
+    mosei_folder : str
+        path to the CMU-MOSEI dataset.
+    fma_folder : str
+        path to the FMA dataset.
     """
 
     # Checks if this phase is already done (if so, skips it)
@@ -63,9 +98,7 @@ def prepare_openasqa(
         logger.info("Training preparation completed in previous run, skipping.")
         return
 
-    logger.info(
-        f"Creating {classification_json}, {all_json}"
-    )
+    logger.info(f"Creating {classification_json}, {all_json}")
 
     download_file(PRETRAINED_TLTR_URL, pretrained_tltr_path)
     download_file(OPENASQA_CLASSIFICATION_JSON_URL, classification_json)
@@ -109,7 +142,7 @@ def prepare_openasqa(
     assert len(subsets) > 0, "At least one dataset should be provided"
 
     for file in [classification_json, all_json]:
-        with open(file, 'r') as f:
+        with open(file, "r") as f:
             data = json.load(f)
 
         new_dict = {}
@@ -140,7 +173,9 @@ def prepare_openasqa(
                 audio_id = audio_id.format(fma_folder=fma_folder)
 
             if not os.path.exists(audio_id):
-                logger.info(f"{audio_id} does not exist, please check the audio path")
+                logger.info(
+                    f"{audio_id} does not exist, please check the audio path"
+                )
                 continue
 
             feature_path.format(whisper_feature_folder=whisper_feature_folder)
@@ -153,9 +188,9 @@ def prepare_openasqa(
                 )
             # update new dictionary with selected items
             new_dict[key] = data[key]
-        
-        with open(file, 'w') as fout:
-            json.dump(new_dict,fout)
+
+        with open(file, "w") as fout:
+            json.dump(new_dict, fout)
 
 
 def prepare_openasqa_eval(
@@ -174,18 +209,46 @@ def prepare_openasqa_eval(
     librispeech_test_clean_folder=None,
 ):
     """
-    To be done
-    download json files, tltr pretrained weights
-    For the ready-to-use json ["dataset"] IEMOCAP and FMA should br lower-cased,
+    Prepare the necessary evaluation data.
+    
+    Arguments
+    ---------
+    eval_whisper_feature_folder : str
+        path to save the pre-extracted whisper features for evaluation.
+    eval_esc50_json : str
+        path to save the evalution annotation for ESC50 dataset.
+    eval_iemocap_emo_json : str
+        path to save the evalution annotation for IEMOCAP test set.
+    eval_voxceleb_gender_json : str
+        path to save the evalution annotation for Voxceleb2 test set (gender).
+    eval_voxceleb_age_json : str
+        path to save the evalution annotation for Voxceleb2 test set (age).
+    eval_librispeech_asr_json : str
+        path to save the evalution annotation for LibriSpeech test-clean set.
+    valid_json : str
+        path to save a tiny validation set used to follow the training process.
+    whisper_model :
+        the whisper model used to extract acoustic features.
+    average_pooling :
+        average pooling function to reduct audio emd size.
+    esc50_folder : str
+        path to the ESC50 dataset.
+    iemocap_folder : str
+        path to the IEMOCAP dataset.
+    voxceleb2_test_folder : str
+        path to the Voxceleb2-test dataset.
+    librispeech_test_clean_folder : str
+        path to the LibriSpeech test-clean dataset.
     """
 
     if skip(valid_json):
-        logger.info("Evaluation preparation completed in previous run, skipping.")
+        logger.info(
+            "Evaluation preparation completed in previous run, skipping."
+        )
         return
 
     if not os.path.exists(eval_whisper_feature_folder):
         os.makedirs(eval_whisper_feature_folder)
-
 
     valid_dict = {}
 
@@ -193,9 +256,9 @@ def prepare_openasqa_eval(
         logger.info(f"Creating {eval_esc50_json}")
         download_file(EVAL_ESC50_JSON_URL, eval_esc50_json)
         os.makedirs(os.path.join(eval_whisper_feature_folder, "esc50"))
-        with open(eval_esc50_json, 'r') as f:
+        with open(eval_esc50_json, "r") as f:
             data = json.load(f)
-        
+
             new_dict = {}
             for key in data.keys():
                 audio_id = data[key]["audio_id"]
@@ -204,10 +267,14 @@ def prepare_openasqa_eval(
                 audio_id = audio_id.format(esc50_folder=esc50_folder)
 
                 if not os.path.exists(audio_id):
-                    logger.info(f"{audio_id} does not exist, please check the audio path")
+                    logger.info(
+                        f"{audio_id} does not exist, please check the audio path"
+                    )
                     continue
-                
-                feature_path.format(eval_whisper_feature_folder=eval_whisper_feature_folder)
+
+                feature_path.format(
+                    eval_whisper_feature_folder=eval_whisper_feature_folder
+                )
                 if not os.path.exists(feature_path):
                     extract_whisper_features(
                         whisper_model,
@@ -221,18 +288,17 @@ def prepare_openasqa_eval(
         # Add the last item of each dataset into valid set
         valid_dict[key] = data[key]
 
-        with open(eval_esc50_json, 'w') as fout:
-            json.dump(new_dict,fout)
+        with open(eval_esc50_json, "w") as fout:
+            json.dump(new_dict, fout)
         logger.info(f"{eval_esc50_json} successfully created.")
-
 
     if iemocap_folder is not None:
         logger.info(f"Creating {eval_iemocap_emo_json}")
         download_file(EVAL_IEMOCAP_JSON_URL, eval_iemocap_emo_json)
         os.makedirs(os.path.join(eval_whisper_feature_folder, "iemocap"))
-        with open(eval_iemocap_emo_json, 'r') as f:
+        with open(eval_iemocap_emo_json, "r") as f:
             data = json.load(f)
-        
+
             new_dict = {}
             for key in data.keys():
                 audio_id = data[key]["audio_id"]
@@ -241,10 +307,14 @@ def prepare_openasqa_eval(
                 audio_id = audio_id.format(iemocap_folder=iemocap_folder)
 
                 if not os.path.exists(audio_id):
-                    logger.info(f"{audio_id} does not exist, please check the audio path")
+                    logger.info(
+                        f"{audio_id} does not exist, please check the audio path"
+                    )
                     continue
                 
-                feature_path.format(eval_whisper_feature_folder=eval_whisper_feature_folder)
+                feature_path.format(
+                    eval_whisper_feature_folder=eval_whisper_feature_folder
+                )
                 if not os.path.exists(feature_path):
                     extract_whisper_features(
                         whisper_model,
@@ -261,17 +331,18 @@ def prepare_openasqa_eval(
         with open(eval_iemocap_emo_json, 'w') as fout:
             json.dump(new_dict,fout)
         logger.info(f"{eval_iemocap_emo_json} successfully created.")
-        
 
     if voxceleb2_test_folder is not None:
-        logger.info(f"Creating {eval_voxceleb_gender_json} and {eval_voxceleb_age_json}")
+        logger.info(
+            f"Creating {eval_voxceleb_gender_json} and {eval_voxceleb_age_json}"
+        )
         download_file(EVAL_VOXCELEB_GENDER_JSON_URL, eval_voxceleb_gender_json)
         download_file(EVAL_VOXCELEB_AGE_JSON_URL, eval_voxceleb_age_json)
 
         os.makedirs(os.path.join(eval_whisper_feature_folder, "voxceleb"))
 
         for file in [eval_voxceleb_gender_json, eval_voxceleb_age_json]:
-            with open(file, 'r') as f:
+            with open(file, "r") as f:
                 data = json.load(f)
 
                 new_dict = {}
@@ -279,13 +350,19 @@ def prepare_openasqa_eval(
                     audio_id = data[key]["audio_id"]
                     feature_path = data[key]["feature_path"]
 
-                    audio_id = audio_id.format(voxceleb2_test_folder=voxceleb2_test_folder)
+                    audio_id = audio_id.format(
+                        voxceleb2_test_folder=voxceleb2_test_folder
+                    )
 
                     if not os.path.exists(audio_id):
-                        logger.info(f"{audio_id} does not exist, please check the audio path")
+                        logger.info(
+                            f"{audio_id} does not exist, please check the audio path"
+                        )
                         continue
-                    
-                    feature_path.format(eval_whisper_feature_folder=eval_whisper_feature_folder)
+
+                    feature_path.format(
+                        eval_whisper_feature_folder=eval_whisper_feature_folder
+                    )
                     if not os.path.exists(feature_path):
                         extract_whisper_features(
                             whisper_model,
@@ -299,30 +376,35 @@ def prepare_openasqa_eval(
             # Add the last item of each dataset into valid set
             valid_dict[key] = data[key]
 
-            with open(file, 'w') as fout:
-                json.dump(new_dict,fout)
+            with open(file, "w") as fout:
+                json.dump(new_dict, fout)
             logger.info(f"{file} successfully created.")
-        
-    
+
     if librispeech_test_clean_folder is not None:
         logger.info(f"Creating {eval_librispeech_asr_json}")
-        download_file(EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL, eval_librispeech_asr_json)
+        download_file(
+            EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL, eval_librispeech_asr_json
+        )
         os.makedirs(os.path.join(eval_whisper_feature_folder, "librispeech"))
-        with open(eval_librispeech_asr_json, 'r') as f:
+        with open(eval_librispeech_asr_json, "r") as f:
             data = json.load(f)
-        
+
             new_dict = {}
             for key in data.keys():
                 audio_id = data[key]["audio_id"]
                 feature_path = data[key]["feature_path"]
 
-                audio_id = audio_id.format(librispeech_test_clean_folder=librispeech_test_clean_folder)
+                audio_id = audio_id.format(
+                    librispeech_test_clean_folder=librispeech_test_clean_folder
+                )
 
                 if not os.path.exists(audio_id):
                     logger.info(f"{audio_id} does not exist, please check the audio path")
                     continue
                 
-                feature_path.format(eval_whisper_feature_folder=eval_whisper_feature_folder)
+                feature_path.format(
+                    eval_whisper_feature_folder=eval_whisper_feature_folder
+                )
                 if not os.path.exists(feature_path):
                     extract_whisper_features(
                         whisper_model,
@@ -332,16 +414,16 @@ def prepare_openasqa_eval(
                     )
                 # update new dictionary with selected items
                 new_dict[key] = data[key]
-        
+
         # Add the last item of each dataset into valid set
         valid_dict[key] = data[key]
 
-        with open(eval_librispeech_asr_json, 'w') as fout:
-            json.dump(new_dict,fout)
+        with open(eval_librispeech_asr_json, "w") as fout:
+            json.dump(new_dict, fout)
         logger.info(f"{eval_librispeech_asr_json} successfully created.")
 
-    with open(valid_json, 'w') as fout:
-        json.dump(valid_dict,fout)
+    with open(valid_json, "w") as fout:
+        json.dump(valid_dict, fout)
         logger.info(f"A tiny valid set is also successfully created.")
 
 
@@ -361,8 +443,26 @@ def skip(*filenames):
     return True
 
 
-def extract_whisper_features(model, pooling, audio_path, outputpath, sample_rate=16000):
-    print("extracting whisper features")
+def extract_whisper_features(
+    model, pooling, audio_path, outputpath, sample_rate=16000
+):
+    """
+    Extract whisper feature via a whisper model.
+    
+    Arguments
+    ---------
+    model :
+        whisper model used for extraction
+    pooling :
+        average pooling function to reduct audio emd size.
+    audio_path : str
+        path to the target audio.
+    outputpath : str
+        path to a numpy file for saving the features.
+    sample_rate : str
+        resample the target audio to a designed sampling rate before extraction.
+    """
+
     info = sb.dataio.dataio.read_audio_info(audio_path)
     sig = sb.dataio.dataio.read_audio(audio_path)
 
@@ -375,7 +475,7 @@ def extract_whisper_features(model, pooling, audio_path, outputpath, sample_rate
     )(sig)
 
     resampled = resampled.unsqueeze(0).to(torch.device("cuda"))
-    output = model(resampled)[1: ]
+    output = model(resampled)[1:]
     output = output.squeeze()
     output = pooling(output)
     output = output.half()
@@ -383,20 +483,23 @@ def extract_whisper_features(model, pooling, audio_path, outputpath, sample_rate
 
     np.savez_compressed(outputpath, output)
 
+
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     #  Load pretrained whisper
-    hparams["whisper"] = hparams["whisper"].to(
-        device=run_opts["device"]
-    )
+    hparams["whisper"] = hparams["whisper"].to(device=run_opts["device"])
 
     # whisper pad/trim all the audios to 10 seconds
     hparams["whisper"]._n_samples = hparams["sample_rate"]
-    chunked_embed_positions_weight = torch.nn.Parameter(hparams["whisper"].model.encoder.embed_positions.weight[:500, :])
-    hparams["whisper"].model.encoder.embed_positions.weight = chunked_embed_positions_weight
+    chunked_embed_positions_weight = torch.nn.Parameter(
+        hparams["whisper"].model.encoder.embed_positions.weight[:500, :]
+    )
+    hparams["whisper"].model.encoder.embed_positions.weight = (
+        chunked_embed_positions_weight
+    )
 
     prepare_openasqa(
         whisper_feature_folder=hparams["whisper_feature_folder"],
