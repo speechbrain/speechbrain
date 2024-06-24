@@ -202,7 +202,7 @@ def eval_librispeech_asr(model, hparams):
 def eval_esc50(model, hparams):
     """
     ESC50 Audio Classification evaluation.
-    Ltu-as model outpus an audio description and another llm is used for classification.
+    Ltu-as model outputs an audio description and another llm is used for classification.
 
     Arguments
     ---------

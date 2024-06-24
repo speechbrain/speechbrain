@@ -216,15 +216,15 @@ def prepare_openasqa_eval(
     eval_whisper_feature_folder : str
         path to save the pre-extracted whisper features for evaluation.
     eval_esc50_json : str
-        path to save the evalution annotation for ESC50 dataset.
+        path to save the evaluation annotation for ESC50 dataset.
     eval_iemocap_emo_json : str
-        path to save the evalution annotation for IEMOCAP test set.
+        path to save the evaluation annotation for IEMOCAP test set.
     eval_voxceleb_gender_json : str
-        path to save the evalution annotation for Voxceleb2 test set (gender).
+        path to save the evaluation annotation for Voxceleb2 test set (gender).
     eval_voxceleb_age_json : str
-        path to save the evalution annotation for Voxceleb2 test set (age).
+        path to save the evaluation annotation for Voxceleb2 test set (age).
     eval_librispeech_asr_json : str
-        path to save the evalution annotation for LibriSpeech test-clean set.
+        path to save the evaluation annotation for LibriSpeech test-clean set.
     valid_json : str
         path to save a tiny validation set used to follow the training process.
     whisper_model :
