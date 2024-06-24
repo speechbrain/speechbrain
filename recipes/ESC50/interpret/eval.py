@@ -236,10 +236,6 @@ if __name__ == "__main__":
             run_opts=run_opts,
         )
 
-    Interpreter.checkpointer.recover_if_possible(
-        min_key="loss",
-    )
-
     Interpreter.evaluate(
         test_set=ood_dataset,
         min_key="loss",
