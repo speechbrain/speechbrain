@@ -1,0 +1,10 @@
+hyperpyyaml
+joblib
+numpy
+packaging
+scipy
+sentencepiece
+torch>=1.9
+torchaudio
+tqdm
+huggingface_hub
