@@ -10,16 +10,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: hyperpyyaml
-Requires-Dist: joblib
-Requires-Dist: numpy
-Requires-Dist: packaging
-Requires-Dist: scipy
-Requires-Dist: sentencepiece
-Requires-Dist: torch>=1.9
-Requires-Dist: torchaudio
-Requires-Dist: tqdm
-Requires-Dist: huggingface_hub
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/speechbrain/speechbrain/develop/docs/images/speechbrain-logo.svg" alt="SpeechBrain Logo"/>
