@@ -208,6 +208,7 @@ if __name__ == "__main__":
         datasets["valid"], overlap_dataset, overlap_type=overlap_type
     )
 
+    # if add_wham_noise == True then ood_dataset is simply in domain
     if hparams["add_wham_noise"]:
         ood_dataset = datasets["valid"]
 
@@ -223,9 +224,9 @@ if __name__ == "__main__":
             run_opts=run_opts,
         )
     elif hparams["int_method"] == "l2i":
-        hparams["nmf_decoder"].load_state_dict(
-            torch.load(hparams["nmf_decoder_path"], map_location="cpu")
-        )
+        # hparams["nmf_decoder"].load_state_dict(
+        #     torch.load(hparams["nmf_decoder_path"], map_location="cpu")
+        # )
         hparams["nmf_decoder"].to(run_opts["device"])
         hparams["nmf_decoder"].eval()
 
