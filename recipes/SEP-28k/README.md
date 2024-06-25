@@ -1,4 +1,4 @@
-# Emotion recognition experiments with IEMOCAP (speech only)
+# Stuttering Event Detection experiments with SEP-28k (speech only)
 This folder contains scripts for running stuttering event detection experiments with the SEP-28k dataset (https://github.com/apple/ml-stuttering-events-dataset). The partitioning follows the suggestion of SEP-28k-E (https://github.com/th-nuernberg/ml-stuttering-events-dataset-extended).
 
 # Training
