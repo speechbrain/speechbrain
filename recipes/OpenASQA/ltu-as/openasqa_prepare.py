@@ -166,7 +166,7 @@ def prepare_openasqa(
 
 
 def prepare_openasqa_eval(
-    eval_whisper_feature_folder,
+    whisper_feature_folder,
     eval_esc50_json,
     eval_iemocap_emo_json,
     eval_voxceleb_gender_json,
@@ -185,7 +185,7 @@ def prepare_openasqa_eval(
 
     Arguments
     ---------
-    eval_whisper_feature_folder : str
+    whisper_feature_folder : str
         path to save the pre-extracted whisper features for evaluation.
     eval_esc50_json : str
         path to save the evaluation annotation for ESC50 dataset.
@@ -219,8 +219,8 @@ def prepare_openasqa_eval(
         )
         return
 
-    if not os.path.exists(eval_whisper_feature_folder):
-        os.makedirs(eval_whisper_feature_folder)
+    if not os.path.exists(whisper_feature_folder):
+        os.makedirs(whisper_feature_folder)
 
     subsets = {
         "esc50": {
@@ -244,8 +244,8 @@ def prepare_openasqa_eval(
             "url": EVAL_VOXCELEB_AGE_JSON_URL,
         },
         "librispeech": {
-            "folder": esc50_folder,
-            "annotation": eval_esc50_json,
+            "folder": librispeech_test_clean_folder,
+            "annotation": eval_librispeech_asr_json,
             "url": EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL,
         },
     }
@@ -258,7 +258,7 @@ def prepare_openasqa_eval(
             logger.info(f"Creating {annotation_json}")
             download_file(subsets[set]["url"], annotation_json)
             os.makedirs(
-                os.path.join(eval_whisper_feature_folder, set.split("_")[0])
+                os.path.join(whisper_feature_folder, "eval", set.split("_")[0])
             )  # create one folder for voxceleb_gender and voxceleb_age
             with open(annotation_json, "r") as f:
                 data = json.load(f)
@@ -279,7 +279,7 @@ def prepare_openasqa_eval(
                         continue
 
                     feature_path.format(
-                        eval_whisper_feature_folder=eval_whisper_feature_folder
+                        whisper_feature_folder=whisper_feature_folder
                     )
                     if not os.path.exists(feature_path):
                         extract_whisper_features(
@@ -397,7 +397,7 @@ if __name__ == "__main__":
     )
 
     prepare_openasqa_eval(
-        eval_whisper_feature_folder=hparams["eval_whisper_feature_folder"],
+        whisper_feature_folder=hparams["whisper_feature_folder"],
         eval_esc50_json=hparams["eval_esc50_json"],
         eval_iemocap_emo_json=hparams["eval_iemocap_emo_json"],
         eval_voxceleb_gender_json=hparams["eval_voxceleb_gender_json"],
