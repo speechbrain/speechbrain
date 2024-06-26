@@ -225,11 +225,31 @@ def prepare_openasqa_eval(
         os.makedirs(eval_whisper_feature_folder)
 
     subsets = {
-        "esc50": {"folder": esc50_folder, "annotation": eval_esc50_json, "url": EVAL_ESC50_JSON_URL},
-        "iemocap": {"folder": iemocap_folder, "annotation": eval_iemocap_emo_json, "url": EVAL_IEMOCAP_JSON_URL},
-        "voxceleb_gender": {"folder": voxceleb2_test_folder, "annotation": eval_voxceleb_gender_json, "url": EVAL_VOXCELEB_GENDER_JSON_URL},
-        "voxceleb_age": {"folder": voxceleb2_test_folder, "annotation": eval_voxceleb_age_json, "url": EVAL_VOXCELEB_AGE_JSON_URL},
-        "librispeech": {"folder": esc50_folder, "annotation": eval_esc50_json, "url": EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL},
+        "esc50": {
+            "folder": esc50_folder,
+            "annotation": eval_esc50_json,
+            "url": EVAL_ESC50_JSON_URL,
+        },
+        "iemocap": {
+            "folder": iemocap_folder,
+            "annotation": eval_iemocap_emo_json,
+            "url": EVAL_IEMOCAP_JSON_URL,
+        },
+        "voxceleb_gender": {
+            "folder": voxceleb2_test_folder,
+            "annotation": eval_voxceleb_gender_json,
+            "url": EVAL_VOXCELEB_GENDER_JSON_URL,
+        },
+        "voxceleb_age": {
+            "folder": voxceleb2_test_folder,
+            "annotation": eval_voxceleb_age_json,
+            "url": EVAL_VOXCELEB_AGE_JSON_URL,
+        },
+        "librispeech": {
+            "folder": esc50_folder,
+            "annotation": eval_esc50_json,
+            "url": EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL,
+        },
     }
 
     valid_dict = {}
@@ -239,7 +259,9 @@ def prepare_openasqa_eval(
             annotation_json = subsets[set]["annotation"]
             logger.info(f"Creating {annotation_json}")
             download_file(subsets[set]["url"], annotation_json)
-            os.makedirs(os.path.join(eval_whisper_feature_folder, set.split("_")[0]))  # create one folder for voxceleb_gender and voxceleb_Age
+            os.makedirs(
+                os.path.join(eval_whisper_feature_folder, set.split("_")[0])
+            )  # create one folder for voxceleb_gender and voxceleb_age
             with open(annotation_json, "r") as f:
                 data = json.load(f)
 
@@ -248,7 +270,9 @@ def prepare_openasqa_eval(
                     audio_id = data[key]["audio_id"]
                     feature_path = data[key]["feature_path"]
 
-                    audio_id = audio_id.format(data_folder=subsets[set]["folder"])
+                    audio_id = audio_id.format(
+                        data_folder=subsets[set]["folder"]
+                    )
 
                     if not os.path.exists(audio_id):
                         logger.info(
