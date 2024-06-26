@@ -233,6 +233,7 @@ class Pretrainer:
                     kwargs={
                         "filename": filename,
                         "source": source,
+                        "savedir": self.collect_in,
                         "overwrite": False,
                         "save_filename": save_filename,
                         "use_auth_token": False,
