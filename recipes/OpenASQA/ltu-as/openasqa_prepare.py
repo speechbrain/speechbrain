@@ -107,39 +107,29 @@ def prepare_openasqa(
     if not os.path.exists(whisper_feature_folder):
         os.makedirs(whisper_feature_folder)
 
-    subsets = []
-    if audioset_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "audioset"))
-        subsets.append("audioset")
-    if vggsound_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "vgg-sound"))
-        subsets.append("vggsound")
-    if fsd50k_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "fsd50k"))
-        subsets.append("fsd50k")
-    if audiocaps_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "audiocaps"))
-        subsets.append("audiocaps")
-    if clotho_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "clotho"))
-        subsets.append("clotho")
-    if iemocap_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "iemocap"))
-        subsets.append("iemocap")
-    if libritts_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "libritts"))
-        subsets.append("libritts")
-    if voxceleb2_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "voxceleb2"))
-        subsets.append("voxceleb")
-    if mosei_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "mosei"))
-        subsets.append("mosei")
-    if fma_folder is not None:
-        os.makedirs(os.path.join(whisper_feature_folder, "fma"))
-        subsets.append("fma")
+    subsets = {
+        "audioset": audioset_folder,
+        "vggsound": audioset_folder,
+        "fsd50k": fsd50k_folder,
+        "audiocaps": audiocaps_folder,
+        "clotho": clotho_folder,
+        "iemocap": iemocap_folder,
+        "libritts": libritts_folder,
+        "voxceleb2": voxceleb2_folder,
+        "mosei": mosei_folder,
+        "fma": fma_folder,
+    }
+    
+    for set in list(subsets.keys()):    
+        if subsets[set] is not None:
+            os.makedirs(os.path.join(whisper_feature_folder, set))
+        else:
+            del subsets[set]
 
     assert len(subsets) > 0, "At least one dataset should be provided"
+    logger.info(
+        f"The provided datasets are {list(subsets.keys())}"
+    )
 
     for file in [classification_json, all_json]:
         with open(file, "r") as f:
@@ -151,26 +141,10 @@ def prepare_openasqa(
             audio_id = data[key]["audio_id"]
             feature_path = data[key]["feature_path"]
 
-            if "audioset_folder" in audio_id:
-                audio_id = audio_id.format(audioset_folder=audioset_folder)
-            elif "vggsound_folder" in audio_id:
-                audio_id = audio_id.format(vggsound_folder=vggsound_folder)
-            elif "fsd50k_folder" in audio_id:
-                audio_id = audio_id.format(fsd50k_folder=fsd50k_folder)
-            elif "audiocaps_folder" in audio_id:
-                audio_id = audio_id.format(audiocaps_folder=audiocaps_folder)
-            elif "clotho_folder" in audio_id:
-                audio_id = audio_id.format(clotho_folder=clotho_folder)
-            elif "iemocap_folder" in audio_id:
-                audio_id = audio_id.format(iemocap_folder=iemocap_folder)
-            elif "libritts_folder" in audio_id:
-                audio_id = audio_id.format(libritts_folder=libritts_folder)
-            elif "voxceleb2_folder" in audio_id:
-                audio_id = audio_id.format(voxceleb2_folder=voxceleb2_folder)
-            elif "mosei_folder" in audio_id:
-                audio_id = audio_id.format(mosei_folder=mosei_folder)
-            elif "fma_folder" in audio_id:
-                audio_id = audio_id.format(fma_folder=fma_folder)
+            for set in subsets.keys():
+                if set in audio_id:
+                    audio_id = audio_id.format(data_folder=subsets[set])
+                    break
 
             if not os.path.exists(audio_id):
                 logger.info(
@@ -250,99 +224,23 @@ def prepare_openasqa_eval(
     if not os.path.exists(eval_whisper_feature_folder):
         os.makedirs(eval_whisper_feature_folder)
 
+    subsets = {
+        "esc50": {"folder": esc50_folder, "annotation": eval_esc50_json, "url": EVAL_ESC50_JSON_URL},
+        "iemocap": {"folder": iemocap_folder, "annotation": eval_iemocap_emo_json, "url": EVAL_IEMOCAP_JSON_URL},
+        "voxceleb_gender": {"folder": voxceleb2_test_folder, "annotation": eval_voxceleb_gender_json, "url": EVAL_VOXCELEB_GENDER_JSON_URL},
+        "voxceleb_age": {"folder": voxceleb2_test_folder, "annotation": eval_voxceleb_age_json, "url": EVAL_VOXCELEB_AGE_JSON_URL},
+        "librispeech": {"folder": esc50_folder, "annotation": eval_esc50_json, "url": EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL},
+    }
+
     valid_dict = {}
 
-    if esc50_folder is not None:
-        logger.info(f"Creating {eval_esc50_json}")
-        download_file(EVAL_ESC50_JSON_URL, eval_esc50_json)
-        os.makedirs(os.path.join(eval_whisper_feature_folder, "esc50"))
-        with open(eval_esc50_json, "r") as f:
-            data = json.load(f)
-
-            new_dict = {}
-            for key in data.keys():
-                audio_id = data[key]["audio_id"]
-                feature_path = data[key]["feature_path"]
-
-                audio_id = audio_id.format(esc50_folder=esc50_folder)
-
-                if not os.path.exists(audio_id):
-                    logger.info(
-                        f"{audio_id} does not exist, please check the audio path"
-                    )
-                    continue
-
-                feature_path.format(
-                    eval_whisper_feature_folder=eval_whisper_feature_folder
-                )
-                if not os.path.exists(feature_path):
-                    extract_whisper_features(
-                        whisper_model,
-                        average_pooling,
-                        audio_id,
-                        feature_path,
-                    )
-                # update new dictionary with selected items
-                new_dict[key] = data[key]
-
-        # Add the last item of each dataset into valid set
-        valid_dict[key] = data[key]
-
-        with open(eval_esc50_json, "w") as fout:
-            json.dump(new_dict, fout)
-        logger.info(f"{eval_esc50_json} successfully created.")
-
-    if iemocap_folder is not None:
-        logger.info(f"Creating {eval_iemocap_emo_json}")
-        download_file(EVAL_IEMOCAP_JSON_URL, eval_iemocap_emo_json)
-        os.makedirs(os.path.join(eval_whisper_feature_folder, "iemocap"))
-        with open(eval_iemocap_emo_json, "r") as f:
-            data = json.load(f)
-
-            new_dict = {}
-            for key in data.keys():
-                audio_id = data[key]["audio_id"]
-                feature_path = data[key]["feature_path"]
-
-                audio_id = audio_id.format(iemocap_folder=iemocap_folder)
-
-                if not os.path.exists(audio_id):
-                    logger.info(
-                        f"{audio_id} does not exist, please check the audio path"
-                    )
-                    continue
-
-                feature_path.format(
-                    eval_whisper_feature_folder=eval_whisper_feature_folder
-                )
-                if not os.path.exists(feature_path):
-                    extract_whisper_features(
-                        whisper_model,
-                        average_pooling,
-                        audio_id,
-                        feature_path,
-                    )
-                # update new dictionary with selected items
-                new_dict[key] = data[key]
-
-        # Add the last item of each dataset into valid set
-        valid_dict[key] = data[key]
-
-        with open(eval_iemocap_emo_json, "w") as fout:
-            json.dump(new_dict, fout)
-        logger.info(f"{eval_iemocap_emo_json} successfully created.")
-
-    if voxceleb2_test_folder is not None:
-        logger.info(
-            f"Creating {eval_voxceleb_gender_json} and {eval_voxceleb_age_json}"
-        )
-        download_file(EVAL_VOXCELEB_GENDER_JSON_URL, eval_voxceleb_gender_json)
-        download_file(EVAL_VOXCELEB_AGE_JSON_URL, eval_voxceleb_age_json)
-
-        os.makedirs(os.path.join(eval_whisper_feature_folder, "voxceleb"))
-
-        for file in [eval_voxceleb_gender_json, eval_voxceleb_age_json]:
-            with open(file, "r") as f:
+    for set in subsets.keys():
+        if subsets[set]["folder"] is not None:
+            annotation_json = subsets[set]["annotation"]
+            logger.info(f"Creating {annotation_json}")
+            download_file(subsets[set]["url"], annotation_json)
+            os.makedirs(os.path.join(eval_whisper_feature_folder, set.split("_")[0]))  # create one folder for voxceleb_gender and voxceleb_Age
+            with open(annotation_json, "r") as f:
                 data = json.load(f)
 
                 new_dict = {}
@@ -350,9 +248,7 @@ def prepare_openasqa_eval(
                     audio_id = data[key]["audio_id"]
                     feature_path = data[key]["feature_path"]
 
-                    audio_id = audio_id.format(
-                        voxceleb2_test_folder=voxceleb2_test_folder
-                    )
+                    audio_id = audio_id.format(data_folder=subsets[set]["folder"])
 
                     if not os.path.exists(audio_id):
                         logger.info(
@@ -373,60 +269,16 @@ def prepare_openasqa_eval(
                     # update new dictionary with selected items
                     new_dict[key] = data[key]
 
-            # Add the last item of each dataset into valid set
+            # Add only one last item of each dataset into valid set
             valid_dict[key] = data[key]
 
-            with open(file, "w") as fout:
+            with open(annotation_json, "w") as fout:
                 json.dump(new_dict, fout)
-            logger.info(f"{file} successfully created.")
-
-    if librispeech_test_clean_folder is not None:
-        logger.info(f"Creating {eval_librispeech_asr_json}")
-        download_file(
-            EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL, eval_librispeech_asr_json
-        )
-        os.makedirs(os.path.join(eval_whisper_feature_folder, "librispeech"))
-        with open(eval_librispeech_asr_json, "r") as f:
-            data = json.load(f)
-
-            new_dict = {}
-            for key in data.keys():
-                audio_id = data[key]["audio_id"]
-                feature_path = data[key]["feature_path"]
-
-                audio_id = audio_id.format(
-                    librispeech_test_clean_folder=librispeech_test_clean_folder
-                )
-
-                if not os.path.exists(audio_id):
-                    logger.info(
-                        f"{audio_id} does not exist, please check the audio path"
-                    )
-                    continue
-
-                feature_path.format(
-                    eval_whisper_feature_folder=eval_whisper_feature_folder
-                )
-                if not os.path.exists(feature_path):
-                    extract_whisper_features(
-                        whisper_model,
-                        average_pooling,
-                        audio_id,
-                        feature_path,
-                    )
-                # update new dictionary with selected items
-                new_dict[key] = data[key]
-
-        # Add the last item of each dataset into valid set
-        valid_dict[key] = data[key]
-
-        with open(eval_librispeech_asr_json, "w") as fout:
-            json.dump(new_dict, fout)
-        logger.info(f"{eval_librispeech_asr_json} successfully created.")
+            logger.info(f"{annotation_json} successfully created.")
 
     with open(valid_json, "w") as fout:
         json.dump(valid_dict, fout)
-        logger.info(f"A tiny valid set is also successfully created.")
+        logger.info("A tiny valid set is also successfully created.")
 
 
 def skip(*filenames):
