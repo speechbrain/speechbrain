@@ -226,45 +226,27 @@ class Pretrainer:
                     f"Path not specified for '{name}', "
                     "and no default_source given!"
                 )
+
+            fetch_kwargs = {
+                "filename": filename,
+                "source": source,
+                "savedir": self.collect_in,
+                "overwrite": False,
+                "save_filename": save_filename,
+                "use_auth_token": False,
+                "revision": None,
+                "local_strategy": local_strategy,
+            }
             if internal_ddp_handling:
                 # path needs to be available only if it is a local source w/o symlink
-                run_on_main(
-                    fetch,
-                    kwargs={
-                        "filename": filename,
-                        "source": source,
-                        "savedir": self.collect_in,
-                        "overwrite": False,
-                        "save_filename": save_filename,
-                        "use_auth_token": False,
-                        "revision": None,
-                        "local_strategy": local_strategy,
-                    },
-                )
+                run_on_main(fetch, kwargs=fetch_kwargs)
 
                 # we need the path; regardless of rank
-                path = fetch(
-                    filename=filename,
-                    source=source,
-                    savedir=self.collect_in,
-                    overwrite=False,
-                    save_filename=save_filename,
-                    use_auth_token=False,
-                    revision=None,
-                    local_strategy=local_strategy,
-                )
+                path = fetch(**fetch_kwargs)
             else:
                 # main node is the only one calling this, so path is available
-                path = fetch(
-                    filename=filename,
-                    source=source,
-                    savedir=self.collect_in,
-                    overwrite=False,
-                    save_filename=save_filename,
-                    use_auth_token=False,
-                    revision=None,
-                    local_strategy=local_strategy,
-                )
+                path = fetch(**fetch_kwargs)
+
             loadable_paths[name] = path
             if isinstance(source, FetchSource):
                 _fetch_from, source = source
