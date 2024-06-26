@@ -119,17 +119,15 @@ def prepare_openasqa(
         "mosei": mosei_folder,
         "fma": fma_folder,
     }
-    
-    for set in list(subsets.keys()):    
+
+    for set in list(subsets.keys()):
         if subsets[set] is not None:
             os.makedirs(os.path.join(whisper_feature_folder, set))
         else:
             del subsets[set]
 
     assert len(subsets) > 0, "At least one dataset should be provided"
-    logger.info(
-        f"The provided datasets are {list(subsets.keys())}"
-    )
+    logger.info(f"The provided datasets are {list(subsets.keys())}")
 
     for file in [classification_json, all_json]:
         with open(file, "r") as f:
