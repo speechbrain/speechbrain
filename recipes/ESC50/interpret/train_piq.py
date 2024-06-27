@@ -57,7 +57,7 @@ class PIQ(InterpreterBrain):
             th = xhat.max() * self.hparams.mask_th
             X_int = (xhat > th) * X_stft_logpower[:, :Tmax, :]
 
-        return X_int.permute(0, 2, 1), xhat, X_stft_phase
+        return X_int.permute(0, 2, 1), xhat.permute(0, 2, 1), X_stft_phase
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on an encoder + sound classifier."""
@@ -110,9 +110,10 @@ class PIQ(InterpreterBrain):
 
         Tmax = xhat.shape[1]
 
-        hcat_theta, embeddings, theta_out, mask_in_preds = (
-            self.classifier_forward(xhat * X_stft_logpower[:, :Tmax, :])
+        hcat_theta, embeddings, theta_out, _ = self.classifier_forward(
+            xhat * X_stft_logpower[:, :Tmax, :]
         )
+        mask_in_preds = theta_out
         mask_out_preds = self.classifier_forward(
             (1 - xhat) * X_stft_logpower[:, :Tmax, :]
         )[2]
@@ -150,26 +151,24 @@ class PIQ(InterpreterBrain):
 
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.inp_fid.append(
-                [batch.id] * theta_out.shape[0], theta_out, predictions
-            )
-            self.faithfulness.append(
                 uttid,
+                mask_in_preds.softmax(1),
                 predictions.softmax(1),
-                mask_out_preds.softmax(1),
             )
+
             self.AD.append(
                 uttid,
-                mask_in_preds,
+                mask_in_preds.softmax(1),
                 predictions.softmax(1),
             )
             self.AI.append(
                 uttid,
-                mask_in_preds,
+                mask_in_preds.softmax(1),
                 predictions.softmax(1),
             )
             self.AG.append(
                 uttid,
-                mask_in_preds,
+                mask_in_preds.softmax(1),
                 predictions.softmax(1),
             )
             self.sps.append(uttid, wavs, X_stft_logpower, classid)
@@ -177,7 +176,7 @@ class PIQ(InterpreterBrain):
             self.faithfulness.append(
                 uttid,
                 predictions.softmax(1),
-                mask_out_preds,
+                mask_out_preds.softmax(1),
             )
 
         if stage != sb.Stage.TEST:
