@@ -110,9 +110,12 @@ class PIQ(InterpreterBrain):
 
         Tmax = xhat.shape[1]
 
-        hcat_theta, embeddings, theta_out, _ = self.classifier_forward(
-            xhat * X_stft_logpower[:, :Tmax, :]
+        hcat_theta, embeddings, theta_out, mask_in_preds = (
+            self.classifier_forward(xhat * X_stft_logpower[:, :Tmax, :])
         )
+        mask_out_preds = self.classifier_forward(
+            (1 - xhat) * X_stft_logpower[:, :Tmax, :]
+        )[2]
 
         # If there is a separator, we need to add sigmoid to the sum
         loss_fid = 0
@@ -149,7 +152,33 @@ class PIQ(InterpreterBrain):
             self.inp_fid.append(
                 [batch.id] * theta_out.shape[0], theta_out, predictions
             )
-            self.faithfulness.append(batch.id, wavs, predictions)
+            self.faithfulness.append(
+                uttid,
+                predictions.softmax(1),
+                mask_out_preds.softmax(1),
+            )
+            self.AD.append(
+                uttid,
+                mask_in_preds,
+                predictions.softmax(1),
+            )
+            self.AI.append(
+                uttid,
+                mask_in_preds,
+                predictions.softmax(1),
+            )
+            self.AG.append(
+                uttid,
+                mask_in_preds,
+                predictions.softmax(1),
+            )
+            self.sps.append(uttid, wavs, X_stft_logpower, classid)
+            self.comp.append(uttid, wavs, X_stft_logpower, classid)
+            self.faithfulness.append(
+                uttid,
+                predictions.softmax(1),
+                mask_out_preds,
+            )
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
