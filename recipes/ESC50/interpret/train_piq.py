@@ -148,7 +148,6 @@ class PIQ(InterpreterBrain):
             loss_commit = 0
 
         self.acc_metric.append(uttid, predict=predictions, target=classid)
-
         if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
             self.inp_fid.append(
                 uttid,
