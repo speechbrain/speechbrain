@@ -17,6 +17,8 @@ our HuggingFace repository (e.g., CNN14, Conv2D).
 
 You can train your own classifier by following the instructions provided in the reference readme under `ESC50/classification`.
 
+The recipe also makes use of the WHAM! noise dataset, which can be downloaded from [here](http://wham.whisper.ai/).
+
 ---------------------------------------------------------------------------------------------------------
 
 ## Installing Extra Dependencies
