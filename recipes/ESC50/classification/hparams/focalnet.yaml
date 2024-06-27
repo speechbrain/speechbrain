@@ -25,7 +25,7 @@ train_log: !ref <output_folder>/train_log.txt
 add_wham_noise: False
 test_only: False
 
-wham_folder: null
+wham_folder: null # Set it if add_wham_noise is True
 wham_audio_folder: !ref <wham_folder>/tr
 wham_metadata: "metadata/wham_speechbrain.csv"
 
