@@ -22,7 +22,7 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-add_wham_noise: True
+add_wham_noise: False
 test_only: False
 
 wham_folder: null
