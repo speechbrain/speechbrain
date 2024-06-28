@@ -41,7 +41,7 @@ LMAC trains an interpreter on the classifier's representations to reconstruct in
 
 For more details, refer to our [LMAC paper](https://arxiv.org/abs/2403.13086). You can also find samples on the [companion website](https://francescopaissan.it/lmac/).
 
-To train PIQ on a convolutional classifier using the ESC50 dataset, use the `train_lmac.py` script. Run the following command:
+To train LMAC on a convolutional classifier using the ESC50 dataset, use the `train_lmac.py` script. Run the following command:
 
 ```shell
 python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50
@@ -51,6 +51,7 @@ Eventually, you can use WHAM! augmentation to boost the interpretations performa
 ```shell
 python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 --add_wham_noise True --wham_folder=/yourpath/wham_noise
 ```
+**Note**: The WHAM! noise dataset can be downloaded from [here](http://wham.whisper.ai/).
 
 To run the finetuning stage of the interpreter, use
 ```shell
@@ -169,6 +170,17 @@ This will evaluate the model using the test set contaminated with WHAM! noise sa
 ---------------------------------------------------------------------------------------------------------
 
 ## Citing
+
+Please cite our [L-MAC paper](https://arxiv.org/abs/2403.13086) if you use it in your research:
+
+@inproceedings{lmac,
+  author={Francesco Paissan and Mirco Ravanelli and Cem Subakan},
+  title={{Listenable Maps for Audio Classifiers}},
+  year={2024},
+  booktitle={Proceedings of the International Conference on Machine Learning (ICML)},
+}
+
+
 
 Please cite our [PIQ paper](https://arxiv.org/abs/2303.12659) if you use it in your research:
 
