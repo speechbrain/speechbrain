@@ -60,7 +60,6 @@ relevance_th: 0.2
 signal_length_s: 5
 use_melspectra_log1p: False
 
-device: "cuda"
 
 # Feature parameters
 n_mels: 80

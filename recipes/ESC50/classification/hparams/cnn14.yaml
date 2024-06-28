@@ -58,7 +58,6 @@ base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
 
-device: "cpu"
 
 # Feature parameters
 n_mels: 80

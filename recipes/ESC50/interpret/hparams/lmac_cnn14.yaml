@@ -72,7 +72,6 @@ use_mask_output: True
 signal_length_s: 5
 add_wham_noise: False
 
-device: "cuda"
 
 # Feature parameters
 n_mels: 80

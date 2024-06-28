@@ -57,7 +57,6 @@ signal_length_s: 5
 
 add_wham_noise: False
 
-device: "cpu"
 
 # Feature parameters
 n_mels: 80
