@@ -35,11 +35,11 @@ pip install -r extra_requirements.txt
 
 ## Supported Methods
 
-### Listenable Maps for Audio Classifiers (LMAC)
+### Listenable Maps for Audio Classifiers (L-MAC)
 
 LMAC trains an interpreter on the classifier's representations to reconstruct interpretations based on a amortized inference loss.
 
-For more details, refer to our [LMAC paper](https://arxiv.org/abs/2403.13086). You can also find samples on the [companion website](https://francescopaissan.it/lmac/).
+For more details, refer to our [L-MAC paper](https://arxiv.org/abs/2403.13086). You can also find samples on the [companion website](https://francescopaissan.it/lmac/).
 
 To train LMAC on a convolutional classifier using the ESC50 dataset, use the `train_lmac.py` script. Run the following command:
 
@@ -57,7 +57,7 @@ To run the finetuning stage of the interpreter, use
 ```shell
 python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 \
     --add_wham_noise True --wham_folder=/yourpath/wham_noise \
-    --finetuning True --pretrained_interpreter=/yourLMACcheckpointpath/checkpoint.ckpt --g_w 4
+    --finetuning True --pretrained_interpreter=/yourLMACcheckpointpath/psi_model.ckpt --g_w 4
 ```
 where $g_w$ is the guidance weight for the interpreter.
 
@@ -154,7 +154,7 @@ Note also that `add_wham_noise` should be set to `False`.
 
 If you want to run tests on the ID setting, you can use
 ```shell
-python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_noise True --wham_folder /yourpath/ljspeech
+python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_noise True --wham_folder /yourpath/wham_noise
 ```
 
 This will evaluate the model using the test set contaminated with WHAM! noise samples.
