@@ -219,7 +219,7 @@ SpeechBrain is rapidly evolving, with ongoing efforts to support a growing array
 
 We have ambitious plans for the future, with a focus on the following priorities:
 
-- **Scale Up:** Our aim is to provide comprehensive recipes and technologies for training massive models on extensive datasets.
+- **Scale Up:** We aim to provide comprehensive recipes and technologies for training massive models on extensive datasets.
 
 - **Scale Down:** While scaling up delivers unprecedented performance, we recognize the challenges of deploying large models in production scenarios. We are focusing on real-time, streamable, and small-footprint Conversational AI.
 

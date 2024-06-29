@@ -1,0 +1,48 @@
+# #################################
+# Basic training parameters for enhancement.
+#
+# Authors
+#  * Peter Plantinga 2024
+# #################################
+
+# FFT parameters
+sample_rate: 16000
+win_length: 32
+hop_length: 16
+n_fft: 512
+window_fn: !name:torch.hamming_window
+
+# The mask operates on log-spectral features, computed using these
+# stft parameters, as well as computing magnitude and log1p.
+compute_stft: !new:speechbrain.processing.features.STFT
+  sample_rate: !ref <sample_rate>
+  win_length: !ref <win_length>
+  hop_length: !ref <hop_length>
+  n_fft: !ref <n_fft>
+  window_fn: !ref <window_fn>
+compute_istft: !new:speechbrain.processing.features.ISTFT
+  sample_rate: !ref <sample_rate>
+  win_length: !ref <win_length>
+  hop_length: !ref <hop_length>
+  window_fn: !ref <window_fn>
+
+# Resynthesize combines noisy phase with enhanced magnitudes.
+resynth: !name:speechbrain.processing.signal_processing.resynthesize
+  stft: !ref <compute_stft>
+  istft: !ref <compute_istft>
+
+spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
+  power: 0.5
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined.
+enhance_model: !new:custom_model.CustomModel
+  input_size: !ref <n_fft> // 2 + 1
+
+modules:
+  enhance_model: !ref <enhance_model>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+  loadables:
+    model: !ref <enhance_model>

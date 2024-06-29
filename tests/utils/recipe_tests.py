@@ -140,7 +140,7 @@ def prepare_test(
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
-                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id+2:02d}"
+                recipe_id = f"{recipe_csvfile[:-4]}_row_{row_id + 2:02d}"
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
