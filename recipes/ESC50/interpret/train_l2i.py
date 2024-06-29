@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 """This recipe to train L2I (https://arxiv.org/abs/2202.11479) to interpret audio classifiers.
 
+The command to run this recipe:
+    python train_l2i.py hparams/l2i_cnn14.yaml --data_folder /yourpath/ESC50
+
 Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023, 2024
@@ -295,6 +298,8 @@ class L2I(InterpreterBrain):
         return loss_nmf + loss_fdi
 
     def extra_metrics(self):
+        """This function defines the extra metrics required for the L2I method"""
+
         @torch.no_grad()
         def l2i_fid(predict, target):
             """Computes Accuracy"""
