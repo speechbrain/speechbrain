@@ -79,6 +79,8 @@ To train PIQ on a convolutional classifier using the ESC50 dataset, use the `tra
 python train_piq.py hparams/piq.yaml --data_folder=/yourpath/ESC50
 ```
 
+Note that the command above runs the recipe for PIQ for a conv2d classifier used in the PIQ paper. Note that we also have yaml files for interpreting a ViT model and a focalnet using PIQ. (respectively, `piq_vit.yaml`, `piq.yaml`.
+
 ---------------------------------------------------------------------------------------------------------
 
 ### Listen to Interpret (L2I)
