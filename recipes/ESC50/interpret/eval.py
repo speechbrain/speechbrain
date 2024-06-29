@@ -2,7 +2,8 @@
 """This file performs out-of-distribution (OOD) evaluation of interpreters.
 
 To run this recipe, use the following command:
-TODO: update
+    python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixtures/ljspeech/white_noise> --add_wham_noise False
+    Please refer to README.md for more details.
 
 Authors
     * Francesco Paissan 2024
