@@ -57,7 +57,7 @@ test_annotation: !ref <data_folder>/manifest/test.json
 train_fold_nums: [1, 2, 3]
 valid_fold_nums: [4]
 test_fold_nums: [5]
-skip_manifest_creation: True
+skip_manifest_creation: False
 
 ljspeech_path: null
 
@@ -72,7 +72,6 @@ use_mask_output: True
 signal_length_s: 5
 add_wham_noise: False
 
-device: "cuda"
 
 # Feature parameters
 n_mels: 80
