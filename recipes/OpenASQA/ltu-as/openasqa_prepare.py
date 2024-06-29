@@ -21,16 +21,16 @@ from speechbrain.utils.data_utils import download_file
 logger = logging.getLogger(__name__)
 
 # to be added
-PRETRAINED_TLTR_URL = ""
+PRETRAINED_TLTR_URL = "https://www.dropbox.com/scl/fi/nciysewp1cedc3ob8etqe/large-v1_ori.pth?rlkey=2ekg4x0wpqlzxt4it92kqas7c&st=l25hte4d&dl=0"
 
-OPENASQA_CLASSIFICATION_JSON_URL = ""
-OPENASQA_ALL_JSON_URL = ""
+OPENASQA_CLASSIFICATION_JSON_URL = "https://www.dropbox.com/scl/fi/2h2pr4afssdeta6akywkg/classification.json?rlkey=gex199fa6wtbcjzonhbluzmn1&st=tdyyg801&dl=0"
+OPENASQA_ALL_JSON_URL = "https://www.dropbox.com/scl/fi/6ycu9muolep2ox7wbi690/all.json?rlkey=iqxkkffreop903bnz23tlhdue&st=7kbkumdk&dl=0"
 
-EVAL_ESC50_JSON_URL = ""
-EVAL_IEMOCAP_JSON_URL = ""
-EVAL_VOXCELEB_GENDER_JSON_URL = ""
-EVAL_VOXCELEB_AGE_JSON_URL = ""
-EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL = ""
+EVAL_ESC50_JSON_URL = "https://www.dropbox.com/scl/fi/ffn8k59rl77qjckr5clh4/eval_esc50.json?rlkey=gwc3qv6ve5g5n3jlc1g69y7t5&st=9scedbpo&dl=0"
+EVAL_IEMOCAP_JSON_URL = "https://www.dropbox.com/scl/fi/9vhlkz9ly9tot07tpf479/eval_iemocap_emo.json?rlkey=rtcomi3n5c1r4djszzcynjo2q&st=tvvlwct8&dl=0"
+EVAL_VOXCELEB_GENDER_JSON_URL = "https://www.dropbox.com/scl/fi/mkntiibo2c5rvrwts11wo/eval_voxceleb_gender.json?rlkey=zzsodtjtq3l3eut1qcv44zy7m&st=qhj2gnh2&dl=0"
+EVAL_VOXCELEB_AGE_JSON_URL = "https://www.dropbox.com/scl/fi/8qijm9swdrgpqi09wg66k/eval_voxceleb_age.json?rlkey=8ln1as7qz5ic16xbw4qjkhw46&st=vvbv5svm&dl=0"
+EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL = "https://www.dropbox.com/scl/fi/qd69q7m835u83b34a3djk/eval_librispeech_asr.json?rlkey=vog1m4m6mrhusa6zwzhxqfq6v&st=td53ckoe&dl=0"
 
 
 def prepare_openasqa(

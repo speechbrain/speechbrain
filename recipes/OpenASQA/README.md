@@ -29,7 +29,7 @@ pip install -r extra_requirements.txt
 ## How to run
 Before running the training stages, the preparation stage needs to be completed at first by running
 
-```
+```python
 # Since training LLM can be too memory-consuming, the whisper-feature extraction is separated from the training in order to save memory
 
 # Data preparation stage: prepare datasets and pre-extract whisper embeddings, then discretise with an average pooling.
@@ -50,7 +50,7 @@ For training, a curriculum is adopted to LTU-AS, which is split into 3 stages:
 As can be seen that only a tiny part of the model's parameters are trainable, compared to the entire model size.
 
 Run the training scripts:
-```
+```python
 # traning stage 1: only train the audio projection layer because it is radomly initialized, and only on classification tasks
 python train.py hparams/train_stage_1.yaml
 
@@ -63,6 +63,18 @@ python train.py hparams/train_stage_3.yaml
 
 It should be noted that stage 2 continues training the models that are trained from stage 1, while stage 3 should continue training those from stage 2. This is implemented via the `Pretrainer` class that can be found in the yaml.
 
+The model is evaluated on five different tasks:
+1. Emotion Recognition on IEMOCAP
+2. Audio Classification on ESC50 (the ltu-as model outputs an audio description, then an external llm such as llama3-70b is used for classification.)
+3. Gender Classfication on Voxceleb2-test
+4. Age Prediction on Voxceleb2-test
+5. ASR on LibriSpeech test-clean
+
+Run the evaluation:
+```python
+python evaluate.py hparams/evaluate.yaml
+```
+
 ## GPU Usage and Training Time
 4 * 48G gpus were used to train this model.
 
@@ -70,22 +82,25 @@ Mixed precision was enabled with `fp16`, which can be set to `bf16` depending on
 
 Gradient-checkpointing was enabled in order to save memory but this doubles the training time. If gpus with large enough vram are used, gradiant-checkpointing can be disabled in the yaml by setting `gradient_checkpointing: False` in order to save time.
 
-Training time for each stage:
+Training time for each stage with gradient-checkpointing:
 | Stage | n_gpus | n_epochs | Total Time |
 |:------:|:------:|:------:|:------:|
-| 1 | 4 | 2 | ? |
-| 2 | 4 | 2 | ? |
-| 3 | 4 | 1 | ? |
+| 1 | 4 | 2 | 30h |
+| 2 | 4 | 2 | 30h |
+| 3 | 4 | 1 | 90h |
 
 ## Results
+The evaluation was carried out on 5 different close-ended tasks:
+| model | Emotion Recognition Iemocap (Acc) | ASR Librispeech test-clean (WER) | Audio Classification ESC-50 (Acc) | Age Prediction Voxceleb2-test (MAE) | Gender Classification Voxceleb2-test (F1) |
+|:-----------------------------:|:----------------------------------:|:----------------------------------:|:----------------------------------:|:----------------------------------:|:----------------------------------:|
+| original model in the paper | 65.2% | 4.9% | 76.6% | 7.3 | 90.8% |
+| our model | 69.5% | 1.45% (with Whisper large v3) | 80.8% | 6.67 | 98.8% |
 
-To be reported.
 
 ## Pretrained models and Inference
+The pretrained models and all the training logs can be found [here](https://www.dropbox.com/scl/fo/dnfdrkb5jl0mk93svl8eo/AHz79M05CX5O3SqxOD8EXgk?rlkey=qu6v0qasa3sxr01rbpnxdep1t&st=we15otgb&dl=0).
 
-The pretrained models and all the training logs can be found [here](to be added).
-
-A huggingface interface can be found [here](to be added).
+A huggingface interface can be found [here](https://huggingface.co/speechbrain/speech-llm-LTU-AS-openasqa).
 
 # **Citing LTU-AS**
 ```bibtex
