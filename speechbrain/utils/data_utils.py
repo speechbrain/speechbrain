@@ -10,7 +10,6 @@ Authors
 
 import collections.abc
 import csv
-import gzip
 import math
 import os
 import pathlib
@@ -376,8 +375,9 @@ def download_file(
                 # shutil unpack_archive does not work with tar.gz files
                 if source.endswith((".tar.gz", ".tgz", ".gz")):
                     import tarfile
+
                     tar = tarfile.open(dest, "r:gz")
-                    tar.extractall(dest_unpack, filter='data')
+                    tar.extractall(dest_unpack, filter="data")
                     tar.close()
                 else:
                     shutil.unpack_archive(dest, dest_unpack)
