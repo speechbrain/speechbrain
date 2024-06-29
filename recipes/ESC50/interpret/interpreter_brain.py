@@ -184,6 +184,7 @@ class InterpreterBrain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_faithfulness(predictions, predictions_masked):
+            "This function implements the faithful metric (FF) used in the L-MAC paper."
             # get the prediction indices
             pred_cl = predictions.argmax(dim=1, keepdim=True)
 
@@ -251,6 +252,7 @@ class InterpreterBrain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_sparseness(wavs, X, y):
+            """Computes the SPS metric used in the L-MAC paper."""
             self.sparseness = quantus.Sparseness(
                 return_aggregate=True, abs=True
             )
@@ -282,6 +284,7 @@ class InterpreterBrain(sb.core.Brain):
 
         @torch.no_grad()
         def compute_complexity(wavs, X, y):
+            """Computes the COMP metric used in L-MAC paper"""
             self.complexity = quantus.Complexity(
                 return_aggregate=True, abs=True
             )
