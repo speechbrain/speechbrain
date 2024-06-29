@@ -1,6 +1,12 @@
 #!/usr/bin/python3
 """This recipe to train L-MAC to interpret audio classifiers.
 
+The command to run for this recipe, with WHAM augmentation (as used in the L-MAC paper)
+    python train_lmac.py hparams/lmac_cnn14.yaml --data_folder=/yourpath/ESC50 --add_wham_noise True --wham_folder=/yourpath/wham_noise
+
+For more details, please refer to the README file.
+
+
 Authors
     * Francesco Paissan 2024
     * Cem Subakan 2024
@@ -35,6 +41,7 @@ def tv_loss(mask, tv_weight=1, power=2, border_penalty=0.3):
 
 class LMAC(InterpreterBrain):
     def crosscor(self, spectrogram, template):
+        """Compute the cross correlation metric defined in the L-MAC paper, used in finetuning"""
         if self.hparams.crosscortype == "conv":
             spectrogram = spectrogram - spectrogram.mean((-1, -2), keepdim=True)
             template = template - template.mean((-1, -2), keepdim=True)
@@ -94,6 +101,7 @@ class LMAC(InterpreterBrain):
         return X_int.transpose(1, 2), xhat.transpose(1, 2), X_stft_phase
 
     def compute_forward(self, batch, stage):
+        """Forward computation defined for to generate the saliency maps with L-MAC"""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -127,6 +135,10 @@ class LMAC(InterpreterBrain):
         return ((wavs, lens), predictions, xhat, hcat)
 
     def extra_metrics(self):
+        """This function defines the extra metrics required for L-MAC.
+        This is limited to the counter() function which is used to count the number of data items which passes the crosscorrelation threshold, during the finetuning stage of L-MAC.
+        """
+
         def counter(c):
             return c
 
