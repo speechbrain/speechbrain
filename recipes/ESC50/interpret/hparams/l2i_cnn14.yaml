@@ -2,7 +2,7 @@
 # The recipe for training an L2I interpretability method on the ESC50 dataset.
 #
 # Author:
-#  * Cem Subakan 2022, 2023
+#  * Cem Subakan 2022, 2023, 2024
 #  * Francesco Paissan 2022, 2023, 2024
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
@@ -35,7 +35,7 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
-classifier_temp: 1
+classifier_temp: 1   # classifier temperature for the auxiliary L2I classifier
 
 # Tensorboard logs
 use_tensorboard: False

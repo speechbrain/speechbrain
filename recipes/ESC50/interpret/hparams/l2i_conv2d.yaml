@@ -99,7 +99,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256
 
-classifier_temp: 0.01
+classifier_temp: 0.01  # classifier temperature for the auxiliary L2I classifier
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 256
     out_neurons: !ref <out_n_neurons>
