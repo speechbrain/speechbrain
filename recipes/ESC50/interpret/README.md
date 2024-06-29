@@ -151,7 +151,7 @@ Note that overlap type should be either `mixture` (for contaminating signal to b
 
 Note also that `add_wham_noise` should be set to `False`.
 
-Another thing to note is that if you use `--overlap_type LJSpeech`, you would need to specify the path via the variable `ljspeech_path`. If the LJSpeech dataset is not already downloaded, the code will automatically download it.
+Another thing to note is that if you use `--overlap_type LJSpeech`, you would need to specify the path via the variable `ljspeech_path`. If the LJSpeech dataset is not already downloaded on the path you specify, the code will automatically download it, and use the downloaded data.
 
 
 ### In distribution (ID) tests
