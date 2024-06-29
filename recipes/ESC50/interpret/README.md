@@ -142,12 +142,14 @@ classifier_model_path: ../classification/results/focalnet-base-esc50/1234/save/C
 
 If you want to run tests on the OOD setting, you can use
 ```shell
-python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixtures/ljspeech/white_noise> --add_wham_noise False
+python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixtures/LJSpeech/white_noise> --add_wham_noise False --pretrained_interpreter yourpath/psi_model.ckpt
 ```
 
-Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `ljspeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting.
+Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `LJSpeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting. Note that `yourpath/psi_model.ckpt` should point to the path of the model checkpoint you would like to use.
 
 Note also that `add_wham_noise` should be set to `False`.
+
+Another thing to note is that if you use `--overlap_type LJSpeech`, you would need to specify the path via the variable `ljspeech_path`. If the LJSpeech dataset is not already downloaded, the code will automatically download it.
 
 
 ### In distribution (ID) tests
