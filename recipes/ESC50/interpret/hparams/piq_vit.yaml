@@ -111,6 +111,7 @@ K: 1024
 n_fft: 1024
 hop_length: 11.6099
 win_length: 23.2199
+use_melspectra_log1p: False
 
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
