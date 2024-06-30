@@ -213,6 +213,9 @@ if __name__ == "__main__":
     if hparams["add_wham_noise"]:
         ood_dataset = datasets["valid"]
 
+    assert (
+        hparams["pretrained_interpreter"] is not None
+    ), "You need to specify a path for the pretrained_interpreter!"
     hparams["psi_model"].load_state_dict(
         torch.load(hparams["pretrained_interpreter"], map_location="cpu")
     )
