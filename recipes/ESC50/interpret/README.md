@@ -156,7 +156,7 @@ If you want to run tests on the OOD setting, you can use
 python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --overlap_type <mixtures/LJSpeech/white_noise> --add_wham_noise False --pretrained_interpreter yourpath/psi_model.ckpt
 ```
 
-Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `LJSpeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting. Note that `yourpath/psi_model.ckpt` should point to the path of the model checkpoint you would like to use.
+Note that overlap type should be either `mixture` (for contaminating signal to be set as other signals from ESC50), `LJSpeech` (for contaminating signal to be set as speech), or `white_noise` (for contaminating signal to be set as white noise). Please refer to the L-MAC paper for the performance obtained in each setting. Note that `yourpath/psi_model.ckpt` should point to the path of the model checkpoint you would like to use. The typical path for `yourpath/psi_model.ckpt` would be similar to `results/LMAC_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/psi_model.ckpt`.
 
 Note also that `add_wham_noise` should be set to `False`.
 
