@@ -35,13 +35,15 @@ pip install -r extra_requirements.txt
 
 ## Supported Methods
 
-Some results that are obtained with this recipe on the OOD evaluation are as follows (refer to the L-MAC paper :
+Some results that are obtained with this recipe on the OOD evaluation are as follows:
 
 |Method | AI    | AD  	| AG  	|FF   	|Fid-In   | SPS | COMP |
 |---	|---	|---	|---	|---	| ----    | --   | ---  |
 |L-MAC 	| 65.5 | 3.51 | 34.72 | 0.40 | 0.82 | 0.92 | 9.88 |
 |L-MAC FT | 56.87 | 5.13 | 31.10 | 0.39 | 0.80 | 0.82 | 10.67 |
 |L2I   	| 7.37  |25.50 	|1.61  	|0.27  | 0.01  | 0.59   | 11.38  |
+
+Please, refer to the [L-MAC paper](https://arxiv.org/abs/2403.13086) for more information about the evaluation metrics.
 
 
 ### Listenable Maps for Audio Classifiers (L-MAC)
@@ -187,13 +189,14 @@ This will evaluate the model using the test set contaminated with WHAM! noise sa
 
 Please cite our [L-MAC paper](https://arxiv.org/abs/2403.13086) if you use it in your research:
 
+```bibtex
 @inproceedings{lmac,
   author={Francesco Paissan and Mirco Ravanelli and Cem Subakan},
   title={{Listenable Maps for Audio Classifiers}},
   year={2024},
   booktitle={Proceedings of the International Conference on Machine Learning (ICML)},
 }
-
+```
 
 
 Please cite our [PIQ paper](https://arxiv.org/abs/2303.12659) if you use it in your research:
