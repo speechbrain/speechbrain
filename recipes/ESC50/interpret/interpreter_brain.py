@@ -355,9 +355,12 @@ class InterpreterBrain(sb.core.Brain):
             for k in self.extra_metrics().keys()
         }
 
+        # this is needed to eliminate comp values which are nan
+        comp_tensor = torch.Tensor(self.comp.scores)
+        comp_tensor = comp_tensor[~torch.isnan(comp_tensor)]
         tmp = {
             "SPS": torch.Tensor(self.sps.scores).mean(),
-            "COMP": torch.Tensor(self.comp.scores).mean(),
+            "COMP": comp_tensor.mean(),
         }
         quantus_metrics = {}
         for m in tmp:

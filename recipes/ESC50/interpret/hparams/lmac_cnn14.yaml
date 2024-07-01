@@ -23,7 +23,7 @@ l_out_w: 0.2
 reg_w_tv: 0.0
 reg_w_l1: 0.4
 
-g_w: 1 # regularization weight of oracles
+g_w: 4 # regularization weight of oracles
 crosscor_th: 0.6
 bin_th: 0.35 # needed to binarize guidance spectrograms
 finetuning: False

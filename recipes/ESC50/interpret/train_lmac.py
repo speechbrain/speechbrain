@@ -398,6 +398,8 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrained_esc50"].collect_files)
         hparams["pretrained_esc50"].load_collected()
 
+    hparams["embedding_model"].to(Interpreter_brain.device)
+    hparams["classifier"].to(Interpreter_brain.device)
     hparams["embedding_model"].eval()
 
     if not hparams["test_only"]:

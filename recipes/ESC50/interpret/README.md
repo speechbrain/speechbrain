@@ -35,6 +35,15 @@ pip install -r extra_requirements.txt
 
 ## Supported Methods
 
+Some results that are obtained with this recipe on the OOD evaluation are as follows (refer to the L-MAC paper :
+
+|Method | AI    | AD  	| AG  	|FF   	|Fid-In   | SPS | COMP |
+|---	|---	|---	|---	|---	| ----    | --   | ---  |
+|L-MAC 	| 65.5 | 3.51 | 34.72 | 0.40 | 0.82 | 0.92 | 9.88 |
+|L-MAC FT | 56.87 | 5.13 | 31.10 | 0.39 | 0.80 | 0.82 | 10.67 |
+|L2I   	| 7.37  |25.50 	|1.61  	|0.27  | 0.01  | 0.59   | 11.38  |
+
+
 ### Listenable Maps for Audio Classifiers (L-MAC)
 
 LMAC trains an interpreter on the classifier's representations to reconstruct interpretations based on a amortized inference loss.
@@ -158,7 +167,8 @@ Another thing to note is that if you use `--overlap_type LJSpeech`, you would ne
 
 If you want to run tests on the ID setting, you can use
 ```shell
-python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_noise True --wham_folder /yourpath/wham_noise
+python eval.py hparams/<config>.yaml --data_folder /yourpath/esc50 --add_wham_noise True --wham_folder /yourpath/wham_noise --pretrained_interpreter yourpath/psi_model.ckpt
+
 ```
 
 This will evaluate the model using the test set contaminated with WHAM! noise samples.

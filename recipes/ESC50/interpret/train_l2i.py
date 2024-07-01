@@ -269,6 +269,17 @@ class L2I(InterpreterBrain):
             maskout_preds,
         )
 
+        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
+            try:
+                self.sps.append(uttid, wavs, X_stft_logpower, classid)
+            except ValueError:
+                print("zero sps entry!")
+
+            try:
+                self.comp.append(uttid, wavs, X_stft_logpower, classid)
+            except ValueError:
+                print("zero comp entry!")
+
         X_stft_logpower = X_stft_logpower[:, : reconstructions.shape[1], :]
 
         loss_nmf = ((reconstructions - X_stft_logpower) ** 2).mean()
