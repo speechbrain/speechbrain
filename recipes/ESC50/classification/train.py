@@ -116,7 +116,9 @@ class ESC50Brain(sb.core.Brain):
         target = F.one_hot(
             classid.squeeze(), num_classes=self.hparams.out_n_neurons
         )
-        loss = -(F.log_softmax(predictions.squeeze(), 1) * target).sum(1).mean()
+        loss = (
+            -(F.log_softmax(predictions.squeeze(1), 1) * target).sum(1).mean()
+        )
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -431,8 +433,6 @@ if __name__ == "__main__":
 
     if hparams["wham_dataset"] is not None:
         assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
-
-    assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
 
     class_labels = list(label_encoder.ind2lab.values())
     print("Class Labels:", class_labels)
