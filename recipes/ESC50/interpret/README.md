@@ -41,7 +41,7 @@ Some results that are obtained with this recipe on the OOD evaluation are as fol
 |---	|---	|---	|---	|---	| ----    | --   | ---  |
 |L-MAC 	| 61.62 | 3.83 | 33.48 | 0.40 | 0.82 | 0.93 | 9.77 |
 |L-MAC FT | 58.87 | 4.89 | 30.84 | 0.40 | 0.82 | 0.82 | 10.65 |
-|L2I   	| 7.37  |25.50 	|1.61  	|0.27  | 0.01  | 0.59   | 11.38  |
+|L2I   	| 6.75  |25.93 	|1.25  	|0.26  | 0.01  | 0.58   | 11.38  |
 
 Please, refer to the [L-MAC paper](https://arxiv.org/abs/2403.13086) for more information about the evaluation metrics.
 
@@ -189,10 +189,12 @@ This will evaluate the model using the test set contaminated with WHAM! noise sa
 
 | Method | Link |
 | --- | --- |
-| AMT-FocalNet |  `https://www.dropbox.com/scl/fo/0hheboei1b35mlrhwj6mt/AOeCdNstN3h8UqFxv0abT7M?rlkey=kx0d1t5v5hqawqwr5ir9weihq&dl=0` |
-| AMT-ViT |  `https://www.dropbox.com/scl/fo/vlluiqiirlprl3oa7h4sj/APrEFgcIiWjdQhDUEZuNook?rlkey=bhswfspzklypu7k8ndh8lm3st&dl=0` |
+| L-MAC | https://www.dropbox.com/scl/fo/k5r0zdrtkywamazrke2p1/AEP2D4Scu9mQ_McAxRYzWQQ?rlkey=qhwhe8729f2h2zbue88632f8n&st=vt316u20&dl=0  |
+| L-MAC FT| https://www.dropbox.com/scl/fo/kma3iznhjcyoco9slfwck/AMBmOXJAhiDUFs_dllXLaCQ?rlkey=drh04466lj1mca8qfrd31e14g&st=umd9ygj6&dl=0 |
 | L2I CNN14 | `https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0` |
 | L2I Conv2d | `https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0` |
+| AMT-FocalNet |  `https://www.dropbox.com/scl/fo/0hheboei1b35mlrhwj6mt/AOeCdNstN3h8UqFxv0abT7M?rlkey=kx0d1t5v5hqawqwr5ir9weihq&dl=0` |
+| AMT-ViT |  `https://www.dropbox.com/scl/fo/vlluiqiirlprl3oa7h4sj/APrEFgcIiWjdQhDUEZuNook?rlkey=bhswfspzklypu7k8ndh8lm3st&dl=0` |
 | NMF Training | `https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0` |
 | PIQ | `https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0` |
 | PIQ-FocalNet | `https://www.dropbox.com/scl/fo/6mvxb32f0g1i8b4lkdjoq/AGD1xNF8Of2_IXeEsbpXtQE?rlkey=llefue4rxalqyqwxqtwrn8qii&dl=0` |
