@@ -143,7 +143,9 @@ def prepare_openasqa(
                 )
                 continue
 
-            feature_path = feature_path.format(whisper_feature_folder=whisper_feature_folder)
+            feature_path = feature_path.format(
+                whisper_feature_folder=whisper_feature_folder
+            )
             if not os.path.exists(feature_path):
                 extract_whisper_features(
                     whisper_model,
@@ -249,9 +251,13 @@ def prepare_openasqa_eval(
             annotation_json = subsets[set]["annotation"]
             logger.info(f"Creating {annotation_json}")
             download_file(subsets[set]["url"], annotation_json)
-            if not os.path.exists(os.path.join(whisper_feature_folder, "eval", set.split("_")[0])):
+            if not os.path.exists(
+                os.path.join(whisper_feature_folder, "eval", set.split("_")[0])
+            ):
                 os.makedirs(
-                    os.path.join(whisper_feature_folder, "eval", set.split("_")[0])
+                    os.path.join(
+                        whisper_feature_folder, "eval", set.split("_")[0]
+                    )
                 )  # create one folder for voxceleb_gender and voxceleb_age
             with open(annotation_json, "r") as f:
                 data = json.load(f)
