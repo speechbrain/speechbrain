@@ -381,53 +381,38 @@ class NMFEncoder(nn.Module):
 
 class CNN14PSI_stft(nn.Module):
     """
-    This class reconstructs log-power spectrograms from classifier's representations.
+    This class estimates a saliency map on the STFT domain, given classifier representations.
 
     Arguments
     ---------
     dim : int
-        Dimensionality of VQ vectors.
+        Dimensionality of the input representations.
     K : int
-        Number of elements of VQ dictionary.
-    numclasses : int
-        Number of possible classes
-    activate_class_partitioning : bool
-        `True` if latent space should be quantized for different classes.
-    shared_keys : int
-        Number of shared keys among classes.
-    use_adapter : bool
-        `True` to learn an adapter for classifier's representations.
-    adapter_reduce_dim : bool
-        `True` if adapter should compress representations.
+        Defines the number of output channels in the saliency map.
 
     Returns
     --------
-    Reconstructed log-power spectrograms, adapted classifier's representations, quantized classifier's representations. : tuple
+    xhat : torch.Tensor
+        Estimated saliency map (before sigmoid)
 
     Example:
     --------
-    >>> psi = CNN14PSI_stft(dim=256, K=1024)
-    >>> x = torch.randn(2, 256, 16, 16)
-    >>> labels = torch.Tensor([0, 2])
-    >>> logspectra, hcat, z_q_x = psi(x, labels)
-    >>> print(logspectra.shape, hcat.shape, z_q_x.shape)
-    torch.Size([2, 1, 257, 257]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
+    >>> from speechbrain.lobes.models.Cnn14 import Cnn14
+    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
+    >>> x = torch.randn(2, 201, 80)
+    >>> _, hs = classifier_embedder(x)
+    >>> psimodel = CNN14PSI_stft(2048, 20)
+    >>> xhat = psimodel.forward(hs)
+    >>> print(xhat.shape)
+    torch.Size([2, 20, 207])
     """
 
     def __init__(
         self,
         dim=128,
         K=100,
-        numclasses=50,
-        activate_class_partitioning=True,
-        shared_keys=0,
-        use_adapter=True,
-        adapter_reduce_dim=True,
-        stft2mel=False,
     ):
         super().__init__()
-
-        self.adapter_reduce_dim = adapter_reduce_dim
 
         self.convt1 = nn.ConvTranspose1d(dim, dim, 3, 2, 1)
         self.convt2 = nn.ConvTranspose1d(dim // 2, dim, 3, 2, 1)
@@ -441,11 +426,9 @@ class CNN14PSI_stft(nn.Module):
 
         self.nonl = nn.ReLU(True)
 
-        self.stft2mel = stft2mel
-
     def forward(self, hs, labels=None):
         """
-        Forward step. Reconstructs log-power based on provided label's keys in VQ dictionary.
+        Forward step. Estimates NMF activations to be used to get the saliency mask.
 
         Arguments
         --------
@@ -456,7 +439,8 @@ class CNN14PSI_stft(nn.Module):
 
         Returns
         --------
-        Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
+        xhat : torch.Tensor
+            The estimated NMF activation coefficients
         """
 
         hs = [h.mean(-1) for h in hs]
@@ -493,59 +477,43 @@ class CNN14PSI_stft(nn.Module):
 
         # apply ReLU
         xhat = F.relu(xhat)
-
         return xhat
 
 
 class CNN14PSI_stft_2d(nn.Module):
     """
-    This class reconstructs log-power spectrograms from classifier's Representations
-    using ConvTranspose2d.
+    This class estimates the NMF activations to create a saliency map using the L2I framework
 
     Arguments
     ---------
     dim : int
-        Dimensionality of VQ vectors.
+        Dimensionality of the input representations.
     K : int
-        Number of elements of VQ dictionary.
-    numclasses : int
-        Number of possible classes
-    activate_class_partitioning : bool
-        `True` if latent space should be quantized for different classes.
-    shared_keys : int
-        Number of shared keys among classes.
-    use_adapter : bool
-        `True` to learn an adapter for classifier's representations.
-    adapter_reduce_dim : bool
-        `True` if adapter should compress representations.
+        Defines the number of output channels in the saliency map.
 
     Returns
     --------
-    Reconstructed log-power spectrograms, adapted classifier's representations, quantized classifier's representations. : tuple
+    xhat : torch.Tensor
+        Estimated saliency map (before sigmoid)
 
     Example:
     --------
-    >>> psi = CNN14PSI_stft(dim=256, K=1024)
-    >>> x = torch.randn(2, 256, 16, 16)
-    >>> labels = torch.Tensor([0, 2])
-    >>> logspectra, hcat, z_q_x = psi(x, labels)
-    >>> print(logspectra.shape, hcat.shape, z_q_x.shape)
-    torch.Size([2, 1, 257, 257]) torch.Size([2, 256, 8, 8]) torch.Size([2, 256, 8, 8])
+    >>> from speechbrain.lobes.models.Cnn14 import Cnn14
+    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
+    >>> x = torch.randn(2, 201, 80)
+    >>> _, hs = classifier_embedder(x)
+    >>> psimodel = CNN14PSI_stft_2d(2048, 20)
+    >>> xhat = psimodel.forward(hs)
+    >>> print(xhat.shape)
+    torch.Size([2, 20, 207])
     """
 
     def __init__(
         self,
         dim=128,
         K=100,
-        numclasses=50,
-        activate_class_partitioning=True,
-        shared_keys=0,
-        use_adapter=True,
-        adapter_reduce_dim=True,
     ):
         super().__init__()
-
-        self.adapter_reduce_dim = adapter_reduce_dim
 
         self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 4), 1)
         self.convt2 = nn.ConvTranspose2d(dim // 2, dim, 3, (2, 4), 1)
@@ -565,7 +533,7 @@ class CNN14PSI_stft_2d(nn.Module):
 
     def forward(self, hs, labels=None):
         """
-        Forward step. Reconstructs log-power based on provided label's keys in VQ dictionary.
+        Forward step. Estimates NMF activations to be used to get the saliency mask.
 
         Arguments
         --------
@@ -576,7 +544,8 @@ class CNN14PSI_stft_2d(nn.Module):
 
         Returns
         --------
-        Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
+        xhat : torch.Tensor
+            The estimated NMF activation coefficients
         """
 
         h1 = self.convt1(hs[0])
@@ -621,5 +590,4 @@ class CNN14PSI_stft_2d(nn.Module):
 
         # apply ReLU
         xhat = F.relu(xhat)
-
         return xhat

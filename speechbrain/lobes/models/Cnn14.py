@@ -379,7 +379,7 @@ class CNN14PSI_stft(nn.Module):
 
     def forward(self, hs):
         """
-        Forward step. Reconstructs log-power based on provided label's keys in VQ dictionary.
+        Forward step to estimate the saliency map
 
         Arguments
         --------
