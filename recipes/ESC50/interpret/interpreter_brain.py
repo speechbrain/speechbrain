@@ -266,21 +266,24 @@ class InterpreterBrain(sb.core.Brain):
                 .cpu()
                 .numpy()
             )
-            X = X[:, : attr.shape[2], :]
-            X = X.unsqueeze(1)
-            quantus_inp = {
-                "model": None,
-                "x_batch": X.clone()
-                .detach()
-                .cpu()
-                .numpy(),  # quantus expects the batch dim
-                "a_batch": attr,
-                "y_batch": y.squeeze(dim=1).clone().detach().cpu().numpy(),
-                "softmax": False,
-                "device": device,
-            }
-
-            return torch.Tensor([self.sparseness(**quantus_inp)[0]]).float()
+            if attr.sum() > 0:
+                X = X[:, : attr.shape[2], :]
+                X = X.unsqueeze(1)
+                quantus_inp = {
+                    "model": None,
+                    "x_batch": X.clone()
+                    .detach()
+                    .cpu()
+                    .numpy(),  # quantus expects the batch dim
+                    "a_batch": attr,
+                    "y_batch": y.squeeze(dim=1).clone().detach().cpu().numpy(),
+                    "softmax": False,
+                    "device": device,
+                }
+                return torch.Tensor([self.sparseness(**quantus_inp)[0]]).float()
+            else:
+                print("all zeros saliency map")
+                return torch.zeros([0])
 
         @torch.no_grad()
         def compute_complexity(wavs, X, y):
@@ -298,21 +301,25 @@ class InterpreterBrain(sb.core.Brain):
                 .cpu()
                 .numpy()
             )
-            X = X[:, : attr.shape[2], :]
-            X = X.unsqueeze(1)
-            quantus_inp = {
-                "model": None,
-                "x_batch": X.clone()
-                .detach()
-                .cpu()
-                .numpy(),  # quantus expects the batch dim
-                "a_batch": attr,
-                "y_batch": y.squeeze(dim=1).clone().detach().cpu().numpy(),
-                "softmax": False,
-                "device": device,
-            }
+            if attr.sum() > 0:
+                X = X[:, : attr.shape[2], :]
+                X = X.unsqueeze(1)
+                quantus_inp = {
+                    "model": None,
+                    "x_batch": X.clone()
+                    .detach()
+                    .cpu()
+                    .numpy(),  # quantus expects the batch dim
+                    "a_batch": attr,
+                    "y_batch": y.squeeze(dim=1).clone().detach().cpu().numpy(),
+                    "softmax": False,
+                    "device": device,
+                }
 
-            return torch.Tensor([self.complexity(**quantus_inp)[0]]).float()
+                return torch.Tensor([self.complexity(**quantus_inp)[0]]).float()
+            else:
+                print("all zeros saliency map")
+                return torch.zeros([0])
 
         @torch.no_grad()
         def accuracy_value(predict, target):

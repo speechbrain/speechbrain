@@ -153,9 +153,6 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
 psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft_2d
     dim: 2048
     K: !ref <K>
-    shared_keys: 0
-    activate_class_partitioning: True
-    adapter_reduce_dim: True
 
 theta: !new:speechbrain.lobes.models.L2I.Theta
     num_classes: !ref <out_n_neurons>

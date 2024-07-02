@@ -39,8 +39,8 @@ Some results that are obtained with this recipe on the OOD evaluation are as fol
 
 |Method | AI    | AD  	| AG  	|FF   	|Fid-In   | SPS | COMP |
 |---	|---	|---	|---	|---	| ----    | --   | ---  |
-|L-MAC 	| 65.5 | 3.51 | 34.72 | 0.40 | 0.82 | 0.92 | 9.88 |
-|L-MAC FT | 56.87 | 5.13 | 31.10 | 0.39 | 0.80 | 0.82 | 10.67 |
+|L-MAC 	| 61.62 | 3.83 | 33.48 | 0.40 | 0.82 | 0.93 | 9.77 |
+|L-MAC FT | 58.87 | 4.89 | 30.84 | 0.40 | 0.82 | 0.82 | 10.65 |
 |L2I   	| 7.37  |25.50 	|1.61  	|0.27  | 0.01  | 0.59   | 11.38  |
 
 Please, refer to the [L-MAC paper](https://arxiv.org/abs/2403.13086) for more information about the evaluation metrics.
