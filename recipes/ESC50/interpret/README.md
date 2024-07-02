@@ -185,6 +185,19 @@ This will evaluate the model using the test set contaminated with WHAM! noise sa
 
 ---------------------------------------------------------------------------------------------------------
 
+## Training Logs
+
+| Method | Link |
+| --- | --- |
+| AMT-FocalNet |  `https://www.dropbox.com/scl/fo/0hheboei1b35mlrhwj6mt/AOeCdNstN3h8UqFxv0abT7M?rlkey=kx0d1t5v5hqawqwr5ir9weihq&dl=0` |
+| AMT-ViT |  `https://www.dropbox.com/scl/fo/vlluiqiirlprl3oa7h4sj/APrEFgcIiWjdQhDUEZuNook?rlkey=bhswfspzklypu7k8ndh8lm3st&dl=0` |
+| L2I CNN14 | `https://www.dropbox.com/sh/cli2gm8nb4bthow/AAAKnzU0c80s_Rm7wx4i_Orza?dl=0` |
+| L2I Conv2d | `https://www.dropbox.com/sh/gcpk9jye9ka08n0/AAB-m10r1YEH0rJdUMrCwizUa?dl=0` |
+| NMF Training | `https://www.dropbox.com/sh/01exv8dt3k6l1kk/AADuKmikAPwMw5wlulojd5Ira?dl=0` |
+| PIQ | `https://www.dropbox.com/sh/v1x5ks9t67ftysp/AABo494rDElHTiTpKR_6PP_ua?dl=0` |
+| PIQ-FocalNet | `https://www.dropbox.com/scl/fo/6mvxb32f0g1i8b4lkdjoq/AGD1xNF8Of2_IXeEsbpXtQE?rlkey=llefue4rxalqyqwxqtwrn8qii&dl=0` |
+| PIQ-ViT | `https://www.dropbox.com/scl/fo/nz4lqwumgz03nanmf9xai/AI21fGwSOzsVvyegTJUEtz4?rlkey=40yjchqgkhcrhbxsa30m3rr6w&dl=0` |
+
 ## Citing
 
 Please cite our [L-MAC paper](https://arxiv.org/abs/2403.13086) if you use it in your research:
