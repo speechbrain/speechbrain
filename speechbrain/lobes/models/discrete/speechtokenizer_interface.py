@@ -47,8 +47,8 @@ class SpeechTokenizer_interface(nn.Module):
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "fnlp/SpeechTokenizer"
     >>> save_path = "savedir"
-    >>> model =SpeechTokenizer_interface(model_hub, save_path)  # doctest: +SKIP
-    >>> tokens = model(inputs)  # doctest: +SKIP
+    >>> model = SpeechTokenizer_interface(model_hub, save_path)
+    >>> tokens = model(inputs)
     >>> print(tokens.shape)  # doctest: +SKIP
     torch.Size([8, 10, 2])
     >>> wav=model.decode(tokens)
