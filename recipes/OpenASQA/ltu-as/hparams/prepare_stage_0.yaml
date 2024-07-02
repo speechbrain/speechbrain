@@ -56,6 +56,6 @@ whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     encoder_only: True
     output_all_hiddens: True
 
-avg_pool: !new:speechbrain.nnet.pooling.Pooling1d
+average_pooling: !new:speechbrain.nnet.pooling.Pooling1d
     pool_type: "avg"
     kernel_size: !ref <pooling_kernel>

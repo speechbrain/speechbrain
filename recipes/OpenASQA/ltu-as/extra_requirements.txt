@@ -1,0 +1,5 @@
+accelerate
+bitsandbytes
+jiwer
+peft<=0.10.0
+transformers<=4.34.0

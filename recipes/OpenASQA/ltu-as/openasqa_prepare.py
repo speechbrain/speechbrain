@@ -21,16 +21,16 @@ from speechbrain.utils.data_utils import download_file
 logger = logging.getLogger(__name__)
 
 # to be added
-PRETRAINED_TLTR_URL = "https://www.dropbox.com/scl/fi/nciysewp1cedc3ob8etqe/large-v1_ori.pth?rlkey=2ekg4x0wpqlzxt4it92kqas7c&st=l25hte4d&dl=0"
+PRETRAINED_TLTR_URL = "https://www.dropbox.com/scl/fi/nciysewp1cedc3ob8etqe/large-v1_ori.pth?rlkey=2ekg4x0wpqlzxt4it92kqas7c&st=l25hte4d&dl=1"
 
-OPENASQA_CLASSIFICATION_JSON_URL = "https://www.dropbox.com/scl/fi/2h2pr4afssdeta6akywkg/classification.json?rlkey=gex199fa6wtbcjzonhbluzmn1&st=tdyyg801&dl=0"
-OPENASQA_ALL_JSON_URL = "https://www.dropbox.com/scl/fi/6ycu9muolep2ox7wbi690/all.json?rlkey=iqxkkffreop903bnz23tlhdue&st=7kbkumdk&dl=0"
+OPENASQA_CLASSIFICATION_JSON_URL = "https://www.dropbox.com/scl/fi/2h2pr4afssdeta6akywkg/classification.json?rlkey=gex199fa6wtbcjzonhbluzmn1&st=tdyyg801&dl=1"
+OPENASQA_ALL_JSON_URL = "https://www.dropbox.com/scl/fi/6ycu9muolep2ox7wbi690/all.json?rlkey=iqxkkffreop903bnz23tlhdue&st=7kbkumdk&dl=1"
 
-EVAL_ESC50_JSON_URL = "https://www.dropbox.com/scl/fi/ffn8k59rl77qjckr5clh4/eval_esc50.json?rlkey=gwc3qv6ve5g5n3jlc1g69y7t5&st=9scedbpo&dl=0"
-EVAL_IEMOCAP_JSON_URL = "https://www.dropbox.com/scl/fi/9vhlkz9ly9tot07tpf479/eval_iemocap_emo.json?rlkey=rtcomi3n5c1r4djszzcynjo2q&st=tvvlwct8&dl=0"
-EVAL_VOXCELEB_GENDER_JSON_URL = "https://www.dropbox.com/scl/fi/mkntiibo2c5rvrwts11wo/eval_voxceleb_gender.json?rlkey=zzsodtjtq3l3eut1qcv44zy7m&st=qhj2gnh2&dl=0"
-EVAL_VOXCELEB_AGE_JSON_URL = "https://www.dropbox.com/scl/fi/8qijm9swdrgpqi09wg66k/eval_voxceleb_age.json?rlkey=8ln1as7qz5ic16xbw4qjkhw46&st=vvbv5svm&dl=0"
-EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL = "https://www.dropbox.com/scl/fi/qd69q7m835u83b34a3djk/eval_librispeech_asr.json?rlkey=vog1m4m6mrhusa6zwzhxqfq6v&st=td53ckoe&dl=0"
+EVAL_ESC50_JSON_URL = "https://www.dropbox.com/scl/fi/ffn8k59rl77qjckr5clh4/eval_esc50.json?rlkey=gwc3qv6ve5g5n3jlc1g69y7t5&st=9scedbpo&dl=1"
+EVAL_IEMOCAP_JSON_URL = "https://www.dropbox.com/scl/fi/9vhlkz9ly9tot07tpf479/eval_iemocap_emo.json?rlkey=rtcomi3n5c1r4djszzcynjo2q&st=tvvlwct8&dl=1"
+EVAL_VOXCELEB_GENDER_JSON_URL = "https://www.dropbox.com/scl/fi/mkntiibo2c5rvrwts11wo/eval_voxceleb_gender.json?rlkey=zzsodtjtq3l3eut1qcv44zy7m&st=qhj2gnh2&dl=1"
+EVAL_VOXCELEB_AGE_JSON_URL = "https://www.dropbox.com/scl/fi/8qijm9swdrgpqi09wg66k/eval_voxceleb_age.json?rlkey=8ln1as7qz5ic16xbw4qjkhw46&st=vvbv5svm&dl=1"
+EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL = "https://www.dropbox.com/scl/fi/qd69q7m835u83b34a3djk/eval_librispeech_asr.json?rlkey=vog1m4m6mrhusa6zwzhxqfq6v&st=td53ckoe&dl=1"
 
 
 def prepare_openasqa(
@@ -93,19 +93,11 @@ def prepare_openasqa(
         path to the FMA dataset.
     """
 
-    # Checks if this phase is already done (if so, skips it)
-    if skip(classification_json, all_json):
-        logger.info("Training preparation completed in previous run, skipping.")
-        return
-
     logger.info(f"Creating {classification_json}, {all_json}")
 
     download_file(PRETRAINED_TLTR_URL, pretrained_tltr_path)
     download_file(OPENASQA_CLASSIFICATION_JSON_URL, classification_json)
     download_file(OPENASQA_ALL_JSON_URL, all_json)
-
-    if not os.path.exists(whisper_feature_folder):
-        os.makedirs(whisper_feature_folder)
 
     subsets = {
         "audioset": audioset_folder,
@@ -122,7 +114,8 @@ def prepare_openasqa(
 
     for set in list(subsets.keys()):
         if subsets[set] is not None:
-            os.makedirs(os.path.join(whisper_feature_folder, set))
+            if not os.path.exists(os.path.join(whisper_feature_folder, set)):
+                os.makedirs(os.path.join(whisper_feature_folder, set))
         else:
             del subsets[set]
 
@@ -140,7 +133,7 @@ def prepare_openasqa(
             feature_path = data[key]["feature_path"]
 
             for set in subsets.keys():
-                if set in audio_id:
+                if set in feature_path:
                     audio_id = audio_id.format(data_folder=subsets[set])
                     break
 
@@ -150,7 +143,7 @@ def prepare_openasqa(
                 )
                 continue
 
-            feature_path.format(whisper_feature_folder=whisper_feature_folder)
+            feature_path = feature_path.format(whisper_feature_folder=whisper_feature_folder)
             if not os.path.exists(feature_path):
                 extract_whisper_features(
                     whisper_model,
@@ -159,6 +152,8 @@ def prepare_openasqa(
                     feature_path,
                 )
             # update new dictionary with selected items
+            data[key]["audio_id"] = audio_id
+            data[key]["feature_path"] = feature_path
             new_dict[key] = data[key]
 
         with open(file, "w") as fout:
@@ -219,9 +214,6 @@ def prepare_openasqa_eval(
         )
         return
 
-    if not os.path.exists(whisper_feature_folder):
-        os.makedirs(whisper_feature_folder)
-
     subsets = {
         "esc50": {
             "folder": esc50_folder,
@@ -257,9 +249,10 @@ def prepare_openasqa_eval(
             annotation_json = subsets[set]["annotation"]
             logger.info(f"Creating {annotation_json}")
             download_file(subsets[set]["url"], annotation_json)
-            os.makedirs(
-                os.path.join(whisper_feature_folder, "eval", set.split("_")[0])
-            )  # create one folder for voxceleb_gender and voxceleb_age
+            if not os.path.exists(os.path.join(whisper_feature_folder, "eval", set.split("_")[0])):
+                os.makedirs(
+                    os.path.join(whisper_feature_folder, "eval", set.split("_")[0])
+                )  # create one folder for voxceleb_gender and voxceleb_age
             with open(annotation_json, "r") as f:
                 data = json.load(f)
 
@@ -277,8 +270,7 @@ def prepare_openasqa_eval(
                             f"{audio_id} does not exist, please check the audio path"
                         )
                         continue
-
-                    feature_path.format(
+                    feature_path = feature_path.format(
                         whisper_feature_folder=whisper_feature_folder
                     )
                     if not os.path.exists(feature_path):
@@ -289,6 +281,8 @@ def prepare_openasqa_eval(
                             feature_path,
                         )
                     # update new dictionary with selected items
+                    data[key]["audio_id"] = audio_id
+                    data[key]["feature_path"] = feature_path
                     new_dict[key] = data[key]
 
             # Add only one last item of each dataset into valid set
@@ -351,7 +345,7 @@ def extract_whisper_features(
     )(sig)
 
     resampled = resampled.unsqueeze(0).to(torch.device("cuda"))
-    output = model(resampled)[1:]
+    output = model(resampled, n_samples=160000)[1:]
     output = output.squeeze()
     output = pooling(output)
     output = output.half()
@@ -369,7 +363,6 @@ if __name__ == "__main__":
     hparams["whisper"] = hparams["whisper"].to(device=run_opts["device"])
 
     # whisper pad/trim all the audios to 10 seconds
-    hparams["whisper"]._n_samples = hparams["sample_rate"]
     chunked_embed_positions_weight = torch.nn.Parameter(
         hparams["whisper"].model.encoder.embed_positions.weight[:500, :]
     )
@@ -382,7 +375,7 @@ if __name__ == "__main__":
         pretrained_tltr_path=hparams["pretrained_tltr_path"],
         classification_json=hparams["classification_json"],
         all_json=hparams["all_json"],
-        whisper_model=hparams["whisper_model"],
+        whisper_model=hparams["whisper"],
         average_pooling=hparams["average_pooling"],
         audioset_folder=hparams["audioset_folder"],
         vggsound_folder=hparams["vggsound_folder"],
@@ -404,10 +397,10 @@ if __name__ == "__main__":
         eval_voxceleb_age_json=hparams["eval_voxceleb_age_json"],
         eval_librispeech_asr_json=hparams["eval_librispeech_asr_json"],
         valid_json=hparams["valid_json"],
-        whisper_model=hparams["whisper_model"],
+        whisper_model=hparams["whisper"],
         average_pooling=hparams["average_pooling"],
         esc50_folder=hparams["esc50_folder"],
-        eval_iemocap_folder=hparams["eval_iemocap_folder"],
+        iemocap_folder=hparams["eval_iemocap_folder"],
         voxceleb2_test_folder=hparams["voxceleb2_test_folder"],
         librispeech_test_clean_folder=hparams["librispeech_test_clean_folder"],
     )
