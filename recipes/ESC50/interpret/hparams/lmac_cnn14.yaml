@@ -144,9 +144,6 @@ pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
         embedding_model: !ref <embedding_model_path>
         classifier: !ref <classifier_model_path>
 
-# Interpretation hyperparams
-K: 1024
-
 # pre-processing
 n_fft: 1024
 hop_length: 11.6099
@@ -171,12 +168,8 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
     hop_length: !ref <hop_length>
     win_length: !ref <win_length>
 
-psi_model: !new:speechbrain.lobes.models.PIQ.CNN14PSI_stft
+psi_model: !new:speechbrain.lobes.models.Cnn14.CNN14PSI_stft
     dim: 2048
-    K: !ref <K>
-    shared_keys: 0
-    activate_class_partitioning: True
-    adapter_reduce_dim: True
 
 modules:
     compute_stft: !ref <compute_stft>
