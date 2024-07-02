@@ -198,7 +198,7 @@ class InterpreterBrain(sb.core.Brain):
 
             faithfulness = (
                 predictions_selected - predictions_masked_selected
-            ).squeeze()
+            ).squeeze(dim=1)
 
             return faithfulness
 
@@ -213,7 +213,7 @@ class InterpreterBrain(sb.core.Brain):
             ).squeeze()
             oc = torch.gather(
                 theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
-            ).squeeze()
+            ).squeeze(dim=1)
 
             # 1 element for each sample in batch, is 0 if pred_cl is in top k
             temp = (F.relu(pc - oc) / (pc + eps)) * 100
@@ -228,7 +228,7 @@ class InterpreterBrain(sb.core.Brain):
             ).squeeze()
             oc = torch.gather(
                 theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
-            ).squeeze()
+            ).squeeze(dim=1)
 
             # 1 element for each sample in batch, is 0 if pred_cl is in top k
             temp = (pc < oc).float() * 100
@@ -243,7 +243,7 @@ class InterpreterBrain(sb.core.Brain):
             ).squeeze()
             oc = torch.gather(
                 theta_out, dim=1, index=predictions.argmax(1, keepdim=True)
-            ).squeeze()
+            ).squeeze(dim=1)
 
             # 1 element for each sample in batch, is 0 if pred_cl is in top k
             temp = (F.relu(oc - pc) / (1 - pc + eps)) * 100
@@ -275,7 +275,7 @@ class InterpreterBrain(sb.core.Brain):
                 .cpu()
                 .numpy(),  # quantus expects the batch dim
                 "a_batch": attr,
-                "y_batch": y.squeeze().clone().detach().cpu().numpy(),
+                "y_batch": y.squeeze(dim=1).clone().detach().cpu().numpy(),
                 "softmax": False,
                 "device": device,
             }
@@ -307,7 +307,7 @@ class InterpreterBrain(sb.core.Brain):
                 .cpu()
                 .numpy(),  # quantus expects the batch dim
                 "a_batch": attr,
-                "y_batch": y.squeeze().clone().detach().cpu().numpy(),
+                "y_batch": y.squeeze(dim=1).clone().detach().cpu().numpy(),
                 "softmax": False,
                 "device": device,
             }
@@ -319,7 +319,7 @@ class InterpreterBrain(sb.core.Brain):
             """Computes Accuracy"""
             predict = predict.argmax(1)
 
-            return (predict.unsqueeze(1) == target).float().squeeze()
+            return (predict.unsqueeze(1) == target).float().squeeze(1)
 
         self.AD = MetricStats(metric=compute_AD)
         self.AI = MetricStats(metric=compute_AI)

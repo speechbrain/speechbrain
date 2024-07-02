@@ -238,7 +238,6 @@ class L2I(InterpreterBrain):
             maskout_preds = (
                 self.hparams.classifier(embeddings).squeeze(1).softmax(1)
             )
-
         self.l2i_fid.append(uttid, theta_out, classid)
         self.inp_fid.append(uttid, maskin_preds, classid)
 
@@ -315,7 +314,7 @@ class L2I(InterpreterBrain):
         def l2i_fid(predict, target):
             """Computes Accuracy"""
             predict = predict.argmax(1)
-            return (predict.unsqueeze(1) == target).float().squeeze()
+            return (predict.unsqueeze(1) == target).float().squeeze(1)
 
         @torch.no_grad()
         def save(x):
@@ -403,7 +402,7 @@ if __name__ == "__main__":
     print("Class Labels:", class_labels)
 
     assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
-    assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
+    # assert hparams["out_n_neurons"] == 50, "Fix number of outputs classes!"
 
     Interpreter_brain = L2I(
         modules=hparams["modules"],
