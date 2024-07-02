@@ -91,7 +91,7 @@ class LMAC(InterpreterBrain):
             class_prob = predictions[0, class_pred].item()
             print(f"classifier_prob: {class_prob}")
 
-        xhat = self.modules.psi(hcat, class_pred).squeeze(1)
+        xhat = self.modules.psi(hcat).squeeze(1)
 
         Tmax = xhat.shape[1]
         if self.hparams.use_mask_output:
@@ -115,7 +115,7 @@ class LMAC(InterpreterBrain):
         # Embeddings + sound classifier
         hcat, _, predictions, class_pred = self.classifier_forward(X_mel)
 
-        xhat = self.modules.psi(hcat, class_pred).squeeze(1)
+        xhat = self.modules.psi(hcat).squeeze(1)
 
         if self.hparams.use_mask_output:
             xhat = F.sigmoid(xhat)
