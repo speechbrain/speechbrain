@@ -18,7 +18,6 @@ audio_data_folder: !ref <data_folder>/audio
 
 wham_folder: null # Set it if add_wham_noise is True
 wham_audio_folder: !ref <wham_folder>/tr
-wham_metadata: "metadata/wham_speechbrain.csv"
 
 experiment_name: conv2dv2_classifier-16k
 output_folder: !ref ./results/<experiment_name>/<seed>

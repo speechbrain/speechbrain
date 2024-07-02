@@ -33,7 +33,6 @@ train_log: !ref <output_folder>/train_log.txt
 
 wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
-wham_metadata: "metadata/wham_speechbrain.csv"
 
 test_only: False
 save_interpretations: False

@@ -27,7 +27,6 @@ test_only: False
 
 wham_folder: null # Set it if add_wham_noise is True
 wham_audio_folder: !ref <wham_folder>/tr
-wham_metadata: "metadata/wham_speechbrain.csv"
 
 use_melspectra: False
 use_log1p_mel: False

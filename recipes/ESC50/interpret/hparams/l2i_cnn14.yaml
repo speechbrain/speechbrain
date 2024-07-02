@@ -30,7 +30,6 @@ add_wham_noise: False
 signal_length_s: 5
 wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
-wham_metadata: "metadata/wham_speechbrain.csv"
 
 experiment_name: L2I_cnn14
 output_folder: !ref ./results/<experiment_name>/<seed>

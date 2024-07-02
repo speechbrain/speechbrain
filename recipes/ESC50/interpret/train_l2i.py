@@ -327,6 +327,12 @@ class L2I(InterpreterBrain):
             "fid_loss": save,
         }
 
+    def pretrained_interpreter(self):
+        """This function enables us to use hparams.pretrained_interpreter inside train.py"""
+        print(
+            f"pretrained_interpreter path {self.hparams.pretrained_interpreter}"
+        )
+
 
 if __name__ == "__main__":
 
