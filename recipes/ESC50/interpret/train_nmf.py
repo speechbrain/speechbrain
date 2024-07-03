@@ -8,10 +8,10 @@ Authors
     * Cem Subakan 2022, 2023
     * Francesco Paissan 2022, 2023
 """
-
-
+import os
 import sys
 
+import matplotlib.pyplot as plt
 import torch
 from esc50_prepare import prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
@@ -32,7 +32,7 @@ class NMFBrain(sb.core.Brain):
         """
 
         batch = batch.to(self.device)
-        wavs, lens = batch.sig
+        wavs, _ = batch.sig
 
         X_stft = self.hparams.compute_stft(wavs)
         X_stft_power = self.hparams.compute_stft_mag(X_stft)
@@ -40,20 +40,40 @@ class NMFBrain(sb.core.Brain):
         z = self.hparams.nmf_encoder(X_stft_tf.permute(0, 2, 1))
         Xhat = self.hparams.nmf_decoder(z)
 
-        return Xhat
+        # returning wavs because they are augmented
+        return Xhat, wavs
 
     def compute_objectives(self, predictions, batch, stage=sb.Stage.TRAIN):
         """
         this function computes the l2-error to train the NMF model.
         """
-        batch = batch.to(self.device)
-        wavs, lens = batch.sig
+        # extracting augmented wavs
+        predictions, wavs = predictions
 
         X_stft = self.hparams.compute_stft(wavs)
         X_stft_power = self.hparams.compute_stft_mag(X_stft)
         target = torch.log1p(X_stft_power).permute(0, 2, 1)
 
         loss = ((target.squeeze() - predictions) ** 2).mean()
+
+        with torch.no_grad():
+            if (
+                self.hparams.epoch_counter.current % self.hparams.save_period
+                == 0
+                and stage == sb.Stage.VALID
+            ):
+                os.makedirs("nmf_rec", exist_ok=True)
+                for idx in range(X_stft.shape[0]):
+                    tmp = os.path.join("nmf_rec", f"{idx}.png")
+                    plt.subplot(121)
+                    plt.imshow(target[idx].cpu(), origin="lower")
+
+                    plt.subplot(122)
+                    plt.imshow(predictions[idx].cpu(), origin="lower")
+
+                    plt.tight_layout()
+                    plt.savefig(tmp)
+
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -92,6 +112,8 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
 
     # Create experiment directory
     sb.create_experiment_directory(
