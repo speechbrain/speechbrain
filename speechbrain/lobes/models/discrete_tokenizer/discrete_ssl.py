@@ -59,7 +59,7 @@ class DiscreteSSL(nn.Module):
     >>> ssl_layer_num = [7,23]
     >>> deduplicate =[False, True]
     >>> bpe_tokenizers=[None, None]
-    >>> kmeans_repo_id = "poonehmousavi/SSL_Quantization"
+    >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
     >>> kmeans_dataset = "LJSpeech"
     >>> num_clusters = 1000
     >>> ssl_model = HuBERT(model_hub, save_path,output_all_hiddens=True)
