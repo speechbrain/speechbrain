@@ -15,4 +15,3 @@ except ImportError:
 from .dac import *  # noqa
 from .discrete_ssl import *  # noqa
 from .encodec import *  # noqa
-from .speechtokenizer_interface import *  # noqa
