@@ -15,11 +15,3 @@ except ImportError:
 from .dac import *  # noqa
 from .discrete_ssl import *  # noqa
 from .encodec import *  # noqa
-
-# speechtokenizer is required for this package.
-try:
-    import speechtokenizer  # noqa
-except ImportError:
-    MSG = "Please install speechtokenizer.\n"
-    raise ImportError(MSG)
-from .speechtokenizer_interface import *  # noqa
