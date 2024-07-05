@@ -33,33 +33,33 @@ checkpoint_interval: 100
 
 # Dataloader options
 train_dataloader_opts:
-   batch_size: !ref <batch_size>
-   drop_last: True
+    batch_size: !ref <batch_size>
+    drop_last: True
 
 ssl_model: !apply:speechbrain.utils.hparams.choice
-   value: !ref <ssl_model_type>
-   choices:
-       wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
-           source: !ref <ssl_hub>
-           output_norm: False
-           freeze: !ref <freeze_ssl>
-           freeze_feature_extractor: !ref <freeze_feature_extractor>
-           output_all_hiddens: True
-           save_path: !ref <ssl_folder>
-       hubert: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
-           source: !ref <ssl_hub>
-           output_norm: False
-           freeze: !ref <freeze_ssl>
-           freeze_feature_extractor: !ref <freeze_feature_extractor>
-           output_all_hiddens: True
-           save_path: !ref <ssl_folder>
-       wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
-           source: !ref <ssl_hub>
-           output_norm: False
-           freeze: !ref <freeze_ssl>
-           freeze_feature_extractor: !ref <freeze_feature_extractor>
-           output_all_hiddens: True
-           save_path: !ref <ssl_folder>
+    value: !ref <ssl_model_type>
+    choices:
+        wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+            source: !ref <ssl_hub>
+            output_norm: False
+            freeze: !ref <freeze_ssl>
+            freeze_feature_extractor: !ref <freeze_feature_extractor>
+            output_all_hiddens: True
+            save_path: !ref <ssl_folder>
+        hubert: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
+            source: !ref <ssl_hub>
+            output_norm: False
+            freeze: !ref <freeze_ssl>
+            freeze_feature_extractor: !ref <freeze_feature_extractor>
+            output_all_hiddens: True
+            save_path: !ref <ssl_folder>
+        wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+            source: !ref <ssl_hub>
+            output_norm: False
+            freeze: !ref <freeze_ssl>
+            freeze_feature_extractor: !ref <freeze_feature_extractor>
+            output_all_hiddens: True
+            save_path: !ref <ssl_folder>
 
 
 ####################
