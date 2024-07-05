@@ -22,7 +22,7 @@ split_ratio: [80]
 skip_prep: False
 sample_rate: 16000
 
-ssl_model_type: hubert # hubeert, wavml or wav2vec2
+ssl_model_type: hubert # hubert, wavml or wav2vec2
 ssl_hub: facebook/hubert-large-ll60k
 freeze_feature_extractor: True
 freeze_ssl: True
