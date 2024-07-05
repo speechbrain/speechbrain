@@ -12,13 +12,6 @@ except ImportError:
     MSG += "For more information, visit: https://huggingface.co/docs/transformers/installation"
     raise ImportError(MSG)
 
-try:
-    import speechtokenizer  # noqa
-except ImportError:
-    MSG = "Please install speechtokenizer.\n"
-    MSG += "E.G. run: pip install speechtokenizer \n"
-    raise ImportError(MSG)
-
 from .dac import *  # noqa
 from .discrete_ssl import *  # noqa
 from .encodec import *  # noqa
