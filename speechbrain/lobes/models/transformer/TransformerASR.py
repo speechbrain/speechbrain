@@ -253,6 +253,9 @@ class TransformerASR(TransformerInterface):
 
         src_mask = None
 
+        if self.causal:
+            src_mask = get_lookahead_mask(src)
+
         # If no decoder in the transformer...
         if tgt is not None:
             tgt_key_padding_mask = get_key_padding_mask(tgt, pad_idx=pad_idx)
