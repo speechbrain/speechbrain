@@ -10,11 +10,7 @@ import os
 import torch
 from functools import wraps
 
-<<<<<<< HEAD
-MAIN_PROC_ENV = "MAIN_PROC_ONLY"
-=======
 MAIN_PROC_ONLY = 0
->>>>>>> origin/develop
 
 
 def run_on_main(
@@ -69,13 +65,9 @@ def run_on_main(
             # Just run on every process without any barrier.
             post_func(*post_args, **post_kwargs)
         else:
-<<<<<<< HEAD
-            main_process_only(post_func)(*post_args, **post_kwargs)
-=======
             # Do the opposite of `run_on_main`
             if not if_main_process():
                 post_func(*post_args, **post_kwargs)
->>>>>>> origin/develop
             ddp_barrier()
 
 
@@ -104,21 +96,13 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
-<<<<<<< HEAD
-        os.environ[MAIN_PROC_ENV] = "1"
-=======
         global MAIN_PROC_ONLY
         MAIN_PROC_ONLY += 1
->>>>>>> origin/develop
         if if_main_process():
             result = function(*args, **kwargs)
         else:
             result = None
-<<<<<<< HEAD
-        os.environ[MAIN_PROC_ENV] = "0"
-=======
         MAIN_PROC_ONLY -= 1
->>>>>>> origin/develop
         return result
 
     return main_proc_wrapped_func
@@ -130,11 +114,7 @@ def ddp_barrier():
     group enters this function.
     """
     # Check if we're in a single-threaded section, skip barrier
-<<<<<<< HEAD
-    if os.environ.get(MAIN_PROC_ENV, "0") == "1":
-=======
     if MAIN_PROC_ONLY >= 1:
->>>>>>> origin/develop
         return
     elif torch.distributed.is_initialized():
         torch.distributed.barrier()
