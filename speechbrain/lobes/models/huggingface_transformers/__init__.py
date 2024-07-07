@@ -12,6 +12,8 @@ except ImportError:
     MSG += "For more information, visit: https://huggingface.co/docs/transformers/installation"
     raise ImportError(MSG)
 
+from .discrete_ssl import *  # noqa
+from .encodec import *  # noqa
 from .gpt import *  # noqa
 from .hubert import *  # noqa
 from .huggingface import *  # noqa

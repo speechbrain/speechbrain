@@ -62,5 +62,5 @@ try:
     from speechtokenizer import SpeechTokenizer  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append(
-        "speechbrain/lobes/models/discrete_tokenizer/speechtokenizer_interface.py"
+        "speechbrain/lobes/models/discrete/speechtokenizer_interface.py"
     )
