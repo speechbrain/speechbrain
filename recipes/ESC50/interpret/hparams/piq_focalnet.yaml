@@ -22,7 +22,6 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
-concat_sources: False
 interpret_period: 10
 
 # Tensorboard logs
@@ -110,9 +109,9 @@ K: 1024
 
 # Pre-processing
 n_fft: 1024
-spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
+use_melspectra_log1p: False
 
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>
