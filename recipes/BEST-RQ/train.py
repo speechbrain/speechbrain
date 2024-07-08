@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-"""Recipe for pretraining BestRQ (TODO CITATION).
-See config file for model definition.
-See the readme of the recipe for advice on the pretraining that may appear
-a bit challenging depending on your available resources.
+"""Recipe for pretraining Best-RQ (https://arxiv.org/pdf/2405.04296)
 
-To run this recipe call python train_best_rq.py best_rq.yaml --find_unused_parameters --max_grad_norm 0.0
+To run this recipe call python train_best_rq.py best_rq.yaml --find_unused_parameters
 
 Authors
     * Ryan Whetten 2023
@@ -104,11 +101,6 @@ class BestRQBrain(sb.core.Brain):
         logits[:,mask_idx,:]
         targets[:,mask_idx].shape
 
-        if  not torch.isfinite(logits).all():
-            print('src: ', torch.isfinite(src).all())
-            print('enc: ', torch.isfinite(enc_out).all())
-            print('logits: ', torch.isfinite(logits).all())
-            print('targets: ', torch.isfinite(targets).all())
         ##### get masked region
         logits = logits[:,mask_idx,:]
         targets = targets[:,mask_idx]
@@ -125,55 +117,6 @@ class BestRQBrain(sb.core.Brain):
             self.acc_metric.append(accuracy)
 
         return F.cross_entropy(pred, targets)
-
-    def fit_batch(self, batch):
-
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            with torch.autocast(torch.device(self.device).type):
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            # Losses are excluded from mixed precision to avoid instabilities
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                self.scaler.scale(
-                    loss / self.grad_accumulation_factor
-                ).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-
-                self.scaler.update()
-                self.zero_grad()
-                self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            if self.bfloat16_mix_prec:
-                with torch.autocast(
-                    device_type=torch.device(self.device).type,
-                    dtype=torch.bfloat16,
-                ):
-                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                    loss = self.compute_objectives(
-                        outputs, batch, sb.Stage.TRAIN
-                    )
-            else:
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            with self.no_sync(not should_step):
-                (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.zero_grad()
-                self.optimizer_step += 1
-                self.hparams.noam_annealing(self.optimizer)
-
-        self.on_fit_batch_end(batch, outputs, loss, should_step)
-        return loss.detach().cpu()
 
     def on_fit_batch_end(self, batch, outputs, loss, should_ste):
         """ Called after fit_batch(), updates learning rate and does per-step logging. """
@@ -202,11 +145,6 @@ class BestRQBrain(sb.core.Brain):
             if sb.utils.distributed.if_main_process():
                 self.hparams.train_steps_logger.log_stats(stats_meta=log_dct,)
 
-    # def evaluate_batch(self, batch, stage):
-    #     """ Returns accuracy on contrastive objective. """
-    #     out = self.compute_forward(batch, stage=stage)
-    #     objectives = self.compute_objectives(out, batch, stage=stage)
-    #     return objectives["backprop_loss"].detach().cpu()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
