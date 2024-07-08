@@ -8,8 +8,8 @@ For data download and prepration, please refer to the `README.md` in `recipes/DN
 python train.py hparams/sepformer-dns-16k.yaml --data_folder <path/to/synthesized_shards_data> --baseline_noisy_shards_folder <path/to/baseline_dev_shards_data>
 ```
 ## **DNSMOS Evaluation on baseline-testclips**
-*Reference: [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) <br>*
-Download the evalution models from [Offical repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) and save it under `DNSMOS`. Then, to run DNSMOS evalution on the baseline-testclips saved in the above step.
+*Reference: [Official repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) <br>*
+Download the evaluation models from [Official repo](https://github.com/microsoft/DNS-Challenge/tree/master/DNSMOS) and save it under `DNSMOS`. Then, to run DNSMOS evaluation on the baseline-testclips saved in the above step.
 ```
 # Model=SepFormer
 python dnsmos_local.py -t results/sepformer-enhancement-16k/1234/save/baseline_audio_results/enhanced_testclips/ -o dnsmos_enhance.csv

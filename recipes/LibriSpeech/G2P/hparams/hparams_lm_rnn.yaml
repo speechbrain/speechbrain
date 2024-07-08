@@ -50,11 +50,11 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 tokenizer_file: <output_folder>/save/phoneme_tokenizer.model
 
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 80
 lr: 0.001
-accu_steps: 1 # Gradient accumulation to simulate large batch training
+grad_accumulation_factor: 1 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options
@@ -68,7 +68,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
     batch_size: 1
 
-# Model parameters
+####################### Model Parameters #######################################
 model_dim: !apply:speechbrain.utils.hparams.choice
     value: !ref <phn_tokenize>
     choices:

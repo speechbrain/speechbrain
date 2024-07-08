@@ -6,26 +6,26 @@ Ownership: Microsoft
     chkarada
 """
 
+import glob
 import os
+import subprocess
+
+import librosa
 import numpy as np
 import soundfile as sf
-import subprocess
-import glob
-import librosa
 
 EPS = np.finfo(float).eps
 np.random.seed(0)
 
 
 def is_clipped(audio, clipping_threshold=0.99):
-    """Check if an audio signal is clipped.
-    """
+    """Check if an audio signal is clipped."""
     return any(abs(audio) > clipping_threshold)
 
 
 def normalize(audio, target_level=-25):
     """Normalize the signal to the target level"""
-    rms = (audio ** 2).mean() ** 0.5
+    rms = (audio**2).mean() ** 0.5
     scalar = 10 ** (target_level / 20) / (rms + EPS)
     audio = audio * scalar
     return audio
@@ -53,7 +53,7 @@ def audioread(path, norm=False, start=0, stop=None, target_level=-25):
 
     if len(audio.shape) == 1:  # mono
         if norm:
-            rms = (audio ** 2).mean() ** 0.5
+            rms = (audio**2).mean() ** 0.5
             scalar = 10 ** (target_level / 20) / (rms + EPS)
             audio = audio * scalar
     else:  # multi-channel
@@ -101,7 +101,7 @@ def audiowrite(
 
 
 def add_reverb(sasxExe, input_wav, filter_file, output_wav):
-    """ Function to add reverb"""
+    """Function to add reverb"""
     command_sasx_apply_reverb = "{0} -r {1} \
         -f {2} -o {3}".format(
         sasxExe, input_wav, filter_file, output_wav
@@ -119,7 +119,6 @@ def add_clipping(audio, max_thresh_perc=0.8):
 
 
 def adsp_filter(Adspvqe, nearEndInput, nearEndOutput, farEndInput):
-
     command_adsp_clean = "{0} --breakOnErrors 0 --sampleRate 16000 --useEchoCancellation 0 \
                     --operatingMode 2 --useDigitalAgcNearend 0 --useDigitalAgcFarend 0 \
                     --useVirtualAGC 0 --useComfortNoiseGenerator 0 --useAnalogAutomaticGainControl 0 \
@@ -143,11 +142,11 @@ def snr_mixer(
     # Normalizing to -25 dB FS
     clean = clean / (max(abs(clean)) + EPS)
     clean = normalize(clean, target_level)
-    rmsclean = (clean ** 2).mean() ** 0.5
+    rmsclean = (clean**2).mean() ** 0.5
 
     noise = noise / (max(abs(noise)) + EPS)
     noise = normalize(noise, target_level)
-    rmsnoise = (noise ** 2).mean() ** 0.5
+    rmsnoise = (noise**2).mean() ** 0.5
 
     # Set the noise level for a given SNR
     noisescalar = rmsclean / (10 ** (snr / 20)) / (rmsnoise + EPS)
@@ -161,7 +160,7 @@ def snr_mixer(
     noisy_rms_level = np.random.randint(
         params["target_level_lower"], params["target_level_upper"]
     )
-    rmsnoisy = (noisyspeech ** 2).mean() ** 0.5
+    rmsnoisy = (noisyspeech**2).mean() ** 0.5
     scalarnoisy = 10 ** (noisy_rms_level / 20) / (rmsnoisy + EPS)
     noisyspeech = noisyspeech * scalarnoisy
     clean = clean * scalarnoisy
@@ -212,7 +211,7 @@ def segmental_snr_mixer(
     noisy_rms_level = np.random.randint(
         params["target_level_lower"], params["target_level_upper"]
     )
-    rmsnoisy = (noisyspeech ** 2).mean() ** 0.5
+    rmsnoisy = (noisyspeech**2).mean() ** 0.5
     scalarnoisy = 10 ** (noisy_rms_level / 20) / (rmsnoisy + EPS)
     noisyspeech = noisyspeech * scalarnoisy
     clean = clean * scalarnoisy
@@ -245,7 +244,7 @@ def active_rms(clean, noise, fs=16000, energy_thresh=-50):
         sample_end = min(sample_start + window_samples, len(noise))
         noise_win = noise[sample_start:sample_end]
         clean_win = clean[sample_start:sample_end]
-        noise_seg_rms = (noise_win ** 2).mean() ** 0.5
+        noise_seg_rms = (noise_win**2).mean() ** 0.5
         # Considering frames with energy
         if noise_seg_rms > energy_thresh:
             noise_active_segs = np.append(noise_active_segs, noise_win)
@@ -253,12 +252,12 @@ def active_rms(clean, noise, fs=16000, energy_thresh=-50):
         sample_start += window_samples
 
     if len(noise_active_segs) != 0:
-        noise_rms = (noise_active_segs ** 2).mean() ** 0.5
+        noise_rms = (noise_active_segs**2).mean() ** 0.5
     else:
         noise_rms = EPS
 
     if len(clean_active_segs) != 0:
-        clean_rms = (clean_active_segs ** 2).mean() ** 0.5
+        clean_rms = (clean_active_segs**2).mean() ** 0.5
     else:
         clean_rms = EPS
 
@@ -284,7 +283,7 @@ def activitydetector(audio, fs=16000, energy_thresh=0.13, target_level=-25):
     while sample_start < len(audio):
         sample_end = min(sample_start + window_samples, len(audio))
         audio_win = audio[sample_start:sample_end]
-        frame_rms = 20 * np.log10(sum(audio_win ** 2) + EPS)
+        frame_rms = 20 * np.log10(sum(audio_win**2) + EPS)
         frame_energy_prob = 1.0 / (1 + np.exp(-(a + b * frame_rms)))
 
         if frame_energy_prob > prev_energy_prob:

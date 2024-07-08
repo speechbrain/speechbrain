@@ -7,13 +7,15 @@ Given the tiny dataset, the expected behavior is to overfit the training dataset
 (with a validation performance that stays high).
 """
 import pathlib
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class seq2seqBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the output probabilities."
+        """Given an input batch it computes the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
         phns_bos, _ = batch.phn_encoded_bos
@@ -27,18 +29,15 @@ class seq2seqBrain(sb.Brain):
         logits = self.modules.lin(h)
         outputs = self.hparams.softmax(logits)
 
+        seq = None
         if stage != sb.Stage.TRAIN:
-            seq, _ = self.hparams.searcher(x, wav_lens)
-            return outputs, seq
+            seq, _, _, _ = self.hparams.searcher(x, wav_lens)
 
-        return outputs
+        return outputs, seq
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the NLL loss."
-        if stage == sb.Stage.TRAIN:
-            outputs = predictions
-        else:
-            outputs, seq = predictions
+        """Given the network predictions and targets computed the NLL loss."""
+        outputs, seq = predictions
 
         ids = batch.id
         phns, phn_lens = batch.phn_encoded_eos
@@ -50,29 +49,13 @@ class seq2seqBrain(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Fits train batches"""
-        preds = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(preds, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage=sb.Stage.TEST):
-        """Evaluates test batches"""
-        out = self.compute_forward(batch, stage)
-        loss = self.compute_objectives(out, batch, stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage != sb.Stage.TRAIN:
             self.per_metrics = self.hparams.per_stats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        "Gets called when a stage (either training, validation, test) ends."
+        """Gets called when a stage (either training, validation, test) ends."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         if stage == sb.Stage.VALID and epoch is not None:
@@ -84,8 +67,7 @@ class seq2seqBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

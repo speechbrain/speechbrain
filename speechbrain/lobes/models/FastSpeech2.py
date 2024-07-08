@@ -7,63 +7,27 @@ Authors
 * Yingzhi Wang 2023
 """
 
+import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 from torch.nn.modules.loss import _Loss
-from speechbrain.nnet import CNN, linear
-from speechbrain.nnet.embedding import Embedding
+
 from speechbrain.lobes.models.transformer.Transformer import (
+    PositionalEncoding,
     TransformerEncoder,
     get_key_padding_mask,
+    get_mask_from_lengths,
 )
-from speechbrain.nnet.normalization import LayerNorm
+from speechbrain.nnet import CNN, linear
+from speechbrain.nnet.embedding import Embedding
 from speechbrain.nnet.losses import bce_loss
-import numpy as np
-
-
-class PositionalEmbedding(nn.Module):
-    """Computation of the positional embeddings.
-    Arguments
-    ---------
-    embed_dim: int
-        dimensionality of the embeddings.
-    """
-
-    def __init__(self, embed_dim):
-        super(PositionalEmbedding, self).__init__()
-        self.demb = embed_dim
-        inv_freq = 1 / (
-            10000 ** (torch.arange(0.0, embed_dim, 2.0) / embed_dim)
-        )
-        self.register_buffer("inv_freq", inv_freq)
-
-    def forward(self, seq_len, mask, dtype):
-        """Computes the forward pass
-        Arguments
-        ---------
-        seq_len: int
-            length of the sequence
-        mask: torch.tensor
-            mask applied to the positional embeddings
-        dtype: str
-            dtype of the embeddings
-        Returns
-        -------
-        pos_emb: torch.Tensor
-            the tensor with positional embeddings
-        """
-        pos_seq = torch.arange(seq_len, device=mask.device).to(dtype)
-
-        sinusoid_inp = torch.matmul(
-            torch.unsqueeze(pos_seq, -1), torch.unsqueeze(self.inv_freq, 0)
-        )
-        pos_emb = torch.cat([sinusoid_inp.sin(), sinusoid_inp.cos()], dim=1)
-        return pos_emb[None, :, :] * mask[:, :, None]
+from speechbrain.nnet.normalization import LayerNorm
 
 
 class EncoderPreNet(nn.Module):
     """Embedding layer for tokens
+
     Arguments
     ---------
     n_vocab: int
@@ -72,6 +36,7 @@ class EncoderPreNet(nn.Module):
         padding index
     out_channels: int
         the size of each embedding vector
+
     Example
     -------
     >>> from speechbrain.nnet.embedding import Embedding
@@ -93,10 +58,12 @@ class EncoderPreNet(nn.Module):
 
     def forward(self, x):
         """Computes the forward pass
+
         Arguments
         ---------
         x: torch.Tensor
             a (batch, tokens) input tensor
+
         Returns
         -------
         output: torch.Tensor
@@ -117,11 +84,11 @@ class PostNet(nn.Module):
     postnet_embedding_dim: int
        output feature dimension for convolution layers
     postnet_kernel_size: int
-       postnet convolution kernal size
+       postnet convolution kernel size
     postnet_n_convolutions: int
        number of convolution layers
     postnet_dropout: float
-        dropout probability fot postnet
+        dropout probability for postnet
     """
 
     def __init__(
@@ -140,9 +107,9 @@ class PostNet(nn.Module):
             padding="same",
         )
 
-        self.convs_intermedite = nn.ModuleList()
+        self.convs_intermediate = nn.ModuleList()
         for i in range(1, postnet_n_convolutions - 1):
-            self.convs_intermedite.append(
+            self.convs_intermediate.append(
                 CNN.Conv1d(
                     in_channels=postnet_embedding_dim,
                     out_channels=postnet_embedding_dim,
@@ -168,10 +135,12 @@ class PostNet(nn.Module):
 
     def forward(self, x):
         """Computes the forward pass
+
         Arguments
         ---------
         x: torch.Tensor
             a (batch, time_steps, features) input tensor
+
         Returns
         -------
         output: torch.Tensor
@@ -182,8 +151,8 @@ class PostNet(nn.Module):
         x = self.tanh(x)
         x = self.dropout1(x)
 
-        for i in range(len(self.convs_intermedite)):
-            x = self.convs_intermedite[i](x)
+        for i in range(len(self.convs_intermediate)):
+            x = self.convs_intermediate[i](x)
         x = self.ln2(x).to(x.dtype)
         x = self.tanh(x)
         x = self.dropout2(x)
@@ -197,6 +166,7 @@ class PostNet(nn.Module):
 
 class DurationPredictor(nn.Module):
     """Duration predictor layer
+
     Arguments
     ---------
     in_channels: int
@@ -204,9 +174,11 @@ class DurationPredictor(nn.Module):
     out_channels: int
        output feature dimension for convolution layers
     kernel_size: int
-       duration predictor convolution kernal size
+       duration predictor convolution kernel size
     dropout: float
        dropout probability, 0 by default
+    n_units: int
+
     Example
     -------
     >>> from speechbrain.lobes.models.FastSpeech2 import FastSpeech2
@@ -243,12 +215,14 @@ class DurationPredictor(nn.Module):
 
     def forward(self, x, x_mask):
         """Computes the forward pass
+
         Arguments
         ---------
         x: torch.Tensor
             a (batch, time_steps, features) input tensor
         x_mask: torch.Tensor
             mask of input tensor
+
         Returns
         -------
         output: torch.Tensor
@@ -266,7 +240,6 @@ class DurationPredictor(nn.Module):
 
 
 class SPNPredictor(nn.Module):
-
     """
     This module for the silent phoneme predictor. It receives phoneme sequences without any silent phoneme token as
     input and predicts whether a silent phoneme should be inserted after a position. This is to avoid the issue of fast
@@ -291,7 +264,7 @@ class SPNPredictor(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer
+        whether to use convolutional layers instead of feed forward network inside transformer layer
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     n_char: int
@@ -323,7 +296,7 @@ class SPNPredictor(nn.Module):
             n_char, padding_idx, out_channels=enc_d_model
         )
 
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
 
@@ -345,6 +318,7 @@ class SPNPredictor(nn.Module):
 
     def forward(self, tokens, last_phonemes):
         """forward pass for the module
+
         Arguments
         ---------
         tokens: torch.Tensor
@@ -353,7 +327,7 @@ class SPNPredictor(nn.Module):
             indicates if a phoneme at an index is the last phoneme of a word or not
 
         Returns
-        ---------
+        -------
         spn_decision: torch.Tensor
             indicates if a silent phoneme should be inserted after a phoneme
         """
@@ -366,9 +340,7 @@ class SPNPredictor(nn.Module):
 
         srcmask = get_key_padding_mask(tokens, pad_idx=self.padding_idx)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
 
         spn_mask = (
@@ -393,6 +365,7 @@ class SPNPredictor(nn.Module):
 
     def infer(self, tokens, last_phonemes):
         """inference function
+
         Arguments
         ---------
         tokens: torch.Tensor
@@ -401,7 +374,7 @@ class SPNPredictor(nn.Module):
             indicates if a phoneme at an index is the last phoneme of a word or not
 
         Returns
-        ---------
+        -------
         spn_decision: torch.Tensor
             indicates if a silent phoneme should be inserted after a phoneme
         """
@@ -418,9 +391,9 @@ class FastSpeech2(nn.Module):
     Simplified STRUCTURE: input->token embedding ->encoder ->duration/pitch/energy predictor ->duration
     upsampler -> decoder -> output
     During training, teacher forcing is used (ground truth durations are used for upsampling)
+
     Arguments
     ---------
-    #encoder parameters
     enc_num_layers: int
         number of transformer layers (TransformerEncoderLayer) in encoder
     enc_num_head: int
@@ -435,13 +408,6 @@ class FastSpeech2(nn.Module):
         the dimension of the value
     enc_dropout: float
         Dropout for the encoder
-    normalize_before: bool
-        whether normalization should be applied before or after MHA or FFN in Transformer layers.
-    ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer
-    ffn_cnn_kernel_size_list: list of int
-        conv kernel size of 2 1d-convs if ffn_type is 1dcnn
-    #decoder parameters
     dec_num_layers: int
         number of transformer layers (TransformerEncoderLayer) in decoder
     dec_num_head: int
@@ -459,7 +425,7 @@ class FastSpeech2(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer.
+        whether to use convolutional layers instead of feed forward network inside transformer layer.
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     n_char: int
@@ -469,11 +435,11 @@ class FastSpeech2(nn.Module):
     postnet_embedding_dim: int
        output feature dimension for convolution layers
     postnet_kernel_size: int
-       postnet convolution kernal size
+       postnet convolution kernel size
     postnet_n_convolutions: int
        number of convolution layers
     postnet_dropout: float
-        dropout probability fot postnet
+        dropout probability for postnet
     padding_idx: int
         the index for padding
     dur_pred_kernel_size: int
@@ -484,6 +450,7 @@ class FastSpeech2(nn.Module):
         kernel size for energy prediction.
     variance_predictor_dropout: float
         dropout probability for variance predictor (duration/pitch/energy)
+
     Example
     -------
     >>> import torch
@@ -535,6 +502,7 @@ class FastSpeech2(nn.Module):
 
     def __init__(
         self,
+        # encoder parameters
         enc_num_layers,
         enc_num_head,
         enc_d_model,
@@ -542,6 +510,7 @@ class FastSpeech2(nn.Module):
         enc_k_dim,
         enc_v_dim,
         enc_dropout,
+        # decoder parameters
         dec_num_layers,
         dec_num_head,
         dec_d_model,
@@ -568,10 +537,10 @@ class FastSpeech2(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
-        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
             dec_d_model
         )
 
@@ -659,6 +628,7 @@ class FastSpeech2(nn.Module):
         energy_rate=1.0,
     ):
         """forward pass for training and inference
+
         Arguments
         ---------
         tokens: torch.Tensor
@@ -675,8 +645,9 @@ class FastSpeech2(nn.Module):
             scaling factor for pitches
         energy_rate: float
             scaling factor for energies
+
         Returns
-        ---------
+        -------
         mel_post: torch.Tensor
             mel outputs from the decoder
         postnet_output: torch.Tensor
@@ -701,9 +672,7 @@ class FastSpeech2(nn.Module):
 
         # prenet & encoder
         token_feats = self.encPreNet(tokens)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -762,7 +731,8 @@ class FastSpeech2(nn.Module):
             durations if durations is not None else dur_pred_reverse_log,
             pace=pace,
         )
-        srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -772,10 +742,7 @@ class FastSpeech2(nn.Module):
         )
 
         # decoder
-        pos = self.sinusoidal_positional_embed_decoder(
-            spec_feats.shape[1], srcmask, spec_feats.dtype
-        )
-
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats)
         spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
 
         output_mel_feats, memory, *_ = self.decoder(
@@ -799,14 +766,16 @@ class FastSpeech2(nn.Module):
 
 def average_over_durations(values, durs):
     """Average values over durations.
+
     Arguments
     ---------
     values: torch.Tensor
         shape: [B, 1, T_de]
     durs: torch.Tensor
         shape: [B, T_en]
+
     Returns
-    ---------
+    -------
     avg: torch.Tensor
         shape: [B, 1, T_en]
     """
@@ -837,19 +806,21 @@ def average_over_durations(values, durs):
 
 
 def upsample(feats, durs, pace=1.0, padding_value=0.0):
-    """upsample encoder ouput according to durations
+    """upsample encoder output according to durations
+
     Arguments
     ---------
-    feats: torch.tensor
+    feats: torch.Tensor
         batch of input tokens
-    durs: torch.tensor
+    durs: torch.Tensor
         durations to be used to upsample
     pace: float
         scaling factor for durations
     padding_value: int
         padding index
+
     Returns
-    ---------
+    -------
     mel_post: torch.Tensor
         mel outputs from the decoder
     predict_durations: torch.Tensor
@@ -863,40 +834,44 @@ def upsample(feats, durs, pace=1.0, padding_value=0.0):
     mel_lens = [mel.shape[0] for mel in upsampled_mels]
 
     padded_upsampled_mels = torch.nn.utils.rnn.pad_sequence(
-        upsampled_mels, batch_first=True, padding_value=padding_value,
+        upsampled_mels, batch_first=True, padding_value=padding_value
     )
     return padded_upsampled_mels, mel_lens
 
 
 class TextMelCollate:
-    """ Zero-pads model inputs and targets based on number of frames per step
-    result: tuple
-        a tuple of tensors to be used as inputs/targets
-        (
-            text_padded,
-            dur_padded,
-            input_lengths,
-            mel_padded,
-            output_lengths,
-            len_x,
-            labels,
-            wavs
-        )
-    """
+    """Zero-pads model inputs and targets based on number of frames per step"""
 
     # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
+
         Arguments
         ---------
         batch: list
             [text_normalized, mel_normalized]
+
+        Returns
+        -------
+        text_padded: torch.Tensor
+        dur_padded: torch.Tensor
+        input_lengths: torch.Tensor
+        mel_padded: torch.Tensor
+        pitch_padded: torch.Tensor
+        energy_padded: torch.Tensor
+        output_lengths: torch.Tensor
+        len_x: torch.Tensor
+        labels: torch.Tensor
+        wavs: torch.Tensor
+        no_spn_seq_padded: torch.Tensor
+        spn_labels_padded: torch.Tensor
+        last_phonemes_padded: torch.Tensor
         """
         # TODO: Remove for loops
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary wiht one elemnent
+        ):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
@@ -987,20 +962,27 @@ class TextMelCollate:
 
 class Loss(nn.Module):
     """Loss Computation
+
     Arguments
     ---------
     log_scale_durations: bool
-       applies logarithm to target durations
-    duration_loss_weight: int
-       weight for the duration loss
-    pitch_loss_weight: int
-       weight for the pitch loss
-    energy_loss_weight: int
-       weight for the energy loss
-    mel_loss_weight: int
-       weight for the mel loss
-    postnet_mel_loss_weight: int
-       weight for the postnet mel loss
+        applies logarithm to target durations
+    ssim_loss_weight: float
+        weight for ssim loss
+    duration_loss_weight: float
+        weight for the duration loss
+    pitch_loss_weight: float
+        weight for the pitch loss
+    energy_loss_weight: float
+        weight for the energy loss
+    mel_loss_weight: float
+        weight for the mel loss
+    postnet_mel_loss_weight: float
+        weight for the postnet mel loss
+    spn_loss_weight: float
+        weight for spn loss
+    spn_loss_max_epochs: int
+        Max number of epochs
     """
 
     def __init__(
@@ -1035,12 +1017,16 @@ class Loss(nn.Module):
 
     def forward(self, predictions, targets, current_epoch):
         """Computes the value of the loss function and updates stats
+
         Arguments
         ---------
         predictions: tuple
             model predictions
         targets: tuple
             ground truth data
+        current_epoch: int
+            The count of the current epoch.
+
         Returns
         -------
         loss: torch.Tensor
@@ -1173,6 +1159,7 @@ def mel_spectogram(
     audio,
 ):
     """calculates MelSpectrogram for a raw audio signal
+
     Arguments
     ---------
     sample_rate : int
@@ -1193,14 +1180,21 @@ def mel_spectogram(
         Exponent for the magnitude spectrogram.
     normalized : bool
         Whether to normalize by magnitude after stft.
+    min_max_energy_norm : bool
+        Whether to normalize by min-max
     norm : str or None
         If "slaney", divide the triangular mel weights by the width of the mel band
     mel_scale : str
         Scale to use: "htk" or "slaney".
     compression : bool
         whether to do dynamic range compression
-    audio : torch.tensor
+    audio : torch.Tensor
         input audio signal
+
+    Returns
+    -------
+    mel : torch.Tensor
+    rmse : torch.Tensor
     """
     from torchaudio import transforms
 
@@ -1237,8 +1231,7 @@ def mel_spectogram(
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamic range compression for audio signals
-    """
+    """Dynamic range compression for audio signals"""
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -1254,14 +1247,16 @@ class SSIMLoss(torch.nn.Module):
     # from https://gist.github.com/jihunchoi/f1434a77df9db1bb337417854b398df1
     def sequence_mask(self, sequence_length, max_len=None):
         """Create a sequence mask for filtering padding in a sequence tensor.
+
         Arguments
         ---------
         sequence_length: torch.Tensor
             Sequence lengths.
         max_len: int
             Maximum sequence length. Defaults to None.
+
         Returns
-        ---------
+        -------
         mask: [B, T_max]
         """
         if max_len is None:
@@ -1275,12 +1270,17 @@ class SSIMLoss(torch.nn.Module):
 
     def sample_wise_min_max(self, x: torch.Tensor, mask: torch.Tensor):
         """Min-Max normalize tensor through first dimension
+
         Arguments
         ---------
         x: torch.Tensor
             input tensor [B, D1, D2]
-        m: torch.Tensor
+        mask: torch.Tensor
             input mask [B, D1, 1]
+
+        Returns
+        -------
+        Normalized tensor
         """
         maximum = torch.amax(x.masked_fill(~mask, 0), dim=(1, 2), keepdim=True)
         minimum = torch.amin(
@@ -1298,8 +1298,9 @@ class SSIMLoss(torch.nn.Module):
             target values [B, T, D].
         length: torch.Tensor
             length of each sample in a batch for masking.
+
         Returns
-        ---------
+        -------
         loss: Average loss value in range [0, 1] masked by the length.
         """
         mask = self.sequence_mask(
@@ -1335,6 +1336,7 @@ class _SSIMLoss(_Loss):
     The sum operation still operates over all the elements, and divides by n.
     The division by n can be avoided if one sets reduction = sum.
     In case of 5D input tensors, complex value is returned as a tensor of size 2.
+
     Arguments
     ---------
     kernel_size: int
@@ -1352,13 +1354,14 @@ class _SSIMLoss(_Loss):
         Specifies the reduction type
     data_range: Union[int, float]
         Maximum value range of images (usually 1.0 or 255).
+
     Example
     -------
-        >>> loss = _SSIMLoss()
-        >>> x = torch.rand(3, 3, 256, 256, requires_grad=True)
-        >>> y = torch.rand(3, 3, 256, 256)
-        >>> output = loss(x, y)
-        >>> output.backward()
+    >>> loss = _SSIMLoss()
+    >>> x = torch.rand(3, 3, 256, 256, requires_grad=True)
+    >>> y = torch.rand(3, 3, 256, 256)
+    >>> output = loss(x, y)
+    >>> output.backward()
     """
 
     __constants__ = ["kernel_size", "k1", "k2", "sigma", "kernel", "reduction"]
@@ -1394,6 +1397,7 @@ class _SSIMLoss(_Loss):
 
     def _reduce(self, x, reduction="mean"):
         """Reduce input in batch dimension if needed.
+
         Arguments
         ---------
         x: torch.Tensor
@@ -1401,6 +1405,10 @@ class _SSIMLoss(_Loss):
         reduction: str
             Specifies the reduction type:
             none | mean | sum (Default: mean)
+
+        Returns
+        -------
+        Reduced outputs.
         """
         if reduction == "none":
             return x
@@ -1420,16 +1428,21 @@ class _SSIMLoss(_Loss):
         size_range=None,
     ):
         """Check if the input satisfies the requirements
+
         Arguments
         ---------
         tensors: torch.Tensor
-            Tensors to check
+            torch.Tensors to check
         dim_range: Tuple[int, int]
             Allowed number of dimensions. (min, max)
         data_range: Tuple[float, float]
             Allowed range of values in tensors. (min, max)
         size_range: Tuple[int, int]
             Dimensions to include in size comparison. (start_dim, end_dim + 1)
+
+        Returns
+        -------
+        None
         """
 
         if not __debug__:
@@ -1472,28 +1485,31 @@ class _SSIMLoss(_Loss):
 
     def gaussian_filter(self, kernel_size, sigma):
         """Returns 2D Gaussian kernel N(0,sigma^2)
+
         Arguments
         ---------
-        size: int
+        kernel_size: int
             Size of the kernel
         sigma: float
             Std of the distribution
+
         Returns
-        ---------
+        -------
         gaussian_kernel: torch.Tensor
             [1, kernel_size, kernel_size]
         """
         coords = torch.arange(kernel_size, dtype=torch.float32)
         coords -= (kernel_size - 1) / 2.0
 
-        g = coords ** 2
-        g = (-(g.unsqueeze(0) + g.unsqueeze(1)) / (2 * sigma ** 2)).exp()
+        g = coords**2
+        g = (-(g.unsqueeze(0) + g.unsqueeze(1)) / (2 * sigma**2)).exp()
 
         g /= g.sum()
         return g.unsqueeze(0)
 
     def _ssim_per_channel(self, x, y, kernel, k1=0.01, k2=0.03):
         """Calculate Structural Similarity (SSIM) index for X and Y per channel.
+
         Arguments
         ---------
         x: torch.Tensor
@@ -1507,9 +1523,10 @@ class _SSIMLoss(_Loss):
         k2: float
             Algorithm parameter (see equation in the link above).
             Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
+
         Returns
-        ---------
-            Full Value of Structural Similarity (SSIM) index.
+        -------
+        Full Value of Structural Similarity (SSIM) index.
         """
         if x.size(-1) < kernel.size(-1) or x.size(-2) < kernel.size(-2):
             raise ValueError(
@@ -1517,8 +1534,8 @@ class _SSIMLoss(_Loss):
                 f"Kernel size: {kernel.size()}"
             )
 
-        c1 = k1 ** 2
-        c2 = k2 ** 2
+        c1 = k1**2
+        c2 = k2**2
         n_channels = x.size(1)
         mu_x = F.conv2d(
             x, weight=kernel, stride=1, padding=0, groups=n_channels
@@ -1527,19 +1544,19 @@ class _SSIMLoss(_Loss):
             y, weight=kernel, stride=1, padding=0, groups=n_channels
         )
 
-        mu_xx = mu_x ** 2
-        mu_yy = mu_y ** 2
+        mu_xx = mu_x**2
+        mu_yy = mu_y**2
         mu_xy = mu_x * mu_y
 
         sigma_xx = (
             F.conv2d(
-                x ** 2, weight=kernel, stride=1, padding=0, groups=n_channels
+                x**2, weight=kernel, stride=1, padding=0, groups=n_channels
             )
             - mu_xx
         )
         sigma_yy = (
             F.conv2d(
-                y ** 2, weight=kernel, stride=1, padding=0, groups=n_channels
+                y**2, weight=kernel, stride=1, padding=0, groups=n_channels
             )
             - mu_yy
         )
@@ -1562,6 +1579,7 @@ class _SSIMLoss(_Loss):
 
     def _ssim_per_channel_complex(self, x, y, kernel, k1=0.01, k2=0.03):
         """Calculate Structural Similarity (SSIM) index for Complex X and Y per channel.
+
         Arguments
         ---------
         x: torch.Tensor
@@ -1575,8 +1593,10 @@ class _SSIMLoss(_Loss):
         k2: float
             Algorithm parameter (see equation in the link above).
             Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
-        Returns:
-            Full Value of Complex Structural Similarity (SSIM) index.
+
+        Returns
+        -------
+        Full Value of Complex Structural Similarity (SSIM) index.
         """
         n_channels = x.size(1)
         if x.size(-2) < kernel.size(-1) or x.size(-3) < kernel.size(-2):
@@ -1585,8 +1605,8 @@ class _SSIMLoss(_Loss):
                 f"Kernel size: {kernel.size()}"
             )
 
-        c1 = k1 ** 2
-        c2 = k2 ** 2
+        c1 = k1**2
+        c2 = k2**2
 
         x_real = x[..., 0]
         x_imag = x[..., 1]
@@ -1676,6 +1696,7 @@ class _SSIMLoss(_Loss):
         """Interface of Structural Similarity (SSIM) index.
         Inputs supposed to be in range [0, data_range].
         To match performance with skimage and tensorflow set downsample = True.
+
         Arguments
         ---------
         x: torch.Tensor
@@ -1700,10 +1721,11 @@ class _SSIMLoss(_Loss):
         k2: float
             Algorithm parameter (see equation in the link above).
             Try a larger K2 constant (e.g. 0.4) if you get a negative or NaN results.
+
         Returns
-        ---------
-            Value of Structural Similarity (SSIM) index. In case of 5D input tensors, complex value is returned
-            as a tensor of size 2.
+        -------
+        Value of Structural Similarity (SSIM) index. In case of 5D input tensors, complex value is returned
+        as a tensor of size 2.
         """
         assert (
             kernel_size % 2 == 1
@@ -1747,14 +1769,16 @@ class _SSIMLoss(_Loss):
 
     def forward(self, x, y):
         """Computation of Structural Similarity (SSIM) index as a loss function.
+
         Arguments
         ---------
         x: torch.Tensor
             An input tensor (N, C, H, W) or (N, C, H, W, 2).
         y: torch.Tensor
             A target tensor (N, C, H, W) or (N, C, H, W, 2).
+
         Returns
-        ---------
+        -------
         Value of SSIM loss to be minimized, i.e 1 - ssim in [0, 1] range. In case of 5D input tensors,
         complex value is returned as a tensor of size 2.
         """
@@ -1775,7 +1799,7 @@ class _SSIMLoss(_Loss):
 
 
 class TextMelCollateWithAlignment:
-    """ Zero-pads model inputs and targets based on number of frames per step
+    """Zero-pads model inputs and targets based on number of frames per step
     result: tuple
         a tuple of tensors to be used as inputs/targets
         (
@@ -1793,16 +1817,28 @@ class TextMelCollateWithAlignment:
     # TODO: Make this more intuitive, use the pipeline
     def __call__(self, batch):
         """Collate's training batch from normalized text and mel-spectrogram
+
         Arguments
         ---------
         batch: list
             [text_normalized, mel_normalized]
+
+        Returns
+        -------
+        phoneme_padded: torch.Tensor
+        input_lengths: torch.Tensor
+        mel_padded: torch.Tensor
+        pitch_padded: torch.Tensor
+        energy_padded: torch.Tensor
+        output_lengths: torch.Tensor
+        labels: torch.Tensor
+        wavs: torch.Tensor
         """
         # TODO: Remove for loops
         raw_batch = list(batch)
         for i in range(
             len(batch)
-        ):  # the pipline return a dictionary wiht one elemnent
+        ):  # the pipeline return a dictionary with one element
             batch[i] = batch[i]["mel_text_pair"]
 
         # Right zero-pad all one-hot text sequences to max input length
@@ -1860,12 +1896,18 @@ class TextMelCollateWithAlignment:
 def maximum_path_numpy(value, mask):
     """
     Monotonic alignment search algorithm, numpy works faster than the torch implementation.
+
     Arguments
     ---------
     value: torch.Tensor
         input alignment values [b, t_x, t_y]
     mask: torch.Tensor
         input alignment mask [b, t_x, t_y]
+
+    Returns
+    -------
+    path: torch.Tensor
+
     Example
     -------
     >>> import torch
@@ -2008,6 +2050,7 @@ class AlignmentNetwork(torch.nn.Module):
 
     def forward(self, queries, keys, mask, attn_prior):
         """Forward pass of the aligner encoder.
+
         Arguments
         ---------
         queries: torch.Tensor
@@ -2018,11 +2061,12 @@ class AlignmentNetwork(torch.nn.Module):
             the query mask[B, T_de]
         attn_prior: torch.Tensor
             the prior attention tensor [B, 1, T_en, T_de]
+
         Returns
-        ---------
-        attn: torch.tensor
+        -------
+        attn: torch.Tensor
             soft attention [B, 1, T_en, T_de]
-        attn_logp: torch.tensor
+        attn_logp: torch.Tensor
             log probabilities [B, 1, T_en , T_de]
         """
         key_out = self.key_layer(keys)
@@ -2053,7 +2097,6 @@ class FastSpeech2WithAlignment(nn.Module):
 
     Arguments
     ---------
-    #encoder parameters
     enc_num_layers: int
         number of transformer layers (TransformerEncoderLayer) in encoder
     enc_num_head: int
@@ -2068,13 +2111,6 @@ class FastSpeech2WithAlignment(nn.Module):
         the dimension of the value
     enc_dropout: float
         Dropout for the encoder
-    normalize_before: bool
-        whether normalization should be applied before or after MHA or FFN in Transformer layers.
-    ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer
-    ffn_cnn_kernel_size_list: list of int
-        conv kernel size of 2 1d-convs if ffn_type is 1dcnn
-    #aligner parameters
     in_query_channels: int
         Number of channels in the query network.
     in_key_channels: int
@@ -2083,7 +2119,6 @@ class FastSpeech2WithAlignment(nn.Module):
         Number of inner channels in the attention layers.
     temperature: float
         Temperature for the softmax.
-    #decoder parameters
     dec_num_layers: int
         number of transformer layers (TransformerEncoderLayer) in decoder
     dec_num_head: int
@@ -2101,7 +2136,7 @@ class FastSpeech2WithAlignment(nn.Module):
     normalize_before: bool
         whether normalization should be applied before or after MHA or FFN in Transformer layers.
     ffn_type: str
-        whether to use convolutional layers instead of feed forward network inside tranformer layer.
+        whether to use convolutional layers instead of feed forward network inside transformer layer.
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     n_char: int
@@ -2109,13 +2144,13 @@ class FastSpeech2WithAlignment(nn.Module):
     n_mels: int
         number of bins in mel spectrogram
     postnet_embedding_dim: int
-       output feature dimension for convolution layers
+        output feature dimension for convolution layers
     postnet_kernel_size: int
-       postnet convolution kernal size
+        postnet convolution kernel size
     postnet_n_convolutions: int
-       number of convolution layers
+        number of convolution layers
     postnet_dropout: float
-        dropout probability fot postnet
+        dropout probability for postnet
     padding_idx: int
         the index for padding
     dur_pred_kernel_size: int
@@ -2126,6 +2161,7 @@ class FastSpeech2WithAlignment(nn.Module):
         kernel size for energy prediction.
     variance_predictor_dropout: float
         dropout probability for variance predictor (duration/pitch/energy)
+
     Example
     -------
     >>> import torch
@@ -2179,6 +2215,7 @@ class FastSpeech2WithAlignment(nn.Module):
 
     def __init__(
         self,
+        # encoder parameters
         enc_num_layers,
         enc_num_head,
         enc_d_model,
@@ -2186,10 +2223,12 @@ class FastSpeech2WithAlignment(nn.Module):
         enc_k_dim,
         enc_v_dim,
         enc_dropout,
+        # aligner parameters
         in_query_channels,
         in_key_channels,
         attn_channels,
         temperature,
+        # decoder parameters
         dec_num_layers,
         dec_num_head,
         dec_d_model,
@@ -2216,10 +2255,10 @@ class FastSpeech2WithAlignment(nn.Module):
         self.enc_num_head = enc_num_head
         self.dec_num_head = dec_num_head
         self.padding_idx = padding_idx
-        self.sinusoidal_positional_embed_encoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_encoder = PositionalEncoding(
             enc_d_model
         )
-        self.sinusoidal_positional_embed_decoder = PositionalEmbedding(
+        self.sinusoidal_positional_embed_decoder = PositionalEncoding(
             dec_d_model
         )
 
@@ -2319,8 +2358,9 @@ class FastSpeech2WithAlignment(nn.Module):
             Input sequence mask [B, 1, T_en].
         y_mask: torch.Tensor
             Output sequence mask [B, 1, T_de].
+
         Returns
-        ---------
+        -------
         durations: torch.Tensor
             Durations from the hard alignment map [B, T_en].
         alignment_soft: torch.Tensor
@@ -2353,6 +2393,7 @@ class FastSpeech2WithAlignment(nn.Module):
         energy_rate=1.0,
     ):
         """forward pass for training and inference
+
         Arguments
         ---------
         tokens: torch.Tensor
@@ -2369,8 +2410,9 @@ class FastSpeech2WithAlignment(nn.Module):
             scaling factor for pitches
         energy_rate: float
             scaling factor for energies
+
         Returns
-        ---------
+        -------
         mel_post: torch.Tensor
             mel outputs from the decoder
         postnet_output: torch.Tensor
@@ -2403,9 +2445,7 @@ class FastSpeech2WithAlignment(nn.Module):
 
         # encoder
         token_feats = self.encPreNet(tokens)
-        pos = self.sinusoidal_positional_embed_encoder(
-            token_feats.shape[1], srcmask, token_feats.dtype
-        )
+        pos = self.sinusoidal_positional_embed_encoder(token_feats)
         token_feats = torch.add(token_feats, pos) * srcmask_inverted
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -2489,12 +2529,15 @@ class FastSpeech2WithAlignment(nn.Module):
         # upsampling
         spec_feats, mel_lens = upsample(
             token_feats,
-            alignment_durations
-            if alignment_durations is not None
-            else predict_durations_reverse_log,
+            (
+                alignment_durations
+                if alignment_durations is not None
+                else predict_durations_reverse_log
+            ),
             pace=pace,
         )
-        srcmask = get_key_padding_mask(spec_feats, pad_idx=self.padding_idx)
+        srcmask = get_mask_from_lengths(torch.tensor(mel_lens))
+        srcmask = srcmask.to(spec_feats.device)
         srcmask_inverted = (~srcmask).unsqueeze(-1)
         attn_mask = (
             srcmask.unsqueeze(-1)
@@ -2504,10 +2547,7 @@ class FastSpeech2WithAlignment(nn.Module):
         )
 
         # decoder
-        pos = self.sinusoidal_positional_embed_decoder(
-            spec_feats.shape[1], srcmask, spec_feats.dtype
-        )
-
+        pos = self.sinusoidal_positional_embed_decoder(spec_feats)
         spec_feats = torch.add(spec_feats, pos) * srcmask_inverted
 
         output_mel_feats, memory, *_ = self.decoder(
@@ -2536,6 +2576,7 @@ class FastSpeech2WithAlignment(nn.Module):
 
 class LossWithAlignment(nn.Module):
     """Loss computation including internal aligner
+
     Arguments
     ---------
     log_scale_durations: bool
@@ -2602,6 +2643,7 @@ class LossWithAlignment(nn.Module):
 
     def forward(self, predictions, targets, current_epoch):
         """Computes the value of the loss function and updates stats
+
         Arguments
         ---------
         predictions: tuple
@@ -2610,6 +2652,7 @@ class LossWithAlignment(nn.Module):
             ground truth data
         current_epoch: int
             used to determinate the start/end of the binary alignment loss
+
         Returns
         -------
         loss: torch.Tensor
@@ -2638,13 +2681,13 @@ class LossWithAlignment(nn.Module):
             alignment_hard,
         ) = predictions
 
-        predicted_pitch = predicted_pitch.squeeze()
-        predicted_energy = predicted_energy.squeeze()
+        predicted_pitch = predicted_pitch.squeeze(-1)
+        predicted_energy = predicted_energy.squeeze(-1)
 
-        target_pitch = average_pitch.squeeze()
-        target_energy = average_energy.squeeze()
+        target_pitch = average_pitch.squeeze(-1)
+        target_energy = average_energy.squeeze(-1)
 
-        log_durations = log_durations.squeeze()
+        log_durations = log_durations.squeeze(-1)
         if self.log_scale_durations:
             log_target_durations = torch.log(alignment_durations.float() + 1)
         # change this to perform batch level using padding mask
@@ -2751,9 +2794,11 @@ class LossWithAlignment(nn.Module):
 
 class ForwardSumLoss(nn.Module):
     """CTC alignment loss
+
     Arguments
     ---------
     blank_logprob: pad value
+
     Example
     -------
     >>> import torch
@@ -2781,6 +2826,10 @@ class ForwardSumLoss(nn.Module):
             mel lengths
         query_lens: torch.Tensor
             phoneme lengths
+
+        Returns
+        -------
+        total_loss: torch.Tensor
         """
         attn_logprob_padded = torch.nn.functional.pad(
             input=attn_logprob, pad=(1, 0), value=self.blank_logprob

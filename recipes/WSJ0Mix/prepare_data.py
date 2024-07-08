@@ -1,13 +1,13 @@
 """
-The .csv preperation functions for WSJ0-Mix.
+The .csv preparation functions for WSJ0-Mix.
 
 Author
  * Cem Subakan 2020
 
  """
 
-import os
 import csv
+import os
 
 
 def prepare_wsjmix(
@@ -34,7 +34,6 @@ def prepare_wsjmix(
         return
 
     if "wsj" in datapath:
-
         if n_spks == 2:
             assert (
                 "2speakers" in datapath
@@ -103,7 +102,6 @@ def create_custom_dataset(
             for i, (mix_path, s1_path, s2_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,
@@ -159,7 +157,6 @@ def create_wsj_csv(datapath, savepath):
             for i, (mix_path, s1_path, s2_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,
@@ -220,7 +217,6 @@ def create_wsj_csv_3spks(datapath, savepath):
             for i, (mix_path, s1_path, s2_path, s3_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, s3_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,

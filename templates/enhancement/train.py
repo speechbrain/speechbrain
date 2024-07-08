@@ -19,10 +19,12 @@ Authors
  * Peter Plantinga 2021
 """
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
+
+import speechbrain as sb
 
 
 # Brain class for speech enhancement training
@@ -44,11 +46,15 @@ class SEBrain(sb.Brain):
         predictions : dict
             A dictionary with keys {"spec", "wav"} with predicted features.
         """
-
         # We first move the batch to the appropriate device, and
         # compute the features necessary for masking.
         batch = batch.to(self.device)
-        noisy_wavs, lens = batch.noisy_sig
+        self.clean_wavs, self.lens = batch.clean_sig
+
+        noisy_wavs, self.lens = self.hparams.wav_augment(
+            self.clean_wavs, self.lens
+        )
+
         noisy_feats = self.compute_feats(noisy_wavs)
 
         # Masking is done here with the "signal approximation (SA)" algorithm.
@@ -72,8 +78,12 @@ class SEBrain(sb.Brain):
         ---------
         wavs : torch.Tensor
             The batch of waveforms to convert to log-spectral features.
-        """
 
+        Returns
+        -------
+        feats : torch.Tensor
+            The computed features.
+        """
         # Log-spectral features
         feats = self.hparams.compute_STFT(wavs)
         feats = sb.processing.features.spectral_magnitude(feats, power=0.5)
@@ -100,17 +110,21 @@ class SEBrain(sb.Brain):
         loss : torch.Tensor
             A one-element tensor used for backpropagating the gradient.
         """
-
         # Prepare clean targets for comparison
-        clean_wavs, lens = batch.clean_sig
-        clean_spec = self.compute_feats(clean_wavs)
+        clean_spec = self.compute_feats(self.clean_wavs)
 
         # Directly compare the masked spectrograms with the clean targets
-        loss = sb.nnet.losses.mse_loss(predictions["spec"], clean_spec, lens)
+        loss = sb.nnet.losses.mse_loss(
+            predictions["spec"], clean_spec, self.lens
+        )
 
         # Append this batch of losses to the loss metric for easy
         self.loss_metric.append(
-            batch.id, predictions["spec"], clean_spec, lens, reduction="batch"
+            batch.id,
+            predictions["spec"],
+            clean_spec,
+            self.lens,
+            reduction="batch",
         )
 
         # Some evaluations are slower, and we only want to perform them
@@ -121,8 +135,8 @@ class SEBrain(sb.Brain):
             self.stoi_metric.append(
                 batch.id,
                 predictions["wav"],
-                clean_wavs,
-                lens,
+                self.clean_wavs,
+                self.lens,
                 reduction="batch",
             )
 
@@ -139,7 +153,6 @@ class SEBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
             metric=sb.nnet.losses.mse_loss
@@ -164,7 +177,6 @@ class SEBrain(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -220,15 +232,13 @@ def dataio_prep(hparams):
     # Define audio pipeline. Adds noise, reverb, and babble on-the-fly.
     # Of course for a real enhancement dataset, you'd want a fixed valid set.
     @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
+    @sb.utils.data_pipeline.provides("clean_sig")
     def audio_pipeline(wav):
         """Load the signal, and pass it and its length to the corruption class.
-        This is done on the CPU in the `collate_fn`."""
+        This is done on the CPU in the `collate_fn`.
+        """
         clean_sig = sb.dataio.dataio.read_audio(wav)
-        noisy_sig = hparams["env_corruption"](
-            clean_sig.unsqueeze(0), torch.ones(1)
-        ).squeeze(0)
-        return noisy_sig, clean_sig
+        return clean_sig
 
     # Define datasets sorted by ascending lengths for efficiency
     datasets = {}
@@ -243,7 +253,7 @@ def dataio_prep(hparams):
             json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
-            output_keys=["id", "noisy_sig", "clean_sig"],
+            output_keys=["id", "clean_sig"],
         ).filtered_sorted(sort_key="length")
     return datasets
 
@@ -279,6 +289,7 @@ if __name__ == "__main__":
                 "save_json_test": hparams["test_annotation"],
             },
         )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
 
     # Create dataset objects "train" and "valid"
     datasets = dataio_prep(hparams)

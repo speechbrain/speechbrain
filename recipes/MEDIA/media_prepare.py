@@ -8,17 +8,18 @@ See README.md for more info.
 
 Author
 ------
-Gaelle Laperriere 2023
+Gaëlle Laperrière 2023
 """
 
-import xml.dom.minidom as DOM
-from tqdm import tqdm
-import logging
-import subprocess
 import csv
-import os
 import glob
+import logging
+import os
 import re
+import subprocess
+import xml.dom.minidom as DOM
+
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,10 @@ def prepare_media(
         If True, skip data preparation.
     process_test2: bool, optional
         It True, process test2 corpus
+
+    Returns
+    -------
+    None
     """
 
     if skip_prep:
@@ -114,7 +119,7 @@ def prepare_media(
     channels, filenames = get_channels(channels_path)
 
     # Wavs.
-    if not (skip_wav):
+    if not skip_wav:
         logger.info("Processing wavs")
         for wav_path in tqdm(wav_paths):
             filename = wav_path.split("/")[-1][:-4]
@@ -130,10 +135,11 @@ def prepare_media(
             + str(len(xmls))
         )
         root = get_root(
-            data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml, 0,
+            data_folder + "/E0024/MEDIA1FR_00/MEDIA1FR/DATA/" + xml,
+            0,
         )
         data = parse(
-            root, channels, filenames, save_folder, method, task, xmls[xml],
+            root, channels, filenames, save_folder, method, task, xmls[xml]
         )
         if xmls[xml] == "train":
             train_data.extend(data)
@@ -181,6 +187,15 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     Detects if the MEDIA data preparation has been already done.
     If the preparation has been done, we can skip it.
 
+    Arguments
+    ---------
+    save_csv_train : str
+        Path to train csv
+    save_csv_dev : str
+        Path to dev csv
+    save_csv_test : str
+        Path to test csv
+
     Returns
     -------
     bool
@@ -201,9 +216,7 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     return skip
 
 
-def parse(
-    root, channels, filenames, save_folder, method, task, corpus,
-):
+def parse(root, channels, filenames, save_folder, method, task, corpus):
     """
     Parse data for the train, dev and test csv files of the Media dataset.
     Files are stored in MEDIA1FR_00/MEDIA1FR/DATA/.
@@ -229,20 +242,18 @@ def parse(
     Returns
     -------
     list
-        all informations needed to append the data in SpeechBrain csv files.
+        all information needed to append the data in SpeechBrain csv files.
     """
 
     data = []
 
     for dialogue in root.getElementsByTagName("dialogue"):
-
         speaker_name = get_speaker(dialogue)
         filename = dialogue.getAttribute("id")
         channel = get_channel(filename, channels, filenames)
 
         for turn in dialogue.getElementsByTagName("turn"):
             if turn.getAttribute("speaker") == "spk":
-
                 time_beg = turn.getAttribute("startTime")
                 time_end = turn.getAttribute("endTime")
 
@@ -294,6 +305,10 @@ def parse_test2(
         Concepts in method full.
     concepts_relax: list of str
         Concepts equivalent in method relax.
+
+    Returns
+    -------
+    data : list
     """
 
     speaker_id, speaker_name = get_speaker_test2(root)
@@ -303,7 +318,6 @@ def parse_test2(
 
     for turn in root.getElementsByTagName("Turn"):
         if turn.getAttribute("speaker") == speaker_id:
-
             time_beg = turn.getAttribute("startTime")
             time_end = turn.getAttribute("endTime")
 
@@ -401,8 +415,8 @@ def parse_sentences(turn, time_beg, time_end, method, task):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
 
-    Arguments:
-    -------
+    Arguments
+    ---------
     turn: list of Document
         The current turn node.
     time_beg: str
@@ -416,7 +430,7 @@ def parse_sentences(turn, time_beg, time_end, method, task):
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     has_speech = False
@@ -442,7 +456,6 @@ def parse_sentences(turn, time_beg, time_end, method, task):
                 for transcription in sem.getElementsByTagName("transcription"):
                     # Check for sync or text
                     for node in transcription.childNodes:
-
                         # Check transcription
                         if (
                             node.nodeType == node.TEXT_NODE
@@ -510,13 +523,13 @@ def parse_sentences(turn, time_beg, time_end, method, task):
 
 
 def parse_sentences_test2(
-    turn, time_beg, time_end, method, concepts_full, concepts_relax, task,
+    turn, time_beg, time_end, method, concepts_full, concepts_relax, task
 ):
     """
     Get the sentences spoken by the speaker (not the "Compère" aka Woz).
 
-    Arguments:
-    -------
+    Arguments
+    ---------
     turn: list of Document
         All the xml following nodes present in the turn.
     time_beg: str
@@ -534,7 +547,7 @@ def parse_sentences_test2(
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     sentences = [["", "", time_beg, time_end]]
@@ -547,7 +560,6 @@ def parse_sentences_test2(
 
     # For each node in the Turn
     for node in turn.childNodes:
-
         # Check concept
         if task == "slu" and node.nodeName == "SemDebut":
             concept = node.getAttribute("concept")
@@ -634,14 +646,14 @@ def process_text_node(
     ---------
     node: Node
         Node of the xml file.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept: str
@@ -650,7 +662,7 @@ def process_text_node(
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     task: str, optional
         Either 'slu' or 'asr'.
         'slu' Parse SLU data.
@@ -662,7 +674,7 @@ def process_text_node(
 
     Returns
     -------
-    dictionnary of str, bool, bool, bool
+    dictionary of str, bool, bool, bool
     """
 
     # Add a new concept, when speech following
@@ -697,20 +709,20 @@ def process_sync_node(
     ---------
     node: Node
         Node of the xml file.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
+        False if closing tag put or concept not used.
     task: str, optional
         Either 'slu' or 'asr'.
         'slu' Parse SLU data.
@@ -724,11 +736,11 @@ def process_sync_node(
 
     Returns
     -------
-    dictionnary of str, bool, bool, str, int
+    dictionary of str, bool, bool, str, int
     """
 
     # If the segment has no speech yet
-    if not (has_speech):
+    if not has_speech:
         # Change time_beg for the last segment
         sentences[n][2] = node.getAttribute("time")
     # If the segment has speech and sync doesn't cut a concept
@@ -759,14 +771,14 @@ def process_semfin_node(
 
     Arguments
     ---------
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     sync_waiting: bool
         Used to keep track of sync nodes, to cut blank audio signal.
         True if a sync node has been processed without text in it.
         False if no sync nodes have been processed, or text has been parsed after one.
     has_speech: bool
-        Used to keep track of the existency of speech in the turn's sentence.
+        Used to keep track of the existence of speech in the turn's sentence.
         True if speech is present in the turn.
         False if no speech is present yet in the turn.
     concept: str
@@ -775,11 +787,7 @@ def process_semfin_node(
     concept_open: bool
         Used to know if a concept has been used but not its closing tag ">".
         True if closing tag not seen yet and concept has been used.
-        False if clossing tag put or concept not used.
-    task: str, optional
-        Either 'slu' or 'asr'.
-        'slu' Parse SLU data.
-        'asr' Parse ASR data.
+        False if closing tag put or concept not used.
     n: int
         Used to keep track of the number of sentences in the turn.
     time: str
@@ -789,7 +797,7 @@ def process_semfin_node(
 
     Returns
     -------
-    dictionnary of str, str, bool, bool, bool, int
+    dictionary of str, str, bool, bool, bool, int
     """
 
     # Prevent adding a closing concept
@@ -814,12 +822,12 @@ def clean_last_char(sentences):
 
     Arguments
     ---------
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
 
     Returns
     -------
-    dictionnary of str
+    dictionary of str
     """
 
     for n in range(len(sentences)):
@@ -827,7 +835,7 @@ def clean_last_char(sentences):
             sentences[n][0] = sentences[n][0][:-1]  # Remove last ' '
             sentences[n][1] = sentences[n][1][:-3]  # Remove last ' _ '
         else:
-            del sentences[n]  # Usefull for last appended segment
+            del sentences[n]  # Useful for last appended segment
     return sentences
 
 
@@ -845,6 +853,7 @@ def normalize_sentence(sentence):
     str
     """
 
+    # cspell:disable
     # Apostrophes
     sentence = sentence.replace(" '", "'")  # Join apostrophe to previous word
     sentence = sentence.replace("'", "' ")  # Detach apostrophe to next word
@@ -875,6 +884,7 @@ def normalize_sentence(sentence):
     # Specific
     sentence = sentence.replace("c' est", "c'est")  # Re-join this word
     return sentence
+    # cspell:enable
 
 
 def write_first_row(save_folder, corpus):
@@ -912,7 +922,7 @@ def write_first_row(save_folder, corpus):
 
 def split_audio_channels(path, filename, channel, save_folder):
     """
-    Split the stereo wav Media files from the dowloaded dataset.
+    Split the stereo wav Media files from the downloaded dataset.
     Keep only the speaker channel.
 
     Arguments:
@@ -1070,7 +1080,7 @@ def get_channels(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
+        Can be downloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------
@@ -1117,7 +1127,7 @@ def get_concepts_full_relax(path):
     ---------
     path: str
         Path of the channels csv file given with this recipe.
-        Can be dowloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
+        Can be downloaded from https://www.dropbox.com/sh/y7ab0lktbylz647/AADMsowYHmNYwaoL_hQt7NMha?dl=0
 
     Returns
     -------
@@ -1205,7 +1215,7 @@ def get_IDs(speaker_name, sentences, channel, filename):
     ---------
     speaker_name: str
         Speaker name of the turn, already normalized.
-    sentences: dictionnary of str
+    sentences: dictionary of str
         All sentences being extracted from the turn.
     channel: str
         "R" or "L" following the channel of the speaker in the stereo wav file.

@@ -1,6 +1,8 @@
-import os
 import logging
+import os
+
 import torchaudio
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import get_all_files
 
@@ -33,13 +35,14 @@ def prepare_commonlanguage(folder, csv_file, max_noise_len=None):
 
 def _prepare_csv(folder, filelist, csv_file, max_length=None):
     """Iterate a set of wavs and write the corresponding csv file.
+
     Arguments
     ---------
     folder : str
         The folder relative to which the files in the list are listed.
     filelist : str
         The location of a file listing the files to be used.
-    csvfile : str
+    csv_file : str
         The location to use for writing the csv file.
     max_length : float
         The maximum length in seconds. Waveforms longer
@@ -50,7 +53,6 @@ def _prepare_csv(folder, filelist, csv_file, max_length=None):
             with open(csv_file, "w") as w:
                 w.write("ID,duration,wav,wav_format,wav_opts\n\n")
                 for line in filelist:
-
                     # Read file for duration/channel info
                     filename = os.path.join(folder, line.split()[-1])
                     signal, rate = torchaudio.load(filename)

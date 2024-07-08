@@ -19,7 +19,9 @@ Note that for the speaker verification experiments with Voxceleb2 the official s
 Voxceleb2 stores files with the m4a audio format. To use them within SpeechBrain you have to convert all the m4a files into wav files.
 You can do the conversion using ffmpeg(https://gist.github.com/seungwonpark/4f273739beef2691cd53b5c39629d830). This operation might take several hours and should be only once.
 
+<!-- cspell:disable -->
 2. Put all the wav files in a folder called wav. You should have something like `voxceleb2/wav/id*/*.wav` (e.g, `voxceleb2/wav/id00012/21Uxsk56VDQ/00001.wav`)
+<!-- cspell:enable -->
 
 3. copy the `voxceleb1/vox1_test_wav.zip` file into the voxceleb2 folder.
 
@@ -83,16 +85,16 @@ Below results are all obtained with the official verification split of voxceleb1
 [Speaker verification results (in EER) on VoxCeleb1-O, with score normalization]
 | System          | Dataset    | EER  | Model/Log Link |
 |-----------------|------------|------| -----|
-| Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://www.dropbox.com/sh/mau2nrt6i81ctfc/AAAUkAECzVaVWUMjD3mytjgea?dl=0 |
+| Xvector + PLDA  | VoxCeleb 1,2 | 3.23% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
 | ECAPA-TDNN      | VoxCeleb 1,2 | 0.80% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
-| ResNet TDNN     | VoxCeleb 1,2 | 0.95% | https://www.dropbox.com/sh/yvqn7tn6iqztx9k/AAAhhhbOCUJ47C0LbcpUlzYUa?dl=0 |
+| ResNet TDNN     | VoxCeleb 1,2 | 0.95% | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
 
 [Speaker verification results (in EER), no score normalization]
 | System          | Dataset    | VoxCeleb1-O  | VoxCeleb1-E  | VoxCeleb1-H  | Model/Log Link |
 |-----------------|------------|------|------|------| -----|
 | ECAPA-TDNN      | VoxCeleb 1,2 | 0.90% | - | - | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0 |
 | ECAPA-TDNN      | VoxCeleb 2 | 1.30% | 1.98% | 3.62% | (to be updated) |
-| ResNet TDNN     | VoxCeleb 1,2 | 1.05% | - | - | https://www.dropbox.com/sh/yvqn7tn6iqztx9k/AAAhhhbOCUJ47C0LbcpUlzYUa?dl=0  |
+| ResNet TDNN     | VoxCeleb 1,2 | 1.05% | - | - | https://www.dropbox.com/sh/ab1ma1lnmskedo8/AADsmgOLPdEjSF6wV3KyhNG1a?dl=0  |
 
 
 ## PreTrained Model + Easy-Inference

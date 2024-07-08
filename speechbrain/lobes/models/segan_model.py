@@ -10,11 +10,12 @@ Authors
  * Francis Carter 2021
 """
 
+from math import floor
+
 import torch
 import torch.nn as nn
-import torch.utils.data
 import torch.nn.functional as F
-from math import floor
+import torch.utils.data
 
 
 class Generator(torch.nn.Module):
@@ -171,7 +172,10 @@ class Discriminator(torch.nn.Module):
                     )
                 )
                 self.Layers.append(
-                    nn.Linear(in_features=8, out_features=1,)  # Channels[i+1],
+                    nn.Linear(
+                        in_features=8,
+                        out_features=1,
+                    )  # Channels[i+1],
                 )
 
     def forward(self, x):
@@ -193,7 +197,7 @@ class Discriminator(torch.nn.Module):
 
 
 def d1_loss(d_outputs, reduction="mean"):
-    """Calculates the loss of the discriminator when the inputs are clean    """
+    """Calculates the loss of the discriminator when the inputs are clean"""
     output = 0.5 * ((d_outputs - 1) ** 2)
     if reduction == "mean":
         return output.mean()
@@ -202,7 +206,7 @@ def d1_loss(d_outputs, reduction="mean"):
 
 
 def d2_loss(d_outputs, reduction="mean"):
-    """Calculates the loss of the discriminator when the inputs are not clean    """
+    """Calculates the loss of the discriminator when the inputs are not clean"""
     output = 0.5 * ((d_outputs) ** 2)
     if reduction == "mean":
         return output.mean()
@@ -221,7 +225,7 @@ def g3_loss(
     z_logvar=None,
     reduction="mean",
 ):
-    """Calculates the loss of the generator given the discriminator outputs    """
+    """Calculates the loss of the generator given the discriminator outputs"""
     discrimloss = 0.5 * ((d_outputs - 1) ** 2)
     l1norm = torch.nn.functional.l1_loss(predictions, targets, reduction="none")
 

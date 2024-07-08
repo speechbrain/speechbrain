@@ -32,12 +32,12 @@ skip_prep: False # Skip data preparation
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 15.0
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 30
 lr: 1.0
 lr_wav2vec: 0.0001
 sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
@@ -58,7 +58,7 @@ test_dataloader_options:
 token_type: char  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
-# Model parameters
+####################### Model Parameters #######################################
 wav2vec_output_dim: 1024
 dnn_neurons: 1024
 freeze_wav2vec: False
@@ -78,9 +78,41 @@ eos_index: 2
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    concat_original: True
+    min_augmentations: 4
+    max_augmentations: 4
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+############################## Models ##########################################
+
 
 enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <wav2vec_output_dim>]
@@ -104,7 +136,7 @@ enc: !new:speechbrain.nnet.containers.Sequential
     bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation3: !new:torch.nn.LeakyReLU
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>

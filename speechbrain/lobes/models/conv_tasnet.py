@@ -1,10 +1,11 @@
 """ Implementation of a popular speech separation model.
 """
+
 import torch
 import torch.nn as nn
-import speechbrain as sb
 import torch.nn.functional as F
 
+import speechbrain as sb
 from speechbrain.processing.signal_processing import overlap_and_add
 
 EPS = 1e-8
@@ -30,7 +31,7 @@ class Encoder(nn.Module):
     """
 
     def __init__(self, L, N):
-        super(Encoder, self).__init__()
+        super().__init__()
 
         # 50% overlap
         self.conv1d_U = sb.nnet.CNN.Conv1d(
@@ -45,12 +46,12 @@ class Encoder(nn.Module):
         """
         Arguments
         ---------
-        mixture : Tensor
+        mixture : torch.Tensor
             Tensor shape is [M, T]. M is batch size. T is #samples
 
         Returns
         -------
-        mixture_w : Tensor
+        mixture_w : torch.Tensor
             Tensor shape is [M, K, N], where K = (T-L)/(L/2)+1 = 2T/L-1
         """
         mixture = torch.unsqueeze(mixture, -1)  # [M, T, 1]
@@ -69,6 +70,8 @@ class Decoder(nn.Module):
     ---------
     L : int
         Number of bases to use when reconstructing.
+    N : int
+        Input size
 
     Example
     -------
@@ -82,7 +85,7 @@ class Decoder(nn.Module):
     """
 
     def __init__(self, L, N):
-        super(Decoder, self).__init__()
+        super().__init__()
 
         # Hyper-parameter
         self.L = L
@@ -96,14 +99,14 @@ class Decoder(nn.Module):
         """
         Arguments
         ---------
-        mixture_w : Tensor
+        mixture_w : torch.Tensor
             Tensor shape is [M, K, N].
-        est_mask : Tensor
+        est_mask : torch.Tensor
             Tensor shape is [M, K, C, N].
 
         Returns
         -------
-        est_source : Tensor
+        est_source : torch.Tensor
             Tensor shape is [M, T, C].
         """
         # D = W * M
@@ -135,7 +138,7 @@ class TemporalBlocksSequential(sb.nnet.containers.Sequential):
         The number of times to replicate the multilayer Temporal Blocks.
     X : int
         The number of layers of Temporal Blocks with different dilations.
-    norm type : str
+    norm_type : str
         The type of normalization, in ['gLN', 'cLN'].
     causal : bool
         To use causal or non-causal convolutions, in [True, False].
@@ -156,7 +159,7 @@ class TemporalBlocksSequential(sb.nnet.containers.Sequential):
         super().__init__(input_shape=input_shape)
         for r in range(R):
             for x in range(X):
-                dilation = 2 ** x
+                dilation = 2**x
                 self.append(
                     TemporalBlock,
                     out_channels=H,
@@ -195,8 +198,8 @@ class MaskNet(nn.Module):
     mask_nonlinear : str
         Use which non-linear function to generate mask, in ['softmax', 'relu'].
 
-    Example:
-    ---------
+    Example
+    -------
     >>> N, B, H, P, X, R, C = 11, 12, 2, 5, 3, 1, 2
     >>> MaskNet = MaskNet(N, B, H, P, X, R, C)
     >>> mixture_w = torch.randn(10, 11, 100)
@@ -218,7 +221,7 @@ class MaskNet(nn.Module):
         causal=False,
         mask_nonlinear="relu",
     ):
-        super(MaskNet, self).__init__()
+        super().__init__()
 
         # Hyper-parameter
         self.C = C
@@ -230,7 +233,10 @@ class MaskNet(nn.Module):
 
         # [M, K, N] -> [M, K, B]
         self.bottleneck_conv1x1 = sb.nnet.CNN.Conv1d(
-            in_channels=N, out_channels=B, kernel_size=1, bias=False,
+            in_channels=N,
+            out_channels=B,
+            kernel_size=1,
+            bias=False,
         )
 
         # [M, K, B] -> [M, K, B]
@@ -249,12 +255,12 @@ class MaskNet(nn.Module):
 
         Arguments
         ---------
-        mixture_w : Tensor
+        mixture_w : torch.Tensor
             Tensor shape is [M, K, N], M is batch size.
 
         Returns
         -------
-        est_mask : Tensor
+        est_mask : torch.Tensor
             Tensor shape is [M, K, C, N].
         """
         mixture_w = mixture_w.permute(0, 2, 1)
@@ -299,13 +305,13 @@ class TemporalBlock(torch.nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
     dilation : int
         Amount of dilation in convolutional layers.
-    norm type : str
+    norm_type : str
         The type of normalization, in ['gLN', 'cLN'].
     causal : bool
         To use causal or non-causal convolutions, in [True, False].
 
-    Example:
-    ---------
+    Example
+    -------
     >>> x = torch.randn(14, 100, 10)
     >>> TemporalBlock = TemporalBlock(x.shape, 10, 11, 1, 'same', 1)
     >>> y = TemporalBlock(x)
@@ -359,12 +365,12 @@ class TemporalBlock(torch.nn.Module):
         """
         Arguments
         ---------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape is [M, K, B].
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape is [M, K, B].
         """
         residual = x
@@ -390,7 +396,7 @@ class DepthwiseSeparableConv(sb.nnet.containers.Sequential):
         (same, valid, causal). If "valid", no padding is performed.
     dilation : int
         Amount of dilation in convolutional layers.
-    norm type : str
+    norm_type : str
         The type of normalization, in ['gLN', 'cLN'].
     causal : bool
         To use causal or non-causal convolutions, in [True, False].
@@ -478,18 +484,19 @@ class Chomp1d(nn.Module):
     """
 
     def __init__(self, chomp_size):
-        super(Chomp1d, self).__init__()
+        super().__init__()
         self.chomp_size = chomp_size
 
     def forward(self, x):
         """
         Arguments
-        x : Tensor
+        ---------
+        x : torch.Tensor
             Tensor shape is [M, Kpad, H].
 
         Returns
         -------
-        x : Tensor
+        x : torch.Tensor
             Tensor shape is [M, K, H].
         """
         return x[:, : -self.chomp_size, :].contiguous()
@@ -504,6 +511,10 @@ def choose_norm(norm_type, channel_size):
         One of ['gLN', 'cLN', 'batchnorm'].
     channel_size : int
         Number of channels.
+
+    Returns
+    -------
+    Constructed layer of the chosen type
 
     Example
     -------
@@ -537,7 +548,7 @@ class ChannelwiseLayerNorm(nn.Module):
     """
 
     def __init__(self, channel_size):
-        super(ChannelwiseLayerNorm, self).__init__()
+        super().__init__()
         self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.reset_parameters()
@@ -578,7 +589,7 @@ class GlobalLayerNorm(nn.Module):
     """
 
     def __init__(self, channel_size):
-        super(GlobalLayerNorm, self).__init__()
+        super().__init__()
         self.gamma = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.beta = nn.Parameter(torch.Tensor(1, 1, channel_size))  # [1, 1, N]
         self.reset_parameters()
@@ -592,12 +603,12 @@ class GlobalLayerNorm(nn.Module):
         """
         Arguments
         ---------
-        y : Tensor
+        y : torch.Tensor
             Tensor shape [M, K, N]. M is batch size, N is channel size, and K is length.
 
         Returns
         -------
-        gLN_y : Tensor
+        gLN_y : torch.Tensor
             Tensor shape [M, K. N]
         """
         mean = y.mean(dim=1, keepdim=True).mean(

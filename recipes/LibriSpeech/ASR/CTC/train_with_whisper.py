@@ -20,15 +20,17 @@ Authors
  * Samuele Cornell 2020
 """
 
-import sys
-import torch
 import logging
+import sys
+from pathlib import Path
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
-from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +43,9 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         # Forward pass
 
@@ -56,10 +57,12 @@ class ASR(sb.Brain):
         p_tokens = None
         logits = self.modules.ctc_lin(x)
         p_ctc = self.hparams.log_softmax(logits)
-        if stage != sb.Stage.TRAIN:
+        if stage == sb.Stage.VALID:
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
 
         return p_ctc, wav_lens, p_tokens
 
@@ -71,16 +74,31 @@ class ASR(sb.Brain):
         ids = batch.id
         tokens, tokens_lens = batch.tokens
 
+        # Labels must be extended if parallel augmentation or concatenated
+        # augmentation was performed on the input (increasing the time dimension)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            (
+                tokens,
+                tokens_lens,
+            ) = self.hparams.wav_augment.replicate_multiple_labels(
+                tokens, tokens_lens
+            )
+
         loss_ctc = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
         loss = loss_ctc
 
-        if stage != sb.Stage.TRAIN:
-
+        if stage == sb.Stage.VALID:
             # Decode token terms to words
             predicted_words = self.tokenizer(
                 predicted_tokens, task="decode_from_list"
             )
 
+        elif stage == sb.Stage.TEST:
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
+            ]
+
+        if stage != sb.Stage.TRAIN:
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
             target_words = self.tokenizer(target_words, task="decode_from_list")
@@ -89,45 +107,6 @@ class ASR(sb.Brain):
             self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
-
-    def fit_batch(self, batch):
-        should_step = self.step % self.grad_accumulation_factor == 0
-
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.whisper_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.whisper_optimizer)
-                self.scaler.unscale_(self.model_optimizer)
-                if self.check_gradients(loss):
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        # Here we added a warmup to the CTC encoder to make sure that
-                        # it does not screw the whisper with too large gradients.
-                        self.scaler.step(self.whisper_optimizer)
-                    self.scaler.step(self.model_optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    # Here we added a warmup to the CTC encoder to make sure that
-                    # it does not screw the whisper with too large gradients.
-                    if self.optimizer_step > self.hparams.warmup_steps:
-                        self.whisper_optimizer.step()
-                    self.model_optimizer.step()
-                self.whisper_optimizer.zero_grad()
-                self.model_optimizer.zero_grad()
-                self.optimizer_step += 1
-
-        return loss.detach().cpu()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -163,13 +142,14 @@ class ASR(sb.Brain):
                 stats_meta={
                     "epoch": epoch,
                     "lr_model": old_lr_model,
-                    "lr_whisperc": old_lr_whisper,
+                    "lr_whisper": old_lr_whisper,
                 },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -190,20 +170,42 @@ class ASR(sb.Brain):
             self.hparams.model.parameters()
         )
 
+        # save the optimizers in a dictionary
+        # the key will be used in `freeze_optimizers()`
+        self.optimizers_dict = {
+            "model_optimizer": self.model_optimizer,
+            "whisper_optimizer": self.whisper_optimizer,
+        }
+
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
                 "whisper_opt", self.whisper_optimizer
             )
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
+        if not self.hparams.freeze_whisper:
+            # Here we added a warmup to the CTC encoder to make sure that
+            # it does not break the whisper with too large gradients.
+            if self.optimizer_step > self.hparams.warmup_steps:
+                valid_optimizers["whisper_optimizer"] = optimizers[
+                    "whisper_optimizer"
+                ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
+
 
 def dataio_prepare(hparams, tokenizer):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -228,7 +230,8 @@ def dataio_prepare(hparams, tokenizer):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -272,14 +275,14 @@ def dataio_prepare(hparams, tokenizer):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "char_list", "tokens"],
+        datasets,
+        ["id", "sig", "wrd", "char_list", "tokens"],
     )
 
     return train_data, valid_data, test_datasets
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -340,9 +343,20 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected(asr_brain.device)
 
-    # We dynamicaly add the tokenizer to our brain class.
+    # We dynamically add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = tokenizer
+
+    vocab_list = [
+        tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
+    ]
+
+    from speechbrain.decoders.ctc import CTCBeamSearcher
+
+    test_searcher = CTCBeamSearcher(
+        **hparams["test_beam_search"],
+        vocab_list=vocab_list,
+    )
 
     # Training
     asr_brain.fit(

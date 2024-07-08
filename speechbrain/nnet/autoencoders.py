@@ -4,12 +4,14 @@ Authors
  * Artem Ploujnikov 2022
 """
 
+from collections import namedtuple
+
 import torch
 from torch import nn
-from collections import namedtuple
+
 from speechbrain.dataio.dataio import clean_padding
-from speechbrain.utils.data_utils import trim_as
 from speechbrain.processing.features import GlobalNorm
+from speechbrain.utils.data_utils import trim_as
 
 
 class Autoencoder(nn.Module):
@@ -50,29 +52,18 @@ class Autoencoder(nn.Module):
         ---------
         x: torch.Tensor
             the original data representation
-
         length: torch.Tensor
             a tensor of relative lengths
-
-        Returns
-        -------
-        latent: torch.Tensor
-            the latent representation
         """
         raise NotImplementedError
 
     def decode(self, latent):
-        """Decodes the sample from a latent repsresentation
+        """Decodes the sample from a latent representation
 
         Arguments
         ---------
         latent: torch.Tensor
             the latent representation
-
-        Returns
-        -------
-        result: torch.Tensor
-            the decoded sample
         """
         raise NotImplementedError
 
@@ -84,7 +75,7 @@ class Autoencoder(nn.Module):
         x: torch.Tensor
             the input tensor
 
-        Results
+        Returns
         -------
         result: torch.Tensor
             the result
@@ -101,38 +92,27 @@ class VariationalAutoencoder(Autoencoder):
     ---------
     encoder: torch.Module
         the encoder network
-
     decoder: torch.Module
         the decoder network
-
     mean: torch.Module
         the module that computes the mean
-
     log_var: torch.Module
         the module that computes the log variance
-
-    mask_value: float
-        The value with which outputs and latents will be masked
-
     len_dim: None
         the length dimension
-
+    latent_padding: function
+        the function to use when padding the latent variable
     mask_latent: bool
         where to apply the length mask to the latent representation
-
     mask_out: bool
         whether to apply the length mask to the output
-
     out_mask_value: float
         the mask value used for the output
-
     latent_mask_value: float
         the mask value used for the latent representation
-
     latent_stochastic: bool
         if true, the "latent" parameter of VariationalAutoencoderOutput
         will be the latent space sample
-
         if false, it will be the mean
 
     Example
@@ -171,7 +151,7 @@ class VariationalAutoencoder(Autoencoder):
     torch.Size([4, 10, 16])
 
     .encode() will return the mean corresponding
-    to teh sample provided
+    to the sample provided
 
     >>> x_enc = vae.encode(x)
     >>> x_enc.shape
@@ -224,6 +204,8 @@ class VariationalAutoencoder(Autoencoder):
         ---------
         x: torch.Tensor
             the original data representation
+        length: torch.Tensor
+            the length of the corresponding input samples (optional)
 
         Returns
         -------
@@ -234,7 +216,7 @@ class VariationalAutoencoder(Autoencoder):
         return self.mean(encoder_out)
 
     def decode(self, latent):
-        """Decodes the sample from a latent repsresentation
+        """Decodes the sample from a latent representation
 
         Arguments
         ---------
@@ -262,7 +244,8 @@ class VariationalAutoencoder(Autoencoder):
         Returns
         -------
         sample: torch.Tensor
-            a latent space sample"""
+            a latent space sample
+        """
         epsilon = torch.randn_like(log_var)
         return mean + epsilon * torch.exp(0.5 * log_var)
 
@@ -278,6 +261,10 @@ class VariationalAutoencoder(Autoencoder):
         length: None
             the length (optional). If provided, latents and
             outputs will be masked
+        out_mask_value: float
+            the mask value used for the output
+        latent_mask_value: float
+            the mask value used for the latent tensor
 
 
         Returns
@@ -350,14 +337,20 @@ class NormalizingAutoencoder(Autoencoder):
         the encoder to be used
     decoder: torch.nn.Module
         the decoder to be used
+    latent_padding: function
+        Function to use when padding the latent tensor
     norm: torch.nn.Module
         the normalization module
-    mask_latent: bool
-        where to apply the length mask to the latent representation
+    len_dim: int
+        The time dimension, which the length applies to.
     mask_out: bool
         whether to apply the length mask to the output
+    mask_latent: bool
+        where to apply the length mask to the latent representation
     out_mask_value: float
         the mask value used for the output
+    latent_mask_value: float
+        the mask value used for the latent tensor
 
     Examples
     --------
@@ -412,6 +405,8 @@ class NormalizingAutoencoder(Autoencoder):
         ---------
         x: torch.Tensor
             the original data representation
+        length: torch.Tensor
+            The length of each sample in the input tensor.
 
         Returns
         -------
@@ -423,7 +418,7 @@ class NormalizingAutoencoder(Autoencoder):
         return x
 
     def decode(self, latent):
-        """Decodes the sample from a latent repsresentation
+        """Decodes the sample from a latent representation
 
         Arguments
         ---------
@@ -446,10 +441,13 @@ class NormalizingAutoencoder(Autoencoder):
         ---------
         x: torch.Tensor
             the source data (in the sample space)
-        length: None
+        length: torch.Tensor
             the length (optional). If provided, latents and
             outputs will be masked
-
+        out_mask_value: float
+            The value to use when masking the output.
+        latent_mask_value: float
+            The value to use when masking the latent tensor.
 
         Returns
         -------
@@ -459,7 +457,6 @@ class NormalizingAutoencoder(Autoencoder):
                 the reconstruction
             latent: torch.Tensor
                 the latent space sample
-
         """
         if out_mask_value is None:
             out_mask_value = self.out_mask_value

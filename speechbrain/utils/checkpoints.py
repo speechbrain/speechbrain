@@ -46,24 +46,30 @@ Example
 
 Authors
  * Aku Rouhe 2020
+ * Adel Moumen 2024
 """
-import torch
+
 import collections
 import collections.abc
-import os
-import time
-import yaml
-import pathlib
 import inspect
-import shutil
 import logging
+import os
+import pathlib
+import shutil
+import time
 import warnings
+from typing import Dict
+
+import torch
+import yaml
 from packaging import version
+
 import speechbrain.utils._workarounds as __wa
 from speechbrain.utils.distributed import (
-    main_process_only,
-    if_main_process,
     ddp_barrier,
+    ddp_broadcast,
+    if_main_process,
+    main_process_only,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,9 +77,80 @@ logger = logging.getLogger(__name__)
 CKPT_PREFIX = "CKPT"
 METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
 PARAMFILE_EXT = ".ckpt"  # ...because these files will be
+# some keys have been renamed in the new version of the code
+KEYS_MAPPING: Dict[str, str] = {
+    ".mutihead_attn": ".multihead_attn",  # see PR #2489
+}
 
 
-def torch_recovery(obj, path, end_of_epoch, device=None):
+def map_old_state_dict_weights(
+    state_dict: Dict[str, torch.Tensor], mapping: Dict[str, str]
+) -> Dict[str, torch.Tensor]:
+    """
+    Maps the keys in the old state dictionary according to the provided mapping.
+
+    NOTE: This function will remap all state_dict keys that contain the old key.
+    For instance, if the state_dict is {'model.encoder.layer.0.atn.self.query.weight': ...}
+    and the mapping is {'.atn': '.attn'}, the resulting state_dict will be
+    {'model.encoder.layer.0.attn.self.query.weight': ...}.
+
+    Since this effectively works as a mass substring replacement, partial key
+    matches (e.g. in the middle of one layer name) will also work, so be
+    careful to avoid false positives.
+
+    Parameters
+    ----------
+    state_dict : dict
+        The old state dictionary to be mapped.
+    mapping : dict
+        A dictionary specifying the mapping between old and new keys.
+
+    Returns
+    -------
+    dict
+        The modified state dictionary with mapped keys.
+    """
+    for replacement_old, replacement_new in mapping.items():
+        for old_key in list(state_dict.keys()):
+            if replacement_old in old_key:
+                new_key = old_key.replace(replacement_old, replacement_new)
+                state_dict[new_key] = state_dict.pop(old_key)
+                logger.info(
+                    "Due to replacement compatibility rule '%s'->'%s', renamed "
+                    "`state_dict['%s']`->`state_dict['%s']`",
+                    replacement_old,
+                    replacement_new,
+                    old_key,
+                    new_key,
+                )
+    return state_dict
+
+
+def hook_on_loading_state_dict_checkpoint(
+    state_dict: Dict[str, torch.Tensor]
+) -> Dict[str, torch.Tensor]:
+    """Hook to be called when loading a state_dict checkpoint.
+
+    This hook is called when loading a state_dict checkpoint. It can be used
+    to modify the state_dict before it is loaded into the model.
+
+    By default, this hook will map the old state_dict keys to the new ones.
+
+    Arguments
+    ---------
+    state_dict : dict
+        The state_dict to be loaded.
+
+    Returns
+    -------
+    dict
+        The modified state_dict.
+    """
+    altered_state_dict = map_old_state_dict_weights(state_dict, KEYS_MAPPING)
+    return altered_state_dict
+
+
+def torch_recovery(obj, path, end_of_epoch):
     """Loads a torch.nn.Module state_dict from the given path instantly.
 
     This can be made the default for torch.nn.Modules with:
@@ -87,19 +164,36 @@ def torch_recovery(obj, path, end_of_epoch, device=None):
         Path where to load from.
     end_of_epoch : bool
         Whether the recovery comes from an end of epoch checkpoint.
-    device : str
-        Torch device, where to map the loaded parameters.
-
-    Returns
-    -------
-    None
-        Given object is modified in place.
     """
     del end_of_epoch  # Unused
+    device = "cpu"
+
+    state_dict = torch_patched_state_dict_load(path, device)
     try:
-        obj.load_state_dict(torch.load(path, map_location=device), strict=True)
+        obj.load_state_dict(state_dict, strict=True)
     except TypeError:
-        obj.load_state_dict(torch.load(path, map_location=device))
+        obj.load_state_dict(state_dict)
+
+
+def torch_patched_state_dict_load(path, device="cpu"):
+    """Loads a `state_dict` from the given path using :func:`torch.load` and
+    calls the SpeechBrain `state_dict` loading hooks, e.g. to apply key name
+    patching rules for compatibility.
+
+    The `state_dict` sees no further preprocessing and is not applied into a
+    model, see :func:`~torch_recovery` or :func:`~torch_parameter_transfer`.
+
+    Arguments
+    ---------
+    path : str, pathlib.Path
+        Path where to load from.
+    device
+        Device where the loaded `state_dict` tensors should reside. This is
+        forwarded to :func:`torch.load`; see its documentation for details.
+    """
+    state_dict = torch.load(path, map_location=device)
+    state_dict = hook_on_loading_state_dict_checkpoint(state_dict)
+    return state_dict
 
 
 @main_process_only
@@ -115,11 +209,6 @@ def torch_save(obj, path):
         Instance to save.
     path : str, pathlib.Path
         Path where to save to.
-
-    Returns
-    -------
-    None
-        State dict is written to disk.
     """
     state_dict = obj.state_dict()
     if not state_dict:
@@ -127,7 +216,7 @@ def torch_save(obj, path):
     torch.save(state_dict, path)
 
 
-def torch_parameter_transfer(obj, path, device):
+def torch_parameter_transfer(obj, path):
     """Non-strict Torch Module state_dict load.
 
     Loads a set of parameters from path to obj. If obj has layers for which
@@ -141,15 +230,10 @@ def torch_parameter_transfer(obj, path, device):
         Instance for which to load the parameters.
     path : str
         Path where to load from.
-
-    Returns
-    -------
-    None
-        The object is modified in place.
     """
-    incompatible_keys = obj.load_state_dict(
-        torch.load(path, map_location=device), strict=False
-    )
+    device = "cpu"
+    state_dict = torch_patched_state_dict_load(path, device)
+    incompatible_keys = obj.load_state_dict(state_dict, strict=False)
     for missing_key in incompatible_keys.missing_keys:
         logger.warning(
             f"During parameter transfer to {obj} loading from "
@@ -192,7 +276,7 @@ DEFAULT_TRANSFER_HOOKS = {
 try:
     import sentencepiece as spm
 
-    def _load_spm(obj, path, device=None):
+    def _load_spm(obj, path):
         obj.load(str(path))  # SentencePieceProcessor needs a string.
 
     DEFAULT_TRANSFER_HOOKS[spm.SentencePieceProcessor] = _load_spm
@@ -218,6 +302,10 @@ def mark_as_saver(method):
         signature (instance, path) using positional arguments. This is
         satisfied by for example: def saver(self, path):
 
+    Returns
+    -------
+    The decorated method, marked as a checkpoint saver.
+
     Note
     ----
     This will not add the hook (not possible via a method decorator),
@@ -241,9 +329,13 @@ def mark_as_loader(method):
     ---------
     method : callable
         Method of the class to decorate. Must be callable with
-        signature (instance, path, end_of_epoch, device) using positional
+        signature (instance, path, end_of_epoch) using positional
         arguments. This is satisfied by for example:
-        `def loader(self, path, end_of_epoch, device):`
+        `def loader(self, path, end_of_epoch):`
+
+    Returns
+    -------
+    The decorated method, registered as a checkpoint loader.
 
     Note
     ----
@@ -253,9 +345,9 @@ def mark_as_loader(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), True, None)
+        sig.bind(object(), pathlib.Path("testpath"), True)
     except TypeError:
-        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch, device)"
+        MSG = "Checkpoint loader must have signature (self, path, end_of_epoch)"
         raise TypeError(MSG)
     method._speechbrain_loader = True
     return method
@@ -268,9 +360,13 @@ def mark_as_transfer(method):
     ---------
     method : callable
         Method of the class to decorate. Must be callable with
-        signature (instance, path, device) using positional
+        signature (instance, path) using positional
         arguments. This is satisfied by for example:
-        `def loader(self, path, device):`
+        `def loader(self, path):`
+
+    Returns
+    -------
+    The decorated method, registered as a transfer method.
 
     Note
     ----
@@ -286,9 +382,9 @@ def mark_as_transfer(method):
     """
     sig = inspect.signature(method)
     try:
-        sig.bind(object(), pathlib.Path("testpath"), device=None)
+        sig.bind(object(), pathlib.Path("testpath"))
     except TypeError:
-        MSG = "Transfer hook must have signature (self, path, device)"
+        MSG = "Transfer hook must have signature (self, path)"
         raise TypeError(MSG)
     method._speechbrain_transfer = True
     return method
@@ -309,6 +405,10 @@ def register_checkpoint_hooks(cls, save_on_main_only=True):
         provides the option to run the saver on all processes, needed
         for some savers where data is first gathered before saving.
 
+    Returns
+    -------
+    the decorated class with hooks registered
+
     Example
     -------
     >>> @register_checkpoint_hooks
@@ -322,7 +422,7 @@ def register_checkpoint_hooks(cls, save_on_main_only=True):
     ...             fo.write(str(self.param))
     ...
     ...     @mark_as_loader
-    ...     def load(self, path, end_of_epoch, device=None):
+    ...     def load(self, path, end_of_epoch):
     ...         del end_of_epoch  # Unused here
     ...         with open(path) as fi:
     ...             self.param = int(fi.read())
@@ -409,8 +509,8 @@ def ckpt_recency(ckpt):
 class Checkpointer:
     """Saves checkpoints and recovers from them.
 
-    Arguments:
-
+    Arguments
+    ---------
     checkpoints_dir : str, pathlib.Path
         Path to directory where to save checkpoints.
     recoverables : mapping, optional
@@ -474,6 +574,7 @@ class Checkpointer:
         self.checkpoints_dir = pathlib.Path(checkpoints_dir)
         os.makedirs(self.checkpoints_dir, exist_ok=True)
         self.recoverables = {}
+        self.optional_recoverables = {}
         if recoverables is not None:
             self.add_recoverables(recoverables)
         self.custom_load_hooks = {}
@@ -485,7 +586,12 @@ class Checkpointer:
         self.allow_partial_load = allow_partial_load
 
     def add_recoverable(
-        self, name, obj, custom_load_hook=None, custom_save_hook=None,
+        self,
+        name,
+        obj,
+        custom_load_hook=None,
+        custom_save_hook=None,
+        optional_load=False,
     ):
         """Register a recoverable with possible custom hooks.
 
@@ -503,8 +609,20 @@ class Checkpointer:
             Called to save the object's parameters. The function/method must
             be callable with signature (instance, path) using positional
             arguments. This is satisfied by for example: def saver(self, path):
+        optional_load : bool, optional
+            If True, allows for the optional loading of an object from a checkpoint.
+            If the checkpoint lacks the specified object, no error is raised.
+            This is particularly useful during transitions between different training
+            configurations, such as changing precision from floating point 32 to 16.
+            For example, suppose you have a training checkpoint that does not includes
+            a `scaler` object. If you intend to continue pre-training in floating point 16,
+            where the `scaler` object is needed, marking it as optional prevents loading errors.
+            Without marking it as optional, attempting to load the `scaler` object from a checkpoint
+            trained in floating point 32 would fail, as the `scaler` object is not present
+            in that checkpoint.
         """
         self.recoverables[name] = obj
+        self.optional_recoverables[name] = optional_load
         if custom_load_hook is not None:
             self.custom_load_hooks[name] = custom_load_hook
         if custom_save_hook is not None:
@@ -585,10 +703,7 @@ class Checkpointer:
             )
 
         # Communicate ckpt_dir to all procs
-        communication_list = [ckpt_dir]
-        if torch.distributed.is_initialized():
-            torch.distributed.broadcast_object_list(communication_list, src=0)
-        ckpt_dir = communication_list[0]
+        ckpt_dir = ddp_broadcast(ckpt_dir, src=0)
 
         saved_paramfiles = {}
         for name, obj in self.recoverables.items():
@@ -619,7 +734,7 @@ class Checkpointer:
             )
             return Checkpoint(ckpt_dir, saved_meta, saved_paramfiles)
 
-        # Explicity return None if this is not the main process
+        # Explicitly return None if this is not the main process
         return None
 
     def save_and_keep_only(
@@ -672,13 +787,13 @@ class Checkpointer:
             Only the checkpoints for which ckpt_predicate is True can be
             deleted. The function is called with Checkpoint namedtuples
             (see above).
+        verbosity : int
+            The logging level, default logging.INFO
 
-        Returns
-        -------
-        None
-            Unlike save_checkpoint, this does not return anything, since
-            we cannot guarantee that the saved checkpoint actually survives
-            deletion.
+        Note
+        ----
+        Unlike save_checkpoint, this does not return anything, since we cannot
+        guarantee that the saved checkpoint actually survives deletion.
         """
         self.save_checkpoint(
             meta=meta, end_of_epoch=end_of_epoch, name=name, verbosity=verbosity
@@ -797,11 +912,11 @@ class Checkpointer:
         if max_key and not importance_key:
 
             def importance_key(ckpt):
-                "Defines the importance key."
+                """Defines the importance key."""
                 return ckpt.meta[max_key]
 
             def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
-                "Checkpoints predicate."
+                """Checkpoints predicate."""
                 if old_predicate is not None:
                     return max_key in ckpt.meta and old_predicate(ckpt)
                 else:
@@ -810,11 +925,11 @@ class Checkpointer:
         elif min_key and not importance_key:
 
             def importance_key(ckpt):
-                "Defines the importance key."
+                """Defines the importance key."""
                 return -ckpt.meta[min_key]
 
             def ckpt_predicate(ckpt, old_predicate=ckpt_predicate):
-                "Checkpoints predicate."
+                """Checkpoints predicate."""
                 if old_predicate is not None:
                     return min_key in ckpt.meta and old_predicate(ckpt)
                 else:
@@ -850,7 +965,6 @@ class Checkpointer:
         max_key=None,
         min_key=None,
         ckpt_predicate=None,
-        device=None,
     ):
         """Picks a checkpoint and recovers from that, if one is found.
 
@@ -878,8 +992,6 @@ class Checkpointer:
             See the filter builtin.
             The function is called with Checkpoint namedtuples (see above).
             By default, all checkpoints are considered.
-        device : torch.device
-            Device to load models to.
 
         Returns
         -------
@@ -889,15 +1001,15 @@ class Checkpointer:
             If no Checkpoints exist/remain after filtering.
         """
         chosen_ckpt = self.find_checkpoint(
-            importance_key, max_key, min_key, ckpt_predicate,
+            importance_key, max_key, min_key, ckpt_predicate
         )
         if chosen_ckpt is not None:
-            self.load_checkpoint(chosen_ckpt, device)
+            self.load_checkpoint(chosen_ckpt)
         else:
             logger.info("Would load a checkpoint here, but none found yet.")
         return chosen_ckpt
 
-    def load_checkpoint(self, checkpoint, device=None):
+    def load_checkpoint(self, checkpoint):
         """Loads the specified checkpoint.
 
         Arguments
@@ -905,7 +1017,7 @@ class Checkpointer:
         checkpoint : Checkpoint
             Checkpoint to load.
         """
-        self._call_load_hooks(checkpoint, device)
+        self._call_load_hooks(checkpoint)
 
     def list_checkpoints(self):
         """List all checkpoints in the checkpoints directory.
@@ -1017,7 +1129,7 @@ class Checkpointer:
         shutil.rmtree(checkpoint.path)
         logger.log(verbosity, f"Deleted checkpoint in {checkpoint.path}")
 
-    def _call_load_hooks(self, checkpoint, device=None):
+    def _call_load_hooks(self, checkpoint):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         logger.info(f"Loading a checkpoint from {checkpoint.path}")
@@ -1037,20 +1149,24 @@ class Checkpointer:
                     warnings.warn(MSG, UserWarning)
                     continue
                 else:
+                    if self.optional_recoverables[name]:
+                        MSG = f"Trying to load checkpoint from {checkpoint.path}, \
+                                but missing a load path for {name}. Skipping as this \
+                                recoverable is marked as optional."
+                        warnings.warn(MSG, UserWarning)
+                        continue
                     MSG = f"Loading checkpoint from {checkpoint.path}, \
                             but missing a load path for {name}"
                     raise RuntimeError(MSG)
 
             # First see if object has custom load hook:
             if name in self.custom_load_hooks:
-                self.custom_load_hooks[name](
-                    obj, loadpath, end_of_epoch, device
-                )
+                self.custom_load_hooks[name](obj, loadpath, end_of_epoch)
                 continue
             # Otherwise find the default saver for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, end_of_epoch, device)
+                default_hook(obj, loadpath, end_of_epoch)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \
@@ -1161,7 +1277,6 @@ def average_checkpoints(
     recoverable_name,
     parameter_loader=torch.load,
     averager=average_state_dicts,
-    device=None,
 ):
     """Average parameters from multiple checkpoints.
 
@@ -1222,18 +1337,15 @@ def average_checkpoints(
     >>> model.param.data
     tensor([8.])
     """
+    device = "cpu"
+    parameter_iterator = (
+        parameter_loader(ckpt.paramfiles[recoverable_name], map_location=device)
+        for ckpt in checkpoint_list
+    )
+    parameter_iterator = (
+        hook_on_loading_state_dict_checkpoint(state_dict)
+        for state_dict in parameter_iterator
+    )
 
-    try:
-        # try to map the ckps to the correct device
-        parameter_iterator = (
-            parameter_loader(
-                ckpt.paramfiles[recoverable_name], map_location=device
-            )
-            for ckpt in checkpoint_list
-        )
-    except TypeError:
-        parameter_iterator = (
-            parameter_loader(ckpt.paramfiles[recoverable_name])
-            for ckpt in checkpoint_list
-        )
-    return averager(parameter_iterator)
+    avg_ckpt = averager(parameter_iterator)
+    return avg_ckpt

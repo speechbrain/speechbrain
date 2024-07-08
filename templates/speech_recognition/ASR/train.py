@@ -43,12 +43,14 @@ Authors
  * Samuele Cornell 2020
 """
 
-import sys
-import torch
 import logging
-import speechbrain as sb
+import sys
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
@@ -78,6 +80,7 @@ class ASR(sb.Brain):
         """
         # We first move the batch to the appropriate device.
         batch = batch.to(self.device)
+
         feats, self.feat_lens = self.prepare_features(stage, batch.sig)
         tokens_bos, _ = self.prepare_tokens(stage, batch.tokens_bos)
 
@@ -85,7 +88,7 @@ class ASR(sb.Brain):
         encoded_signal = self.modules.encoder(feats.detach())
 
         # Embed tokens and pass tokens & encoded signal to decoder
-        embedded_tokens = self.modules.embedding(tokens_bos)
+        embedded_tokens = self.modules.embedding(tokens_bos.detach())
         decoder_outputs, _ = self.modules.decoder(
             embedded_tokens, encoded_signal, self.feat_lens
         )
@@ -98,14 +101,18 @@ class ASR(sb.Brain):
             # Output layer for ctc log-probabilities
             ctc_logits = self.modules.ctc_lin(encoded_signal)
             predictions["ctc_logprobs"] = self.hparams.log_softmax(ctc_logits)
-        elif stage == sb.Stage.VALID:
-            predictions["tokens"], _ = self.hparams.valid_search(
-                encoded_signal, self.feat_lens
-            )
-        elif stage == sb.Stage.TEST:
-            predictions["tokens"], _ = self.hparams.test_search(
-                encoded_signal, self.feat_lens
-            )
+
+        elif stage != sb.Stage.TRAIN:
+            if stage == sb.Stage.VALID:
+                hyps, _, _, _ = self.hparams.valid_search(
+                    encoded_signal, self.feat_lens
+                )
+            elif stage == sb.Stage.TEST:
+                hyps, _, _, _ = self.hparams.test_search(
+                    encoded_signal, self.feat_lens
+                )
+
+            predictions["tokens"] = hyps
 
         return predictions
 
@@ -116,6 +123,10 @@ class ASR(sb.Brain):
         ---------
         stage : sb.Stage
             Currently executing stage.
+
+        Returns
+        -------
+        is_active : bool
         """
         if stage != sb.Stage.TRAIN:
             return False
@@ -131,30 +142,34 @@ class ASR(sb.Brain):
             Currently executing stage.
         wavs : tuple
             The input signals (tensor) and their lengths (tensor).
+
+        Returns
+        -------
+        feats : torch.Tensor
+            The prepared features.
+        fea_lens : torch.Tensor
+            The lengths of the corresponding features.
         """
         wavs, wav_lens = wavs
 
-        # Add augmentation if specified. In this version of augmentation, we
-        # concatenate the original and the augment batches in a single bigger
-        # batch. This is more memory-demanding, but helps to improve the
-        # performance. Change it if you run OOM.
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
 
         # Feature computation and normalization
-        feats = self.hparams.compute_features(wavs)
-        feats = self.modules.normalize(feats, wav_lens)
+        fea_lens = wav_lens  # Relative lengths are preserved
 
-        return feats, wav_lens
+        # Add feature augmentation if specified.
+        feats = self.hparams.compute_features(wavs)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, fea_lens)
+        feats = self.modules.normalize(feats, fea_lens)
+
+        return feats, fea_lens
 
     def prepare_tokens(self, stage, tokens):
-        """Double the tokens batch if features are doubled.
+        """
+        Augments the tokens batch if needed.
 
         Arguments
         ---------
@@ -162,11 +177,26 @@ class ASR(sb.Brain):
             Currently executing stage.
         tokens : tuple
             The tokens (tensor) and their lengths (tensor).
+
+        Returns
+        -------
+        tokens : torch.Tensor
+            Augmented tokens.
+        token_lens : torch.Tensor
+            and their lengths.
         """
         tokens, token_lens = tokens
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens = torch.cat([tokens, tokens], dim=0)
-            token_lens = torch.cat([token_lens, token_lens], dim=0)
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                tokens = self.hparams.wav_augment.replicate_labels(tokens)
+                token_lens = self.hparams.wav_augment.replicate_labels(
+                    token_lens
+                )
+            if hasattr(self.hparams, "fea_augment"):
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                token_lens = self.hparams.fea_augment.replicate_labels(
+                    token_lens
+                )
         return tokens, token_lens
 
     def compute_objectives(self, predictions, batch, stage):
@@ -256,7 +286,6 @@ class ASR(sb.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Store the train loss until the validation stage.
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
@@ -283,7 +312,8 @@ class ASR(sb.Brain):
 
             # Save the current checkpoint and delete previous checkpoints.
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
 
         # We also write statistics about test data to stdout and to the logfile.
@@ -313,6 +343,7 @@ def dataio_prepare(hparams):
         Dictionary containing "train", "valid", and "test" keys that correspond
         to the DynamicItemDataset objects.
     """
+
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
     @sb.utils.data_pipeline.takes("wav")
@@ -373,10 +404,18 @@ def dataio_prepare(hparams):
     # does not harm the performance.
     if hparams["sorting"] == "ascending":
         datasets["train"] = datasets["train"].filtered_sorted(sort_key="length")
+        datasets["valid"] = datasets["valid"].filtered_sorted(sort_key="length")
+        datasets["test"] = datasets["test"].filtered_sorted(sort_key="length")
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         datasets["train"] = datasets["train"].filtered_sorted(
+            sort_key="length", reverse=True
+        )
+        datasets["valid"] = datasets["valid"].filtered_sorted(
+            sort_key="length", reverse=True
+        )
+        datasets["test"] = datasets["test"].filtered_sorted(
             sort_key="length", reverse=True
         )
         hparams["train_dataloader_opts"]["shuffle"] = False
@@ -422,6 +461,8 @@ if __name__ == "__main__":
                 "save_json_test": hparams["test_annotation"],
             },
         )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)
@@ -432,7 +473,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(

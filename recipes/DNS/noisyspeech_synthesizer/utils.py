@@ -5,15 +5,16 @@ Ownership: Microsoft
 * Author
     rocheng
 """
-import os
+
 import csv
-from shutil import copyfile
 import glob
+import os
+from shutil import copyfile
 
 
 def get_dir(cfg, param_name, new_dir_name):
     """Helper function to retrieve directory name if it exists,
-       create it if it doesn't exist"""
+    create it if it doesn't exist"""
 
     if param_name in cfg:
         dir_name = cfg[param_name]
@@ -38,14 +39,12 @@ def write_log_file(log_dir, log_filename, data):
 
 
 def str2bool(string):
-    """Convert a string to a boolean value.
-    """
+    """Convert a string to a boolean value."""
     return string.lower() in ("yes", "true", "t", "1")
 
 
 def rename_copyfile(src_path, dest_dir, prefix="", ext="*.wav"):
-    """Copy and rename files from a source directory to a destination directory.
-    """
+    """Copy and rename files from a source directory to a destination directory."""
     srcfiles = glob.glob(f"{src_path}/" + ext)
     for i in range(len(srcfiles)):
         dest_path = os.path.join(

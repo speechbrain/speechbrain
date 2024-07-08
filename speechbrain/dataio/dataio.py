@@ -7,21 +7,24 @@ Authors
  * Ju-Chieh Chou 2020
  * Samuele Cornell 2020
  * Abdel HEBA 2020
- * Gaelle Laperriere 2021
+ * Gaëlle Laperrière 2021
  * Sahar Ghannay 2021
  * Sylvain de Langen 2022
 """
-import os
-import torch
-import logging
-import numpy as np
-import pickle
-import hashlib
+
 import csv
-import time
-import torchaudio
+import hashlib
 import json
+import logging
+import os
+import pickle
 import re
+import time
+
+import numpy as np
+import torch
+import torchaudio
+
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
@@ -32,7 +35,7 @@ def load_data_json(json_path, replacements={}):
     """Loads JSON and recursively formats string values.
 
     Arguments
-    ----------
+    ---------
     json_path : str
         Path to CSV file.
     replacements : dict
@@ -100,7 +103,7 @@ def load_data_csv(csv_path, replacements={}):
     Bash-like string replacements with $to_replace are supported.
 
     Arguments
-    ----------
+    ---------
     csv_path : str
         Path to CSV file.
     replacements : dict
@@ -168,7 +171,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     Note that this may cause full file traversal in certain cases!
 
     Arguments
-    ----------
+    ---------
     path : str
         Path to the audio file to examine.
 
@@ -192,7 +195,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
         # Additionally, certain affected versions of torchaudio fail to
         # autodetect mp3.
         # HACK: here, we check for the file extension to force mp3 detection,
-        # which prevents an error from occuring in torchaudio.
+        # which prevents an error from occurring in torchaudio.
         info = torchaudio.info(path, format="mp3")
     else:
         info = torchaudio.info(path)
@@ -204,7 +207,7 @@ def read_audio_info(path) -> "torchaudio.backend.common.AudioMetaData":
     # https://github.com/speechbrain/speechbrain/issues/1925
     # https://github.com/pytorch/audio/issues/2524
     #
-    # Accomodate for these cases here: if `num_frames == 0` then maybe something
+    # Accommodate for these cases here: if `num_frames == 0` then maybe something
     # has gone wrong.
     # If some file really had `num_frames == 0` then we are not doing harm
     # double-checking anyway. If I am wrong and you are reading this comment
@@ -241,7 +244,7 @@ def read_audio(waveforms_obj):
     Refer to `torchaudio.load` documentation for further details.
 
     Arguments
-    ----------
+    ---------
     waveforms_obj : str, dict
         Path to audio or dict with the desired configuration.
 
@@ -341,7 +344,7 @@ def read_audio_multichannel(waveforms_obj):
     }
 
     Arguments
-    ----------
+    ---------
     waveforms_obj : str, dict
         Audio reading annotation, see above for format.
 
@@ -444,7 +447,7 @@ def to_floatTensor(x: (list, tuple, np.ndarray)):
 
     Returns
     -------
-    tensor : torch.tensor
+    tensor : torch.Tensor
         Data now in torch.tensor float datatype.
     """
     if isinstance(x, torch.Tensor):
@@ -464,7 +467,7 @@ def to_doubleTensor(x: (list, tuple, np.ndarray)):
 
     Returns
     -------
-    tensor : torch.tensor
+    tensor : torch.Tensor
         Data now in torch.tensor double datatype.
     """
     if isinstance(x, torch.Tensor):
@@ -484,7 +487,7 @@ def to_longTensor(x: (list, tuple, np.ndarray)):
 
     Returns
     -------
-    tensor : torch.tensor
+    tensor : torch.Tensor
         Data now in torch.tensor long datatype.
     """
     if isinstance(x, torch.Tensor):
@@ -529,9 +532,9 @@ def relative_time_to_absolute(batch, relative_lens, rate):
 
     Arguments
     ---------
-    batch : torch.tensor
+    batch : torch.Tensor
         Sequences to determine the duration for.
-    relative_lens : torch.tensor
+    relative_lens : torch.Tensor
         The relative length of each sequence in batch. The longest sequence in
         the batch needs to have relative length 1.0.
     rate : float
@@ -540,8 +543,8 @@ def relative_time_to_absolute(batch, relative_lens, rate):
         features. This has to have 1/s as the unit.
 
     Returns
-    ------:
-    torch.tensor
+    -------
+    torch.Tensor
         Duration of each sequence in seconds.
 
     Example
@@ -567,6 +570,8 @@ class IterativeCSVWriter:
     data_fields : list
         List of the optional keys to write. Each key will be expanded to the
         SpeechBrain format, producing three fields: key, key_format, key_opts.
+    defaults : dict
+        Mapping from CSV key to corresponding default value.
 
     Example
     -------
@@ -607,7 +612,7 @@ class IterativeCSVWriter:
         ---------
         field : str
             A field in the CSV.
-        value
+        value : str
             The default value.
         """
         if field not in self.fields:
@@ -619,9 +624,9 @@ class IterativeCSVWriter:
 
         Arguments
         ---------
-        *args
+        *args : tuple
             Supply every field with a value in positional form OR.
-        **kwargs
+        **kwargs : dict
             Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
         """
@@ -649,9 +654,9 @@ class IterativeCSVWriter:
 
         Arguments
         ---------
-        *args
+        *args : tuple
             Supply every field with a value in positional form OR.
-        **kwargs
+        **kwargs : dict
             Supply certain fields by key. The ID field is mandatory for all
             lines, but others can be left empty.
         """
@@ -687,16 +692,12 @@ def write_txt_file(data, filename, sampling_rate=None):
 
     Arguments
     ---------
-    data : str, list, torch.tensor, numpy.ndarray
+    data : str, list, torch.Tensor, numpy.ndarray
         The data to write in the text file.
     filename : str
         Path to file where to write the data.
     sampling_rate : None
         Not used, just here for interface compatibility.
-
-    Returns
-    -------
-    None
 
     Example
     -------
@@ -724,16 +725,12 @@ def write_stdout(data, filename=None, sampling_rate=None):
 
     Arguments
     ---------
-    data : str, list, torch.tensor, numpy.ndarray
+    data : str, list, torch.Tensor, numpy.ndarray
         The data to write in the text file.
     filename : None
         Not used, just here for compatibility.
     sampling_rate : None
         Not used, just here for compatibility.
-
-    Returns
-    -------
-    None
 
     Example
     -------
@@ -892,14 +889,11 @@ def save_md5(files, out_file):
     ---------
     files : list
         List of input files from which we will compute the md5.
-    outfile : str
+    out_file : str
         The path where to store the output pkl file.
 
-    Returns
+    Example
     -------
-    None
-
-    Example:
     >>> files = ['tests/samples/single-mic/example1.wav']
     >>> tmpdir = getfixture('tmpdir')
     >>> save_md5(files, tmpdir / "md5.pkl")
@@ -922,8 +916,6 @@ def save_pkl(obj, file):
         Object to save in pkl format
     file : str
         Path to the output file
-    sampling_rate : int
-        Sampling rate of the audio file, TODO: this is not used?
 
     Example
     -------
@@ -1222,6 +1214,11 @@ def clean_padding(tensor, length, len_dim=1, mask_value=0.0):
     mask_value: mixed
         the value to be assigned to padding positions
 
+    Returns
+    -------
+    result: torch.Tensor
+        Tensor with updated padding.
+
     Example
     -------
     >>> import torch
@@ -1289,16 +1286,16 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
 
     Example
     -------
-    >>> sequences = [['<reponse>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<reponse>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
+    >>> sequences = [['<response>','_','n','o','_','>','_','<localisation-ville>','_','L','e','_','M','a','n','s','_','>'], ['<response>','_','s','i','_','>'],['v','a','_','b','e','n','e']]
     >>> results = extract_concepts_values(sequences, True, '<', '>', '_')
     >>> results
-    [['<reponse> no', '<localisation-ville> Le Mans'], ['<reponse> si'], ['']]
+    [['<response> no', '<localisation-ville> Le Mans'], ['<response> si'], ['']]
     """
     results = []
     for sequence in sequences:
-        # ['<reponse>_no_>_<localisation-ville>_Le_Mans_>']
+        # ['<response>_no_>_<localisation-ville>_Le_Mans_>']
         sequence = "".join(sequence)
-        # ['<reponse>','no','>','<localisation-ville>','Le','Mans,'>']
+        # ['<response>','no','>','<localisation-ville>','Le','Mans,'>']
         sequence = sequence.split(space)
         processed_sequence = []
         value = (
@@ -1314,7 +1311,7 @@ def extract_concepts_values(sequences, keep_values, tag_in, tag_out, space):
                         kept += " " + " ".join(value)
                     concept_open = False
                     processed_sequence.append(kept)
-                kept = word  # 1st loop: '<reponse>'
+                kept = word  # 1st loop: '<response>'
                 value = []  # Concept's value
                 concept_open = True  # Trying to catch the concept's value
                 # If we want the CER

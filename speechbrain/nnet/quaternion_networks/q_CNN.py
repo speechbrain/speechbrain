@@ -4,19 +4,21 @@ Authors
  * Titouan Parcollet 2020
 """
 
+import logging
+from typing import Tuple
+
 import torch
 import torch.nn as nn
-import logging
 import torch.nn.functional as F
+
 from speechbrain.nnet.CNN import get_padding_elem
 from speechbrain.nnet.quaternion_networks.q_ops import (
-    unitary_init,
-    quaternion_init,
     affect_conv_init,
     quaternion_conv_op,
     quaternion_conv_rotation_op,
+    quaternion_init,
+    unitary_init,
 )
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,6 @@ class QConv1d(torch.nn.Module):
 
     Arguments
     ---------
-    input_shape : tuple
-        The shape of the input.
     out_channels : int
         Number of output channels. Please note
         that these are quaternion-valued neurons. If 256
@@ -35,6 +35,8 @@ class QConv1d(torch.nn.Module):
         will be 1024.
     kernel_size : int
         Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input.
     stride : int, optional
         Stride factor of the convolutional filters (default 1).
     dilation : int, optional
@@ -43,15 +45,15 @@ class QConv1d(torch.nn.Module):
         (same, valid, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape.
         "causal" results in causal (dilated) convolutions (default "same").
-    padding_mode : str, optional
-        This flag specifies the type of padding. See torch.nn documentation
-        for more information (default "reflect").
     groups : int, optional
         Default: 1
         This option specifies the convolutional groups. See torch.nn
         documentation for more information (default 1).
     bias : bool, optional
         If True, the additive bias b is adopted (default True).
+    padding_mode : str, optional
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information (default "reflect").
     init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
@@ -186,6 +188,10 @@ class QConv1d(torch.nn.Module):
         x : torch.Tensor (batch, time, channel)
             Input to convolve. 3d or 4d tensors are expected.
 
+        Returns
+        -------
+        x : torch.Tensor
+            The convolved outputs.
         """
         # (batch, channel, time)
         x = x.transpose(1, -1)
@@ -242,15 +248,12 @@ class QConv1d(torch.nn.Module):
         return out
 
     def _get_kernel_and_weight_shape(self):
-        """ Returns the kernel size and weight shape for convolutional layers.
-        """
+        """Returns the kernel size and weight shape for convolutional layers."""
         ks = self.kernel_size
         w_shape = (self.out_channels, self.in_channels) + tuple((ks,))
         return ks, w_shape
 
-    def _manage_padding(
-        self, x, kernel_size: int, dilation: int, stride: int,
-    ):
+    def _manage_padding(self, x, kernel_size: int, dilation: int, stride: int):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
 
@@ -264,6 +267,11 @@ class QConv1d(torch.nn.Module):
             Dilation.
         stride: int
             Stride.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The padded input.
         """
 
         # Detecting input shape
@@ -278,8 +286,7 @@ class QConv1d(torch.nn.Module):
         return x
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of input channels.
-        """
+        """Checks the input and returns the number of input channels."""
 
         if len(input_shape) == 3:
             in_channels = input_shape[2]
@@ -298,7 +305,7 @@ class QConv1d(torch.nn.Module):
         # Check quaternion format
         if in_channels % 4 != 0:
             raise ValueError(
-                "Quaternion Tensors must have dimensions divisible by 4."
+                "Quaternion torch.Tensors must have dimensions divisible by 4."
                 " input.size()[3] = " + str(in_channels)
             )
 
@@ -310,8 +317,6 @@ class QConv2d(torch.nn.Module):
 
     Arguments
     ---------
-    input_shape : tuple
-        The shape of the input.
     out_channels : int
         Number of output channels. Please note
         that these are quaternion-valued neurons. If 256
@@ -319,6 +324,8 @@ class QConv2d(torch.nn.Module):
         will be 1024.
     kernel_size : int
         Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input.
     stride : int, optional
         Stride factor of the convolutional filters (default 1).
     dilation : int, optional
@@ -326,14 +333,14 @@ class QConv2d(torch.nn.Module):
     padding : str, optional
         (same, causal). If "valid", no padding is performed.
         If "same" and stride is 1, output shape is same as input shape (default "same").
-    padding_mode : str, optional
-        This flag specifies the type of padding. See torch.nn documentation
-        for more information. (default "reflect")
     groups : int, optional
         This option specifies the convolutional groups. See torch.nn
         documentation for more information. (default 1).
     bias : bool, optional
         If True, the additive bias b is adopted (default True).
+    padding_mode : str, optional
+        This flag specifies the type of padding. See torch.nn documentation
+        for more information. (default "reflect")
     init_criterion : str , optional
         (glorot, he).
         This parameter controls the initialization criterion of the weights.
@@ -474,6 +481,11 @@ class QConv2d(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, time, channel)
             Input to convolve. 3d or 4d tensors are expected.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The convolved outputs.
         """
 
         # (batch, channel, time)
@@ -528,8 +540,7 @@ class QConv2d(torch.nn.Module):
         return out
 
     def _check_input(self, input_shape):
-        """Checks the input and returns the number of input channels.
-        """
+        """Checks the input and returns the number of input channels."""
 
         if len(input_shape) == 4:
             in_channels = input_shape[-1]
@@ -548,15 +559,14 @@ class QConv2d(torch.nn.Module):
         # Check quaternion format
         if in_channels % 4 != 0:
             raise ValueError(
-                "Quaternion Tensors must have dimensions divisible by 4."
+                "Quaternion torch.Tensors must have dimensions divisible by 4."
                 " input.size()[" + str(-1) + "] = " + str(in_channels)
             )
 
         return in_channels
 
     def _get_kernel_and_weight_shape(self):
-        """ Returns the kernel size and weight shape for convolutional layers.
-        """
+        """Returns the kernel size and weight shape for convolutional layers."""
 
         ks = (self.kernel_size[0], self.kernel_size[1])
         w_shape = (self.out_channels, self.in_channels) + (*ks,)
@@ -569,7 +579,7 @@ class QConv2d(torch.nn.Module):
         dilation: Tuple[int, int],
         stride: Tuple[int, int],
     ):
-        """This function performs zero-padding on the time and frequency axises
+        """This function performs zero-padding on the time and frequency axes
         such that their lengths is unchanged after the convolution.
 
         Arguments
@@ -582,6 +592,11 @@ class QConv2d(torch.nn.Module):
             Dilation.
         stride: int
             Stride.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The padded inputs.
         """
 
         # Detecting input shape

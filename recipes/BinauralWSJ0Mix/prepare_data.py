@@ -1,5 +1,5 @@
 """
-The .csv preperation functions for Binaural-WSJ0Mix.
+The .csv preparation functions for Binaural-WSJ0Mix.
 
 Author
  * Cem Subakan 2020
@@ -7,8 +7,8 @@ Author
 
  """
 
-import os
 import csv
+import os
 
 
 def prepare_binaural_wsj0mix(
@@ -69,15 +69,14 @@ def create_binaural_wsj0mix2_csv(
         raise ValueError("Unsupported sampling rate")
 
     for set_type in set_types:
-
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "mix/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "mix/"
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
         )
 
         files = os.listdir(mix_path)
@@ -108,7 +107,6 @@ def create_binaural_wsj0mix2_csv(
             for i, (mix_path, s1_path, s2_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,
@@ -148,18 +146,17 @@ def create_binaural_wsj0mix3_csv(
         raise ValueError("Unsupported sampling rate")
 
     for set_type in set_types:
-
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "mix/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "mix/"
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
         )
         s3_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s3/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s3/"
         )
 
         files = os.listdir(mix_path)
@@ -194,7 +191,6 @@ def create_binaural_wsj0mix3_csv(
             for i, (mix_path, s1_path, s2_path, s3_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, s3_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,
@@ -241,7 +237,6 @@ def create_binaural_wsj0mix2_noise_csv(
         raise ValueError("Unsupported sampling rate")
 
     for set_type in set_types:
-
         mix_path = os.path.join(
             datapath,
             "wav{}".format(sample_rate),
@@ -250,10 +245,10 @@ def create_binaural_wsj0mix2_noise_csv(
             "mix_both/",
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
         )
         noise_path = os.path.join(
             datapath, "wav{}".format(sample_rate), version, set_type, "noise/"
@@ -288,10 +283,9 @@ def create_binaural_wsj0mix2_noise_csv(
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
-            for (i, (mix_path, s1_path, s2_path, noise_path),) in enumerate(
-                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths,)
+            for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
+                zip(mix_fl_paths, s1_fl_paths, s2_fl_paths, noise_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,
@@ -334,15 +328,14 @@ def create_binaural_wsj0mix2_reverb_csv(
         raise ValueError("Unsupported sampling rate")
 
     for set_type in set_types:
-
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "mix/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "mix/"
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s1/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s1/"
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, "s2/",
+            datapath, "wav{}".format(sample_rate), version, set_type, "s2/"
         )
 
         files = os.listdir(mix_path)
@@ -373,7 +366,6 @@ def create_binaural_wsj0mix2_reverb_csv(
             for i, (mix_path, s1_path, s2_path) in enumerate(
                 zip(mix_fl_paths, s1_fl_paths, s2_fl_paths)
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,

@@ -68,7 +68,7 @@ To train a language model, use the `train_lm.py` script provided.
 For an RNN-based language model:
 > python train_lm.py hparams/hparams_lm_rnn.yaml
 
-For a transformer-based language modle:
+For a transformer-based language model:
 > python train_lm.py hparams/hparams_lm_transformer.yaml
 
 To use a language model during training or inference
@@ -82,11 +82,11 @@ Hyperparameter Optimization
 This recipe supports hyperparameter optimization via Oríon or other similar tools.
 For details on how to set up hyperparameter optimization, refer to the
 "Hyperparameter Optimization" tutorial in the Advanced Tutorials section
-on the SpeechBrian website:
+on the SpeechBrain website:
 
 https://speechbrain.github.io/tutorial_advanced.html
 
-A supplemental hyperparameter file is provided for hyperparameter optimiszation,
+A supplemental hyperparameter file is provided for hyperparameter optimization,
 which will turn off checkpointing and limit the number of epochs:
 
 hparams/hpopt.yaml
@@ -108,6 +108,10 @@ To replicate the result exactly, train with --homograph_epochs=0.
 Pretrained language models can be found at the following URLs:
 * **RNN**: https://www.dropbox.com/sh/pig0uk80xxii7cg/AACQ1rrRLYthvpNZ5FadPLtRa?dl=0
 * **Transformer**: https://www.dropbox.com/sh/tkf6di10edpz4i6/AAArnGAkE0bEEOvOGfc6KWuma?dl=0
+
+
+The best model is available on HuggingFace:
+https://huggingface.co/speechbrain/soundchoice-g2p
 
 Training Time
 -------------

@@ -43,7 +43,7 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training Parameters
 number_of_epochs: 30
 batch_size: 16
-gradient_accumulation: 2
+grad_accumulation_factor: 2
 lr: 0.0001
 weight_decay: 0.00002
 base_lr: 0.000001

@@ -15,6 +15,8 @@ the tar files are opened in random order, the audio files in the shards are shuf
 and fed to the training process. This reduces the disk load during training by large margin. This is all
 handled by the WebDataset library.
 
+Warning: In the metadata of this dataset, the used ISO language code for Hebrew is obsolete (should be `he` instead of `iw`). The ISO language code for Javanese is incorrect (should be `jv` instead of `jw`). See [issue #2396](https://github.com/speechbrain/speechbrain/issues/2396).
+
 ## Downloading the data
 
 You have two options how to download and prepare the VoxLingua107 dataset for training the model:
@@ -93,9 +95,9 @@ You can run inference with only few lines of code:
 
 ```python
 import torchaudio
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference import EncoderClassifier
 language_id = EncoderClassifier.from_hparams(source="speechbrain/lang-id-voxlingua107-ecapa", savedir="tmp")
-# Download Thai language sample from Omniglot and cvert to suitable form
+# Download Thai language sample from Omniglot and convert to suitable form
 signal = language_id.load_audio("https://omniglot.com/soundfiles/udhr/udhr_th.mp3")
 prediction =  language_id.classify_batch(signal)
 print(prediction)

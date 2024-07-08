@@ -51,10 +51,10 @@ test_csv:
 
 ckpt_interval_minutes: 30  # save checkpoint every N min
 
-# Training parameters
+####################### Training Parameters ####################################
 # To make Transformers converge, the global batch size should be large enough.
 # The global batch size is computed as:
-# batch_size * n_gpus * gradient_accumulation.
+# batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 100
@@ -64,6 +64,7 @@ grad_accumulation_factor: 2
 max_grad_norm: 5.0
 loss_reduction: batchmean
 sorting: random
+avg_checkpoints: 5
 
 #dynamic_batching: False
 #
@@ -95,7 +96,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
   batch_size: 1
 
-####################### Model parameters  ###########################
+####################### Model Parameters  ###########################
 # Transformer
 transformer_input_size: 1280
 d_model: 256
@@ -130,6 +131,7 @@ eos_threshold: 1.5
 length_normalization: True
 using_max_attn_shift: False
 max_attn_shift: 30
+scorer_beam_scale: 0.3
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
   input_shape: (8, 10, 80)
@@ -191,36 +193,52 @@ Adam: !name:torch.optim.Adam
   betas: (0.9, 0.98)
   eps: 0.000000001
 
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-  modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
-  bos_index: !ref <bos_index>
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+  language_model: !ref <lm_model>
+  temperature: !ref <temperature_lm>
+
+# Scorer
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
   eos_index: !ref <eos_index>
   blank_index: !ref <blank_index>
+  ctc_fc: !ref <ctc_lin>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+  full_scorers: [!ref <transformerlm_scorer>, !ref <ctc_scorer>]
+  weights:
+    transformerlm: !ref <lm_weight>
+    ctc: !ref <ctc_weight_decode>
+  scorer_beam_scale: !ref <scorer_beam_scale>
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+  modules: [!ref <Transformer>, !ref <seq_lin>]
+  bos_index: !ref <bos_index>
+  eos_index: !ref <eos_index>
   min_decode_ratio: !ref <min_decode_ratio>
   max_decode_ratio: !ref <max_decode_ratio>
   beam_size: !ref <valid_beam_size>
-  ctc_weight: !ref <ctc_weight_decode>
-  using_eos_threshold: False
-  length_normalization: False
-
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-  modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
-  bos_index: !ref <bos_index>
-  eos_index: !ref <eos_index>
-  blank_index: !ref <blank_index>
-  min_decode_ratio: !ref <min_decode_ratio>
-  max_decode_ratio: !ref <max_decode_ratio>
-  beam_size: !ref <test_beam_size>
-  ctc_weight: !ref <ctc_weight_decode>
-  lm_weight: !ref <lm_weight>
-  lm_modules: !ref <lm_model>
-  temperature: !ref <temperature>
-  temperature_lm: !ref <temperature_lm>
   using_eos_threshold: !ref <using_eos_threshold>
-  eos_threshold: !ref <eos_threshold>
   length_normalization: !ref <length_normalization>
   using_max_attn_shift: !ref <using_max_attn_shift>
   max_attn_shift: !ref <max_attn_shift>
+  scorer: !ref <scorer>
+  temperature: !ref <temperature>
+
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+  modules: [!ref <Transformer>, !ref <seq_lin>]
+  bos_index: !ref <bos_index>
+  eos_index: !ref <eos_index>
+  min_decode_ratio: !ref <min_decode_ratio>
+  max_decode_ratio: !ref <max_decode_ratio>
+  beam_size: !ref <test_beam_size>
+  using_eos_threshold: !ref <using_eos_threshold>
+  using_max_attn_shift: !ref <using_max_attn_shift>
+  max_attn_shift: !ref <max_attn_shift>
+  eos_threshold: !ref <eos_threshold>
+  temperature: !ref <temperature>
+  length_normalization: !ref <length_normalization>
+  scorer: !ref <scorer>
+
 
 log_softmax: !new:torch.nn.LogSoftmax
   dim: -1
@@ -253,19 +271,41 @@ normalize: !new:speechbrain.processing.features.InputNormalization
   norm_type: global
   update_until_epoch: 4
 
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-  time_warp: False
-  time_warp_window: 5
-  time_warp_mode: bicubic
-  freq_mask: True
-  n_freq_mask: 4
-  time_mask: True
-  n_time_mask: 4
-  replace_with_zero: False
-  freq_mask_width: 15
-  time_mask_width: 20
+############################## Augmentations ###################################
 
-speed_perturb: True
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+  orig_freq: !ref <sample_rate>
+  speeds: [95, 100, 105]
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+  drop_length_low: 15
+  drop_length_high: 25
+  drop_count_low: 5
+  drop_count_high: 5
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+  drop_length_low: 25
+  drop_length_high: 35
+  drop_count_low: 2
+  drop_count_high: 2
+  dim: 2
+
+# Time warp
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+  min_augmentations: 3
+  max_augmentations: 3
+  augment_prob: 1.0
+  augmentations: [
+    !ref <time_drop>,
+    !ref <freq_drop>,
+    !ref <time_warp>]
+
+do_speed_perturb: True
 
 compute_features: !new:speechbrain.lobes.features.Fbank
   sample_rate: !ref <sample_rate>

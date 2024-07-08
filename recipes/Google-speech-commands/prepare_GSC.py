@@ -9,18 +9,20 @@ David Raby-Pepin 2021
 
 """
 
-import os
-from os import walk
-import glob
-import shutil
-import logging
-import torch
-import re
-import hashlib
 import copy
+import glob
+import hashlib
+import logging
+import os
+import re
+import shutil
+from os import walk
+
 import numpy as np
-from speechbrain.utils.data_utils import download_file
+import torch
+
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import download_file
 
 try:
     import pandas as pd
@@ -109,12 +111,18 @@ def prepare_GSC(
         How much of the data set to use for validation.
     testing_percentage: int
         How much of the data set to use for testing.
-    percentage unknown: int.
+    percentage_unknown: int.
         How much data outside of the known (i.e wanted) words to preserve; relative to the total number of known words.
-    percentage silence: int
+    percentage_silence: int
         How many silence samples to generate; relative to the total number of known words.
+    words_wanted: list
+        The list of commands to use from the dataset.
     skip_prep: bool
         If True, skip data preparation.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -175,7 +183,7 @@ def prepare_GSC(
 
         # Read all files under a specific class (i.e. command)
         files = []
-        for (dirpath, dirnames, filenames) in walk(
+        for dirpath, dirnames, filenames in walk(
             os.path.join(data_folder, command)
         ):
             files.extend(filenames)
@@ -234,23 +242,23 @@ def prepare_GSC(
         new_df.to_csv(new_filename, index=False)
 
 
-MAX_NUM_WAVS_PER_CLASS = 2 ** 27 - 1  # ~134M
+MAX_NUM_WAVS_PER_CLASS = 2**27 - 1  # ~134M
 
 
 def which_set(filename, validation_percentage, testing_percentage):
     """Determines which data partition the file should belong to.
 
-  We want to keep files in the same training, validation, or testing sets even
-  if new ones are added over time. This makes it less likely that testing
-  samples will accidentally be reused in training when long runs are restarted
-  for example. To keep this stability, a hash of the filename is taken and used
-  to determine which set it should belong to. This determination only depends on
-  the name and the set proportions, so it won't change as other files are added.
+    We want to keep files in the same training, validation, or testing sets even
+    if new ones are added over time. This makes it less likely that testing
+    samples will accidentally be reused in training when long runs are restarted
+    for example. To keep this stability, a hash of the filename is taken and used
+    to determine which set it should belong to. This determination only depends on
+    the name and the set proportions, so it won't change as other files are added.
 
-  It's also useful to associate particular files as related (for example words
-  spoken by the same person), so anything after '_nohash_' in a filename is
-  ignored for set determination. This ensures that 'bobby_nohash_0.wav' and
-  'bobby_nohash_1.wav' are always in the same set, for example.
+    It's also useful to associate particular files as related (for example words
+    spoken by the same person), so anything after '_nohash_' in a filename is
+    ignored for set determination. This ensures that 'bobby_nohash_0.wav' and
+    'bobby_nohash_1.wav' are always in the same set, for example.
 
     Arguments
     ---------
@@ -262,10 +270,10 @@ def which_set(filename, validation_percentage, testing_percentage):
         How much of the data set to use for testing.
 
     Returns
-    ---------
+    -------
     result: str
         one of 'training', 'validation', or 'testing'.
-  """
+    """
     base_name = os.path.basename(filename)
     # We want to ignore anything after '_nohash_' in the file name when
     # deciding which set to put a wav in, so the data set creator has a way of
@@ -306,7 +314,7 @@ def generate_silence_data(
         path to dataset.
     percentage_silence: int
         How many silence samples to generate; relative to the total number of known words.
-  """
+    """
     for split in splits:
         num_silence_samples = int(
             (percentage_silence / 100.0) * num_known_samples_per_split[split]

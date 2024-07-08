@@ -8,11 +8,12 @@ Authors
 * Elena Rastorgueva 2020
 """
 
-import os
 import json
 import logging
-from speechbrain.utils.data_utils import get_all_files
+import os
+
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import get_all_files
 
 logger = logging.getLogger(__name__)
 SAMPLERATE = 16000
@@ -28,7 +29,7 @@ def prepare_timit(
     skip_prep=False,
 ):
     """
-    repares the json files for the TIMIT dataset.
+    Prepares the json files for the TIMIT dataset.
 
     Arguments
     ---------
@@ -51,6 +52,10 @@ def prepare_timit(
     skip_prep: bool
         Default: False
         If True, the data preparation is skipped.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -113,8 +118,7 @@ def prepare_timit(
 
 
 def _get_phonemes():
-
-    # This dictionary is used to conver the 60 phoneme set
+    # This dictionary is used to convert the 60 phoneme set
     # into the 48 one
     from_60_to_48_phn = {}
     from_60_to_48_phn["sil"] = "sil"
@@ -180,7 +184,7 @@ def _get_phonemes():
     from_60_to_48_phn["z"] = "z"
     from_60_to_48_phn["zh"] = "zh"
 
-    # This dictionary is used to conver the 60 phoneme set
+    # This dictionary is used to convert the 60 phoneme set
     from_60_to_39_phn = {}
     from_60_to_39_phn["sil"] = "sil"
     from_60_to_39_phn["aa"] = "aa"
@@ -249,8 +253,8 @@ def _get_phonemes():
 
 
 def _get_speaker():
-
     # List of test speakers
+    # cspell:disable
     test_spk = [
         "fdhc0",
         "felc0",
@@ -332,6 +336,8 @@ def _get_speaker():
         "mwjg0",
     ]
 
+    # cspell:enable
+
     return dev_spk, test_spk
 
 
@@ -339,6 +345,11 @@ def skip(annotations):
     """
     Detects if the timit data_preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    annotations : list
+        List of paths to check for existence.
 
     Returns
     -------
@@ -356,9 +367,7 @@ def skip(annotations):
     return skip
 
 
-def create_json(
-    wav_lst, json_file, uppercase, phn_set,
-):
+def create_json(wav_lst, json_file, uppercase, phn_set):
     """
     Creates the json file given a list of wav files.
 
@@ -381,7 +390,6 @@ def create_json(
     json_dict = {}
 
     for wav_file in wav_lst:
-
         # Getting sentence and speaker ids
         spk_id = wav_file.split("/")[-2]
         snt_id = wav_file.split("/")[-1].replace(".wav", "")
@@ -505,9 +513,12 @@ def _check_timit_folders(uppercase, data_folder):
 
     If not, raises an error.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    uppercase : bool
+        Whether the files and folders are uppercase.
+    data_folder : str
+        Path to the directory containing the data.
 
     Raises
     ------
@@ -533,7 +544,6 @@ def _check_timit_folders(uppercase, data_folder):
 
     # Checking train/dr1
     if not os.path.exists(data_folder + train_str):
-
         err_msg = (
             "the folder %s does not exist (it is expected in "
             "the TIMIT dataset)" % (data_folder + train_str)

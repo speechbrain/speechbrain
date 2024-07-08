@@ -1,6 +1,6 @@
 #!/usr/bin/env/python3
 """Recipe for training a BPE tokenizer with AISHELL-1.
-The tokenizer coverts transcripts into sub-word units that can
+The tokenizer converts transcripts into sub-word units that can
 be used to train a language (LM) or an acoustic model (AM).
 
 To run this recipe, do the following:
@@ -14,12 +14,13 @@ Authors
 """
 
 import sys
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

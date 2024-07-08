@@ -1,8 +1,9 @@
-import os
 import argparse
-import soundfile as sf
-import pandas as pd
 import glob
+import os
+
+import pandas as pd
+import soundfile as sf
 from tqdm import tqdm
 
 # Global parameter
@@ -30,7 +31,7 @@ def main(args):
 
 
 def create_aishell1_metadata(aishell1_dir, md_dir):
-    """ Generate metadata corresponding to downloaded data in aishell1 """
+    """Generate metadata corresponding to downloaded data in aishell1"""
     # Get speakers metadata
     speakers_metadata = create_speakers_dataframe(aishell1_dir)
     filename2transcript = {}
@@ -65,8 +66,8 @@ def create_aishell1_metadata(aishell1_dir, md_dir):
 
 
 def create_speakers_dataframe(aishell1_dir):
-    """ Read metadata from the aishell1 dataset and collect infos
-    about the speakers """
+    """Read metadata from the aishell1 dataset and collect infos
+    about the speakers"""
     print("Reading speakers metadata")
     # Read SPEAKERS.TXT and create a dataframe
     speakers_metadata_path = os.path.join(
@@ -105,8 +106,8 @@ def check_already_generated(md_dir, aishell1_dir):
 def create_aishell1_dataframe(
     aishell1_dir, subdir, speakers_md, filename2transcript
 ):
-    """ Generate a dataframe that gather infos about the sound files in a
-    aishell1 subdirectory """
+    """Generate a dataframe that gather infos about the sound files in a
+    aishell1 subdirectory"""
 
     print(
         f"Creating {subdir} metadata file in "

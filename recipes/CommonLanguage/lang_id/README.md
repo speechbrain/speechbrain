@@ -9,7 +9,7 @@ Similar to the X-Vector a bigger and more powerful ECAPA-TDNN model can be used.
 The experiment is also fine-tuning of the trained speaker embeddings done for Speaker Identification task on VoxCeleb, and can be accessed on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb). Therefore, most of the architecture choices come from that task.
 
 Data augmentation and environmental corruption are done by concatenating waveforms, dropout, speed change, reverberation, noise, and noise+rev. The batch is double size of the original one. This may lead to
-better performance, at the cost of longer training time and higher compute resourses.
+better performance, at the cost of longer training time and higher compute resources.
 
 # Performance
 | Release | hyperparams file | Val. Err | Test Err | Model link | GPUs |
@@ -26,7 +26,7 @@ Basically, you can run inference with only few lines of code:
 
 ```python
 import torchaudio
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference import EncoderClassifier
 classifier = EncoderClassifier.from_hparams(source="speechbrain/lang-id-commonlanguage_ecapa", savedir="pretrained_models/lang-id-commonlanguage_ecapa")
 
 # Italian Example

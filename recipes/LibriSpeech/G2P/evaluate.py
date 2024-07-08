@@ -8,21 +8,22 @@ Authors
  * Artem Ploujnikov 2022
 """
 
+import itertools
+import logging
+import math
+import sys
+from types import SimpleNamespace
 
+import torch
 from hyperpyyaml import load_hyperpyyaml
+from tqdm.auto import tqdm
+from train import dataio_prep, load_dependencies
+
+import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
 from speechbrain.utils import hpopt as hp
 from speechbrain.wordemb.util import expand_to_chars
-from train import dataio_prep, load_dependencies
-from types import SimpleNamespace
-from tqdm.auto import tqdm
-import math
-import itertools
-import speechbrain as sb
-import torch
-import sys
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ class G2PEvaluator:
         phns, phn_lens = batch.phn_encoded
 
         self.per_metrics.append(
-            ids, hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder,
+            ids, hyps, phns, None, phn_lens, self.hparams.out_phoneme_decoder
         )
 
     def _get_phonemes(self, grapheme_encoded, phn_encoded=None, char=None):
@@ -136,10 +137,8 @@ class G2PEvaluator:
         ---------
         grapheme_encoded: speechbrain.dataio.batch.PaddedData
             An encoded grapheme sequence
-
-        phn_encoded_bos: speechbrain.dataio.batch.PaddedData
+        phn_encoded: speechbrain.dataio.batch.PaddedData
             An encoded phoneme sequence (optional)
-
         char: str
             Raw character input (needed for word embeddings)
 
@@ -152,9 +151,9 @@ class G2PEvaluator:
         """
         _, char_word_emb = None, None
         if self._grapheme_word_separator_idx is None:
-            self._grapheme_word_separator_idx = self.hparams.grapheme_encoder.lab2ind[
-                " "
-            ]
+            self._grapheme_word_separator_idx = (
+                self.hparams.grapheme_encoder.lab2ind[" "]
+            )
         if not phn_encoded:
             grapheme_encoded_data, grapheme_lens = grapheme_encoded
             phn_encoded = (
@@ -233,7 +232,7 @@ class G2PEvaluator:
         Returns
         -------
         result: list
-            the concatenated reuslt
+            the concatenated result
         """
         return [token for item_result in results for token in item_result]
 
@@ -249,7 +248,7 @@ class G2PEvaluator:
         Returns
         -------
         result: list
-            the concatenated reuslt
+            the concatenated result
         """
         result = []
         for item_result in results:
@@ -271,7 +270,7 @@ class G2PEvaluator:
         scores: list
             the scores corresponding to the hypotheses
 
-        Results
+        Returns
         -------
         scores: list
             the scores corresponding to the hypotheses,
@@ -301,9 +300,11 @@ class G2PEvaluator:
         ---------
         graphemes: torch.Tensor
             an encoded sequence of phonemes
+        length: torch.Tensor
+            The length of the corresponding inputs.
 
-        Returns
-        -------
+        Yields
+        ------
         graphemes: generator
             a generator representing a sequence of words
         """
@@ -328,6 +329,11 @@ class G2PEvaluator:
         ---------
         word: torch.Tensor
             a tensor representing a word
+
+        Returns
+        -------
+        word: torch.Tensor
+            word with delimiters added.
         """
         if self.grapheme_sequence_mode == "bos":
             word = torch.cat([self._bos, word])
@@ -343,6 +349,8 @@ class G2PEvaluator:
         ---------
         dataset: DynamicItemDataset
             a G2P dataset (same as the ones used for training)
+        dataloader_opts: dict
+            Additional options to pass to dataloader.
 
         Returns
         -------

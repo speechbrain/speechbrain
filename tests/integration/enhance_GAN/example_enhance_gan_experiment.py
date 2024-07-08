@@ -3,15 +3,17 @@
 The generator and the discriminator are based on convolutional networks.
 """
 
-import torch
 import pathlib
-import speechbrain as sb
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class EnhanceGanBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the enhanced signal"
+        """Given an input batch it computes the enhanced signal"""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -21,7 +23,7 @@ class EnhanceGanBrain(sb.Brain):
         return enhanced
 
     def compute_objectives(self, predictions, batch, stage, optim_name=""):
-        "Given the network predictions and targets computed the total loss"
+        """Given the network predictions and targets computed the total loss"""
         clean_wavs, lens = batch.sig
         batch_size = clean_wavs.size(0)
 
@@ -50,7 +52,7 @@ class EnhanceGanBrain(sb.Brain):
         return real_cost + simu_cost + map_cost
 
     def fit_batch(self, batch):
-        "Trains the GAN with a batch"
+        """Trains the GAN with a batch"""
         self.g_optimizer.zero_grad()
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
         g_loss = self.compute_objectives(
@@ -70,7 +72,7 @@ class EnhanceGanBrain(sb.Brain):
         return g_loss.detach() + d_loss.detach()
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage == sb.Stage.TRAIN:
             self.metrics = {"G": [], "D": []}
 
@@ -104,8 +106,7 @@ class EnhanceGanBrain(sb.Brain):
 
 
 def data_prep(data_folder):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

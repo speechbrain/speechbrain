@@ -9,16 +9,17 @@ Authors
 * Titouan Parcollet 2023
 """
 
+from typing import Optional
+
 import torch
 import torch.nn as nn
 from typing import Optional
 import numpy as np
 
-from speechbrain.nnet.attention import RelPosMHAXL, MultiheadAttention
-from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
-
-from speechbrain.lobes.models.transformer.hypermixing import HyperMixing
+from speechbrain.nnet.attention import MultiheadAttention, RelPosMHAXL
+from speechbrain.nnet.hypermixing import HyperMixing
+from speechbrain.nnet.normalization import LayerNorm
 
 
 class ConvolutionBranch(nn.Module):
@@ -28,7 +29,7 @@ class ConvolutionBranch(nn.Module):
     LN -> Channel Proj -> GeLU -> (CNN Spatial Gating) -> Channel Proj -> Dropout
 
     Arguments
-    ----------
+    ---------
     input_size : int
         The expected size of the feature (channel) dimension.
     linear_units: int, optional
@@ -94,7 +95,7 @@ class BranchformerEncoderLayer(nn.Module):
     """This is an implementation of Branchformer encoder layer.
 
     Arguments
-    ----------
+    ---------
     d_model : int
         The expected size of the input embedding.
     nhead : int
@@ -110,7 +111,7 @@ class BranchformerEncoderLayer(nn.Module):
     dropout : int, optional
         Dropout for the encoder.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
     csgu_linear_units: int, optional
         Number of neurons in the hidden linear units of the CSGU Module.
     gate_activation: torch.nn.Module, optional
@@ -257,7 +258,7 @@ class BranchformerEncoder(nn.Module):
     dropout : int, optional
         Dropout for the encoder.
     attention_type: str, optional
-        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
     csgu_linear_units: int, optional
         Number of neurons in the hidden linear units of the CSGU Module.
     gate_activation: torch.nn.Module, optional
@@ -326,6 +327,7 @@ class BranchformerEncoder(nn.Module):
         src_mask: Optional[torch.Tensor] = None,
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
+        dynchunktrain_config=None,
     ):
         """
         Arguments
@@ -341,6 +343,9 @@ class BranchformerEncoder(nn.Module):
             If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
             where S is the sequence length, and E is the embedding dimension.
         """
+        assert (
+            dynchunktrain_config is None
+        ), "Dynamic Chunk Training unsupported for this encoder"
 
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:

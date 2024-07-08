@@ -4,14 +4,16 @@ https://arxiv.org/pdf/2005.03191.pdf
 Authors
  * Jianyuan Zhong 2020
 """
+
 import torch
 from torch.nn import Dropout
-from speechbrain.nnet.CNN import DepthwiseSeparableConv1d, Conv1d
-from speechbrain.nnet.linear import Linear
-from speechbrain.nnet.pooling import AdaptivePool
-from speechbrain.nnet.containers import Sequential
-from speechbrain.nnet.normalization import BatchNorm1d
+
 from speechbrain.nnet.activations import Swish
+from speechbrain.nnet.CNN import Conv1d, DepthwiseSeparableConv1d
+from speechbrain.nnet.containers import Sequential
+from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.normalization import BatchNorm1d
+from speechbrain.nnet.pooling import AdaptivePool
 
 
 class ContextNet(Sequential):
@@ -20,7 +22,9 @@ class ContextNet(Sequential):
     Reference paper: https://arxiv.org/pdf/2005.03191.pdf
 
     Arguments
-    ----------
+    ---------
+    input_shape : tuple
+        Expected shape of the inputs.
     out_channels : int
         Number of output channels of this model (default 640).
     conv_channels : Optional (list[int])
@@ -139,6 +143,8 @@ class SEmodule(torch.nn.Module):
 
     Arguments
     ---------
+    input_shape : tuple
+        Expected shape of the inputs.
     inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).
     activation : torch class
@@ -170,7 +176,7 @@ class SEmodule(torch.nn.Module):
         bz, t, chn = input_shape
         self.conv = Sequential(input_shape=input_shape)
         self.conv.append(
-            DepthwiseSeparableConv1d, out_channels=chn, kernel_size=1, stride=1,
+            DepthwiseSeparableConv1d, out_channels=chn, kernel_size=1, stride=1
         )
         self.conv.append(self.norm)
         self.conv.append(self.activation())
@@ -184,7 +190,7 @@ class SEmodule(torch.nn.Module):
         )
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         bz, t, chn = x.shape
 
         x = self.conv(x)
@@ -203,12 +209,14 @@ class ContextNetBlock(torch.nn.Module):
         Number of output channels of this model (default 640).
     kernel_size : int
         Kernel size of convolution layers (default 3).
-    strides : int
-        Striding factor for this context block (default 1).
-    num_layersi : int
+    num_layers : int
         Number of depthwise convolution layers for this context block (default 5).
     inner_dim : int
         Inner dimension of bottle-neck network of the SE Module (default 12).
+    input_shape : tuple
+        Expected shape of the inputs.
+    stride : int
+        Striding factor for this context block (default 1).
     beta : float
         Beta to scale the Swish activation (default 1).
     dropout : float
@@ -219,7 +227,7 @@ class ContextNetBlock(torch.nn.Module):
         Activation function for SE Module (default torch.nn.Sigmoid).
     norm : torch class
         Normalization to regularize the model (default BatchNorm1d).
-    residuals : bool
+    residual : bool
         Whether to apply residual connection at this context block (default None).
 
     Example
@@ -270,7 +278,7 @@ class ContextNetBlock(torch.nn.Module):
         if residual:
             self.reduced_cov = Sequential(input_shape=input_shape)
             self.reduced_cov.append(
-                Conv1d, out_channels, kernel_size=3, stride=stride,
+                Conv1d, out_channels, kernel_size=3, stride=stride
             )
             self.reduced_cov.append(norm)
 
@@ -282,7 +290,7 @@ class ContextNetBlock(torch.nn.Module):
         self._reset_params()
 
     def forward(self, x):
-        """ Processes the input tensor x and returns an output tensor."""
+        """Processes the input tensor x and returns an output tensor."""
         out = self.Convs(x)
         out = self.SE(out)
         if self.reduced_cov:

@@ -17,36 +17,28 @@ audio. The output is again stored in webdataset shards.
 # speech sourcefile once (from the webdataset shards), as it does not
 # randomly sample from these files
 
-import sys
+import json
 import os
-from pathlib import Path
 import random
+import sys
 import time
+from collections import defaultdict
+from functools import partial
+from pathlib import Path
+from typing import Dict
 
+import librosa
 import numpy as np
+import pandas as pd
+import torch
+import utils
+import webdataset as wds
+from audiolib import activitydetector, is_clipped, segmental_snr_mixer
+from hyperpyyaml import load_hyperpyyaml
 from scipy import signal
 from scipy.io import wavfile
 
-import librosa
-
-import utils
-from audiolib import (
-    segmental_snr_mixer,
-    activitydetector,
-    is_clipped,
-)
-
-import pandas as pd
-import json
-from functools import partial
-from typing import Dict
-from collections import defaultdict
-
-
 import speechbrain as sb
-import webdataset as wds
-from hyperpyyaml import load_hyperpyyaml
-import torch
 
 np.random.seed(5)
 random.seed(5)
@@ -59,7 +51,7 @@ start = time.time()
 
 def add_pyreverb(clean_speech, rir):
     """
-    Add reverb to cean signal
+    Add reverb to clean signal
     """
     reverb_speech = signal.fftconvolve(clean_speech, rir, mode="full")
 
@@ -670,7 +662,7 @@ def main_body():  # noqa
         clean_low_activity_files + noise_low_activity_files,
     )
 
-    # Compute and print stats about percentange of clipped and low activity files
+    # Compute and print stats about percentage of clipped and low activity files
     total_clean = (
         len(clean_source_files)
         + len(clean_clipped_files)

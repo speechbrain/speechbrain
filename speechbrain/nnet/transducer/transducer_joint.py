@@ -4,8 +4,9 @@ Author
     Abdelwahab HEBA 2020
 """
 
-import torch
 import logging
+
+import torch
 import torch.nn as nn
 
 logger = logging.getLogger(__name__)
@@ -19,10 +20,11 @@ class Transducer_joint(nn.Module):
     joint_network : torch.class (neural network modules)
         if joint == "concat", we call this network after the concatenation of TN and PN
         if None, we don't use this network.
-    joint : joint the two tensors by ("sum",or "concat") option.
+    joint : str
+        join the two tensors by ("sum",or "concat") option.
     nonlinearity : torch class
         Activation function used after the joint between TN and PN
-         Type of nonlinearity (tanh, relu).
+        Type of nonlinearity (tanh, relu).
 
     Example
     -------
@@ -61,9 +63,12 @@ class Transducer_joint(nn.Module):
         ---------
         input_TN : torch.Tensor
            Input from Transcription Network.
-
         input_PN : torch.Tensor
            Input from Prediction Network.
+
+        Returns
+        -------
+        fusion of input tensors.
         """
         if len(input_TN.shape) != len(input_PN.shape):
             raise ValueError("Arg 1 and 2 must be have same size")

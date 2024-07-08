@@ -2,11 +2,11 @@
 Author
  * Cem Subakan 2020
 
-The .csv preperation functions for WSJ0-Mix.
+The .csv preparation functions for WSJ0-Mix.
 """
 
-import os
 import csv
+import os
 
 
 def prepare_wham_whamr_csv(
@@ -92,13 +92,13 @@ def create_wham_whamr_csv(
             s2 = "s2/"
 
         mix_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, mix_both,
+            datapath, "wav{}".format(sample_rate), version, set_type, mix_both
         )
         s1_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, s1,
+            datapath, "wav{}".format(sample_rate), version, set_type, s1
         )
         s2_path = os.path.join(
-            datapath, "wav{}".format(sample_rate), version, set_type, s2,
+            datapath, "wav{}".format(sample_rate), version, set_type, s2
         )
         noise_path = os.path.join(
             datapath, "wav{}".format(sample_rate), version, set_type, "noise/"
@@ -140,7 +140,7 @@ def create_wham_whamr_csv(
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
-            for (i, (mix_path, s1_path, s2_path, noise_path),) in enumerate(
+            for i, (mix_path, s1_path, s2_path, noise_path) in enumerate(
                 zip(
                     mix_fl_paths,
                     s1_fl_paths,
@@ -149,7 +149,6 @@ def create_wham_whamr_csv(
                     # rir_fl_paths,
                 )
             ):
-
                 row = {
                     "ID": i,
                     "duration": 1.0,
@@ -190,7 +189,6 @@ def create_whamr_rir_csv(datapath, savepath):
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
         writer.writeheader()
         for i, wav_path in enumerate(all_paths):
-
             row = {
                 "ID": i,
                 "duration": 2.0,

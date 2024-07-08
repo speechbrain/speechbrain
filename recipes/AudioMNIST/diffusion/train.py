@@ -13,29 +13,31 @@ Authors
  * Artem Ploujnikov 2022
 """
 import logging
-import sys
-import torch
-import speechbrain as sb
 import os
+import sys
 from collections import namedtuple
+from enum import Enum
+
+import torch
 from audiomnist_prepare import prepare_audiomnist
 from hyperpyyaml import load_hyperpyyaml
 from torchaudio import functional as AF
+
+import speechbrain as sb
 from speechbrain.dataio.dataio import length_to_mask, write_audio
 from speechbrain.dataio.dataset import apply_overfit_test
 from speechbrain.utils import data_utils
-from speechbrain.utils.train_logger import plot_spectrogram
-from enum import Enum
-from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import (
     dict_value_combinations,
     dist_stats,
+    masked_max,
     masked_mean,
     masked_min,
-    masked_max,
     masked_std,
     match_shape,
 )
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.train_logger import plot_spectrogram
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,7 @@ class DiffusionBrain(sb.Brain):
         e.g., self.hparams.model(x).
     run_opts : dict
         A set of options to change the runtime environment.
+    checkpointer : Checkpointer
     """
 
     def __init__(
@@ -92,21 +95,20 @@ class DiffusionBrain(sb.Brain):
         hparams=None,
         run_opts=None,
         checkpointer=None,
-        profiler=None,
     ):
-        super().__init__(
-            modules, opt_class, hparams, run_opts, checkpointer, profiler
-        )
+        super().__init__(modules, opt_class, hparams, run_opts, checkpointer)
         self.diffusion_mode = DiffusionMode(self.hparams.diffusion_mode)
         self.use_done_detector = "done_detector" in self.modules
 
     def init_optimizers(self):
         """Initializes the diffusion model optimizer - and the
         autoencoder optimizer, if applicable"""
+        self.optimizers_dict = {}
         if self.opt_class is not None:
             self.optimizer = self.opt_class(self.modules.unet.parameters())
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
+            self.optimizers_dict["opt_class"] = self.optimizer
 
         if self.use_done_detector:
             self.optimizer_done = self.hparams.opt_class_done(
@@ -116,6 +118,7 @@ class DiffusionBrain(sb.Brain):
                 self.checkpointer.add_recoverable(
                     "optimizer_done", self.optimizer
                 )
+            self.optimizers_dict["opt_class_done"] = self.optimizer_done
 
         if self.diffusion_mode == DiffusionMode.LATENT:
             self.autoencoder_optimizer = self.hparams.opt_class_autoencoder(
@@ -125,6 +128,9 @@ class DiffusionBrain(sb.Brain):
                 self.checkpointer.add_recoverable(
                     "autoencoder_optimizer", self.autoencoder_optimizer
                 )
+            self.optimizers_dict["opt_class_autoencoder"] = (
+                self.autoencoder_optimizer
+            )
 
     def compute_forward(self, batch, stage):
         """Runs all the computation of that transforms the input into the
@@ -139,8 +145,8 @@ class DiffusionBrain(sb.Brain):
 
         Returns
         -------
-        predictions : Tensor
-            Tensor that contains the posterior probabilities over the N classes.
+        predictions : torch.Tensor
+            torch.Tensor that contains the posterior probabilities over the N classes.
         """
 
         # We first move the batch to the appropriate device.
@@ -307,7 +313,7 @@ class DiffusionBrain(sb.Brain):
                 (loss / self.grad_accumulation_factor).backward(
                     retain_graph=True
                 )
-        # Done loss - iffapplicable
+        # Done loss - iff applicable
         if self.use_done_detector:
             with self.no_sync(not should_step):
                 (loss_done / self.grad_accumulation_factor).backward(
@@ -315,7 +321,7 @@ class DiffusionBrain(sb.Brain):
                 )
 
         if should_step:
-            if self.train_diffusion and self.check_gradients(loss):
+            if self.train_diffusion:
                 self.optimizer.step()
             self.optimizer.zero_grad()
 
@@ -330,7 +336,10 @@ class DiffusionBrain(sb.Brain):
         ):
             with self.no_sync(not should_step):
                 (loss_autoencoder / self.grad_accumulation_factor).backward()
-            if should_step and self.check_gradients(loss_autoencoder):
+            if should_step:
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.max_grad_norm
+                )
                 self.autoencoder_optimizer.step()
             self.autoencoder_optimizer.zero_grad()
 
@@ -405,10 +414,10 @@ class DiffusionBrain(sb.Brain):
             stats.update(
                 self.autoencoder_loss_metric.summarize(field="average")
             )
-            stats[
-                "laplacian_loss"
-            ] = self.autoencoder_laplacian_loss_stats_metric.summarize(
-                field="average"
+            stats["laplacian_loss"] = (
+                self.autoencoder_laplacian_loss_stats_metric.summarize(
+                    field="average"
+                )
             )
             stats["weighted_laplacian_loss"] = (
                 self.hparams.loss_laplacian_weight * stats["laplacian_loss"]
@@ -437,17 +446,17 @@ class DiffusionBrain(sb.Brain):
             and self.hparams.enable_reconstruction_sample
         ):
             self.hparams.tensorboard_train_logger.log_figure(
-                f"train_ref_spectrogram", predictions.feats[0]
+                "train_ref_spectrogram", predictions.feats[0]
             )
             self.hparams.tensorboard_train_logger.log_figure(
-                f"train_rec_spectrogram", predictions.autoencoder_output.rec[0]
+                "train_rec_spectrogram", predictions.autoencoder_output.rec[0]
             )
             latent = predictions.autoencoder_output.latent[0]
             latent = latent.view(
                 latent.size(0) * latent.size(1), latent.size(2)
             )
             self.hparams.tensorboard_train_logger.log_figure(
-                f"train_rec_latent", latent
+                "train_rec_latent", latent
             )
 
     def extract_dist_stats(self, dist_stats_metric, prefix):
@@ -459,6 +468,12 @@ class DiffusionBrain(sb.Brain):
         ---------
         dist_stats_metric: speechbrain.utils.metric_stats.MultiMetricStats
             the metric for which statistics will be extracted
+        prefix: str
+            The string prefix.
+
+        Returns
+        -------
+        Extracted stats
         """
         dist_stats = dist_stats_metric.summarize()
         return {
@@ -539,6 +554,15 @@ class DiffusionBrain(sb.Brain):
             raw waveforms
         lens: torch.Tensor
             feature lengths
+
+        Returns
+        -------
+        feats: torch.Tensor
+            Global normed features
+        feats_raw: torch.Tensor
+            Unnormalized features
+        lens: torch.Tensor
+            Corresponding lengths of features
         """
         # Compute features
         feats = self.modules.compute_features(wavs)
@@ -905,7 +929,7 @@ class DiffusionBrain(sb.Brain):
         samples: torch.Tensor
             a tensor of sample spectrograms
         path: str
-            ths path to samples for a given epoch
+            the path to samples for a given epoch
         folder: str
             the name of the folder where the spectrograms
             will be saved
@@ -933,6 +957,8 @@ class DiffusionBrain(sb.Brain):
         ---------
         path: str
             the path
+        **kwargs: dict
+            The data to save
         """
         file_name = os.path.join(path, "raw.pt")
         data = {
@@ -949,7 +975,8 @@ class DiffusionBrain(sb.Brain):
             a single generated spectrogram (2D tensor)
         file_name: str
             the destination file name
-
+        label: str
+            The sample label to add to the title.
         """
         fig = plot_spectrogram(sample.transpose(-1, -2))
         if fig is not None:
@@ -1010,7 +1037,7 @@ class DiffusionBrain(sb.Brain):
             the destination directory
 
         folder: str
-            the subfolder within the destinatin directory
+            the subfolder within the destination directory
 
         labels: list
             a list of labels, for each sample. If omitted,
@@ -1091,23 +1118,33 @@ class DiffusionBrain(sb.Brain):
         )
 
         if self.hparams.enable_train_metrics:
-            self.data_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
-                metric=dist_stats, batch_eval=True
+            self.data_dist_stats_metric = (
+                sb.utils.metric_stats.MultiMetricStats(
+                    metric=dist_stats, batch_eval=True
+                )
             )
 
         if self.diffusion_mode == DiffusionMode.LATENT:
-            self.autoencoder_loss_metric = sb.utils.metric_stats.MultiMetricStats(
-                metric=self.hparams.compute_cost_autoencoder.details,
-                batch_eval=True,
+            self.autoencoder_loss_metric = (
+                sb.utils.metric_stats.MultiMetricStats(
+                    metric=self.hparams.compute_cost_autoencoder.details,
+                    batch_eval=True,
+                )
             )
-            self.autoencoder_rec_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
-                metric=dist_stats, batch_eval=True
+            self.autoencoder_rec_dist_stats_metric = (
+                sb.utils.metric_stats.MultiMetricStats(
+                    metric=dist_stats, batch_eval=True
+                )
             )
-            self.autoencoder_latent_dist_stats_metric = sb.utils.metric_stats.MultiMetricStats(
-                metric=dist_stats, batch_eval=True
+            self.autoencoder_latent_dist_stats_metric = (
+                sb.utils.metric_stats.MultiMetricStats(
+                    metric=dist_stats, batch_eval=True
+                )
             )
-            self.autoencoder_laplacian_loss_stats_metric = sb.utils.metric_stats.MetricStats(
-                metric=self.hparams.compute_cost_laplacian, batch_eval=True
+            self.autoencoder_laplacian_loss_stats_metric = (
+                sb.utils.metric_stats.MetricStats(
+                    metric=self.hparams.compute_cost_laplacian, batch_eval=True
+                )
             )
 
         self.sample_mean_metric = sb.utils.metric_stats.MetricStats(
@@ -1139,7 +1176,7 @@ class DiffusionBrain(sb.Brain):
             self.vocoder = self.hparams.vocoder()
         if not hasattr(self, "reference_batch"):
             self.reference_batch = None
-        self.reference_samples_neeed = False
+        self.reference_samples_needed = False
         self.is_conditioned = hasattr(self.hparams, "use_cond_emb") and any(
             self.hparams.use_cond_emb.values()
         )
@@ -1170,7 +1207,6 @@ class DiffusionBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             # The train_logger writes a summary to stdout and to the logfile.
             lr = self.optimizer.param_groups[0]["lr"]
             self.hparams.train_logger.log_stats(
@@ -1244,7 +1280,7 @@ class DiffusionBrain(sb.Brain):
         Arguments
         ---------
         data: dict
-            the data to be loged, with the following keys
+            the data to be logged, with the following keys
             samples: generated samples
             wav: generated waveform
             samples_rec: reconstruction samples (to assess autoencoder quality)
@@ -1364,7 +1400,7 @@ class DiffusionBrain(sb.Brain):
 
     @property
     def tb_writer(self):
-        """Returns the raw TensorBoard logger writer"""
+        """Returns the raw Tensorboard logger writer"""
         return self.hparams.tensorboard_train_logger.writer
 
 
@@ -1454,7 +1490,8 @@ def dataio_prep(hparams):
         output_keys += ["file_name_random", "sig_random"]
 
     sb.dataio.dataset.set_output_keys(
-        dataset_splits_values, output_keys,
+        dataset_splits_values,
+        output_keys,
     )
     sb.dataio.dataset.add_dynamic_item(dataset_splits_values, audio_pipeline)
     sb.dataio.dataset.add_dynamic_item(dataset_splits_values, labels_pipeline)
@@ -1487,6 +1524,11 @@ def read_audio(wav, hparams):
         the file name (absolute or relative)
     hparams: dict
         hyperparameters
+
+    Returns
+    -------
+    sig: torch.Tensor
+        The loaded audio.
     """
     sig = sb.dataio.dataio.read_audio(wav)
 
@@ -1542,14 +1584,13 @@ def check_tensorboard(hparams):
             )
         except ImportError:
             logger.warning(
-                "Could not enable TensorBoard logging - TensorBoard is not available"
+                "Could not enable Tensorboard logging - Tensorboard is not available"
             )
             hparams["use_tensorboard"] = False
 
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 

@@ -5,21 +5,19 @@ Authors
  * Jarod Duret 2023
 """
 
-import logging
 import json
+import logging
 import pathlib as pl
 
 import joblib
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
 from tqdm import tqdm
+
 import speechbrain as sb
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
-from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
+from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
 
 OPT_FILE = "opt_ljspeech_extract.pkl"
 TRAIN_JSON = "train.json"
@@ -56,6 +54,15 @@ def skip(splits, save_folder, conf):
     """
     Detects if the ljspeech data_extraction has been already done.
     If the extraction has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits : list
+        List of splits to check.
+    save_folder : str
+        The path to the directory with generated files.
+    conf : dict
+        Configuration to check against saved configuration.
 
     Returns
     -------
@@ -122,6 +129,10 @@ def extract_ljspeech(
     skip_extract: Bool
         If True, skip extraction.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> from recipes.LJSpeech.S2ST.extract_code import extract_ljspeech
@@ -165,7 +176,7 @@ def extract_ljspeech(
     code_folder.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Loading encoder: {encoder} ...")
-    encoder = HuggingFaceWav2Vec2(
+    encoder = Wav2Vec2(
         encoder,
         encoder_save_path.as_posix(),
         output_all_hiddens=True,
@@ -190,7 +201,8 @@ def extract_ljspeech(
                 info = torchaudio.info(wav)
                 audio = sb.dataio.dataio.read_audio(wav)
                 audio = torchaudio.transforms.Resample(
-                    info.sample_rate, sample_rate,
+                    info.sample_rate,
+                    sample_rate,
                 )(audio)
                 audio = audio.unsqueeze(0).to(device)
                 feats = encoder.extract_features(audio)

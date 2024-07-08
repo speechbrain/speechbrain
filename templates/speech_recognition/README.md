@@ -21,7 +21,7 @@ cd ../LM
 python train.py RNNLM.yaml
 ```
 
-In a real case, training LM is extremely computational demanding. It is thus a good practice to re-use existing LM or fine-tune them.
+In a real case, training LM is extremely computational demanding. It is thus a good practice to reuse existing LM or fine-tune them.
 
 3. Train the speech recognizer
 At this point, we can train our speech recognizer. In this case, we are using a simple CRDNN model with an autoregressive GRU decoder. An attention mechanism is employed between encoding and decoder. The final sequence of words is retrieved with beamsearch coupled with the RNN LM trained in the previous step. To train the ASR:

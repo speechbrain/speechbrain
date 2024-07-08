@@ -4,15 +4,17 @@ The system is trained with the binary cross-entropy metric.
 """
 
 import os
-import torch
+
 import numpy as np
-import speechbrain as sb
+import torch
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class VADBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the binary probability."
+        """Given an input batch it computes the binary probability."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
@@ -23,7 +25,7 @@ class VADBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage=True):
-        "Given the network predictions and targets computed the binary CE"
+        """Given the network predictions and targets computed the binary CE"""
         predictions, lens = predictions
 
         targets, lens = batch.target
@@ -44,7 +46,7 @@ class VADBrain(sb.Brain):
         return loss
 
     def on_stage_start(self, stage, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         self.binary_metrics = sb.utils.metric_stats.BinaryMetricStats()
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
@@ -60,8 +62,7 @@ class VADBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=os.path.join(data_folder, "../annotation/VAD_train.json"),
         replacements={"data_folder": data_folder},

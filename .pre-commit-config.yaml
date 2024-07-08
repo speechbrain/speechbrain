@@ -14,18 +14,32 @@ repos:
         args: [--maxkb=1024]
 
   - repo: https://github.com/psf/black
-    rev: 19.10b0
+    rev: 24.3.0
     hooks:
       - id: black
         types: [python]
-        additional_dependencies: ['click==8.0.4']
+        additional_dependencies: ['click==8.1.7']
+
   - repo: https://github.com/PyCQA/flake8
-    rev: 3.7.9
+    rev: 7.0.0
     hooks:
       - id: flake8
         types: [python]
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.23.0
+    rev: v1.35.1
     hooks:
       - id: yamllint
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.4
+    hooks:
+      - id: codespell
+        args: [--ignore-words=.dict-speechbrain.txt]
+        additional_dependencies:
+          - tomli
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort

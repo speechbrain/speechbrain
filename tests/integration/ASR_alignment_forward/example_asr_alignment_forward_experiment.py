@@ -7,13 +7,15 @@ Given the tiny dataset, the expected behavior is to overfit the training data
 """
 
 import pathlib
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class AlignBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        "Given an input batch it computes the output probabilities."
+        """Given an input batch it computes the output probabilities."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
         feats = self.hparams.compute_features(wavs)
@@ -25,7 +27,7 @@ class AlignBrain(sb.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        "Given the network predictions and targets computed the forward loss."
+        """Given the network predictions and targets computed the forward loss."""
         predictions, lens = predictions
         phns, phn_lens = batch.phn_encoded
         sum_alpha_T = self.hparams.aligner(
@@ -41,7 +43,7 @@ class AlignBrain(sb.Brain):
         return loss
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
-        "Gets called when a stage (either training, validation, test) starts."
+        """Gets called when a stage (either training, validation, test) starts."""
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
         if stage == sb.Stage.VALID:
@@ -53,8 +55,7 @@ class AlignBrain(sb.Brain):
 
 
 def data_prep(data_folder, hparams):
-    "Creates the datasets and their data processing pipelines."
-
+    """Creates the datasets and their data processing pipelines."""
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
         json_path=data_folder / "../annotation/ASR_train.json",

@@ -1,7 +1,7 @@
 # Voice Activity Detection (VAD) with LibriParty
 This folder contains scripts for training a VAD with the [LibriParty dataset](https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0).
 LibriParty contains sequences of 1 minute compose of speech sentences (sampled from LibriSpeech) corrupted by noise and reverberation.
-Data augmentation with open_rir, musan, CommonLanguge is used as well. Make sure you download all the datasets before staring the experiment:
+Data augmentation with open_rir, musan, CommonLanguage is used as well. Make sure you download all the datasets before staring the experiment:
 - LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
 - Musan: https://www.openslr.org/resources/17/musan.tar.gz
 - CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
@@ -29,7 +29,7 @@ The pre-trained model + easy inference is available on HuggingFace:
 Basically, you can run inference with only a few lines of code:
 
 ```python
-from speechbrain.pretrained import VAD
+from speechbrain.inference import VAD
 
 VAD = VAD.from_hparams(source="speechbrain/vad-crdnn-libriparty", savedir="pretrained_models/vad-crdnn-libriparty")
 boundaries = VAD.get_speech_segments("speechbrain/vad-crdnn-libriparty/example_vad.wav")

@@ -4,10 +4,13 @@ Authors
  * Peter Plantinga 2020
  * Jarod Duret 2023
 """
+
 import logging
-import torch
 import os
-from speechbrain.utils.distributed import main_process_only, if_main_process
+
+import torch
+
+from speechbrain.utils.distributed import if_main_process, main_process_only
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +56,6 @@ class FileTrainLogger(TrainLogger):
         The file to use for logging train information.
     precision : int
         Number of decimal places to display. Default 2, example: 1.35e-5.
-    summary_fns : dict of str:function pairs
-        Each summary function should take a list produced as output
-        from a training/validation pass and summarize it to a single scalar.
     """
 
     def __init__(self, save_file, precision=2):
@@ -235,7 +235,6 @@ class WandBLogger(TrainLogger):
         verbose=False,
     ):
         """See TrainLogger.log_stats()"""
-
         logs = {}
         for dataset, stats in [
             ("train", train_stats),
@@ -255,7 +254,8 @@ class WandBLogger(TrainLogger):
 
 def _get_image_saver():
     """Returns the TorchVision image saver, if available
-    or None if it is not - optional dependency"""
+    or None if it is not - optional dependency
+    """
     try:
         import torchvision
 
@@ -300,7 +300,7 @@ class ProgressSampleLogger:
         raw_batch={
             "inputs": inputs,
             "spectrogram_target": spectrogram_target,
-            "spectrogram_output": spectrorgram_outputu,
+            "spectrogram_output": spectrogram_output,
             "alignments": alignments_output
         }
     )
@@ -313,8 +313,10 @@ class ProgressSampleLogger:
     Arguments
     ---------
     output_path: str
-        the filesystem path to which samples will be saved
+        the filesystem path to which samples will be saved.
     formats: dict
+        A mapping from keys to formats.
+    format_defs: dict
         a dictionary with format identifiers as keys and dictionaries with
         handler callables and extensions as values. The signature of the handler
         should be similar to torch.save
@@ -361,7 +363,7 @@ class ProgressSampleLogger:
 
         Arguments
         ---------
-        kwargs: dict
+        **kwargs: dict
             the parameters to be saved with
         """
         self.progress_samples.update(
@@ -433,8 +435,9 @@ class ProgressSampleLogger:
 
 
 def plot_spectrogram(spectrogram, ap=None, fig_size=(16, 10), output_fig=False):
-    """Returns the matplotlib sprctrogram if available
-    or None if it is not - optional dependency"""
+    """Returns the matplotlib spectrogram if available
+    or None if it is not - optional dependency
+    """
     try:
         import matplotlib
 

@@ -3,8 +3,10 @@
 Authors
  * Mirco Ravanelli 2022
 """
-import os
+
 import csv
+import os
+
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
 __skip_list = ["README.md", "setup", "full_inference.csv"]
@@ -44,12 +46,6 @@ def test_recipe_list(
         Field of the csv file where the debug flags are stated (for data flow testing).
     avoid_list: list
         List of files for which this check must be avoided.
-
-    Returns
-    ---------
-    bool:
-        True if the test passes, False otherwise.
-
     """
     all_diffs_zero = True
     all_with_flags = True
@@ -95,16 +91,11 @@ def test_recipe_files(
     """This test checks if the files listed in the recipe csv file exist.
 
     Arguments
-    ---------.
+    ---------
     recipe_folder: path
         Path of the folder containing csv recipe files.
     fields: list
         Fields of the csv recipe file to check.
-
-    Returns
-    ---------
-    check: bool
-        True if the test passes, False otherwise.
     """
     check = True
     # Loop over all recipe CSVs
@@ -120,7 +111,7 @@ def test_recipe_files(
                 files = files.split(" ")
                 files = filter(None, files)
                 for file in files:
-                    if not (os.path.exists(file.strip())):
+                    if not os.path.exists(file.strip()):
                         print(
                             "\tERROR: The file %s listed in %s does not exist!"
                             % (file, recipe_csvfile)
@@ -136,18 +127,12 @@ def test_mandatory_files(
     """This test checks if all the recipes contain the specified mandatory files.
 
     Arguments
-    ---------.
+    ---------
     recipe_folder: path
         Path of the folder containing csv recipe files.
     must_exist: list
         List of the fields of the csv recipe file that must contain valid paths.
-
-    Returns
-    ---------
-    check: bool
-        True if the test passes, False otherwise.
     """
-
     check = True
 
     # Loop over all recipe CSVs
@@ -160,7 +145,7 @@ def test_mandatory_files(
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
                 for field in must_exist:
-                    if not (os.path.exists(row[field].strip())):
+                    if not os.path.exists(row[field].strip()):
                         print(
                             "\tERROR: The recipe %s does not contain a %s. Please add it to %s!"
                             % (row_id, field, recipe_csvfile)
@@ -177,18 +162,13 @@ def test_README_links(
     """This test checks if the README file contains the correct DropBox and HF repositories.
 
     Arguments
-    ---------.
+    ---------
     recipe_folder: path
         Path of the folder containing csv recipe files.
     readme_field: string
         Field of the csv recipe file that contains the path to the readme file.
     must_link : list
         Fields that contains the paths that must be linked in the readme file.
-
-    Returns
-    ---------
-    check: bool
-        True if the test passes, False otherwise.
     """
     check = True
 
@@ -208,7 +188,7 @@ def test_README_links(
                         for link in links:
                             if len(link) == 0:
                                 continue
-                            if not (link in content):
+                            if link not in content:
                                 print(
                                     "\tERROR: The link to %s does not exist in %s. Please add it to %s!"
                                     % (link, row[readme_field], recipe_csvfile)

@@ -4,11 +4,14 @@ reachable.
 Authors
  * Mirco Ravanelli 2022
 """
+
 import os
 import re
 import time
+
 import requests
 from tqdm.contrib import tqdm
+
 from speechbrain.utils.data_utils import get_all_files
 
 
@@ -26,7 +29,7 @@ def get_url(path):
         a list of all the URLs found in the specified path.
     """
     # Check if files exist
-    if not (os.path.exists(path)):
+    if not os.path.exists(path):
         print("File %s not found!" % (path))
         return False
 
@@ -58,14 +61,14 @@ def get_all_urls(file_lst, avoid_urls):
     -------
     urls: dict
         A dictionary where the keys are the detected URLs and the values
-    are the files where the URLs are found.
+        are the files where the URLs are found.
     """
     all_urls = {}
 
     for path in file_lst:
         if ".gz" in path:
             continue
-
+        print(path)
         urls = get_url(path)
 
         for url in urls:
@@ -90,7 +93,7 @@ def get_all_urls(file_lst, avoid_urls):
 
 
 def check_url(url):
-    """Cheks if an URL is broken
+    """Checks if an URL is broken
 
     Arguments
     ---------
@@ -131,8 +134,14 @@ def check_links(
         Used to avoid some file extensions.
     avoid_files: list
         Used to avoid testing some specific file.
-    """
+    avoid_urls: list
+        Used to avoid certain urls.
 
+    Returns
+    -------
+    check_test: bool
+        Whether or not the test is passed.
+    """
     check_test = True
     # Find all the files that potentially contain urls
     file_lst = get_all_files(folder, match_or=match_or, exclude_or=exclude_or)
@@ -144,7 +153,7 @@ def check_links(
     with tqdm(all_urls) as all_urls_progressbar:
         for url in all_urls_progressbar:
             time.sleep(1)
-            if not (check_url(url)):
+            if not check_url(url):
                 check_test = False
                 print("WARNING: %s is DOWN!" % (url))
                 for path in all_urls[url]:

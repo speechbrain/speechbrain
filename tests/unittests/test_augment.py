@@ -1,10 +1,13 @@
 import os
+
 import torch
+import torchaudio
+
 from speechbrain.dataio.dataio import write_audio
 
 
 def test_add_noise(tmpdir, device):
-    from speechbrain.processing.speech_augmentation import AddNoise
+    from speechbrain.augment.time_domain import AddNoise
 
     # Test concatenation of batches
     wav_a = torch.sin(torch.arange(8000.0, device=device)).unsqueeze(0)
@@ -37,8 +40,6 @@ def test_add_noise(tmpdir, device):
         w.write(f"1, 1.0, {noisefile}, wav,\n")
 
     # Edge cases
-    no_noise = AddNoise(mix_prob=0.0).to(device)
-    assert no_noise(test_waveform, wav_lens).allclose(test_waveform)
     no_noise = AddNoise(snr_low=1000, snr_high=1000)
     assert no_noise(test_waveform, wav_lens).allclose(test_waveform)
     all_noise = AddNoise(csv_file=csv, snr_low=-1000, snr_high=-1000)
@@ -51,12 +52,11 @@ def test_add_noise(tmpdir, device):
 
 
 def test_add_reverb(tmpdir, device):
-    from speechbrain.processing.speech_augmentation import AddReverb
+    from speechbrain.augment.time_domain import AddReverb
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
     impulse_response = torch.zeros(1, 8000, device=device)
     impulse_response[0, 0] = 1.0
-    wav_lens = torch.ones(1, device=device)
 
     # Put ir waveform into temporary file
     ir1 = os.path.join(tmpdir, "ir1.wav")
@@ -83,28 +83,22 @@ def test_add_reverb(tmpdir, device):
         w.write(f"2, 0.5, {ir2}, wav,\n")
         w.write(f"3, 0.5, {ir3}, wav,\n")
 
-    # Edge case
-    no_reverb = AddReverb(csv, reverb_prob=0.0).to(device)
-    assert no_reverb(test_waveform, wav_lens).allclose(test_waveform)
-
     # Normal cases
     add_reverb = AddReverb(csv, sorting="original")
-    reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
+    reverbed = add_reverb(test_waveform)[:, 0:1000]
     assert reverbed.allclose(test_waveform[:, 0:1000], atol=1e-1)
-    reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
+    reverbed = add_reverb(test_waveform)[:, 0:1000]
     assert reverbed.allclose(test_waveform[:, 0:1000], atol=1e-1)
-    reverbed = add_reverb(test_waveform, wav_lens)[:, 0:1000]
+    reverbed = add_reverb(test_waveform)[:, 0:1000]
     assert reverbed.allclose(ir3_result[:, 0:1000], atol=2e-1)
 
 
 def test_speed_perturb(device):
-    from speechbrain.processing.speech_augmentation import SpeedPerturb
+    from speechbrain.augment.time_domain import SpeedPerturb
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
     # Edge cases
-    no_perturb = SpeedPerturb(16000, perturb_prob=0.0).to(device)
-    assert no_perturb(test_waveform).allclose(test_waveform)
     no_perturb = SpeedPerturb(16000, speeds=[100]).to(device)
     assert no_perturb(test_waveform).allclose(test_waveform)
 
@@ -113,38 +107,13 @@ def test_speed_perturb(device):
     assert half_speed(test_waveform).allclose(test_waveform[:, ::2], atol=3e-1)
 
 
-def test_babble(device):
-    from speechbrain.processing.speech_augmentation import AddBabble
-
-    test_waveform = torch.stack(
-        (
-            torch.sin(torch.arange(16000.0, device=device)),
-            torch.cos(torch.arange(16000.0, device=device)),
-        )
-    )
-    lengths = torch.ones(2, device=device)
-
-    # Edge cases
-    no_babble = AddBabble(mix_prob=0.0).to(device)
-    assert no_babble(test_waveform, lengths).allclose(test_waveform)
-    no_babble = AddBabble(speaker_count=1, snr_low=1000, snr_high=1000)
-    assert no_babble(test_waveform, lengths).allclose(test_waveform)
-
-    # One babbler just averages the two speakers
-    babble = AddBabble(speaker_count=1).to(device)
-    expected = (test_waveform + test_waveform.roll(1, 0)) / 2
-    assert babble(test_waveform, lengths).allclose(expected, atol=1e-4)
-
-
 def test_drop_freq(device):
-    from speechbrain.processing.speech_augmentation import DropFreq
+    from speechbrain.augment.time_domain import DropFreq
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
     # Edge cases
-    no_drop = DropFreq(drop_prob=0.0).to(device)
-    assert no_drop(test_waveform).allclose(test_waveform)
-    no_drop = DropFreq(drop_count_low=0, drop_count_high=0)
+    no_drop = DropFreq(drop_freq_count_low=0, drop_freq_count_high=0)
     assert no_drop(test_waveform).allclose(test_waveform)
 
     # Check case where frequency range *does not* include signal frequency
@@ -159,14 +128,12 @@ def test_drop_freq(device):
 
 
 def test_drop_chunk(device):
-    from speechbrain.processing.speech_augmentation import DropChunk
+    from speechbrain.augment.time_domain import DropChunk
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
     lengths = torch.ones(1, device=device)
 
     # Edge cases
-    no_drop = DropChunk(drop_prob=0.0).to(device)
-    assert no_drop(test_waveform, lengths).allclose(test_waveform)
     no_drop = DropChunk(drop_length_low=0, drop_length_high=0).to(device)
     assert no_drop(test_waveform, lengths).allclose(test_waveform)
     no_drop = DropChunk(drop_count_low=0, drop_count_high=0).to(device)
@@ -197,7 +164,7 @@ def test_drop_chunk(device):
 
 
 def test_fast_drop_chunk():
-    from speechbrain.processing.speech_augmentation import FastDropChunk
+    from speechbrain.augment.time_domain import FastDropChunk
 
     test_waveform = torch.ones([8, 200, 12])
 
@@ -211,49 +178,31 @@ def test_fast_drop_chunk():
 
 
 def test_clip(device):
-    from speechbrain.processing.speech_augmentation import DoClip
+    from speechbrain.augment.time_domain import DoClip
 
     test_waveform = torch.sin(torch.arange(16000.0, device=device)).unsqueeze(0)
 
     # Edge cases
-    no_clip = DoClip(clip_prob=0.0).to(device)
-    assert no_clip(test_waveform).allclose(test_waveform)
     no_clip = DoClip(clip_low=1, clip_high=1).to(device)
     assert no_clip(test_waveform).allclose(test_waveform)
 
     # Sort of a reimplementation of clipping, but its one function call.
-    expected = test_waveform.clamp(min=-0.5, max=0.5)
+    expected = 2 * test_waveform.clamp(min=-0.5, max=0.5)
     half_clip = DoClip(clip_low=0.5, clip_high=0.5).to(device)
     assert half_clip(test_waveform).allclose(expected)
 
 
 def test_rand_amp():
-    from speechbrain.processing.speech_augmentation import RandAmp
+    from speechbrain.augment.time_domain import RandAmp
 
     rand_amp = RandAmp(amp_low=0, amp_high=0)
     signal = torch.rand(4, 500)
     output = rand_amp(signal)
     assert output.mean().mean(0) == 0
 
-    rand_amp = RandAmp(amp_low=1, amp_high=1)
-    signal = torch.rand(4, 500)
-    output = rand_amp(signal)
-    assert torch.equal(signal, output)
-
-    rand_amp = RandAmp(amp_low=2, amp_high=2)
-    signal = torch.rand(4, 500)
-    output = rand_amp(signal)
-    assert torch.equal(2 * signal, output)
-
-    # Multi-channel waveform
-    rand_amp = RandAmp(amp_low=2, amp_high=2)
-    signal = torch.rand(4, 500, 3)
-    output = rand_amp(signal)
-    assert torch.equal(2 * signal, output)
-
 
 def test_channel_drop():
-    from speechbrain.processing.speech_augmentation import ChannelDrop
+    from speechbrain.augment.time_domain import ChannelDrop
 
     signal = torch.rand(4, 256, 8)
     ch_drop = ChannelDrop(drop_rate=0.5)
@@ -272,7 +221,7 @@ def test_channel_drop():
 
 
 def test_channel_swap():
-    from speechbrain.processing.speech_augmentation import ChannelSwap
+    from speechbrain.augment.time_domain import ChannelSwap
 
     signal = torch.rand(4, 256, 8)
     ch_swap = ChannelSwap(min_swap=1, max_swap=5)
@@ -286,39 +235,40 @@ def test_channel_swap():
 
 
 def test_rand_shift():
-    from speechbrain.processing.speech_augmentation import RandomShift
+    from speechbrain.augment.freq_domain import RandomShift
 
     signal = torch.rand(4, 256, 8)
+    lengths = torch.tensor([0.1, 0.2, 0.9, 1.0])
     rand_shift = RandomShift(min_shift=10, max_shift=50, dim=1)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert signal.shape == output.shape
     assert torch.equal(signal, output) == 0
 
     signal = torch.rand(4, 256, 8)
     rand_shift = RandomShift(min_shift=1, max_shift=2, dim=2)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert signal.shape == output.shape
     assert torch.equal(signal, output) == 0
 
     signal = torch.rand(4, 256)
     rand_shift = RandomShift(min_shift=10, max_shift=50, dim=1)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert signal.shape == output.shape
     assert torch.equal(signal, output) == 0
 
     signal = torch.rand(4, 256, 8)
     rand_shift = RandomShift(min_shift=0, max_shift=0, dim=1)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert torch.equal(signal, output)
 
     signal = torch.Tensor([1, 0, 0])
     rand_shift = RandomShift(min_shift=1, max_shift=1, dim=0)
-    output = rand_shift(signal)
+    output, lengths = rand_shift(signal, lengths)
     assert torch.equal(output, torch.Tensor([0, 1, 0]))
 
 
 def test_pink_noise():
-    from speechbrain.processing.speech_augmentation import pink_noise_like
+    from speechbrain.augment.time_domain import pink_noise_like
 
     signal = torch.rand(4, 256)
     noise = pink_noise_like(signal)
@@ -345,21 +295,238 @@ def test_pink_noise():
     assert torch.all(mean_first_fft_points < mean_last_fft_points)
 
 
-def muscular_noise():
-    from speechbrain.processing.speech_augmentation import muscolar_noise
+def test_SpectrogramDrop():
+    from speechbrain.augment.freq_domain import SpectrogramDrop
 
-    signal = torch.rand(4, 256, 8)
-    noise = muscolar_noise(signal)
-    assert signal.shape == noise.shape
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    assert mean > output.mean()
+    assert spectrogram.shape == output.shape
+    from speechbrain.augment.freq_domain import SpectrogramDrop
 
-    signal = torch.rand(4, 256)
-    noise = muscolar_noise(signal)
-    assert signal.shape == noise.shape
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=0,
+        drop_length_high=1,
+        drop_count_low=3,
+        drop_count_high=3,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    print(output)
+    assert torch.allclose(mean, output.mean())
+    assert spectrogram.shape == output.shape
+
+    # NOTE: we're testing drop_length_high=1 above and drop_count_high=0 here
+    # because one +1 the upper bound and the other doesn't for the high
+    # exclusive range... see #2542
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=0,
+        drop_count_high=0,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    assert torch.allclose(mean, output.mean())
+    assert spectrogram.shape == output.shape
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="zeros",
+        dim=2,
+    )
+    output = drop(spectrogram)
+    assert mean > output.mean()
+    assert spectrogram.shape == output.shape
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="mean",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="mean",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="cutcat",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="cutcat",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="swap",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="swap",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+    assert torch.allclose(spectrogram.mean(), output.mean())
+
+    # Important: understand why sometimes with random selection, spectrogram and output are the same....
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="random_selection",
+        dim=1,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=1,
+        drop_count_high=3,
+        replace="random_selection",
+        dim=2,
+    )
+    output = drop(spectrogram.clone())
+    assert spectrogram.shape == output.shape
+    assert not torch.equal(spectrogram, output)
+
+    from speechbrain.augment.codec import CodecAugment
+
+    if "ffmpeg" in torchaudio.list_audio_backends():
+        waveform = torch.rand(4, 16000)
+        augmenter = CodecAugment(16000)
+        output_waveform = augmenter(waveform)
+        assert not torch.allclose(waveform, output_waveform)
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution()
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution(target_dtype="int8")
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution(target_dtype="int16")
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
+
+    from speechbrain.augment.time_domain import DropBitResolution
+
+    dropper = DropBitResolution(target_dtype="float16")
+    signal = torch.rand(4, 16000)
+    signal_dropped = dropper(signal)
+    assert not torch.equal(signal, signal_dropped)
+    assert signal.shape == signal_dropped.shape
 
 
 def test_augment_pipeline():
-    from speechbrain.processing.speech_augmentation import DropFreq, DropChunk
-    from speechbrain.processing.augmentation import Augmenter
+    from speechbrain.augment.augmenter import Augmenter
+    from speechbrain.augment.time_domain import DropChunk, DropFreq
 
     freq_dropper = DropFreq()
     chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)
@@ -368,31 +535,77 @@ def test_augment_pipeline():
         concat_original=False,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
     signal = torch.rand([4, 16000])
-    output_signal, lenghts = augment(
+    output_signal, lengths = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
     assert len(output_signal) == 4
-    assert len(lenghts) == 4
+    assert len(lengths) == 4
+
+    freq_dropper = DropFreq()
+    chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)
+    augment = Augmenter(
+        parallel_augment=True,
+        concat_original=True,
+        min_augmentations=1,
+        max_augmentations=2,
+        augment_prob=0,
+        augmentations=[freq_dropper, chunk_dropper],
+    )
+    signal = torch.rand([4, 16000])
+    output_signal, lengths = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+    assert torch.equal(signal, output_signal)
+
+    freq_dropper = DropFreq()
+    chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)
+    augment = Augmenter(
+        parallel_augment=True,
+        concat_original=True,
+        min_augmentations=1,
+        max_augmentations=2,
+        augment_prob=1.0,
+        augmentations=[freq_dropper, chunk_dropper],
+        enable_augmentations=[False, False],
+    )
+    signal = torch.rand([4, 16000])
+    output_signal, lengths = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+    assert torch.equal(signal, output_signal)
+
+    freq_dropper = DropFreq()
+    chunk_dropper = DropChunk(drop_start=100, drop_end=16000, noise_factor=0)
+    augment = Augmenter(
+        parallel_augment=True,
+        concat_original=True,
+        min_augmentations=2,
+        max_augmentations=2,
+        augment_prob=1.0,
+        augmentations=[freq_dropper, chunk_dropper],
+        enable_augmentations=[True, False],
+    )
+    signal = torch.rand([4, 16000])
+    output_signal, lengths = augment(
+        signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
+    )
+    assert output_signal.shape[0] == signal.shape[0] * 2
 
     augment = Augmenter(
         parallel_augment=False,
         concat_original=True,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lenghts = augment(
+    output_signal, lengths = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
     assert len(output_signal) == 8
-    assert len(lenghts) == 8
+    assert len(lengths) == 8
     assert torch.equal(output_signal[0:4], signal[0:4])
 
     augment = Augmenter(
@@ -400,30 +613,26 @@ def test_augment_pipeline():
         concat_original=False,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lenghts = augment(
+    output_signal, lengths = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
     assert len(output_signal) == 8
-    assert len(lenghts) == 8
+    assert len(lengths) == 8
 
     augment = Augmenter(
         parallel_augment=True,
         concat_original=True,
         min_augmentations=2,
         max_augmentations=2,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
-    output_signal, lenghts = augment(
+    output_signal, lengths = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
     assert len(output_signal) == 12
-    assert len(lenghts) == 12
+    assert len(lengths) == 12
     assert torch.equal(output_signal[0:4], signal[0:4])
 
     augment = Augmenter(
@@ -433,16 +642,14 @@ def test_augment_pipeline():
         max_augmentations=2,
         repeat_augment=2,
         shuffle_augmentations=True,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lenghts = augment(
+    output_signal, lengths = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
     assert len(output_signal) == 20
-    assert len(lenghts) == 20
+    assert len(lengths) == 20
     assert torch.equal(output_signal[0:4], signal[0:4])
 
     augment = Augmenter(
@@ -452,14 +659,12 @@ def test_augment_pipeline():
         max_augmentations=0,
         repeat_augment=2,
         shuffle_augmentations=True,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lenghts = augment(
+    output_signal, lengths = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
     assert torch.equal(output_signal, signal)
 
     augment = Augmenter(
@@ -469,12 +674,10 @@ def test_augment_pipeline():
         max_augmentations=2,
         repeat_augment=0,
         shuffle_augmentations=True,
-        freq_drop=freq_dropper,
-        chunk_dropper=chunk_dropper,
+        augmentations=[freq_dropper, chunk_dropper],
     )
 
-    output_signal, lenghts = augment(
+    output_signal, lengths = augment(
         signal, lengths=torch.tensor([0.2, 0.5, 0.7, 1.0])
     )
-
     assert torch.equal(output_signal, signal)

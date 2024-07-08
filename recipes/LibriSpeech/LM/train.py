@@ -9,16 +9,17 @@ Authors
  * Jianyuan Zhong 2021
  * Ju-Chieh Chou 2020
 """
+import glob
+import logging
 import os
 import sys
-import logging
-import glob
+
 import torch
 from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,20 +43,9 @@ class LM(sb.core.Brain):
         )
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        (loss / self.hparams.accu_steps).backward()
-
-        if self.step % self.hparams.accu_steps == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             if isinstance(
                 self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
             ) or isinstance(
@@ -63,8 +53,6 @@ class LM(sb.core.Brain):
                 sb.nnet.schedulers.CyclicCosineScheduler,
             ):
                 self.hparams.lr_annealing(self.optimizer)
-
-        return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -93,12 +81,13 @@ class LM(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta=stage_stats, min_keys=["loss"],
+                meta=stage_stats,
+                min_keys=["loss"],
             )
 
 
 def dataio_prepare(hparams):
-    """grap all the .txt files for transcripts"""
+    """grab all the .txt files for transcripts"""
     logging.info("generating datasets...")
     data_folder = hparams["data_folder"]
     train_transcripts = glob.glob(
@@ -147,6 +136,7 @@ def dataio_prepare(hparams):
     tokenizer = hparams["tokenizer"]
 
     """Define text pipeline"""
+
     # TODO: implement text augmentations pipelines
     @sb.utils.data_pipeline.takes("text")
     @sb.utils.data_pipeline.provides("text", "tokens_bos", "tokens_eos")
@@ -162,7 +152,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "text", "tokens_bos", "tokens_eos"],
+        datasets,
+        ["id", "text", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data
 
@@ -189,7 +180,7 @@ if __name__ == "__main__":
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     lm_brain = LM(
         modules=hparams["modules"],

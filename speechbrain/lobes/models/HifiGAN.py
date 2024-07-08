@@ -33,17 +33,18 @@ Authors
 # SOFTWARE.
 
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
-import speechbrain as sb
-from speechbrain.nnet.CNN import Conv1d, ConvTranspose1d, Conv2d
+import torch.nn.functional as F
 from torchaudio import transforms
+
+import speechbrain as sb
+from speechbrain.nnet.CNN import Conv1d, Conv2d, ConvTranspose1d
 
 LRELU_SLOPE = 0.1
 
 
 def dynamic_range_compression(x, C=1, clip_val=1e-5):
-    """Dynamique range compression for audio signals"""
+    """Dynamic range compression for audio signals"""
     return torch.log(torch.clamp(x, min=clip_val) * C)
 
 
@@ -90,8 +91,13 @@ def mel_spectogram(
         Scale to use: "htk" or "slaney".
     compression : bool
         whether to do dynamic range compression
-    audio : torch.tensor
+    audio : torch.Tensor
         input audio signal
+
+    Returns
+    -------
+    mel : torch.Tensor
+        The mel spectrogram corresponding to the input audio.
     """
 
     audio_to_mel = transforms.MelSpectrogram(
@@ -120,8 +126,8 @@ def process_duration(code, code_feat):
     """
     Process a given batch of code to extract consecutive unique elements and their associated features.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     code : torch.Tensor (batch, time)
         Tensor of code indices.
     code_feat : torch.Tensor (batch, time, channel)
@@ -192,7 +198,7 @@ class ResBlock1(torch.nn.Module):
         number of hidden channels for the convolutional layers.
     kernel_size : int
         size of the convolution filter in each layer.
-    dilations : list
+    dilation : tuple
         list of dilation value for each conv layer in a block.
     """
 
@@ -275,6 +281,11 @@ class ResBlock1(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, channel, time)
             input tensor.
+
+        Returns
+        -------
+        x : torch.Tensor
+            output of ResBlock1
         """
 
         for c1, c2 in zip(self.convs1, self.convs2):
@@ -287,10 +298,10 @@ class ResBlock1(torch.nn.Module):
 
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
-        for l in self.convs1:
-            l.remove_weight_norm()
-        for l in self.convs2:
-            l.remove_weight_norm()
+        for layer in self.convs1:
+            layer.remove_weight_norm()
+        for layer in self.convs2:
+            layer.remove_weight_norm()
 
 
 class ResBlock2(torch.nn.Module):
@@ -303,7 +314,7 @@ class ResBlock2(torch.nn.Module):
         number of hidden channels for the convolutional layers.
     kernel_size : int
         size of the convolution filter in each layer.
-    dilations : list
+    dilation : tuple
         list of dilation value for each conv layer in a block.
     """
 
@@ -335,12 +346,17 @@ class ResBlock2(torch.nn.Module):
         )
 
     def forward(self, x):
-        """Returns the output of ResBlock1
+        """Returns the output of ResBlock2
 
         Arguments
         ---------
         x : torch.Tensor (batch, channel, time)
             input tensor.
+
+        Returns
+        -------
+        x : torch.Tensor
+            output of ResBlock2
         """
 
         for c in self.convs:
@@ -351,8 +367,8 @@ class ResBlock2(torch.nn.Module):
 
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
-        for l in self.convs:
-            l.remove_weight_norm()
+        for layer in self.convs:
+            layer.remove_weight_norm()
 
 
 class HifiganGenerator(torch.nn.Module):
@@ -379,6 +395,10 @@ class HifiganGenerator(torch.nn.Module):
         upsampling factors (stride) for each upsampling layer.
     inference_padding : int
         constant padding applied to the input at inference time. Defaults to 5.
+    cond_channels : int
+        Default 0
+    conv_post_bias : bool
+        Default True
 
     Example
     -------
@@ -434,7 +454,7 @@ class HifiganGenerator(torch.nn.Module):
         ):
             self.ups.append(
                 ConvTranspose1d(
-                    in_channels=upsample_initial_channel // (2 ** i),
+                    in_channels=upsample_initial_channel // (2**i),
                     out_channels=upsample_initial_channel // (2 ** (i + 1)),
                     kernel_size=k,
                     stride=u,
@@ -477,6 +497,11 @@ class HifiganGenerator(torch.nn.Module):
             feature input tensor.
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
+
+        Returns
+        -------
+        o : torch.Tensor
+            The output tensor
         """
 
         o = self.conv_pre(x)
@@ -500,10 +525,10 @@ class HifiganGenerator(torch.nn.Module):
     def remove_weight_norm(self):
         """This functions removes weight normalization during inference."""
 
-        for l in self.ups:
-            l.remove_weight_norm()
-        for l in self.resblocks:
-            l.remove_weight_norm()
+        for layer in self.ups:
+            layer.remove_weight_norm()
+        for layer in self.resblocks:
+            layer.remove_weight_norm()
         self.conv_pre.remove_weight_norm()
         self.conv_post.remove_weight_norm()
 
@@ -513,8 +538,14 @@ class HifiganGenerator(torch.nn.Module):
 
         Arguments
         ---------
-        x : torch.Tensor (batch, channel, time)
+        c : torch.Tensor (batch, channel, time)
             feature input tensor.
+        padding : bool
+            Whether to apply padding before forward.
+
+        Returns
+        -------
+        See ``forward()``
         """
         if padding:
             c = torch.nn.functional.pad(
@@ -590,6 +621,10 @@ class VariancePredictor(nn.Module):
         ---------
         x : torch.Tensor (batch, channel, time)
             feature input tensor.
+
+        Returns
+        -------
+        Variance prediction
         """
         x = self.conv1(x.transpose(1, 2)).transpose(1, 2)
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -622,6 +657,10 @@ class UnitHifiganGenerator(HifiganGenerator):
         upsampling factors (stride) for each upsampling layer.
     inference_padding : int
         constant padding applied to the input at inference time. Defaults to 5.
+    cond_channels : int
+        Default 0
+    conv_post_bias : bool
+        Default True
     num_embeddings : int
         size of the dictionary of embeddings.
     embedding_dim : int
@@ -710,6 +749,11 @@ class UnitHifiganGenerator(HifiganGenerator):
             feature input tensor.
         g : torch.Tensor (batch, 1, time)
             global conditioning input tensor.
+
+        Returns
+        -------
+        See parent ``forward()``
+        tuple of log_dur_pred and log_dur
         """
         u = self.unit_embedding(x).transpose(1, 2)
 
@@ -734,6 +778,10 @@ class UnitHifiganGenerator(HifiganGenerator):
         ---------
         x : torch.Tensor (batch, time)
             feature input tensor.
+
+        Returns
+        -------
+        See parent ``forward()``
         """
         x = self.unit_embedding(x).transpose(1, 2)
 
@@ -758,15 +806,19 @@ class UnitHifiganGenerator(HifiganGenerator):
 
 class DiscriminatorP(torch.nn.Module):
     """HiFiGAN Periodic Discriminator
-    Takes every Pth value from the input waveform and applied a stack of convoluations.
+    Takes every Pth value from the input waveform and applied a stack of convolutions.
     Note:
         if period is 2
         waveform = [1, 2, 3, 4, 5, 6 ...] --> [1, 3, 5 ... ] --> convs -> score, feat
 
     Arguments
     ---------
-    x : torch.Tensor (batch, 1, time)
-        input waveform.
+    period : int
+        Takes every Pth value from input
+    kernel_size : int
+        The size of the convolution kernel
+    stride : int
+        The stride of the convolution kernel
     """
 
     def __init__(self, period, kernel_size=5, stride=3):
@@ -839,6 +891,10 @@ class DiscriminatorP(torch.nn.Module):
         x : torch.Tensor (batch, 1, time)
             input waveform.
 
+        Returns
+        -------
+        x : torch.Tensor
+        feat : list
         """
 
         feat = []
@@ -851,8 +907,8 @@ class DiscriminatorP(torch.nn.Module):
             t = t + n_pad
         x = x.view(b, c, t // self.period, self.period)
 
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
@@ -887,6 +943,11 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, 1, time)
             input waveform.
+
+        Returns
+        -------
+        scores : list
+        feats : list
         """
 
         scores = []
@@ -901,7 +962,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
 class DiscriminatorS(torch.nn.Module):
     """HiFiGAN Scale Discriminator.
     It is similar to `MelganDiscriminator` but with a specific architecture explained in the paper.
-    SpeechBrain CNN wrappers are not used here beacause spectral_norm is not often used
+    SpeechBrain CNN wrappers are not used here because spectral_norm is not often used
 
     Arguments
     ---------
@@ -935,11 +996,16 @@ class DiscriminatorS(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, 1, time)
             input waveform.
+
+        Returns
+        -------
+        x : torch.Tensor
+        feat : list
         """
 
         feat = []
-        for l in self.convs:
-            x = l(x)
+        for layer in self.convs:
+            x = layer(x)
             x = F.leaky_relu(x, LRELU_SLOPE)
             feat.append(x)
         x = self.conv_post(x)
@@ -972,6 +1038,11 @@ class MultiScaleDiscriminator(torch.nn.Module):
         ---------
         x : torch.Tensor (batch, 1, time)
             input waveform.
+
+        Returns
+        -------
+        scores : list
+        feats : list
         """
 
         scores = []
@@ -1012,6 +1083,11 @@ class HifiganDiscriminator(nn.Module):
         ---------
         x : torch.Tensor
             input waveform.
+
+        Returns
+        -------
+        scores : list
+        feats : list
         """
 
         scores, feats = self.mpd(x)
@@ -1026,10 +1102,15 @@ class HifiganDiscriminator(nn.Module):
 
 def stft(x, n_fft, hop_length, win_length, window_fn="hann_window"):
     """computes the Fourier transform of short overlapping windows of the input"""
-    o = torch.stft(x.squeeze(1), n_fft, hop_length, win_length,)
+    o = torch.stft(
+        x.squeeze(1),
+        n_fft,
+        hop_length,
+        win_length,
+    )
     M = o[:, :, :, 0]
     P = o[:, :, :, 1]
-    S = torch.sqrt(torch.clamp(M ** 2 + P ** 2, min=1e-8))
+    S = torch.sqrt(torch.clamp(M**2 + P**2, min=1e-8))
     return S
 
 
@@ -1059,10 +1140,17 @@ class STFTLoss(nn.Module):
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
+
+        Returns
+        -------
+        loss_mag : torch.Tensor
+            Magnitude loss
+        loss_sc : torch.Tensor
+            Spectral convergence loss
         """
 
         y_hat_M = stft(y_hat, self.n_fft, self.hop_length, self.win_length)
@@ -1097,10 +1185,17 @@ class MultiScaleSTFTLoss(torch.nn.Module):
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
+
+        Returns
+        -------
+        loss_mag : torch.Tensor
+            Magnitude loss
+        loss_sc : torch.Tensor
+            Spectral convergence loss
         """
 
         N = len(self.loss_funcs)
@@ -1127,23 +1222,25 @@ class L1SpecLoss(nn.Module):
         Length of hop between STFT windows.
     win_length : int
         Window size.
+    n_mel_channels : int
+        Number of mel filterbanks.
     n_fft : int
         Size of FFT.
-    n_mels : int
-        Number of mel filterbanks.
-    f_min : float
+    n_stft : int
+        Size of STFT.
+    mel_fmin : float
         Minimum frequency.
-    f_max : float
+    mel_fmax : float
         Maximum frequency.
+    mel_normalized : bool
+        Whether to normalize by magnitude after stft.
     power : float
         Exponent for the magnitude spectrogram.
-    normalized : bool
-        Whether to normalize by magnitude after stft.
     norm : str or None
         If "slaney", divide the triangular mel weights by the width of the mel band
     mel_scale : str
         Scale to use: "htk" or "slaney".
-    compression : bool
+    dynamic_range_compression : bool
         whether to do dynamic range compression
     """
 
@@ -1184,10 +1281,15 @@ class L1SpecLoss(nn.Module):
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
+
+        Returns
+        -------
+        loss_mag : torch.Tensor
+            L1 loss
         """
 
         y_hat_M = mel_spectogram(
@@ -1241,6 +1343,11 @@ class MSEGLoss(nn.Module):
         ---------
         score_fake : list
             discriminator scores of generated waveforms D(G(s))
+
+        Returns
+        -------
+        loss_fake : torch.Tensor
+            Generator loss
         """
 
         loss_fake = F.mse_loss(
@@ -1255,7 +1362,7 @@ class MelganFeatureLoss(nn.Module):
     sample (Larsen et al., 2016, Kumar et al., 2019).
     """
 
-    def __init__(self,):
+    def __init__(self):
         super().__init__()
         self.loss_func = nn.L1Loss()
 
@@ -1269,6 +1376,11 @@ class MelganFeatureLoss(nn.Module):
             discriminator features of generated waveforms
         real_feats : list
             discriminator features of groundtruth waveforms
+
+        Returns
+        -------
+        loss_feats : torch.Tensor
+            Feature matching loss
         """
 
         loss_feats = 0
@@ -1292,7 +1404,7 @@ class MSEDLoss(nn.Module):
     and the samples synthesized from the generator to 0.
     """
 
-    def __init__(self,):
+    def __init__(self):
         super().__init__()
         self.loss_func = nn.MSELoss()
 
@@ -1305,6 +1417,15 @@ class MSEDLoss(nn.Module):
             discriminator scores of generated waveforms
         score_real : list
             discriminator scores of groundtruth waveforms
+
+        Returns
+        -------
+        loss_d : torch.Tensor
+            The total discriminator loss
+        loss_real : torch.Tensor
+            The loss on real samples
+        loss_fake : torch.Tensor
+            The loss on fake samples
         """
 
         loss_real = self.loss_func(
@@ -1332,6 +1453,11 @@ def _apply_G_adv_loss(scores_fake, loss_func):
         discriminator scores of generated waveforms
     loss_func : object
         object of target generator loss
+
+    Returns
+    -------
+    adv_loss : torch.Tensor
+        The adversarial loss
     """
 
     adv_loss = 0
@@ -1357,6 +1483,15 @@ def _apply_D_loss(scores_fake, scores_real, loss_func):
         discriminator scores of groundtruth waveforms
     loss_func : object
         object of target discriminator loss
+
+    Returns
+    -------
+    loss : torch.Tensor
+        Total loss
+    real_loss : torch.Tensor
+        Loss from real samples
+    fake_loss : torch.Tensor
+        Loss from fake samples
     """
 
     loss = 0
@@ -1409,6 +1544,10 @@ class GeneratorLoss(nn.Module):
         object of L1 spectrogram loss
     l1_spec_loss_weight : float
         weight of L1 spectrogram loss
+    mseg_dur_loss : object
+        object of duration loss
+    mseg_dur_loss_weight : float
+        weight of duration loss
     """
 
     def __init__(
@@ -1451,9 +1590,11 @@ class GeneratorLoss(nn.Module):
 
         Arguments
         ---------
-        y_hat : torch.tensor
+        stage : sb.Stage
+            Either TRAIN or VALID or TEST
+        y_hat : torch.Tensor
             generated waveform tensor
-        y : torch.tensor
+        y : torch.Tensor
             real waveform tensor
         scores_fake : list
             discriminator scores of generated waveforms
@@ -1461,6 +1602,15 @@ class GeneratorLoss(nn.Module):
             discriminator features of generated waveforms
         feats_real : list
             discriminator features of groundtruth waveforms
+        log_dur_pred : torch.Tensor
+            Predicted duration
+        log_dur : torch.Tensor
+            Actual duration
+
+        Returns
+        -------
+        loss : dict
+            The generator losses.
         """
 
         gen_loss = 0
@@ -1532,6 +1682,15 @@ class DiscriminatorLoss(nn.Module):
             discriminator scores of generated waveforms
         scores_real : list
             discriminator scores of groundtruth waveforms
+
+        Returns
+        -------
+        loss : dict
+            Contains the keys:
+                "D_mse_gan_loss"
+                "D_mse_gan_real_loss"
+                "D_mse_gan_fake_loss"
+                "D_loss"
         """
 
         disc_loss = 0

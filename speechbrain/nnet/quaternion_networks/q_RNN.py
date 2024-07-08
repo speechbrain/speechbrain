@@ -4,18 +4,19 @@ Authors
  * Titouan Parcollet 2020
 """
 
-import torch
 import logging
+from typing import Optional
+
+import torch
+
 from speechbrain.nnet.quaternion_networks.q_linear import QLinear
 from speechbrain.nnet.quaternion_networks.q_normalization import QBatchNorm
-from torch import Tensor
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
 class QLSTM(torch.nn.Module):
-    """ This function implements a quaternion-valued LSTM as first introduced
+    """This function implements a quaternion-valued LSTM as first introduced
     in : "Quaternion Recurrent Neural Networks", Parcollet T. et al.
 
     Input format is (batch, time, fea) or (batch, time, fea, channel).
@@ -28,6 +29,8 @@ class QLSTM(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in terms of quaternion-valued neurons. Thus, the output
         is 4*hidden_size.
+    input_shape : tuple
+        The expected shape of the input tensor.
     num_layers : int, optional
         Number of layers to employ in the RNN architecture (default 1).
     bias : bool, optional
@@ -97,13 +100,13 @@ class QLSTM(torch.nn.Module):
 
         self.rnn = self._init_layers()
 
-    def _init_layers(self,):
+    def _init_layers(self):
         """Initializes the layers of the quaternionLSTM.
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
+        Returns
+        -------
+        rnn : ModuleList
+            The initialized QLSTM_Layers
         """
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
@@ -129,13 +132,22 @@ class QLSTM(torch.nn.Module):
 
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        output : torch.Tensor
+            Output of Quaternion RNN
+        hh : torch.Tensor
+            Hidden states
         """
 
         # Reshaping input tensors for 4d inputs
@@ -147,13 +159,22 @@ class QLSTM(torch.nn.Module):
 
         return output, hh
 
-    def _forward_rnn(self, x, hx: Optional[Tensor]):
+    def _forward_rnn(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        x : torch.Tensor
+            The output of the Quaternion RNN layer.
+        h : torch.Tensor
+            The hiddens states.
         """
 
         h = []
@@ -181,18 +202,18 @@ class QLSTM(torch.nn.Module):
 
 
 class QLSTM_Layer(torch.nn.Module):
-    """ This function implements quaternion-valued LSTM layer.
+    """This function implements quaternion-valued LSTM layer.
 
     Arguments
     ---------
     input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size : int
-        Batch size of the input tensors.
     hidden_size : int
         Number of output values (in term of real values).
     num_layers : int, optional
         Number of layers to employ in the RNN architecture (default 1).
+    batch_size : int
+        Batch size of the input tensors.
     dropout : float, optional
         It is the dropout factor (must be between 0 and 1) (default 0.0).
     bidirectional : bool, optional
@@ -229,8 +250,7 @@ class QLSTM_Layer(torch.nn.Module):
         weight_init="quaternion",
         autograd="true",
     ):
-
-        super(QLSTM_Layer, self).__init__()
+        super().__init__()
 
         self.hidden_size = int(hidden_size) // 4  # Express in term of quat
         self.input_size = int(input_size)
@@ -273,14 +293,21 @@ class QLSTM_Layer(torch.nn.Module):
 
         self.drop_mask_te = torch.tensor([1.0]).float()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the QuaternionRNN_layer.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The output of the Quaternion RNN layer.
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -310,8 +337,15 @@ class QLSTM_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        wx : torch.Tensor
+        w : torch.Tensor
             Linearly transformed input.
+        ht : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            The hidden states for all steps.
         """
 
         hiddens = []
@@ -371,14 +405,12 @@ class QLSTM_Layer(torch.nn.Module):
         self.drop_mask_cnt = 0
 
         self.drop_masks = self.drop(
-            torch.ones(self.N_drop_masks, self.hidden_size * 4,)
+            torch.ones(self.N_drop_masks, self.hidden_size * 4)
         ).data
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks.
-        """
+        """Selects one of the pre-defined dropout masks."""
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
@@ -418,7 +450,7 @@ class QLSTM_Layer(torch.nn.Module):
 
 
 class QRNN(torch.nn.Module):
-    """ This function implements a vanilla quaternion-valued RNN.
+    """This function implements a vanilla quaternion-valued RNN.
 
     Input format is (batch, time, fea) or (batch, time, fea, channel).
     In the latter shape, the two last dimensions will be merged:
@@ -430,10 +462,12 @@ class QRNN(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of quaternion-valued neurons. Thus, the output
         is 4*hidden_size.
-    num_layers : int, optional
-        Number of layers to employ in the RNN architecture (default 1).
+    input_shape : tuple
+        Expected shape of the input tensor.
     nonlinearity : str, optional
         Type of nonlinearity (tanh, relu) (default "tanh").
+    num_layers : int, optional
+        Number of layers to employ in the RNN architecture (default 1).
     bias : bool, optional
         If True, the additive bias b is adopted (default True).
     dropout : float, optional
@@ -503,14 +537,14 @@ class QRNN(torch.nn.Module):
 
         self.rnn = self._init_layers()
 
-    def _init_layers(self,):
+    def _init_layers(self):
         """
         Initializes the layers of the quaternionRNN.
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
+        Returns
+        -------
+        rnn : ModuleList
+            The initialized QRNN_Layers.
         """
 
         rnn = torch.nn.ModuleList([])
@@ -538,12 +572,20 @@ class QRNN(torch.nn.Module):
 
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        output : torch.Tensor
+        hh : torch.Tensor
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -554,12 +596,22 @@ class QRNN(torch.nn.Module):
 
         return output, hh
 
-    def _forward_rnn(self, x, hx: Optional[Tensor]):
+    def _forward_rnn(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the vanilla QuaternionRNN.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Outputs
+        h : torch.Tensor
+            Hidden states.
         """
         h = []
         if hx is not None:
@@ -592,16 +644,16 @@ class QRNN_Layer(torch.nn.Module):
     ---------
     input_size : int
         Feature dimensionality of the input tensors (in term of real values).
-    batch_size : int
-        Batch size of the input tensors.
     hidden_size : int
         Number of output values (in term of real values).
     num_layers : int, optional
         Number of layers to employ in the RNN architecture (default 1).
-    nonlinearity : str, optional
-        Type of nonlinearity (tanh, relu) (default "tanh").
+    batch_size : int
+        Batch size of the input tensors.
     dropout : float, optional
         It is the dropout factor (must be between 0 and 1) (default 0.0).
+    nonlinearity : str, optional
+        Type of nonlinearity (tanh, relu) (default "tanh").
     bidirectional : bool, optional
         If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used (default False).
@@ -637,8 +689,7 @@ class QRNN_Layer(torch.nn.Module):
         weight_init="quaternion",
         autograd="true",
     ):
-
-        super(QRNN_Layer, self).__init__()
+        super().__init__()
 
         self.hidden_size = int(hidden_size) // 4  # Express in term of quat
         self.input_size = int(input_size)
@@ -687,13 +738,21 @@ class QRNN_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the QuaternionRNN_layer.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            Output of the Quaternion RNN
         """
         if self.bidirectional:
             x_flip = x.flip(1)
@@ -723,8 +782,15 @@ class QRNN_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        wx : torch.Tensor
+        w : torch.Tensor
             Linearly transformed input.
+        ht : torch.Tensor
+            The hidden layer.
+
+        Returns
+        -------
+        h : torch.Tensor
+            Hidden states for each step.
         """
         hiddens = []
 
@@ -753,15 +819,13 @@ class QRNN_Layer(torch.nn.Module):
         self.drop_mask_cnt = 0
 
         self.drop_masks = self.drop(
-            torch.ones(self.N_drop_masks, self.hidden_size * 4,)
+            torch.ones(self.N_drop_masks, self.hidden_size * 4)
         ).data
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks.
-        """
+        """Selects one of the pre-defined dropout masks."""
 
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0
@@ -801,7 +865,7 @@ class QRNN_Layer(torch.nn.Module):
 
 
 class QLiGRU(torch.nn.Module):
-    """ This function implements a quaternion-valued Light GRU (liGRU).
+    """This function implements a quaternion-valued Light GRU (liGRU).
 
     Ligru is single-gate GRU model based on batch-norm + relu
     activations + recurrent dropout. For more info see:
@@ -824,12 +888,10 @@ class QLiGRU(torch.nn.Module):
         Number of output neurons (i.e, the dimensionality of the output).
         Specified value is in term of quaternion-valued neurons. Thus, the output
         is 2*hidden_size.
+    input_shape : tuple
+        Expected shape of the input.
     nonlinearity : str
         Type of nonlinearity (tanh, relu).
-    normalization : str
-        Type of normalization for the ligru model (batchnorm, layernorm).
-        Every string different from batchnorm and layernorm will result
-        in no normalization.
     num_layers : int
         Number of layers to employ in the RNN architecture.
     bias : bool
@@ -901,10 +963,10 @@ class QLiGRU(torch.nn.Module):
         """
         Initializes the layers of the liGRU.
 
-        Arguments
-        ---------
-        first_input : tensor
-            A first input used for initializing the parameters.
+        Returns
+        -------
+        rnn : ModuleList
+            The initialized QLiGRU_Layers.
         """
         rnn = torch.nn.ModuleList([])
         current_dim = self.fea_dim
@@ -930,12 +992,20 @@ class QLiGRU(torch.nn.Module):
                 current_dim = self.hidden_size
         return rnn
 
-    def forward(self, x, hx: Optional[Tensor] = None):
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
         """Returns the output of the QuaternionliGRU.
 
         Arguments
         ---------
         x : torch.Tensor
+            Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        output : torch.Tensor
+        hh : torch.Tensor
         """
         # Reshaping input tensors for 4d inputs
         if self.reshape:
@@ -947,13 +1017,22 @@ class QLiGRU(torch.nn.Module):
 
         return output, hh
 
-    def _forward_ligru(self, x, hx: Optional[Tensor]):
+    def _forward_ligru(self, x, hx: Optional[torch.Tensor]):
         """Returns the output of the quaternionliGRU.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+            Hidden layer.
+
+        Returns
+        -------
+        x : torch.Tensor
+            Output
+        h : torch.Tensor
+            Hidden states
         """
         h = []
         if hx is not None:
@@ -979,23 +1058,25 @@ class QLiGRU(torch.nn.Module):
 
 
 class QLiGRU_Layer(torch.nn.Module):
-    """ This function implements quaternion-valued Light-Gated Recurrent Units
+    """This function implements quaternion-valued Light-Gated Recurrent Units
     (ligru) layer.
 
     Arguments
     ---------
     input_size: int
         Feature dimensionality of the input tensors.
-    batch_size: int
-        Batch size of the input tensors.
     hidden_size: int
         Number of output values.
     num_layers: int
         Number of layers to employ in the RNN architecture.
-    nonlinearity: str
-        Type of nonlinearity (tanh, relu).
+    batch_size: int
+        Batch size of the input tensors.
     dropout: float
         It is the dropout factor (must be between 0 and 1).
+    nonlinearity: str
+        Type of nonlinearity (tanh, relu).
+    normalization: str
+        The type of normalization to use (batchnorm or none)
     bidirectional: bool
         If True, a bidirectional model that scans the sequence both
         right-to-left and left-to-right is used.
@@ -1031,8 +1112,7 @@ class QLiGRU_Layer(torch.nn.Module):
         weight_init="quaternion",
         autograd=True,
     ):
-
-        super(QLiGRU_Layer, self).__init__()
+        super().__init__()
         self.hidden_size = int(hidden_size) // 4
         self.input_size = int(input_size)
         self.batch_size = batch_size
@@ -1096,14 +1176,19 @@ class QLiGRU_Layer(torch.nn.Module):
         else:
             self.act = torch.nn.ReLU()
 
-    def forward(self, x, hx: Optional[Tensor] = None):
-        # type: (Tensor, Optional[Tensor]) -> Tensor # noqa F821
+    def forward(self, x, hx: Optional[torch.Tensor] = None):
+        # type: (torch.Tensor, Optional[torch.Tensor]) -> torch.Tensor # noqa F821
         """Returns the output of the quaternion liGRU layer.
 
         Arguments
         ---------
         x : torch.Tensor
             Input tensor.
+        hx : torch.Tensor
+
+        Returns
+        -------
+        Output of quaternion liGRU layer.
         """
 
         if self.bidirectional:
@@ -1139,8 +1224,14 @@ class QLiGRU_Layer(torch.nn.Module):
 
         Arguments
         ---------
-        wx : torch.Tensor
+        w : torch.Tensor
             Linearly transformed input.
+        ht : torch.Tensor
+
+        Returns
+        -------
+        h : torch.Tensor
+            Hidden states for all steps.
         """
 
         hiddens = []
@@ -1180,11 +1271,9 @@ class QLiGRU_Layer(torch.nn.Module):
         )
 
     def _sample_drop_mask(self, w):
-        """Selects one of the pre-defined dropout masks
-        """
+        """Selects one of the pre-defined dropout masks"""
 
         if self.training:
-
             # Sample new masks when needed
             if self.drop_mask_cnt + self.batch_size > self.N_drop_masks:
                 self.drop_mask_cnt = 0

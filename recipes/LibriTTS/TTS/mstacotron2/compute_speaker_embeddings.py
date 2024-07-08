@@ -1,10 +1,13 @@
 import json
-from speechbrain.pretrained import EncoderClassifier, MelSpectrogramEncoder
-import torchaudio
-import pickle
 import logging
 import os
+import pickle
+
+import torchaudio
 from tqdm import tqdm
+
+from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.encoders import MelSpectrogramEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,10 @@ def compute_speaker_embeddings(
         Information about mel-spectrogram computation
     device : str
         Device for to be used for computation
+
+    Returns
+    -------
+    None
     """
 
     # Checks if this phase is already done (if so, skips it)
@@ -104,6 +111,12 @@ def skip(filepaths):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    filepaths : list
+        List of paths to check for existence.
+
     Returns
     -------
     bool

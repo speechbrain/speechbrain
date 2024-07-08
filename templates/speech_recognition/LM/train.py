@@ -12,14 +12,15 @@ Authors
  * Jianyuan Zhong 2021
  * Mirco Ravanelli 2021
 """
-import sys
 import logging
+import sys
+
 import torch
 from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-
 
 logger = logging.getLogger(__name__)
 
@@ -72,37 +73,9 @@ class LM(sb.core.Brain):
         )
         return loss
 
-    def fit_batch(self, batch):
-        """Runs all the steps needed to train the model on a single batch.
-
-        Arguments
-        ---------
-        batch : PaddedBatch
-            This batch object contains all the relevant tensors for computation.
-
-        Returns
-        -------
-        Loss : torch.Tensor
-            A tensor containing the loss (single real number).
-        """
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # Loss backpropagation (gradient computation)
-        (loss / self.hparams.accu_steps).backward()
-
-        # Manage gradient accumulation
-        if self.step % self.hparams.accu_steps == 0:
-
-            # Gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            # Update the parameters
-            self.optimizer.step()
-
-            # Reset the gradient
-            self.optimizer.zero_grad()
-
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             if isinstance(
                 self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
             ) or isinstance(
@@ -110,8 +83,6 @@ class LM(sb.core.Brain):
                 sb.nnet.schedulers.CyclicCosineScheduler,
             ):
                 self.hparams.lr_annealing(self.optimizer)
-
-        return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch.
@@ -126,7 +97,6 @@ class LM(sb.core.Brain):
             The currently-starting epoch. This is passed
             `None` during the test stage.
         """
-
         # Store the train loss until the validation stage.
         if stage == sb.Stage.TRAIN:
             self.train_loss = stage_loss
@@ -181,7 +151,6 @@ def dataio_prepare(hparams):
         List containing "train", "valid", and "test" sets that correspond
         to the appropriate DynamicItemDataset object.
     """
-
     logging.info("generating datasets...")
 
     # Prepare datasets
@@ -227,7 +196,8 @@ def dataio_prepare(hparams):
     # 4. Set outputs to add into the batch. The batch variable will contain
     # all these fields (e.g, batch.id, batch.text, batch.tokens.bos,..)
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "text", "tokens_bos", "tokens_eos"],
+        datasets,
+        ["id", "text", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_data
 
@@ -255,7 +225,7 @@ if __name__ == "__main__":
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Create dataset objects "train", "valid", and "test"
     train_data, valid_data, test_data = dataio_prepare(hparams)

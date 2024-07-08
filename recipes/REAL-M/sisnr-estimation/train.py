@@ -8,36 +8,38 @@ Authors:
  * Samuele Cornell 2021
 """
 
+import csv
+import itertools as it
+import logging
 import os
 import sys
+
+import numpy as np
 import torch
+from hyperpyyaml import load_hyperpyyaml
+from tqdm import tqdm
+
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
+from speechbrain.core import AMPConfig
 from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-from torch.cuda.amp import autocast
-import itertools as it
-from tqdm import tqdm
-import numpy as np
-import logging
-import csv
 
 
 # Define training procedure
 class Separation(sb.Brain):
     def compress_snrrange(self, inp):
         """Convert from true snr range to 0-1 range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
+        range = self.hparams.snrmax - self.hparams.snrmin
 
         inp = torch.clip(inp, min=self.hparams.snrmin, max=self.hparams.snrmax)
         inp = inp - self.hparams.snrmin
-        inp = inp / rnge
+        inp = inp / range
         return inp
 
     def gettrue_snrrange(self, inp):
         """Convert from 0-1 range to true snr range"""
-        rnge = self.hparams.snrmax - self.hparams.snrmin
-        inp = inp * rnge
+        range = self.hparams.snrmax - self.hparams.snrmin
+        inp = inp * range
         inp = inp + self.hparams.snrmin
         return inp
 
@@ -62,7 +64,7 @@ class Separation(sb.Brain):
 
                     if self.hparams.use_reverb_augment:
                         targets_rev = [
-                            self.hparams.reverb(targets[:, :, i], None)
+                            self.hparams.reverb(targets[:, :, i])
                             for i in range(self.hparams.num_spks)
                         ]
                         targets_rev = torch.stack(targets_rev, dim=-1)
@@ -83,7 +85,8 @@ class Separation(sb.Brain):
                         targets = targets[:, :min_len, :]
 
                 if self.hparams.use_wavedrop:
-                    mix = self.hparams.wavedrop(mix, mix_lens)
+                    mix = self.hparams.drop_chunk(mix, mix_lens)
+                    mix = self.hparams.drop_freq(mix)
 
                 if self.hparams.limit_training_signal_len:
                     mix, targets = self.cut_signals(mix, targets)
@@ -157,6 +160,8 @@ class Separation(sb.Brain):
 
     def fit_batch(self, batch):
         """Trains one batch"""
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
 
         if self.hparams.use_whamr_train:
             whamr_prob = torch.rand(1).item()
@@ -174,8 +179,48 @@ class Separation(sb.Brain):
         if self.hparams.num_spks == 3:
             targets.append(batch.s3_sig)
 
-        if self.auto_mix_prec:
-            with autocast():
+        with self.no_sync(not should_step):
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype,
+                    device_type=torch.device(self.device).type,
+                ):
+                    (
+                        predictions,
+                        snrhat,
+                        snr,
+                        snr_compressed,
+                    ) = self.compute_forward(
+                        mixture, targets, sb.Stage.TRAIN, noise
+                    )
+
+                    snr = snr.reshape(-1)
+                    loss = ((snr_compressed - snrhat).abs()).mean()
+
+                    if (
+                        loss.nelement() > 0
+                        and loss < self.hparams.loss_upper_lim
+                    ):  # the fix for computational problems
+                        self.scaler.scale(loss).backward()
+                        if self.hparams.clip_grad_norm >= 0:
+                            self.scaler.unscale_(self.optimizer)
+                            torch.nn.utils.clip_grad_norm_(
+                                self.modules.parameters(),
+                                self.hparams.clip_grad_norm,
+                            )
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                    else:
+                        self.nonfinite_count += 1
+                        logger.info(
+                            "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
+                                self.nonfinite_count
+                            )
+                        )
+                        loss.data = torch.tensor(0.0).to(self.device)
+
+            else:
+                # get the oracle snrs, estimated snrs, and the source estimates
                 predictions, snrhat, snr, snr_compressed = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
                 )
@@ -186,16 +231,13 @@ class Separation(sb.Brain):
                 if (
                     loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
                 ):  # the fix for computational problems
-
-                    self.scaler.scale(loss).backward()
+                    loss.backward()
                     if self.hparams.clip_grad_norm >= 0:
-                        self.scaler.unscale_(self.optimizer)
                         torch.nn.utils.clip_grad_norm_(
                             self.modules.parameters(),
                             self.hparams.clip_grad_norm,
                         )
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
+                    self.optimizer.step()
                 else:
                     self.nonfinite_count += 1
                     logger.info(
@@ -203,34 +245,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
-
-        else:
-            # get the oracle snrs, estimated snrs, and the source estimates
-            predictions, snrhat, snr, snr_compressed = self.compute_forward(
-                mixture, targets, sb.Stage.TRAIN, noise
-            )
-
-            snr = snr.reshape(-1)
-            loss = ((snr_compressed - snrhat).abs()).mean()
-
-            if (
-                loss.nelement() > 0 and loss < self.hparams.loss_upper_lim
-            ):  # the fix for computational problems
-                loss.backward()
-                if self.hparams.clip_grad_norm >= 0:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.modules.parameters(), self.hparams.clip_grad_norm
-                    )
-                self.optimizer.step()
-            else:
-                self.nonfinite_count += 1
-                logger.info(
-                    "infinite loss or empty loss! it happened {} times so far - skipping this batch".format(
-                        self.nonfinite_count
-                    )
-                )
-                loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
 
         self.optimizer.zero_grad()
 
@@ -270,7 +285,6 @@ class Separation(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-
             # Learning rate annealing
             if isinstance(
                 self.hparams.lr_scheduler, schedulers.ReduceLROnPlateau
@@ -289,7 +303,8 @@ class Separation(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"error": stage_stats["error"]}, min_keys=["error"],
+                meta={"error": stage_stats["error"]},
+                min_keys=["error"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -309,9 +324,7 @@ class Separation(sb.Brain):
             recombine = True
 
             for i in range(targets.shape[-1]):
-                new_target = self.hparams.speedperturb(
-                    targets[:, :, i], targ_lens
-                )
+                new_target = self.hparams.speed_perturb(targets[:, :, i])
                 new_targets.append(new_target)
                 if i == 0:
                     min_len = new_target.shape[-1]
@@ -348,7 +361,7 @@ class Separation(sb.Brain):
         return mix, targets
 
     def cut_signals(self, mixture, targets):
-        """This function selects a random segment of a given length withing the mixture.
+        """This function selects a random segment of a given length within the mixture.
         The corresponding targets are selected accordingly"""
         randstart = torch.randint(
             0,
@@ -400,7 +413,6 @@ class Separation(sb.Brain):
             # Loop over all test sentence
             with tqdm(test_loader, dynamic_ncols=True) as t:
                 for i, batch in enumerate(t):
-
                     # Apply Separation
                     mixture = batch.mix_sig
                     snt_id = batch.id
@@ -558,7 +570,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:
@@ -621,8 +632,8 @@ if __name__ == "__main__":
 
     # if whamr, and we do speedaugment we need to prepare the csv file
     if hparams["use_reverb_augment"]:
-        from prepare_data_wham import create_whamr_rir_csv
         from create_whamr_rirs import create_rirs
+        from prepare_data_wham import create_whamr_rir_csv
 
         # If the Room Impulse Responses do not exist, we create them
         if not os.path.exists(hparams["rir_path"]):
@@ -643,7 +654,7 @@ if __name__ == "__main__":
             },
         )
 
-        hparams["reverb"] = sb.processing.speech_augmentation.AddReverb(
+        hparams["reverb"] = sb.augment.time_domain.AddReverb(
             os.path.join(hparams["save_folder"], "whamr_rirs.csv")
         )
 
@@ -656,7 +667,6 @@ if __name__ == "__main__":
         )
 
         if hparams["use_whamr_train"]:
-
             if "processed" not in hparams["base_folder_dm_whamr"]:
                 # if the processed folder does not exist for whamr dynamic mixing, we do the necessary preprocessing
 
@@ -752,8 +762,10 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    from speechbrain.pretrained import SepformerSeparation as separator
-    from speechbrain.pretrained.interfaces import fetch
+    from speechbrain.inference.separation import (
+        SepformerSeparation as separator,
+    )
+    from speechbrain.utils.fetching import fetch
 
     all_separators = []
     for separator_model in hparams["separators_to_use"]:

@@ -10,14 +10,15 @@ Author
 Yingzhi Wang 2023
 """
 
-import numpy as np
+import json
+import logging
 import os
 import random
-from pydub import AudioSegment
-import json
-from datasets.vad import vad_for_folder
 from pathlib import Path
-import logging
+
+import numpy as np
+from datasets.vad import vad_for_folder
+from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
 repos = [
@@ -37,19 +38,22 @@ combinations = ["neu_emo", "emo_neu", "neu_emo_neu", "emo_emo"]
 probabilities = np.array([0.25, 0.25, 0.25, 0.25])
 
 
-def prepare_emovdb(
-    data_folder, save_json, seed=12,
-):
+def prepare_emovdb(data_folder, save_json, seed=12):
     """
     Prepares the json files for the EmoV-DB dataset.
+
     Arguments
     ---------
-    data_original : str
+    data_folder : str
         Path to the folder where the original EmoV-DB dataset is stored.
     save_json : str
         Path where the data specification file will be saved.
     seed : int
         Seed for reproducibility
+
+    Returns
+    -------
+    data_json : str
     """
     random.seed(seed)
 
@@ -69,7 +73,7 @@ def prepare_emovdb(
 
     for path in all_paths:
         convert_path = os.path.join(
-            data_folder, "converted", str(path).split("EmoV-DB/")[-1],
+            data_folder, "converted", str(path).split("EmoV-DB/")[-1]
         )
         if "converted" not in str(path):
             os.system(
@@ -310,6 +314,12 @@ def skip(save_json):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_json : str
+        Path to check for existence.
+
     Returns
     -------
     bool

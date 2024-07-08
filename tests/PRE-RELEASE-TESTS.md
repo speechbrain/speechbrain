@@ -2,7 +2,7 @@
 
 1. Create a new environment. For instance, using conda:
 ```
-conda create --name fresh_env python=3.9
+conda create --name fresh_env python=3.11
 ```
 2. Activate the new environment
 ```
@@ -26,24 +26,30 @@ find recipes | grep extra | xargs cat | sort -u | grep -v \# | xargs -I {} pip i
 pip install fairseq
 conda install 'ffmpeg<4.4'
 ```
-7. Run the basic tests by typing:
+7. Update the PERFORMANCE.md file:
+```
+python tools/readme_builder.py --recipe_info_dir tests/recipes/ --output_file PERFORMANCE.md
+```
+Remember to push it.
+
+8. Run the basic tests by typing:
 ```
 pytest
 ```
-8. Run load yaml test:
+9. Run load yaml test:
 ```
 tests/.run-load-yaml-tests.sh
 ```
-9. Run recipe tests
+10. Run recipe tests
 ```
 tests/.run-recipe-tests.sh
 ```
-10. Make sure all HuggingFace repos are working
+11. Make sure all HuggingFace repos are working
 ```
 tests/.run-HF-checks.sh
 ```
-10. Make sure all HuggingFace API Interfaces are up to date and working (see [here](#huggingface-api-testing)])
-11. Check URLs
+12. Make sure all HuggingFace API Interfaces are up to date and working (see [here](#huggingface-api-testing)])
+13. Check URLs
 ```
 tests/.run-url-checks.sh
 ```
@@ -66,7 +72,7 @@ if tests fail, it is most likely because one interface is missing, hence follow 
 ## Adding an interface to the HuggingFace API.
 
 1. Go to the [api-inference-community](https://github.com/huggingface/api-inference-community) and clone it.
-2. Add the interface name to the [ModelType file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/common.py). This correspond to the ALL CAPITALIZED varables.
+2. Add the interface name to the [ModelType file](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/common.py). This correspond to the ALL CAPITALIZED variables.
 3. If your interface can be derived from one of the existing pipelines in [here](https://github.com/huggingface/api-inference-community/tree/main/docker_images/speechbrain/app/pipelines), simply go to the good one, for instance [automatic-speech-recognition](https://github.com/huggingface/api-inference-community/blob/main/docker_images/speechbrain/app/pipelines/automatic_speech_recognition.py) and add your new interface *if statement*.
 4. If your interface cannot be derived from an existing pipeline, then you will need to create a new file [here](https://github.com/huggingface/api-inference-community/tree/main/docker_images/speechbrain/app/pipelines) and contact the HuggingFace team to move forward (see our HuggingFace Slack channel).
 5. Test your changes (see previous section).

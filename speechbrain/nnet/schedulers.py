@@ -5,14 +5,16 @@ Authors
  * Mirco Ravanelli 2020
  * Peter Plantinga 2020
  * Loren Lugosch 2020
+ * Shucong Zhang 2023
 """
 
-import math
-import torch
 import logging
+import math
+
+import torch
+from torch import nn
 
 from speechbrain.utils import checkpoints
-from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,94 @@ def update_learning_rate(optimizer, new_lr, param_group=None):
             optimizer.param_groups[i]["lr"] = new_lr
             optimizer.param_groups[i]["prev_lr"] = old_lr
             logger.info("Changing lr from %.2g to %.2g" % (old_lr, new_lr))
+
+
+@checkpoints.register_checkpoint_hooks
+class WarmAndExpDecayLRSchedule:
+    """Warms up linearly, and then decay exponentially to ('lr' / 'decay_factor') in 'total_steps' steps.
+
+
+    Arguments
+    ---------
+    lr : float
+        The max learning rate to reach after warmup.
+    n_warmup_steps : int
+        Number of warmup steps (following a linear increase).
+    total_steps : int
+        Total number of steps (used to decay).
+    decay_factor : float
+        Decay factor applied every decay_every steps. (default: 0.01)
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler = WarmAndExpDecayLRSchedule(lr=1, n_warmup_steps=2, decay_factor=0.01, total_steps=6)
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.0
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.5
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.31622776601683794
+    """
+
+    def __init__(self, lr, n_warmup_steps, total_steps, decay_factor=0.1):
+        super(WarmAndExpDecayLRSchedule, self).__init__()
+        self.base_lr = lr
+        self.current_lr = 0
+        self.n_warmup_steps = n_warmup_steps
+        self.decay_factor = decay_factor
+        self.decay_steps = total_steps - self.n_warmup_steps
+        self.current_step = 0
+
+    def __call__(self, opt):
+        if self.current_step < self.n_warmup_steps:
+            # Warming up at the start of training.
+            lr = self.base_lr * self.current_step / self.n_warmup_steps
+        else:
+            decayed_lr = self.base_lr * self.decay_factor ** (
+                (self.current_step - self.n_warmup_steps) / self.decay_steps
+            )
+            lr = min(self.base_lr, decayed_lr)
+
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = lr
+        self.current_step += 1
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {
+            "base_lr": self.base_lr,
+            "n_warmup_steps": self.n_warmup_steps,
+            "decay_factor": self.decay_factor,
+            "decay_steps": self.decay_steps,
+            "current_step": self.current_step,
+        }
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch
+        del device
+        data = torch.load(path)
+        self.base_lr = data["base_lr"]
+        self.n_warmup_steps = data["n_warmup_steps"]
+        self.decay_steps = data["decay_steps"]
+        self.decay_factor = data["decay_factor"]
+        self.current_step = data["current_step"]
 
 
 @checkpoints.register_checkpoint_hooks
@@ -108,6 +198,9 @@ class NewBobScheduler:
         ---------
         metric_value : int
             A number for determining whether to change the hyperparameter value.
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         old_value = new_value = self.hyperparam_value
         if len(self.metric_values) > 0:
@@ -141,10 +234,9 @@ class NewBobScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused in here
         data = torch.load(path)
         self.hyperparam_value = data["hyperparam_value"]
         self.metric_values = data["metric_values"]
@@ -190,6 +282,10 @@ class LinearScheduler:
         ---------
         current_epoch : int
             Number of times the dataset has been iterated.
+
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         old_index = max(0, current_epoch - 1)
         index = min(current_epoch, len(self.value_at_epoch) - 1)
@@ -211,7 +307,7 @@ class LinearWarmupScheduler:
     num_warmup_steps : int
         Number of warmup steps. The learning rate reaches lr0 at
         ``num_warmup_steps + 1`` step.
-    num_training_steps: int
+    num_training_steps : int
         The total number of training steps.
 
     Example
@@ -242,6 +338,10 @@ class LinearWarmupScheduler:
         ---------
         current_step : int
             Number of steps the model has been updated.
+
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         if current_step < self.num_warmup_steps:
             return (
@@ -256,8 +356,7 @@ class LinearWarmupScheduler:
         )
 
     def get_next_value(self):
-        """Returns the next learning rate value for the hyperparameter.
-        """
+        """Returns the next learning rate value for the hyperparameter."""
         new_value = self.calculate_lr(self.current_step)
         self.current_step += 1
         return new_value
@@ -274,10 +373,9 @@ class LinearWarmupScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused in here
         data = torch.load(path)
         self.lr0 = data["initial_value"]
         self.num_warmup_steps = data["num_warmup_steps"]
@@ -302,7 +400,7 @@ class StepScheduler:
     decay_drop : float
         Annealing factor (the decay of the hyperparameter value is faster
         with higher ``decay_drop`` values).
-    half_life: int
+    half_life : int
         A convenience parameter to set decay_factor such that the parameter
         will drop to half its value at the specified epoch. May not
         be used together with decay_factor or decay_drop
@@ -346,6 +444,10 @@ class StepScheduler:
         ---------
         current_epoch : int
             Number of times the dataset has been iterated.
+
+        Returns
+        -------
+        Current and new hyperparam value.
         """
         current_value = self._compute_value(current_epoch - 1)
         next_value = self._compute_value(current_epoch)
@@ -372,7 +474,7 @@ class NoamScheduler:
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
-        numer of warm-up steps
+        number of warm-up steps
     model_size : int
         size of transformer embed_dim. It is used to scale the maximum learning rate value reached
         by the scheduler. It is divided by model_size ** (0.5).
@@ -403,7 +505,7 @@ class NoamScheduler:
         self.current_lr = lr_initial
         self.losses = []
         self.n_steps = 0
-        self.normalize = n_warmup_steps ** 0.5
+        self.normalize = n_warmup_steps**0.5
         if model_size is not None:
             self.normalize = model_size ** (-0.5)
 
@@ -447,10 +549,9 @@ class NoamScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -460,7 +561,7 @@ class NoamScheduler:
 class NoamIntervalScheduler:
     """A combination of Noam Scheduler and Interval Scheduler.
     The scheduler behaves as a Noam Scheduler, and anneals the learning rate
-    at disigned steps with designed decays.
+    at designed steps with designed decays.
 
     Note: this scheduler anneals the lr at each update of the model's weight,
     and n_steps must be saved for restarting.
@@ -470,7 +571,7 @@ class NoamIntervalScheduler:
     lr_initial : float
         Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
-        numer of warm-up steps.
+        number of warm-up steps.
     anneal_steps: list
         Pre-designed steps where the learning rate is to be annealed.
     anneal_rates: list
@@ -521,7 +622,7 @@ class NoamIntervalScheduler:
         self.current_lr = lr_initial
         self.losses = []
         self.n_steps = 0
-        self.normalize = n_warmup_steps ** 0.5
+        self.normalize = n_warmup_steps**0.5
         self.anneal_steps = anneal_steps
         self.anneal_rates = anneal_rates
         if model_size is not None:
@@ -581,6 +682,108 @@ class NoamIntervalScheduler:
 
 
 @checkpoints.register_checkpoint_hooks
+class LinearNoamScheduler:
+    """The is an implementation of the extended Noam scheduler in the Squeezeformer paper.
+    Reference: https://arxiv.org/pdf/2206.00888.pdf
+
+    Note: this scheduler anneals the lr at each update of the model's weight,
+    and n_steps must be saved for restarting.
+
+    Arguments
+    ---------
+    lr_initial : float
+        Initial learning rate (i.e. the lr used at epoch 0).
+    n_warmup_steps : int
+        number of warm-up steps.
+    n_keep_steps : int
+        after warmp-up steps, number of steps that the lr is kept unchanged.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler =LinearNoamScheduler(optim.param_groups[0]["lr"], 2, 2)
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.5
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    1.0
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    1.0
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    1.0
+    >>> curr_lr,next_lr=scheduler(optim)
+    >>> optim.param_groups[0]["lr"]
+    0.6666666666666666
+    """
+
+    def __init__(self, lr_initial, n_warmup_steps, n_keep_steps):
+        self.lr_initial = lr_initial
+        self.n_warmup_steps = n_warmup_steps
+        self.n_keep_steps = n_keep_steps
+        self.current_lr = lr_initial
+        self.losses = []
+        self.n_steps = 0
+
+    def __call__(self, opt):
+        """
+        Arguments
+        ---------
+        opt : optimizer
+            The optimizer to update using this scheduler.
+
+        Returns
+        -------
+        current_lr : float
+            The learning rate before the update.
+        lr : float
+            The learning rate after the update.
+        """
+        self.n_steps += 1
+
+        current_lr = opt.param_groups[0]["lr"]
+
+        lr = self.lr_initial * self._get_lr_scale()
+
+        # Changing the learning rate within the optimizer
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+        self.current_lr = current_lr
+        return current_lr, lr
+
+    def _get_lr_scale(self):
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        if n_steps < n_warmup_steps:
+            return (n_steps + 0.0) / n_warmup_steps
+        elif n_steps < self.n_keep_steps + n_warmup_steps:
+            return 1.0
+        else:
+            return n_warmup_steps / (n_steps - self.n_keep_steps)
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {"losses": self.losses, "n_steps": self.n_steps}
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch  # Unused in this class
+        del device
+        data = torch.load(path)
+        self.losses = data["losses"]
+        self.n_steps = data["n_steps"]
+
+
+@checkpoints.register_checkpoint_hooks
 class CyclicCosineScheduler:
     """The is an implementation of the Cyclic-Cosine learning rate scheduler with warmup.
 
@@ -591,10 +794,10 @@ class CyclicCosineScheduler:
 
     Arguments
     ---------
-    lr_initial : float
-        Initial learning rate (i.e. the lr used at epoch 0).
     n_warmup_steps : int
         Number of warm up steps.
+    lr_initial : float
+        Initial learning rate (i.e. the lr used at epoch 0).
     total_steps : int
         Total number of updating steps.
 
@@ -625,7 +828,7 @@ class CyclicCosineScheduler:
         self.total = total_steps
 
         self.n_steps = 0
-        self.normalize = 1 / (n_warmup_steps * n_warmup_steps ** -1.5)
+        self.normalize = 1 / (n_warmup_steps * n_warmup_steps**-1.5)
 
     def __call__(self, opt):
         """
@@ -633,10 +836,6 @@ class CyclicCosineScheduler:
         ---------
         opt : list of optimizers
             The optimizers to update using this scheduler.
-        current_epoch : int
-            Number of times the dataset has been iterated.
-        current_loss : int
-            A number for determining whether to change the learning rate.
 
         Returns
         -------
@@ -669,15 +868,14 @@ class CyclicCosineScheduler:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
+        """Saves the current metrics on the specified path."""
         data = {"losses": self.losses, "n_steps": self.n_steps}
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Unused here
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -699,6 +897,8 @@ class ReduceLROnPlateau:
         Factor with which to reduce the learning rate.
     patience : int
         How many epochs to wait before reducing the learning rate.
+    dont_halve_until_epoch : int
+        Number of epochs to wait until halving.
 
     Example
     -------
@@ -777,7 +977,7 @@ class ReduceLROnPlateau:
 
     @checkpoints.mark_as_saver
     def save(self, path):
-        """Saves the curent metrics on the specified path."""
+        """Saves the current metrics on the specified path."""
         data = {
             "losses": self.losses,
             "anchor": self.anchor,
@@ -786,10 +986,9 @@ class ReduceLROnPlateau:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device  # Not used
         data = torch.load(path)
         self.losses = data["losses"]
         self.anchor = data["anchor"]
@@ -878,7 +1077,7 @@ class CyclicLRScheduler:
         scale_fn=None,
         scale_mode="cycle",
     ):
-        super(CyclicLRScheduler, self).__init__()
+        super().__init__()
 
         self.losses = []
         self.base_lr = base_lr
@@ -922,7 +1121,7 @@ class CyclicLRScheduler:
         return old_lr, new_lr
 
     def clr(self, clr_iterations):
-        """Clears interations."""
+        """Clears iterations."""
         cycle = math.floor(1 + clr_iterations / (2 * self.step_size))
         x = abs(clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == "cycle":
@@ -959,10 +1158,9 @@ class CyclicLRScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.clr_iterations = data["clr_iterations"]
@@ -972,12 +1170,14 @@ class CyclicLRScheduler:
 class IntervalScheduler:
     """A simple scheduler implementation that sets the learning rate to
     specific values after a specific number of steps has been reached.
+
     Arguments
     ---------
-    intervals: list
+    intervals : list
         a list of dictionaries: {"steps": <number of steps>, "lr": the learning rate}
         'steps' indicates the global step count at which a given
         rate will apply
+
     Example
     -------
     >>> import torch
@@ -1021,6 +1221,7 @@ class IntervalScheduler:
         ---------
         opt : optimizer
             The optimizer to update using this scheduler.
+
         Returns
         -------
         current_lr : float
@@ -1064,10 +1265,9 @@ class IntervalScheduler:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch  # Unused in this class
-        del device
         data = torch.load(path)
         self.losses = data["losses"]
         self.n_steps = data["n_steps"]
@@ -1078,6 +1278,7 @@ class IntervalScheduler:
 class InverseSquareRootScheduler:
     """The Inverse Square Root Scheduler, as defined in the T5 paper
     https://arxiv.org/pdf/1910.10683.pdf
+
     Arguments
     ---------
     warmup_steps : int
@@ -1090,10 +1291,15 @@ class InverseSquareRootScheduler:
 
     def __call__(self, opt):
         """Returns current and new hyperparameter value.
+
         Arguments
         ---------
-        current_epoch : int
-            Number of times the dataset has been iterated.
+        opt : optimizer
+            The optimizer to update using this scheduler.
+
+        Returns
+        -------
+        current and new hyperparam value
         """
         self.n_steps += 1
 
@@ -1130,18 +1336,18 @@ class WarmCoolDecayLRSchedule:
 
     Arguments
     ---------
-        lr : float
-            The max learning rate to reach after warmup.
-        warmup : int
-            Number of warmup steps (following a linear increase).
-        cooldown : int
-            Number of cooldown steps (following a linear decrease).
-        total_steps : int
-            Total number of steps (used to decay).
-        decay_factor : float
-            Decay factor applied every decay_every steps.
-        decay_every : int
-            Apply the decay factor to the learning rate every decay_every steps.
+    lr : float
+        The max learning rate to reach after warmup.
+    warmup : int
+        Number of warmup steps (following a linear increase).
+    cooldown : int
+        Number of cooldown steps (following a linear decrease).
+    total_steps : int
+        Total number of steps (used to decay).
+    decay_factor : float
+        Decay factor applied every decay_every steps.
+    decay_every : int
+        Apply the decay factor to the learning rate every decay_every steps.
 
     Example
     -------
@@ -1182,7 +1388,7 @@ class WarmCoolDecayLRSchedule:
         decay_factor=0.75,
         decay_every=100000,
     ):
-        super(WarmCoolDecayLRSchedule, self).__init__()
+        super().__init__()
         self.base_lr = lr
         self.warmup = warmup
         self.cooldown = cooldown
@@ -1222,10 +1428,9 @@ class WarmCoolDecayLRSchedule:
         torch.save(data, path)
 
     @checkpoints.mark_as_loader
-    def load(self, path, end_of_epoch=False, device=None):
+    def load(self, path, end_of_epoch=False):
         """Loads the needed information."""
         del end_of_epoch
-        del device
         data = torch.load(path)
         self.base_lr = data["base_lr"]
         self.warmup = data["warmup"]
@@ -1240,7 +1445,7 @@ class ScheduledLoss(nn.Module):
 
     Arguments
     ---------
-    schedule: list
+    schedule : list
         a list of dictionaries with the following keys
             loss_fn: the loss function to use
             steps: the number of steps to apply before switching
@@ -1277,19 +1482,24 @@ class ScheduledLoss(nn.Module):
         if not any(schedule):
             raise ValueError("At least one schedule item is required")
         if any(item for item in schedule if not callable(item.get("loss_fn"))):
-            raise ValueError("Each schedule item needs to have at leas ")
+            raise ValueError("Each schedule item needs to have at least ")
         self.schedule = schedule
         self.n_steps = 0
         self.find_next_switch()
 
     def forward(self, *args, **kwargs):
         """Computes the loss at the specified step number.
-        Any arguments passed to this will be passed on to the specified
-        loss_fn
+
+        Arguments
+        ---------
+        *args : tuple
+        **kwargs : dict
+            Any arguments passed to this will be passed on to the specified
+            loss_fn
 
         Returns
         -------
-        result: torch.Tensor
+        result : torch.Tensor
             the loss value
         """
         if self.n_steps >= self.next_switch:
@@ -1321,3 +1531,133 @@ class ScheduledLoss(nn.Module):
                 self.current_loss_fn = item["loss_fn"]
                 self.next_switch = cumulative_steps
                 break
+
+
+@checkpoints.register_checkpoint_hooks
+class TriStageLRSchedule:
+    """Warms up linearly, very slowly decays and cools down linearly again
+    at the end of training. This is a three steps scheduler.
+    Reference
+    https://arxiv.org/pdf/1904.08779.pdf
+
+    Arguments
+    ---------
+    lr : float
+        The max learning rate to reach after warmup.
+    warmup_steps : int
+        Number of warmup steps (following a linear increase).
+    hold_steps : int
+        Number of holding steps (lr remains unchanged).
+    decay_steps : int
+        Number of decay steps.
+    total_steps : int
+        Total number of steps (used to decay).
+    init_lr_scale : float
+        The initial learning rate scale during warmup phase.
+    final_lr_scale : float
+        The final learning rate scale.
+
+    Example
+    -------
+    >>> from speechbrain.nnet.linear import Linear
+    >>> inp_tensor = torch.rand([1,660,3])
+    >>> model = Linear(input_size=3, n_neurons=4)
+    >>> optim = torch.optim.Adam(model.parameters(), lr=1)
+    >>> output = model(inp_tensor)
+    >>> scheduler = TriStageLRSchedule(lr=1, warmup_steps=2, hold_steps=2, decay_steps=2, total_steps=6, init_lr_scale=0.01, final_lr_scale=0.05)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim, 1)
+    >>> optim.param_groups[0]["lr"]
+    0.505
+    >>> scheduler(optim, 2)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim, 3)
+    >>> optim.param_groups[0]["lr"]
+    1
+    >>> scheduler(optim, 4)
+    >>> optim.param_groups[0]["lr"]
+    1.0
+    >>> scheduler(optim, 5)
+    >>> optim.param_groups[0]["lr"]
+    0.223606797749979
+    >>> scheduler(optim, 6)
+    >>> optim.param_groups[0]["lr"]
+    0.05000000000000001
+    """
+
+    def __init__(
+        self,
+        lr,
+        warmup_steps,
+        hold_steps,
+        decay_steps,
+        total_steps,
+        init_lr_scale=0.01,
+        final_lr_scale=0.05,
+    ):
+        super(TriStageLRSchedule, self).__init__()
+        self.peak_lr = lr
+        self.warmup_steps = warmup_steps
+        self.hold_steps = hold_steps
+        self.decay_steps = decay_steps
+        self.total_steps = total_steps
+        self.init_lr_scale = init_lr_scale
+        self.final_lr_scale = final_lr_scale
+
+        self.init_lr = self.init_lr_scale * self.peak_lr
+        self.warmup_rate = (self.peak_lr - self.init_lr) / self.warmup_steps
+        self.decay_factor = -math.log(self.final_lr_scale) / self.decay_steps
+
+    def __call__(self, opt, num_updates):
+        """Calculate the learning rate corresponding to the current step (num_updates)."""
+        if num_updates < self.warmup_steps:
+            # Warming up at the start of training.
+            lr = self.init_lr + self.warmup_rate * num_updates
+        elif num_updates < self.warmup_steps + self.hold_steps:
+            # Hold lr unchanged.
+            lr = self.peak_lr
+        else:
+            # Decay lr
+            lr = self.peak_lr * math.exp(
+                -self.decay_factor
+                * (num_updates - self.hold_steps - self.warmup_steps)
+            )
+
+        for param_group in opt.param_groups:
+            param_group["lr"] = lr
+
+    @checkpoints.mark_as_saver
+    def save(self, path):
+        """Saves the current metrics on the specified path."""
+        data = {
+            "peak_lr": self.peak_lr,
+            "warmup_steps": self.warmup_steps,
+            "hold_steps": self.hold_steps,
+            "decay_steps": self.decay_steps,
+            "total_steps": self.total_steps,
+            "init_lr_scale": self.init_lr_scale,
+            "final_lr_scale": self.final_lr_scale,
+            "init_lr": self.init_lr,
+            "warmup_rate": self.warmup_rate,
+            "decay_factor": self.decay_factor,
+        }
+        torch.save(data, path)
+
+    @checkpoints.mark_as_loader
+    def load(self, path, end_of_epoch=False, device=None):
+        """Loads the needed information."""
+        del end_of_epoch
+        del device
+        data = torch.load(path)
+        self.peak_lr = data["peak_lr"]
+        self.warmup_steps = data["warmup_steps"]
+        self.hold_steps = data["hold_steps"]
+        self.decay_steps = data["decay_steps"]
+        self.total_steps = data["total_steps"]
+        self.init_lr_scale = data["init_lr_scale"]
+        self.final_lr_scale = data["final_lr_scale"]
+        self.init_lr = data["init_lr"]
+        self.warmup_rate = data["warmup_rate"]
+        self.decay_factor = data["decay_factor"]

@@ -9,12 +9,14 @@ Authors
  * Salima Mdhaffar 2021
 """
 
-import torch
 import logging
+
+import torch
 import torch.nn.functional as F
 from torch import nn
-from speechbrain.utils.data_utils import download_file
+
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.data_utils import download_file
 
 # We check if fairseq is installed.
 try:
@@ -49,12 +51,14 @@ class FairseqWav2Vec2(nn.Module):
         By default, it is extracted from the checkpoint of the downloaded model
         in order to match the pretraining conditions. However, if this information
         is not given in the checkpoint, it has to be given manually.
-    output_norm : bool (default: True)
+    output_norm : bool (default: False)
         If True, a layer_norm (affine) will be applied to the output obtained
         from the wav2vec model.
-    freeze : bool (default: True)
+    freeze : bool (default: False)
         If True, the model is frozen. If False, the model will be trained
         alongside with the rest of the pipeline.
+    freeze_feature_extractor : bool (default: False)
+        Whether to prevent feature extraction weights from updating.
     pretrain : bool (default: True)
         If True, the model is pretrained with the specified source.
         If False, the randomly-initialized model is instantiated.
@@ -157,7 +161,7 @@ class FairseqWav2Vec2(nn.Module):
                     param.requires_grad = False
 
         # Randomly initialized layers if pretrain is False
-        if not (pretrain):
+        if not pretrain:
             self.reset_layer(self.model)
 
         # Following the fairseq implementation of downstream training,
@@ -169,8 +173,14 @@ class FairseqWav2Vec2(nn.Module):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
+        wav_lens : torch.Tensor
+            The lengths corresponding to the input wavs.
+
+        Returns
+        -------
+        wav2vec encoded features.
         """
 
         padding_mask = self.make_masks(wav, wav_len=wav_lens)
@@ -208,7 +218,7 @@ class FairseqWav2Vec2(nn.Module):
                 self.reset_layer(child_layer)
 
     def remove_pretraining_modules(self):
-        """ Remove uneeded modules. Inspired by the same fairseq function."""
+        """Remove unneeded modules. Inspired by the same fairseq function."""
 
         self.model.quantizer = None
         self.model.project_q = None
@@ -217,6 +227,7 @@ class FairseqWav2Vec2(nn.Module):
 
     def make_masks(self, src, wav_len=None, pad_idx=0):
         """This method generates the padding masks.
+
         Arguments
         ---------
         src : tensor
@@ -225,6 +236,11 @@ class FairseqWav2Vec2(nn.Module):
             The relative length of the wav given in SpeechBrain format.
         pad_idx : int
             The index for <pad> token (default=0).
+
+        Returns
+        -------
+        src_key_padding_mask : torch.Tensor
+            The mask for removing pad tokens.
         """
         src_key_padding_mask = None
         if wav_len is not None:
@@ -293,7 +309,7 @@ class FairseqWav2Vec1(nn.Module):
             self.model.eval()
 
         # Randomly initialized layers if pretrain is False
-        if not (pretrain):
+        if not pretrain:
             self.reset_layer(self.model)
 
     def forward(self, wav):
@@ -301,8 +317,12 @@ class FairseqWav2Vec1(nn.Module):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
+
+        Returns
+        -------
+        wav2vec encoded features
         """
 
         # If we freeze, we simply remove all grads and features from the graph.

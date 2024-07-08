@@ -30,11 +30,11 @@ train_annotation: !ref <output_folder>/train.json
 valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 15
 lr: 0.0001
 lr_wav2vec: 0.00001
-# auto_mix_prec: False
+# precision: fp32 # bf16, fp16 or fp32
 # do_resample: False
 # sample_rate: 16000
 
@@ -80,7 +80,7 @@ input_norm: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
     std_norm: False
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec2>

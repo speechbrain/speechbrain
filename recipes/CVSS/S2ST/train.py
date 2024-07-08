@@ -4,21 +4,25 @@
  - Enhanced Direct Speech-to-Speech Translation Using Self-supervised Pre-training and Data Augmentation: (https://arxiv.org/abs/2204.02967)
  To run this recipe, do the following:
  # python train.py hparams/train_fr-en.yaml --src_data_folder=/corpus/CommonVoice/fr --tgt_data_folder=/corpus/CVSS/fr
+
  Authors
  * Jarod Duret 2023
 """
 
-import sys
-import torch
 import logging
 import pathlib as pl
-from hyperpyyaml import load_hyperpyyaml
-import speechbrain as sb
-from speechbrain.pretrained import UnitHIFIGAN, EncoderDecoderASR
-import tqdm
-import torchaudio
+import sys
+
 import numpy as np
+import torch
+import torchaudio
+import tqdm
+from hyperpyyaml import load_hyperpyyaml
 from torch.nn.parallel import DistributedDataParallel
+
+import speechbrain as sb
+from speechbrain.inference.ASR import EncoderDecoderASR
+from speechbrain.inference.vocoders import UnitHIFIGAN
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +40,7 @@ class S2UT(sb.core.Brain):
 
         Returns
         -------
-        (torch.Tensor or Tensors, list of float or None, list of str or None)
+        (torch.Tensor or torch.Tensors, list of float or None, list of str or None)
             The outputs after all processing is complete.
         """
         batch = batch.to(self.device)
@@ -83,7 +87,7 @@ class S2UT(sb.core.Brain):
                     if stage == sb.Stage.VALID
                     else self.hparams.test_search
                 )
-                hyps, _ = search(enc_out.detach(), wav_lens)
+                hyps, _, _, _ = search(enc_out.detach(), wav_lens)
 
                 # generate speech and transcriptions
                 wavs = []
@@ -155,18 +159,36 @@ class S2UT(sb.core.Brain):
 
         return loss
 
+    def freeze_optimizers(self, optimizers):
+        """Freezes the wav2vec2 optimizer according to the warmup steps"""
+        valid_optimizers = {}
+        if (
+            not self.hparams.wav2vec2_frozen
+            and self.optimizer_step >= self.hparams.wav2vec2_freeze_steps
+        ):
+            valid_optimizers["wav2vec_optimizer"] = optimizers[
+                "wav2vec_optimizer"
+            ]
+        valid_optimizers["model_optimizer"] = optimizers["model_optimizer"]
+        return valid_optimizers
+
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
         after parameters are fully configured (e.g. DDP, jit).
         """
+        self.optimizers_dict = {}
+
         # Initializes the wav2vec2 optimizer if the model is not wav2vec2_frozen
         if not self.hparams.wav2vec2_frozen:
             self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
                 self.modules.wav2vec2.parameters()
             )
+            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+
         self.model_optimizer = self.hparams.opt_class(
             self.hparams.model.parameters()
         )
+        self.optimizers_dict["model_optimizer"] = self.model_optimizer
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
@@ -176,54 +198,21 @@ class S2UT(sb.core.Brain):
                 "model_optimizer", self.model_optimizer
             )
 
-    def fit_batch(self, batch):
-        """Fits a single batch.
+    def on_fit_batch_start(self, batch, should_step):
+        """Called at the beginning of ``fit_batch()``.
+
         Arguments
         ---------
-        batch: tuple
-            a training batch
-        Returns
-        -------
-        loss: torch.Tensor
-            detached loss
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        should_step : boolean
+            Whether optimizer.step() was called or not.
         """
         if self.optimizer_step == self.hparams.wav2vec2_freeze_steps:
             logger.warning(
                 "speechbrain.lobes.models.huggingface_wav2vec - wav2vec 2.0 is unfrozen."
             )
-
-        should_step = self.step % self.grad_accumulation_factor == 0
-        if self.bfloat16_mix_prec:
-            with torch.autocast(
-                device_type=torch.device(self.device).type,
-                dtype=torch.bfloat16,
-            ):
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-        with self.no_sync(not should_step):
-            (loss / self.grad_accumulation_factor).backward()
-        if should_step:
-            if self.check_gradients(loss):
-                if (
-                    not self.hparams.wav2vec2_frozen
-                    and self.optimizer_step
-                    >= self.hparams.wav2vec2_freeze_steps
-                ):  # if wav2vec2 is not frozen
-                    self.wav2vec_optimizer.step()
-                self.model_optimizer.step()
-
-            if not self.hparams.wav2vec2_frozen:
-                self.wav2vec_optimizer.zero_grad()
-            self.model_optimizer.zero_grad()
-
-            self.optimizer_step += 1
-
-        self.on_fit_batch_end(batch, outputs, loss, should_step)
-        return loss.detach().cpu()
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """Called after ``fit_batch()``, meant for calculating and logging metrics.
@@ -253,6 +242,10 @@ class S2UT(sb.core.Brain):
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
         epoch : int
             The current epoch count.
+
+        Returns
+        -------
+        None
         """
         if stage != sb.Stage.TRAIN:
             if (
@@ -321,7 +314,7 @@ class S2UT(sb.core.Brain):
             lr_wav2vec = 0.0
 
             if not self.hparams.wav2vec2_frozen:
-                (lr_wav2vec, new_lr_wav2vec,) = self.hparams.wav2vec_annealing(
+                (lr_wav2vec, new_lr_wav2vec) = self.hparams.wav2vec_annealing(
                     stage_stats["ACC"]
                 )
                 sb.nnet.schedulers.update_learning_rate(
@@ -367,11 +360,16 @@ class S2UT(sb.core.Brain):
 
     def _save_progress_sample(self, epoch):
         """Save samples and BLEU score from last batch for current epoch.
+
         Arguments
         ---------
         epoch : int
             The currently-starting epoch. This is passed
             `None` during the test stage.
+
+        Returns
+        -------
+        None
         """
         if self.last_batch is None:
             return
@@ -441,7 +439,7 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate, hparams["sample_rate"]
         )(sig)
         return sig
 
@@ -454,7 +452,8 @@ def dataio_prepare(hparams):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
         sig = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate,
+            hparams["sample_rate"],
         )(sig)
         return sig
 

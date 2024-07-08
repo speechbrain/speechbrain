@@ -8,16 +8,17 @@ Authors:
 """
 
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 
 # Define training procedure
 class SLU(sb.Brain):
-    """see recipes/timers-and-such/decoupled/train.py
-    """
+    """see recipes/timers-and-such/decoupled/train.py"""
 
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
@@ -66,10 +67,7 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             return p_seq, asr_tokens_lens
         else:
             p_tokens, scores = self.hparams.beam_searcher(
@@ -79,11 +77,7 @@ class SLU(sb.Brain):
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
-
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
             p_seq, asr_tokens_lens = predictions
         else:
             p_seq, asr_tokens_lens, predicted_tokens = predictions
@@ -99,9 +93,7 @@ class SLU(sb.Brain):
         # (No ctc loss)
         loss = loss_seq
 
-        if (stage != sb.Stage.TRAIN) or (
-            self.batch_count % show_results_every == 0
-        ):
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
                 tokenizer.decode_ids(utt_seq).split(" ")
@@ -125,27 +117,8 @@ class SLU(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        self.batch_count += 1
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        self.batch_count = 0
-
         if stage != sb.Stage.TRAIN:
 
             self.cer_metric = self.hparams.cer_computer()
@@ -172,7 +145,8 @@ class SLU(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"SER": stage_stats["SER"]}, min_keys=["SER"],
+                meta={"SER": stage_stats["SER"]},
+                min_keys=["SER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -185,12 +159,13 @@ class SLU(sb.Brain):
 
 def data_io_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
-
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -221,7 +196,8 @@ def data_io_prepare(hparams):
     else:
         valid_path = hparams["csv_dev_real"]
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=valid_path, replacements={"data_root": data_folder},
+        csv_path=valid_path,
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -257,8 +233,7 @@ def data_io_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        """ see original recipe
-        """
+        """See original recipe"""
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
@@ -270,8 +245,7 @@ def data_io_prepare(hparams):
         "semantics", "token_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(semantics):
-        """ see original recipe
-        """
+        """See original recipe"""
         yield semantics
         tokens_list = tokenizer.encode_as_ids(semantics)
         yield tokens_list
@@ -355,7 +329,7 @@ if __name__ == "__main__":
 
     # We download and pretrain the tokenizer
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Brain class initialization
     slu_brain = SLU(

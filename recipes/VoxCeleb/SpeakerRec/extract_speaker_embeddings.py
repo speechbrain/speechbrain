@@ -28,18 +28,18 @@ Author
     * Nauman Dawalatabad 2020
     * Xuechen Liu 2023
 """
+import logging
 import os
 import sys
 
 import numpy as np
 import torch
-import logging
 import torchaudio
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 
-from speechbrain.utils.distributed import run_on_main
+import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.distributed import run_on_main
 
 
 def compute_embeddings_single(wavs, wav_lens, params):
@@ -48,10 +48,10 @@ def compute_embeddings_single(wavs, wav_lens, params):
     Arguments
     ---------
     wavs : Torch.Tensor
-        Tensor containing the speech waveform (batch, time).
+        torch.Tensor containing the speech waveform (batch, time).
         Make sure the sample rate is fs=16000 Hz.
     wav_lens: Torch.Tensor
-        Tensor containing the relative length for each sentence
+        torch.Tensor containing the relative length for each sentence
         in the length (e.g., [0.8 0.6 1.0])
     """
     with torch.no_grad():
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     params["embedding_model"].eval()
     params["embedding_model"].to(run_opts["device"])
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         params["save_folder"], os.path.basename(params["verification_file"])
     )

@@ -8,23 +8,23 @@ Authors
  * Jarod Duret 2023
 """
 
-
-import sys
-import logging
-import time
-import random
 import itertools
+import logging
 import pathlib as pl
+import random
+import sys
+import time
 
 import joblib
+import numpy as np
 import torch
 import torchaudio
 import tqdm
-import numpy as np
-from sklearn.cluster import MiniBatchKMeans
 from hyperpyyaml import load_hyperpyyaml
-import speechbrain as sb
 from ljspeech_prepare import prepare_ljspeech
+from sklearn.cluster import MiniBatchKMeans
+
+import speechbrain as sb
 from speechbrain.lobes.models.huggingface_wav2vec import HuggingFaceWav2Vec2
 
 
@@ -59,7 +59,8 @@ def fetch_data(splits, sample_pct, seed=1234):
     for split in splits:
         key = f"{split.parent}_{split.stem}"
         ds_splits[key] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=split, output_keys=["id", "wav"],
+            json_path=split,
+            output_keys=["id", "wav"],
         )
 
     data = list(itertools.chain(*ds_splits.values()))
@@ -83,7 +84,8 @@ def extract_features(
             info = torchaudio.info(wav)
             audio = sb.dataio.dataio.read_audio(wav)
             audio = torchaudio.transforms.Resample(
-                info.sample_rate, sample_rate,
+                info.sample_rate,
+                sample_rate,
             )(audio)
             audio = audio.unsqueeze(0).to(device)
             feats = model.extract_features(audio)
@@ -213,7 +215,7 @@ if __name__ == "__main__":
     )
     logger.info(f"k-means model trained in {time_taken} minutes")
     inertia = -kmeans_model.score(features_batch) / len(features_batch)
-    logger.info(f"Total intertia: {round(inertia, 2)}\n")
+    logger.info(f"Total inertia: {round(inertia, 2)}\n")
 
     logger.info(f"Saving k-means model to {hparams['out_kmeans_model_path']}")
     joblib.dump(kmeans_model, open(hparams["out_kmeans_model_path"], "wb"))

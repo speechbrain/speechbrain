@@ -4,9 +4,10 @@ Authors
  * Mirco Ravanelli 2020
 """
 
+import random
+
 import torch
 import torchaudio
-import random
 
 # fade-in/fade-out definition
 fade_in = torchaudio.transforms.Fade(fade_in_len=1000, fade_out_len=0)
@@ -33,16 +34,17 @@ def add_chunk(
     min_len-max_len range. The shift is controlled by the  chunk_shift
     parameter.
 
-
     Arguments
     ---------
-    wav : torch.tensor
+    wav: torch.Tensor
         The waveform to append.
-    wav_chunk : torch.tensor
+    wav_chunk: torch.Tensor
         The existing waveform where to append the new source.
+    target: torch.Tensor
+        Old target.
     sample_rate: int
         The sample rate of the input waveforms.
-    time_resolution:
+    time_resolution: float
         Time resolution of the targets (in seconds)-
     example_length: float
         Duration (in seconds) of the existing chunk.
@@ -68,12 +70,12 @@ def add_chunk(
 
     Returns
     -------
-    wav_chunk: torch.tensor
+    wav_chunk: torch.Tensor
         The new waveform with the added signal.
-    target: torch.tensor
+    target: torch.Tensor
         The new targets corresponding to the output signal.
-    lengths: torch.tensor
-        relative lenghts of each chunk.
+    lengths: torch.Tensor
+        relative lengths of each chunk.
     end_chunk: int
         The last sample of the appended sequence. It can be used later to add
         another source that do not overlap with the current one.
@@ -134,11 +136,11 @@ def add_chunk(
         end_speech_target = int(end_chunk / (sample_rate * time_resolution))
         target[:, beg_speech_target:end_speech_target] = 1
 
-    # Lenth computation
-    lenghts = torch.ones(
+    # Length computation
+    lengths = torch.ones(
         wav_chunk.shape[0], wav_chunk.shape[-1], device=wav.device
     )
-    return wav_chunk, target, lenghts, end_chunk
+    return wav_chunk, target, lengths, end_chunk
 
 
 def initialize_targets(wav, sample_rate, time_resolution):
@@ -160,13 +162,13 @@ def get_samples_from_datasets(datasets, wav):
         List containing datasets. More precisely, we expect here the pointers
         to the object used in speechbrain for data augmentation
         (e.g, speechbrain.lobes.augment.EnvCorrupt).
-    wav : torch.tensor
+    wav : torch.Tensor
         The original waveform. The drawn samples will have the same
         dimensionality of the original waveform.
 
     Returns
     -------
-    samples: torch.tensor
+    samples: torch.Tensor
         A batch of new samples drawn from the input list of datasets.
     """
     # We want a sample of the same size of the original signal
@@ -176,7 +178,6 @@ def get_samples_from_datasets(datasets, wav):
 
     # Let's sample a sequence from each dataset
     for i, dataset in enumerate(datasets):
-
         # Initialize the signal with noise
         wav_sample = (torch.rand_like(wav) * 2) - 1
         len_sample = torch.ones(wav.shape[0], device=wav.device)
@@ -209,18 +210,17 @@ def create_chunks(
     """This method creates augmented data for training the VAD.
     It sums up two delayed sources + a noise background.
 
-
     Arguments
     ---------
-    wav1 : torch.tensor
+    wav1 : torch.Tensor
         The waveform for source 1.
-    wav2 : torch.tensor
+    wav2 : torch.Tensor
         The waveform for source 2.
-    background : torch.tensor
+    background : torch.Tensor
         The waveform for background noise.
     sample_rate: int
         The sample rate of the input waveforms.
-    time_resolution:
+    time_resolution: float
         Time resolution of the targets (in seconds)-
     example_length: float
         Duration (in seconds) of the existing chunk.
@@ -240,11 +240,11 @@ def create_chunks(
 
     Returns
     -------
-    wavs: torch.tensor
+    wavs: torch.Tensor
         The generated speech signal.
-    target: torch.tensor
+    target: torch.Tensor
         The new targets corresponding to the generated signal.
-    lengths: torch.tensor
+    lengths: torch.Tensor
         relative lengths of each chunk.
     """
 
@@ -312,22 +312,22 @@ def augment_data(noise_datasets, speech_datasets, wavs, targets, lens_targ):
         List containing noise datasets. More precisely, we expect here the pointers
         to the object used in speechbrain for data augmentation
         (e.g, speechbrain.lobes.augment.EnvCorrupt).
-    wavs: torch.tensor
+    wavs: torch.Tensor
         The original waveform.
-    targets: torch.tensor
+    targets: torch.Tensor
         The original targets.
-    lens_targ: torch.tensor
-        The lenght of the original targets.
+    lens_targ: torch.Tensor
+        The length of the original targets.
 
 
     Returns
     -------
-    wavs: torch.tensor
+    wavs: torch.Tensor
         The output batch with the augmented signals
-    target: torch.tensor
+    target: torch.Tensor
         The new targets corresponding to the augmented signals.
-    lengths: torch.tensor
-        relative lenghts of each element in the batch.
+    lengths: torch.Tensor
+        relative lengths of each element in the batch.
     """
     # Sample a noise sequence
     wav_samples_noise = get_samples_from_datasets(noise_datasets, wavs)

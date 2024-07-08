@@ -1,8 +1,9 @@
-import os
 import argparse
-import soundfile as sf
-import pandas as pd
 import glob
+import os
+
+import pandas as pd
+import soundfile as sf
 from tqdm import tqdm
 
 # Global parameter
@@ -30,7 +31,7 @@ def main(args):
 
 
 def create_wham_noise_metadata(wham_noise_dir, md_dir):
-    """ Generate metadata corresponding to downloaded data in wham_noise """
+    """Generate metadata corresponding to downloaded data in wham_noise"""
 
     # Check already generated files
     not_already_processed_dir = check_already_generated(md_dir)
@@ -52,12 +53,12 @@ def create_wham_noise_metadata(wham_noise_dir, md_dir):
         dir_metadata = dir_metadata[dir_metadata["length"] >= num_samples]
         # Create save path
         save_path = os.path.join(md_dir, name + ".csv")
-        print(f"Medatada file created in {save_path}")
+        print(f"Metadata file created in {save_path}")
         dir_metadata.to_csv(save_path, index=False)
 
 
 def check_already_generated(md_dir):
-    """ Check if files have already been generated """
+    """Check if files have already been generated"""
     # Get the already generated files
     already_generated_csv = os.listdir(md_dir)
     # Data directories in wham_noise
@@ -78,8 +79,8 @@ def check_already_generated(md_dir):
 
 
 def create_wham_noise_dataframe(wham_noise_dir, subdir):
-    """ Generate a dataframe that gather infos about the sound files in a
-    wham_noise subdirectory """
+    """Generate a dataframe that gather infos about the sound files in a
+    wham_noise subdirectory"""
 
     print(f"Processing files from {subdir} dir")
     # Get the current directory path

@@ -12,6 +12,7 @@
 #
 import os
 import sys
+
 import hyperpyyaml
 
 sys.path.insert(-1, os.path.abspath("../"))
@@ -61,6 +62,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "numpy": ("http://docs.scipy.org/doc/numpy/", None),
     "torch": ("https://pytorch.org/docs/master/", None),
+    "torchaudio": ("https://pytorch.org/audio/stable/", None),
 }
 
 # AUTODOC:
@@ -85,28 +87,17 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_apidoc_templates"]
 
+# Make backticks behave as inline code blocks rather than italics
+default_role = "code"
+
 # -- Better apidoc -----------------------------------------------------------
 
 
 def run_apidoc(app):
-    """Generage API documentation"""
+    """Generate API documentation"""
     import better_apidoc
 
     better_apidoc.APP = app
-
-    better_apidoc.main(
-        [
-            "better-apidoc",
-            "-t",
-            "_apidoc_templates",
-            "--force",
-            "--no-toc",
-            "--separate",
-            "-o",
-            "API",
-            os.path.dirname(hyperpyyaml.__file__),
-        ]
-    )
     better_apidoc.main(
         [
             "better-apidoc",
@@ -118,6 +109,7 @@ def run_apidoc(app):
             "-o",
             "API",
             os.path.join("../", "speechbrain"),
+            os.path.dirname(hyperpyyaml.__file__),
         ]
     )
 
@@ -131,12 +123,15 @@ html_theme = "sphinx_rtd_theme"
 # See https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
 # for rtd theme options
 html_theme_options = {
+    "logo_only": True,
     # Toc options
     "collapse_navigation": False,
     "sticky_navigation": True,
     "navigation_depth": 4,
     "includehidden": True,
 }
+
+html_logo = "images/speechbrain-logo.svg"
 
 
 # Add any paths that contain custom static files (such as style sheets) here,

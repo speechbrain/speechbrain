@@ -3,9 +3,11 @@
 Author
  * Peter Plantinga 2022
 """
+
 import torch
+
 import speechbrain as sb
-from speechbrain.processing.features import STFT, ISTFT, spectral_magnitude
+from speechbrain.processing.features import ISTFT, STFT, spectral_magnitude
 
 
 class EnhanceResnet(torch.nn.Module):
@@ -94,7 +96,9 @@ class EnhanceResnet(torch.nn.Module):
         )
         for _ in range(dense_count):
             self.DNN.append(
-                sb.nnet.linear.Linear, n_neurons=dense_nodes, combine_dims=True,
+                sb.nnet.linear.Linear,
+                n_neurons=dense_nodes,
+                combine_dims=True,
             )
             self.DNN.append(activation)
             self.DNN.append(sb.nnet.normalization.LayerNorm)
@@ -183,7 +187,9 @@ class ConvBlock(torch.nn.Module):
         )
         self.norm1 = normalization(input_size=channels)
         self.conv2 = sb.nnet.CNN.Conv2d(
-            in_channels=channels, out_channels=channels, kernel_size=3,
+            in_channels=channels,
+            out_channels=channels,
+            kernel_size=3,
         )
         self.norm2 = normalization(input_size=channels)
         self.dropout = sb.nnet.dropout.Dropout2d(drop_rate=dropout)

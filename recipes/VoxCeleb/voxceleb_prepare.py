@@ -4,21 +4,20 @@ Data preparation.
 Download: http://www.robots.ox.ac.uk/~vgg/data/voxceleb/
 """
 
-import os
 import csv
-import logging
 import glob
+import logging
+import os
 import random
 import shutil
 import sys  # noqa F401
+
 import numpy as np
 import torch
 import torchaudio
 from tqdm.contrib import tqdm
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_voxceleb_prepare.pkl"
@@ -75,8 +74,12 @@ def prepare_voxceleb(
         Speaker-wise split
     random_segment : bool
         Train random segments
-    skip_prep: Bool
+    skip_prep : bool
         If True, skip preparation.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -164,6 +167,12 @@ def skip(splits, save_folder, conf):
     Detects if the voxceleb data_preparation has been already done.
     If the preparation has been done, we can skip it.
 
+    Arguments
+    ---------
+    splits : list
+    save_folder : str
+    conf : str
+
     Returns
     -------
     bool
@@ -203,9 +212,12 @@ def _check_voxceleb_folders(data_folders, splits):
 
     If it does not, raise an error.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folders : list
+        List of data folder paths to check
+    splits : list
+        List of splits, "train" and/or "test"
 
     Raises
     ------
@@ -323,6 +335,8 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
 
     Arguments
     ---------
+    seg_dur : int
+        Segment duration of a chunk in seconds (e.g., 3.0 seconds).
     wav_lst : list
         The list of wav files of a given data split.
     csv_file : str
@@ -332,10 +346,6 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     amp_th: float
         Threshold on the average amplitude on the chunk.
         If under this threshold, the chunk is discarded.
-
-    Returns
-    -------
-    None
     """
 
     msg = '\t"Creating csv lists in  %s..."' % (csv_file)
@@ -421,14 +431,12 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
 
     Arguments
     ---------
-    data_folder : str
+    data_folders : str
         Path of the data folders
     save_folder : str
         The directory where to store the csv files.
-
-    Returns
-    -------
-    None
+    verification_pairs_file : str
+        Path to the file with verification pairs.
     """
 
     # msg = '\t"Creating csv lists in  %s..."' % (csv_file)

@@ -8,16 +8,18 @@ Authors
  * Andreas Nautsch 2023
  * Adel Moumen 2023
 """
+
 import logging
 import pathlib
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.pretrained.fetching import fetch, FetchFrom, FetchSource
+
 from speechbrain.utils.checkpoints import (
     DEFAULT_LOAD_HOOKS,
     DEFAULT_TRANSFER_HOOKS,
     PARAMFILE_EXT,
     get_default_hook,
 )
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.fetching import FetchFrom, FetchSource, fetch
 
 logger = logging.getLogger(__name__)
 
@@ -168,9 +170,7 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(
-        self, default_source=None, internal_ddp_handling=False,
-    ):
+    def collect_files(self, default_source=None, internal_ddp_handling=False):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -287,15 +287,8 @@ class Pretrainer:
         else:
             return bool(condition)
 
-    def load_collected(self, device=None):
-        """Loads the files that have been collected.
-
-        Arguments
-        ---------
-        device : str
-            Device on which to load, if you want to load to a specific device
-            directly ( otherwise just leave it to None ).
-        """
+    def load_collected(self):
+        """Loads the files that have been collected."""
         logger.info(
             f"Loading pretrained files for: {', '.join(self.loadables)}"
         )
@@ -311,9 +304,9 @@ class Pretrainer:
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
                 )
                 paramfiles[name] = self.paths[name]
-        self._call_load_hooks(paramfiles, device)
+        self._call_load_hooks(paramfiles)
 
-    def _call_load_hooks(self, paramfiles, device=None):
+    def _call_load_hooks(self, paramfiles):
         # This internal function finds the correct hook to call for every
         # recoverable, and calls it.
         for name, obj in self.loadables.items():
@@ -323,19 +316,19 @@ class Pretrainer:
 
             # First see if object has custom load hook:
             if name in self.custom_hooks:
-                self.custom_hooks[name](obj, loadpath, device=device)
+                self.custom_hooks[name](obj, loadpath)
                 continue
             # Try the default transfer hook:
             default_hook = get_default_hook(obj, DEFAULT_TRANSFER_HOOKS)
             if default_hook is not None:
-                default_hook(obj, loadpath, device=device)
+                default_hook(obj, loadpath)
                 continue
             # Otherwise find the default loader for that type:
             default_hook = get_default_hook(obj, DEFAULT_LOAD_HOOKS)
             if default_hook is not None:
                 # Need to fake end-of-epoch:
                 end_of_epoch = False
-                default_hook(obj, loadpath, end_of_epoch, device)
+                default_hook(obj, loadpath, end_of_epoch)
                 continue
             # If we got here, no custom hook or registered default hook exists
             MSG = f"Don't know how to load {type(obj)}. Register default hook \

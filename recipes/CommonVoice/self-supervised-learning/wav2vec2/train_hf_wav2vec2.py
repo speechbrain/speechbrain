@@ -1,13 +1,4 @@
 #!/usr/bin/env python3
-
-import sys
-import torch
-import logging
-import speechbrain as sb
-import torchaudio
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-
 """Recipe for pretraining a wav2vec 2.0 model on CommonVoice EN. Note that it can be
 trained with ANY dataset as long as you provide the correct JSON or CSV file.
 
@@ -35,6 +26,15 @@ Authors
  * Titouan Parcollet 2021
  * Yan Gao 2021
 """
+import logging
+import sys
+
+import torch
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +64,10 @@ class W2VBrain(sb.core.Brain):
 
         if stage == sb.Stage.TRAIN:
             # We don't have to compute anything as the HF model directly returns
-            # the constrative loss.
+            # the contrastive loss.
             loss = predictions
         else:
-            # We compute the accuracy between embeddings with cosing sim.
+            # We compute the accuracy between embeddings with cosine_sim.
             loss, out, mask_time_indices = predictions
             cosine_sim = torch.cosine_similarity(
                 out.projected_states, out.projected_quantized_states, dim=-1
@@ -80,51 +80,10 @@ class W2VBrain(sb.core.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-
-        # Here we manage mixed precision
-        if self.auto_mix_prec:
-            with torch.cuda.amp.autocast():
-                predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(
-                    predictions, batch, sb.Stage.TRAIN
-                )
-
-            # normalize the loss by gradient_accumulation step
-            self.scaler.scale(
-                loss / self.hparams.gradient_accumulation
-            ).backward()
-
-            if self.step % self.hparams.gradient_accumulation == 0:
-                # gradient clipping & early stop if loss is not fini
-                self.check_gradients(loss)
-
-                self.scaler.unscale_(self.optimizer)
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer.zero_grad()
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-            # normalize the loss by gradient_accumulation step
-            (loss / self.hparams.gradient_accumulation).backward()
-
-            if self.step % self.hparams.gradient_accumulation == 0:
-                # gradient clipping & early stop if loss is not fini
-                self.check_gradients(loss)
-
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach()
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -172,13 +131,15 @@ class W2VBrain(sb.core.Brain):
 # Define custom data procedure
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # 1. Define datasets
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -215,13 +176,15 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["test_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["test_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # We also sort the validation data so it is faster to validate
@@ -240,7 +203,7 @@ def dataio_prepare(hparams):
         if info.num_channels > 1:
             sig = torch.mean(sig, dim=1)
         resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"],
+            info.sample_rate, hparams["sample_rate"]
         )(sig)
 
         return resampled
@@ -248,9 +211,7 @@ def dataio_prepare(hparams):
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 4. Set output:
-    sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig"],
-    )
+    sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
     # 5. If Dynamic Batching is used, we instantiate the needed samplers.
     train_batch_sampler = None
@@ -259,24 +220,13 @@ def dataio_prepare(hparams):
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
-        num_buckets = dynamic_hparams["num_buckets"]
 
         train_batch_sampler = DynamicBatchSampler(
-            train_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            train_data, **dynamic_hparams, length_func=lambda x: x["duration"]
         )
 
         valid_batch_sampler = DynamicBatchSampler(
-            valid_data,
-            dynamic_hparams["max_batch_len"],
-            num_buckets=num_buckets,
-            length_func=lambda x: x["duration"],
-            shuffle=dynamic_hparams["shuffle_ex"],
-            batch_ordering=dynamic_hparams["batch_ordering"],
+            valid_data, **dynamic_hparams, length_func=lambda x: x["duration"]
         )
 
     return (
@@ -289,7 +239,6 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
     with open(hparams_file) as fin:

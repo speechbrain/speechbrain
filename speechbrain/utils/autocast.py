@@ -4,8 +4,10 @@
 Authors
  * Sylvain de Langen 2023
 """
+
 import functools
 from typing import Callable, Optional
+
 import torch
 
 
@@ -50,8 +52,11 @@ def fwd_default_precision(
         Disabling autocast *without* casting inputs will not change this fact,
         so lower precision operations can happen even inside of an
         autocast-disabled region, which this argument helps avoid if desired.
-    """
 
+    Returns
+    -------
+    The wrapped function
+    """
     if fwd is None:
         return functools.partial(fwd_default_precision, cast_inputs=cast_inputs)
 
@@ -68,9 +73,18 @@ def fwd_default_precision(
 
         Arguments
         ---------
+        *args: tuple
+            Arguments to be forwarded to the unwrapped function.
         force_allow_autocast: bool
             When `True`, the wrapped function will be executed directly with no
-            change to the autocast context and no input casting."""
+            change to the autocast context and no input casting.
+        **kwargs: dict
+            Arguments to be forwarded to the unwrapped function.
+
+        Returns
+        -------
+        The wrapped function if force_allow_autocast, else the original
+        """
         if force_allow_autocast:
             return fwd(*args, **kwargs)
         else:

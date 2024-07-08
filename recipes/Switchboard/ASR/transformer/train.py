@@ -33,18 +33,17 @@ Authors
  * Dominik Wagner 2022
 """
 import functools
+import logging
 import os
 import sys
-
-import torch
-import logging
 from pathlib import Path
 
+import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +57,8 @@ class ASR(sb.core.Brain):
         hparams=None,
         run_opts=None,
         checkpointer=None,
-        profiler=None,
         normalize_fn=None,
     ):
-
         self.normalize_fn = normalize_fn
 
         super().__init__(
@@ -70,7 +67,6 @@ class ASR(sb.core.Brain):
             hparams=hparams,
             run_opts=run_opts,
             checkpointer=checkpointer,
-            profiler=profiler,
         )
 
     def compute_forward(self, batch, stage):
@@ -79,28 +75,20 @@ class ASR(sb.core.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, _ = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-
         # compute features
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                feats = self.hparams.augmentation(feats)
-
+        # Add feature augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
+            feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
+            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
         # forward modules
         src = self.modules.CNN(feats)
 
         enc_out, pred = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index,
+            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
         )
 
         # output layer for ctc log-probabilities
@@ -121,28 +109,37 @@ class ASR(sb.core.Brain):
             if current_epoch % self.hparams.valid_search_interval == 0:
                 # for the sake of efficiency, we only perform beamsearch with limited capacity
                 # and no LM to give user some idea of how the AM is doing
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
+                hyps, _, _, _ = self.hparams.valid_search(
+                    enc_out.detach(), wav_lens
+                )
         elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+            # for the sake of efficiency, we only perform beamsearch with limited capacity
+            # and no LM to give user some idea of how the AM is doing
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
 
-        (p_ctc, p_seq, wav_lens, hyps,) = predictions
+        (p_ctc, p_seq, wav_lens, hyps) = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.modules, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
-            )
-            tokens = torch.cat([tokens, tokens], dim=0)
-            tokens_lens = torch.cat([tokens_lens, tokens_lens], dim=0)
+        if stage == sb.Stage.TRAIN:
+            # Labels must be extended if parallel augmentation or concatenated
+            # augmentation was performed on the input (increasing the time dimension)
+            if hasattr(self.hparams, "fea_augment"):
+                (
+                    tokens,
+                    tokens_lens,
+                    tokens_eos,
+                    tokens_eos_lens,
+                ) = self.hparams.fea_augment.replicate_multiple_labels(
+                    tokens, tokens_lens, tokens_eos, tokens_eos_lens
+                )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
@@ -183,39 +180,10 @@ class ASR(sb.core.Brain):
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def fit_batch(self, batch):
-
-        should_step = self.step % self.grad_accumulation_factor == 0
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            self.scaler.scale(loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                self.scaler.unscale_(self.optimizer)
-                if self.check_gradients(loss):
-                    self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            (loss / self.grad_accumulation_factor).backward()
-            if should_step:
-                if self.check_gradients(loss):
-                    self.optimizer.step()
-                self.optimizer.zero_grad()
-                self.optimizer_step += 1
-
-                # anneal lr every update
-                self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach().cpu()
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
     def evaluate_batch(self, batch, stage):
         """Computations needed for validation/test batches"""
@@ -248,7 +216,6 @@ class ASR(sb.core.Brain):
 
         # log stats and save checkpoint at end-of-epoch
         if stage == sb.Stage.VALID:
-
             lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step
             optimizer = self.optimizer.__class__.__name__
@@ -267,7 +234,7 @@ class ASR(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:
@@ -296,7 +263,8 @@ class ASR(sb.core.Brain):
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts,
+            recoverable_name="model",
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -305,11 +273,13 @@ class ASR(sb.core.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -333,7 +303,8 @@ def dataio_prepare(hparams):
             "sorting must be random, ascending or descending"
         )
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -374,7 +345,8 @@ def dataio_prepare(hparams):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate,
+                hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -409,7 +381,8 @@ def dataio_prepare(hparams):
         # Maybe resample to 16kHz
         if int(info.sample_rate) != int(hparams["sample_rate"]):
             resampled = torchaudio.transforms.Resample(
-                info.sample_rate, hparams["sample_rate"],
+                info.sample_rate,
+                hparams["sample_rate"],
             )(sig)
 
         resampled = resampled.transpose(0, 1).squeeze(1)
@@ -420,16 +393,13 @@ def dataio_prepare(hparams):
             else:
                 resampled = resampled[:, 1]
 
-        if hparams["speed_perturb"]:
-            # sig = sb.dataio.dataio.read_audio(wav)
-            # factor = np.random.uniform(0.95, 1.05)
-            # sig = resample(sig.numpy(), 16000, int(16000*factor))
-            speed = sb.processing.speech_augmentation.SpeedPerturb(
-                16000, [x for x in range(95, 105)]
-            )
-            resampled = speed(resampled.unsqueeze(0)).squeeze(
-                0
-            )  # torch.from_numpy(sig)
+        # Speed Perturb is done here so it is multi-threaded with the
+        # workers of the dataloader (faster).
+        if hparams["do_speed_perturb"]:
+            resampled = hparams["speed_perturb"](
+                resampled.unsqueeze(0)
+            ).squeeze(0)
+
         return resampled
 
     sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline_train)
@@ -454,7 +424,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "words", "tokens_bos", "tokens_eos", "tokens"],
+        datasets,
+        ["id", "sig", "words", "tokens_bos", "tokens_eos", "tokens"],
     )
 
     return (
@@ -474,8 +445,8 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    from switchboard_prepare import prepare_switchboard  # noqa
     from normalize_util import normalize_words, read_glm_csv  # noqa
+    from switchboard_prepare import prepare_switchboard  # noqa
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -504,7 +475,7 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript
     # for cleaner performance metrics

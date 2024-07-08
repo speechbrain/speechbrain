@@ -28,15 +28,16 @@ Authors
 # limitations under the License.
 # ==============================================================================
 
+from math import sqrt
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from speechbrain.nnet.CNN import Conv1d
-from speechbrain.nnet import linear
-from speechbrain.nnet.diffusion import DenoisingDiffusion
-from math import sqrt
 from torchaudio import transforms
 
+from speechbrain.nnet import linear
+from speechbrain.nnet.CNN import Conv1d
+from speechbrain.nnet.diffusion import DenoisingDiffusion
 
 Linear = linear.Linear
 ConvTranspose2d = nn.ConvTranspose2d
@@ -44,8 +45,7 @@ ConvTranspose2d = nn.ConvTranspose2d
 
 @torch.jit.script
 def silu(x):
-    """sigmoid linear unit activation function
-    """
+    """sigmoid linear unit activation function"""
     return x * torch.sigmoid(x)
 
 
@@ -92,6 +92,10 @@ def diffwave_mel_spectogram(
         Scale to use: "htk" or "slaney".
     audio : torch.tensor
         input audio signal
+
+    Returns
+    -------
+    mel : torch.Tensor
     """
     audio_to_mel = transforms.MelSpectrogram(
         sample_rate=sample_rate,
@@ -119,7 +123,7 @@ class DiffusionEmbedding(nn.Module):
     Arguments
     ---------
     max_steps: int
-        total difussion steps
+        total diffusion steps
 
     Example
     -------
@@ -146,6 +150,7 @@ class DiffusionEmbedding(nn.Module):
         ---------
         diffusion_step: torch.Tensor
             which step of diffusion to execute
+
         Returns
         -------
         diffusion step embedding: tensor [bs, 512]
@@ -167,6 +172,10 @@ class DiffusionEmbedding(nn.Module):
         ---------
         t: torch.Tensor
             which step of diffusion to execute
+
+        Returns
+        -------
+        embedding : torch.Tensor
         """
         low_idx = torch.floor(t).long()
         high_idx = torch.ceil(t).long()
@@ -181,6 +190,10 @@ class DiffusionEmbedding(nn.Module):
         ---------
         max_steps: int
             total diffusion steps
+
+        Returns
+        -------
+        table: torch.Tensor
         """
         steps = torch.arange(max_steps).unsqueeze(1)  # [T,1]
         dims = torch.arange(64).unsqueeze(0)  # [1,64]
@@ -191,8 +204,8 @@ class DiffusionEmbedding(nn.Module):
 
 class SpectrogramUpsampler(nn.Module):
     """Upsampler for spectrograms with Transposed Conv
-    Only the upsamling is done here, the layer-specific Conv can be found
-    in residual bloack to map the mel bands into 2× residual channels
+    Only the upsampling is done here, the layer-specific Conv can be found
+    in residual block to map the mel bands into 2× residual channels
 
     Example
     -------
@@ -241,13 +254,13 @@ class ResidualBlock(nn.Module):
 
     Arguments
     ---------
-    n_mels:
+    n_mels: int
         input mel channels of conv1x1 for conditional vocoding task
-    residual_channels:
+    residual_channels: int
         channels of audio convolution
-    dilation:
+    dilation: int
         dilation cycles of audio convolution
-    uncond:
+    uncond: bool
         conditional/unconditional generation
 
     Example
@@ -347,17 +360,17 @@ class DiffWave(nn.Module):
 
     Arguments
     ---------
-    input_channels:
+    input_channels: int
         input mel channels of conv1x1 for conditional vocoding task
-    residual_layers:
+    residual_layers: int
         number of residual blocks
-    residual_channels:
+    residual_channels: int
         channels of audio convolution
-    dilation_cycle_length:
+    dilation_cycle_length: int
         dilation cycles of audio convolution
-    total_steps:
+    total_steps: int
         total steps of diffusion
-    unconditional:
+    unconditional: bool
         conditional/unconditional generation
 
     Example
@@ -445,12 +458,13 @@ class DiffWave(nn.Module):
         ---------
         audio: torch.Tensor
             input gaussian sample [bs, 1, time]
-        diffusion_steps: torch.Tensor
+        diffusion_step: torch.Tensor
             which timestep of diffusion to execute [bs, 1]
         spectrogram: torch.Tensor
             spectrogram data [bs, 80, mel_len]
         length: torch.Tensor
             sample lengths - not used - provided for compatibility only
+
         Returns
         -------
         predicted noise [bs, 1, time]
@@ -495,6 +509,9 @@ class DiffWaveDiffusion(DenoisingDiffusion):
         (see DiffWave paper)
     beta_end: float
         the value of the "beta" parameter at the end of the process
+    sample_min: float
+    sample_max: float
+        Used to clip the output.
     show_progress: bool
         whether to show progress during inference
 
@@ -564,13 +581,14 @@ class DiffWaveDiffusion(DenoisingDiffusion):
         """Processes the inference for diffwave
         One inference function for all the locally/globally conditional
         generation and unconditional generation tasks
+
         Arguments
         ---------
         unconditional: bool
             do unconditional generation if True, else do conditional generation
         scale: int
             scale to get the final output wave length
-            for conditional genration, the output wave length is scale * condition.shape[-1]
+            for conditional generation, the output wave length is scale * condition.shape[-1]
             for example, if the condition is spectrogram (bs, n_mel, time), scale should be hop length
             for unconditional generation, scale should be the desired audio length
         condition: torch.Tensor
@@ -582,8 +600,9 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             the noise schedules used for fast sampling
         device: str|torch.device
             inference device
+
         Returns
-        ---------
+        -------
         predicted_sample: torch.Tensor
             the predicted audio (bs, 1, t)
         """
@@ -633,7 +652,7 @@ class DiffWaveDiffusion(DenoisingDiffusion):
             ):  # Expand rank 2 tensors by adding a batch dimension.
                 condition = condition.unsqueeze(0)
             audio = torch.randn(
-                condition.shape[0], scale * condition.shape[-1], device=device,
+                condition.shape[0], scale * condition.shape[-1], device=device
             )
         else:
             audio = torch.randn(1, scale, device=device)

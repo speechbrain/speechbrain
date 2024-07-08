@@ -7,7 +7,9 @@ Authors
  * Titouan Parcollet 2020
  * Abdel 2020
 """
+
 import torch
+
 import speechbrain as sb
 
 
@@ -41,14 +43,14 @@ class CRDNN(sb.nnet.containers.Sequential):
         Whether to pool the utterance on the time axis before the RNN.
     time_pooling_size : int
         The number of elements to pool on the time axis.
-    time_pooling_stride : int
-        The number of elements to increment by when iterating the time axis.
-    using_2d_pooling: bool
-        Whether using a 2D or 1D pooling after each CNN block.
-    inter_layer_pooling_size : list of ints
-        A list of the pooling sizes for each CNN block.
+    freq_pooling_size : int
+        The number of elements to pool on the frequency axis.
     rnn_class : torch class
         The type of RNN to use in CRDNN network (LiGRU, LSTM, GRU, RNN)
+    inter_layer_pooling_size : list of ints
+        A list of the pooling sizes for each CNN block.
+    using_2d_pooling: bool
+        Whether using a 2D or 1D pooling after each CNN block.
     rnn_layers : int
         The number of recurrent RNN layers to include.
     rnn_neurons : int
@@ -62,12 +64,12 @@ class CRDNN(sb.nnet.containers.Sequential):
         The number of linear neural blocks to include.
     dnn_neurons : int
         The number of neurons in the linear layers.
-    use_rnnp: bool
-        If True, a linear projection layer is added between RNN layers.
     projection_dim : int
         The number of neurons in the projection layer.
         This layer is used to reduce the size of the flattened
         representation obtained after the CNN blocks.
+    use_rnnp: bool
+        If True, a linear projection layer is added between RNN layers.
 
     Example
     -------
@@ -304,7 +306,9 @@ class DNN_Block(sb.nnet.containers.Sequential):
     ):
         super().__init__(input_shape=input_shape)
         self.append(
-            sb.nnet.linear.Linear, n_neurons=neurons, layer_name="linear",
+            sb.nnet.linear.Linear,
+            n_neurons=neurons,
+            layer_name="linear",
         )
         self.append(sb.nnet.normalization.BatchNorm1d, layer_name="norm")
         self.append(activation(), layer_name="act")

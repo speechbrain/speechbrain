@@ -4,13 +4,17 @@ Authors
  * Mirco Ravanelli 2022
  * Andreas Nautsch 2022
 """
-import os
+
 import csv
+import os
+
 from speechbrain.utils.data_utils import download_file
 
 
 def run_HF_check(
-    recipe_folder="tests/recipes", field="HF_repo", output_folder="HF_repos",
+    recipe_folder="tests/recipes",
+    field="HF_repo",
+    output_folder="HF_repos",
 ):
     """Checks if the code reported in the readme files of the HF repository is
     runnable. Note: the tests run the code marked as python in the readme file.
@@ -25,7 +29,7 @@ def run_HF_check(
         Where to download the HF readme files.
 
     Returns
-    ---------
+    -------
     check: True
         True if all the code runs, False otherwise.
     """
@@ -40,7 +44,7 @@ def run_HF_check(
 
         # Checking all detected repos
         for repo in HF_repos:
-            if not (check_repo(repo)):
+            if not check_repo(repo):
                 check = False
     return check
 
@@ -51,12 +55,12 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
     Arguments
     ---------
     recipe_folder: path
-        Path of the fodler with csv recipe files summarizing all the recipes in the repo.
+        Path of the folder with csv recipe files summarizing all the recipes in the repo.
     field: string
         Field of the csv recipe file containing the links to HF repos.
 
     Returns
-    ---------
+    -------
     HF_repos: list
         List of the detected HF repos.
     """
@@ -87,7 +91,7 @@ def check_repo(HF_repo):
         URL of the HF repository to check.
 
     Returns
-    ---------
+    -------
     check: bool
         True if all the code runs, False otherwise.
     """

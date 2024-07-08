@@ -12,14 +12,15 @@ Authors
  * Ju-Chieh Chou 2020
  * Dongwon Kim, Dongwoo Kim 2023
 """
-import sys
 import logging
+import sys
 from pathlib import Path
+
 import torch
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +45,9 @@ class LM(sb.core.Brain):
         )
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        (loss / self.hparams.accu_steps).backward()
-
-        if self.step % self.hparams.accu_steps == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing and logging."""
+        if should_step:
             if isinstance(
                 self.hparams.lr_annealing, sb.nnet.schedulers.NoamScheduler
             ) or isinstance(
@@ -70,10 +60,9 @@ class LM(sb.core.Brain):
             self.hparams.train_logger, sb.utils.train_logger.TensorboardLogger
         ):
             self.hparams.train_logger.log_stats(
-                stats_meta={"step": self.step}, train_stats={"loss": loss},
+                stats_meta={"step": self.step},
+                train_stats={"loss": loss},
             )
-
-        return loss
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -102,7 +91,8 @@ class LM(sb.core.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta=stage_stats, min_keys=["loss"],
+                meta=stage_stats,
+                min_keys=["loss"],
             )
 
         elif stage == sb.Stage.TEST:
@@ -119,11 +109,13 @@ def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # test is separate
@@ -141,6 +133,7 @@ def dataio_prepare(hparams):
     tokenizer = hparams["tokenizer"]
 
     """Define text pipeline"""
+
     # TODO: implement text augmentations pipelines
     @sb.utils.data_pipeline.takes("wrd")
     @sb.utils.data_pipeline.provides("wrd", "tokens_bos", "tokens_eos")
@@ -156,7 +149,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "wrd", "tokens_bos", "tokens_eos"],
+        datasets,
+        ["id", "wrd", "tokens_bos", "tokens_eos"],
     )
     return train_data, valid_data, test_datasets
 
@@ -184,7 +178,7 @@ if __name__ == "__main__":
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].load_collected()
 
     lm_brain = LM(
         modules=hparams["modules"],
