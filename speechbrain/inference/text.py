@@ -82,8 +82,13 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         if single:
             text = [text]
 
-        model_inputs = self.encode_input({"txt": text})
-        self._update_graphemes(model_inputs)
+        pipeline_output = self.encode_input({"txt": text})
+        self._update_graphemes(pipeline_output)
+
+        model_inputs = pipeline_output
+        if hasattr(self.hparams, "model_input_keys"):
+            model_inputs = {k: v for k, v in model_inputs.items() if k in self.hparams.model_input_keys}
+
         model_outputs = self.mods.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
         phonemes = decoded_output["phonemes"]
