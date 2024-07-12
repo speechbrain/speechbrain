@@ -78,7 +78,10 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 
 use_pretrained: True
 
-embedding_model: !apply:transformers.ViTModel.from_pretrained [google/vit-base-patch16-224]
+embedding_model: !apply:transformers.ViTModel.from_pretrained
+    pretrained_model_name_or_path: google/vit-base-patch16-224
+    attn_implementation: eager
+
 
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 768

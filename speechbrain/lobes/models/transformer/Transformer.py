@@ -15,6 +15,7 @@ import speechbrain as sb
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 from speechbrain.nnet.CNN import Conv1d
+from speechbrain.utils.checkpoints import map_old_state_dict_weights
 
 from .Branchformer import BranchformerEncoder
 from .Conformer import ConformerEncoder
@@ -778,6 +779,12 @@ class TransformerDecoderLayer(nn.Module):
             tgt = self.norm3(tgt)
 
         return tgt, self_attn, multihead_attention
+
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        """Load the model from a state_dict and map the old keys to the new keys."""
+        mapping = {"mutihead_attention": "multihead_attention"}
+        state_dict = map_old_state_dict_weights(state_dict, mapping)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 class TransformerDecoder(nn.Module):

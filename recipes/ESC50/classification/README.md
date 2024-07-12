@@ -1,9 +1,21 @@
 # Sound Classification - ESC50 Dataset
 
 This recipe trains a classifier for the ESC50 multiclass sound classification dataset.
-It is mainly adapted from the Speechbrain UrbanSound8k recipe.
+
+The task involves classifying audio sounds into 50 different categories. These categories are divided into the following groups:
+
+- Animals
+- Natural soundscapes and water sounds
+- Human, non-speech sounds
+- Interior/domestic sounds
+- Exterior/urban noises
 
 The scripts offer the possibility to train both with log-spectra and log-mel audio features.
+
+## Dataset Download
+
+The ESC50 dataset will be automatically downloaded when running the recipe. If you prefer to download it manually, please visit: [https://github.com/karolpiczak/ESC-50](https://github.com/karolpiczak/ESC-50)
+
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -28,6 +40,8 @@ This script trains a [CNN14 model](https://arxiv.org/abs/1912.10211) on the ESC5
 ```shell
 python train.py hparams/cnn14.yaml --data_folder /yourpath/ESC50
 ```
+
+The dataset will be automatically download at the specified data folder.
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -60,6 +74,16 @@ python train.py hparams/vit.yaml --data_folder /yourpath/ESC50
 ```
 
 ---------------------------------------------------------------------------------------------------------
+
+### To train with WHAM! noise
+
+In order to train the classifier with WHAM! noise, you need to download the  WHAM! noise dataset from [here](http://wham.whisper.ai/).
+Then, you can train your classifier with the following command:
+
+```shell
+python train.py hparams/modelofchoice.yaml --data_folder /yourpath/ESC50 --add_wham_noise True --wham_folder /yourpath/wham_noise
+```
+
 
 ## Results
 
