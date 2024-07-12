@@ -20,11 +20,14 @@ import sys
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 import torchaudio
 import torchvision
 from confusion_matrix_fig import create_cm_fig
+from esc50_prepare import prepare_esc50
 from hyperpyyaml import load_hyperpyyaml
 from sklearn.metrics import confusion_matrix
+from wham_prepare import combine_batches, prepare_wham
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
@@ -42,18 +45,23 @@ class ESC50Brain(sb.core.Brain):
         if hasattr(self.hparams, "augmentation") and stage == sb.Stage.TRAIN:
             wavs, lens = self.hparams.augmentation(wavs, lens)
 
-        # Extract features
+        # augment batch with WHAM!
+        if hasattr(self.hparams, "add_wham_noise"):
+            if self.hparams.add_wham_noise:
+                wavs = combine_batches(wavs, iter(self.hparams.wham_dataset))
+
         X_stft = self.modules.compute_stft(wavs)
-        X_stft_power = sb.processing.features.spectral_magnitude(
+        net_input = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
         if (
             hasattr(self.hparams, "use_melspectra")
             and self.hparams.use_melspectra
         ):
-            net_input = self.modules.compute_fbank(X_stft_power)
-        else:
-            net_input = torch.log1p(X_stft_power)
+            net_input = self.modules.compute_fbank(net_input)
+
+        if (not self.hparams.use_melspectra) or self.hparams.use_log1p_mel:
+            net_input = torch.log1p(net_input)
 
         # Embeddings + sound classifier
         if hasattr(self.modules.embedding_model, "config"):
@@ -80,10 +88,17 @@ class ESC50Brain(sb.core.Brain):
         else:
             # SpeechBrain model
             embeddings = self.modules.embedding_model(net_input)
+            if isinstance(embeddings, tuple):
+                embeddings, _ = embeddings
+
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
+        # run through classifier
         outputs = self.modules.classifier(embeddings)
+
+        if outputs.ndim == 2:
+            outputs = outputs.unsqueeze(1)
 
         return outputs, lens
 
@@ -93,7 +108,17 @@ class ESC50Brain(sb.core.Brain):
         uttid = batch.id
         classid, _ = batch.class_string_encoded
 
-        loss = self.hparams.compute_cost(predictions, classid, lens)
+        # Target augmentation
+        N_augments = int(predictions.shape[0] / classid.shape[0])
+        classid = torch.cat(N_augments * [classid], dim=0)
+
+        # loss = self.hparams.compute_cost(predictions.squeeze(1), classid, lens)
+        target = F.one_hot(
+            classid.squeeze(), num_classes=self.hparams.out_n_neurons
+        )
+        loss = (
+            -(F.log_softmax(predictions.squeeze(1), 1) * target).sum(1).mean()
+        )
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
@@ -378,8 +403,6 @@ if __name__ == "__main__":
             hparams["tensorboard_logs_folder"]
         )
 
-    from esc50_prepare import prepare_esc50
-
     run_on_main(
         prepare_esc50,
         kwargs={
@@ -399,6 +422,18 @@ if __name__ == "__main__":
     datasets, label_encoder = dataio_prep(hparams)
     hparams["label_encoder"] = label_encoder
 
+    if "wham_folder" in hparams:
+        hparams["wham_dataset"] = prepare_wham(
+            hparams["wham_folder"],
+            hparams["add_wham_noise"],
+            hparams["sample_rate"],
+            hparams["signal_length_s"],
+            hparams["wham_audio_folder"],
+        )
+
+    if hparams["wham_dataset"] is not None:
+        assert hparams["signal_length_s"] == 5, "Fix wham sig length!"
+
     class_labels = list(label_encoder.ind2lab.values())
     print("Class Labels:", class_labels)
 
@@ -411,17 +446,21 @@ if __name__ == "__main__":
     )
 
     # Load pretrained encoder if it exists in the yaml file
+    if not hasattr(ESC50_brain.modules, "embedding_model"):
+        ESC50_brain.hparams.embedding_model.to(ESC50_brain.device)
+
     if "pretrained_encoder" in hparams and hparams["use_pretrained"]:
         run_on_main(hparams["pretrained_encoder"].collect_files)
         hparams["pretrained_encoder"].load_collected()
 
-    ESC50_brain.fit(
-        epoch_counter=ESC50_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
-        valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
-    )
+    if not hparams["test_only"]:
+        ESC50_brain.fit(
+            epoch_counter=ESC50_brain.hparams.epoch_counter,
+            train_set=datasets["train"],
+            valid_set=datasets["valid"],
+            train_loader_kwargs=hparams["dataloader_options"],
+            valid_loader_kwargs=hparams["dataloader_options"],
+        )
 
     # Load the best checkpoint for evaluation
     test_stats = ESC50_brain.evaluate(

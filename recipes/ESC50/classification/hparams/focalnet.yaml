@@ -22,6 +22,15 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+add_wham_noise: False
+test_only: False
+
+wham_folder: null # Set it if add_wham_noise is True
+wham_audio_folder: !ref <wham_folder>/tr
+
+use_melspectra: False
+use_log1p_mel: False
+
 # Tensorboard logs
 use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
@@ -48,6 +57,8 @@ base_lr: 0.00000001
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 16000
+
+signal_length_s: 5
 
 # Number of classes
 out_n_neurons: 50
