@@ -88,6 +88,7 @@ class InterpreterESC50Brain(sb.core.Brain):
             model_output = self.hparams.embedding_model(
                 net_input, output_attentions=True
             )
+
             hcat = model_output.last_hidden_state.movedim(-1, -2)
             embeddings = hcat.mean(dim=-1)
 
