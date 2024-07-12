@@ -1,8 +1,8 @@
 better-apidoc>=0.3.1
+conllu<5.0.0
 ctc-segmentation>=1.7.0
 fairseq
 flair==0.13.1
-conllu<5.0.0
 https://github.com/kpu/kenlm/archive/master.zip
 numba>=0.54.1
 pyctcdecode
