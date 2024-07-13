@@ -125,6 +125,11 @@ class AdaptedModel(nn.Module):
         state_dict = torch.load(path, map_location="cpu")
         self.load_state_dict(state_dict, strict=False)
 
+    @checkpoints.mark_as_transfer
+    def parameter_transfer(self, path):
+        """Avoids warnings due to only loading trained params."""
+        self.loader(path, True)
+
     def __getattr__(self, item):
         """Override getattr to pass item accesses to pre-adapted model."""
 
