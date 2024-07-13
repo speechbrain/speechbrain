@@ -184,7 +184,7 @@ def extract_ljspeech(
 
     save_opt = codes_save_folder / OPT_FILE
     data_folder = pl.Path(data_folder)
-    encoder_save_folder =  pl.Path(encoder_save_folder)
+    encoder_save_folder = pl.Path(encoder_save_folder)
     codes_save_folder.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Loading encoder: {encoder_source} ...")

@@ -600,7 +600,7 @@ class VariancePredictor(nn.Module):
 
 
 class UnitHifiganGenerator(HifiganGenerator):
-    """ The UnitHiFiGAN generator takes discrete speech tokens as input.
+    """The UnitHiFiGAN generator takes discrete speech tokens as input.
     The generator is adapted to support bitrate scalability training.
     For more details, refer to: https://arxiv.org/abs/2406.10735.
 
