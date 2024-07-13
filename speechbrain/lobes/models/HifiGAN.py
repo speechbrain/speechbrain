@@ -625,7 +625,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         upsampling factors (stride) for each upsampling layer.
     inference_padding : int
         constant padding applied to the input at inference time. Defaults to 5.
-    num_embeddings : int
+    vocab_size : int
         size of the dictionary of embeddings.
     embedding_dim : int
         size of each embedding vector.
@@ -654,7 +654,7 @@ class UnitHifiganGenerator(HifiganGenerator):
     ...    upsample_kernel_sizes = [11, 8, 8, 4, 4],
     ...    upsample_initial_channel = 512,
     ...    upsample_factors = [5, 4, 4, 2, 2],
-    ...    num_embeddings = 100,
+    ...    vocab_size = 100,
     ...    embedding_dim = 128,
     ...    duration_predictor = True,
     ...    var_pred_hidden_dim = 128,

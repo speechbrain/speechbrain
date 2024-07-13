@@ -36,7 +36,7 @@ splits: ["train", "valid", "test"]
 split_ratio: null
 skip_prep: False
 
-kmeans_folder: poonehmousavi/SSL_Quantization
+kmeans_folder: speechbrain/SSL_Quantization
 kmeans_dataset: LibriSpeech-100-360-500
 num_clusters: 1000
 codes_folder: !ref <save_folder>/codes
