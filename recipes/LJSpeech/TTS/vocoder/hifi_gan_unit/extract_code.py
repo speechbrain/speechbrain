@@ -109,7 +109,8 @@ def extract_ljspeech(
     encoder_type,
     encoder_source,
     layer,
-    save_folder,
+    encoder_save_folder,
+    codes_save_folder,
     sample_rate=16000,
     skip_extract=False,
 ):
@@ -134,8 +135,10 @@ def extract_ljspeech(
         Url to the model used as feature extractor.
     layer: List[int] (default: [7]):
         Determine which layers of SSL should be used to extract information.
-    save_folder: str
-        Path to the folder where the speech units are stored.
+    encoder_save_folder: str
+        Path to the folder where the ssl encoder stored.
+    codes_save_folder: str
+        Path to the folder where the tokens are stored.
     sample_rate: int
         LjSpeech dataset sample rate
     skip_extract: Bool
@@ -151,8 +154,9 @@ def extract_ljspeech(
     >>> encoder_type = 'HuBERT'
     >>> encoder_source = facebook/hubert-large-ll60k
     >>> layer = [7]
-    >>> save_folder = 'save/'
-    >>> extract_ljspeech(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, save_folder)
+    >>> encoder_save_folder = 'ssl_encoder/'
+    >>> codes_save_folder = 'codes/'
+    >>> extract_ljspeech(data_folder, splits, kmeans_folder, kmeans_filename, encoder_type, encoder_source, layer, encoder_save_folder, codes_save_folder)
     """
     logger = setup_logger()
 
@@ -162,27 +166,26 @@ def extract_ljspeech(
     conf = {
         "data_folder": data_folder,
         "splits": splits,
-        "save_folder": save_folder,
+        "save_folder": codes_save_folder,
         "kmeans_folder": kmeans_folder,
         "encoder_type": encoder_type,
         "encoder_source": encoder_source,
         "layer": layer,
     }
 
-    save_folder = pl.Path(save_folder)
+    codes_save_folder = pl.Path(codes_save_folder)
     # Check if this phase is already done (if so, skip it)
-    if skip(splits, save_folder, conf):
+    if skip(splits, codes_save_folder, conf):
         logger.info("Skipping code extraction, completed in previous run.")
         return
 
     # Fetch device
     device = get_device(use_cuda=True)
 
-    save_opt = save_folder / OPT_FILE
+    save_opt = codes_save_folder / OPT_FILE
     data_folder = pl.Path(data_folder)
-    save_path = save_folder / "savedir"
-    code_folder = save_folder / "codes"
-    code_folder.mkdir(parents=True, exist_ok=True)
+    encoder_save_folder =  pl.Path(encoder_save_folder)
+    codes_save_folder.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Loading encoder: {encoder_source} ...")
     if encoder_type not in ENCODER_CLASSES:
@@ -191,7 +194,7 @@ def extract_ljspeech(
     encoder_class = ENCODER_CLASSES[encoder_type]
     encoder = encoder_class(
         source=encoder_source,
-        save_path=save_path.as_posix(),
+        save_path=encoder_save_folder.as_posix(),
         output_norm=False,
         freeze=True,
         freeze_feature_extractor=True,
@@ -200,12 +203,11 @@ def extract_ljspeech(
     ).to(device)
 
     discrete_encoder = DiscreteSSL(
-        save_path=save_path.as_posix(),
+        save_path=encoder_save_folder.as_posix(),
         ssl_model=encoder,
         kmeans_dataset=kmeans_dataset,
         kmeans_repo_id=kmeans_folder,
         num_clusters=num_clusters,
-        layers_num=layer,
     )
 
     for split in splits:
@@ -232,7 +234,7 @@ def extract_ljspeech(
                     bpe_tokenizers=bpe_tokenizers,
                 )
                 tokens = np_array(tokens.squeeze(0))
-            np.save(code_folder / f"{key}.npy", tokens)
+            np.save(codes_save_folder / f"{key}.npy", tokens)
 
     logger.info("Extraction completed.")
     save_pkl(conf, save_opt)

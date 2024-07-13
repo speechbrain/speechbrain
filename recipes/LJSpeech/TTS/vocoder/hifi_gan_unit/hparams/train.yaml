@@ -33,12 +33,14 @@ skip_prep: False
 
 kmeans_folder: speechbrain/SSL_Quantization
 kmeans_dataset: LibriSpeech-100-360-500
-codes_folder: !ref <save_folder>/codes
+codes_save_folder: !ref <save_folder>/codes
 encoder_type: HuBERT # one of [HuBERT, Wav2Vec2, WavLM]
 encoder_hub: facebook/hubert-large-ll60k
-layer: [12]
+encoder_save_folder: !ref <save_folder>/ssl_encoder
+layer: [1, 3, 7, 12, 18, 23]
 num_clusters: 1000
 skip_extract: False
+
 
 ################################
 # Audio Parameters             #
@@ -47,7 +49,7 @@ skip_extract: False
 segment_size: 8960
 code_hop_size: 320
 sample_rate: 16000
-layer_drop: False
+layer_drop: True
 
 hop_length: 256
 win_length: 1024
@@ -89,7 +91,7 @@ test_dataloader_opts:
 duration_predictor: False
 
 # embedding params
-num_embeddings: 1001 # K-means size + 1 for padding 128x3
+vocab_size: 6001 # K-means size * num layer + 1 for padding 1000x6+1
 embedding_dim: 128
 
 # generator params
@@ -143,7 +145,7 @@ generator: !new:speechbrain.lobes.models.HifiGAN.UnitHifiganGenerator
   inference_padding: !ref <inference_padding>
   cond_channels: !ref <cond_channels>
   conv_post_bias: !ref <conv_post_bias>
-  num_embeddings: !ref <num_embeddings>
+  vocab_size: !ref <vocab_size>
   embedding_dim: !ref <embedding_dim>
   duration_predictor: !ref <duration_predictor>
   var_pred_hidden_dim: !ref <var_pred_hidden_dim>

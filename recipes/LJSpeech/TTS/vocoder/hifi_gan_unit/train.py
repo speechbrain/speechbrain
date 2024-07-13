@@ -402,7 +402,7 @@ def dataio_prepare(hparams):
     """
     segment_size = hparams["segment_size"]
     code_hop_size = hparams["code_hop_size"]
-    code_folder = pl.Path(hparams["codes_folder"])
+    codes_folder = pl.Path(hparams["codes_save_folder"])
 
     # Define audio pipeline:
     @sb.utils.data_pipeline.takes("id", "wav", "segment")
@@ -415,7 +415,7 @@ def dataio_prepare(hparams):
             hparams["sample_rate"],
         )(audio)
 
-        code = np.load(code_folder / f"{utt_id}.npy")
+        code = np.load(codes_folder / f"{utt_id}.npy")
 
         num_layer = len(hparams["layer"])
         offsets = np.arange(num_layer) * hparams["num_clusters"]
@@ -510,7 +510,8 @@ if __name__ == "__main__":
             "encoder_type": hparams["encoder_type"],
             "encoder_source": hparams["encoder_hub"],
             "layer": hparams["layer"],
-            "save_folder": hparams["save_folder"],
+            "encoder_save_folder": hparams["encoder_save_folder"],
+            "codes_save_folder": hparams["codes_save_folder"],
             "sample_rate": hparams["sample_rate"],
             "skip_extract": hparams["skip_extract"],
         },

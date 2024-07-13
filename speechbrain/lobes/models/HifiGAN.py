@@ -2,7 +2,7 @@
 Neural network modules for the HiFi-GAN: Generative Adversarial Networks for
 Efficient and High Fidelity Speech Synthesis
 
-For more details: https://arxiv.org/pdf/2010.05646.pdf
+For more details: https://arxiv.org/pdf/2010.05646.pdf, https://arxiv.org/abs/2406.10735
 
 Authors
  * Jarod Duret 2021
@@ -600,7 +600,9 @@ class VariancePredictor(nn.Module):
 
 
 class UnitHifiganGenerator(HifiganGenerator):
-    """Unit HiFiGAN Generator with Multi-Receptive Field Fusion (MRF)
+    """ The UnitHiFiGAN generator takes discrete speech tokens as input.
+    The generator is adapted to support bitrate scalability training.
+    For more details, refer to: https://arxiv.org/abs/2406.10735.
 
     Arguments
     ---------
@@ -677,7 +679,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         inference_padding=5,
         cond_channels=0,
         conv_post_bias=True,
-        num_embeddings=100,
+        vocab_size=100,
         embedding_dim=128,
         attn_dim=128,
         duration_predictor=False,
@@ -701,7 +703,7 @@ class UnitHifiganGenerator(HifiganGenerator):
             cond_channels,
             conv_post_bias,
         )
-        self.unit_embedding = torch.nn.Embedding(num_embeddings, embedding_dim)
+        self.unit_embedding = torch.nn.Embedding(vocab_size, embedding_dim)
         self.attn_pooling = torch.nn.Sequential(
             torch.nn.Linear(embedding_dim, attn_dim),
             torch.nn.ReLU(),
