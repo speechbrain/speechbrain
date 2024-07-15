@@ -15,15 +15,19 @@ pip install -r extra_requirements.txt
 ```
 
 # How to run:
+To configure the SSL model type and corresponding Hub in your YAML configuration file, follow these steps:
+
+1. Locate the `model_config` section in your YAML file.
+2. Modify the `ssl_model_type` field to specify one of the SSL models: "Hubert", "WavLM", or "Wav2Vec2".
+3. Update the `ssl_hub` field with the specific name of the SSL Hub associated with your chosen model type.
+
 ```shell
-python train.py hparams/train_with_{SSL_model}.yaml
+python train.py hparams/train_discrete_ssl.yaml
 ```
 
 # Results
 
-The output folders with checkpoints and logs can be found [here](https://www.dropbox.com/sh/bk5qz0u1ppx15jk/AAAj23FI3AVKtfRKGvyHJYHza?dl=0).
-
-The checkpoints can be also found at [this](https://huggingface.co/speechbrain/SSL_Quantization) HuggingFace repository.
+The checkpoints can be found at [this](https://huggingface.co/speechbrain/SSL_Quantization) HuggingFace repository.
 
 
 
