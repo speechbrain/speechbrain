@@ -202,6 +202,7 @@ class DiscreteSSL(nn.Module):
         deduplicates=None,
         bpe_tokenizers=None,
     ):
+        
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -225,7 +226,7 @@ class DiscreteSSL(nn.Module):
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """   
-             
+
         if SSL_layers is None:
             SSL_layers = self.ssl_layer_ids
         if deduplicates is None:
