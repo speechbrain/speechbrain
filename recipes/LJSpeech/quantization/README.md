@@ -20,11 +20,21 @@ To configure the SSL model type and corresponding Hub in your YAML configuration
 1. Locate the `model_config` section in your YAML file.
 2. Modify the `ssl_model_type` field to specify one of the SSL models: "Hubert", "WavLM", or "Wav2Vec2".
 3. Update the `ssl_hub` field with the specific name of the SSL Hub associated with your chosen model type.
+Here are the supported SSL models along with their corresponding SSL Hubs:
+```
+ssl_model_type: hubert, wavlm, wav2vec2
+ssl_hub:
+  - facebook/hubert-large-ll60k
+  - microsoft/wavlm-large
+  - facebook/wav2vec2-large
+```
+To initiate training using a specific SSL model, execute the following command:
+
 
 ```shell
 python train.py hparams/train_discrete_ssl.yaml
 ```
-
+This command will start the training process using the configurations specified in 'train_discrete_ssl.yaml'.
 # Results
 
 The checkpoints can be found at [this](https://huggingface.co/speechbrain/SSL_Quantization) HuggingFace repository.
