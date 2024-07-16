@@ -193,7 +193,7 @@ class DiscreteSSL(nn.Module):
         )
 
         return kmeans_models, layer_ids, num_clusters
-    
+
     def forward(
         self,
         wav,
@@ -202,7 +202,6 @@ class DiscreteSSL(nn.Module):
         deduplicates=None,
         bpe_tokenizers=None,
     ):
-        
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
         Arguments
@@ -225,7 +224,7 @@ class DiscreteSSL(nn.Module):
             A (Batch x Seq x num_SSL_layers x embedding_dim ) cluster_centers embeddings for each tokens
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
-        """   
+        """
 
         if SSL_layers is None:
             SSL_layers = self.ssl_layer_ids
