@@ -164,7 +164,7 @@ class DiscreteSSL(nn.Module):
         if layers_num:
             for i, layer in enumerate(layers_num):
                 file_patterns.append(
-                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}*.pt"
+                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}.pt"
                 )
         else:
             file_patterns.append(
