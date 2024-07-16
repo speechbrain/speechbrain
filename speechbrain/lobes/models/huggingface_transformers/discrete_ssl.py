@@ -193,14 +193,13 @@ class DiscreteSSL(nn.Module):
         )
 
         return kmeans_models, layer_ids, num_clusters
-
     def forward(
         self,
         wav,
         wav_lens=None,
-        SSL_layers=[7],
-        deduplicates=[False],
-        bpe_tokenizers=[None],
+        SSL_layers=None,
+        deduplicates=None,
+        bpe_tokenizers=None,
     ):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -210,11 +209,11 @@ class DiscreteSSL(nn.Module):
             A batch of audio signals to transform to features.
         wav_len : tensor
             The relative length of the wav given in SpeechBrain format.
-        SSL_layers: List[int] (default: [7]):
+        SSL_layers: List[int]:
             determine which layers of SSL should be used to extract information.
-        deduplicates: List[boolean] (default: [False]):
+        deduplicates: List[boolean]:
             determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
-        bpe_tokenizers: List[int] (default: [None]):
+        bpe_tokenizers: List[int]:
             determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
         Returns:
         ---------
@@ -225,6 +224,13 @@ class DiscreteSSL(nn.Module):
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """
+        
+        if SSL_layers is None:
+            SSL_layers = self.ssl_layer_ids
+        if deduplicates is None:
+            deduplicates = [False] * len(SSL_layers)
+        if bpe_tokenizers is None:
+            bpe_tokenizers = [None] * len(SSL_layers)
 
         assert (
             len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)
