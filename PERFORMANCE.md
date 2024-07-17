@@ -238,7 +238,7 @@
 
 | Model | Checkpoints | HuggingFace | Test_clean-WER | Test_other-WER |
 | --------| --------| --------| --------| --------|
- | recipes/LibriSpeech/ASR/transducer/hparams/conformer_transducer.yaml | [here](https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing) | - | 2.72% | 6.47% |
+ | recipes/LibriSpeech/ASR/transducer/hparams/conformer_transducer.yaml | [here](https://www.dropbox.com/scl/fo/kl1eikmoauygwqcx8ok4r/AMkreKLzHtxPtqnoXzUerko?rlkey=juk374k210b76lbnblh7or95d&st=1ugwe9e3&dl=0) | - | 2.72% | 6.47% |
 
 
 ### ASR-Transformers
