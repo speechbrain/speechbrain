@@ -66,12 +66,12 @@ The training logs are available [here](https://www.dropbox.com/scl/fo/4ctkc6jjas
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-internal-alignment-ljspeech).
 
 # HiFiGAN (Vocoder)
-The subfolder "vocoder/hifi_gan/" contains the [HiFiGAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
+The subfolder "vocoder/hifigan/" contains the [HiFiGAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotron2/FastSpeech2).
 
 We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the yaml file, thus `Tensorboard` should be installed.
 
-To run this recipe, go into the "vocoder/hifi_gan/" folder and run:
+To run this recipe, go into the "vocoder/hifigan/" folder and run:
 
 ```
 python train.py hparams/train.yaml --data_folder /path/to/LJspeech
@@ -110,7 +110,7 @@ You can find the pre-trained model with an easy-inference function on [HuggingFa
 
 
 # HiFiGAN Unit Vocoder
-The subfolder "vocoder/hifi_gan_unit/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2406.10735). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data.
+The subfolder "vocoder/hifigan_discrete/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2406.10735). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data.
 This is suitable for a wide range of generative tasks such as speech enhancement, separation, text-to-speech, voice cloning, etc. Please read [DASB - Discrete Audio and Speech Benchmark](https://arxiv.org/abs/2406.14294) for more information.
 
 To run this recipe successfully, start by installing the necessary extra dependencies:
@@ -119,7 +119,7 @@ To run this recipe successfully, start by installing the necessary extra depende
 pip install -r extra_requirements.txt
 ```
 
-Then, navigate to the "vocoder/hifi_gan_unit/" folder and run the following command:
+Then, navigate to the "vocoder/hifigan_discrete/" folder and run the following command:
 
 ```bash
 python train.py hparams/train.yaml --data_folder=/path/to/LJspeech

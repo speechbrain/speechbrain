@@ -28,7 +28,7 @@ The pre-trained model (a model fine-tuned from LJSpeech tacotron2) with an easy-
 We are actively working to enhancing the model and will release updates as soon as improvements are achieved. We warmly welcome contributions from the community to collaboratively make the model even better!
 
 # HiFi GAN (Vocoder)
-The subfolder "vocoder/hifi_gan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
+The subfolder "vocoder/hifigan/" contains the [HiFi GAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotron2).
 
 We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the yaml file. Thus, `Tensorboard` should be installed.
@@ -52,7 +52,7 @@ On HuggingFace, you can find the following pretrained models (with easy-inferenc
 - https://huggingface.co/speechbrain/tts-hifigan-libritts-16kHz
 
 # HiFiGAN Unit Vocoder
-The subfolder "vocoder/hifi_gan_unit/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2406.10735). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data.
+The subfolder "vocoder/hifigan_discrete/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2406.10735). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data.
 This is suitable for a wide range of generative tasks such as speech enhancement, separation, text-to-speech, voice cloning, etc. Please read [DASB - Discrete Audio and Speech Benchmark](https://arxiv.org/abs/2406.14294) for more information.
 
 To run this recipe successfully, start by installing the necessary extra dependencies:
@@ -61,10 +61,17 @@ To run this recipe successfully, start by installing the necessary extra depende
 pip install -r extra_requirements.txt
 ```
 
-Then, navigate to the "vocoder/hifi_gan_unit/" folder and run the following command:
+Then, navigate to the "vocoder/hifigan_discrete/" folder and run the following command:
 
 ```bash
 python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
+```
+
+Additionally, we provide support for external speaker embeddings along with discrete tokens. By default, the speaker model used is ECAPA-TDNN trained on the VoxCeleb dataset. For more information, you can find the pretrained model on [HuggingFace](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb-mel-spec).
+To run it, use the following command:
+
+```bash
+python train.py hparams/train_spk.yaml --data_folder=/path/to/LibriTTS
 ```
 
 Below are the available self-supervised speech encoders for which we provide pre-trained k-means checkpoints:
