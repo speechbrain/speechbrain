@@ -247,10 +247,10 @@
 | --------| --------| --------| --------| --------|
  | recipes/LibriSpeech/ASR/transformer/hparams/conformer_small.yaml | [here](https://www.dropbox.com/sh/s0x6ni124858b8i/AAALaCH6sGTMRUVTjh8Tm8Jwa?dl=0) | [here](https://huggingface.co/speechbrain/asr-conformersmall-transformerlm-librispeech) | 2.49% | 6.10% |
  | recipes/LibriSpeech/ASR/transformer/hparams/transformer.yaml | [here](https://www.dropbox.com/sh/653kq8h2k87md4p/AAByAaAryXtQKpRzYtzV9ih5a?dl=0) | [here](https://huggingface.co/speechbrain/asr-transformer-transformerlm-librispeech) | 2.27% | 5.53% |
- | recipes/LibriSpeech/ASR/transformer/hparams/conformer_large.yaml | [here](https://www.dropbox.com/sh/ef3chrau8i45ip1/AAD9un8oabOB1a9OiSomZEhZa?dl=0) | - | 2.01% | 4.52% |
- | recipes/LibriSpeech/ASR/transformer/hparams/branchformer_large.yaml | [here](https://www.dropbox.com/sh/gxkye4efa6hvl2c/AADO85EkkfbIGe5KjBAU6BrEa?dl=0) | - | 2.04% | 4.12% |
- | recipes/LibriSpeech/ASR/transformer/hparams/hyperconformer_22M.yaml | [here](https://www.dropbox.com/sh/gxkye4efa6hvl2c/AADO85EkkfbIGe5KjBAU6BrEa?dl=0) | - | 2.23% | 4.54% |
- | recipes/LibriSpeech/ASR/transformer/hparams/hyperconformer_8M.yaml | [here](https://www.dropbox.com/sh/gxkye4efa6hvl2c/AADO85EkkfbIGe5KjBAU6BrEa?dl=0) | - | 2.55% | 6.61% |
+ | recipes/LibriSpeech/ASR/transformer/hparams/conformer_large.yaml | [here](https://www.dropbox.com/scl/fo/9we244tgdf47ay20hrdoz/AKnoqQ13nLwSv1ITeJEQ3wY?rlkey=05o5jiszr8rhj6dlprw87t2x4&st=u2odesyk&dl=0) | - | 2.01% | 4.52% |
+ | recipes/LibriSpeech/ASR/transformer/hparams/branchformer_large.yaml | [here](https://www.dropbox.com/scl/fo/qhtds5rrdvhhhjywa7ovw/AMiIL5YvQENw5JKVpzXlP5o?rlkey=hz8vlpy3qf9kcyfx0cox089e6&st=ufckv6tb&dl=0) | - | 2.04% | 4.12% |
+ | recipes/LibriSpeech/ASR/transformer/hparams/hyperconformer_22M.yaml | [here](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | - | 2.23% | 4.54% |
+ | recipes/LibriSpeech/ASR/transformer/hparams/hyperconformer_8M.yaml | [here](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | - | 2.55% | 6.61% |
  | recipes/LibriSpeech/ASR/transformer/hparams/hyperbranchformer_25M.yaml | - | - | 2.36% | 6.89% |
  | recipes/LibriSpeech/ASR/transformer/hparams/hyperbranchformer_13M.yaml | - | - | 2.54% | 6.58% |
  | recipes/LibriSpeech/ASR/transformer/hparams/train_hf_whisper.yaml | - | - |  |
