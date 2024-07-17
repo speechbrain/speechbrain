@@ -251,7 +251,7 @@ class Pretrainer:
             if isinstance(source, FetchSource):
                 _fetch_from, source = source
 
-            logger.info(f"Set local path in self.paths[{name}] = {path}")
+            logger.info(f"Set local path in self.paths[\"{name}\"] = {path}")
             self.paths[name] = str(path)
             self.is_local.append(name)
         return loadable_paths
