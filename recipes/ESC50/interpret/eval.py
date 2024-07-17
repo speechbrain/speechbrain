@@ -261,11 +261,14 @@ if __name__ == "__main__":
         wav = T.Resample(sr, hparams["sample_rate"])(wav).to(run_opts["device"])
 
         with torch.no_grad():
-            X_int, _, _, X_orig = Interpreter.interpret_computation_steps(wav)
+            X_int, _, X_stft_phase, X_orig = (
+                Interpreter.interpret_computation_steps(wav)
+            )
 
         # make sure shapes are ok
         X_int = X_int.transpose(1, 2)
         X_orig = X_orig[:, : X_int.shape[1]]
+        X_stft_phase = X_stft_phase[:, : X_int.shape[1]]
 
         def plot_spec(X, suffix=""):
             X = X.expm1()
@@ -286,3 +289,12 @@ if __name__ == "__main__":
 
         plot_spec(X_int, "int")
         plot_spec(X_orig, "orig")
+
+        X_int = X_int[..., None]
+        xhat_tm = Interpreter.invert_stft_with_phase(X_int, X_stft_phase).cpu()
+
+        torchaudio.save(
+            ".".join(hparams["single_sample"].split(".")[:-1]) + "_int.wav",
+            xhat_tm,
+            hparams["sample_rate"],
+        )
