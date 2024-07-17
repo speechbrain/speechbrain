@@ -28,6 +28,8 @@ ssl_hub:
   - microsoft/wavlm-large
   - facebook/wav2vec2-large
 ```
+4. Set the output folder according to the experiments you are running (e.g., `output_folder: !ref results/LJSpeech/clustering/wavlm/<seed>`)
+
 To initiate training using a specific SSL model, execute the following command:
 
 
