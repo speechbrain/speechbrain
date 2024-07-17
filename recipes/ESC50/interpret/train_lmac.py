@@ -131,11 +131,11 @@ class LMAC(InterpreterBrain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
-                self.viz_ints(X_stft, X_stft_logpower, batch, wavs, xhat)
+                self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
         if stage == sb.Stage.TEST and self.hparams.save_interpretations:
             # During TEST save always, if required
-            self.viz_ints(X_stft, X_stft_logpower, batch, wavs, xhat)
+            self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
         return ((wavs, lens), predictions, xhat, hcat)
 
