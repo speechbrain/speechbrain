@@ -32,7 +32,7 @@ Evaluation is performed in fp32. However, we found that during inference, fp16 o
 
 | Release | Hyperparams file | Train precision | Dev-clean Greedy | Test-clean Greedy | Test-other Greedy | Test-clean BS+RNNLM | Test-other BS+RNNLM | Model link | GPUs |
 |:-------------:|:---------------------------:|:-:| :------:| :-----------:| :------------------:| :------------------:| :------------------:| :--------:| :-----------:|
-| 2023-12-12 | conformer_transducer.yaml `streaming: True` | bf16 | 2.56% | 2.72% | 6.47% | \* | \* | https://drive.google.com/drive/folders/1QtQz1Bkd_QPYnf3CyxhJ57ovbSZC2EhN?usp=sharing | [4x A100SXM4 40GB](https://docs.alliancecan.ca/wiki/Narval/en) |
+| 2023-12-12 | conformer_transducer.yaml `streaming: True` | bf16 | 2.56% | 2.72% | 6.47% | \* | \* | [DropBox](https://www.dropbox.com/scl/fo/kl1eikmoauygwqcx8ok4r/AMkreKLzHtxPtqnoXzUerko?rlkey=juk374k210b76lbnblh7or95d&st=1ugwe9e3&dl=0) | [4x A100SXM4 40GB](https://docs.alliancecan.ca/wiki/Narval/en) |
 
 <sub>\*: not evaluated due to performance issues, see [issue #2301](https://github.com/speechbrain/speechbrain/issues/2301)</sub>
 
