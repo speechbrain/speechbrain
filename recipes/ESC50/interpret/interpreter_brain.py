@@ -110,9 +110,9 @@ class InterpreterBrain(sb.core.Brain):
     def extra_metrics(self):
         return {}
 
-    def viz_ints(self, X_stft, X_stft_logpower, batch, wavs, mask):
+    def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
         """The helper function to create debugging images"""
-        X_int, _, X_stft_phase, _ = self.interpret_computation_steps(wavs)
+        X_int, _, X_stft_phase = self.interpret_computation_steps(wavs)
 
         X_int = torch.expm1(X_int)
 
@@ -123,6 +123,18 @@ class InterpreterBrain(sb.core.Brain):
 
         xhat_tm = self.invert_stft_with_phase(X_int, X_stft_phase)
 
+        plt.figure(figsize=(10, 5), dpi=100)
+
+        plt.subplot(121)
+        plt.imshow(X_stft_logpower[0].squeeze().cpu().t(), origin="lower")
+        plt.title("input")
+        plt.colorbar()
+
+        plt.subplot(122)
+        plt.imshow(X_int[0].squeeze().cpu().t(), origin="lower")
+        plt.colorbar()
+        plt.title("interpretation")
+
         out_folder = os.path.join(
             self.hparams.output_folder,
             "interpretations/" f"{batch.id[0]}",
@@ -132,12 +144,11 @@ class InterpreterBrain(sb.core.Brain):
             exist_ok=True,
         )
 
-        plt.figure(figsize=(10, 5), dpi=100)
-
-        X_stft_logpower = X_stft_logpower[:, :425, ...]
-        X_int = X_int.squeeze(-1)
-
-        # print("saving... ", self.hparams.output_folder)
+        plt.savefig(
+            os.path.join(out_folder, "spectra.png"),
+            format="png",
+        )
+        plt.close()
 
         torchaudio.save(
             os.path.join(out_folder, "interpretation.wav"),
@@ -150,48 +161,6 @@ class InterpreterBrain(sb.core.Brain):
             wavs.data.cpu(),
             self.hparams.sample_rate,
         )
-
-        plt.imshow(X_stft_logpower[0].squeeze().cpu().t(), origin="lower")
-        plt.colorbar()
-
-        plt.savefig(
-            os.path.join(out_folder, "input.png"),
-            format="png",
-        )
-        plt.close()
-
-        plt.imshow(X_int[0].squeeze().cpu().t(), origin="lower")
-        plt.colorbar()
-
-        plt.savefig(
-            os.path.join(out_folder, "maskin.png"),
-            format="png",
-        )
-        plt.close()
-
-        torch.save(X_stft_logpower, os.path.join(out_folder, "orig.pt"))
-        torch.save(mask, os.path.join(out_folder, "int.pt"))
-
-        plt.imshow(
-            (X_stft_logpower - X_int)[0].squeeze().cpu().t(),
-            origin="lower",
-        )
-        plt.colorbar()
-
-        plt.savefig(
-            os.path.join(out_folder, "maskout.png"),
-            format="png",
-        )
-        plt.close()
-
-        plt.imshow(mask[0].squeeze().cpu().t(), origin="lower")
-        plt.colorbar()
-
-        plt.savefig(
-            os.path.join(out_folder, "mask.png"),
-            format="png",
-        )
-        plt.close()
 
     def compute_forward(self, batch, stage):
         """Interpreter training forward step."""
