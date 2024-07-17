@@ -51,6 +51,40 @@ On HuggingFace, you can find the following pretrained models (with easy-inferenc
 - https://huggingface.co/speechbrain/tts-hifigan-libritts-22050Hz
 - https://huggingface.co/speechbrain/tts-hifigan-libritts-16kHz
 
+# HiFiGAN Unit Vocoder
+The subfolder "vocoder/hifi_gan_unit/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2406.10735). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data.
+This is suitable for a wide range of generative tasks such as speech enhancement, separation, text-to-speech, voice cloning, etc. Please read [DASB - Discrete Audio and Speech Benchmark](https://arxiv.org/abs/2406.14294) for more information.
+
+To run this recipe successfully, start by installing the necessary extra dependencies:
+
+```bash
+pip install -r extra_requirements.txt
+```
+
+Then, navigate to the "vocoder/hifi_gan_unit/" folder and run the following command:
+
+```bash
+python train.py hparams/train.yaml --data_folder=/path/to/LibriTTS
+```
+
+Below are the available self-supervised speech encoders for which we provide pre-trained k-means checkpoints:
+
+| Encoder  | HF model                                |
+|----------|-----------------------------------------|
+| HuBERT   | facebook/hubert-large-ll60k             |
+| Wav2Vec2 | facebook/wav2vec2-large-960h-lv60-self  |
+| WavLM    | microsoft/wavlm-large                   |
+
+The `kmeans_folder`, `kmeans_dataset` and `num_clusters` should be specified based on [SSL_Quantization](https://huggingface.co/speechbrain/SSL_Quantization).
+
+
+Training typically takes around 15 minutes per epoch when using an NVIDIA A100 40G.
+
+On HuggingFace, you can find the following pretrained models (with easy-inference interface):
+- https://huggingface.co/speechbrain/hifigan-hubert-l1-3-7-12-18-23-k1000-LibriTTS
+- https://huggingface.co/speechbrain/hifigan-wav2vec-l1-3-7-12-18-23-k1000-LibriTTS
+- https://huggingface.co/speechbrain/hifigan-wavlm-l1-3-7-12-18-23-k1000-LibriTTS
+
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/
 - Code: https://github.com/speechbrain/speechbrain/
