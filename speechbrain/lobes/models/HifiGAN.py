@@ -638,9 +638,14 @@ class UnitHifiganGenerator(HifiganGenerator):
     var_pred_dropout : float
         dropout probability of each layer in the duration predictor.
     multi_speaker : bool
-        enable multi speaker training
+        enable multi speaker training.
     normalize_speaker_embeddings: bool
-        enable normalization of speaker embeddings
+        enable normalization of speaker embeddings.
+    skip_token_embedding: bool
+        Whether to skip the embedding layer in the case of continuous input.
+    pooling_type: str, optional
+        The type of pooling to use. Must be one of ["attention", "sum", "none"].
+        Defaults to "attention" for scalable vocoder.
 
     Example
     -------
@@ -689,6 +694,7 @@ class UnitHifiganGenerator(HifiganGenerator):
         multi_speaker=False,
         normalize_speaker_embeddings=False,
         skip_token_embedding=False,
+        pooling_type="attention",
     ):
         super().__init__(
             in_channels,
@@ -704,11 +710,14 @@ class UnitHifiganGenerator(HifiganGenerator):
             conv_post_bias,
         )
         self.unit_embedding = torch.nn.Embedding(vocab_size, embedding_dim)
-        self.attn_pooling = torch.nn.Sequential(
-            torch.nn.Linear(embedding_dim, attn_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(attn_dim, 1, bias=False),
-        )
+        self.pooling_type = pooling_type
+        if pooling_type == "attention":
+            self.attn_pooling = torch.nn.Sequential(
+                torch.nn.Linear(embedding_dim, attn_dim),
+                torch.nn.ReLU(),
+                torch.nn.Linear(attn_dim, 1, bias=False),
+            )
+
         self.duration_predictor = duration_predictor
         if duration_predictor:
             self.var_predictor = VariancePredictor(
@@ -747,10 +756,17 @@ class UnitHifiganGenerator(HifiganGenerator):
 
         batch_size, time, channel, emb_size = u.shape
         u_ = u.view(batch_size * time, channel, emb_size)
-        attn_scores = self.attn_pooling(u_)
-        attn_weights = F.softmax(attn_scores, dim=1)
-        u_weighted = u_ * attn_weights
-        u_pooled = torch.sum(u_weighted, dim=1)
+
+        if self.pooling_type == "attention":
+            attn_scores = self.attn_pooling(u_)
+            attn_weights = F.softmax(attn_scores, dim=1)
+            u_weighted = u_ * attn_weights
+            u_pooled = torch.sum(u_weighted, dim=1)
+        elif self.pooling_type == "sum":
+            u_pooled = torch.sum(u_, dim=1)
+        elif self.pooling_type == "none":
+            u_pooled = u_
+
         u = u_pooled.view(batch_size, time, emb_size)
         u = u.transpose(1, 2)
 
@@ -788,10 +804,17 @@ class UnitHifiganGenerator(HifiganGenerator):
 
         batch_size, time, channel, emb_size = x.shape
         x_ = x.view(batch_size * time, channel, emb_size)
-        attn_scores = self.attn_pooling(x_)
-        attn_weights = F.softmax(attn_scores, dim=1)
-        x_weighted = x_ * attn_weights
-        x_pooled = torch.sum(x_weighted, dim=1)
+
+        if self.pooling_type == "attention":
+            attn_scores = self.attn_pooling(x_)
+            attn_weights = F.softmax(attn_scores, dim=1)
+            x_weighted = x_ * attn_weights
+            x_pooled = torch.sum(x_weighted, dim=1)
+        elif self.pooling_type == "sum":
+            x_pooled = torch.sum(x_, dim=1)
+        elif self.pooling_type == "none":
+            x_pooled = x_
+
         x = x_pooled.view(batch_size, time, emb_size)
         x = x.transpose(1, 2)
 
