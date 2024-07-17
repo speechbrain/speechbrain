@@ -98,7 +98,12 @@ class LMAC(InterpreterBrain):
             xhat = F.sigmoid(xhat)
             X_int = xhat * X_stft_logpower[:, :Tmax, :]
 
-        return X_int.transpose(1, 2), xhat.transpose(1, 2), X_stft_phase
+        return (
+            X_int.transpose(1, 2),
+            xhat.transpose(1, 2),
+            X_stft_phase,
+            X_stft_logpower,
+        )
 
     def compute_forward(self, batch, stage):
         """Forward computation defined for to generate the saliency maps with L-MAC"""
@@ -126,11 +131,11 @@ class LMAC(InterpreterBrain):
                 self.hparams.epoch_counter.current
                 % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
-                self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
+                self.viz_ints(X_stft, X_stft_logpower, batch, wavs, xhat)
 
         if stage == sb.Stage.TEST and self.hparams.save_interpretations:
             # During TEST save always, if required
-            self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
+            self.viz_ints(X_stft, X_stft_logpower, batch, wavs, xhat)
 
         return ((wavs, lens), predictions, xhat, hcat)
 
