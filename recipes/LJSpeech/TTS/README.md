@@ -119,13 +119,7 @@ To run this recipe successfully, start by installing the necessary extra depende
 pip install -r extra_requirements.txt
 ```
 
-Then, navigate to the "vocoder/hifigan_discrete/" folder and run the following command:
-
-```bash
-python train.py hparams/train.yaml --data_folder=/path/to/LJspeech
-```
-
-Below are the available self-supervised speech encoders for which we provide pre-trained k-means checkpoints:
+Before training the vocoder, you need to choose a speech encoder to extract representations that will be used as discrete audio input. We support k-means models using features from HuBERT, WavLM, or Wav2Vec2. Below are the available self-supervised speech encoders for which we provide pre-trained k-means checkpoints:
 
 | Encoder  | HF model                                |
 |----------|-----------------------------------------|
@@ -133,8 +127,25 @@ Below are the available self-supervised speech encoders for which we provide pre
 | Wav2Vec2 | facebook/wav2vec2-large-960h-lv60-self  |
 | WavLM    | microsoft/wavlm-large                   |
 
-The `kmeans_folder`, `kmeans_dataset` and `num_clusters` should be specified based on [SSL_Quantization](https://huggingface.co/speechbrain/SSL_Quantization).
+Checkpoints are available in the HF [SSL_Quantization](https://huggingface.co/speechbrain/SSL_Quantization) repository. Alternatively, you can train your own k-means model by following instructions in the "LJSpeech/quantization" README.
 
+Next, configure the SSL model type, k-means model, and corresponding hub in your YAML configuration file. Follow these steps:
+
+1. navigate to the "vocoder/hifigan_discrete/hparams" and open "train.yaml" file.
+2. Modify the `encoder_type` field to specify one of the SSL models: "HuBERT", "WavLM", or "Wav2Vec2".
+3. Update the `encoder_hub` field with the specific name of the SSL Hub associated with your chosen model type.
+
+If you have trained your own k-means model, follow these additional steps:
+
+4. Update the `kmeans_folder` field with the specific name of the SSL Hub containing your trained k-means model. Please follow the same file structure as the official one in [SSL_Quantization](https://huggingface.co/speechbrain/SSL_Quantization).
+5. Update the `kmeans_dataset` field with the specific name of the dataset on which the k-means model was trained.
+6. Update the `num_clusters` field according to the number of clusters of your k-means model.
+
+Finally, navigate back to the "vocoder/hifigan_discrete/" folder and run the following command:
+
+```bash
+python train.py hparams/train.yaml --data_folder=/path/to/LJspeech
+```
 
 Training typically takes around 4 minutes per epoch when using an NVIDIA A100 40G.
 
