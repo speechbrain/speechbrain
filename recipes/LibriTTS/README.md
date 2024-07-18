@@ -73,7 +73,7 @@ Checkpoints are available in the HF [SSL_Quantization](https://huggingface.co/sp
 
 Next, configure the SSL model type, k-means model, and corresponding hub in your YAML configuration file. Follow these steps:
 
-1. navigate to the "vocoder/hifigan_discrete/hparams" folder and open "train.yaml" file.
+1. Navigate to the "vocoder/hifigan_discrete/hparams" folder and open "train.yaml" file.
 2. Modify the `encoder_type` field to specify one of the SSL models: "HuBERT", "WavLM", or "Wav2Vec2".
 3. Update the `encoder_hub` field with the specific name of the SSL Hub associated with your chosen model type.
 
