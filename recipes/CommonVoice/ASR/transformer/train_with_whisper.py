@@ -4,9 +4,11 @@ The system employs whisper from OpenAI (https://cdn.openai.com/papers/whisper.pd
 This recipe take the whisper encoder-decoder to fine-tune on.
 
 To run this recipe, do the following:
-> python train_with_whisper.py hparams/train_<locale>_hf_whisper.yaml
+> python train_with_whisper.py hparams/train_hf_whisper.yaml
 
+Authors
  * Pooneh Mousavi 2022
+ * Adel Moumen 2024
 """
 
 import logging
@@ -15,7 +17,6 @@ import sys
 import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
-from transformers.models.whisper.tokenization_whisper import LANGUAGES
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
@@ -36,6 +37,9 @@ class ASR(sb.Brain):
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
             bos_tokens = self.hparams.wav_augment.replicate_labels(bos_tokens)
+            bos_tokens_lens = self.hparams.wav_augment.replicate_labels(
+                bos_tokens_lens
+            )
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
@@ -48,6 +52,7 @@ class ASR(sb.Brain):
 
         # Forward encoder + decoder
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
+        log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
         if stage == sb.Stage.VALID:
@@ -57,12 +62,12 @@ class ASR(sb.Brain):
         elif stage == sb.Stage.TEST:
             hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
-        return logits, hyps, wav_lens
+        return log_probs, hyps, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss NLL given predictions and targets."""
 
-        (logits, hyps, wav_lens) = predictions
+        (log_probs, hyps, wav_lens) = predictions
         batch = batch.to(self.device)
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -74,7 +79,6 @@ class ASR(sb.Brain):
                 tokens_eos_lens
             )
 
-        log_probs = self.hparams.log_softmax(logits)
         loss = self.hparams.nll_loss(
             log_probs, tokens_eos, length=tokens_eos_lens
         )
@@ -82,12 +86,11 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
-            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
-
             # Decode token terms to words
-            predicted_words = self.tokenizer.batch_decode(
-                hyps, skip_special_tokens=True
-            )
+            predicted_words = [
+                self.tokenizer.decode(t, skip_special_tokens=True).strip()
+                for t in hyps
+            ]
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -97,18 +100,18 @@ class ASR(sb.Brain):
 
             if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
-
                 target_words = [text.split(" ") for text in target_words]
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -132,15 +135,9 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
-                stage_stats["loss"]
-            )
-
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer, new_lr_whisper
-            )
+            lr = self.hparams.lr_annealing_whisper.current_lr
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
+                stats_meta={"epoch": epoch, "lr": lr},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -154,9 +151,7 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(
-                    self.hparams.test_wer_file, "w", encoding="utf-8"
-                ) as w:
+                with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -217,10 +212,11 @@ def dataio_prepare(hparams, tokenizer):
     def audio_pipeline(wav):
         info = torchaudio.info(wav)
         sig = sb.dataio.dataio.read_audio(wav)
-        resampled = torchaudio.transforms.Resample(
-            info.sample_rate, hparams["sample_rate"]
-        )(sig)
-        return resampled
+        if info.sample_rate != hparams["sample_rate"]:
+            sig = torchaudio.transforms.Resample(
+                info.sample_rate, hparams["sample_rate"]
+            )(sig)
+        return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
@@ -230,14 +226,15 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
+        if hasattr(hparams, "normalized_transcripts"):
+            wrd = tokenizer.normalize(wrd)
         yield wrd
-        tokens_list = tokenizer.encode(wrd)
-        # avoid bos and eos tokens.
-        tokens_list = tokens_list[1:-1]
+        tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + tokens_list)
+        tokens_list = tokenizer.build_inputs_with_special_tokens(tokens_list)
+        tokens_bos = torch.LongTensor(tokens_list[:-1])
         yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        tokens_eos = torch.LongTensor(tokens_list[1:])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -283,22 +280,12 @@ if __name__ == "__main__":
             "dev_tsv_file": hparams["dev_tsv_file"],
             "test_tsv_file": hparams["test_tsv_file"],
             "accented_letters": hparams["accented_letters"],
-            "language": hparams["locale"],
+            "language": hparams["language"],
             "skip_prep": hparams["skip_prep"],
         },
     )
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
-    language = LANGUAGES[hparams["locale"]]
-
-    tokenizer.set_prefix_tokens(language, "transcribe", False)
-
-    # we need to prepare the tokens for searchers
-    hparams["valid_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
-    hparams["valid_search"].set_language_token(tokenizer.prefix_tokens[1])
-
-    hparams["test_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
-    hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)

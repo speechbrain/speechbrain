@@ -66,12 +66,12 @@ The training logs are available [here](https://www.dropbox.com/scl/fo/4ctkc6jjas
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-fastspeech2-internal-alignment-ljspeech).
 
 # HiFiGAN (Vocoder)
-The subfolder "vocoder/hifi_gan/" contains the [HiFiGAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
+The subfolder "vocoder/hifigan/" contains the [HiFiGAN vocoder](https://arxiv.org/pdf/2010.05646.pdf).
 The vocoder is a neural network that converts a spectrogram into a waveform (it can be used on top of Tacotron2/FastSpeech2).
 
 We suggest using `tensorboard_logger` by setting `use_tensorboard: True` in the yaml file, thus `Tensorboard` should be installed.
 
-To run this recipe, go into the "vocoder/hifi_gan/" folder and run:
+To run this recipe, go into the "vocoder/hifigan/" folder and run:
 
 ```
 python train.py hparams/train.yaml --data_folder /path/to/LJspeech
@@ -108,20 +108,10 @@ For inference, by setting `fast_sampling: True` , a fast sampling can be realize
 
 You can find the pre-trained model with an easy-inference function on [HuggingFace](https://huggingface.co/speechbrain/tts-diffwave-ljspeech).
 
-# K-means (Quantization)
-The subfolder "quantization" contains K-means clustering model. The model serves to quantize self-supervised representations into discrete representation. Thus representations can be used as target for speech-to-speech translation or as input for HiFiGAN Unit. By default, we use the 6th layer of HuBERT and set `k=100`.
-
-To run this recipe, please first install the extra-dependencies :
-```
-pip install -r extra_requirements.txt
-```
-Then go into the "quantization" folder and run:
-```
-python train.py hparams/kmeans.yaml --data_folder=/path/to/LJspeech
-```
 
 # HiFiGAN Unit Vocoder
-The subfolder "vocoder/hifi_gan_unit/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2104.00355). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data and is suitable for speech-to-speech translation on top of CVSS/S2ST models. The discrete representations required by the vocoder are learned using k-means quantization, as previously described. Please ensure that you have executed the quantization step before proceeding with this script.
+The subfolder "vocoder/hifigan_discrete/" contains the [HiFiGAN Unit vocoder](https://arxiv.org/abs/2406.10735). This vocoder is a neural network designed to transform discrete self-supervised representations into waveform data.
+This is suitable for a wide range of generative tasks such as speech enhancement, separation, text-to-speech, voice cloning, etc. Please read [DASB - Discrete Audio and Speech Benchmark](https://arxiv.org/abs/2406.14294) for more information.
 
 To run this recipe successfully, start by installing the necessary extra dependencies:
 
@@ -129,17 +119,35 @@ To run this recipe successfully, start by installing the necessary extra depende
 pip install -r extra_requirements.txt
 ```
 
-Then, navigate to the "vocoder/hifi_gan_unit/" folder and run the following command:
+Before training the vocoder, you need to choose a speech encoder to extract representations that will be used as discrete audio input. We support k-means models using features from HuBERT, WavLM, or Wav2Vec2. Below are the available self-supervised speech encoders for which we provide pre-trained k-means checkpoints:
+
+| Encoder  | HF model                                |
+|----------|-----------------------------------------|
+| HuBERT   | facebook/hubert-large-ll60k             |
+| Wav2Vec2 | facebook/wav2vec2-large-960h-lv60-self  |
+| WavLM    | microsoft/wavlm-large                   |
+
+Checkpoints are available in the HF [SSL_Quantization](https://huggingface.co/speechbrain/SSL_Quantization) repository. Alternatively, you can train your own k-means model by following instructions in the "LJSpeech/quantization" README.
+
+Next, configure the SSL model type, k-means model, and corresponding hub in your YAML configuration file. Follow these steps:
+
+1. Navigate to the "vocoder/hifigan_discrete/hparams" folder and open "train.yaml" file.
+2. Modify the `encoder_type` field to specify one of the SSL models: "HuBERT", "WavLM", or "Wav2Vec2".
+3. Update the `encoder_hub` field with the specific name of the SSL Hub associated with your chosen model type.
+
+If you have trained your own k-means model, follow these additional steps:
+
+4. Update the `kmeans_folder` field with the specific name of the SSL Hub containing your trained k-means model. Please follow the same file structure as the official one in [SSL_Quantization](https://huggingface.co/speechbrain/SSL_Quantization).
+5. Update the `kmeans_dataset` field with the specific name of the dataset on which the k-means model was trained.
+6. Update the `num_clusters` field according to the number of clusters of your k-means model.
+
+Finally, navigate back to the "vocoder/hifigan_discrete/" folder and run the following command:
 
 ```bash
-python train.py hparams/train.yaml --kmeans_folder=/path/to/Kmeans/ckpt --data_folder=/path/to/LJspeech
+python train.py hparams/train.yaml --data_folder=/path/to/LJspeech
 ```
 
-The `kmeans_folder` should be specified based on the results of the previous quantization step (e.g., ../../quantization/results/kmeans/4321/save).
-
 Training typically takes around 4 minutes per epoch when using an NVIDIA A100 40G.
-
-You can access the pre-trained model, along with an easy-to-use inference function, on [HuggingFace](https://huggingface.co/speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech).
 
 
 # **About SpeechBrain**

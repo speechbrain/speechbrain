@@ -1,4 +1,4 @@
-# LibriSpeech ASR with CTC and pre-trained wav2vec2 or whisper models.
+# LibriSpeech ASR with CTC only or pre-trained wav2vec2 or whisper models.
 This folder contains the scripts to finetune a wav2vec2 or a whisper based system using LibriSpeech.
 You can download LibriSpeech at http://www.openslr.org/12.
 The loss function is the CTC loss and it is implemented in two different ways:
@@ -17,9 +17,8 @@ pip install -r extra_requirements.txt
 
 # How to run
 ```
+python train.py hparams/file.yaml
 python train_with_wav2vec.py hparams/file.yaml
-```
-```
 python train_with_whisper.py hparams/file.yaml
 ```
 To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster training and inferences)
@@ -27,7 +26,22 @@ To run a fine-tuning of "WavLM" with signal downsampled inputs (for faster train
 ```
 python train_with_wav2vec.py hparams/downsampled/train_hf_wavlm_signal_downsampling.yaml --downsampling_factor 2
 ```
+To train a model from scratch (without any pre-training), please firstly go to the Tokenizer folder to train a tokenizer:
 
+```
+cd ../../Tokenizer
+python train.py hparams/128_bpe.yaml
+```
+Then, go back to this directory. You can train a Branchformer CTC model with:
+
+```
+python train.py hparams/train_branchformer.yaml
+```
+or a Conformer CTC model with:
+
+```
+python train.py hparams/train_conformer.yaml
+```
 # WFST-based CTC loss
 To fine-tune a wav2vec 2.0 model with the WFST-based CTC loss, you can use the `train_with_wav2vec_k2.py` script. This will create a `lang` directory inside your output folder, which will contain the files required to build a lexicon FST. The tokenization method used here is a very basic character-based tokenization (e.g. `hello -> h e l l o`).
 
@@ -84,6 +98,9 @@ Note: by default, `topk` is set to 20 as it gives a good trade-off between WER a
 | 23-01-24 | train_hf_wav2vec_k2.yaml | k2CTC + HLG graph + whole lattice rescoring + test batch size = 1 | 960h | 1.81 | Not Avail. | 3.57 | Not Avail. | Not Avail. | [Link](https://www.dropbox.com/scl/fo/kj2ujqj3votq7ue6ydh0l/h?rlkey=mibyoria19zasvuxs0iwx6plt&dl=0) |  1xRTX2080Ti 12GB | 1xRTX2080Ti 12GB |
 | 08-12-23 | train_hf_wav2vec.yaml | CTCBeamSearch + RNNLM Rescorer  + test batch size = 1 + topk = 100  | 960h | 1.69 | 26mins15 | 3.55 | 32min44s | Not Avail. | [Link](https://www.dropbox.com/sh/k4ixa211yp5b1tm/AAD85sgYw2CH7NKk_qKMO9Tja?dl=0) |  1x A100 40GB | 2xTesla V100 40GB |
 | 08-12-23 | train_hf_wav2vec.yaml | CTCBeamSearch + TransformerLM Rescorer + test batch size = 1 + topk = 100 | 960h | 1.57 | 26mins56s | 3.37 | 32min46 | Not Avail. | [Link](https://www.dropbox.com/sh/ijqalvre7mm08ng/AAD_hsN-8dBneUMMkELsOOxga?dl=0) |  1x A100 40GB | 2xTesla V100 32GB |
+| 06-12-23 | train_branchformer.yaml (25.9M) | 960h | 3.6 (no LM) | Not Avail. | Not Avail. | 8xA40 46G |
+| 06-12-23 | train_conformer.yaml (28.8M) | 960h | 3.7 (no LM) | Not Avail. | Not Avail. | 8xA40 46G |
+
 
 # Downsampling inputs for faster fine-tuning and inferences using SSL Models
 This repository contains the code allowing to reproduce part of the results obtained in the paper : "Fine-tuning Strategies for Faster Inference using Speech Self-Supervised Models:  A Comparative Study"

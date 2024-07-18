@@ -126,6 +126,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     normalize_before: True
+    causal: False
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 

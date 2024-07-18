@@ -165,7 +165,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
             else:
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
@@ -197,7 +197,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()

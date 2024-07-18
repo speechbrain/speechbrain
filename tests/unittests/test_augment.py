@@ -311,6 +311,39 @@ def test_SpectrogramDrop():
     output = drop(spectrogram)
     assert mean > output.mean()
     assert spectrogram.shape == output.shape
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=0,
+        drop_length_high=1,
+        drop_count_low=3,
+        drop_count_high=3,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    print(output)
+    assert torch.allclose(mean, output.mean())
+    assert spectrogram.shape == output.shape
+
+    # NOTE: we're testing drop_length_high=1 above and drop_count_high=0 here
+    # because one +1 the upper bound and the other doesn't for the high
+    # exclusive range... see #2542
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=0,
+        drop_count_high=0,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    assert torch.allclose(mean, output.mean())
+    assert spectrogram.shape == output.shape
 
     from speechbrain.augment.freq_domain import SpectrogramDrop
 
