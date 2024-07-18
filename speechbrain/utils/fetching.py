@@ -15,6 +15,7 @@ import urllib.request
 import warnings
 from collections import namedtuple
 from enum import Enum
+from typing import Optional, Union
 
 import huggingface_hub
 from requests.exceptions import HTTPError
@@ -168,11 +169,52 @@ def link_with_strategy(
         return src
 
 
+def guess_source(source: Union[str, FetchSource]) -> FetchSource:
+    """From a given `FetchSource` or string source identifier, attempts to guess
+    the matching :class:`~FetchFrom` (e.g. local or URI).
+
+    If `source` is already a `FetchSource`, it is returned as-is.
+
+    Arguments
+    ---------
+    source : str or FetchSource
+        Where to look for the file. This is interpreted in special ways:
+        - First, if the source begins with "http://" or "https://", it is
+          interpreted as a web address and the file is downloaded.
+        - Second, if the source is a valid directory path, a symlink is
+          created to the file.
+        - Otherwise, the source is interpreted as a Huggingface model hub ID,
+          and the file is downloaded from there (potentially with caching).
+
+    Returns
+    -------
+    tuple of (FetchFrom, str)"""
+
+    if isinstance(source, FetchSource):
+        return source
+
+    assert isinstance(source, str)
+
+    if pathlib.Path(source).is_dir():
+        return FetchFrom.LOCAL, source
+
+    uri_supported_schemes = (
+        "http:",
+        "https:",
+    )
+    if source.startswith(uri_supported_schemes):
+        return FetchFrom.URI, source
+
+    return FetchFrom.HUGGING_FACE, source
+
+
 def fetch(
     filename,
-    source,
+    source: Union[str, FetchSource],
     savedir="./pretrained_model_checkpoints",
     overwrite=False,
+    allow_updates=True,
+    allow_network=True,
     save_filename=None,
     use_auth_token=False,
     revision=None,
@@ -189,10 +231,8 @@ def fetch(
     available under `<savedir>/<save_filename>`.
 
     .. note::
-        If `source` is remote but available locally, `fetch` will not attempt
-        downloading again. When the `source` is the HF hub, it is OK to pass
-        `overwrite == True` to ensure you're getting the latest version, as the
-        HF Hub performs caching of its own.
+        If `source` is an URI but found locally, `fetch` will not attempt
+        downloading again, unless `override` is `True`.
 
     Effect of local file strategies when the fetch source is a **local file**:
 
@@ -219,34 +259,41 @@ def fetch(
     filename : str
         Name of the file including extensions.
     source : str or FetchSource
-        Where to look for the file. This is interpreted in special ways:
-        - First, if the source begins with "http://" or "https://", it is
-          interpreted as a web address and the file is downloaded.
-        - Second, if the source is a valid directory path, a symlink is
-          created to the file.
-        - Otherwise, the source is interpreted as a Huggingface model hub ID,
-          and the file is downloaded from there (potentially with caching).
+        Where to look for the file. See :func:`~guess_source` for how the fetch
+        type is interpreted (e.g. local/URI/HF).
     savedir : str
         Directory path where the file will be reachable (unless using
         `LocalStrategy.NO_LINK`, in which case it may or may not end up in this
         directory).
-    overwrite : bool
+    overwrite : bool (default: `False`)
         If `True`, always overwrite existing savedir/filename file and download
-        or recreate the link. If False (as by default), if savedir/filename
-        exists, assume it is correct and don't download/relink. Note that
-        Huggingface local cache is always used - with overwrite=True you may
-        just relink from the local cache.
-    save_filename : str
+        the file over again, even if it was unchanged.
+        If False (the default), if savedir/filename exists, assume it is
+        correct and don't download/relink.
+        Note that Huggingface local cache is always used - with overwrite=True
+        you may just relink from the local cache.
+    allow_updates : bool (default: `True`)
+        If `True`, for a remote file on HF, check for updates and download newer
+        revisions if available.
+        If `False`, when the requested files are available locally, load them
+        without fetching from HF.
+    allow_network : bool (default: `True`)
+        If `True`, network accesses are allowed. If `False`, then remote URLs
+        or HF won't be fetched, regardless of any other parameter.
+    save_filename : str, optional (default: `None`)
         The filename to use for saving this file. Defaults to the `filename`
-        argument if not given.
-    use_auth_token : bool (default: False)
+        argument if not given or `None`.
+    use_auth_token : bool (default: `False`)
         If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because majority of models are public.
-    revision : str
-        The model revision corresponding to the HuggingFace Hub model revision.
-        This is particularly useful if you wish to pin your code to a particular
-        version of a model hosted at HuggingFace.
-    huggingface_cache_dir: str
+    revision : str, optional (default: `None`)
+        The model revision corresponding to the HuggingFace Hub model revision,
+        in the form of a Git revision (branch name, tag, commit hash).
+        This allows to pin your code to a particular version of a model hosted
+        on HuggingFace.
+        When changing the revision while local files still exist,
+        `allow_updates` must be `True`.
+    huggingface_cache_dir: str, optional (default: `None`)
         Path to HuggingFace cache; if `None`, the default cache directory is
         used: `~/.cache/huggingface` unless overridden by environment variables.
         See `huggingface_hub documentation <https://huggingface.co/docs/huggingface_hub/guides/manage-cache#manage-huggingfacehub-cache-system>`_
@@ -273,31 +320,32 @@ def fetch(
     savedir = pathlib.Path(savedir)
     savedir.mkdir(parents=True, exist_ok=True)
 
-    fetch_from = None
-    if isinstance(source, FetchSource):
-        fetch_from, source = source
+    fetch_from, source = guess_source(source)
 
     sourcefile = f"{source}/{filename}"
     destination = (savedir / save_filename).absolute()
 
-    if destination.exists() and not overwrite:
+    # only HF supports updates
+    should_try_update = overwrite or (fetch_from == FetchFrom.HUGGING_FACE and allow_updates)
+
+    if destination.exists() and not should_try_update:
         MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}"
         logger.info(MSG)
         return destination
 
-    # local path?
-    if pathlib.Path(source).is_dir() and fetch_from not in [
-        FetchFrom.HUGGING_FACE,
-        FetchFrom.URI,
-    ]:
+    if fetch_from == FetchFrom.LOCAL:
         return link_with_strategy(
             pathlib.Path(sourcefile).absolute(), destination, local_strategy
         )
 
-    # URI?
-    if (
-        str(source).startswith("http:") or str(source).startswith("https:")
-    ) or fetch_from is FetchFrom.URI:  # Interpret source as web address.
+    if fetch_from == FetchFrom.URI:
+        if not allow_network:
+            # TODO: streamline exceptions?
+            raise ValueError(
+                f"Fetch {filename}: File was not found locally and "
+                "`allow_network` was disabled."
+            )
+
         logger.info(
             "Fetch %s: Downloading from URL '%s'", filename, str(sourcefile)
         )
@@ -311,6 +359,8 @@ def fetch(
 
         return destination
 
+    assert fetch_from == FetchFrom.HUGGING_FACE
+
     # Assume we are fetching from HF at this point
     # Interpret source as huggingface hub ID
     try:
@@ -319,6 +369,7 @@ def fetch(
             "filename": filename,
             "use_auth_token": use_auth_token,
             "revision": revision,
+            "local_files_only": not allow_network,
         }
 
         # COPY strategy? Directly attempt saving to destination
