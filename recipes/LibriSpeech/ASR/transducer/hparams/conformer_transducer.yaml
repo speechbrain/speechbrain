@@ -183,16 +183,16 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
 
 # Time Drop
 time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-   drop_length_low: 15
-   drop_length_high: 25
+   drop_length_low: 12
+   drop_length_high: 20
    drop_count_low: 5
    drop_count_high: 5
    replace: "zeros"
 
 # Frequency Drop
 freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
-   drop_length_low: 25
-   drop_length_high: 35
+   drop_length_low: 20
+   drop_length_high: 25
    drop_count_low: 2
    drop_count_high: 2
    replace: "zeros"

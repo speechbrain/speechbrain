@@ -37,8 +37,8 @@ class ConvBlock(nn.Module):
     norm_type : str in ['bn', 'in', 'ln']
         The type of normalization
 
-    Example
-    -------
+    Example:
+    --------
     >>> convblock = ConvBlock(10, 20, 'ln')
     >>> x = torch.rand(5, 10, 20, 30)
     >>> y = convblock(x)
@@ -47,7 +47,7 @@ class ConvBlock(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, norm_type):
-        super().__init__()
+        super(ConvBlock, self).__init__()
         self.conv1 = nn.Conv2d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -139,8 +139,8 @@ class Cnn14(nn.Module):
     return_reps: bool (default=False)
         If True the model returns intermediate representations as well for interpretation
 
-    Example
-    -------
+    Example:
+    --------
     >>> cnn14 = Cnn14(120, 256)
     >>> x = torch.rand(3, 400, 120)
     >>> h = cnn14.forward(x)
@@ -148,9 +148,12 @@ class Cnn14(nn.Module):
     torch.Size([3, 1, 256])
     """
 
-    def __init__(self, mel_bins, emb_dim, norm_type="bn", return_reps=False):
-        super().__init__()
+    def __init__(
+        self, mel_bins, emb_dim, norm_type="bn", return_reps=False, l2i=False
+    ):
+        super(Cnn14, self).__init__()
         self.return_reps = return_reps
+        self.l2i = l2i
 
         self.norm_type = norm_type
         if norm_type == "bn":
@@ -214,8 +217,8 @@ class Cnn14(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
         x = self.conv_block2(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x, p=0.2, training=self.training)
-        x = self.conv_block3(x, pool_size=(2, 2), pool_type="avg")
-        x = F.dropout(x, p=0.2, training=self.training)
+        x4_out = self.conv_block3(x, pool_size=(2, 2), pool_type="avg")
+        x = F.dropout(x4_out, p=0.2, training=self.training)
         x3_out = self.conv_block4(x, pool_size=(2, 2), pool_type="avg")
         x = F.dropout(x3_out, p=0.2, training=self.training)
         x2_out = self.conv_block5(x, pool_size=(2, 2), pool_type="avg")
@@ -232,4 +235,189 @@ class Cnn14(nn.Module):
         if not self.return_reps:
             return x.unsqueeze(1)
 
-        return x.unsqueeze(1), (x1_out, x2_out, x3_out)
+        if self.l2i:
+            return x.unsqueeze(1), (x1_out, x2_out, x3_out)
+        else:
+            return x.unsqueeze(1), (x1_out, x2_out, x3_out, x4_out)
+
+
+class CNN14PSI(nn.Module):
+    """
+    This class estimates a mel-domain saliency mask
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of the embeddings
+
+    Returns
+    --------
+        Estimated saliency map (before sigmoid)
+
+    Example:
+    --------
+    >>> from speechbrain.lobes.models.Cnn14 import Cnn14
+    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
+    >>> x = torch.randn(2, 201, 80)
+    >>> _, hs = classifier_embedder(x)
+    >>> psimodel = CNN14PSI(2048)
+    >>> xhat = psimodel.forward(hs)
+    >>> print(xhat.shape)
+    torch.Size([2, 1, 201, 80])
+    """
+
+    def __init__(
+        self,
+        dim=128,
+    ):
+        super().__init__()
+
+        self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 2), 1)
+        self.convt2 = nn.ConvTranspose2d(dim // 2, dim, 3, (2, 2), 1)
+        self.convt3 = nn.ConvTranspose2d(dim, dim, (7, 4), (2, 4), 1)
+        self.convt4 = nn.ConvTranspose2d(dim // 4, dim, (5, 4), (2, 2), 1)
+        self.convt5 = nn.ConvTranspose2d(dim, dim, (3, 3), (2, 2), 1)
+        self.convt6 = nn.ConvTranspose2d(dim // 8, dim, (3, 3), (2, 2), 1)
+        self.convt7 = nn.ConvTranspose2d(dim, dim, (4, 3), (2, 2), 0)
+        self.convt8 = nn.ConvTranspose2d(dim, 1, (3, 4), (2, 2), 0)
+
+        self.nonl = nn.ReLU(True)
+
+    def forward(self, hs, labels=None):
+        """
+        Forward step. Given the classifier representations estimates a saliency map.
+
+        Arguments
+        --------
+        hs : torch.Tensor
+            Classifier's representations.
+
+        Returns
+        --------
+        xhat : torch.Tensor
+            Estimated saliency map (before sigmoid)
+        """
+
+        h1 = self.convt1(hs[0])
+        h1 = self.nonl(h1)
+
+        h2 = self.convt2(hs[1])
+        h2 = self.nonl(h2)
+        h = h1 + h2
+
+        h3 = self.convt3(h)
+        h3 = self.nonl(h3)
+
+        h4 = self.convt4(hs[2])
+        h4 = self.nonl(h4)
+        h = h3 + h4
+
+        h5 = self.convt5(h)
+        h5 = self.nonl(h5)
+
+        h6 = self.convt6(hs[3])
+        h6 = self.nonl(h6)
+        h = h5 + h6
+
+        h = self.convt7(h)
+        h = self.nonl(h)
+
+        xhat = self.convt8(h)
+        return xhat
+
+
+class CNN14PSI_stft(nn.Module):
+    """
+    This class estimates a saliency map on the STFT domain, given classifier representations.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of the input representations.
+    outdim : int
+        Defines the number of output channels in the saliency map.
+
+    Returns
+    --------
+    xhat : torch.Tensor
+        Estimated saliency map (before sigmoid)
+
+    Example:
+    --------
+    >>> from speechbrain.lobes.models.Cnn14 import Cnn14
+    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
+    >>> x = torch.randn(2, 201, 80)
+    >>> _, hs = classifier_embedder(x)
+    >>> psimodel = CNN14PSI_stft(2048, 1)
+    >>> xhat = psimodel.forward(hs)
+    >>> print(xhat.shape)
+    torch.Size([2, 1, 201, 513])
+    """
+
+    def __init__(
+        self,
+        dim=128,
+        outdim=1,
+    ):
+        super().__init__()
+
+        self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 4), 1)
+        self.convt2 = nn.ConvTranspose2d(dim // 2, dim, 3, (2, 4), 1)
+        self.convt3 = nn.ConvTranspose2d(dim, dim, (7, 4), (2, 4), 1)
+        self.convt4 = nn.ConvTranspose2d(dim // 4, dim, (5, 4), (2, 4), 1)
+        self.convt5 = nn.ConvTranspose2d(dim, dim // 2, (3, 5), (2, 2), 1)
+        self.convt6 = nn.ConvTranspose2d(dim // 8, dim // 2, (3, 3), (2, 4), 1)
+        self.convt7 = nn.ConvTranspose2d(
+            dim // 2, dim // 4, (4, 3), (2, 2), (0, 5)
+        )
+        self.convt8 = nn.ConvTranspose2d(
+            dim // 4, dim // 8, (3, 4), (2, 2), (0, 2)
+        )
+        self.convt9 = nn.ConvTranspose2d(dim // 8, outdim, (1, 5), (1, 4), 0)
+
+        self.nonl = nn.ReLU(True)
+
+    def forward(self, hs):
+        """
+        Forward step to estimate the saliency map
+
+        Arguments
+        --------
+        hs : torch.Tensor
+            Classifier's representations.
+
+        Returns
+        --------
+        xhat : torch.Tensor
+            An Estimate for the saliency map
+        """
+
+        h1 = self.convt1(hs[0])
+        h1 = self.nonl(h1)
+
+        h2 = self.convt2(hs[1])
+        h2 = self.nonl(h2)
+        h = h1 + h2
+
+        h3 = self.convt3(h)
+        h3 = self.nonl(h3)
+
+        h4 = self.convt4(hs[2])
+        h4 = self.nonl(h4)
+        h = h3 + h4
+
+        h5 = self.convt5(h)
+        h5 = self.nonl(h5)
+
+        h6 = self.convt6(hs[3])
+        h6 = self.nonl(h6)
+
+        h = h5 + h6
+
+        h = self.convt7(h)
+        h = self.nonl(h)
+
+        h = self.convt8(h)
+        xhat = self.convt9(h)
+
+        return xhat

@@ -229,9 +229,6 @@ def process_line(line, convert_to_wav, data_folder, language, accented_letters):
     spk_id = line.split("\t")[0]
     snt_id = file_name
 
-    if convert_mp3_to_wav:
-        audio_path = convert_mp3_to_wav(audio_path)
-
     # Reading the signal (to retrieve duration in seconds)
     if os.path.isfile(audio_path):
         info = read_audio_info(audio_path)

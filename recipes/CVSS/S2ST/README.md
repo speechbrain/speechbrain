@@ -22,7 +22,7 @@ pip install -r extra_requirements.txt
 ```
 
 ## How to Run
-Before training the speech-to-unit translation (S2UT) model, we have to quantize the target speech into discrete speech units. This is achieved by training a k-means model on raw speech features, which will then serve as the target for training the S2UT model. By default, we use a pre-trained model with `k=100` trained on the 6th layer of HuBERT. For instructions on training a new quantization model, please refer to `recipes/LJSpeech/TTS/quantization`.
+Before training the speech-to-unit translation (S2UT) model, we have to quantize the target speech into discrete speech units. This is achieved by training a k-means model on raw speech features, which will then serve as the target for training the S2UT model. By default, we use a pre-trained model with `k=100` trained on the 6th layer of HuBERT. For instructions on training a new quantization model, please refer to `recipes/LJSpeech/quantization`.
 
 To train the S2UT model on French-English, simply run the following command:
 ```
