@@ -1,36 +1,62 @@
+############################################################################
+# Model: Unit HiFi-GAN
+# Tokens: discrete speech units (K-means)
+# Training: LJSpeech (English)
+# Authors: Jarod Duret, Yingzhi Wang
+# ############################################################################
+
+
 ###################################
 # Experiment Parameters and setup #
 ###################################
-seed: 1234
+seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref ./results/hifi_gan/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
-epochs: 100
+epochs: 200
 keep_checkpoint_interval: 50
 use_tensorboard: False
 
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: !PLACEHOLDER # e.g, /datasets/LibriTTS
-# Data will be automatically downloaded in the data folder
-# (and resampled to the specified sampling rate)
-libritts_subsets: ["train-clean-100", "train-clean-360"]
+data_folder: !PLACEHOLDER # e.g, /datasets/ljspeech
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
+
+splits: ["train", "valid", "test"]
+split_ratio: [80, 10, 10]
 skip_prep: False
 
-splits: ["train", "valid"]
-split_ratio: [90, 10]
+########################################################
+#  Encoder  |  HF model                                #
+#------------------------------------------------------#
+#  HuBERT   |  facebook/hubert-large-ll60k             #
+#  Wav2Vec2 |  facebook/wav2vec2-large-960h-lv60-self  #
+#  WavLM    |  microsoft/wavlm-large                   #
+########################################################
+kmeans_folder: speechbrain/SSL_Quantization
+kmeans_dataset: LibriSpeech-100-360-500
+codes_save_folder: !ref <save_folder>/codes
+encoder_type: HuBERT
+encoder_hub: facebook/hubert-large-ll60k
+encoder_save_folder: !ref <save_folder>/ssl_encoder
+layer: [1, 3, 7, 12, 18, 23]
+num_clusters: 1000
+skip_extract: False
 
 ################################
 # Audio Parameters             #
 ################################
-segment_size: 8192
+
+segment_size: 8960
+code_hop_size: 320
 sample_rate: 16000
+layer_drop: True
+
 hop_length: 256
 win_length: 1024
 n_mel_channels: 80
@@ -50,7 +76,7 @@ learning_rate: 0.0002
 weight_decay: 0.9999
 adam_b1: 0.8
 adam_b2: 0.99
-batch_size: 64 #minimum 2
+batch_size: 32 #minimum 32
 
 train_dataloader_opts:
   batch_size: !ref <batch_size>
@@ -68,10 +94,19 @@ test_dataloader_opts:
 ################################
 # Model Parameters and model   #
 ################################
+duration_predictor: False
+
+# embedding params
+vocab_size: 6001 # K-means size * num layer + 1 for padding 1000x6+1
+embedding_dim: 128
 
 # generator params
-in_channels: 80
+in_channels: 128
 out_channels: 1
+
+var_pred_hidden_dim: 128
+var_pred_kernel_size: 3
+var_pred_dropout: 0.5
 
 ###########################################################################################################################################################
 # version | resblock_type | upsample_kernel_sizes | upsample_factors | resblock_kernel_sizes | upsample_initial_channel | resblock_dilation_sizes
@@ -82,9 +117,9 @@ out_channels: 1
 resblock_type: "1"
 resblock_dilation_sizes: [[1, 3, 5], [1, 3, 5], [1, 3, 5]]
 resblock_kernel_sizes: [3, 7, 11]
-upsample_kernel_sizes: [16, 16, 4, 4]
+upsample_kernel_sizes: [11, 8, 8, 4, 4]
 upsample_initial_channel: 512
-upsample_factors: [8, 8, 2, 2]
+upsample_factors: [5, 4, 4, 2, 2]
 
 inference_padding: 5
 cond_channels: 0
@@ -104,7 +139,7 @@ mel_spectogram: !name:speechbrain.lobes.models.HifiGAN.mel_spectogram
   mel_scale: !ref <mel_scale>
   compression: !ref <dynamic_range_compression>
 
-generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
+generator: !new:speechbrain.lobes.models.HifiGAN.UnitHifiganGenerator
   in_channels: !ref <in_channels>
   out_channels: !ref <out_channels>
   resblock_type: !ref <resblock_type>
@@ -116,6 +151,12 @@ generator: !new:speechbrain.lobes.models.HifiGAN.HifiganGenerator
   inference_padding: !ref <inference_padding>
   cond_channels: !ref <cond_channels>
   conv_post_bias: !ref <conv_post_bias>
+  vocab_size: !ref <vocab_size>
+  embedding_dim: !ref <embedding_dim>
+  duration_predictor: !ref <duration_predictor>
+  var_pred_hidden_dim: !ref <var_pred_hidden_dim>
+  var_pred_kernel_size: !ref <var_pred_kernel_size>
+  var_pred_dropout: !ref <var_pred_dropout>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
 
@@ -139,6 +180,7 @@ l1_spec_loss: !new:speechbrain.lobes.models.HifiGAN.L1SpecLoss
   mel_normalized: !ref <mel_normalized>
   power: !ref <power>
   dynamic_range_compression: !ref <dynamic_range_compression>
+mseg_dur_loss: False
 
 generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
   stft_loss: !ref <stft_loss>
@@ -149,6 +191,8 @@ generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
   feat_match_loss_weight: 10
   l1_spec_loss: !ref  <l1_spec_loss>
   l1_spec_loss_weight: 45
+  mseg_dur_loss: !ref <mseg_dur_loss>
+  mseg_dur_loss_weight: 1
 
 #discriminator loss
 msed_loss: !new:speechbrain.lobes.models.HifiGAN.MSEDLoss
