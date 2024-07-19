@@ -314,6 +314,7 @@ if __name__ == "__main__":
     print("overlap_type=", hparams["overlap_type"])
     print("int_method=", hparams["int_method"])
     print("ljspeech_path=", hparams["ljspeech_path"])
+    print("single_sample=", hparams["single_sample"])
 
     print("Inherited hparams:")
     print("use_melspectra_log1p=", hparams["use_melspectra_log1p"])

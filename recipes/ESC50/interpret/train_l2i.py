@@ -350,6 +350,7 @@ if __name__ == "__main__":
     print("overlap_type=", hparams["overlap_type"])
     print("int_method=", hparams["int_method"])
     print("ljspeech_path=", hparams["ljspeech_path"])
+    print("single_sample=", hparams["single_sample"])
 
     print(
         "Interpreter class is inheriting the train_logger",
