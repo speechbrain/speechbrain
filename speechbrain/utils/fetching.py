@@ -193,8 +193,6 @@ def guess_source(source: Union[str, FetchSource]) -> FetchSource:
     if isinstance(source, FetchSource):
         return source
 
-    assert isinstance(source, str)
-
     if pathlib.Path(source).is_dir():
         return FetchFrom.LOCAL, source
 
