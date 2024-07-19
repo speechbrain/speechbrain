@@ -115,7 +115,7 @@ class L2I(InterpreterBrain):
             ret_mask[idx] = mask
             ret_X_stft_phase[idx] = X_stft_phase
 
-        return ret_X_int, ret_mask, ret_X_stft_phase
+        return ret_X_int, ret_mask, ret_X_stft_phase, X_stft_logpower[None]
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
