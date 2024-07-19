@@ -18,7 +18,6 @@ import torch
 from huggingface_hub import hf_hub_download
 from torch import nn
 
-
 try:
     from snac import SNAC as _SNAC
 except ImportError:
