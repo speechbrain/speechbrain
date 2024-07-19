@@ -129,7 +129,7 @@ def link_with_strategy(
                 "Did you maybe incorrectly call fetch() with `source==savedir`?"
             )
 
-        logging.info(
+        logging.debug(
             "Fetch: Source and destination '%s' are identical, returning assuming this is intended",
             src,
         )
@@ -144,7 +144,7 @@ def link_with_strategy(
                 "`LocalStrategy` documentation."
             )
 
-        logging.info(
+        logging.debug(
             "Fetch: Local file found, creating symlink '%s' -> '%s'", src, dst
         )
 
@@ -160,7 +160,7 @@ def link_with_strategy(
         return dst
 
     if local_strategy == LocalStrategy.NO_LINK:
-        logging.info(
+        logging.debug(
             "Fetch: Local file found, returning '%s' (NOT linking to '%s' because NO_LINK was passed)",
             src,
             dst,
