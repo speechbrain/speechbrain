@@ -1,8 +1,8 @@
 ############################################################################
 # Model: Unit HiFi-GAN
 # Tokens: discrete speech units (K-means)
-# Training: LJSpeech (English)
-# Authors: Jarod Duret, Yingzhi Wang
+# Training: LibriTTS (English)
+# Authors: Jarod Duret
 # ############################################################################
 
 
@@ -11,39 +11,54 @@
 ###################################
 seed: 4321
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref ./results/hifi_gan/<seed>
+output_folder: !ref ./results/hifigan_hubert/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 progress_sample_path: !ref <output_folder>/samples
-epochs: 200
+epochs: 150
 keep_checkpoint_interval: 50
 use_tensorboard: False
 
 #################################
 # Data files and pre-processing #
 #################################
-data_folder: !PLACEHOLDER # e.g, /datasets/ljspeech 16k!
+data_folder: !PLACEHOLDER # e.g, /datasets/LibriTTS
+# Data will be automatically downloaded in the data folder
+# (and resampled to the specified sampling rate)
+train_split: [train-clean-100]
+valid_split: [dev-clean]
+test_split: [test-clean]
 train_json: !ref <save_folder>/train.json
 valid_json: !ref <save_folder>/valid.json
 test_json: !ref <save_folder>/test.json
-
-splits: ["train", "valid"]
-split_ratio: [90, 10]
+libritts_subsets: null
+splits: ["train", "valid", "test"]
+split_ratio: null
 skip_prep: False
 
-kmeans_folder: !PLACEHOLDER # e.g, ../../quantization/results/kmeans/4321/save
+########################################################
+#  Encoder  |  HF model                                #
+#------------------------------------------------------#
+#  HuBERT   |  facebook/hubert-large-ll60k             #
+#  Wav2Vec2 |  facebook/wav2vec2-large-960h-lv60-self  #
+#  WavLM    |  microsoft/wavlm-large                   #
+########################################################
+kmeans_folder: speechbrain/SSL_Quantization
+kmeans_dataset: LibriSpeech-100-360-500
+num_clusters: 1000
 codes_folder: !ref <save_folder>/codes
-encoder_hub: facebook/hubert-base-ls960
-layer: 6
+encoder_type: HuBERT
+encoder_hub: facebook/hubert-large-ll60k
+layer: [1, 3, 7, 12, 18, 23]
+skip_extract: False
 
 ################################
 # Audio Parameters             #
 ################################
-
 segment_size: 8960
 code_hop_size: 320
 sample_rate: 16000
-
+layer_drop: True
 
 hop_length: 256
 win_length: 1024
@@ -64,7 +79,7 @@ learning_rate: 0.0002
 weight_decay: 0.9999
 adam_b1: 0.8
 adam_b2: 0.99
-batch_size: 32 #minimum 32
+batch_size: 32
 
 train_dataloader_opts:
   batch_size: !ref <batch_size>
@@ -82,14 +97,15 @@ test_dataloader_opts:
 ################################
 # Model Parameters and model   #
 ################################
-duration_predictor: True
+duration_predictor: False
+multi_speaker: False
 
 # embedding params
-num_embeddings: 101 # K-means size + 1 for padding
-embedding_dim: 128
+vocab_size: 6001 # K-means size + 1 for padding 1000x6
+embedding_dim: 1024
 
 # generator params
-in_channels: 128
+in_channels: 1024
 out_channels: 1
 
 var_pred_hidden_dim: 128
@@ -139,12 +155,13 @@ generator: !new:speechbrain.lobes.models.HifiGAN.UnitHifiganGenerator
   inference_padding: !ref <inference_padding>
   cond_channels: !ref <cond_channels>
   conv_post_bias: !ref <conv_post_bias>
-  num_embeddings: !ref <num_embeddings>
+  vocab_size: !ref <vocab_size>
   embedding_dim: !ref <embedding_dim>
   duration_predictor: !ref <duration_predictor>
   var_pred_hidden_dim: !ref <var_pred_hidden_dim>
   var_pred_kernel_size: !ref <var_pred_kernel_size>
   var_pred_dropout: !ref <var_pred_dropout>
+  multi_speaker: !ref <multi_speaker>
 
 discriminator: !new:speechbrain.lobes.models.HifiGAN.HifiganDiscriminator
 
@@ -168,7 +185,7 @@ l1_spec_loss: !new:speechbrain.lobes.models.HifiGAN.L1SpecLoss
   mel_normalized: !ref <mel_normalized>
   power: !ref <power>
   dynamic_range_compression: !ref <dynamic_range_compression>
-mseg_dur_loss: True
+mseg_dur_loss: False
 
 generator_loss: !new:speechbrain.lobes.models.HifiGAN.GeneratorLoss
   stft_loss: !ref <stft_loss>
