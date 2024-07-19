@@ -8,7 +8,7 @@
 # Authors: Jianyuan Zhong, Titouan Parcollet, Samuele Cornell, Dongwon Kim, Dongwoo Kim
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
-seed: 7777
+seed: 8888
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 output_folder: !ref results/conformer/<seed>
 output_wer_folder: !ref <output_folder>/
@@ -51,7 +51,7 @@ precision: fp32 # bf16, fp16 or fp32
 avg_checkpoints: 10 # Number of checkpoints to average for evaluation
 
 test_min_value:
-    duration: 1.0
+    duration: 0.0
 
 # stages related parameters
 lr_adam: 0.001
@@ -98,11 +98,11 @@ test_dataloader_opts:
 
 ####################### Model Parameters ###########################
 # Transformer
-d_model: 256
+d_model: 144
 nhead: 4
 num_encoder_layers: 12
-num_decoder_layers: 6
-d_ffn: 2048
+num_decoder_layers: 4
+d_ffn: 1024
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
@@ -190,6 +190,7 @@ Adam: !name:torch.optim.AdamW
     lr: !ref <lr_adam>
     betas: (0.9, 0.98)
     eps: 0.000000001
+    weight_decay: 0.0001
 
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]

@@ -1,23 +1,20 @@
-#!/usr/bin/env python3
-"""Recipe for training a Transformer ASR system with KsponSpeech.
-The system employs an encoder, a decoder, and an attention mechanism
-between them. Decoding is performed with (CTC/Att joint) beamsearch coupled with a neural
+#!/usr/bin/env/python3
+"""Recipe for training a Transducer ASR system with KsponSpeech.
+The system employs an encoder, a decoder, and an joint network
+between them. Decoding is performed with beamsearch coupled with a neural
 language model.
 
 To run this recipe, do the following:
-> python train.py hparams/transformer.yaml
-> python train.py hparams/conformer.yaml
+> python train.py hparams/conformer_transducer.yaml
 
-With the default hyperparameters, the system employs a convolutional frontend and a transformer.
-The decoder is based on a Transformer decoder. Beamsearch coupled with a Transformer
-language model is used  on the top of decoder probabilities.
+With the default hyperparameters, the system employs a conformer encoder.
+The decoder is based on a standard LSTM. Beamsearch coupled with a RNN
+language model is used on the top of decoder probabilities.
 
 The neural network is trained on both CTC and negative-log likelihood
 targets and sub-word units estimated with Byte Pairwise Encoding (BPE)
 are used as basic recognition tokens. Training is performed on the full
 KsponSpeech dataset (965.2 h).
-
-The best model is the average of the checkpoints from last 5 epochs.
 
 The experiment file is flexible enough to support a large variety of
 different systems. By properly changing the parameter files, you can try
@@ -27,12 +24,12 @@ other possible variations.
 
 
 Authors
- * Jianyuan Zhong 2020
+ * Sylvain de Langen 2024
+ * Titouan Parcollet 2024
+ * Abdel Heba 2020
  * Mirco Ravanelli 2020
+ * Ju-Chieh Chou 2020
  * Peter Plantinga 2020
- * Samuele Cornell 2020, 2021, 2022
- * Titouan Parcollet 2021, 2022
- * Dongwon Kim, Dongwoo Kim 2023
 """
 
 import logging
@@ -48,73 +45,119 @@ from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
-
 # Define training procedure
-class ASR(sb.core.Brain):
+
+
+class ASR(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-        tokens_bos, _ = batch.tokens_bos
+        tokens_with_bos, token_with_bos_lens = batch.tokens_bos
 
-        # compute features
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN:
+            if hasattr(self.hparams, "wav_augment"):
+                wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+                tokens_with_bos = self.hparams.wav_augment.replicate_labels(
+                    tokens_with_bos
+                )
+
         feats = self.hparams.compute_features(wavs)
-        current_epoch = self.hparams.epoch_counter.current
-        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
         # Add feature augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "fea_augment"):
             feats, fea_lens = self.hparams.fea_augment(feats, wav_lens)
-            tokens_bos = self.hparams.fea_augment.replicate_labels(tokens_bos)
+            tokens_with_bos = self.hparams.fea_augment.replicate_labels(
+                tokens_with_bos
+            )
 
-        # forward modules
+        current_epoch = self.hparams.epoch_counter.current
+
+        # Old models may not have the streaming hparam, we don't break them in
+        # any other way so just check for its presence
+        if hasattr(self.hparams, "streaming") and self.hparams.streaming:
+            dynchunktrain_config = self.hparams.dynchunktrain_config_sampler(
+                stage
+            )
+        else:
+            dynchunktrain_config = None
+
+        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
+
         src = self.modules.CNN(feats)
-
-        enc_out, pred = self.modules.Transformer(
-            src, tokens_bos, wav_lens, pad_idx=self.hparams.pad_index
+        x = self.modules.enc(
+            src,
+            wav_lens,
+            pad_idx=self.hparams.pad_index,
+            dynchunktrain_config=dynchunktrain_config,
         )
+        x = self.modules.proj_enc(x)
 
-        # output layer for ctc log-probabilities
-        logits = self.modules.ctc_lin(enc_out)
-        p_ctc = self.hparams.log_softmax(logits)
+        e_in = self.modules.emb(tokens_with_bos)
+        e_in = torch.nn.functional.dropout(
+            e_in,
+            self.hparams.dec_emb_dropout,
+            training=(stage == sb.Stage.TRAIN),
+        )
+        h, _ = self.modules.dec(e_in)
+        h = torch.nn.functional.dropout(
+            h, self.hparams.dec_dropout, training=(stage == sb.Stage.TRAIN)
+        )
+        h = self.modules.proj_dec(h)
 
-        # output layer for seq2seq log-probabilities
-        pred = self.modules.seq_lin(pred)
-        p_seq = self.hparams.log_softmax(pred)
+        # Joint network
+        # add labelseq_dim to the encoder tensor: [B,T,H_enc] => [B,T,1,H_enc]
+        # add timeseq_dim to the decoder tensor: [B,U,H_dec] => [B,1,U,H_dec]
+        joint = self.modules.Tjoint(x.unsqueeze(2), h.unsqueeze(1))
+
+        # Output layer for transducer log-probabilities
+        logits_transducer = self.modules.transducer_lin(joint)
 
         # Compute outputs
-        hyps = None
-        current_epoch = self.hparams.epoch_counter.current
-        is_valid_search = (
-            stage == sb.Stage.VALID
-            and current_epoch % self.hparams.valid_search_interval == 0
-        )
-        is_test_search = stage == sb.Stage.TEST
+        if stage == sb.Stage.TRAIN:
+            p_ctc = None
+            p_ce = None
 
-        if any([is_valid_search, is_test_search]):
-            # Note: For valid_search, for the sake of efficiency, we only perform beamsearch with
-            # limited capacity and no LM to give user some idea of how the AM is doing
+            if (
+                self.hparams.ctc_weight > 0.0
+                and current_epoch <= self.hparams.number_of_ctc_epochs
+            ):
+                # Output layer for ctc log-probabilities
+                out_ctc = self.modules.proj_ctc(x)
+                p_ctc = self.hparams.log_softmax(out_ctc)
 
-            # Decide searcher for inference: valid or test search
-            if stage == sb.Stage.VALID:
-                hyps, _, _, _ = self.hparams.valid_search(
-                    enc_out.detach(), wav_lens
-                )
-            else:
-                hyps, _, _, _ = self.hparams.test_search(
-                    enc_out.detach(), wav_lens
-                )
+            if self.hparams.ce_weight > 0.0:
+                # Output layer for ctc log-probabilities
+                p_ce = self.modules.dec_lin(h)
+                p_ce = self.hparams.log_softmax(p_ce)
 
-        return p_ctc, p_seq, wav_lens, hyps
+            return p_ctc, p_ce, logits_transducer, wav_lens
+
+        elif stage == sb.Stage.VALID:
+            best_hyps, scores, _, _ = self.hparams.Greedysearcher(x)
+            return logits_transducer, wav_lens, best_hyps
+        else:
+            (
+                best_hyps,
+                best_scores,
+                nbest_hyps,
+                nbest_scores,
+            ) = self.hparams.Beamsearcher(x)
+            return logits_transducer, wav_lens, best_hyps
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss (CTC+NLL) given predictions and targets."""
-
-        (p_ctc, p_seq, wav_lens, hyps) = predictions
+        """Computes the loss (Transducer+(CTC+NLL)) given predictions and targets."""
 
         ids = batch.id
-        tokens_eos, tokens_eos_lens = batch.tokens_eos
-        tokens, tokens_lens = batch.tokens
+        tokens, token_lens = batch.tokens
+        tokens_eos, token_eos_lens = batch.tokens_eos
+
+        # Train returns 4 elements vs 3 for val and test
+        if len(predictions) == 4:
+            p_ctc, p_ce, logits_transducer, wav_lens = predictions
+        else:
+            logits_transducer, wav_lens, predicted_tokens = predictions
 
         if stage == sb.Stage.TRAIN:
             # Labels must be extended if parallel augmentation or concatenated
@@ -122,69 +165,60 @@ class ASR(sb.core.Brain):
             if hasattr(self.hparams, "fea_augment"):
                 (
                     tokens,
-                    tokens_lens,
+                    token_lens,
                     tokens_eos,
-                    tokens_eos_lens,
+                    token_eos_lens,
                 ) = self.hparams.fea_augment.replicate_multiple_labels(
-                    tokens, tokens_lens, tokens_eos, tokens_eos_lens
+                    tokens, token_lens, tokens_eos, token_eos_lens
                 )
 
-        loss_seq = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens
-        ).sum()
-
-        loss_ctc = self.hparams.ctc_cost(
-            p_ctc, tokens, wav_lens, tokens_lens
-        ).sum()
-
-        loss = (
-            self.hparams.ctc_weight * loss_ctc
-            + (1 - self.hparams.ctc_weight) * loss_seq
-        )
+        if stage == sb.Stage.TRAIN:
+            CTC_loss = 0.0
+            CE_loss = 0.0
+            if p_ctc is not None:
+                CTC_loss = self.hparams.ctc_cost(
+                    p_ctc, tokens, wav_lens, token_lens
+                )
+            if p_ce is not None:
+                CE_loss = self.hparams.ce_cost(
+                    p_ce, tokens_eos, length=token_eos_lens
+                )
+            loss_transducer = self.hparams.transducer_cost(
+                logits_transducer, tokens, wav_lens, token_lens
+            )
+            loss = (
+                self.hparams.ctc_weight * CTC_loss
+                + self.hparams.ce_weight * CE_loss
+                + (1 - (self.hparams.ctc_weight + self.hparams.ce_weight))
+                * loss_transducer
+            )
+        else:
+            loss = self.hparams.transducer_cost(
+                logits_transducer, tokens, wav_lens, token_lens
+            )
 
         if stage != sb.Stage.TRAIN:
-            current_epoch = self.hparams.epoch_counter.current
-            valid_search_interval = self.hparams.valid_search_interval
-            if current_epoch % valid_search_interval == 0 or (
-                stage == sb.Stage.TEST
-            ):
-                # Decode token terms to words
-                predicted_words = [
-                    tokenizer.decode_ids(utt_seq).split(" ") for utt_seq in hyps
-                ]
-                target_words = [wrd.split(" ") for wrd in batch.wrd]
-                predicted_chars = [
-                    list("".join(utt_seq)) for utt_seq in predicted_words
-                ]
-                target_chars = [list("".join(wrd.split())) for wrd in batch.wrd]
-                self.wer_metric.append(ids, predicted_words, target_words)
-                self.cer_metric.append(ids, predicted_chars, target_chars)
+            # Decode token terms to words
+            predicted_words = [
+                self.tokenizer.decode_ids(utt_seq).split(" ")
+                for utt_seq in predicted_tokens
+            ]
+            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            self.wer_metric.append(ids, predicted_words, target_words)
+            self.cer_metric.append(ids, predicted_words, target_words)
 
-            # compute the accuracy of the one-step-forward prediction
-            self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
 
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint average if needed"""
-        super().on_evaluate_start()
-
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model"
-        )
-
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
-        print("Loaded the average")
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
         if stage != sb.Stage.TRAIN:
-            self.acc_metric = self.hparams.acc_computer()
+            self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
-            self.cer_metric = self.hparams.error_rate_computer()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of a epoch."""
@@ -193,17 +227,10 @@ class ASR(sb.core.Brain):
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
         else:
-            stage_stats["ACC"] = self.acc_metric.summarize()
-            current_epoch = self.hparams.epoch_counter.current
-            valid_search_interval = self.hparams.valid_search_interval
-            if (
-                current_epoch % valid_search_interval == 0
-                or stage == sb.Stage.TEST
-            ):
-                stage_stats["WER"] = self.wer_metric.summarize("error_rate")
-                stage_stats["CER"] = self.cer_metric.summarize("error_rate")
+            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
+            stage_stats["CER"] = self.cer_metric.summarize("error_rate")
 
-        # log stats and save checkpoint at end-of-epoch
+        # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
             lr = self.hparams.noam_annealing.current_lr
             steps = self.optimizer_step
@@ -215,14 +242,15 @@ class ASR(sb.core.Brain):
                 "steps": steps,
                 "optimizer": optimizer,
             }
+
             self.hparams.train_logger.log_stats(
                 stats_meta=epoch_stats,
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"ACC": stage_stats["ACC"], "epoch": epoch},
-                max_keys=["ACC"],
+                meta={"CER": stage_stats["CER"], "epoch": epoch},
+                min_keys=["CER"],
                 num_to_keep=self.hparams.avg_checkpoints,
             )
 
@@ -234,21 +262,30 @@ class ASR(sb.core.Brain):
             if if_main_process():
                 with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
-                    self.cer_metric.write_stats(w)
 
             # save the averaged checkpoint at the end of the evaluation stage
             # delete the rest of the intermediate checkpoints
-            # ACC is set to 1.1 so checkpointer only keeps the averaged checkpoint
+            # WER is set to -0.1 so checkpointer only keeps the averaged checkpoint
             self.checkpointer.save_and_keep_only(
-                meta={"ACC": 1.1, "epoch": epoch},
-                max_keys=["ACC"],
+                meta={"CER": -0.1, "epoch": epoch},
+                min_keys=["CER"],
                 num_to_keep=1,
             )
 
-    def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """At the end of the optimizer step, apply noam annealing."""
-        if should_step:
-            self.hparams.noam_annealing(self.optimizer)
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint average if needed"""
+        super().on_evaluate_start()
+
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key,
+            min_key=min_key,
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model"
+        )
+
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
 
 
 def dataio_prepare(hparams):
@@ -264,29 +301,38 @@ def dataio_prepare(hparams):
 
     if hparams["sorting"] == "ascending":
         # we sort training data to speed up training and get better results.
-        train_data = train_data.filtered_sorted(sort_key="duration")
+        train_data = train_data.filtered_sorted(
+            sort_key="duration", key_min_value=hparams["train_min_value"]
+        )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "descending":
         train_data = train_data.filtered_sorted(
-            sort_key="duration", reverse=True
+            sort_key="duration",
+            reverse=True,
+            key_min_value=hparams["train_min_value"],
         )
         # when sorting do not shuffle in dataloader ! otherwise is pointless
         hparams["train_dataloader_opts"]["shuffle"] = False
 
     elif hparams["sorting"] == "random":
-        pass
+        train_data = train_data.filtered_sorted(
+            key_min_value=hparams["train_min_value"]
+        )
 
     else:
         raise NotImplementedError(
             "sorting must be random, ascending or descending"
         )
+
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["valid_csv"],
         replacements={"data_root": data_folder},
     )
-    valid_data = valid_data.filtered_sorted(sort_key="duration")
+    valid_data = valid_data.filtered_sorted(
+        sort_key="duration", key_min_value=hparams["valid_min_value"]
+    )
 
     # test is separate
     test_datasets = {}
@@ -300,10 +346,9 @@ def dataio_prepare(hparams):
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
-    valtest_datasets = [valid_data] + [i for k, i in test_datasets.items()]
 
-    # We get the tokenizer as we need it to encode the labels when creating
-    # mini-batches.
+    # Defining tokenizer and loading it
+    # To avoid mismatch, we have to use the same tokenizer used for LM training
     tokenizer = hparams["tokenizer"]
 
     # 2. Define audio pipeline:
@@ -313,22 +358,7 @@ def dataio_prepare(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    sb.dataio.dataset.add_dynamic_item(valtest_datasets, audio_pipeline)
-
-    @sb.utils.data_pipeline.takes("wav")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline_train(wav):
-        # Speed Perturb is done here so it is multi-threaded with the
-        # workers of the dataloader (faster).
-        if "speed_perturb" in hparams:
-            sig = sb.dataio.dataio.read_audio(wav)
-
-            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
-        else:
-            sig = sb.dataio.dataio.read_audio(wav)
-        return sig
-
-    sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline_train)
+    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
     # 3. Define text pipeline:
     @sb.utils.data_pipeline.takes("wrd")
@@ -360,18 +390,25 @@ def dataio_prepare(hparams):
     if hparams["dynamic_batching"]:
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
-        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
-        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        num_buckets = dynamic_hparams["num_buckets"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            **dynamic_hparams_train,
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
         )
+
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
+            dynamic_hparams["max_batch_len_val"],
+            num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            **dynamic_hparams_valid,
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
     return (
@@ -387,14 +424,19 @@ def dataio_prepare(hparams):
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+
+    # Use torchaudio if the device is CPU
+    if run_opts.get("device") == "cpu":
+        if "use_torchaudio: True" in overrides:
+            overrides.replace("use_torchaudio: True", "use_torchaudio: False")
+        else:
+            overrides += "\nuse_torchaudio: True"
 
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    # 1.  # Dataset prep (parsing KsponSpeech)
-    from ksponspeech_prepare import prepare_ksponspeech  # noqa
+    with open(hparams_file) as fin:
+        hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -402,6 +444,9 @@ if __name__ == "__main__":
         hyperparams_to_save=hparams_file,
         overrides=overrides,
     )
+
+    # 1.  # Dataset prep (parsing KsponSpeech)
+    from ksponspeech_prepare import prepare_ksponspeech  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
@@ -428,47 +473,35 @@ if __name__ == "__main__":
         valid_bsampler,
     ) = dataio_prepare(hparams)
 
-    # We download the pretrained LM from HuggingFace (or elsewhere depending on
-    # the path given in the YAML file). The tokenizer is loaded at the same time.
+    # We download the pretrained LM and the tokenizer from HuggingFace (or elsewhere
+    # depending on the path given in the YAML file). The tokenizer is loaded at
+    # the same time.
     run_on_main(hparams["pretrainer"].collect_files)
     hparams["pretrainer"].load_collected()
 
     # Trainer initialization
     asr_brain = ASR(
         modules=hparams["modules"],
-        opt_class=hparams["Adam"],
+        opt_class=hparams["opt_class"],
         hparams=hparams,
         run_opts=run_opts,
         checkpointer=hparams["checkpointer"],
     )
 
-    # adding objects to trainer:
+    # We dynamically add the tokenizer to our brain class.
+    # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = hparams["tokenizer"]
     train_dataloader_opts = hparams["train_dataloader_opts"]
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     if train_bsampler is not None:
-        collate_fn = None
-        if "collate_fn" in train_dataloader_opts:
-            collate_fn = train_dataloader_opts["collate_fn"]
-
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
 
-        if collate_fn is not None:
-            train_dataloader_opts["collate_fn"] = collate_fn
-
     if valid_bsampler is not None:
-        collate_fn = None
-        if "collate_fn" in valid_dataloader_opts:
-            collate_fn = valid_dataloader_opts["collate_fn"]
-
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
-
-        if collate_fn is not None:
-            valid_dataloader_opts["collate_fn"] = collate_fn
 
     # Training
     asr_brain.fit(
@@ -480,15 +513,14 @@ if __name__ == "__main__":
     )
 
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.test_wer_file = os.path.join(
-            hparams["output_wer_folder"], f"wer_{k}.txt"
+            hparams["output_wer_folder"], f"cer_{k}.txt"
         )
         asr_brain.evaluate(
             test_datasets[k],
-            max_key="ACC",
             test_loader_kwargs=hparams["test_dataloader_opts"],
+            min_key="CER",
         )
