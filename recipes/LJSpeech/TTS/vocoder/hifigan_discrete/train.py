@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""Recipe for training a hifi-gan vocoder.
+"""Recipe for training a hifi-gan vocoder on self-supervised representations.
 For more details about hifi-gan: https://arxiv.org/pdf/2010.05646.pdf
+For more details about speech synthesis using self-supervised representations: https://arxiv.org/pdf/2104.00355.pdf
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/LibriTTS
+> python train.py hparams/train.yaml --data_folder=/path/to/LJspeech
 
 Authors
- * Duret Jarod 2021
+ * Jarod Duret 2023
  * Yingzhi WANG 2022
- * Pradnya Kandarkar 2022
 """
 
-import os
+import copy
+import pathlib as pl
+import random
 import sys
 
+import numpy as np
 import torch
 import torchaudio
 from hyperpyyaml import load_hyperpyyaml
@@ -30,63 +33,111 @@ class HifiGanBrain(sb.Brain):
 
         Arguments
         ---------
-        batch: str
-            a single batch
-        stage: speechbrain.Stage
-            the training stage
+        batch : torch.Tensor or tensors
+            An element from the dataloader, including inputs for processing.
+        stage : Stage
+            The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
-        Returns
-        -------
-        y_g_hat : torch.Tensor
-        scores_fake : torch.Tensor
-        feats_fake : torch.Tensor
-        scores_real : torch.Tensor
-        feats_real : torch.Tensor
         """
         batch = batch.to(self.device)
-        x, _ = batch.mel
+
+        x, _ = batch.code
         y, _ = batch.sig
 
-        # generate synthesized waveforms
-        y_g_hat = self.modules.generator(x)[:, :, : y.size(2)]
+        # generate sythesized waveforms
+        y_g_hat, (log_dur_pred, log_dur) = self.modules.generator(x)
+        y_g_hat = y_g_hat[:, :, : y.size(2)]
 
         # get scores and features from discriminator for real and synthesized waveforms
         scores_fake, feats_fake = self.modules.discriminator(y_g_hat.detach())
         scores_real, feats_real = self.modules.discriminator(y)
 
-        return (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
+        return (
+            y_g_hat,
+            scores_fake,
+            feats_fake,
+            scores_real,
+            feats_real,
+            log_dur_pred,
+            log_dur,
+        )
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes and combines generator and discriminator losses"""
+        """Computes the loss given the predicted and targeted outputs.
+        Arguments
+        ---------
+        predictions : torch.Tensor
+            The model generated spectrograms and other metrics from `compute_forward`.
+        batch : PaddedBatch
+            This batch object contains all the relevant tensors for computation.
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, or sb.Stage.TEST.
+        Returns
+        -------
+        loss : torch.Tensor
+            A one-element tensor used for backpropagating the gradient.
+        """
         batch = batch.to(self.device)
-        x, _ = batch.mel
-        y, _ = batch.sig
+
+        x, _ = batch.code
+        y, y_lens = batch.sig
 
         # Hold on to the batch for the inference sample. This is needed because
-        # the inference sample is run from on_stage_end only, where
+        # the infernece sample is run from on_stage_end only, where
         # batch information is not available
         self.last_batch = (x, y)
 
-        # Hold on to a sample (for logging)
-        self._remember_sample(self.last_batch, predictions)
+        (
+            y_hat,
+            scores_fake,
+            feats_fake,
+            scores_real,
+            feats_real,
+            log_dur_pred,
+            log_dur,
+        ) = predictions
 
-        y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
         loss_g = self.hparams.generator_loss(
-            stage, y_hat, y, scores_fake, feats_fake, feats_real
+            stage,
+            y_hat,
+            y,
+            scores_fake,
+            feats_fake,
+            feats_real,
+            log_dur_pred,
+            log_dur,
         )
+
         loss_d = self.hparams.discriminator_loss(scores_fake, scores_real)
         loss = {**loss_g, **loss_d}
         self.last_loss_stats[stage] = scalarize(loss)
+
         return loss
 
     def fit_batch(self, batch):
-        """Train discriminator and generator adversarially"""
-
+        """Fits a single batch.
+        Arguments
+        ---------
+        batch: tuple
+            a training batch
+        Returns
+        -------
+        loss: torch.Tensor
+            detached loss
+        """
         batch = batch.to(self.device)
         y, _ = batch.sig
 
         outputs = self.compute_forward(batch, sb.core.Stage.TRAIN)
-        (y_g_hat, scores_fake, feats_fake, scores_real, feats_real) = outputs
+        (
+            y_g_hat,
+            scores_fake,
+            feats_fake,
+            scores_real,
+            feats_real,
+            log_dur_pred,
+            log_dur,
+        ) = outputs
         # calculate discriminator loss with the latest updated generator
         loss_d = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
             "D_loss"
@@ -99,7 +150,15 @@ class HifiGanBrain(sb.Brain):
         # calculate generator loss with the latest updated discriminator
         scores_fake, feats_fake = self.modules.discriminator(y_g_hat)
         scores_real, feats_real = self.modules.discriminator(y)
-        outputs = (y_g_hat, scores_fake, feats_fake, scores_real, feats_real)
+        outputs = (
+            y_g_hat,
+            scores_fake,
+            feats_fake,
+            scores_real,
+            feats_real,
+            log_dur_pred,
+            log_dur,
+        )
         loss_g = self.compute_objectives(outputs, batch, sb.core.Stage.TRAIN)[
             "G_loss"
         ]
@@ -111,7 +170,20 @@ class HifiGanBrain(sb.Brain):
         return loss_g.detach().cpu()
 
     def evaluate_batch(self, batch, stage):
-        """Evaluate one batch"""
+        """Evaluate one batch.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for evaluation. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        stage : Stage
+            The stage of the experiment: Stage.VALID, Stage.TEST
+
+        Returns
+        -------
+        detached loss
+        """
         out = self.compute_forward(batch, stage=stage)
         loss = self.compute_objectives(out, batch, stage=stage)
         loss_g = loss["G_loss"]
@@ -119,7 +191,7 @@ class HifiGanBrain(sb.Brain):
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
-        if ``distributed_count > 0`` and backend is ddp and initializes statistics
+        if ``distributed_count > 0`` and backend is ddp and initializes statistics.
         """
         self.last_epoch = 0
         self.last_batch = None
@@ -142,6 +214,11 @@ class HifiGanBrain(sb.Brain):
             self.optimizer_d = opt_d_class(
                 self.modules.discriminator.parameters()
             )
+            self.optimizers_dict = {
+                "optimizer_g": self.optimizer_g,
+                "optimizer_d": self.optimizer_d,
+            }
+
             self.scheduler_g = sch_g_class(self.optimizer_g)
             self.scheduler_d = sch_d_class(self.optimizer_d)
 
@@ -159,26 +236,19 @@ class HifiGanBrain(sb.Brain):
                     "scheduler_d", self.scheduler_d
                 )
 
-            self.optimizers_dict = {
-                "optimizer_g": self.optimizer_g,
-                "optimizer_d": self.optimizer_d,
-            }
-
-    def _remember_sample(self, batch, predictions):
-        """Remembers samples of spectrograms and the batch for logging purposes
+    def on_stage_end(self, stage, stage_loss, epoch):
+        """Gets called at the end of an epoch.
 
         Arguments
         ---------
-        batch: tuple
-            a training batch
-        predictions: tuple
-            predictions (raw output of the Tacotron model)
+        stage : sb.Stage
+            One of sb.Stage.TRAIN, sb.Stage.VALID, sb.Stage.TEST
+        stage_loss : float
+            The average loss for all of the data processed in this stage.
+        epoch : int
+            The currently-starting epoch. This is passed
+            `None` during the test stage.
         """
-        mel, sig = batch
-        y_hat, scores_fake, feats_fake, scores_real, feats_real = predictions
-
-    def on_stage_end(self, stage, stage_loss, epoch):
-        """Gets called at the end of a stage (TRAIN, VALID, Or TEST)"""
         if stage == sb.Stage.VALID:
             # Update learning rate
             self.scheduler_g.step()
@@ -186,17 +256,21 @@ class HifiGanBrain(sb.Brain):
             lr_g = self.optimizer_g.param_groups[-1]["lr"]
             lr_d = self.optimizer_d.param_groups[-1]["lr"]
 
+            stats = {
+                **self.last_loss_stats[sb.Stage.VALID],
+            }
+
             self.hparams.train_logger.log_stats(  # 1#2#
                 stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
                 train_stats=self.last_loss_stats[sb.Stage.TRAIN],
-                valid_stats=self.last_loss_stats[sb.Stage.VALID],
+                valid_stats=stats,
             )
             # The tensorboard_logger writes a summary to stdout and to the logfile.
             if self.hparams.use_tensorboard:
                 self.tensorboard_logger.log_stats(
                     stats_meta={"Epoch": epoch, "lr_g": lr_g, "lr_d": lr_d},
                     train_stats=self.last_loss_stats[sb.Stage.TRAIN],
-                    valid_stats=self.last_loss_stats[sb.Stage.VALID],
+                    valid_stats=stats,
                 )
 
             # Save the current checkpoint and delete previous checkpoints.
@@ -204,26 +278,27 @@ class HifiGanBrain(sb.Brain):
                 **{"epoch": epoch},
                 **self.last_loss_stats[sb.Stage.VALID],
             }
-            self.checkpointer.save_and_keep_only(
-                meta=epoch_metadata,
-                end_of_epoch=True,
-                min_keys=["loss"],
-                ckpt_predicate=(
-                    (
-                        lambda ckpt: (
-                            ckpt.meta["epoch"]
-                            % self.hparams.keep_checkpoint_interval
-                            != 0
+            if self.checkpointer is not None:
+                self.checkpointer.save_and_keep_only(
+                    meta=epoch_metadata,
+                    end_of_epoch=True,
+                    min_keys=["loss"],
+                    ckpt_predicate=(
+                        (
+                            lambda ckpt: (
+                                ckpt.meta["epoch"]
+                                % self.hparams.keep_checkpoint_interval
+                                != 0
+                            )
                         )
-                    )
-                    if self.hparams.keep_checkpoint_interval is not None
-                    else None
-                ),
-            )
+                        if self.hparams.keep_checkpoint_interval is not None
+                        else None
+                    ),
+                )
 
-            self.run_inference_sample("Valid")
+            self.run_inference_sample("Valid", epoch)
 
-        # We also write statistics about test data to stdout and to the torch.TensorboardLogger.
+        # We also write statistics about test data to stdout and to the TensorboardLogger.
         if stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(  # 1#2#
                 {"Epoch loaded": self.hparams.epoch_counter.current},
@@ -234,11 +309,19 @@ class HifiGanBrain(sb.Brain):
                     {"Epoch loaded": self.hparams.epoch_counter.current},
                     test_stats=self.last_loss_stats[sb.Stage.TEST],
                 )
-            self.run_inference_sample("Test")
+            self.run_inference_sample("Test", epoch)
 
-    def run_inference_sample(self, name):
-        """Produces a sample in inference mode. This is called when producing
-        samples.
+    def run_inference_sample(self, name, epoch):
+        """Produces a sample in inference mode.
+        This is called when producing samples.
+
+        Arguments
+        ---------
+        name: str
+            the name of the saved audio folder
+        epoch: int or str
+            the epoch number (used in file path calculations)
+            or "test" for test stage
         """
         with torch.no_grad():
             if self.last_batch is None:
@@ -246,26 +329,10 @@ class HifiGanBrain(sb.Brain):
             x, y = self.last_batch
 
             # Preparing model for inference by removing weight norm
-            # inference_generator = copy.deepcopy(self.hparams.generator)
-            inference_generator = type(self.hparams.generator)(
-                in_channels=self.hparams.in_channels,
-                out_channels=self.hparams.out_channels,
-                resblock_type=self.hparams.resblock_type,
-                resblock_dilation_sizes=self.hparams.resblock_dilation_sizes,
-                resblock_kernel_sizes=self.hparams.resblock_kernel_sizes,
-                upsample_kernel_sizes=self.hparams.upsample_kernel_sizes,
-                upsample_initial_channel=self.hparams.upsample_initial_channel,
-                upsample_factors=self.hparams.upsample_factors,
-                inference_padding=self.hparams.inference_padding,
-                cond_channels=self.hparams.cond_channels,
-                conv_post_bias=self.hparams.conv_post_bias,
-            ).to(
-                self.device
-            )  # Gets a new instance
-            inference_generator.load_state_dict(
-                self.hparams.generator.state_dict()
-            )  # Copies weights
+            inference_generator = copy.deepcopy(self.hparams.generator)
             inference_generator.remove_weight_norm()
+            if inference_generator.duration_predictor:
+                x = torch.unique_consecutive(x, dim=1)
             sig_out = inference_generator.inference(x)
             spec_out = self.hparams.mel_spectogram(
                 audio=sig_out.squeeze(0).cpu()
@@ -292,7 +359,7 @@ class HifiGanBrain(sb.Brain):
             self.save_audio("synthesized", sig_out.squeeze(0), folder)
 
     def save_audio(self, name, data, epoch):
-        """Saves a single wav
+        """Saves a single wav file.
 
         Arguments
         ---------
@@ -304,16 +371,29 @@ class HifiGanBrain(sb.Brain):
             the epoch number (used in file path calculations)
             or "test" for test stage
         """
-        target_path = os.path.join(
-            self.hparams.progress_sample_path, str(epoch)
-        )
-        if not os.path.exists(target_path):
-            os.makedirs(target_path)
-        file_name = f"{name}.wav"
-        effective_file_name = os.path.join(target_path, file_name)
-        torchaudio.save(
-            effective_file_name, data.cpu(), self.hparams.sample_rate
-        )
+        target_path = pl.Path(self.hparams.progress_sample_path) / str(epoch)
+        target_path.mkdir(parents=True, exist_ok=True)
+        file_name = str(target_path / f"{name}.wav")
+        torchaudio.save(file_name, data.cpu(), 16000)
+
+
+def sample_interval(seqs, segment_size):
+    "This function sample an interval of audio and code according to segment size."
+    N = max([v.shape[-1] for v in seqs])
+    seq_len = segment_size if segment_size > 0 else N
+    hops = [N // v.shape[-1] for v in seqs]
+    lcm = np.lcm.reduce(hops)
+    interval_start = 0
+    interval_end = N // lcm - seq_len // lcm
+    start_step = random.randint(interval_start, interval_end)
+
+    new_seqs = []
+    for i, v in enumerate(seqs):
+        start = start_step * (lcm // hops[i])
+        end = (start_step + seq_len // lcm) * (lcm // hops[i])
+        new_seqs += [v[..., start:end]]
+
+    return new_seqs
 
 
 def dataio_prepare(hparams):
@@ -321,27 +401,52 @@ def dataio_prepare(hparams):
     It also defines the data processing pipeline through user-defined functions.
     """
     segment_size = hparams["segment_size"]
+    code_hop_size = hparams["code_hop_size"]
+    codes_folder = pl.Path(hparams["codes_save_folder"])
 
     # Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav", "segment")
-    @sb.utils.data_pipeline.provides("mel", "sig")
-    def audio_pipeline(wav, segment):
+    @sb.utils.data_pipeline.takes("id", "wav", "segment")
+    @sb.utils.data_pipeline.provides("code", "sig")
+    def audio_pipeline(utt_id, wav, segment):
+        info = torchaudio.info(wav)
         audio = sb.dataio.dataio.read_audio(wav)
-        audio = torch.FloatTensor(audio)
-        audio = audio.unsqueeze(0)
-        if segment:
-            if audio.size(1) >= segment_size:
-                max_audio_start = audio.size(1) - segment_size
-                audio_start = torch.randint(0, max_audio_start, (1,))
-                audio = audio[:, audio_start : audio_start + segment_size]
-            else:
-                audio = torch.nn.functional.pad(
-                    audio, (0, segment_size - audio.size(1)), "constant"
+        audio = torchaudio.transforms.Resample(
+            info.sample_rate,
+            hparams["sample_rate"],
+        )(audio)
+
+        code = np.load(codes_folder / f"{utt_id}.npy")
+
+        num_layer = len(hparams["layer"])
+        offsets = np.arange(num_layer) * hparams["num_clusters"]
+        code = code + offsets + 1
+
+        if hparams["layer_drop"]:
+            num_layers_to_drop = np.random.randint(0, code.shape[1])
+            if num_layers_to_drop > 0:
+                layers_to_drop = np.random.choice(
+                    code.shape[1], size=num_layers_to_drop, replace=False
                 )
+                code[:, layers_to_drop] = 0
 
-        mel = hparams["mel_spectogram"](audio=audio.squeeze(0))
+        code = torch.IntTensor(code)
 
-        return mel, audio
+        # Trim end of audio
+        code_length = min(audio.shape[0] // code_hop_size, code.shape[0])
+        code = code[:code_length]
+        audio = audio[: code_length * code_hop_size]
+
+        while audio.shape[0] < segment_size:
+            audio = torch.hstack([audio, audio])
+            code = torch.hstack([code, code])
+        audio = audio.unsqueeze(0)
+
+        if segment:
+            code = code.swapdims(0, 1)
+            audio, code = sample_interval([audio, code], segment_size)
+            code = code.swapdims(0, 1)
+
+        return code, audio
 
     datasets = {}
     data_info = {
@@ -354,7 +459,7 @@ def dataio_prepare(hparams):
             json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
-            output_keys=["id", "mel", "sig"],
+            output_keys=["id", "code", "sig"],
         )
 
     return datasets
@@ -367,6 +472,10 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    # If --distributed_launch then
+    # create ddp_group with the right communication protocol
+    sb.utils.distributed.ddp_init_group(run_opts)
+
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -374,22 +483,39 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    if not hparams["skip_prep"]:
-        from libritts_prepare import prepare_libritts
+    from ljspeech_prepare import prepare_ljspeech
 
-        sb.utils.distributed.run_on_main(
-            prepare_libritts,
-            kwargs={
-                "data_folder": hparams["data_folder"],
-                "save_json_train": hparams["train_json"],
-                "save_json_valid": hparams["valid_json"],
-                "save_json_test": hparams["test_json"],
-                "sample_rate": hparams["sample_rate"],
-                "split_ratio": hparams["split_ratio"],
-                "libritts_subsets": hparams["libritts_subsets"],
-                "model_name": "HiFi-GAN",
-            },
-        )
+    sb.utils.distributed.run_on_main(
+        prepare_ljspeech,
+        kwargs={
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["save_folder"],
+            "splits": hparams["splits"],
+            "split_ratio": hparams["split_ratio"],
+            "seed": hparams["seed"],
+            "skip_prep": hparams["skip_prep"],
+        },
+    )
+
+    from extract_code import extract_ljspeech
+
+    sb.utils.distributed.run_on_main(
+        extract_ljspeech,
+        kwargs={
+            "data_folder": hparams["save_folder"],
+            "splits": hparams["splits"],
+            "kmeans_folder": hparams["kmeans_folder"],
+            "kmeans_dataset": hparams["kmeans_dataset"],
+            "num_clusters": hparams["num_clusters"],
+            "encoder_type": hparams["encoder_type"],
+            "encoder_source": hparams["encoder_hub"],
+            "layer": hparams["layer"],
+            "encoder_save_folder": hparams["encoder_save_folder"],
+            "codes_save_folder": hparams["codes_save_folder"],
+            "sample_rate": hparams["sample_rate"],
+            "skip_extract": hparams["skip_extract"],
+        },
+    )
 
     datasets = dataio_prepare(hparams)
 
