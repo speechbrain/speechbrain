@@ -59,7 +59,7 @@ class DiscreteSSL(nn.Module):
     >>> ssl_layer_num = [7,23]
     >>> deduplicate =[False, True]
     >>> bpe_tokenizers=[None, None]
-    >>> kmeans_repo_id = "poonehmousavi/SSL_Quantization"
+    >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
     >>> kmeans_dataset = "LJSpeech"
     >>> num_clusters = 1000
     >>> ssl_model = HuBERT(model_hub, save_path,output_all_hiddens=True)
@@ -164,7 +164,7 @@ class DiscreteSSL(nn.Module):
         if layers_num:
             for i, layer in enumerate(layers_num):
                 file_patterns.append(
-                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}*.pt"
+                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}.pt"
                 )
         else:
             file_patterns.append(
@@ -175,13 +175,16 @@ class DiscreteSSL(nn.Module):
         )
         files = []
         for ext in file_patterns:
-            files.extend(glob(os.path.join(kmeans_dir, ext)))
+            for file in glob(os.path.join(kmeans_dir, ext)):
+                if file not in files:
+                    files.append(file)
+                    layer_ids.append(
+                        int(
+                            file.split("/")[-1].split("_")[-1].split(".")[0][1:]
+                        )
+                    )
+                    kmeans_models.append(joblib.load(file))
 
-        for file in files:
-            layer_ids.append(
-                int(file.split("/")[-1].split("_")[-1].split(".")[0][1:])
-            )
-            kmeans_models.append(joblib.load(file))
         assert (
             len(layer_ids) > 0
         ), f"There is no trained k-means model available for {repo_id}/{encoder_name}/*_k{num_clusters[i]}_L*"
@@ -198,9 +201,9 @@ class DiscreteSSL(nn.Module):
         self,
         wav,
         wav_lens=None,
-        SSL_layers=[7],
-        deduplicates=[False],
-        bpe_tokenizers=[None],
+        SSL_layers=None,
+        deduplicates=None,
+        bpe_tokenizers=None,
     ):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -210,11 +213,11 @@ class DiscreteSSL(nn.Module):
             A batch of audio signals to transform to features.
         wav_len : tensor
             The relative length of the wav given in SpeechBrain format.
-        SSL_layers: List[int] (default: [7]):
+        SSL_layers: List[int]:
             determine which layers of SSL should be used to extract information.
-        deduplicates: List[boolean] (default: [False]):
+        deduplicates: List[boolean]:
             determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
-        bpe_tokenizers: List[int] (default: [None]):
+        bpe_tokenizers: List[int]:
             determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
         Returns:
         ---------
@@ -225,6 +228,13 @@ class DiscreteSSL(nn.Module):
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """
+
+        if SSL_layers is None:
+            SSL_layers = self.ssl_layer_ids
+        if deduplicates is None:
+            deduplicates = [False] * len(SSL_layers)
+        if bpe_tokenizers is None:
+            bpe_tokenizers = [None] * len(SSL_layers)
 
         assert (
             len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)
