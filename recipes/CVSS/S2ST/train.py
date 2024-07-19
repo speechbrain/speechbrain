@@ -92,9 +92,9 @@ class S2UT(sb.core.Brain):
                 # generate speech and transcriptions
                 wavs = []
                 for hyp in hyps:
-                    if len(hyp) > 3:
-                        code = torch.LongTensor(hyp)
-                        wav = self.test_vocoder.decode_unit(code)
+                    if len(hyp) > 10:
+                        code = torch.LongTensor(hyp[:-1])
+                        wav = self.test_vocoder.decode_unit(code.unsqueeze(-1))
                         wavs.append(wav.squeeze(0))
                 if wavs:
                     wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
