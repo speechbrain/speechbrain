@@ -197,7 +197,9 @@ class L2I(InterpreterBrain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            tmp, _, _ = self.interpret_computation_steps(wavs)  # returns log1p
+            tmp, _, _, _ = self.interpret_computation_steps(
+                wavs
+            )  # returns log1p
             interpretations = torch.expm1(tmp).transpose(2, 1)
 
             if self.hparams.use_melspectra_log1p:
