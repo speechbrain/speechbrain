@@ -3,10 +3,12 @@ Data preparation.
 
 Author
 ------
-Dongwon Kim, Dongwoo Kim 2021
+Dong Won Kim, Dongwoo Kim 2021
+Dong Won Kim 2024
 """
 
 import csv
+import functools
 import logging
 import os
 import re
@@ -15,6 +17,7 @@ import torchaudio
 
 from speechbrain.dataio.dataio import load_pkl, merge_csvs, save_pkl
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
 OPT_FILE = "opt_ksponspeech_prepare.pkl"
@@ -99,7 +102,6 @@ def prepare_ksponspeech(
         logger.info("Data_preparation...")
 
     # Additional checks to make sure the data folder contains ksponspeech
-    check_ksponspeech_folders(data_folder, splits)
 
     # parse trn file
     all_texts = {}
@@ -134,7 +136,32 @@ def prepare_ksponspeech(
     save_pkl(conf, save_opt)
 
 
-def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
+def process_wav_file(wav_file, text_dict):
+    """
+    Process a single WAV file to extract relevant data for the CSV.
+
+    Arguments
+    ---------
+    wav_file
+        The path to the WAV file.
+    text_dict
+        The dictionary containing the text of each sentence.
+
+    Returns
+    -------
+    list
+        The processed CSV line as a list.
+    """
+    snt_id = os.path.basename(wav_file).replace(".wav", "")
+    spk_id = snt_id.split("_")[-1]
+    wrds = text_dict.get(snt_id, "")
+
+    duration = torchaudio.info(wav_file).num_frames / SAMPLERATE
+
+    return [snt_id, str(duration), wav_file, spk_id, " ".join(wrds.split())]
+
+
+def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences=None):
     """
     Create the dataset csv file given a list of wav files.
 
@@ -144,7 +171,7 @@ def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
         Location of the folder for storing the csv.
     wav_lst : list
         The list of wav files of a given data split.
-    text_dict : list
+    text_dict : dict
         The dictionary containing the text of each sentence.
     split : str
         The name of the current data split.
@@ -152,50 +179,36 @@ def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
         The number of sentences to select.
     """
     # Setting path for the csv file
-    csv_file = os.path.join(save_folder, split + ".csv")
+    csv_file = os.path.join(save_folder, f"{split}.csv")
 
-    # Preliminary prints
-    msg = "Creating csv lists in  %s..." % (csv_file)
-    logger.info(msg)
+    # Logging start of process
+    logger.info(f"Creating csv lists in {csv_file}...")
 
+    # Header for CSV
     csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     snt_cnt = 0
-    # Processing all the wav files in wav_lst
-    for wav_file in wav_lst:
-        snt_id = wav_file.split("/")[-1].replace(".wav", "")
-        spk_id = snt_id.split("_")[-1]
-        wrds = text_dict[snt_id]
+    line_processor = functools.partial(process_wav_file, text_dict=text_dict)
 
-        duration = torchaudio.info(wav_file).num_frames / SAMPLERATE
-
-        csv_line = [
-            snt_id,
-            str(duration),
-            wav_file,
-            spk_id,
-            str(" ".join(wrds.split())),
-        ]
-
-        #  Appending current file to the csv_lines list
+    for csv_line in parallel_map(line_processor, wav_lst, chunk_size=8192):
+        # Appending current file to the csv_lines list
         csv_lines.append(csv_line)
+
         snt_cnt = snt_cnt + 1
 
+        # parallel_map guarantees element ordering so we're OK
         if snt_cnt == select_n_sentences:
             break
 
     # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
+        csv_writer.writerows(csv_lines)
 
-        for line in csv_lines:
-            csv_writer.writerow(line)
-
-    # Final print
-    msg = "%s successfully created!" % (csv_file)
-    logger.info(msg)
+    # Logging completion of process
+    logger.info(f"{csv_file} successfully created!")
 
 
 def skip(splits, save_folder, conf):

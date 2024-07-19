@@ -15,6 +15,8 @@ the tar files are opened in random order, the audio files in the shards are shuf
 and fed to the training process. This reduces the disk load during training by large margin. This is all
 handled by the WebDataset library.
 
+Warning: In the metadata of this dataset, the used ISO language code for Hebrew is obsolete (should be `he` instead of `iw`). The ISO language code for Javanese is incorrect (should be `jv` instead of `jw`). See [issue #2396](https://github.com/speechbrain/speechbrain/issues/2396).
+
 ## Downloading the data
 
 You have two options how to download and prepare the VoxLingua107 dataset for training the model:
@@ -147,6 +149,15 @@ print(emb.shape)
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{ravanelli2024opensourceconversationalaispeechbrain,
+      title={Open-Source Conversational AI with SpeechBrain 1.0},
+      author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+      year={2024},
+      eprint={2407.00463},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
