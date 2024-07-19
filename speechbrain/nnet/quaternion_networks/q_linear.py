@@ -2,6 +2,7 @@
 
 Authors
  * Titouan Parcollet 2020
+ * Drew Wagner 2024
 """
 
 import logging
@@ -15,6 +16,7 @@ from speechbrain.nnet.quaternion_networks.q_ops import (
     quaternion_init,
     quaternion_linear_op,
     quaternion_linear_rotation_op,
+    renorm_quaternion_weights_inplace,
     unitary_init,
 )
 
@@ -73,6 +75,8 @@ class QLinear(torch.nn.Module):
         with deep configurations. The vector_scale parameters are learnable
         parameters that acts like gates by multiplying the output vector with
         a small trainable parameter (default False).
+    max_norm: float
+        weight max-norm.
 
     Example
     -------
@@ -93,15 +97,16 @@ class QLinear(torch.nn.Module):
         autograd=True,
         spinor=False,
         vector_scale=False,
+        max_norm=None,
     ):
         super().__init__()
         self.n_neurons = n_neurons
-        self.bias = bias
         self.init_criterion = init_criterion
         self.weight_init = weight_init
         self.autograd = autograd
         self.spinor = spinor
         self.vector_scale = vector_scale
+        self.max_norm = max_norm
 
         # When initialising with speechbrain the input_shape is an integer !
         # we need to transform it into a list it works with all the question ops
@@ -149,11 +154,11 @@ class QLinear(torch.nn.Module):
                 self.in_features, self.out_features
             ).requires_grad_(False)
 
-        if self.bias:
-            self.b = torch.nn.Parameter(torch.Tensor(4 * n_neurons))
-            self.b.data.fill_(0)
+        if bias:
+            self.bias = torch.nn.Parameter(torch.Tensor(4 * n_neurons))
         else:
-            self.b = torch.Tensor(4 * n_neurons).requires_grad_(False)
+            self.bias = torch.Tensor(4 * n_neurons).requires_grad_(False)
+        self.bias.data.fill_(0)
 
         # Managing the weight initialization and bias
         self.winit = {"quaternion": quaternion_init, "unitary": unitary_init}[
@@ -184,6 +189,15 @@ class QLinear(torch.nn.Module):
         The linearly transformed input.
         """
 
+        if self.max_norm is not None:
+            renorm_quaternion_weights_inplace(
+                self.r_weight,
+                self.i_weight,
+                self.j_weight,
+                self.k_weight,
+                max_norm=self.max_norm,
+            )
+
         if self.autograd:
             if self.spinor:
                 out = quaternion_linear_rotation_op(
@@ -192,7 +206,7 @@ class QLinear(torch.nn.Module):
                     self.i_weight,
                     self.j_weight,
                     self.k_weight,
-                    self.b,
+                    self.bias,
                     self.scale_param,
                     self.zero_kernel,
                 )
@@ -203,7 +217,7 @@ class QLinear(torch.nn.Module):
                     self.i_weight,
                     self.j_weight,
                     self.k_weight,
-                    self.b,
+                    self.bias,
                 )
         else:
             # The custom backward needs an input with 2D at most!
@@ -218,7 +232,7 @@ class QLinear(torch.nn.Module):
                 self.i_weight,
                 self.j_weight,
                 self.k_weight,
-                self.b,
+                self.bias,
             )
 
             if input_dim == 3:

@@ -50,6 +50,7 @@ use_vq: True
 rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
+use_melspectra_log1p: False
 
 
 # Feature parameters
@@ -113,7 +114,6 @@ K: 1024
 
 # pre-processing
 n_fft: 1024
-spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
 compute_stft: !new:speechbrain.processing.features.STFT

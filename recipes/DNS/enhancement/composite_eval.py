@@ -462,4 +462,4 @@ if __name__ == "__main__":
             covl += res["covl"]
             pesq += res["pesq"]
             count += 1
-    print(f"CSIG: {csig/count}, CBAK: {cbak/count}, COVL: {covl/count}")
+    print(f"CSIG: {csig / count}, CBAK: {cbak / count}, COVL: {covl / count}")
