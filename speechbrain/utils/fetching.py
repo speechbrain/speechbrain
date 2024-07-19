@@ -375,7 +375,7 @@ def fetch(
         # COPY strategy? Directly attempt saving to destination
         if local_strategy == LocalStrategy.COPY_SKIP_CACHE:
             logger.info(
-                "Fetch %s: Fetching from HuggingFace Hub '%s' to '%s'",
+                "Fetch %s: Fetching from HuggingFace Hub '%s' to '%s' if not cached",
                 str(filename),
                 str(source),
                 str(destination),
@@ -397,7 +397,7 @@ def fetch(
 
         # Otherwise, normal fetch to cache
         logger.info(
-            "Fetch %s: Fetching from HuggingFace Hub '%s'",
+            "Fetch %s: Fetching from HuggingFace Hub '%s' if not cached",
             str(filename),
             str(source),
         )
