@@ -51,7 +51,7 @@ torch._C._jit_set_profiling_executor(False)
 torch._C._jit_set_profiling_mode(False)
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
-PYTHON_VERSION_MINOR = 7
+PYTHON_VERSION_MINOR = 8
 
 # Arguments passed via the run opts dictionary
 run_opt_defaults = {
