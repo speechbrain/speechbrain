@@ -26,7 +26,6 @@ from wham_prepare import prepare_wham
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.train_logger import plot_spectrogram
 
 eps = 1e-10
 
@@ -244,7 +243,7 @@ if __name__ == "__main__":
             run_opts=run_opts,
         )
 
-    if hparams["single_sample"] == None:
+    if hparams["single_sample"] is None:
         Interpreter.evaluate(
             test_set=ood_dataset,
             min_key="loss",
