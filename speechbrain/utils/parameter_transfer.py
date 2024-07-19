@@ -251,7 +251,7 @@ class Pretrainer:
             if isinstance(source, FetchSource):
                 _fetch_from, source = source
 
-            logger.info(f'Set local path in self.paths["{name}"] = {path}')
+            logger.debug(f'Set local path in self.paths["{name}"] = {path}')
             self.paths[name] = str(path)
             self.is_local.append(name)
         return loadable_paths
@@ -291,7 +291,7 @@ class Pretrainer:
             paramfiles[name] = self.collect_in / filename
 
             if name in self.is_local:
-                logger.info(
+                logger.debug(
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
                 )
                 paramfiles[name] = self.paths[name]
