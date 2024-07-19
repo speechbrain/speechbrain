@@ -211,14 +211,14 @@ def guess_source(source: Union[str, FetchSource]) -> FetchSource:
 def fetch(
     filename,
     source: Union[str, FetchSource],
-    savedir="./pretrained_model_checkpoints",
-    overwrite=False,
-    allow_updates=True,
-    allow_network=True,
-    save_filename=None,
-    use_auth_token=False,
-    revision=None,
-    huggingface_cache_dir=None,
+    savedir: Union[str, pathlib.Path] = "./pretrained_model_checkpoints",
+    overwrite: bool = False,
+    allow_updates: bool = True,
+    allow_network: bool = True,
+    save_filename: Optional[str] = None,
+    use_auth_token: bool = False,
+    revision: Optional[str] = None,
+    huggingface_cache_dir: Optional[Union[str, pathlib.Path]] = None,
     local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
 ):
     """Ensures you have a local copy of the file and returns its path.
@@ -326,7 +326,9 @@ def fetch(
     destination = (savedir / save_filename).absolute()
 
     # only HF supports updates
-    should_try_update = overwrite or (fetch_from == FetchFrom.HUGGING_FACE and allow_updates)
+    should_try_update = overwrite or (
+        fetch_from == FetchFrom.HUGGING_FACE and allow_updates
+    )
 
     if destination.exists() and not should_try_update:
         MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}"
