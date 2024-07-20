@@ -24,14 +24,14 @@ normalized_transcripts: True
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
 train_splits: ["train-clean-100"] #, "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
-test_splits: ["dev-clean"] #, "test-clean", "test-other"]
+test_splits: ["dev-clean", "test-clean", "test-other"]
 skip_prep: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
     - !ref <output_folder>/dev-clean.csv
-    #- !ref <output_folder>/test-clean.csv
-    #- !ref <output_folder>/test-other.csv
+    - !ref <output_folder>/test-clean.csv
+    - !ref <output_folder>/test-other.csv
 
 ckpt_interval_minutes: 1 # save checkpoint every N min
 
@@ -51,7 +51,7 @@ sampling_rate: 16_000
 # With DDP batch_size is multiplied by N jobs
 # This setup works well with 1x 32GB GPU
 batch_size: 2
-test_batch_size: 16
+test_batch_size: 2
 grad_accumulation_factor: 8
 
 # Decoding parameters
