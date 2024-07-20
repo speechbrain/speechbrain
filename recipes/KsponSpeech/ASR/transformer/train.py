@@ -34,9 +34,7 @@ Authors
  * Titouan Parcollet 2021, 2022
  * Dongwon Kim, Dongwoo Kim 2023
 """
-
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -82,7 +80,6 @@ class ASR(sb.core.Brain):
         pred = self.modules.seq_lin(pred)
         p_seq = self.hparams.log_softmax(pred)
 
-        # Compute outputs
         hyps = None
         current_epoch = self.hparams.epoch_counter.current
         is_valid_search = (
@@ -91,19 +88,12 @@ class ASR(sb.core.Brain):
         )
         is_test_search = stage == sb.Stage.TEST
 
-        if any([is_valid_search, is_test_search]):
-            # Note: For valid_search, for the sake of efficiency, we only perform beamsearch with
-            # limited capacity and no LM to give user some idea of how the AM is doing
-
-            # Decide searcher for inference: valid or test search
-            if stage == sb.Stage.VALID:
-                hyps, _, _, _ = self.hparams.valid_search(
-                    enc_out.detach(), wav_lens
-                )
-            else:
-                hyps, _, _, _ = self.hparams.test_search(
-                    enc_out.detach(), wav_lens
-                )
+        if is_valid_search:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+        elif is_test_search:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, wav_lens, hyps
 
@@ -117,21 +107,23 @@ class ASR(sb.core.Brain):
         tokens, tokens_lens = batch.tokens
 
         if stage == sb.Stage.TRAIN:
-            # Labels must be extended if parallel augmentation or concatenated
-            # augmentation was performed on the input (increasing the time dimension)
             if hasattr(self.hparams, "fea_augment"):
-                (
-                    tokens,
-                    tokens_lens,
-                    tokens_eos,
-                    tokens_eos_lens,
-                ) = self.hparams.fea_augment.replicate_multiple_labels(
-                    tokens, tokens_lens, tokens_eos, tokens_eos_lens
+                tokens = self.hparams.fea_augment.replicate_labels(tokens)
+                tokens_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_lens
+                )
+                tokens_eos = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos
+                )
+                tokens_eos_lens = self.hparams.fea_augment.replicate_labels(
+                    tokens_eos_lens
                 )
 
         loss_seq = self.hparams.seq_cost(
             p_seq, tokens_eos, length=tokens_eos_lens
         ).sum()
+
+        # now as training progresses we use real prediction from the prev step instead of teacher forcing
 
         loss_ctc = self.hparams.ctc_cost(
             p_ctc, tokens, wav_lens, tokens_lens
@@ -163,21 +155,6 @@ class ASR(sb.core.Brain):
             # compute the accuracy of the one-step-forward prediction
             self.acc_metric.append(p_seq, tokens_eos, tokens_eos_lens)
         return loss
-
-    def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint average if needed"""
-        super().on_evaluate_start()
-
-        ckpts = self.checkpointer.find_checkpoints(
-            max_key=max_key, min_key=min_key
-        )
-        ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model"
-        )
-
-        self.hparams.model.load_state_dict(ckpt, strict=True)
-        self.hparams.model.eval()
-        print("Loaded the average")
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -245,10 +222,19 @@ class ASR(sb.core.Brain):
                 num_to_keep=1,
             )
 
-    def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """At the end of the optimizer step, apply noam annealing."""
-        if should_step:
-            self.hparams.noam_annealing(self.optimizer)
+    def on_evaluate_start(self, max_key=None, min_key=None):
+        """perform checkpoint average if needed"""
+        super().on_evaluate_start()
+
+        ckpts = self.checkpointer.find_checkpoints(
+            max_key=max_key, min_key=min_key
+        )
+        ckpt = sb.utils.checkpoints.average_checkpoints(
+            ckpts, recoverable_name="model"
+        )
+
+        self.hparams.model.load_state_dict(ckpt, strict=True)
+        self.hparams.model.eval()
 
 
 def dataio_prepare(hparams):
@@ -296,7 +282,7 @@ def dataio_prepare(hparams):
             csv_path=csv_file, replacements={"data_root": data_folder}
         )
         test_datasets[name] = test_datasets[name].filtered_sorted(
-            sort_key="duration", key_min_value=hparams["test_min_value"]
+            sort_key="duration"
         )
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
@@ -320,12 +306,9 @@ def dataio_prepare(hparams):
     def audio_pipeline_train(wav):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
-        if "speed_perturb" in hparams:
-            sig = sb.dataio.dataio.read_audio(wav)
-
+        sig = sb.dataio.dataio.read_audio(wav)
+        if hparams["do_speed_perturb"]:
             sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
-        else:
-            sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     sb.dataio.dataset.add_dynamic_item([train_data], audio_pipeline_train)
@@ -360,18 +343,25 @@ def dataio_prepare(hparams):
     if hparams["dynamic_batching"]:
         from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
-        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
-        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
+        dynamic_hparams = hparams["dynamic_batch_sampler"]
+        num_buckets = dynamic_hparams["num_buckets"]
 
         train_batch_sampler = DynamicBatchSampler(
             train_data,
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            **dynamic_hparams_train,
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
         )
+
         valid_batch_sampler = DynamicBatchSampler(
             valid_data,
+            dynamic_hparams["max_batch_len"],
+            num_buckets=num_buckets,
             length_func=lambda x: x["duration"],
-            **dynamic_hparams_valid,
+            shuffle=dynamic_hparams["shuffle_ex"],
+            batch_ordering=dynamic_hparams["batch_ordering"],
         )
 
     return (
@@ -411,9 +401,9 @@ if __name__ == "__main__":
             "tr_splits": hparams["train_splits"],
             "dev_splits": hparams["dev_splits"],
             "te_splits": hparams["test_splits"],
-            "save_folder": hparams["output_folder"],
+            "save_folder": hparams["data_folder"],
             "merge_lst": hparams["train_splits"],
-            "merge_name": "train.csv",
+            "merge_name": hparams["train_csv"],
             "skip_prep": hparams["skip_prep"],
         },
     )
@@ -448,27 +438,13 @@ if __name__ == "__main__":
     valid_dataloader_opts = hparams["valid_dataloader_opts"]
 
     if train_bsampler is not None:
-        collate_fn = None
-        if "collate_fn" in train_dataloader_opts:
-            collate_fn = train_dataloader_opts["collate_fn"]
-
         train_dataloader_opts = {
             "batch_sampler": train_bsampler,
             "num_workers": hparams["num_workers"],
         }
 
-        if collate_fn is not None:
-            train_dataloader_opts["collate_fn"] = collate_fn
-
     if valid_bsampler is not None:
-        collate_fn = None
-        if "collate_fn" in valid_dataloader_opts:
-            collate_fn = valid_dataloader_opts["collate_fn"]
-
         valid_dataloader_opts = {"batch_sampler": valid_bsampler}
-
-        if collate_fn is not None:
-            valid_dataloader_opts["collate_fn"] = collate_fn
 
     # Training
     asr_brain.fit(
@@ -478,6 +454,8 @@ if __name__ == "__main__":
         train_loader_kwargs=train_dataloader_opts,
         valid_loader_kwargs=valid_dataloader_opts,
     )
+
+    import os
 
     # Testing
     if not os.path.exists(hparams["output_wer_folder"]):
