@@ -125,6 +125,7 @@ class SNAC(nn.Module):
         Arguments
         ---------
         audio_data : torch.Tensor
+            Note that codes is a list of token sequences of variable lengths, each corresponding to a different temporal resolution
             A (Batch x Channels x Length) tensor of audio data
 
         Returns
