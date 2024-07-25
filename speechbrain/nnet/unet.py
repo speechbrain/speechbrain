@@ -1033,6 +1033,22 @@ class UNetModel(nn.Module):
         h = h.type(x.dtype)
         return self.out(h)
 
+    def diffusion_forward(
+        self,
+        x,
+        timesteps,
+        cond_emb=None,
+        length=None,  # unused for unet
+        out_mask_value=None,  # unused for unet
+        latent_mask_value=None,  # unused for unet
+    ):
+        """Forward function suitable for wrapping by diffusion.
+        For this model, `length`/`out_mask_value`/`latent_mask_value` are unused
+        and discarded.
+        See :meth:`~UNetModel.forward` for details."""
+
+        return self(x, timesteps, cond_emb=cond_emb)
+
 
 class EncoderUNetModel(nn.Module):
     """
