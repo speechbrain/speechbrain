@@ -5,7 +5,7 @@ This folder contains the scripts to train a BEST-RQ model using LibriSpeech. It 
 # Go !
 Simply type:
 ```shell
-python train_bestrq.py hparams/besrrq.yaml
+python train_bestrq.py hparams/bestrq.yaml
 ```
 
 Do not forget to replace the `!PLACEHOLDER` variables in the yaml corresponding to your local configuration.
