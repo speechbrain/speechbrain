@@ -12,7 +12,22 @@ from speechbrain.inference.interfaces import Pretrained
 
 
 class LTU_AS(Pretrained):
-    """A ready-to-use Audio/Speech LLM inference interface"""
+    """A ready-to-use Audio/Speech LLM inference interface
+
+    Example
+    -------
+    >>> from speechbrain.inference.multimodal import LTU_AS
+    >>> tmpdir = getfixture("tmpdir")
+    >>> ltu_as = LTU_AS.from_hparams(
+    ...     source="speechbrain/speech-llm-LTU-AS-openasqa",
+    ...     savedir=tmpdir,
+    ... ) # doctest: +SKIP
+    >>> ltu_as.generate_with_raw_audio(
+    ...     "tests/samples/ESC50/audio/1-100032-A-0.wav",
+    ...     "What can you hear from the audio?",
+    ...     "",
+    ... ) # doctest: +SKIP
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
