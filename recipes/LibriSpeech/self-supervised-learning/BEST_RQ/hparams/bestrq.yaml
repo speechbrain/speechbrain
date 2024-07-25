@@ -22,7 +22,7 @@ dev_splits: ["dev-clean"]
 test_splits: ["test-clean"]
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev-clean.csv
-skip_prep: True
+skip_prep: False
 
 avoid_if_longer_than: 60.0
 avoid_if_shorter_than: 2.0
