@@ -1,20 +1,16 @@
 # ############################################################################
-# Model: SSL: Implementation of Best-RQ
+# Model: Best-RQ
 # Encoder: Conformer Encoder w/Random Projection Quantizer
 # Training: Librispeech 960h
-# Authors:  Ryan
+# Authors:  Ryan Whetten 2024
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
 seed: 1000
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
-project_name: bestrq
-experiment_name: base
-data_folder: /gpfsscratch/rech/nkp/uaj64gk/corpus/LibriSpeech/
-output_folder: !ref results/bestrq/<seed>
-
-ckpt_interval_min: 15
+data_folder: !PLACEHOLDER # /path/to/LibriSpeech/
+output_folder: !ref results/<seed>
 save_folder: !ref <output_folder>/save
 # Logging file for every N optimizer steps (many lines)
 train_steps_log: !ref <output_folder>/train_steps_log.txt
@@ -24,26 +20,25 @@ train_stage_log: !ref <output_folder>/train_stage_log.txt
 train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean"]
-train_csv: results/bestrq/csv/train.csv
-valid_csv: results/bestrq/csv/dev-clean.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 skip_prep: True
 
 avoid_if_longer_than: 60.0
 avoid_if_shorter_than: 2.0
 log_interval: 500 # Logging every N optimizer steps
-auto_mix_prec: false
-bfloat16_mix_prec: false
-max_grad_norm: 1.
-
+max_grad_norm: 10
+precision: fp16 # bf16, fp16 or fp32
 
 # The training will either stops at number_of_epochs or optimizer_step_limit
 # I.e. the first that is reached.
-number_of_epochs: 42
+number_of_epochs: 3000
 optimizer_step_limit: 400000
-# grad_accumulation_factor: 2
 
-seconds_per_batch: 100 # Fits in a 11GB GPUs
+# Fits on a 11GB GPUs
+seconds_per_batch: 100
 train_num_buckets: 50
+grad_accumulation_factor: 1
 
 train_dataloader_options:
    num_workers: 4
@@ -52,24 +47,23 @@ test_dataloader_options:
    batch_size:  8 # DynamicBatching not used at testing time
    num_workers: 4
 
-# Training parameters (based on Section 4.1.1)
 lr: 0.0008
 warmup: 25000
 
-# Feature parameters
+# Mel-Filterbank parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 80
 hop_length: 10
-pad_to_divisible_by: 4 
-# this is because the convolutions reduction dim by 4 
+# convolutions reduction dim by 4
 # so the input to quantizer also needs to reduce dim by 4
+pad_to_divisible_by: 4 
 
 ####################### Model parameters ###########################
 # Transformer
 d_model: 512
-nhead: 8 # table 1 https://arxiv.org/pdf/2010.10504.pdf
-num_encoder_layers: 12 # section 4.1.1
+nhead: 8
+num_encoder_layers: 12
 num_decoder_layers: 0
 d_ffn: 2048
 transformer_dropout: 0.1
@@ -78,7 +72,7 @@ output_neurons: 5000
 encoder_layerdrop: 0.05
 
 # 15% masking
-mask_length: 4 # for 400ms
+mask_length: 4
 mask_prob: 0.15
 noise_mean: 0
 noise_std: 0.1
@@ -89,7 +83,7 @@ cb_dim: 16
 cb_vocab: 8192
 
 
-############################## models ################################
+############################## Models ################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
@@ -120,8 +114,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 wrapper: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
    transformer: !ref <Transformer>
 
-
-Quantizer: !new:.quantiser.RandomProjectionQuantizer
+Quantizer: !new:speechbrain.nnet.quantisers.RandomProjectionQuantizer
     # projection
     input_dim: !ref <p_input>
     # codebook

@@ -63,12 +63,9 @@ class BestRQBrain(sb.core.Brain):
 
         # add in padding to features and mask
         feats = torch.nn.functional.pad(feats, padding)
-        # print('features w/padding: ', feats.shape)
 
-        # normalized = self.modules.layernorm(feats)
         # get targets from quantizer
         targets = self.modules.Quantizer(feats.view(B, feats.shape[1]//divis_by, -1))
-        # print('targets: ', targets.shape)
 
         ### augment data
         if stage == sb.Stage.TRAIN:
@@ -87,15 +84,12 @@ class BestRQBrain(sb.core.Brain):
 
         #### convolutions
         src = self.modules.CNN(feats)
-        # print('after cnn: ', src.shape)
 
         ##### transformer
         enc_out = self.modules.wrapper(src, wav_lens) # only use encoder
-        # print('enc out: ', enc_out.shape)
 
         ##### linear
         logits = self.modules.linear(enc_out)
-        # print('linear layer out: ', logits.shape)
 
         mask_idx = mask[::divis_by] // divis_by
         logits[:,mask_idx,:]
@@ -118,8 +112,11 @@ class BestRQBrain(sb.core.Brain):
 
         return F.cross_entropy(pred, targets)
 
-    def on_fit_batch_end(self, batch, outputs, loss, should_ste):
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
         """ Called after fit_batch(), updates learning rate and does per-step logging. """
+
+        if should_step:
+            self.hparams.noam_annealing(self.optimizer)
         
         # Perform step-wise logging
         if (

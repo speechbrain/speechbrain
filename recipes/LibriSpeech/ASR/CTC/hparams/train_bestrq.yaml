@@ -1,39 +1,39 @@
 # ################################
-# Model: wav2vec2 + DNN + CTC
+# Model: Best-RQ + DNN + CTC
 # Augmentation: SpecAugment
-# Authors: Sung-Lin Yeh 2021, Rudolf A. Braun 2022, Titouan Parcollet 2022
+# Authors: Ryan Whetten 2024
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1010
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/ft/ft_wav2vec2_libri_100/<seed>
+output_folder: !ref results/train_bestrq_libri_100/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-# Path of the SpeechBrain checkpoints containing the pretrained wav2vec2 model
-# It can be a local path or a HuggingFace hub containing the model
+
 pt_model_hub: !PLACEHOLDER
-wav2vec_output_dim: 768 # This corresponds to the embedding size of the w2v2
+pt_model_output_dim: 512 
 
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+
 # noise/ris dataset will automatically be downloaded if uncommented
 # data_folder_rirs: !ref <data_folder>
 # train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
 train_splits: ["train-clean-100"]
 dev_splits: ["dev-clean"]
 test_splits: ["test-clean", "test-other"]
-skip_prep: True
+skip_prep: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
-train_csv: !ref results/ft/csv/train.csv
-valid_csv: !ref results/ft/csv/dev-clean.csv
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
 test_csv:
-   - !ref results/ft/csv/test-clean.csv
-   - !ref results/ft/csv/test-other.csv
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 30
 lr: 0.0003
 lr_wav2vec: 0.00005
@@ -42,9 +42,6 @@ sample_rate: 16000
 sorting: ascending
 num_workers: 2
 
-# With data_parallel batch_size is split into N jobs
-# With DDP batch_size is multiplied by N jobs
-# Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
 test_batch_size: 8
 
@@ -58,13 +55,13 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
-# Model parameters
+####################### Model Parameters #######################################
 dnn_activation: !new:torch.nn.LeakyReLU
 dnn_neurons: 1280
 dnn_dropout: 0.15
 
 # Outputs
-output_neurons: 29  # BPE size, index(blank/eos/bos) = 0
+output_neurons_ctc: 29  # BPE size, index(blank/eos/bos) = 0
 
 # Decoding parameters
 blank_index: 0
@@ -81,8 +78,8 @@ augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
    sample_rate: !ref <sample_rate>
    speeds: [95, 100, 105]
 
-enc: !new:speechbrain.nnet.containers.Sequential
-   input_shape: [null, null, !ref <wav2vec_output_dim>]
+back_end_ffn: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <pt_model_output_dim>]
    linear1: !name:speechbrain.nnet.linear.Linear
       n_neurons: !ref <dnn_neurons>
       bias: True
@@ -103,37 +100,83 @@ enc: !new:speechbrain.nnet.containers.Sequential
    bn3: !name:speechbrain.nnet.normalization.LayerNorm
    activation3: !ref <dnn_activation>
 
-# enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-#   input_shape: [null, null, !ref <wav2vec_output_dim>]
-#   activation: !ref <dnn_activation>
-#   dnn_blocks: 3
-#   dnn_neurons: !ref <dnn_neurons>
+####################### Model parameters ###########################
+# Transformer
+d_model: 512
+nhead: 8
+num_encoder_layers: 12
+num_decoder_layers: 0
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: 5000
 
-# standard parameters for the BASE model
-extractor: !new:speechbrain.lobes.models.wav2vec.W2VLatentExtractor
-   out_channels: [512, 512, 512, 512, 512, 512, 512]
+# Feature parameters
+n_fft: 400
+n_mels: 80
 
-# standard parameters for the BASE model
-encoder: !new:speechbrain.lobes.models.transformer.Transformer.TransformerEncoder
-   d_model: 768
-   num_layers: 12
-   nhead: 8
-   d_ffn: 3072
-   dropout: 0.1
-   layerdrop_prob: 0.0
-   normalize_before: True
-   activation: !name:torch.nn.GELU
+# quantizer parameters not using though for finetunning
+p_input: 320
+cb_dim: 16
+cb_vocab: 8192
 
-# standard parameters for the BASE model
-encoder_wrapper: !new:speechbrain.lobes.models.wav2vec.EncoderWrapper
-   in_dim: 512
-   embedding_dim: 768
-   latent_encoder: !ref <encoder>
-   dropout_encoder_input: 0.1
+############################## models ################################
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+    update_until_epoch: 4
+
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+    input_shape: (8, 10, 80)
+    num_blocks: 2
+    num_layers_per_block: 1
+    out_channels: (128, 32)
+    kernel_sizes: (3, 3)
+    strides: (2, 2)
+    residuals: (False, False)
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+    input_size: 640
+    tgt_vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    encoder_module: conformer
+    attention_type: RelPosMHAXL
+    normalize_before: True
+    causal: False
+
+enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
+   transformer: !ref <Transformer>
+
+Quantizer: !new:speechbrain.nnet.quantisers.RandomProjectionQuantizer
+    # projection
+    input_dim: !ref <p_input>
+    # codebook
+    cb_dim: !ref <cb_dim>    
+    cb_vocab: !ref <cb_vocab>
+
+linear: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <cb_vocab>
+
+pt_model: !new:torch.nn.ModuleList
+    - [!ref <CNN>, !ref <enc>, !ref <Quantizer>, !ref <linear>]
+
+#####################################################################
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <dnn_neurons>
-   n_neurons: !ref <output_neurons>
+   n_neurons: !ref <output_neurons_ctc>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
    apply_log: True
@@ -142,13 +185,13 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
    blank_index: !ref <blank_index>
 
 modules:
-   extractor: !ref <extractor>
-   encoder_wrapper: !ref <encoder_wrapper>
-   enc: !ref <enc>
+   normalize: !ref <normalize>
+   pt_model: !ref <pt_model>
+   back_end_ffn: !ref <back_end_ffn>
    ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList
-   - [!ref <enc>, !ref <ctc_lin>]
+   - [!ref <back_end_ffn>, !ref <ctc_lin>]
 
 model_opt_class: !name:torch.optim.AdamW
    lr: !ref <lr>
@@ -174,8 +217,8 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
    recoverables:
       model: !ref <model>
-      extractor: !ref <extractor>
-      encoder_wrapper: !ref <encoder_wrapper>
+      pt_model: !ref <pt_model>
+      normalize: !ref <normalize>
       scheduler_model: !ref <lr_annealing_model>
       scheduler_wav2vec: !ref <lr_annealing_wav2vec>
       counter: !ref <epoch_counter>
@@ -183,11 +226,13 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
    collect_in: !ref <save_folder>
    loadables:
-      extractor: !ref <extractor>
-      encoder_wrapper: !ref <encoder_wrapper>
+      pt_model: !ref <pt_model>
+      normalize: !ref <normalize>
+
    paths:
-      extractor: !ref <pt_model_hub>/latent_extractor.ckpt
-      encoder_wrapper: !ref <pt_model_hub>/latent_encoder.ckpt
+      pt_model: !ref <pt_model_hub>/model.ckpt
+      normalize: !ref <pt_model_hub>/normalizer.ckpt
+
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
    save_file: !ref <train_log>
