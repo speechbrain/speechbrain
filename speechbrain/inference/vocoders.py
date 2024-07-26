@@ -293,18 +293,15 @@ class DiffWaveVocoder(Pretrained):
 class UnitHIFIGAN(Pretrained):
     """
     A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
-
     Arguments
     ---------
-    *args : tuple
-    **kwargs : dict
-        Arguments are forwarded to ``Pretrained`` parent class.
-
+    hparams
+        Hyperparameters (from HyperPyYAML)
     Example
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
-    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/tts-hifigan-unit-hubert-l6-k100-ljspeech", savedir=tmpdir_vocoder)
-    >>> codes = torch.randint(0, 99, (100,))
+    >>> hifi_gan = UnitHIFIGAN.from_hparams(source="speechbrain/hifigan-hubert-l1-3-7-12-18-23-k1000-LibriTTS", savedir=tmpdir_vocoder)
+    >>> codes = torch.randint(0, 99, (100, 1))
     >>> waveform = hifi_gan.decode_unit(codes)
     """
 
@@ -317,14 +314,14 @@ class UnitHIFIGAN(Pretrained):
         # Temporary fix for mapping indices from the range [0, k] to [1, k+1]
         self.tokenize = True
 
-    def decode_batch(self, units):
+    def decode_batch(self, units, spk=None):
         """Computes waveforms from a batch of discrete units
-
         Arguments
         ---------
         units: torch.tensor
             Batch of discrete units [batch, codes]
-
+        spk: torch.tensor
+            Batch of speaker embeddings [batch, spk_dim]
         Returns
         -------
         waveforms: torch.tensor
@@ -335,28 +332,30 @@ class UnitHIFIGAN(Pretrained):
             self.hparams.generator.remove_weight_norm()
             self.first_call = False
 
-        # Ensure that the units sequence has a length of at least 4
-        if units.size(1) < 4:
-            raise RuntimeError(
-                "The 'units' argument should have a length of at least 4 because of padding size."
+        # Ensure that the units sequence has a length of at least 3
+        if units.size(1) < 3:
+            logger.error(
+                "The 'units' argument should have a length of at least 3 because of padding size."
             )
+            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:
-            # Avoid changing the input in-place
-            units = units + 1
+            units += 1
+        if spk is not None:
+            spk = spk.to(self.device)
         with torch.no_grad():
-            waveform = self.infer(units.to(self.device))
+            waveform = self.infer(units.to(self.device), spk=spk)
         return waveform
 
-    def decode_unit(self, units):
+    def decode_unit(self, units, spk=None):
         """Computes waveforms from a single sequence of discrete units
-
         Arguments
         ---------
         units: torch.tensor
             codes: [time]
-
+        spk: torch.tensor
+            spk: [spk_dim]
         Returns
         -------
         waveform: torch.tensor
@@ -369,18 +368,20 @@ class UnitHIFIGAN(Pretrained):
 
         # Ensure that the units sequence has a length of at least 4
         if units.size(0) < 4:
-            raise RuntimeError(
+            logger.error(
                 "The 'units' argument should have a length of at least 4 because of padding size."
             )
+            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:
-            # Avoid changing the input in-place
             units = units + 1
+        if spk is not None:
+            spk = spk.unsqueeze(0).to(self.device)
         with torch.no_grad():
-            waveform = self.infer(units.unsqueeze(0).to(self.device))
+            waveform = self.infer(units.unsqueeze(0).to(self.device), spk=spk)
         return waveform.squeeze(0)
 
-    def forward(self, units):
+    def forward(self, units, spk=None):
         "Decodes the input units"
-        return self.decode_batch(units)
+        return self.decode_batch(units, spk=spk)
