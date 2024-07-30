@@ -36,7 +36,6 @@ eval_librispeech_asr_json: !ref <output_folder>/eval_librispeech_asr.json
 valid_json: !ref <output_folder>/valid.json
 
 whisper_feature_folder: !PLACEHOLDER # where to save the whisper features
-pretrained_tltr_path: !ref <output_folder>/tltr-whisper-large-v1.pth
 
 sample_rate: 16000
 

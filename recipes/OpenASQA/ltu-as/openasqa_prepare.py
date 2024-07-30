@@ -20,9 +20,6 @@ from speechbrain.utils.data_utils import download_file
 
 logger = logging.getLogger(__name__)
 
-# to be added
-PRETRAINED_TLTR_URL = "https://www.dropbox.com/scl/fi/nciysewp1cedc3ob8etqe/large-v1_ori.pth?rlkey=2ekg4x0wpqlzxt4it92kqas7c&st=l25hte4d&dl=1"
-
 OPENASQA_CLASSIFICATION_JSON_URL = "https://www.dropbox.com/scl/fi/2h2pr4afssdeta6akywkg/classification.json?rlkey=gex199fa6wtbcjzonhbluzmn1&st=tdyyg801&dl=1"
 OPENASQA_ALL_JSON_URL = "https://www.dropbox.com/scl/fi/6ycu9muolep2ox7wbi690/all.json?rlkey=iqxkkffreop903bnz23tlhdue&st=7kbkumdk&dl=1"
 
@@ -95,7 +92,6 @@ def prepare_openasqa(
 
     logger.info(f"Creating {classification_json}, {all_json}")
 
-    download_file(PRETRAINED_TLTR_URL, pretrained_tltr_path)
     download_file(OPENASQA_CLASSIFICATION_JSON_URL, classification_json)
     download_file(OPENASQA_ALL_JSON_URL, all_json)
 

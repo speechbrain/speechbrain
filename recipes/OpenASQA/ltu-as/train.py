@@ -16,8 +16,11 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.data_utils import download_file
 
 logger = logging.getLogger(__name__)
+
+PRETRAINED_TLTR_URL = "https://www.dropbox.com/scl/fi/nciysewp1cedc3ob8etqe/large-v1_ori.pth?rlkey=2ekg4x0wpqlzxt4it92kqas7c&st=l25hte4d&dl=1"
 
 
 class ASLLMBrain(sb.Brain):
@@ -86,7 +89,7 @@ class ASLLMBrain(sb.Brain):
                 [audio_padding_mask, text_padding_mask], dim=1
             )
 
-            if self.hparams.has_key("stage2_llama_path"):
+            if hasattr(self.hparams, "stage2_llama_path"):
                 # stage3
                 hyps = self.modules.llama3.module.generate(
                     inputs_embeds=input_embed.detach(),
@@ -386,6 +389,7 @@ if __name__ == "__main__":
             "Pretrained models from previous stage loaded, this stage should not be stage1"
         )
     else:
+        download_file(PRETRAINED_TLTR_URL, hparams["tltr_pretrained_weights"])
         hparams["tltr"].load_state_dict(
             torch.load(hparams["tltr_pretrained_weights"]),
             strict=True,

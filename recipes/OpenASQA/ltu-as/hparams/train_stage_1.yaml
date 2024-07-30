@@ -13,7 +13,7 @@ train_log: !ref <output_folder>/train_log.txt
 valid_file: !ref <output_folder>/valid.txt
 
 # pre-trained weights for TLTR (to be put into preparation script with auto-download)
-tltr_pretrained_weights: !PLACEHOLDER # saved in stage0
+tltr_pretrained_weights: !ref <output_folder>/tltr-whisper-large-v1.pth
 
 precision: fp16
 
