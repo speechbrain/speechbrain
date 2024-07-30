@@ -1,0 +1,11 @@
+{
+    "iemocap_0": {
+        "instruction": "What is the speaker's vocal tone like?",
+        "input": " and your future.",
+        "audio_id": "IEMOCAP_full_release/Session1/sentences/wav/Ses01M_impro05/Ses01M_impro05_F021.wav",
+        "dataset": "iemocap_tr",
+        "task": "pitch_cla",
+        "output": "The pitch is medium.",
+        "feature_path": "tests/samples/speech_llm/iemocap_0.npz"
+    }
+}
