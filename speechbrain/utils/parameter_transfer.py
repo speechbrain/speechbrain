@@ -170,7 +170,7 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(self, default_source=None, internal_ddp_handling=False):
+    def collect_files(self, default_source=None, internal_ddp_handling=False, use_auth_token=False):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -226,7 +226,7 @@ class Pretrainer:
                         "source": source,
                         "overwrite": False,
                         "save_filename": save_filename,
-                        "use_auth_token": False,
+                        "use_auth_token": use_auth_token,
                         "revision": None,
                     },
                 )
@@ -238,7 +238,7 @@ class Pretrainer:
                     savedir=self.collect_in,
                     overwrite=False,
                     save_filename=save_filename,
-                    use_auth_token=False,
+                    use_auth_token=use_auth_token,
                     revision=None,
                 )
             else:
@@ -249,7 +249,7 @@ class Pretrainer:
                     savedir=self.collect_in,
                     overwrite=False,
                     save_filename=save_filename,
-                    use_auth_token=False,
+                    use_auth_token=use_auth_token,
                     revision=None,
                 )
             loadable_paths[name] = path
