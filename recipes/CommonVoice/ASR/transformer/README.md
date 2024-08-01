@@ -38,6 +38,7 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 ## Transformer
 | Language | CV version | hyperparams file |  LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|:-----------:| :-----------:| :-----------:|
+| English | 16.1 | conformer_large.yaml | No | 4.48 | 10.48 | 6.42 | 13.39 | - | [model](https://www.dropbox.com/scl/fo/3w24pxln0fjyofl6xbfv1/AJJqzWfCtGFFTRLwM3DeZG8?rlkey=wpzzhizreedptts64d2m9jq4u&st=xu5g9an8&dl=0) | 4xA40 46GB |
 | Italian | 14.0 | conformer_large.yaml | No | 2.91 | 9.79 | 2.68 | 9.27 | - | [model](https://www.dropbox.com/scl/fo/tf44itp8f4icf2z5qlxpm/AIOYS_CMov5ss5Q9AonFEno?rlkey=xek5ikbhqoovcao31iniqimrr&dl=0) | 2xV100 32GB |
 | French | 14.0 | conformer_large.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
 
@@ -75,6 +76,15 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{ravanelli2024opensourceconversationalaispeechbrain,
+      title={Open-Source Conversational AI with SpeechBrain 1.0},
+      author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+      year={2024},
+      eprint={2407.00463},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},

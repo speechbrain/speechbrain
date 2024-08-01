@@ -387,6 +387,7 @@ if __name__ == "__main__":
                 "sample_rate": hparams["sample_rate"],
                 "split_ratio": hparams["split_ratio"],
                 "libritts_subsets": hparams["libritts_subsets"],
+                "model_name": "HiFi-GAN",
             },
         )
 

@@ -150,6 +150,8 @@ The results will be saved in the `output_folder` specified in the YAML file.
 | Speaker Recognition      | [VoxCeleb](https://github.com/speechbrain/speechbrain/tree/develop/recipes/VoxCeleb) | [ECAPA-TDNN](https://arxiv.org/abs/2005.07143), [ResNET](https://arxiv.org/pdf/1910.12592.pdf), [Xvectors](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf), [PLDA](https://ieeexplore.ieee.org/document/6639151), [Score Normalization](https://www.sciencedirect.com/science/article/abs/pii/S1051200499903603) |
 | Speech Separation      | [WSJ0Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WSJ0Mix), [LibriMix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriMix), [WHAM!](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WHAMandWHAMR), [WHAMR!](https://github.com/speechbrain/speechbrain/tree/develop/recipes/WHAMandWHAMR), [Aishell1Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Aishell1Mix), [BinauralWSJ0Mix](https://github.com/speechbrain/speechbrain/tree/develop/recipes/BinauralWSJ0Mix) | [SepFormer](https://arxiv.org/abs/2010.13154), [RESepFormer](https://arxiv.org/abs/2206.09507), [SkiM](https://arxiv.org/abs/2201.10800), [DualPath RNN](https://arxiv.org/abs/1910.06379), [ConvTasNET](https://arxiv.org/abs/1809.07454) |
 | Speech Enhancement      | [DNS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/DNS), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | [SepFormer](https://arxiv.org/abs/2010.13154), [MetricGAN](https://arxiv.org/abs/1905.04874), [MetricGAN-U](https://arxiv.org/abs/2110.05866), [SEGAN](https://arxiv.org/abs/1703.09452), [spectral masking](http://staff.ustc.edu.cn/~jundu/Publications/publications/Trans2015_Xu.pdf), [time masking](http://staff.ustc.edu.cn/~jundu/Publications/publications/Trans2015_Xu.pdf) |
+| Interpretability | [ESC50](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ESC50) | [Listenable Maps for Audio Classifiers (L-MAC)](https://arxiv.org/abs/2403.13086), [Learning-to-Interpret (L2I)](https://proceedings.neurips.cc/paper_files/paper/2022/file/e53280d73dd5389e820f4a6250365b0e-Paper-Conference.pdf), [Non-Negative Matrix Factorization (NMF)](https://proceedings.neurips.cc/paper_files/paper/2022/file/e53280d73dd5389e820f4a6250365b0e-Paper-Conference.pdf), [PIQ](https://arxiv.org/abs/2303.12659) |
+| Speech Generation | [AudioMNIST](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AudioMNIST) | [Diffusion](https://arxiv.org/abs/2006.11239), [Latent Diffusion](https://arxiv.org/abs/2112.10752) |
 | Text-to-Speech      | [LJSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech), [LibriTTS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriTTS) | [Tacotron2](https://arxiv.org/abs/1712.05884), [Zero-Shot Multi-Speaker Tacotron2](https://arxiv.org/abs/2112.02418), [FastSpeech2](https://arxiv.org/abs/2006.04558) |
 | Vocoding      | [LJSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LJSpeech), [LibriTTS](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriTTS) | [HiFiGAN](https://arxiv.org/abs/2010.05646), [DiffWave](https://arxiv.org/abs/2009.09761)
 | Spoken Language Understanding | [MEDIA](https://github.com/speechbrain/speechbrain/tree/develop/recipes/MEDIA), [SLURP](https://github.com/speechbrain/speechbrain/tree/develop/recipes/SLURP), [Fluent Speech Commands](https://github.com/speechbrain/speechbrain/tree/develop/recipes/fluent-speech-commands), [Timers-and-Such](https://github.com/speechbrain/speechbrain/tree/develop/recipes/timers-and-such)  | [Direct SLU](https://arxiv.org/abs/2104.01604), [Decoupled SLU](https://arxiv.org/abs/2104.01604), [Multistage SLU](https://arxiv.org/abs/2104.01604) |
@@ -160,8 +162,6 @@ The results will be saved in the `output_folder` specified in the YAML file.
 | Voice Activity Detection  | [LibriParty](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriParty) | [CRDNN](https://arxiv.org/abs/2106.04624) |
 | Sound Classification  | [ESC50](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ESC50), [UrbanSound](https://github.com/speechbrain/speechbrain/tree/develop/recipes/UrbanSound8k) | [CNN14](https://github.com/ranchlai/sound_classification), [ECAPA-TDNN](https://arxiv.org/abs/2005.07143) |
 | Self-Supervised Learning | [CommonVoice](https://github.com/speechbrain/speechbrain/tree/develop/recipes/CommonVoice), [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech) | [wav2vec2](https://arxiv.org/abs/2006.11477) |
-| Interpretability | [ESC50](https://github.com/speechbrain/speechbrain/tree/develop/recipes/ESC50) | [Learning-to-Interpret (L2I)](https://proceedings.neurips.cc/paper_files/paper/2022/file/e53280d73dd5389e820f4a6250365b0e-Paper-Conference.pdf), [Non-Negative Matrix Factorization (NMF)](https://proceedings.neurips.cc/paper_files/paper/2022/file/e53280d73dd5389e820f4a6250365b0e-Paper-Conference.pdf), [PIQ](https://arxiv.org/abs/2303.12659) |
-| Speech Generation | [AudioMNIST](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AudioMNIST) | [Diffusion](https://arxiv.org/abs/2006.11239), [Latent Diffusion](https://arxiv.org/abs/2112.10752) |
 | Metric Learning | [REAL-M](https://github.com/speechbrain/speechbrain/tree/develop/recipes/REAL-M/sisnr-estimation), [Voicebank](https://github.com/speechbrain/speechbrain/tree/develop/recipes/Voicebank) | [Blind SNR-Estimation](https://arxiv.org/abs/2002.08909), [PESQ Learning](https://arxiv.org/abs/2110.05866) |
 | Alignment | [TIMIT](https://github.com/speechbrain/speechbrain/tree/develop/recipes/TIMIT) | [CTC](https://www.cs.toronto.edu/~graves/icml_2006.pdf), [Viterbi](https://www.cs.cmu.edu/~cga/behavior/rabiner1.pdf), [Forward Forward](https://www.cs.cmu.edu/~cga/behavior/rabiner1.pdf) |
 | Diarization | [AMI](https://github.com/speechbrain/speechbrain/tree/develop/recipes/AMI) | [ECAPA-TDNN](https://arxiv.org/abs/2005.07143), [X-vectors](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf), [Spectral Clustering](http://www.ifp.illinois.edu/~hning2/papers/Ning_spectral.pdf) |
@@ -219,7 +219,7 @@ SpeechBrain is rapidly evolving, with ongoing efforts to support a growing array
 
 We have ambitious plans for the future, with a focus on the following priorities:
 
-- **Scale Up:** Our aim is to provide comprehensive recipes and technologies for training massive models on extensive datasets.
+- **Scale Up:** We aim to provide comprehensive recipes and technologies for training massive models on extensive datasets.
 
 - **Scale Down:** While scaling up delivers unprecedented performance, we recognize the challenges of deploying large models in production scenarios. We are focusing on real-time, streamable, and small-footprint Conversational AI.
 
@@ -260,6 +260,15 @@ We have ambitious plans for the future, with a focus on the following priorities
 If you use SpeechBrain in your research or business, please cite it using the following BibTeX entry:
 
 ```bibtex
+@misc{ravanelli2024opensourceconversationalaispeechbrain,
+      title={Open-Source Conversational AI with SpeechBrain 1.0},
+      author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+      year={2024},
+      eprint={2407.00463},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
