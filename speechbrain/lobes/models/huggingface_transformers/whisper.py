@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    HFTransformersInterface,
+    HFTransformersInterface, AutoConfig,
 )
 
 SAMPLE_RATE = 16000
@@ -99,6 +99,7 @@ class Whisper(HFTransformersInterface):
         output_all_hiddens=False,
         language=None,
         task="transcribe",
+        max_positions=1500,
     ):
         super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.sampling_rate = sampling_rate
@@ -108,6 +109,35 @@ class Whisper(HFTransformersInterface):
         self.output_all_hiddens = output_all_hiddens
         self.language = language
         self.task = task
+
+        if max_positions != 1500:
+            assert max_positions < 1500, "max_positions must be less than 1500 i.e. 30 seconds of audio."
+            states = self.model.state_dict()
+            cur_len = states["encoder.embed_positions.weight"].shape[0]
+            if cur_len != max_positions:
+                assert cur_len > max_positions, "Cannot increase emb. length, delete the checkpoint to redownload."
+                states["encoder.embed_positions.weight"] = states["encoder.embed_positions.weight"][:max_positions, :]
+
+                # Reload the model with the specified max_positions
+                self.config, _ = self.override_config(
+                    AutoConfig.from_pretrained(
+                        source,
+                        cache_dir=save_path,
+                        max_source_positions=max_positions,
+                        return_unused_kwargs=True,
+                    )
+                )
+                self.model = self.auto_class.from_config(self.config)
+
+                # Copy the state dict of the original Whisper model to the new one
+                self.model.load_state_dict(states)
+
+                if self.freeze:
+                    self.freeze_model(self.model)
+                else:
+                    self.model.gradient_checkpointing_disable()  # Required by DDP
+                    self.model.train()
+        self.pad_length = max_positions * HOP_LENGTH * 2  # number of samples the encoder input should have
 
         if encoder_only:
             self.tokenizer = None
@@ -232,7 +262,7 @@ class Whisper(HFTransformersInterface):
         torch.Tensor
             Mel spectrogram features computed from the input audio waveform.
         """
-        mels = self.pad_or_trim(wav)
+        mels = self.pad_or_trim(wav, length=self.pad_length)
         mels = self.log_mel_spectrogram(mels)
         return mels
 
