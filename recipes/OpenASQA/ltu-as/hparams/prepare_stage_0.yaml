@@ -37,8 +37,6 @@ valid_json: !ref <output_folder>/valid.json
 
 whisper_feature_folder: !PLACEHOLDER # where to save the whisper features
 
-sample_rate: 16000
-
 # average pooling
 pooling_kernel: 20
 
@@ -46,7 +44,6 @@ pooling_kernel: 20
 whisper_hub: openai/whisper-large
 whisper_folder: !ref <save_folder>/whisper_checkpoint
 freeze_whisper: True
-whisper_output_dim: 1280
 
 whisper: !new:speechbrain.lobes.models.huggingface_transformers.whisper.Whisper
     source: !ref <whisper_hub>

@@ -77,7 +77,6 @@ tltr_layers: 32
 llama_hidden_size: 4096
 
 # Masks
-audio_padding_mask: !name:speechbrain.dataio.dataio.length_to_mask
 text_padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
 
 tltr: !new:speechbrain.lobes.models.TLTR.AT_MODEL

@@ -93,7 +93,10 @@ class ASLLMBrain(sb.Brain):
                 [audio_padding_mask, text_padding_mask], dim=1
             )
 
-            if hasattr(self.hparams, "stage2_llama_path") and not self.hparams.recipe_test:
+            if (
+                hasattr(self.hparams, "stage2_llama_path")
+                and not self.hparams.recipe_test
+            ):
                 # stage3
                 hyps = self.modules.llama3.module.generate(
                     inputs_embeds=input_embed.detach(),
@@ -390,11 +393,17 @@ if __name__ == "__main__":
             # need to download the pretrained models if this is a recipe test
             if "stage1_model_path" in hparams:
                 # stage 2
-                download_file(PRETRAINED_MODEL_STAGE1_URL, hparams["stage1_model_path"])
+                download_file(
+                    PRETRAINED_MODEL_STAGE1_URL, hparams["stage1_model_path"]
+                )
             else:
                 # stage 3
-                download_file(PRETRAINED_MODEL_STAGE2_URL, hparams["stage2_model_path"])
-                download_file(PRETRAINED_LLAMA_STAGE2_URL, hparams["stage2_llama_path"])
+                download_file(
+                    PRETRAINED_MODEL_STAGE2_URL, hparams["stage2_model_path"]
+                )
+                download_file(
+                    PRETRAINED_LLAMA_STAGE2_URL, hparams["stage2_llama_path"]
+                )
 
         sb.utils.distributed.run_on_main(
             hparams["pretrained_models"].collect_files

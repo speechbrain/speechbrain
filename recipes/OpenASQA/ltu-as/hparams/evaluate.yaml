@@ -4,13 +4,8 @@
 # ################################
 output_folder: results/with_llama3-evaluate
 eval_log: !ref <output_folder>/eval_log.txt
-# LLAMA3 tokenizer
-cutoff_len: 200
 
-inference_folder: !PLACEHOLDER # please make up an inference folder same as the huggingface repo
-# URL for the LLAMA3 model and its save folder
-llama_hub: meta-llama/Meta-Llama-3-8B-Instruct
-llama3_folder: !PLACEHOLDER # same as the llama3 folder of stage 1
+inference_folder: !PLACEHOLDER # please make up an inference folder same as the huggingface repo with your trained model.ckpt and llama3.ckpt
 
 # URL for another llm model for audio classification, make sure enough num of gpus are allowed when using a large model
 external_llm: meta-llama/Meta-Llama-3-70B-Instruct
