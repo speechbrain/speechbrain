@@ -15,10 +15,6 @@ llama3_folder: !PLACEHOLDER # same as the llama3 folder of stage 1
 # URL for another llm model for audio classification, make sure enough num of gpus are allowed when using a large model
 external_llm: meta-llama/Meta-Llama-3-70B-Instruct
 
-# pre-trained model for audio projection
-stage3_model_path: !PLACEHOLDER # /path/to/results/with_llama3-stage3/1995/save/CKPT+2024-06-06+22-03-08+00/model.ckpt
-stage3_llama_path: !PLACEHOLDER # /path/to/results/with_llama3-stage3/1995/save/CKPT+2024-06-06+22-03-08+00/llama3.ckpt
-
 # evaluation annotations
 eval_esc50_json: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/eval_esc50.json
 eval_iemocap_emo_json: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/eval_iemocap_emo.json

@@ -165,3 +165,5 @@ pretrained_models: !new:speechbrain.utils.parameter_transfer.Pretrainer
       model: !ref <model>
    paths:
       model: !ref <stage1_model_path>
+
+recipe_test: False

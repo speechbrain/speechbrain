@@ -168,3 +168,5 @@ pretrained_models: !new:speechbrain.utils.parameter_transfer.Pretrainer
    paths:
       model: !ref <stage2_model_path>
       llama3: !ref <stage2_llama_path>
+
+recipe_test: False

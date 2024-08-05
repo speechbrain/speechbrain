@@ -21,6 +21,10 @@ from speechbrain.utils.data_utils import download_file
 logger = logging.getLogger(__name__)
 
 PRETRAINED_TLTR_URL = "https://www.dropbox.com/scl/fi/nciysewp1cedc3ob8etqe/large-v1_ori.pth?rlkey=2ekg4x0wpqlzxt4it92kqas7c&st=l25hte4d&dl=1"
+# The 3 following urls are used for recipe tests
+PRETRAINED_MODEL_STAGE1_URL = "https://www.dropbox.com/scl/fi/9m7e8z5luec8oyni5ixsj/model.ckpt?rlkey=xspvyql0dvotp15xkda1pemyh&st=5yzjaku1&dl=1"
+PRETRAINED_MODEL_STAGE2_URL = "https://www.dropbox.com/scl/fi/nzv1ee724r1utno1rt2jy/model.ckpt?rlkey=ogaj5sfwj7i24o2jvxdfdexg4&st=vo0wx3jt&dl=1"
+PRETRAINED_LLAMA_STAGE2_URL = "https://www.dropbox.com/scl/fi/4j69rgo6o1b6yk5wncwpf/llama3.ckpt?rlkey=ey304kf5ng5vgfq6ikh1cd15m&st=a2bj9npw&dl=1"
 
 
 class ASLLMBrain(sb.Brain):
@@ -89,7 +93,7 @@ class ASLLMBrain(sb.Brain):
                 [audio_padding_mask, text_padding_mask], dim=1
             )
 
-            if hasattr(self.hparams, "stage2_llama_path"):
+            if hasattr(self.hparams, "stage2_llama_path") and not self.hparams.recipe_test:
                 # stage3
                 hyps = self.modules.llama3.module.generate(
                     inputs_embeds=input_embed.detach(),
@@ -381,6 +385,17 @@ if __name__ == "__main__":
     # stopped at any point, and will be resumed on next call.
     # Load pretrained model if pretrained_separator is present in the yaml
     if "pretrained_models" in hparams:
+        # load pretrained models from previous stage for stage 2 and 3
+        if hparams["recipe_test"]:
+            # need to download the pretrained models if this is a recipe test
+            if "stage1_model_path" in hparams:
+                # stage 2
+                download_file(PRETRAINED_MODEL_STAGE1_URL, hparams["stage1_model_path"])
+            else:
+                # stage 3
+                download_file(PRETRAINED_MODEL_STAGE2_URL, hparams["stage2_model_path"])
+                download_file(PRETRAINED_LLAMA_STAGE2_URL, hparams["stage2_llama_path"])
+
         sb.utils.distributed.run_on_main(
             hparams["pretrained_models"].collect_files
         )
@@ -389,6 +404,7 @@ if __name__ == "__main__":
             "Pretrained models from previous stage loaded, this stage should not be stage1"
         )
     else:
+        # download the tltr weights for stage 1
         download_file(PRETRAINED_TLTR_URL, hparams["tltr_pretrained_weights"])
         hparams["tltr"].load_state_dict(
             torch.load(hparams["tltr_pretrained_weights"]),

@@ -32,7 +32,6 @@ EVAL_LIBRISPEECH_TEST_CLEAN_JSON_URL = "https://www.dropbox.com/scl/fi/qd69q7m83
 
 def prepare_openasqa(
     whisper_feature_folder,
-    pretrained_tltr_path,
     classification_json,
     all_json,
     whisper_model,
@@ -49,7 +48,7 @@ def prepare_openasqa(
     fma_folder=None,
 ):
     """
-    Prepare the necessary traning data and pre-trained model weights.
+    Prepare the necessary traning data.
 
     Arguments
     ---------
@@ -90,6 +89,12 @@ def prepare_openasqa(
         path to the FMA dataset.
     """
 
+    if skip(classification_json, all_json):
+        logger.info(
+            "Training preparation completed in previous run, skipping. If another dataset is to be added, create a new repository and do preparation only for this dataset, then concatenate the contents with the previous json files."
+        )
+        return
+
     logger.info(f"Creating {classification_json}, {all_json}")
 
     download_file(OPENASQA_CLASSIFICATION_JSON_URL, classification_json)
@@ -97,7 +102,7 @@ def prepare_openasqa(
 
     subsets = {
         "audioset": audioset_folder,
-        "vggsound": audioset_folder,
+        "vggsound": vggsound_folder,
         "fsd50k": fsd50k_folder,
         "audiocaps": audiocaps_folder,
         "clotho": clotho_folder,
@@ -374,7 +379,6 @@ if __name__ == "__main__":
 
     prepare_openasqa(
         whisper_feature_folder=hparams["whisper_feature_folder"],
-        pretrained_tltr_path=hparams["pretrained_tltr_path"],
         classification_json=hparams["classification_json"],
         all_json=hparams["all_json"],
         whisper_model=hparams["whisper"],
