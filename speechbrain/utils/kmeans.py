@@ -168,7 +168,7 @@ def train(
 
             # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
             if len(features_list) >= kmeans_batch_size:
-                model = model.fit(features_list)
+                model = model.partial_fit(features_list)
                 iteration += 1
                 features_list = []
 
