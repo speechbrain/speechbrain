@@ -190,7 +190,7 @@ def train(
 
             # train a kmeans model on a single batch if  features_list reaches the kmeans_batch_size.
             if len(features_list) >= kmeans_batch_size:
-                model = process_chunks(features_list,kmeans_batch_size,model)
+                process_chunks(features_list,kmeans_batch_size,model)
                 iteration += 1
                 features_list = []
 
@@ -208,7 +208,7 @@ def train(
                 save_model(model, checkpoint_path)
 
         if len(features_list) >= kmeans_batch_size:
-            model = process_chunks(features_list,kmeans_batch_size,model)
+           process_chunks(features_list,kmeans_batch_size,model)
 
 
 def save_model(model, checkpoint_path):
