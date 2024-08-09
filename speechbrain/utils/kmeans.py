@@ -185,8 +185,8 @@ def train(
                 )
                 save_model(model, checkpoint_path)
 
-        if len(features_list) > 0:
-            model = model.fit(features_list)
+        if len(features_list) >= kmeans_batch_size:
+            model = model.partial_fit(features_list)
 
 
 def save_model(model, checkpoint_path):
