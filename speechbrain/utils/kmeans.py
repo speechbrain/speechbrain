@@ -143,8 +143,6 @@ def process_chunks(data, chunk_size, model):
     
         model = model.partial_fit(chunk)
 
-    return model
-
 def train(
     model,
     train_set,
