@@ -37,6 +37,7 @@ def prepare_common_voice(
     language="en",
     skip_prep=False,
     convert_to_wav=False,
+    cv_version=18,
 ):
     """
     Prepares the csv files for the Mozilla Common Voice dataset.
@@ -66,6 +67,9 @@ def prepare_common_voice(
         FFMPEG must be installed.
     skip_prep: bool
         If True, skip data preparation.
+    cv_version: int
+        Fields position in the original tsv file may change depending on the
+        version.
 
     Returns
     -------
@@ -147,6 +151,7 @@ def prepare_common_voice(
             data_folder,
             accented_letters,
             language,
+            cv_version,
         )
 
 
@@ -193,7 +198,9 @@ class CVRow:
     words: str
 
 
-def process_line(line, convert_to_wav, data_folder, language, accented_letters):
+def process_line(
+    line, convert_to_wav, data_folder, language, accented_letters, cv_version
+):
     """Process a line of CommonVoice tsv file.
 
     Arguments
@@ -211,6 +218,9 @@ def process_line(line, convert_to_wav, data_folder, language, accented_letters):
     accented_letters : bool
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
+    cv_version: int
+        Fields position in the original tsv file may change depending on the
+        version.
 
     Returns
     -------
@@ -240,8 +250,10 @@ def process_line(line, convert_to_wav, data_folder, language, accented_letters):
     duration = info.num_frames / info.sample_rate
 
     # Getting transcript
-    words = line.split("\t")[2]
-
+    if cv_version < 18:
+        words = line.split("\t")[2]
+    else:
+        words = line.split("\t")[3]
     # Unicode Normalization
     words = unicode_normalisation(words)
 
@@ -283,6 +295,7 @@ def create_csv(
     data_folder,
     accented_letters=False,
     language="en",
+    cv_version=18,
 ):
     """
     Creates the csv file given a list of wav files.
@@ -300,6 +313,9 @@ def create_csv(
         transformed to the closest non-accented letters.
     language : str
         Language code, e.g. "en"
+    cv_version: int
+        Fields position in the original tsv file may change depending on the
+        version.
     """
 
     # Check if the given files exists
@@ -328,6 +344,7 @@ def create_csv(
         data_folder=data_folder,
         language=language,
         accented_letters=accented_letters,
+        cv_version=cv_version,
     )
 
     # Stream into a .tmp file, and rename it to the real path at the end.
