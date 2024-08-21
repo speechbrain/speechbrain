@@ -112,6 +112,7 @@ def dataio_prepare(hparams):
             "dev": dev_transcripts,
             "test": test_transcripts,
         },
+        trust_remote_code=True,
     )
 
     train_data, valid_data, test_data = (
