@@ -448,9 +448,12 @@ def run_recipe_tests(
     output_folder: string
         Folder where the output of the tests are saved.
     filters_fields: list
-        This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
+        This can be used with the `filters` argument to only include certain
+        rows, by filtering out rows that do not match the specified column
+        values.
+        For instance, `filters_fields=['Task']` with `filters=['ASR']`
         will only run tests for ASR recipes.
+        Filters stack, i.e. they are combined in an `and` fashion.
     filters: list
         See above.
     do_checks: bool (default: True)
