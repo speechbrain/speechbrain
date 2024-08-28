@@ -199,9 +199,13 @@ class SentencePiece:
         if self.vocab_size != self.sp.vocab_size():
             base_msg = f"SentencePiece vocab size `{self.vocab_size}` requested, but the loaded model has `{self.sp.vocab_size()}`!"
             if self.model_type == "char":
-                logger.warning(f"{base_msg} The model type is 'char', for which `vocab_size` has no impact.")
+                logger.warning(
+                    f"{base_msg} The model type is 'char', for which `vocab_size` has no impact."
+                )
             else:
-                logger.warning(f"{base_msg} Are you loading a tokenizer with the wrong parameters?")
+                logger.warning(
+                    f"{base_msg} Are you loading a tokenizer with the wrong parameters?"
+                )
 
         if annotation_list_to_check is not None:
             run_on_main(
