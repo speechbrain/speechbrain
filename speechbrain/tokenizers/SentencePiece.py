@@ -196,7 +196,7 @@ class SentencePiece:
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
 
-        if int(self.vocab_size) != loaded_vocab_size:
+        if int(self.vocab_size) != self.sp.vocab_size():
             base_msg = f"SentencePiece vocab size `{self.vocab_size}` requested, but the loaded model has `{self.sp.vocab_size()}`! This can cause decoding errors or weird model training behavior in some cases."
             if self.model_type == "char":
                 logger.warning(
