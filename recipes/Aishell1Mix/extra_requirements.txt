@@ -3,4 +3,6 @@ mir-eval==0.6
 pyloudnorm
 pyloudnorm>=0.1.0
 pysndfx>=0.3.6
-
+soundfile
+einops
+rotary_embedding_torch
