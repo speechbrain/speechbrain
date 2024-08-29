@@ -1,3 +1,11 @@
+"""Few components to support BEST RQ training as described in the
+original paper: https://arxiv.org/pdf/2202.01855.
+
+Authors
+* Ryan Whetten 2024
+* Titouan Parcollet 2025
+"""
+
 import numpy as np
 import random
 import torch
