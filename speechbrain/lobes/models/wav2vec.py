@@ -256,6 +256,7 @@ class EncoderWrapper(nn.Module):
         results["embeddings"] = feats
         return results
 
+
 def compute_mask(shape, sample_lens, mask_prob, mask_length):
     """This creates the boolean mask for a target shape which respects
     the sample lengths and will half roughly ``mask_prob`` entries set to
