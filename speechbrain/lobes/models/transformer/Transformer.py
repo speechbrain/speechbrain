@@ -90,6 +90,10 @@ class TransformerInterface(nn.Module):
     use_linear_after_conv: bool, optional
         If True, will apply a linear transformation of size input_size//2.
         -> Branchformer
+    output_hidden_states: bool, optional
+        Whether the model should output the hidden states as a list of tensor.
+    layerdrop_prob: float
+        The probability to drop an entire layer.
     """
 
     def __init__(
@@ -498,6 +502,8 @@ class TransformerEncoder(nn.Module):
         type of ffn: regularFFN/1dcnn
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
+    output_hidden_states: bool, optional
+        Whether the model should output the hidden states as a list of tensor.
 
     Example
     -------
@@ -551,7 +557,6 @@ class TransformerEncoder(nn.Module):
         )
         self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.layerdrop_prob = layerdrop_prob
-        self.rng = np.random.default_rng()
         self.output_hidden_states = output_hidden_states
 
     def forward(
@@ -588,10 +593,10 @@ class TransformerEncoder(nn.Module):
         ), "Dynamic Chunk Training unsupported for this encoder"
 
         output = src
+
         if self.layerdrop_prob > 0.0:
-            keep_probs = self.rng.random(len(self.layers))
-        else:
-            keep_probs = None
+            keep_probs = torch.rand(len(self.layers))
+
         attention_lst = []
         if self.output_hidden_states:
             hidden_state_lst = [output]
@@ -613,6 +618,7 @@ class TransformerEncoder(nn.Module):
                     hidden_state_lst.append(output)
         
         output = self.norm(output)
+        
         if self.output_hidden_states:
             return output, attention_lst, hidden_state_lst
         return output, attention_lst

@@ -224,6 +224,10 @@ class TransformerASR(TransformerInterface):
     use_linear_after_conv: bool, optional
         If True, will apply a linear transformation of size input_size//2.
         -> Branchformer
+    output_hidden_states: bool, optional
+        Whether the model should output the hidden states as a list of tensor.
+    layerdrop_prob: float
+        The probability to drop an entire layer.
 
     Example
     -------
@@ -357,7 +361,7 @@ class TransformerASR(TransformerInterface):
             src = src + self.positional_encoding(src)  # add the encodings here
             pos_embs_encoder = None
 
-        encoder_out, _ = self.encoder(
+        outputs = self.encoder(
             src=src,
             src_mask=src_mask,
             src_key_padding_mask=src_key_padding_mask,
@@ -366,7 +370,12 @@ class TransformerASR(TransformerInterface):
 
         # if encoder only, we return the output of the encoder
         if tgt is None:
-            return encoder_out, None
+            return outputs
+
+        if self.output_hidden_states:
+            encoder_out, _, hidden_states = outputs
+        else:
+            encoder_out, _ = outputs
 
         tgt = self.custom_tgt_module(tgt)
 
@@ -393,7 +402,10 @@ class TransformerASR(TransformerInterface):
             pos_embs_src=pos_embs_encoder,
         )
 
-        return encoder_out, decoder_out
+        if self.output_hidden_states:
+            return encoder_out, hidden_states, decoder_out
+        else: 
+            return encoder_out, decoder_out
 
     @torch.no_grad()
     def decode(self, tgt, encoder_out, enc_len=None):
@@ -493,25 +505,20 @@ class TransformerASR(TransformerInterface):
             src = src + self.positional_encoding(src)
             pos_embs_source = None
 
+
+        outputs = self.encoder(
+            src=src,
+            src_mask=src_mask,
+            src_key_padding_mask=src_key_padding_mask,
+            pos_embs=pos_embs_source,
+            dynchunktrain_config=dynchunktrain_config,
+        )
+
         if self.output_hidden_states:
-            encoder_out, _, hidden_state_lst = self.encoder(
-                src=src,
-                src_mask=src_mask,
-                src_key_padding_mask=src_key_padding_mask,
-                pos_embs=pos_embs_source,
-                dynchunktrain_config=dynchunktrain_config,
-            )
-
-            return encoder_out, hidden_state_lst 
+            encoder_out, _, hidden_states = outputs
+            return encoder_out, hidden_states
         else:
-            encoder_out, _ = self.encoder(
-                src=src,
-                src_mask=src_mask,
-                src_key_padding_mask=src_key_padding_mask,
-                pos_embs=pos_embs_source,
-                dynchunktrain_config=dynchunktrain_config,
-            )
-
+            encoder_out, _ = outputs
             return encoder_out
 
     def encode_streaming(self, src, context: TransformerASRStreamingContext):
@@ -689,103 +696,3 @@ class EncoderWrapper(nn.Module):
         underlying transformer. See :meth:`speechbrain.lobes.models.transformer.TransformerASR.make_streaming_context`.
         """
         return self.transformer.make_streaming_context(*args, **kwargs)
-    
-
-class WeightedEncoderWrapper(nn.Module):
-    """This is a weighted wrapper of any ASR transformer encoder. By default, the
-    TransformerASR .forward() function encodes and decodes. With this wrapper
-    the .forward() function becomes .encode() only.
-
-    Important: The TransformerASR class must contain a .encode() function.
-
-    Arguments
-    ----------
-    transformer : sb.lobes.models.TransformerInterface
-        A Transformer instance that contains a .encode() function.
-    num_layers: int
-        Number of layers for the weighted wrapper. Normally this should be
-        one more than the number of layers in the encoder because the 
-        encoder will output a list of the output of the AFE plus
-        the output of each layer in the encoder.
-
-    Example
-    -------
-    >>> src = torch.rand([8, 120, 512])
-    >>> tgt = torch.randint(0, 720, [8, 120])
-    >>> net = TransformerASR(
-    ...     720, 512, 512, 8, 1, 1, 1024, activation=torch.nn.GELU
-    ... )
-    >>> encoder = EncoderWrapper(net)
-    >>> enc_out = encoder(src)
-    >>> enc_out.shape
-    torch.Size([8, 120, 512])
-    """
-
-    def __init__(self, transformer, num_layers, layernorm=False, freeze=False, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.transformer = transformer
-        assert (
-            self.transformer.output_hidden_states
-        ), "output_hidden_states must be True to use Weighted Encoder Wrapper"
-        self.num_layers = num_layers
-        # self.num_layers = self.num_encoder_layers + 1
-        # Initializing the learnable weights
-        zero_init = torch.cat([torch.zeros(self.num_layers)])
-        self.weights = torch.nn.Parameter(zero_init, requires_grad=True)
-        self.layernorm = layernorm
-
-        if freeze:
-            for param in self.transformer.parameters():
-                param.requires_grad = False
-
-    def forward(self, x, wav_lens=None, pad_idx=0):
-        """ Processes the input tensor x and returns an output tensor."""
-        _, hidden_states = self.transformer.encode(x, wav_lens, pad_idx)
-
-        hidden_states = torch.stack(hidden_states, dim=0).detach()
-
-        # First dimension should be equal to the number of layers in the hparams
-        assert (
-            self.num_layers == hidden_states.shape[0]
-        ), "Num layers not equal to num hidden states"
-
-        norm_weights = nn.functional.softmax(self.weights, dim=-1)
-        
-        # Layernorming the layers representations if asked
-        if self.layernorm:
-            hidden_states = [
-                nn.functional.layer_norm(t, (t.shape[-1],)) for t in hidden_states
-            ]
-
-        # Summing the weighted layers
-        weighted_feats = hidden_states[0] * norm_weights[0]
-        for i in range(1, len(hidden_states)):
-            weighted_feats += hidden_states[i] * norm_weights[i]
-        # print(norm_weights)
-        return weighted_feats
-
-
-class ComputeFeaturesWrapper(nn.Module):
-
-    def __init__(
-            self, 
-            compute_features,
-            normalize,
-            model,
-            *args, 
-            **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self.compute_features = compute_features
-        self.normalize = normalize
-        self.cnn = model[0]
-        self.wrapper = model[1]
-        self.weights = self.wrapper.weights
-
-
-    def forward(self, x, wav_lens=None, pad_idx=0):
-        """ Processes the input tensor x and returns an output tensor."""
-        x = self.compute_features(x)
-        x = self.normalize(x, wav_lens, epoch=10) # don't change normalizer anymore
-        x = self.cnn(x)
-        return self.wrapper(x, wav_lens, pad_idx)
