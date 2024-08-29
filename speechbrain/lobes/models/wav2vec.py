@@ -212,9 +212,6 @@ class EncoderWrapper(nn.Module):
         self.mask_emb = nn.Parameter(
             torch.FloatTensor(embedding_dim).uniform_(), requires_grad=True
         )
-        self.output_hidden_states = output_hidden_states
-        if self.output_hidden_states:
-            self.latent_encoder.output_hidden_states = True
 
     def forward(self, latents, wav_lens=None, padding_mask=None, mask=None):
         """
@@ -253,104 +250,12 @@ class EncoderWrapper(nn.Module):
             padding_mask = ~length_to_mask(wav_lens, dtype=bool)
 
         latents = latents + self.positional_encoding(latents)
-        # feats, _ = self.latent_encoder(
-        #     latents, src_key_padding_mask=padding_mask
-        # )
-        if  not self.output_hidden_states:
-            feats, _ = self.latent_encoder(
-                latents, src_key_padding_mask=padding_mask
-            )
-            results["embeddings"] = feats
-        else:
-            feats, _, hidden_states = self.latent_encoder(
-                latents, src_key_padding_mask=padding_mask
-            )
-            results["embeddings"] = feats
-            results["hidden_states"] = hidden_states
-        
-        return results
-    
-class WeightedEncoderWrapper(nn.Module):
-    """This is a wrapper of EncoderWrapper for W2V2.
-
-    Example
-    -------
-    >>> import torch
-    >>> from speechbrain.lobes.models.wav2vec import EncoderWrapper, WeightedEncoderWrapper
-    >>> from speechbrain.lobes.models.transformer.Transformer import TransformerEncoder
-    >>> encoder = TransformerEncoder(d_model=768, num_layers=4, nhead=4, d_ffn=1024)
-    >>> wrapper = EncoderWrapper(1024, 768, encoder, output_hidden_states=True)
-    >>> weighted_wrapper = WeightedEncoderWrapper(wrapper, 5)
-    >>> inputs = torch.rand(10, 12, 1024)
-    >>> output = weighted_wrapper(inputs)
-    >>> output.shape
-    torch.Size([10, 12, 768])
-    """
-    def __init__(self, transformer, num_layers, layernorm=False, freeze=False, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.transformer = transformer
-        assert (
-            self.transformer.output_hidden_states
-        ), "output_hidden_states must be True to use Weighted Encoder Wrapper"
-        self.num_layers = num_layers
-        # self.num_layers = self.num_encoder_layers + 1
-        # Initializing the learnable weights
-        zero_init = torch.cat([torch.zeros(self.num_layers)])
-        self.weights = torch.nn.Parameter(zero_init, requires_grad=True)
-        self.layernorm = layernorm
-
-        if freeze:
-            for param in self.transformer.parameters():
-                param.requires_grad = False
-
-    def forward(
-        self, latents, wav_lens=None, padding_mask=None, mask=None,
-    ):
-        results = self.transformer(
-            latents, mask=mask, wav_lens=wav_lens,
+        feats, _ = self.latent_encoder(
+             latents, src_key_padding_mask=padding_mask
         )
 
-        hidden_states = torch.stack(results["hidden_states"], dim=0).detach()
-
-        # First dimension should be equal to the number of layers in the hparams
-        assert (
-            self.num_layers == hidden_states.shape[0]
-        ), "Num layers not equal to num hidden states"
-
-        norm_weights = nn.functional.softmax(self.weights, dim=-1)
-        
-        # Layernorming the layers representations if asked
-        if self.layernorm:
-            hidden_states = [
-                nn.functional.layer_norm(t, (t.shape[-1],)) for t in hidden_states
-            ]
-
-        # Summing the weighted layers
-        weighted_feats = hidden_states[0] * norm_weights[0]
-        for i in range(1, len(hidden_states)):
-            weighted_feats += hidden_states[i] * norm_weights[i]
-        # print(norm_weights)
-        return weighted_feats
-    
-
-class ComputeFeaturesWrapper(nn.Module):
-
-    def __init__(
-            self, 
-            model,
-            *args, 
-            **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self.extractor = model[0]
-        self.wrapper = model[1]
-        self.weights = self.wrapper.weights
-
-
-    def forward(self, x, wav_lens=None):
-        """ Processes the input tensor x and returns an output tensor."""
-        x = self.extractor(x)
-        return self.wrapper(x, wav_lens)
+        results["embeddings"] = feats      
+        return results
 
 def compute_mask(shape, sample_lens, mask_prob, mask_length):
     """This creates the boolean mask for a target shape which respects
