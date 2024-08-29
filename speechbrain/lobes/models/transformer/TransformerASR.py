@@ -6,6 +6,7 @@ Authors
 * Luca Della Libera 2024
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -23,6 +24,8 @@ from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.nnet.linear import Linear
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -256,7 +259,7 @@ class TransformerASR(TransformerInterface):
         branchformer_activation: Optional[nn.Module] = nn.GELU,
         attention_type: Optional[str] = "regularMHA",
         max_length: Optional[int] = 2500,
-        causal: Optional[bool] = True,
+        causal: Optional[bool] = None,
         csgu_linear_units: Optional[int] = 3072,
         gate_activation: Optional[nn.Module] = nn.Identity,
         use_linear_after_conv: Optional[bool] = False,
@@ -264,6 +267,15 @@ class TransformerASR(TransformerInterface):
         layerdrop_prob=0.0,
 
     ):
+        if causal is None:
+            logger.warning(
+                "`causal` not specified for `TransformerASR`, assuming `True` for compatibility. "
+                "We strongly recommend that you explicitly set this. "
+                "If you are using a model or recipe defined before v1.0, it might now be BROKEN! "
+                "If so, please see https://github.com/speechbrain/speechbrain/issues/2604"
+            )
+            causal = True
+
         super().__init__(
             d_model=d_model,
             nhead=nhead,

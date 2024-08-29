@@ -853,3 +853,34 @@ def check_quaternion_input(input_shape):
             "Quaternion torch.Tensors must have dimensions divisible by 4."
             " input.size()[1] = " + str(nb_hidden)
         )
+
+
+def renorm_quaternion_weights_inplace(
+    r_weight, i_weight, j_weight, k_weight, max_norm
+):
+    """Renorms the magnitude of the quaternion-valued weights.
+
+    Arguments
+    ---------
+    r_weight : torch.Parameter
+    i_weight : torch.Parameter
+    j_weight : torch.Parameter
+    k_weight : torch.Parameter
+    max_norm : float
+        The maximum norm of the magnitude of the quaternion weights
+    """
+    weight_magnitude = torch.sqrt(
+        r_weight.data**2
+        + i_weight.data**2
+        + j_weight.data**2
+        + k_weight.data**2
+    )
+    renormed_weight_magnitude = torch.renorm(
+        weight_magnitude, p=2, dim=0, maxnorm=max_norm
+    )
+    factor = renormed_weight_magnitude / weight_magnitude
+
+    r_weight.data *= factor
+    i_weight.data *= factor
+    j_weight.data *= factor
+    k_weight.data *= factor
