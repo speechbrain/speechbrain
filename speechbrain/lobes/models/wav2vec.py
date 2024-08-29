@@ -202,7 +202,6 @@ class EncoderWrapper(nn.Module):
         latent_encoder,
         positional_encoding=PositionalEncoding,
         dropout_encoder_input=0.05,
-        output_hidden_states = False
     ):
         super().__init__()
         self.input_projector = nn.Linear(in_dim, embedding_dim)
@@ -251,10 +250,10 @@ class EncoderWrapper(nn.Module):
 
         latents = latents + self.positional_encoding(latents)
         feats, _ = self.latent_encoder(
-             latents, src_key_padding_mask=padding_mask
+            latents, src_key_padding_mask=padding_mask
         )
 
-        results["embeddings"] = feats      
+        results["embeddings"] = feats
         return results
 
 def compute_mask(shape, sample_lens, mask_prob, mask_length):
