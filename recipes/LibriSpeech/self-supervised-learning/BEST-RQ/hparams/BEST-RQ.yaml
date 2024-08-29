@@ -35,10 +35,10 @@ precision: fp16 # bf16, fp16 or fp32
 number_of_epochs: 3000
 optimizer_step_limit: 400000
 
-# Fits on a 11GB GPUs
-seconds_per_batch: 100
-train_num_buckets: 50
-grad_accumulation_factor: 1
+# This setup is for 8 V100. 
+seconds_per_batch: 400
+train_num_buckets: 150
+grad_accumulation_factor: 2
 
 train_dataloader_options:
    num_workers: 4
@@ -140,6 +140,7 @@ optimizer: !name:torch.optim.AdamW
     lr: !ref <lr>
     betas: (0.9, 0.98)
     eps: 0.000000001
+    weight_decay: 0.01
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>

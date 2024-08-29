@@ -1,1 +1,1 @@
-/users/rwhetten/ICASSP_2024/speechbrain/recipes/LibriSpeech/librispeech_prepare.py
+../../librispeech_prepare.py

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Recipe for pretraining Best-RQ (https://arxiv.org/pdf/2405.04296)
 
-To run this recipe call python train_best_rq.py best_rq.yaml --find_unused_parameters
+To run this recipe call python train.py BEST-RQ.yaml --find_unused_parameters
 
 Authors
     * Ryan Whetten 2023
@@ -22,7 +22,7 @@ from speechbrain import Stage
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
-from mask import brq_mask_collate_fn
+from speechbrain.lobes.models.BESTRQ import brq_mask_collate_fn
 
 logger = logging.getLogger(__name__)
 
@@ -39,38 +39,23 @@ class BestRQBrain(sb.core.Brain):
             wav_lens.to(self.device),
             mask.to(self.device),
         )
-       ############### START ##############
+
         ### get fbanks and normalize
         feats = self.hparams.compute_features(wavs)
         current_epoch = self.hparams.epoch_counter.current
         feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
 
-        B, T, C = feats.shape
-        divis_by = self.hparams.pad_to_divisible_by
-
-
-        #### pad features
-        current_dim_size = T
-        dim_to_pad = 1  # Pad along the second dimension (i.e. time)
-
-        # Calculate the amount of padding needed to make the tensor divisible by 4
-        current_dim_size = feats.shape[dim_to_pad]
-        padding_needed = (4 - (current_dim_size % 4)) % 4  # Ensure positive padding
-
-        # Define the padding
-        padding = [0, 0, 0, 0, 0, 0]  # Initialize padding for all dimensions
-        padding[dim_to_pad * 2] = padding_needed  # Set padding for the chosen dimension
-
-        # add in padding to features and mask
-        feats = torch.nn.functional.pad(feats, padding)
-
-        # get targets from quantizer
-        targets = self.modules.Quantizer(feats.view(B, feats.shape[1]//divis_by, -1))
-
-        ### augment data
+        ### augment data if necessary
         if stage == sb.Stage.TRAIN:
             if hasattr(self.hparams, "augmentation"):
                 feats = self.hparams.augmentation(feats)
+
+        divis_by = self.hparams.pad_to_divisible_by
+        feats = pad_feats(feats, divis_by)
+
+        # get targets from quantizer and stack the frames!
+        B, T, C = feats.shape
+        targets = self.modules.Quantizer(feats.view(B, feats.shape[1]//divis_by, -1))
                 
         # generate random noise
         noise = torch.normal(
@@ -91,19 +76,18 @@ class BestRQBrain(sb.core.Brain):
         ##### linear
         logits = self.modules.linear(enc_out)
 
+        ##### get masked region for loss computation only over these. 
         mask_idx = mask[::divis_by] // divis_by
-        logits[:,mask_idx,:]
-        targets[:,mask_idx].shape
-
-        ##### get masked region
         logits = logits[:,mask_idx,:]
         targets = targets[:,mask_idx]
+
         B, T, C = logits.shape
-        return logits.view(B * T, C), targets.view(B*T)
+        return logits.view(B * T, C), targets.view(B * T)
     
 
     def compute_objectives(self, predictions, batch, stage):
         pred, targets = predictions
+
         if stage != sb.Stage.TRAIN and sb.utils.distributed.if_main_process():
             predicted_classes = torch.argmax(pred, dim=-1)
             correct_predictions = (predicted_classes == targets)
@@ -177,6 +161,40 @@ class BestRQBrain(sb.core.Brain):
                 meta={"valid_loss": stage_loss},
             )
 
+def pad_feats(feats, divis_by):
+    """ BEST-RQ quantizer stackes frames together. Hence, we need to pad the
+    incoming features such that the time dimension is divisible by divis_by.
+
+    Arguments
+    ---------
+    feats: torch.Tensor
+        The feature tensor.
+    divis_by: int
+        The stacking factor. The time dimension of feats will become divisible
+        by this value.
+    """
+
+    B, T, C = feats.shape
+
+    #### pad features to enable a reduction by pad_to_divisible_by for the
+    # quantiser of BEST-RQ 
+    current_dim_size = T
+    dim_to_pad = 1  # Pad along the second dimension (i.e. time)
+
+    # Calculate the amount of padding needed to make the tensor divisible
+    # by divis_by
+    current_dim_size = feats.shape[dim_to_pad]
+    # Ensure positive padding
+    padding_needed = (divis_by - (current_dim_size % divis_by)) % divis_by  
+
+    # Define the padding
+    # Initialize padding for all dimensions, have a look at the documentation of
+    # torch.nn.functional.pad because the padding argument is quite special.
+    padding = [0, 0, 0, 0, 0, 0]  
+    padding[dim_to_pad * 2] = padding_needed  # Set padding for the chosen dimension
+    
+    # add in padding to features and mask
+    return torch.nn.functional.pad(feats, padding)
 
 def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
@@ -212,12 +230,7 @@ def dataio_prepare(hparams):
     def audio_pipeline(wav):
         # Speed Perturb is done here so it is multi-threaded with the
         # workers of the dataloader (faster).
-        if "speed_perturb" in hparams:
-            sig = sb.dataio.dataio.read_audio(wav)
-
-            sig = hparams["speed_perturb"](sig.unsqueeze(0)).squeeze(0)
-        else:
-            sig = sb.dataio.dataio.read_audio(wav)
+        sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)

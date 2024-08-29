@@ -1,22 +1,26 @@
 # BEST-RQ pretraining with SpeechBrain
 
-This folder contains the scripts to train a BEST-RQ model using LibriSpeech. It can be adapted to any dataset as long as you provide the csv or json files as with other recipes. No other adaptation will be required apart from controlling the sequence length and Dynamic Batching arguments to avoid out of memory issues.
+This folder contains the scripts to train a BEST-RQ model using LibriSpeech. It can be adapted to any dataset as long as you provide the csv or json files. No other adaptation will be required apart from controlling the sequence length and Dynamic Batching arguments to avoid out of memory issues. 
+
+More information on the architecture can be found in [the original paper](https://arxiv.org/pdf/2202.01855.).
 
 # Go !
 Simply type:
 ```shell
-python train_bestrq.py hparams/bestrq.yaml
+python train.py hparams/BEST-RQ.yaml --find_unused_parameters
 ```
 
 Do not forget to replace the `!PLACEHOLDER` variables in the yaml corresponding to your local configuration.
 
+# Pretrained models and results
 
-# Advices
+ To be added
+
+# Tips and tricks
 We found that the following parameters can greatly affect downstream performance:
 - Batch size 
 - learning rate (`lr`) 
 - mask probablity (`mask_prob`) 
-
 
 **A note on batch and model size:**
 
