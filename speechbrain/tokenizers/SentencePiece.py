@@ -174,17 +174,6 @@ class SentencePiece:
         self.add_dummy_prefix = str(add_dummy_prefix)
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
-            logger.info("Train tokenizer with type:" + self.model_type)
-            if not os.path.isfile(self.text_file):
-                if annotation_format == "csv":
-                    run_on_main(self._csv2text)
-                elif annotation_format == "json":
-                    run_on_main(self._json2text)
-                else:
-                    raise ValueError(
-                        "Annotation format not supported. Supported formats are csv and json. Got "
-                        + annotation_format
-                    )
             run_on_main(self._train_BPE)
         else:
             logger.info("Tokenizer is already trained.")
@@ -298,6 +287,19 @@ class SentencePiece:
         SentencePiece Library. If you use "char" mode, the SentencePiece
         creates a char dict so the vocab_size attribute is not needed.
         """
+
+        logger.info("Train tokenizer with type:" + self.model_type)
+        if not os.path.isfile(self.text_file):
+            if self.annotation_format == "csv":
+                self._csv2text()
+            elif self.annotation_format == "json":
+                self._json2text()
+            else:
+                raise ValueError(
+                    "Annotation format not supported. Supported formats are csv and json. Got "
+                    + self.annotation_format
+                )
+
         query = (
             "--input="
             + self.text_file
