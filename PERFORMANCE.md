@@ -1,5 +1,5 @@
 # SpeechBrain Performance Report
-    This document provides an overview of the performance achieved on key datasets and tasks supported by SpeechBrain.
+This document provides an overview of the performance achieved on key datasets and tasks supported by SpeechBrain.
 
 ## AISHELL-1 Dataset
 
@@ -56,27 +56,11 @@
 
 ## CommonVoice Dataset
 
-### ASR-transformer
-
-| Model | Checkpoints | HuggingFace | Test-WER |
-| --------| --------| --------| --------|
- | recipes/CommonVoice/ASR/transformer/hparams/train_fr.yaml | [here](https://www.dropbox.com/sh/zvu9h9pctksnuvp/AAD1kyS3-N0YtmcoMgjM-_Tba?dl=0) | - | 17.61% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_it.yaml | [here](https://www.dropbox.com/sh/yy8du12jgbkm3qe/AACBHhTCM-cU-oGvAKJ9kTtaa?dl=0) | - | 16.80% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_de.yaml | [here](https://www.dropbox.com/sh/umfq986o3d9o1px/AAARNF2BFYELOWx3xhIOEoZka?dl=0) | - | 16.76% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_ar_hf_whisper.yaml | [here](https://www.dropbox.com/sh/0e4vtvbg6hf2e13/AAD-tfzCZGUrh85aeAeJj8I9a?dl=0) | [here](https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-ar) | 16.96% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_fa_hf_whisper.yaml | [here](https://www.dropbox.com/sh/w1urihacmtoulmi/AADMtK3qeAF5mLYk5LMHyiOra?dl=0) | [here](https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-fa) | 31.75% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_fr_hf_whisper.yaml | [here](https://www.dropbox.com/sh/7zlk07yxnslk4yy/AAANcI3EaG0ZFy6UrKk1Mm2Ga?dl=0) | [here](https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-fr) | 10.62% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_sr_hf_whisper.yaml | [here](https://www.dropbox.com/sh/5lhk230q45sd97z/AAD-U9b_Ws_vFPs-cazsbOY0a?dl=0) | [here](https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-sr) | 22.29% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_mn_hf_whisper.yaml | [here](https://www.dropbox.com/sh/6fbhmey7q1udykf/AAAiGObWTTe2cdXHt2Uv2VQXa?dl=0) | [here](https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-mn) | 67.84% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_hi_hf_whisper.yaml | [here](https://www.dropbox.com/sh/z9vriyy3i6xqvif/AAB7ql-40yWTjKEQJiuhYUr5a?dl=0) | [here](https://huggingface.co/speechbrain/asr-whisper-large-v2-commonvoice-hi) | 15.27% |
- | recipes/CommonVoice/ASR/transformer/hparams/train_it_hf_whisper.yaml | [here](https://www.dropbox.com/sh/u5tex3nvzzs5pex/AAD-J7cOBE_fNfBono8waTKCa?dl=0) | [here](https://huggingface.co/speechbrain/asr-whisper-medium-commonvoice-it) | 9.63% |
-
-
 ### ASR-CTC
 
 | Model | Checkpoints | HuggingFace | Test-WER |
 | --------| --------| --------| --------|
- | recipes/CommonVoice/ASR/CTC/hparams/train_en_with_wav2vec.yaml | [here](https://www.dropbox.com/sh/ch10cnbhf1faz3w/AACdHFG65LC6582H0Tet_glTa?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-en) | 16.16% |
+ | recipes/CommonVoice/ASR/CTC/hparams/train_en_with_wav2vec.yaml | [here](https://www.dropbox.com/scl/fo/gx0szpbectig2r6r6p9vk/APdoN_wWWq_wP4My7w6SvMo?rlkey=v8fhd887bn947yjb45i99wm8p&st=6muft51b&dl=0) | - | 16.16% |
  | recipes/CommonVoice/ASR/CTC/hparams/train_fr_with_wav2vec.yaml | [here](https://www.dropbox.com/sh/0i7esfa8jp3rxpp/AAArdi8IuCRmob2WAS7lg6M4a?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-fr) | 9.71% |
  | recipes/CommonVoice/ASR/CTC/hparams/train_it_with_wav2vec.yaml | [here](https://www.dropbox.com/sh/hthxqzh5boq15rn/AACftSab_FM6EFWWPgHpKw82a?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-it) | 7.99% |
  | recipes/CommonVoice/ASR/CTC/hparams/train_rw_with_wav2vec.yaml | [here](https://www.dropbox.com/sh/4iax0l4yfry37gn/AABuQ31JY-Sbyi1VlOJfV7haa?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-rw) | 22.52% |
@@ -85,15 +69,6 @@
  | recipes/CommonVoice/ASR/CTC/hparams/train_es_with_wav2vec.yaml | [here](https://www.dropbox.com/sh/ejvzgl3d3g8g9su/AACYtbSWbDHvBr06lAb7A4mVa?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-es) | 12.67% |
  | recipes/CommonVoice/ASR/CTC/hparams/train_pt_with_wav2vec.yaml | [here](https://www.dropbox.com/sh/80wucrvijdvao2a/AAD6-SZ2_ZZXmlAjOTw6fVloa?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-pt) | 21.69% |
  | recipes/CommonVoice/ASR/CTC/hparams/train_zh-CN_with_wav2vec.yaml | [here](https://www.dropbox.com/sh/2bikr81vgufoglf/AABMpD0rLIaZBxjtwBHgrNpga?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-commonvoice-14-zh-CN) | 23.17% |
-
-
-### ASR-transducer
-
-| Model | Checkpoints | HuggingFace | Test-WER |
-| --------| --------| --------| --------|
- | recipes/CommonVoice/ASR/transducer/hparams/train_fr.yaml | [here](https://www.dropbox.com/sh/nv2pnpo5n3besn3/AADZ7l41oLt11ZuOE4MqoJhCa?dl=0) | [here](speechbrain/asr-transducer-commonvoice-14-fr) | 17.58% |
- | recipes/CommonVoice/ASR/transducer/hparams/train_it.yaml | [here](https://www.dropbox.com/sh/ksm08x0wwiomrgs/AABnjPePWGPxqIqW7bJHp1jea?dl=0) | [here](speechbrain/asr-transducer-commonvoice-14-it) | 14.88% |
- | recipes/CommonVoice/ASR/transducer/hparams/train_de.yaml | [here](https://www.dropbox.com/sh/jfge6ixbtoje64t/AADeAgL5un0A8uEjPSM84ex8a?dl=0) | [here](speechbrain/asr-transducer-commonvoice-14-de) | 15.25% |
 
 
 ### ASR-seq2seq
@@ -106,6 +81,13 @@
  | recipes/CommonVoice/ASR/seq2seq/hparams/train_it.yaml | [here](https://www.dropbox.com/sh/ss59uu0j5boscvp/AAASsiFhlB1nDWPkFX410bzna?dl=0) | [here](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-it) | 17.02% |
  | recipes/CommonVoice/ASR/seq2seq/hparams/train_rw.yaml | [here](https://www.dropbox.com/sh/i1fv4f8miilqgii/AAB3gE97kmFDA0ISkIDSUW_La?dl=0) | [here](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-rw) | 29.22% |
  | recipes/CommonVoice/ASR/seq2seq/hparams/train_es.yaml | [here](https://www.dropbox.com/sh/r3w0b2tm1p73vft/AADCxdhUwDN6j4PVT9TYe-d5a?dl=0) | [here](https://huggingface.co/speechbrain/asr-crdnn-commonvoice-14-es) | 14.77% |
+
+
+### ASR-transformer
+
+| Model | Checkpoints | HuggingFace | Test-WER |
+| --------| --------| --------| --------|
+ | recipes/CommonVoice/ASR/transformer/hparams/train_hf_whisper.yaml | - | - | 16.96% |
 
 
 ## DNS Dataset
@@ -143,8 +125,8 @@
 
 | Model | Checkpoints | HuggingFace | Accuracy |
 | --------| --------| --------| --------|
- | recipes/ESC50/classification/hparams/cnn14_classifier.yaml | [here](https://www.dropbox.com/sh/fbe7l14o3n8f5rw/AACABE1BQGBbX4j6A1dIhBcSa?dl=0) | - | 82% |
- | recipes/ESC50/classification/hparams/conv2d_classifier.yaml | [here](https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0) | - | 75% |
+ | recipes/ESC50/classification/hparams/cnn14.yaml | [here](https://www.dropbox.com/sh/fbe7l14o3n8f5rw/AACABE1BQGBbX4j6A1dIhBcSa?dl=0) | - | 82% |
+ | recipes/ESC50/classification/hparams/conv2d.yaml | [here](https://www.dropbox.com/sh/tl2pbfkreov3z7e/AADwwhxBLw1sKvlSWzp6DMEia?dl=0) | - | 75% |
 
 
 ## Fisher-Callhome-Spanish Dataset
@@ -219,6 +201,14 @@
 
 ## LibriSpeech Dataset
 
+### ASR-CTC
+
+| Model | Checkpoints | HuggingFace | Test_clean-WER | Test_other-WER |
+| --------| --------| --------| --------| --------|
+ | recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec.yaml | [here](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | 1.65% | 3.67% |
+ | recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec_transformer_rescoring.yaml | [here](https://www.dropbox.com/sh/ijqalvre7mm08ng/AAD_hsN-8dBneUMMkELsOOxga?dl=0) | - | 1.57% | 3.37% |
+
+
 ### ASR-Seq2Seq
 
 | Model | Checkpoints | HuggingFace | Test_clean-WER | Test_other-WER |
@@ -226,12 +216,12 @@
  | recipes/LibriSpeech/ASR/seq2seq/hparams/train_BPE_5000.yaml | [here](https://www.dropbox.com/sh/1ycv07gyxdq8hdl/AABUDYzza4SLYtY45RcGf2_0a?dl=0) | [here](https://huggingface.co/speechbrain/asr-crdnn-transformerlm-librispeech) | 2.89% | 8.09% |
 
 
-### ASR-CTC
+### G2P
 
-| Model | Checkpoints | HuggingFace | Test_clean-WER | Test_other-WER |
-| --------| --------| --------| --------| --------|
- | recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec.yaml | [here](https://www.dropbox.com/sh/qj2ps85g8oiicrj/AAAxlkQw5Pfo0M9EyHMi8iAra?dl=0) | [here](https://huggingface.co/speechbrain/asr-wav2vec2-librispeech) | 1.65% | 3.67% |
- | recipes/LibriSpeech/ASR/CTC/hparams/train_hf_wav2vec_transformer_rescoring.yaml | [here](https://www.dropbox.com/sh/ijqalvre7mm08ng/AAD_hsN-8dBneUMMkELsOOxga?dl=0) | - | 1.57% | 3.37% |
+| Model | Checkpoints | HuggingFace | PER-Test |
+| --------| --------| --------| --------|
+ | recipes/LibriSpeech/G2P/hparams/hparams_g2p_rnn.yaml | [here](https://www.dropbox.com/sh/qmcl1obp8pxqaap/AAC3yXvjkfJ3mL-RKyAUxPdNa?dl=0) | - | 2.72% |
+ | recipes/LibriSpeech/G2P/hparams/hparams_g2p_transformer.yaml | [here](https://www.dropbox.com/sh/zhrxg7anuhje7e8/AADTeJtdsja_wClkE2DsF9Ewa?dl=0) | [here](https://huggingface.co/speechbrain/soundchoice-g2p) | 2.89% |
 
 
 ### ASR-Transducers
@@ -250,19 +240,11 @@
  | recipes/LibriSpeech/ASR/transformer/hparams/conformer_large.yaml | [here](https://www.dropbox.com/scl/fo/9we244tgdf47ay20hrdoz/AKnoqQ13nLwSv1ITeJEQ3wY?rlkey=05o5jiszr8rhj6dlprw87t2x4&st=u2odesyk&dl=0) | - | 2.01% | 4.52% |
  | recipes/LibriSpeech/ASR/transformer/hparams/branchformer_large.yaml | [here](https://www.dropbox.com/scl/fo/qhtds5rrdvhhhjywa7ovw/AMiIL5YvQENw5JKVpzXlP5o?rlkey=hz8vlpy3qf9kcyfx0cox089e6&st=ufckv6tb&dl=0) | - | 2.04% | 4.12% |
  | recipes/LibriSpeech/ASR/transformer/hparams/hyperconformer_22M.yaml | [here](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | - | 2.23% | 4.54% |
- | recipes/LibriSpeech/ASR/transformer/hparams/hyperconformer_8M.yaml | [here](https://www.dropbox.com/sh/30xsmqj13jexzoh/AACvZNtX1Fsr0Wa1Z3C9rHLXa?dl=0) | - | 2.55% | 6.61% |
+ | recipes/LibriSpeech/ASR/transformer/hparams/hyperconformer_8M.yaml | [here](https://www.dropbox.com/sh/8jc96avmivr8fke/AABrFEhtWy_3-Q7BHhkh0enwa?dl=0) | - | 2.55% | 6.61% |
  | recipes/LibriSpeech/ASR/transformer/hparams/hyperbranchformer_25M.yaml | - | - | 2.36% | 6.89% |
  | recipes/LibriSpeech/ASR/transformer/hparams/hyperbranchformer_13M.yaml | - | - | 2.54% | 6.58% |
  | recipes/LibriSpeech/ASR/transformer/hparams/train_hf_whisper.yaml | - | - |  |
  | recipes/LibriSpeech/ASR/transformer/hparams/bayesspeech.yaml | [here](https://www.dropbox.com/scl/fo/cdken4jqfj96ev1v84jxm/h?rlkey=25eu1ytgm5ac51zqj8p65zwxd&dl=0) | - | 2.84% | 6.27% |
-
-
-### G2P
-
-| Model | Checkpoints | HuggingFace | PER-Test |
-| --------| --------| --------| --------|
- | recipes/LibriSpeech/G2P/hparams/hparams_g2p_rnn.yaml | [here](https://www.dropbox.com/sh/qmcl1obp8pxqaap/AAC3yXvjkfJ3mL-RKyAUxPdNa?dl=0) | - | 2.72% |
- | recipes/LibriSpeech/G2P/hparams/hparams_g2p_transformer.yaml | [here](https://www.dropbox.com/sh/zhrxg7anuhje7e8/AADTeJtdsja_wClkE2DsF9Ewa?dl=0) | [here](https://huggingface.co/speechbrain/soundchoice-g2p) | 2.89% |
 
 
 ## MEDIA Dataset
@@ -415,6 +397,8 @@
 | --------| --------| --------| --------|
  | recipes/VoxLingua107/lang_id/hparams/train_ecapa.yaml | [here](https://www.dropbox.com/sh/72gpuic5m4x8ztz/AAB5R-RVIEsXJtRH8SGkb_oCa?dl=0 ) | [here](https://huggingface.co/speechbrain/lang-id-voxlingua107-ecapa) | 93.3% |
 
+
+## VoxPopuli Dataset
 
 ## WHAMandWHAMR Dataset
 
