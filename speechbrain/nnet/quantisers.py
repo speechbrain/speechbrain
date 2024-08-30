@@ -8,6 +8,7 @@ Authors
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.linalg import vector_norm
 
 
 class GumbelVectorQuantizer(nn.Module):
@@ -122,9 +123,33 @@ class GumbelVectorQuantizer(nn.Module):
         result["x"] = x
         return result
 
-from torch.linalg import vector_norm
 
 class RandomProjectionQuantizer(nn.Module):
+    """Vector quantization using a projection and a randomly initialised codebook
+    this is useful for models like BEST-RQ for instance.
+
+    The output is the indices of the closest code in the codebook for each
+    time step of the input.
+
+    ref: https://arxiv.org/pdf/2202.01855
+
+    Arguments
+    ---------
+    input_dim: int
+        Input dimension (channels).
+    cb_dim: int
+        Size of each code in the codebook.
+    cb_vocab: int
+        Number of codes in the codebook
+
+    Example
+    -------
+    >>> quantiser = RandomProjectionQuantizer(16, 16, 32)
+    >>> inputs = torch.rand(10, 12, 16)
+    >>> output = quantiser(inputs)
+    >>> output.shape
+    torch.Size([10, 12])
+    """
 
     def __init__(self, input_dim, cb_dim, cb_vocab):
         super().__init__()
@@ -142,4 +167,6 @@ class RandomProjectionQuantizer(nn.Module):
 
     def forward(self, x):
         x = F.normalize(x @ self.P)
-        return vector_norm((self.CB.unsqueeze(1) - x.unsqueeze(1)), dim=-1).argmin(dim=1)
+        return vector_norm(
+            (self.CB.unsqueeze(1) - x.unsqueeze(1)), dim=-1
+        ).argmin(dim=1)
