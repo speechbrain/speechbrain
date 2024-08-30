@@ -12,22 +12,21 @@ import sys
 import time
 from functools import partial
 
-import speechbrain as sb
 import torch
 import torch.nn.functional as F
-from torch.nn.parallel import DistributedDataParallel
 from hyperpyyaml import load_hyperpyyaml
 
-from speechbrain import Stage
-from speechbrain.utils.distributed import run_on_main
+import speechbrain as sb
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.lobes.models.BESTRQ import brq_mask_collate_fn
+from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 
+
 class BestRQBrain(sb.core.Brain):
-    
+
     def compute_forward(self, batch, stage):
         """Computes forward pass through BestRQ model and returns encoded and
         target embeddings as well as other metrics of interest.
@@ -55,53 +54,56 @@ class BestRQBrain(sb.core.Brain):
 
         # get targets from quantizer and stack the frames!
         B, T, C = feats.shape
-        targets = self.modules.Quantizer(feats.view(B, feats.shape[1]//divis_by, -1))
-                
+        targets = self.modules.Quantizer(
+            feats.view(B, feats.shape[1] // divis_by, -1)
+        )
+
         # generate random noise
         noise = torch.normal(
-            mean=self.hparams.noise_mean, 
-            std=self.hparams.noise_std, 
-            size=(B, mask.shape[0], C), 
-            device=self.device
+            mean=self.hparams.noise_mean,
+            std=self.hparams.noise_std,
+            size=(B, mask.shape[0], C),
+            device=self.device,
         )
         # replace with random noise
-        feats[:,mask,:] = noise
+        feats[:, mask, :] = noise
 
         #### convolutions
         src = self.modules.CNN(feats)
 
         ##### transformer
-        enc_out = self.modules.wrapper(src, wav_lens) # only use encoder
+        enc_out = self.modules.wrapper(src, wav_lens)  # only use encoder
 
         ##### linear
         logits = self.modules.linear(enc_out)
 
-        ##### get masked region for loss computation only over these. 
+        ##### get masked region for loss computation only over these.
         mask_idx = mask[::divis_by] // divis_by
-        logits = logits[:,mask_idx,:]
-        targets = targets[:,mask_idx]
+        logits = logits[:, mask_idx, :]
+        targets = targets[:, mask_idx]
 
         B, T, C = logits.shape
         return logits.view(B * T, C), targets.view(B * T)
-    
 
     def compute_objectives(self, predictions, batch, stage):
         pred, targets = predictions
 
         if stage != sb.Stage.TRAIN and sb.utils.distributed.if_main_process():
             predicted_classes = torch.argmax(pred, dim=-1)
-            correct_predictions = (predicted_classes == targets)
-            accuracy = correct_predictions.sum().item() / len(correct_predictions)
+            correct_predictions = predicted_classes == targets
+            accuracy = correct_predictions.sum().item() / len(
+                correct_predictions
+            )
             self.acc_metric.append(accuracy)
 
         return F.cross_entropy(pred, targets)
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
-        """ Called after fit_batch(), updates learning rate and does per-step logging. """
+        """Called after fit_batch(), updates learning rate and does per-step logging."""
 
         if should_step:
             self.hparams.noam_annealing(self.optimizer)
-        
+
         # Perform step-wise logging
         if (
             hasattr(self.hparams, "log_interval")
@@ -124,8 +126,9 @@ class BestRQBrain(sb.core.Brain):
             self.time_last_log = time.time()
 
             if sb.utils.distributed.if_main_process():
-                self.hparams.train_steps_logger.log_stats(stats_meta=log_dct,)
-
+                self.hparams.train_steps_logger.log_stats(
+                    stats_meta=log_dct,
+                )
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -161,8 +164,9 @@ class BestRQBrain(sb.core.Brain):
                 meta={"valid_loss": stage_loss},
             )
 
+
 def pad_feats(feats, divis_by):
-    """ BEST-RQ quantizer stackes frames together. Hence, we need to pad the
+    """BEST-RQ quantizer stackes frames together. Hence, we need to pad the
     incoming features such that the time dimension is divisible by divis_by.
 
     Arguments
@@ -177,7 +181,7 @@ def pad_feats(feats, divis_by):
     B, T, C = feats.shape
 
     #### pad features to enable a reduction by pad_to_divisible_by for the
-    # quantiser of BEST-RQ 
+    # quantiser of BEST-RQ
     current_dim_size = T
     dim_to_pad = 1  # Pad along the second dimension (i.e. time)
 
@@ -185,22 +189,26 @@ def pad_feats(feats, divis_by):
     # by divis_by
     current_dim_size = feats.shape[dim_to_pad]
     # Ensure positive padding
-    padding_needed = (divis_by - (current_dim_size % divis_by)) % divis_by  
+    padding_needed = (divis_by - (current_dim_size % divis_by)) % divis_by
 
     # Define the padding
     # Initialize padding for all dimensions, have a look at the documentation of
     # torch.nn.functional.pad because the padding argument is quite special.
-    padding = [0, 0, 0, 0, 0, 0]  
-    padding[dim_to_pad * 2] = padding_needed  # Set padding for the chosen dimension
-    
+    padding = [0, 0, 0, 0, 0, 0]
+    padding[dim_to_pad * 2] = (
+        padding_needed  # Set padding for the chosen dimension
+    )
+
     # add in padding to features and mask
     return torch.nn.functional.pad(feats, padding)
+
 
 def dataio_prepare(hparams):
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     # We remove longer and shorter files from the train.
@@ -211,19 +219,20 @@ def dataio_prepare(hparams):
     )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
 
     datasets = [train_data, valid_data]
 
     def get_output_lengths(input_lengths):
-        """ Function to get the output length of the feature extractor this is
-            necessery to compute the masks of BestRQ.
+        """Function to get the output length of the feature extractor this is
+        necessary to compute the masks of BestRQ.
         """
         sr = hparams["sample_rate"]
         hop_length = hparams["hop_length"]
 
-        return (input_lengths // (sr*hop_length / 1000) + 1).to(torch.long)
+        return (input_lengths // (sr * hop_length / 1000) + 1).to(torch.long)
 
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
@@ -272,6 +281,7 @@ def dataio_prepare(hparams):
     )
 
     return train_data, valid_loader, train_loader_kwargs
+
 
 def main():
     logger.setLevel(logging.INFO)
