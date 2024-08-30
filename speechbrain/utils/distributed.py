@@ -4,16 +4,65 @@ Authors:
  * Abdel Heba 2020
  * Aku Rouhe 2020
  * Peter Plantinga 2023
- * Adel Moumen 2024
 """
 
 import datetime
 import os
 from functools import wraps
+from typing import Optional
 
 import torch
 
-MAIN_PROC_ONLY: int = 0
+MAIN_PROC_ONLY = 0
+
+
+def rank_prefixed_message(message: str, rank: Optional[int]) -> str:
+    r"""Prefix a message with the rank of the process.
+
+    Arguments
+    ---------
+    message : str
+        The message to prefix.
+    rank : int or None
+        The rank of the process, or None if the rank is unknown.
+
+    Returns
+    -------
+    str
+        The message prefixed with the rank, if known.
+    """
+    if rank is not None:
+        return f"[rank: {rank}] {message}"
+    return message
+
+
+def get_rank() -> Optional[int]:
+    r"""Get the rank of the current process.
+
+    This code is taken from the Pytorch Lightning library:
+    https://github.com/Lightning-AI/pytorch-lightning/
+
+    Returns
+    -------
+    int or None
+        The rank of the current process, or None if the rank could not be determined.
+    """
+    # SLURM_PROCID can be set even if SLURM is not managing the multiprocessing,
+    # therefore LOCAL_RANK needs to be checked first
+    rank_keys = ("RANK", "LOCAL_RANK", "SLURM_PROCID", "JSM_NAMESPACE_RANK")
+    for key in rank_keys:
+        rank = os.environ.get(key)
+        if rank is not None:
+            return int(rank)
+    # None to differentiate whether an environment variable was set at all
+    return None
+
+
+def distributed_is_initialized() -> bool:
+    """Check if the distributed environment is initialized."""
+    return (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    )
 
 
 def run_on_main(
@@ -75,15 +124,16 @@ def run_on_main(
 
 
 def if_main_process():
-    """Checks if the current process is the main process and authorized to run
-    I/O commands. The main process is the one with `RANK == 0`. In standard mode,
-    the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
+    """Checks if the current process is the main local process and authorized to run
+    I/O commands. In DDP mode, the main local process is the one with LOCAL_RANK == 0.
+    In standard mode, the process will not have `LOCAL_RANK` Unix var and will be
+    authorized to run the I/O commands.
     """
-    if "RANK" in os.environ:
-        if os.environ["RANK"] == "":
+    if "LOCAL_RANK" in os.environ:
+        if os.environ["LOCAL_RANK"] == "":
             return False
         else:
-            if int(os.environ["RANK"]) == 0:
+            if int(os.environ["LOCAL_RANK"]) == 0:
                 return True
             return False
     return True
@@ -122,32 +172,6 @@ def ddp_barrier():
         torch.distributed.barrier()
 
 
-def ddp_broadcast(communication_object, src=0):
-    """In DDP mode, this function will broadcast an object to all
-    processes.
-
-    Arguments
-    ---------
-    communication_object: Any
-        The object to be communicated to all processes. Must be picklable.
-        See docs for ``torch.distributed.broadcast_object_list()``
-    src: int
-        The rank which holds the object to be communicated.
-
-    Returns
-    -------
-    The communication_object passed on rank src.
-    """
-    if MAIN_PROC_ONLY >= 1 or not torch.distributed.is_initialized():
-        return communication_object
-
-    # Wrapping object in a list is required for preventing
-    # a copy of the object, maintaining a pointer instead
-    communication_list = [communication_object]
-    torch.distributed.broadcast_object_list(communication_list, src=src)
-    return communication_list[0]
-
-
 def ddp_init_group(run_opts):
     """This function will initialize the ddp group if
     distributed_launch bool is given in the python command line.
@@ -160,10 +184,6 @@ def ddp_init_group(run_opts):
     ---------
     run_opts: list
         A list of arguments to parse, most often from `sys.argv[1:]`.
-
-    Returns
-    -------
-    None
     """
     rank = os.environ.get("RANK")
     local_rank = os.environ.get("LOCAL_RANK")
