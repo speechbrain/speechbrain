@@ -13,7 +13,7 @@ from typing import Optional
 
 import torch
 
-MAIN_PROC_ONLY = 0
+MAIN_PROC_ONLY: int = 0
 
 
 def rank_prefixed_message(message: str, rank: Optional[int]) -> str:
