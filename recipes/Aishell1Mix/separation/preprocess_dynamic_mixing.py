@@ -54,13 +54,15 @@ def resample_folder(input_folder, output_folder, fs, regex):
 
     files = glob.glob(os.path.join(input_folder, regex), recursive=True)
     for f in tqdm.tqdm(files):
-
-        audio, fs_read = torchaudio.load(f)
-        audio = audio[0].numpy()
-        audio = signal.resample_poly(audio, fs, fs_read)
-
-        if len(audio) == 0:
+        try:
+            audio, fs_read = torchaudio.load(f)
+            audio = audio[0].numpy()
+            audio = signal.resample_poly(audio, fs, fs_read)
+        except Exception as e:
+            print("Error in resampling file: ", f)
+            print(e)
             continue
+
         # tmp = octave.activlev(audio.tolist(), fs, "n")
         # audio, _ = tmp[:-1].squeeze(), tmp[-1]
 
