@@ -63,7 +63,7 @@ pad_to_divisible_by: 4
 
 ####################### Model parameters ###########################
 # Transformer
-d_model: 512
+d_model: 576
 nhead: 8
 num_encoder_layers: 12
 num_decoder_layers: 0
