@@ -19,7 +19,7 @@ min_seed_value = 0
 
 
 def seed_everything(
-    seed: int, verbose: bool = True, deterministic: bool = False
+    seed: int = 0, verbose: bool = True, deterministic: bool = False
 ):
     r"""Function that sets the seed for pseudo-random number generators in: torch, numpy, and Python's random module.
 
@@ -31,7 +31,8 @@ def seed_everything(
 
     Returns
     -------
-    None
+    int
+        The seed that was set.
     """
     # if DDP, we need to offset the seed by the rank
     # to avoid having the same seed on all processes
@@ -66,3 +67,5 @@ def seed_everything(
 
     if deterministic:
         torch.use_deterministic_algorithms(True)
+
+    return seed
