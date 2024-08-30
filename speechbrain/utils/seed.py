@@ -39,7 +39,7 @@ def seed_everything(seed: int, verbose: bool = True) -> None:
         logger.info(
             f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}"
         )
-        seed = 0 + seed_offset
+        seed = seed_offset
     else:
         seed += seed_offset
 
