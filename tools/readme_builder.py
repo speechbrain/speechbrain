@@ -93,7 +93,7 @@ def create_table(fid_w, csv_file):
                 f'[here]({recipe["HF_repo"]})' if recipe["HF_repo"] else "-"
             )
 
-            performance_line = f' | {recipe["Hparam_file"]} | {str_res} | {hf_repo} | {performance_values}'
+            performance_line = f' | [`{recipe["Hparam_file"]}`]({recipe["Hparam_file"]}) | {str_res} | {hf_repo} | {performance_values}'
             print(performance_line, file=fid_w)
 
         print("\n", file=fid_w)
