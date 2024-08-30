@@ -21,13 +21,20 @@ max_seed_value = 4294967295  # 2^32 - 1 (uint32)
 min_seed_value = 0
 
 
-def seed_everything(seed: int, verbose: bool = True) -> None:
+def seed_everything(
+    seed: int, verbose: bool = True, deterministic: bool = False
+):
     r"""Function that sets the seed for pseudo-random number generators in: torch, numpy, and Python's random module.
 
     Arguments
     ---------
     seed: the integer value seed for global random state.
     verbose: Whether to print a message on each rank with the seed being set.
+    deterministic: Whether to set the seed for deterministic operations.
+
+    Returns
+    -------
+    None
     """
     # if DDP, we need to offset the seed by the rank to avoid having the same seed on all processes
     if distributed_is_initialized():
@@ -57,4 +64,10 @@ def seed_everything(seed: int, verbose: bool = True) -> None:
         np.random.seed(seed)
     except ImportError:
         pass
+
     torch.manual_seed(seed)
+    # safe to call this function even if cuda is not available
+    torch.cuda.manual_seed_all(seed)
+
+    if deterministic:
+        torch.use_deterministic_algorithms(True)
