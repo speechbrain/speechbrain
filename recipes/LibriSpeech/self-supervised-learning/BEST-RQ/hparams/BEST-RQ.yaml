@@ -33,19 +33,19 @@ precision: fp16 # bf16, fp16 or fp32
 # The training will either stops at number_of_epochs or optimizer_step_limit
 # I.e. the first that is reached.
 number_of_epochs: 3000
-optimizer_step_limit: 400000
+optimizer_step_limit: 300000
 
-# This setup is for 8 V100. 
+# This setup is for 8 V100.
 seconds_per_batch: 400
 train_num_buckets: 150
 grad_accumulation_factor: 2
 
 train_dataloader_options:
-   num_workers: 4
+    num_workers: 4
 
 test_dataloader_options:
-   batch_size:  8 # DynamicBatching not used at testing time
-   num_workers: 4
+    batch_size: 8 # DynamicBatching not used at testing time
+    num_workers: 4
 
 lr: 0.0008
 warmup: 25000
@@ -59,7 +59,7 @@ hop_length: 10
 # BEST RQ quantiser has a special downsampling mechanism.
 # convolutions reduction dim by 4 in the time domain
 # so the input to quantizer also needs to reduce dim by 4
-pad_to_divisible_by: 4 
+pad_to_divisible_by: 4
 
 ####################### Model parameters ###########################
 # Transformer
@@ -115,11 +115,11 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 
 # We must call an encoder wrapper so the decoder isn't run (we don't have any)
 wrapper: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
-   transformer: !ref <Transformer>
+    transformer: !ref <Transformer>
 
 Quantizer: !new:speechbrain.nnet.quantisers.RandomProjectionQuantizer
     input_dim: !ref <p_input>
-    cb_dim: !ref <cb_dim>    
+    cb_dim: !ref <cb_dim>
     cb_vocab: !ref <cb_vocab>
 
 linear: !new:speechbrain.nnet.linear.Linear
@@ -154,14 +154,14 @@ normalize: !new:speechbrain.processing.features.InputNormalization
 ############################## running ################################
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
-   limit: !ref <number_of_epochs>
+    limit: !ref <number_of_epochs>
 
 
 train_steps_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-   save_file: !ref <train_steps_log>
+    save_file: !ref <train_steps_log>
 
 train_stage_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
-   save_file: !ref <train_stage_log>
+    save_file: !ref <train_stage_log>
 
 noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
     lr_initial: !ref <lr>
