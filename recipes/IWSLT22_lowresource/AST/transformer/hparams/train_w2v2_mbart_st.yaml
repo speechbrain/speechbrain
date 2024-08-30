@@ -184,6 +184,5 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
     merge_words: False
-    lang: !ref <lang>
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats
