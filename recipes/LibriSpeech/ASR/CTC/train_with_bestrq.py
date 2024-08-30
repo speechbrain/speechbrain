@@ -1,23 +1,26 @@
 #!/usr/bin/env/python3
 """Recipe for training a bestrq ctc ASR system with librispeech.
 The system employs bestrq as its encoder. Decoding is performed with
-ctc greedy decoder.
+ctc beam search decoding (for the test) and a KenLM LM if specified.
 To run this recipe, do the following:
-> python train_with_bestrq.py hparams/train_bestrq.yaml --pt_model_hub /path/to_ckpt --data_folder /path/to/LibriSpeech/
+> python train_with_bestrq.py hparams/train_sb_BEST-RQ.yaml --pt_model_path /path/to_ckpt --data_folder /path/to/LibriSpeech/
 The neural network is trained on CTC likelihood target and character units
 are used as basic recognition tokens.
 
 Authors
  * Ryan Whetten 2023
 """
+
+import logging
 import os
 import sys
-import torch
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +33,6 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
 
-        # Downsample the inputs if specified
-        if hasattr(self.modules, "downsampler"):
-            wavs = self.modules.downsampler(wavs)
-
         # Add waveform augmentation if specified.
         if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
             wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
@@ -42,16 +41,11 @@ class ASR(sb.Brain):
 
         ### get fbanks and normalize
         feats = self.hparams.compute_features(wavs)
-        current_epoch = 10 # don't change normalizer anymore
-        feats = self.modules.normalize(feats, wav_lens, epoch=current_epoch)
+        print(self.modules.normalize.count)
+        print(self.modules.normalize.glob_mean)
+        feats = self.modules.normalize(feats, wav_lens)
 
-        #### convolutions
-        src = self.modules.pt_model[0](feats)
-        # print('after cnn: ', src.shape)
-
-        ##### transformer
-        enc_out = self.modules.pt_model[1](src, wav_lens)
-
+        enc_out = self.modules.pt_model(feats, wav_lens)
 
         x = self.modules.back_end_ffn(enc_out)
 
@@ -67,29 +61,12 @@ class ASR(sb.Brain):
 
         p_ctc = self.hparams.log_softmax(logits)
 
-        if stage == sb.Stage.VALID or (
-            stage == sb.Stage.TEST and not self.hparams.use_language_modelling
-        ):
-
+        if stage == sb.Stage.VALID:
             p_tokens = sb.decoders.ctc_greedy_decode(
                 p_ctc, wav_lens, blank_id=self.hparams.blank_index
             )
-        # if stage == sb.Stage.VALID:
-        #     p_tokens = sb.decoders.ctc_greedy_decode(
-        #         p_ctc, wav_lens, blank_id=self.hparams.blank_index
-        #     )
-        # elif stage == sb.Stage.TEST:
-        #     p_tokens = test_searcher(p_ctc, wav_lens)
-
-        #     candidates = []
-        #     scores = []
-
-        #     for batch in p_tokens:
-        #         candidates.append([hyp.text for hyp in batch])
-        #         scores.append([hyp.score for hyp in batch])
-
-        #     if hasattr(self.hparams, "rescorer"):
-        #         p_tokens, _ = self.hparams.rescorer.rescore(candidates, scores)
+        elif stage == sb.Stage.TEST:
+            p_tokens = test_searcher(p_ctc, wav_lens)
 
         return p_ctc, wav_lens, p_tokens
 
@@ -115,44 +92,17 @@ class ASR(sb.Brain):
                 "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
                 for utt_seq in predicted_tokens
             ]
+        elif (
+            stage == sb.Stage.TEST
+        ):  # Language model decoding only used for test
+            predicted_words = [
+                hyp[0].text.split(" ") for hyp in predicted_tokens
+            ]
+
+        if stage != sb.Stage.TRAIN:
             target_words = [wrd.split(" ") for wrd in batch.wrd]
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
-        if stage == sb.Stage.TEST:  # Language model decoding only used for test
-            if self.hparams.use_language_modelling:
-                predicted_words = []
-                for logs in p_ctc:
-                    text = decoder.decode(logs.detach().cpu().numpy())
-                    predicted_words.append(text.split(" "))
-            else:
-                predicted_words = [
-                    "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                    for utt_seq in predicted_tokens
-                ]
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
-
-        # if stage == sb.Stage.VALID:
-        #     # Decode token terms to words
-        #     predicted_words = [
-        #         "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-        #         for utt_seq in predicted_tokens
-        #     ]
-        # elif stage == sb.Stage.TEST:
-        #     if hasattr(self.hparams, "rescorer"):
-        #         predicted_words = [
-        #             hyp[0].split(" ") for hyp in predicted_tokens
-        #         ]
-        #     else:
-        #         predicted_words = [
-        #             hyp[0].text.split(" ") for hyp in predicted_tokens
-        #         ]
-
-        # if stage != sb.Stage.TRAIN:
-        #     target_words = [wrd.split(" ") for wrd in batch.wrd]
-        #     self.wer_metric.append(ids, predicted_words, target_words)
-        #     self.cer_metric.append(ids, predicted_words, target_words)
 
         return loss
 
@@ -161,10 +111,6 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
-
-        if stage == sb.Stage.TEST:
-            if hasattr(self.hparams, "rescorer"):
-                self.hparams.rescorer.move_rescorers_to_device()
 
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -181,26 +127,27 @@ class ASR(sb.Brain):
             old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
                 stage_stats["loss"]
             )
-            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+            old_lr_bestrq, new_lr_bestrq = self.hparams.lr_annealing_bestrq(
                 stage_stats["loss"]
             )
             sb.nnet.schedulers.update_learning_rate(
                 self.model_optimizer, new_lr_model
             )
             sb.nnet.schedulers.update_learning_rate(
-                self.wav2vec_optimizer, new_lr_wav2vec
+                self.bestrq_optimizer, new_lr_bestrq
             )
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
                     "lr_model": old_lr_model,
-                    "lr_wav2vec": old_lr_wav2vec,
+                    "lr_bestrq": old_lr_bestrq,
                 },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
@@ -212,17 +159,10 @@ class ASR(sb.Brain):
                     self.wer_metric.write_stats(w)
 
     def init_optimizers(self):
-        "Initializes the wav2vec2 optimizer and model optimizer"
-        # Handling SpeechBrain vs HuggingFace pretrained models
-        if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
-            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.encoder_wrapper.parameters()
-            )
-
-        else:  # HuggingFace pretrained model
-            self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-                self.modules.pt_model.parameters()
-            )
+        "Initializes the bestrq2 optimizer and model optimizer"
+        self.bestrq_optimizer = self.hparams.bestrq_opt_class(
+            self.modules.pt_model.parameters()
+        )
 
         self.model_optimizer = self.hparams.model_opt_class(
             self.hparams.model.parameters()
@@ -233,23 +173,25 @@ class ASR(sb.Brain):
         self.optimizers_dict = {
             "model_optimizer": self.model_optimizer,
         }
-        if not self.hparams.freeze_wav2vec:
-            self.optimizers_dict["wav2vec_optimizer"] = self.wav2vec_optimizer
+        if not self.hparams.freeze_bestrq:
+            self.optimizers_dict["bestrq_optimizer"] = self.bestrq_optimizer
 
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable(
-                "wav2vec_opt", self.wav2vec_optimizer
+                "bestrq_opt", self.bestrq_optimizer
             )
             self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
 
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -274,7 +216,8 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["valid_csv"], replacements={"data_root": data_folder},
+        csv_path=hparams["valid_csv"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -331,7 +274,8 @@ def dataio_prepare(hparams):
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(
-        datasets, ["id", "sig", "wrd", "char_list", "tokens"],
+        datasets,
+        ["id", "sig", "wrd", "char_list", "tokens"],
     )
 
     return train_data, valid_data, test_datasets, label_encoder
@@ -391,43 +335,19 @@ if __name__ == "__main__":
         run_on_main(hparams["pretrainer"].collect_files)
         hparams["pretrainer"].load_collected()
 
-    # We dynamicaly add the tokenizer to our brain class.
+    # We dynamically add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
     asr_brain.tokenizer = label_encoder
 
-    # ind2lab = label_encoder.ind2lab
-    # vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
+    ind2lab = label_encoder.ind2lab
+    vocab_list = [ind2lab[x] for x in range(len(ind2lab))]
 
-    # from speechbrain.decoders.ctc import CTCBeamSearcher
+    from speechbrain.decoders.ctc import CTCBeamSearcher
 
-    # test_searcher = CTCBeamSearcher(
-    #     **hparams["test_beam_search"], vocab_list=vocab_list,
-    # )
-
-    if "use_language_modelling" in hparams:
-
-        if hparams["use_language_modelling"]:
-            try:
-                from pyctcdecode import build_ctcdecoder
-            except ImportError:
-                err_msg = "Optional dependencies must be installed to use pyctcdecode.\n"
-                err_msg += "Install using `pip install kenlm pyctcdecode`.\n"
-                raise ImportError(err_msg)
-
-            print('using language modeling')
-            ind2lab = label_encoder.ind2lab
-            labels = [ind2lab[x] for x in range(len(ind2lab))]
-            labels = [""] + labels[
-                1:
-            ]  # Replace the <blank> token with a blank character, needed for PyCTCdecode
-            decoder = build_ctcdecoder(
-                labels,
-                kenlm_model_path=hparams["kenlm_model_path"],  # .arpa or .bin
-                alpha=0.5,  # Default by KenLM
-                beta=1.0,  # Default by KenLM
-            )
-    else:
-        hparams["use_language_modelling"] = False
+    test_searcher = CTCBeamSearcher(
+        **hparams["test_beam_search"],
+        vocab_list=vocab_list,
+    )
 
     # Training
     asr_brain.fit(
