@@ -118,8 +118,7 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_mels: !ref <n_mels>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
-   norm_type: global
-   update_until_epoch: 0
+   norm_type: sentence
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
@@ -149,17 +148,8 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
 enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
    transformer: !ref <Transformer>
 
-Quantizer: !new:speechbrain.nnet.quantisers.RandomProjectionQuantizer
-   input_dim: !ref <p_input>
-   cb_dim: !ref <cb_dim>
-   cb_vocab: !ref <cb_vocab>
-
-linear: !new:speechbrain.nnet.linear.Linear
-   input_size: !ref <d_model>
-   n_neurons: !ref <cb_vocab>
-
 pt_model: !new:torch.nn.ModuleList
-   - [!ref <CNN>, !ref <enc>, !ref <Quantizer>, !ref <linear>]
+   - [!ref <CNN>, !ref <enc>]
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <dnn_neurons>
@@ -173,6 +163,8 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 
 modules:
    normalize: !ref <normalize>
+   CNN: !ref <CNN>
+   enc: !ref <enc>
    pt_model: !ref <pt_model>
    back_end_ffn: !ref <back_end_ffn>
    ctc_lin: !ref <ctc_lin>

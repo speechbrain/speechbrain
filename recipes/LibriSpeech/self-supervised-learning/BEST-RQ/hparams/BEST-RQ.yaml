@@ -134,7 +134,7 @@ modules:
     linear: !ref <linear>
 
 model: !new:torch.nn.ModuleList
-    - [!ref <CNN>, !ref <wrapper>, !ref <Quantizer>, !ref <linear>]
+    - [!ref <CNN>, !ref <wrapper>]
 
 optimizer: !name:torch.optim.AdamW
     lr: !ref <lr>
@@ -149,7 +149,6 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: sentence
-    update_until_epoch: 4
 
 ############################## running ################################
 

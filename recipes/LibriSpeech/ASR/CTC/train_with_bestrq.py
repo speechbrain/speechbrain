@@ -41,23 +41,16 @@ class ASR(sb.Brain):
 
         ### get fbanks and normalize
         feats = self.hparams.compute_features(wavs)
-        print(self.modules.normalize.count)
-        print(self.modules.normalize.glob_mean)
         feats = self.modules.normalize(feats, wav_lens)
 
-        enc_out = self.modules.pt_model(feats, wav_lens)
+        feats = self.modules.CNN(feats)
+        enc_out = self.modules.enc(feats, wav_lens)
 
         x = self.modules.back_end_ffn(enc_out)
 
         # Compute outputs
         p_tokens = None
         logits = self.modules.ctc_lin(x)
-
-        # Upsample the inputs if they have been highly downsampled
-        if hasattr(self.hparams, "upsampling") and self.hparams.upsampling:
-            logits = logits.view(
-                logits.shape[0], -1, self.hparams.output_neurons
-            )
 
         p_ctc = self.hparams.log_softmax(logits)
 
