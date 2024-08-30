@@ -13,8 +13,6 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
-from typing import Optional
-import numpy as np
 
 from speechbrain.lobes.models.convolution import ConvolutionalSpatialGatingUnit
 from speechbrain.nnet.attention import MultiheadAttention, RelPosMHAXL
@@ -381,7 +379,7 @@ class BranchformerEncoder(nn.Module):
 
                 if self.output_hidden_states:
                     hidden_state_lst.append(output)
-        
+
         output = self.norm(output)
 
         if self.output_hidden_states:

@@ -8,7 +8,6 @@ Authors
 """
 
 import warnings
-import numpy as np
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -640,7 +639,7 @@ class ConformerEncoder(nn.Module):
 
     >>> import torch
     >>> from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
-    >>> x = torch.rand((8, 60, 512)); pos_emb = torch.rand((1, 2*60-1, 512)); 
+    >>> x = torch.rand((8, 60, 512)); pos_emb = torch.rand((1, 2*60-1, 512));
     >>> net = ConformerEncoder(4, 512, 512, 8, output_hidden_states=True)
     >>> output, _, hs = net(x, pos_embs=pos_emb)
     >>> hs[0].shape
@@ -747,13 +746,12 @@ class ConformerEncoder(nn.Module):
 
                 if self.output_hidden_states:
                     hidden_state_lst.append(output)
-        
+
         output = self.norm(output)
-        
+
         if self.output_hidden_states:
             return output, attention_lst, hidden_state_lst
         return output, attention_lst
-
 
     def forward_streaming(
         self,
@@ -799,7 +797,6 @@ class ConformerEncoder(nn.Module):
             )
             attention_lst.append(attention)
         output = self.norm(output)
-
 
     def make_streaming_context(self, dynchunktrain_config: DynChunkTrainConfig):
         """Creates a blank streaming context for the encoder.

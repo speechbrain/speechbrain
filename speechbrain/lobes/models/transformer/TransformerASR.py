@@ -267,9 +267,8 @@ class TransformerASR(TransformerInterface):
         csgu_linear_units: Optional[int] = 3072,
         gate_activation: Optional[nn.Module] = nn.Identity,
         use_linear_after_conv: Optional[bool] = False,
-        output_hidden_states = False,
+        output_hidden_states=False,
         layerdrop_prob=0.0,
-
     ):
         if causal is None:
             logger.warning(
@@ -404,7 +403,7 @@ class TransformerASR(TransformerInterface):
 
         if self.output_hidden_states:
             return encoder_out, hidden_states, decoder_out
-        else: 
+        else:
             return encoder_out, decoder_out
 
     @torch.no_grad()
@@ -504,7 +503,6 @@ class TransformerASR(TransformerInterface):
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)
             pos_embs_source = None
-
 
         outputs = self.encoder(
             src=src,
