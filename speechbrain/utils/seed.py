@@ -11,6 +11,7 @@ import torch
 
 from speechbrain.utils.distributed import get_rank, rank_prefixed_message
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 max_seed_value = 4294967295  # 2^32 - 1 (uint32)
@@ -45,7 +46,9 @@ def seed_everything(
         seed += seed_offset
 
     if verbose:
-        print(rank_prefixed_message(f"Setting seed to {seed}", get_rank()))
+        logger.info(
+            rank_prefixed_message(f"Setting seed to {seed}", get_rank())
+        )
 
     random.seed(seed)
 
