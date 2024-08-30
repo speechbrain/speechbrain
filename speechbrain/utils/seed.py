@@ -5,6 +5,7 @@ Authors
 """
 
 import logging
+import os
 import random
 
 import torch
@@ -51,6 +52,7 @@ def seed_everything(
             rank_prefixed_message(f"Setting seed to {seed}", get_rank())
         )
 
+    os.environ["SB_GLOBAL_SEED"] = str(seed)
     random.seed(seed)
 
     # if numpy is available, seed it
