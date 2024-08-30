@@ -59,13 +59,6 @@ def get_rank() -> Optional[int]:
     return None
 
 
-def distributed_is_initialized() -> bool:
-    """Check if the distributed environment is initialized."""
-    return (
-        torch.distributed.is_available() and torch.distributed.is_initialized()
-    )
-
-
 def run_on_main(
     func,
     args=None,

@@ -9,11 +9,7 @@ import random
 
 import torch
 
-from speechbrain.utils.distributed import (
-    distributed_is_initialized,
-    get_rank,
-    rank_prefixed_message,
-)
+from speechbrain.utils.distributed import get_rank, rank_prefixed_message
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +32,9 @@ def seed_everything(
     -------
     None
     """
-    # if DDP, we need to offset the seed by the rank to avoid having the same seed on all processes
-    if distributed_is_initialized():
-        seed_offset = get_rank()
-    else:
-        seed_offset = 0
+    # if DDP, we need to offset the seed by the rank
+    # to avoid having the same seed on all processes
+    seed_offset = 0 if get_rank() is None else get_rank()
 
     if not (min_seed_value <= seed <= max_seed_value):
         logger.info(
@@ -51,9 +45,7 @@ def seed_everything(
         seed += seed_offset
 
     if verbose:
-        logger.info(
-            rank_prefixed_message(f"Setting seed to {seed}", get_rank())
-        )
+        print(rank_prefixed_message(f"Setting seed to {seed}", get_rank()))
 
     random.seed(seed)
 
