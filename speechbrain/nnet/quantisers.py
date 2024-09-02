@@ -166,6 +166,8 @@ class RandomProjectionQuantizer(nn.Module):
         self.register_buffer("CB", F.normalize(torch.randn(cb_vocab, cb_dim)))
 
     def forward(self, x):
+        """Forward the latent vector to obtain a quantised output"""
+
         x = F.normalize(x @ self.P)
         return vector_norm(
             (self.CB.unsqueeze(1) - x.unsqueeze(1)), dim=-1
