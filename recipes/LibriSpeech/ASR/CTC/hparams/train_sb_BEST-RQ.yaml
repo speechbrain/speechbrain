@@ -82,11 +82,6 @@ blank_index: 0
 n_fft: 400
 n_mels: 80
 
-# quantizer parameters not using though for finetunning
-p_input: 320
-cb_dim: 16
-cb_vocab: 8192
-
 ############################## models ##########################################
 
 back_end_ffn: !new:speechbrain.nnet.containers.Sequential
@@ -174,7 +169,6 @@ model: !new:torch.nn.ModuleList
 
 ####################### Decoding & optimiser ###################################
 
-use_language_modelling: False
 kenlm_model_path: null
 
 # Decoding parameters
