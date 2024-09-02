@@ -334,6 +334,17 @@ class TransformerASR(TransformerInterface):
             Torch Tensor of shape (batch, ) containing the relative length to padded length for each example.
         pad_idx : int, optional
             The index for <pad> token (default=0).
+
+        Returns
+        -------
+        encoder_out : torch.Tensor
+            The output of the encoder.
+        decoder_out : torch.Tensor
+            The output of the decoder
+        hidden_state_lst : list, optional
+            The output of the hidden layers of the encoder.
+            Only works if output_hidden_states is set to true.
+
         """
 
         # reshape the src vector to [Batch, Time, Fea] is a 4d vector is given
@@ -554,6 +565,7 @@ class TransformerASR(TransformerInterface):
         ...     encoder_module="conformer",
         ...     normalize_before=True,
         ...     causal=False,
+        ...     return
         ... )
         >>> ctx = net.make_streaming_context(DynChunkTrainConfig(16, 1))
         >>> src1 = torch.rand([8, 16, 64])

@@ -713,6 +713,16 @@ class ConformerEncoder(nn.Module):
             Dynamic Chunk Training configuration object for streaming,
             specifically involved here to apply Dynamic Chunk Convolution to the
             convolution module.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The output of the Conformer.
+        attention_lst : list
+            The attention values.
+        hidden_state_lst : list, optional
+            The output of the hidden layers of the encoder.
+            Only works if output_hidden_states is set to true.
         """
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:

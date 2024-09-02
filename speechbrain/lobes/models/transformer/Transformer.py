@@ -586,6 +586,9 @@ class TransformerEncoder(nn.Module):
             The output of the transformer.
         attention_lst : list
             The attention values.
+        hidden_state_lst : list, optional
+            The output of the hidden layers of the encoder.
+            Only works if output_hidden_states is set to true.
         """
         assert (
             dynchunktrain_config is None
