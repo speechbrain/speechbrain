@@ -798,6 +798,8 @@ class ConformerEncoder(nn.Module):
             attention_lst.append(attention)
         output = self.norm(output)
 
+        return output, attention_lst
+
     def make_streaming_context(self, dynchunktrain_config: DynChunkTrainConfig):
         """Creates a blank streaming context for the encoder.
 
