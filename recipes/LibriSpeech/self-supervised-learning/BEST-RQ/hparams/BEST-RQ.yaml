@@ -173,3 +173,5 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         noam_scheduler: !ref <noam_annealing>
         normalizer: !ref <normalize>
         counter: !ref <epoch_counter>
+        quantizer: !ref <Quantizer>
+        linear: !ref <linear>
