@@ -43,7 +43,6 @@ num_workers: 4
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
-# Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 6
 test_batch_size: 8
 
@@ -118,7 +117,8 @@ compute_features: !new:speechbrain.lobes.features.Fbank
    n_mels: !ref <n_mels>
 
 normalize: !new:speechbrain.processing.features.InputNormalization
-   norm_type: sentence
+   norm_type: global
+   update_until_epoch: 0
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
    input_shape: (8, 10, 80)
