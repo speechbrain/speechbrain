@@ -565,7 +565,6 @@ class TransformerASR(TransformerInterface):
         ...     encoder_module="conformer",
         ...     normalize_before=True,
         ...     causal=False,
-        ...     return
         ... )
         >>> ctx = net.make_streaming_context(DynChunkTrainConfig(16, 1))
         >>> src1 = torch.rand([8, 16, 64])
