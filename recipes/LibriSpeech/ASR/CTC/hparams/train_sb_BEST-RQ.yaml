@@ -248,8 +248,8 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
    concat_original: True
    repeat_augment: 1
    shuffle_augmentations: False
-   min_augmentations: 4
-   max_augmentations: 4
+   min_augmentations: 3
+   max_augmentations: 3
    augment_prob: 1.0
    augmentations: [
       !ref <speed_perturb>,

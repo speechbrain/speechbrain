@@ -237,8 +237,6 @@ def dataio_prepare(hparams):
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        # Speed Perturb is done here so it is multi-threaded with the
-        # workers of the dataloader (faster).
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
