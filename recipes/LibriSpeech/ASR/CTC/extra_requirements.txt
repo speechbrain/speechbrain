@@ -1,3 +1,3 @@
 https://github.com/kpu/kenlm/archive/master.zip
 # k2 # It is better to install k2 with the procedure listed here: https://k2-fsa.github.io/k2/installation/from_wheels.html
-kaldilm==1.15
+kaldilm==1.15.1

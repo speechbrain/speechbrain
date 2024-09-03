@@ -92,10 +92,15 @@ class S2UT(sb.core.Brain):
                 # generate speech and transcriptions
                 wavs = []
                 for hyp in hyps:
-                    if len(hyp) > 3:
-                        code = torch.LongTensor(hyp)
-                        wav = self.test_vocoder.decode_unit(code)
+                    if len(hyp) > 10:
+                        code = torch.LongTensor(hyp[:-1])
+                        wav = self.test_vocoder.decode_unit(code.unsqueeze(-1))
                         wavs.append(wav.squeeze(0))
+                    else:
+                        logging.warn(
+                            f"Encountered hyp {hyp} too short for decoding, using fake blank audio for testing"
+                        )
+                        wavs.append(torch.zeros(40000))  # on cpu device
                 if wavs:
                     wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
                     transcripts, _ = self.test_asr.transcribe_batch(
