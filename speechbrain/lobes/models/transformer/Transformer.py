@@ -175,6 +175,7 @@ class TransformerInterface(nn.Module):
                     kdim=self.encoder_kdim,
                     vdim=self.encoder_vdim,
                     output_hidden_states=self.output_hidden_states,
+                    layerdrop_prob=self.layerdrop_prob,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
