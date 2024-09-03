@@ -644,6 +644,7 @@ class ConformerEncoder(nn.Module):
     >>> output, _, hs = net(x, pos_embs=pos_emb)
     >>> hs[0].shape
     torch.Size([8, 60, 512])
+
     """
 
     def __init__(

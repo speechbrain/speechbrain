@@ -514,6 +514,15 @@ class TransformerEncoder(nn.Module):
     >>> output, _ = net(x)
     >>> output.shape
     torch.Size([8, 60, 512])
+
+    >>> import torch
+    >>> x = torch.rand((8, 60, 512))
+    >>> net = TransformerEncoder(1, 8, 512, d_model=512, output_hidden_states=True)
+    >>> output, attn_list, hidden_list = net(x)
+    >>> hidden_list[0].shape
+    torch.Size([8, 60, 512])
+    >>> len(hidden_list)
+    2
     """
 
     def __init__(

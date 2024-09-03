@@ -278,6 +278,16 @@ class BranchformerEncoder(nn.Module):
     >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
     torch.Size([8, 60, 512])
+
+    >>> import torch
+    >>> x = torch.rand((8, 60, 512))
+    >>> pos_emb = torch.rand((1, 2*60-1, 512))
+    >>> net = BranchformerEncoder(1, 512, 8, output_hidden_states=True)
+    >>> output, attn_list, hidden_list = net(x, pos_embs=pos_emb)
+    >>> hidden_list[0].shape
+    torch.Size([8, 60, 512])
+    >>> len(hidden_list)
+    2
     """
 
     def __init__(
