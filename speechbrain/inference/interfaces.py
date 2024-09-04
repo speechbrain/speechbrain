@@ -135,7 +135,10 @@ def foreign_class(
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
-    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+    run_on_main(
+        pretrainer.collect_files,
+        kwargs={"default_source": source, "use_auth_token": use_auth_token},
+    )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
@@ -501,7 +504,11 @@ class Pretrained(torch.nn.Module):
             pretrainer.set_collect_in(savedir)
             # For distributed setups, have this here:
             run_on_main(
-                pretrainer.collect_files, kwargs={"default_source": source, "use_auth_token": use_auth_token}
+                pretrainer.collect_files,
+                kwargs={
+                    "default_source": source,
+                    "use_auth_token": use_auth_token,
+                },
             )
             # Load on the CPU. Later the params can be moved elsewhere by specifying
             if not download_only:
