@@ -170,7 +170,12 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(self, default_source=None, internal_ddp_handling=False, use_auth_token=False):
+    def collect_files(
+        self,
+        default_source=None,
+        internal_ddp_handling=False,
+        use_auth_token=False,
+    ):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -190,6 +195,9 @@ class Pretrainer:
         internal_ddp_handling : bool
             Whether/not the function should handle DDP i.e. `run_on_main`.
             (Default: False)
+        use_auth_token : bool (default: False)
+            If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
+            default is False because the majority of models are public.
 
         Returns
         -------
