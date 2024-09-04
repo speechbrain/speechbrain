@@ -334,10 +334,9 @@ class UnitHIFIGAN(Pretrained):
 
         # Ensure that the units sequence has a length of at least 3
         if units.size(1) < 3:
-            logger.error(
+            raise ValueError(
                 "The 'units' argument should have a length of at least 3 because of padding size."
             )
-            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:
@@ -368,10 +367,9 @@ class UnitHIFIGAN(Pretrained):
 
         # Ensure that the units sequence has a length of at least 4
         if units.size(0) < 4:
-            logger.error(
+            raise ValueError(
                 "The 'units' argument should have a length of at least 4 because of padding size."
             )
-            quit()
 
         # Increment units if tokenization is enabled
         if self.tokenize:
