@@ -58,7 +58,7 @@ test_search_beam: 32
 test_output_beam: 8
 test_min_active_state: 300
 test_max_active_state: 3000
-# Acoustic scale (mutliplied by the log probs)
+# Acoustic scale (multiplied by the log probs)
 ac_scale: 1.5
 compose_HL_with_G: True
 # 1best or whole-lattice-rescoring
