@@ -106,7 +106,7 @@ class DiscreteSSL(nn.Module):
         self.tokenizer = DiscreteSSLTokenizer(self.num_clusters)
 
     def check_if_input_is_compatible(self, layers_num, num_clusters):
-        """check if layer_number and num_clusters is consisntent with each other.
+        """check if layer_number and num_clusters is consistent with each other.
         Arguments
         ---------
         num_clusters:  int or List[int]

@@ -44,7 +44,7 @@ class HifiGanBrain(sb.Brain):
         x, _ = batch.code
         y, _ = batch.sig
 
-        # generate sythesized waveforms
+        # generate synthesized waveforms
         y_g_hat, (log_dur_pred, log_dur) = self.modules.generator(x)
         y_g_hat = y_g_hat[:, :, : y.size(2)]
 
