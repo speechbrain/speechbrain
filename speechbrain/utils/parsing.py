@@ -8,7 +8,7 @@ Authors
 import warnings
 
 
-def expect_line_count_in_file(fname, expected=None, offset=-1):
+def expect_line_count_in_file(fname, expected=None, offset=0):
     """Count the number of lines in a file.
 
     One trailing newline at the end of the file will be ignored and won't count

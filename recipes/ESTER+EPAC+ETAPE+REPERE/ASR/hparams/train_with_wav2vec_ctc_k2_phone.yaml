@@ -118,6 +118,7 @@ number_lines_for_tokens: 93
 output_neurons: !apply:speechbrain.utils.parsing.expect_line_count_in_file
    fname: !ref <lang_dir>/tokens.txt
    expected: !ref <number_lines_for_tokens>
+   offset: -1  # TODO(asu): why? need to figure out format when reproducing
 
 #
 # Functions and classes
