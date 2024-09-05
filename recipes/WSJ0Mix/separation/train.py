@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the
+"""Recipe for training a neural speech separation system on the wsjmix
 dataset. The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
