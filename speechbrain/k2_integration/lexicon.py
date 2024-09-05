@@ -582,7 +582,7 @@ def prepare_phone_lexicon_espeak(
         )
 
     separator = Separator(phone=" ", word=None)
-    backend = EspeakBackend("fr-fr")
+    backend = EspeakBackend(lang)
 
     # Read train.csv, dev-clean.csv to generate a lexicon.txt for k2 training
     lexicon = dict()
