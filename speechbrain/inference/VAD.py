@@ -587,7 +587,7 @@ class VAD(Pretrained):
             segment_chunks = self.create_chunks(
                 segment, chunk_size=chunk_len, chunk_stride=chunk_len
             )
-            
+
             # Energy computation within each chunk
             energy_chunks = segment_chunks.abs().sum(-1) + eps
             energy_chunks = energy_chunks.log()
