@@ -118,9 +118,9 @@ number_lines_for_tokens: 52
 # Outputs
 # in k2 check lang/tokens.txt
 # BPE size, index(blank/eos/bos) = 0
-output_neurons: !apply:speechbrain.lobes.utils.NumberOfLines
-   file: !ref <lang_dir>/tokens.txt
-   default: !ref <number_lines_for_tokens>
+output_neurons: !apply:speechbrain.utils.parsing.expect_line_count_in_file
+   fname: !ref <lang_dir>/tokens.txt
+   expected: !ref <number_lines_for_tokens>
 
 #
 # Functions and classes
