@@ -575,11 +575,11 @@ def prepare_phone_lexicon_espeak(
 
         logging.getLogger("phonemizer").setLevel(logging.CRITICAL)
         logging.getLogger("phonemizer").propagate = False
-    except ImportError:
+    except ImportError as e:
         raise ImportError(
             "Optional dependencies must be installed to use phonemizer.\n"
             "Checkout https://github.com/bootphon/phonemizer / https://github.com/espeak-ng/espeak-ng"
-        )
+        ) from e
 
     separator = Separator(phone=" ", word=None)
     backend = EspeakBackend(lang)
