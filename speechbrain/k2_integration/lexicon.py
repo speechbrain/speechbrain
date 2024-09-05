@@ -538,15 +538,15 @@ def prepare_phone_lexicon_espeak(
     Also note that in each csv_file, the first line is the header, and the remaining
     lines are in the following format:
 
-    ID, duration, wav, spk_id, wrd (transcription)
+    `ID, duration, wav, spk_id, wrd (transcription)`
 
     We only need the transcription in this function.
 
     Writes out $lang_dir/lexicon.txt
 
     Note that the lexicon.txt is a text file with the following format:
-    word1 phone1 phone2 phone3 ...
-    word2 phone1 phone2 phone3 ...
+    `word1 phone1 phone2 phone3 ...`
+    `word2 phone1 phone2 phone3 ...`
 
     In this code, we simply use the characters in the word as the phones.
     You can use other phone sets, e.g., phonemes, BPEs, to train a better model.
