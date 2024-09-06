@@ -4,7 +4,7 @@ fairseq @ git+https://github.com/facebookresearch/fairseq.git@v0.12.3
 flair==0.13.1
 https://github.com/kpu/kenlm/archive/master.zip
 numba>=0.54.1
-omegaconf==2.0.6
+omegaconf==2.3.0
 pyctcdecode
 recommonmark>=0.7.1
 scikit-learn
