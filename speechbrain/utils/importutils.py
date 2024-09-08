@@ -63,6 +63,10 @@ class LazyModule(ModuleType):
             `inspect.py`, we raise an `AttributeError` here. This is because
             some code will inadvertently cause our modules to be imported, such
             as some of PyTorch's op registering machinery.
+
+        Returns
+        -------
+        The target module after ensuring it is imported.
         """
 
         importer_frame = None
@@ -188,6 +192,11 @@ def find_imports(file_path: str, find_subpackages: bool = False) -> List[str]:
         `__init__.py` path this is called from, using `__file__`.
     find_subpackages : bool
         Whether we should find the subpackages as well.
+
+    Returns
+    -------
+    imports : List[str]
+        List of importable scripts with the same module.
     """
 
     imports = []
@@ -221,6 +230,10 @@ def lazy_export(name: str, package: str):
     package : str
         The relevant package, usually determined with `__name__` from the
         `__init__.py`.
+
+    Returns
+    -------
+    None
     """
 
     # already imported for real (e.g. utils.importutils itself)
