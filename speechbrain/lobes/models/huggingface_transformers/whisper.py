@@ -193,6 +193,15 @@ class Whisper(HFTransformersInterface):
             Please refer to the whisper paper for more details or go to the
             seq2seq2.py file in SpeechBrain to see how to generate the tokens
             with Greedy Search and/or Beam Search.
+
+        Returns
+        -------
+        out_encoder : torch.Tensor
+            The output of the encoder model.
+        decoder_logits : torch.Tensor
+            The output of the decoder model.
+        decoder_attn : torch.Tensor
+            The attention values of the decoder model.
         """
 
         def _forward():
@@ -223,7 +232,7 @@ class Whisper(HFTransformersInterface):
         Compute the mel spectrogram features from the input audio waveform.
 
         Arguments
-        ----------
+        ---------
         wav : torch.Tensor
             A batch of audio signals to compute mel spectrogram features from.
 
@@ -250,6 +259,8 @@ class Whisper(HFTransformersInterface):
         ---------
         audio : torch.Tensor
             A batch of audio waveforms in 16 kHz.
+        padding : int
+            The number of samples to append to the end of the audio tensor.
 
         Returns
         -------
@@ -286,6 +297,8 @@ class Whisper(HFTransformersInterface):
         ---------
         array : torch.Tensor
             A tensor that contains the batch of Mel spectrograms.
+        length : int
+            Input tensor will be coerced to `length` number of samples.
         axis : int
             The axis along which to pad.
 

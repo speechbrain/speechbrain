@@ -91,7 +91,7 @@ class TextEncoder(HFTransformersInterface):
         which generates batches of embeddings embeddings from input text.
 
         Arguments
-        ----------
+        ---------
         input_texts : list of str
             The list of texts (required).
         return_tokens : bool
