@@ -118,6 +118,6 @@ Please, cite SpeechBrain if you use it for your research or business.
   title={Attention is All You Need in Speech Separation},
   author={Cem Subakan and Mirco Ravanelli and Samuele Cornell and Mirko Bronzi and Jianyuan Zhong},
   year={2021},
-      booktitle={ICASSP 2021}
+  booktitle={ICASSP 2021}
 }
 ```
