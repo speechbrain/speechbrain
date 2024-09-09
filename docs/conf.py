@@ -100,12 +100,10 @@ default_role = "code"
 
 def run_apidoc(app):
     """Generate API documentation"""
-    import better_apidoc
-
-    better_apidoc.APP = app
-    better_apidoc.main(
+    from sphinx.apidoc import main
+    main(
         [
-            "better-apidoc",
+            "sphinx-apidoc",
             "-t",
             "_apidoc_templates",
             "--force",
