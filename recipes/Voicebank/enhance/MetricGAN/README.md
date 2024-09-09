@@ -44,19 +44,21 @@ https://www.dropbox.com/sh/n5q9vjn0yn1qvk6/AAB-S7i2-XzVm6ux0MrXCvqya?dl=0
 
 If you find the code useful in your research, please cite:
 
-	@article{fu2021metricgan+,
-	  title={MetricGAN+: An Improved Version of MetricGAN for Speech Enhancement},
+```bibtex
+@article{fu2021metricgan+,
+  title={MetricGAN+: An Improved Version of MetricGAN for Speech Enhancement},
   author={Fu, Szu-Wei and Yu, Cheng and Hsieh, Tsun-An and Plantinga, Peter and Ravanelli, Mirco and Lu, Xugang and Tsao, Yu},
-      journal={arXiv preprint arXiv:2104.03538},
+  journal={arXiv preprint arXiv:2104.03538},
   year={2021}
-    }
+}
 
-    @inproceedings{fu2019metricGAN,
-      title     = {MetricGAN: Generative Adversarial Networks based Black-box Metric Scores Optimization for Speech Enhancement},
-      author    = {Fu, Szu-Wei and Liao, Chien-Feng and Tsao, Yu and Lin, Shou-De},
-      booktitle = {International Conference on Machine Learning (ICML)},
-      year      = {2019}
-    }
+@inproceedings{fu2019metricGAN,
+  title     = {MetricGAN: Generative Adversarial Networks based Black-box Metric Scores Optimization for Speech Enhancement},
+  author    = {Fu, Szu-Wei and Liao, Chien-Feng and Tsao, Yu and Lin, Shou-De},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2019}
+}
+```
 
 
 # **About SpeechBrain**
