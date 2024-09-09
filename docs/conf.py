@@ -70,7 +70,12 @@ intersphinx_mapping = {
 autodoc_default_options = {}
 
 # Autodoc mock extra dependencies:
-autodoc_mock_imports = []
+autodoc_mock_imports = [
+    "fairseq",
+    "flair",
+    "kenlm",
+    "spacy",
+]
 
 # Order of API items:
 autodoc_member_order = "bysource"
