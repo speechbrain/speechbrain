@@ -45,6 +45,9 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 | 03-09-23 | hyperbranchformer_13M.yaml | NA | 2.54 | 6.58  | Not Avail. | Not Avail. | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_25M.yaml | NA | 2.36 | 5.89 | Not Avail. | Not Avail. | 1xP40 24GB
 | 05-01-24 | bayesspeech.yaml | 4.28 | 2.84 | 6.27 | Not Avail. | [DropBox](https://www.dropbox.com/scl/fo/cdken4jqfj96ev1v84jxm/h?rlkey=25eu1ytgm5ac51zqj8p65zwxd&dl=0) | 1xV100 32GB |
+| 07-06-24 | mwmha_transformer_small.yaml | 4.60 | 2.66 | 6.50 (**only 12.7M parameters**) | NA | NA | 1xA40 48GB |
+| 07-06-24 | mwmha_transformer_medium.yaml | 3.55 | 2.26 | 5.66 (**only 39.9M parameters**) | NA | NA | 1xA40 48GB |
+
 
 # **About HyperConformer**
 HyperConformer is a new architecture, which replaces the self-attention mechanism of Conformer with the linear-time token mixing architecture HyperMixer.
@@ -64,6 +67,27 @@ Please cite HyperConformer if you use it for your research or business.
   pages={2213--2217},
   doi={10.21437/Interspeech.2023-1611}
 }
+```
+
+# **About MW-MHA Transformer**
+Multi-Window Multi-Head Attention (MW-MHA) is a new Multi-Head attention module where the constituent individual attention heads operate on different local sizes of the input sequence, capturing local-global dependencies more effectively. The method was proposed in the paper "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" by Yadav et al. (2024), where it was shown to capture better local-global dependencies when learning general-purpose audio representations.
+
+Here, we simply replaced the standard MHA in tranformer encoder with MW-MHA, which yields substantial improvements in ASR performance.
+
+- Paper: https://openreview.net/forum?id=Q53QLftNkA
+- Code: https://github.com/SarthakYadav/mwmae-jax-official
+
+If you use MW-MHA in your work, please cite the following paper:
+
+```bibtex
+@inproceedings{
+  yadav2024masked,
+  title={Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners},
+  author={Sarthak Yadav and Sergios Theodoridis and Lars Kai Hansen and Zheng-Hua Tan},
+  booktitle={The Twelfth International Conference on Learning Representations},
+  year={2024},
+  url={https://openreview.net/forum?id=Q53QLftNkA}
+  }
 ```
 
 # **About SpeechBrain**
