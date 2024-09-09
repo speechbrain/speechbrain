@@ -293,10 +293,14 @@ class DiffWaveVocoder(Pretrained):
 class UnitHIFIGAN(Pretrained):
     """
     A ready-to-use wrapper for Unit HiFiGAN (discrete units -> waveform).
+
     Arguments
     ---------
-    hparams
-        Hyperparameters (from HyperPyYAML)
+    *args : tuple
+        See `Pretrained`
+    **kwargs : dict
+        See `Pretrained`
+
     Example
     -------
     >>> tmpdir_vocoder = getfixture('tmpdir') / "vocoder"
@@ -316,12 +320,14 @@ class UnitHIFIGAN(Pretrained):
 
     def decode_batch(self, units, spk=None):
         """Computes waveforms from a batch of discrete units
+
         Arguments
         ---------
         units: torch.tensor
             Batch of discrete units [batch, codes]
         spk: torch.tensor
             Batch of speaker embeddings [batch, spk_dim]
+
         Returns
         -------
         waveforms: torch.tensor
