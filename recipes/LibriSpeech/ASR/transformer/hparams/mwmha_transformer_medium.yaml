@@ -205,25 +205,25 @@ Adam: !name:torch.optim.Adam
 #    momentum: 0.99
 #    nesterov: True
 
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
 scorer_valid_search: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>]
     weights:
         ctc: !ref <ctc_weight_decode>
+
+transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
+    language_model: !ref <lm_model>
+    temperature: 1.15
 
 scorer_test_search: !new:speechbrain.decoders.scorer.ScorerBuilder
     full_scorers: [!ref <ctc_scorer>, !ref <transformerlm_scorer>]
     weights:
         ctc: !ref <ctc_weight_decode>
         transformerlm: !ref <lm_weight>
-
-ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
-    eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
-    ctc_fc: !ref <ctc_lin>
-
-transformerlm_scorer: !new:speechbrain.decoders.scorer.TransformerLMScorer
-    language_model: !ref <lm_model>
-    temperature: 1.15
 
 valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
     modules: [!ref <Transformer>, !ref <seq_lin>]
