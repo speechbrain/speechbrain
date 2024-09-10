@@ -582,7 +582,7 @@ class VAD(Pretrained):
             segment, _ = torchaudio.load(
                 audio_file, frame_offset=begin_sample, num_frames=seg_len
             )
-
+            segment = segment.to(self.device)
             # Create chunks
             segment_chunks = self.create_chunks(
                 segment, chunk_size=chunk_len, chunk_stride=chunk_len
