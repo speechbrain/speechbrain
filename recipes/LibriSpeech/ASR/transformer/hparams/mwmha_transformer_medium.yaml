@@ -215,7 +215,7 @@ scorer_test_search: !new:speechbrain.decoders.scorer.ScorerBuilder
     weights:
         ctc: !ref <ctc_weight_decode>
         transformerlm: !ref <lm_weight>
-        
+
 ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
