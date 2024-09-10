@@ -68,17 +68,6 @@ n_mels: 80
 # This setup works well for V100 32GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: False
-max_batch_len: 900
-max_batch_len_val: 100 # we reduce it as the beam is much wider (VRAM)
-num_bucket: 200
-
-dynamic_batch_sampler:
-    max_batch_len: !ref <max_batch_len>
-    max_batch_len_val: !ref <max_batch_len_val>
-    num_buckets: !ref <num_bucket>
-    shuffle_ex: True # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
-    max_batch_ex: 128
 
 # Dataloader options
 train_dataloader_opts:
