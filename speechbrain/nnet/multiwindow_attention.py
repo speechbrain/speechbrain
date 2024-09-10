@@ -23,10 +23,14 @@ from torch.nn.init import _calculate_fan_in_and_fan_out
 
 
 def _trunc_normal_(tensor, mean, std, a, b):
+    """
+    Helper function for speechbrain.nnet.multiwindow_attention.trunc_normal_
+    """
+
     # Cut & paste from PyTorch official master until it's in a few official releases - RW
     # Method based on https://people.sc.fsu.edu/~jburkardt/presentations/truncated_normal.pdf
     def norm_cdf(x):
-        # Computes standard normal cumulative distribution function
+        """Computes standard normal cumulative distribution function"""
         return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
     if (mean < a - 2 * std) or (mean > b + 2 * std):
@@ -145,6 +149,7 @@ def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="normal"):
 
 def _ntuple(n):
     def parse(x):
+        """helper function for tuple parsing"""
         if isinstance(x, collections.abc.Iterable) and not isinstance(x, str):
             return x
         return tuple(repeat(x, n))
@@ -156,6 +161,25 @@ layernorm_wrapper = partial(nn.LayerNorm, eps=1e-6)
 
 
 class Attention(nn.Module):
+    """
+    This class is an implementation of the standard Multi-Head Attention module as used in the official implementation of [1].
+
+    Arguments
+    ---------
+    dim : int
+        input dimension.
+    num_heads : int
+        number of parallel attention heads.
+    qkv_bias : bool
+        add bias to qkv projection.
+    attn_drop : float
+        dropout value for attention output.
+    proj_drop : float
+        dropout rate for projection output.
+
+    Reference: [1] "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" https://openreview.net/pdf?id=Q53QLftNkA
+    """
+
     def __init__(
         self,
         dim: int,
@@ -186,6 +210,12 @@ class Attention(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
+        """
+        Arguments
+        ---------
+        x : torch.Tensor
+            input tensor.
+        """
         B, N, C = x.shape
         qkv = (
             self.qkv_layer(x)
@@ -203,12 +233,26 @@ class Attention(nn.Module):
 
 
 def find_attention_padding(n, ws):
+    """
+    A helper function to find the padding required for the attention windows when
+    input size is not divisible by the window size.
+
+    Arguments
+    ---------
+    n : int
+        input size.
+    ws : int
+        window size.
+    """
     remainder = n % ws
     p = (ws - remainder) % ws
     return p
 
 
 def pad_tensor(A, padding=0):
+    """
+    A helper function to pad the input tensor with zeros
+    """
     B, N, C = A.shape
     if padding != 0:
         A = torch.cat([A, torch.zeros(B, padding, C).to(A.device)], dim=1)
@@ -216,14 +260,29 @@ def pad_tensor(A, padding=0):
 
 
 def pad_tensorkey(A, padding=0):
+    """
+    A helper function to pad the input tensorkey with zeros.
+    """
     B, N = A.shape
-    # P = find_attention_padding(N, ws)
     if padding != 0:
         A = torch.cat([A, torch.zeros(B, padding).to(A.device)], dim=1)
     return A
 
 
 def window_partition1d(x, window_size, attention_padding=0):
+    """
+    A helper function to partition the input tensor into windows of a given size.
+    Includes support for padding the input tensor when the input size is not divisible by the window size.
+
+    Arguments
+    ---------
+    x : torch.Tensor
+        input tensor.
+    window_size : int
+        window size.
+    attention_padding : int
+        padding required for the attention windows when input size is not divisible by the window size.
+    """
     x = pad_tensor(x, padding=attention_padding)
     B, W, C = x.shape
     x = x.reshape(B, W // window_size, window_size, C)
@@ -232,6 +291,10 @@ def window_partition1d(x, window_size, attention_padding=0):
 
 
 def window_partition1dkey(x, window_size, attention_padding=0):
+    """
+    Helper function for partitioning the input tensorkey into windows of a given size.
+    Similar to window_partition1d but for 1D tensors.
+    """
     x = pad_tensorkey(x, padding=attention_padding)
     B, W = x.shape
     x = x.reshape(B, W // window_size, window_size, 1)
@@ -240,6 +303,9 @@ def window_partition1dkey(x, window_size, attention_padding=0):
 
 
 def window_reverse1d(windows, window_size, W: int, attention_padding=0):
+    """
+    Helper function for reversing the partitioned windows back to the original input tensor.
+    """
     B = int(windows.shape[0] / ((W + attention_padding) / window_size))
     if B == 0:
         # means originally input had a batch size of 1
@@ -254,6 +320,9 @@ def window_reverse1d(windows, window_size, W: int, attention_padding=0):
 
 
 def get_relative_position_index1d(win_w):
+    """
+    Helper function for getting the relative position index for 1D tensors.
+    """
     coords_flatten = torch.stack(torch.meshgrid(torch.arange(win_w)))
     relative_coords = (
         coords_flatten[:, :, None] - coords_flatten[:, None, :]
@@ -265,6 +334,23 @@ def get_relative_position_index1d(win_w):
 
 
 class WindowedAttentionHead(nn.Module):
+    """
+    This class is an implementation of a Single Windowed Attention head, corresponding to the official implementation of [1].
+
+    Arguments
+    ---------
+    head_dim : int
+        input dimension.
+    window_size : int
+        window size.
+    shift_windows : bool
+        Whether to shift the windows or not.
+    attn_drop : float
+        dropout value for attention output.
+
+    Reference: [1] "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" https://openreview.net/pdf?id=Q53QLftNkA
+    """
+
     def __init__(
         self,
         head_dim: int,
@@ -315,6 +401,20 @@ class WindowedAttentionHead(nn.Module):
         return relative_position_bias
 
     def forward(self, q, k, v, key_padding_mask=None, attn_fill_value=-65000):
+        """
+        Arguments
+        ---------
+        q : torch.Tensor
+            query tensor.
+        k : torch.Tensor
+            key tensor.
+        v : torch.Tensor
+            value tensor.
+        key_padding_mask : torch.Tensor, optional
+            key padding mask.
+        attn_fill_value : float, optional
+            fill value for attention mask.
+        """
         B, W, C = q.shape
 
         window_attn_padding = find_attention_padding(W, self.window_size)
@@ -366,21 +466,13 @@ class WindowedAttentionHead(nn.Module):
             )
             attn = attn.reshape(-1, N, N)
 
-            # attn = F.softmax(attn, dim=-1)
-        # else:
-
         if key_padding_mask is not None:
-            # key_padding_mask_windowed = key_padding_mask.reshape(B, W // self.window_size, self.window_size, 1)
-            # key_padding_mask_windowed = key_padding_mask_windowed.reshape(-1, self.window_size, 1)
 
             key_padding_mask_windowed = window_partition1dkey(
                 key_padding_mask,
                 self.window_size,
                 attention_padding=window_attn_padding,
             ).bool()
-            # print(key_padding_mask_windowed.shape)
-            # print(key_padding_mask_windowed)
-            # key_padding_mask = key_padding_mask.reshape(B, W // self.window_size, self.window_size, 1)
 
             attn = attn.masked_fill(
                 key_padding_mask_windowed.view(
@@ -402,15 +494,24 @@ class WindowedAttentionHead(nn.Module):
         else:
             x = shifted_x
         if key_padding_mask is not None:
-            # print("x.shape:", x.shape)
-            # print("key_padding_mask shape:", key_padding_mask.shape)
             x.masked_fill_(key_padding_mask.unsqueeze(-1), 0.0)
-        # print("\t output shape:", attn.shape)
+
         return x, attn
 
 
 class AttentionHead(nn.Module):
-    def __init__(self, head_dim, attn_drop) -> None:
+    """
+    This class is an implementation of a Single non-windowed Attention head, created for compatibility with the current WindowedMultiHeadAttention module.
+
+    Arguments
+    ---------
+    head_dim : int
+        input dimension.
+    attn_drop : float
+        dropout value for attention output.
+    """
+
+    def __init__(self, head_dim: int, attn_drop: float = 0.0):
         super().__init__()
         self.scale = head_dim**-0.5
         self.attn_drop = (
@@ -418,6 +519,22 @@ class AttentionHead(nn.Module):
         )
 
     def forward(self, q, k, v, key_padding_mask=None, attn_fill_value=-65000):
+        """
+        Arguments
+        ---------
+
+        q : torch.Tensor
+            query tensor.
+        k : torch.Tensor
+            key tensor.
+        v : torch.Tensor
+            value tensor.
+        key_padding_mask : torch.Tensor, optional
+            key padding mask.
+        attn_fill_value : float, optional
+            fill value for attention mask.
+
+        """
         B, W, C = q.shape
         attn = (q @ torch.swapaxes(k, -2, -1)) * self.scale
         if key_padding_mask is not None:
@@ -518,6 +635,14 @@ class WindowedMultiHeadAttention(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x, key_padding_mask=None):
+        """
+        Arguments
+        ---------
+        x : torch.Tensor
+            input tensor.
+        key_padding_mask : torch.Tensor, optional
+            key padding mask.
+        """
         B, N, C = x.shape
         qkv = (
             self.qkv(x)
