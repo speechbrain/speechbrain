@@ -38,7 +38,7 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 ## Transformer
 | Language | CV version | hyperparams file |  LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|:-----------:| :-----------:| :-----------:|
-| English | 16.1 | mwmha_transformer_large.yaml | No | 4.72 | 10.97 | 6.68 | 13.69 | - | - | 1xL40 48GB |
+| English | 16.1 | mwmha_transformer_large.yaml | No | 4.72 | 10.97 | 6.68 | 13.69 | - | [model](https://1drv.ms/f/c/039f8ffe91e06416/Et7KEbSlWNdJhkjLIi7_vGQBMVhGwRRBzCSljh6aA4sJSw?e=dXeuiY) | 1xL40 48GB |
 | English | 16.1 | conformer_large.yaml | No | 4.48 | 10.48 | 6.42 | 13.39 | - | [model](https://www.dropbox.com/scl/fo/3w24pxln0fjyofl6xbfv1/AJJqzWfCtGFFTRLwM3DeZG8?rlkey=wpzzhizreedptts64d2m9jq4u&st=xu5g9an8&dl=0) | 4xA40 46GB |
 | Italian | 14.0 | conformer_large.yaml | No | 2.91 | 9.79 | 2.68 | 9.27 | - | [model](https://www.dropbox.com/scl/fo/tf44itp8f4icf2z5qlxpm/AIOYS_CMov5ss5Q9AonFEno?rlkey=xek5ikbhqoovcao31iniqimrr&dl=0) | 2xV100 32GB |
 | French | 14.0 | conformer_large.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
