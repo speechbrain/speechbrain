@@ -195,6 +195,5 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
 
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
     merge_words: False
-    lang: !ref <lang>
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

@@ -65,7 +65,7 @@ test_dataloader_opts:
 ####################### Model Parameters #######################################
 dnn_neurons: 1024
 freeze_whisper: False
-whisper_output_dim: 512
+whisper_output_dim: 384
 
 
 # Outputs
