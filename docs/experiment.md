@@ -97,8 +97,8 @@ We can also read multi-channel SFT data, that will be formatted in this way:
 
 ## Reproducibility
 
-To improve reproducibility across experiments, SpeechBrain supports its own seeding function located in `speechbrain.utils.seed.seed_everything`. This function sets the seed for various generators such as NumPy, PyTorch, and Python, following the [PyTorch recommendations](https://pytorch.org/docs/stable/notes/randomness.html). 
+To improve reproducibility across experiments, SpeechBrain supports its own seeding function located in `speechbrain.utils.seed.seed_everything`. This function sets the seed for various generators such as NumPy, PyTorch, and Python, following the [PyTorch recommendations](https://pytorch.org/docs/stable/notes/randomness.html).
 
-However, due to the differences in how GPU and CPU executions work, results may not be fully reproducible even with identical seeds, especially when training models. This issue primarily affects training experiments. 
+However, due to the differences in how GPU and CPU executions work, results may not be fully reproducible even with identical seeds, especially when training models. This issue primarily affects training experiments.
 
 On the other hand, when preparing data using data preparation scripts, the output of these scripts is independent of the global seeds. This ensures that you will get identical outputs on different setups, even if different seeds are used.
