@@ -12,7 +12,10 @@
 #
 import os
 import sys
+
+import better_apidoc
 import hyperpyyaml
+from sphinx.ext.autodoc.mock import mock
 
 sys.path.insert(-1, os.path.abspath("../"))
 
@@ -68,8 +71,19 @@ intersphinx_mapping = {
 
 autodoc_default_options = {}
 
-# Autodoc mock extra dependencies:
-autodoc_mock_imports = []
+# Autodoc mock extra dependencies -- doesn't work out of the box, because of better_apidoc.
+#
+# So, let's reuse the autodoc mock...
+#
+# We would also like to mock more imports than this but this is shockingly prone
+# to randomly breaking, so let's keep a small-ish set of dependencies that tend
+# to be more annoying to install and to nuke our CI on update
+autodoc_mock_imports = [
+    "k2",
+    "flair",
+    "fairseq",
+    "spacy",
+]
 
 # Order of API items:
 autodoc_member_order = "bysource"
@@ -93,24 +107,43 @@ default_role = "code"
 
 
 def run_apidoc(app):
-    """Generage API documentation"""
-    import better_apidoc
+    """Generate API documentation"""
 
-    better_apidoc.APP = app
-    better_apidoc.main(
-        [
-            "better-apidoc",
-            "-t",
-            "_apidoc_templates",
-            "--force",
-            "--no-toc",
-            "--separate",
-            "-o",
-            "API",
-            os.path.join("../", "speechbrain"),
-            os.path.dirname(hyperpyyaml.__file__),
-        ]
-    )
+    with mock(autodoc_mock_imports):
+        try:
+            better_apidoc.APP = app
+            better_apidoc.main(
+                [
+                    "better-apidoc",
+                    "-t",
+                    "_apidoc_templates",
+                    "--force",
+                    "--no-toc",
+                    "--separate",
+                    "-o",
+                    "API",
+                    os.path.join("../", "speechbrain"),
+                ]
+            )
+            better_apidoc.main(
+                [
+                    "better-apidoc",
+                    "-t",
+                    "_apidoc_templates",
+                    "--force",
+                    "--no-toc",
+                    "--separate",
+                    "-o",
+                    "API",
+                    os.path.dirname(hyperpyyaml.__file__),
+                ]
+            )
+        except Exception:
+            # because otherwise sphinx very helpfully eats the backtrace
+            import traceback
+
+            print(traceback.format_exc(), file=sys.stderr)
+            raise
 
 
 # -- Options for HTML output -------------------------------------------------
