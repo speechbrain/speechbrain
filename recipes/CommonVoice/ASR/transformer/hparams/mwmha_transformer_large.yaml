@@ -10,7 +10,7 @@
 
 seed: 3407
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/cv_mwmha_vowelwordsentenceglobal_large_24x6_8heads/<seed>
+output_folder: !ref results/mwmha_transformer_large/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
