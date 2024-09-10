@@ -9,7 +9,11 @@ speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
 
+To add adapters and train only a fraction of the parameters, do:
+> python train_with_whisper.py hparams/train_whisper_lora.yaml
+
 Authors
+ * Peter Plantinga 2024
  * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
 """
