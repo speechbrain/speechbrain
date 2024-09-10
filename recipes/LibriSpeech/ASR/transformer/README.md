@@ -45,8 +45,8 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 | 03-09-23 | hyperbranchformer_13M.yaml | NA | 2.54 | 6.58  | Not Avail. | Not Avail. | 1xP40 24GB
 | 03-09-23 | hyperbranchformer_25M.yaml | NA | 2.36 | 5.89 | Not Avail. | Not Avail. | 1xP40 24GB
 | 05-01-24 | bayesspeech.yaml | 4.28 | 2.84 | 6.27 | Not Avail. | [DropBox](https://www.dropbox.com/scl/fo/cdken4jqfj96ev1v84jxm/h?rlkey=25eu1ytgm5ac51zqj8p65zwxd&dl=0) | 1xV100 32GB |
-| 07-06-24 | mwmha_transformer_small.yaml | 4.60 | 2.66 | 6.50 (**only 12.7M parameters**) | NA | NA | 1xA40 48GB |
-| 07-06-24 | mwmha_transformer_medium.yaml | 3.55 | 2.26 | 5.66 (**only 39.9M parameters**) | NA | NA | 1xA40 48GB |
+| 07-06-24 | mwmha_transformer_small.yaml | 4.60 | 2.66 | 6.50 (**only 12.7M parameters**) | NA | [OneDrive](https://1drv.ms/f/c/039f8ffe91e06416/EkeVvQiD9lREpHflL8DkpuYBeMFJkTxyzCh0DOEoGMNLgw?e=3vuycE) | 1xA40 48GB |
+| 07-06-24 | mwmha_transformer_medium.yaml | 3.55 | 2.26 | 5.66 (**only 39.9M parameters**) | NA | [OneDrive](https://1drv.ms/f/c/039f8ffe91e06416/EvX2HV5lfY9GvbB8iKK18-kBMMtdNVDYtCPvcMk4aB4jfw?e=2gV9x0) | 1xA40 48GB |
 
 
 # **About HyperConformer**
