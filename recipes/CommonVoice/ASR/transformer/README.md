@@ -43,6 +43,26 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 | Italian | 14.0 | conformer_large.yaml | No | 2.91 | 9.79 | 2.68 | 9.27 | - | [model](https://www.dropbox.com/scl/fo/tf44itp8f4icf2z5qlxpm/AIOYS_CMov5ss5Q9AonFEno?rlkey=xek5ikbhqoovcao31iniqimrr&dl=0) | 2xV100 32GB |
 | French | 14.0 | conformer_large.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
 
+### **About MW-MHA Transformer**
+Multi-Window Multi-Head Attention (MW-MHA) is a new Multi-Head attention module where the constituent individual attention heads operate on different local sizes of the input sequence, capturing local-global dependencies more effectively. The method was proposed in the paper "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" by Yadav et al. (2024), where it was shown to capture better local-global dependencies when learning general-purpose audio representations.
+
+Here, we simply replaced the standard MHA in the transformer encoder with MW-MHA, achieving performance quite close to that of a Conformer model with no additional parameters or modifications. You can learn more about MW-MHA through the following links:
+
+- Paper: https://openreview.net/forum?id=Q53QLftNkA
+- Code: https://github.com/SarthakYadav/mwmae-jax-official
+
+If you use MW-MHA in your work, please cite the following paper:
+
+```bibtex
+@inproceedings{
+  yadav2024masked,
+  title={Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners},
+  author={Sarthak Yadav and Sergios Theodoridis and Lars Kai Hansen and Zheng-Hua Tan},
+  booktitle={The Twelfth International Conference on Learning Representations},
+  year={2024},
+  url={https://openreview.net/forum?id=Q53QLftNkA}
+  }
+```
 
 ## Whisper Finetuning
 Following table contains whisper-finetuning results for 1 epoch using Whisper model, freezing encoder and finetuning decoder.
@@ -66,27 +86,6 @@ Following table contains whisper-finetuning results for 1 epoch using Whisper mo
 | Serbian | 2023-08-15 | Medium | [b112860](https://github.com/speechbrain/speechbrain/pull/2254/commits/b1128604e040d43e80e9a3214c5116f34d5806db) |train_sr_hf_whisper.yaml | No | 8.63 | 25.10 |  7.25 | 22.29 | [model](https://huggingface.co/speechbrain/asr-whisper-medium-commonvoice-sr) | [model](https://www.dropbox.com/sh/5lhk230q45sd97z/AAD-U9b_Ws_vFPs-cazsbOY0a?dl=0) | 1xV100 16GB |
 | French | 2023-08-15 | Medium | [b112860](https://github.com/speechbrain/speechbrain/pull/2254/commits/b1128604e040d43e80e9a3214c5116f34d5806db) |train_fr_hf_whisper.yaml | No | 3.26 | 9.65 | 4.30 | 11.79 | [model](https://huggingface.co/speechbrain/asr-whisper-medium-commonvoice-fr) | [model](https://www.dropbox.com/sh/7zlk07yxnslk4yy/AAANcI3EaG0ZFy6UrKk1Mm2Ga?dl=0) | 1xV100 16GB |
 | Italian | 2023-08-15 | Medium | [b112860](https://github.com/speechbrain/speechbrain/pull/2254/commits/b1128604e040d43e80e9a3214c5116f34d5806db) |train_it_hf_whisper.yaml | No | 2.42 | 8.26 | 3.03 | 9.63 | [model](https://huggingface.co/speechbrain/asr-whisper-medium-commonvoice-it) | [model](https://www.dropbox.com/sh/u5tex3nvzzs5pex/AAD-J7cOBE_fNfBono8waTKCa?dl=0) | 1xV100 16GB |
-
-# **About MW-MHA Transformer**
-Multi-Window Multi-Head Attention (MW-MHA) is a new Multi-Head attention module where the constituent individual attention heads operate on different local sizes of the input sequence, capturing local-global dependencies more effectively. The method was proposed in the paper "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" by Yadav et al. (2024), where it was shown to capture better local-global dependencies when learning general-purpose audio representations.
-
-Here, we simply replaced the standard MHA in transformer encoder with MW-MHA, which yields substantial improvements in ASR performance.
-
-- Paper: https://openreview.net/forum?id=Q53QLftNkA
-- Code: https://github.com/SarthakYadav/mwmae-jax-official
-
-If you use MW-MHA in your work, please cite the following paper:
-
-```bibtex
-@inproceedings{
-  yadav2024masked,
-  title={Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners},
-  author={Sarthak Yadav and Sergios Theodoridis and Lars Kai Hansen and Zheng-Hua Tan},
-  booktitle={The Twelfth International Conference on Learning Representations},
-  year={2024},
-  url={https://openreview.net/forum?id=Q53QLftNkA}
-  }
-```
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

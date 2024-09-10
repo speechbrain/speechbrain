@@ -72,7 +72,7 @@ Please cite HyperConformer if you use it for your research or business.
 # **About MW-MHA Transformer**
 Multi-Window Multi-Head Attention (MW-MHA) is a new Multi-Head attention module where the constituent individual attention heads operate on different local sizes of the input sequence, capturing local-global dependencies more effectively. The method was proposed in the paper "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" by Yadav et al. (2024), where it was shown to capture better local-global dependencies when learning general-purpose audio representations.
 
-Here, we simply replaced the standard MHA in transformer encoder with MW-MHA, which yields substantial improvements in ASR performance.
+Here, we simply replaced the standard MHA in the transformer encoder with MW-MHA, achieving performance quite close to that of a Conformer model with no additional parameters or modifications. You can learn more about MW-MHA through the following links:
 
 - Paper: https://openreview.net/forum?id=Q53QLftNkA
 - Code: https://github.com/SarthakYadav/mwmae-jax-official
