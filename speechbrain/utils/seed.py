@@ -21,7 +21,7 @@ min_seed_value = 0
 
 def seed_everything(
     seed: int = 0, verbose: bool = True, deterministic: bool = False
-):
+) -> int:
     r"""Function that sets the seed for pseudo-random number generators in: torch, numpy, and Python's random module.
 
     Arguments
