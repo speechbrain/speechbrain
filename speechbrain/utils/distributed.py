@@ -74,19 +74,9 @@ def run_on_main(
             ddp_barrier()
 
 
-def if_main_process():
-    """Checks if the current process is the main process and authorized to run
-    I/O commands. The main process is the one with `RANK == 0`. In standard mode,
-    the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
-    """
-    if "RANK" in os.environ:
-        if os.environ["RANK"] == "":
-            return False
-        else:
-            if int(os.environ["RANK"]) == 0:
-                return True
-            return False
-    return True
+def if_main_process() -> bool:
+    "Returns whether the current process is the main process."
+    return torch.distributed.get_rank() == 0
 
 
 def main_process_only(function):
@@ -111,15 +101,22 @@ def main_process_only(function):
 
 
 def ddp_barrier():
-    """In DDP mode, this function will synchronize all processes.
-    torch.distributed.barrier() will block processes until the whole
-    group enters this function.
     """
-    # Check if we're in a single-threaded section, skip barrier
-    if MAIN_PROC_ONLY >= 1:
-        return
-    elif torch.distributed.is_initialized():
-        torch.distributed.barrier()
+    Synchronize all processes in distributed data parallel (DDP) mode.
+
+    This function blocks the execution of the current process until all 
+    processes in the distributed group have reached the same point. It ensures 
+    that no process moves ahead until every other process has also reached this 
+    barrier. If DDP is not being used (i.e., only one process is running), 
+    this function has no effect and immediately returns.
+
+    Example
+    -------
+    >>> ddp_barrier()
+    >>> print("hello world")
+    hello world
+    """
+    torch.distributed.barrier()
 
 
 def ddp_broadcast(communication_object, src=0):
