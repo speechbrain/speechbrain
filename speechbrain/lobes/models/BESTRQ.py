@@ -39,12 +39,15 @@ def compute_mask(shape, sample_lens, mask_prob, mask_length):
         spawn new masks.
     mask_length: int
         Number of frames covered by a mask.
+
+    Returns
+    -------
+    The computed mask
+
     Example
     -------
     >>> compute_mask((2,50,60), [40, 50], 0.15, 2).shape
     torch.Size([12])
-
-
     """
     min_sample_len = min(sample_lens)
 

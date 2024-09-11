@@ -53,6 +53,12 @@ def compute_embeddings_single(wavs, wav_lens, params):
     wav_lens: Torch.Tensor
         torch.Tensor containing the relative length for each sentence
         in the length (e.g., [0.8 0.6 1.0])
+    params: dict
+        The parameter files storing info about model, data, etc
+
+    Returns
+    -------
+    Embeddings
     """
     with torch.no_grad():
         feats = params["compute_features"](wavs)

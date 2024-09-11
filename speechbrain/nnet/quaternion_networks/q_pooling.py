@@ -18,20 +18,20 @@ class QPooling2d(sb.nnet.pooling.Pooling2d):
     ---------
     pool_type : str
         It is the type of pooling function to use ('avg','max').
-    pool_axis : tuple
-        It is a list containing the axis that will be considered
-        during pooling.
     kernel_size : int
         It is the kernel size that defines the pooling dimension.
         For instance, kernel size=3,3 performs a 2D Pooling with a 3x3 kernel.
-    stride : int
-        It is the stride size.
+    pool_axis : tuple
+        It is a list containing the axis that will be considered
+        during pooling.
+    ceil_mode : bool
+        When True, will use ceil instead of floor to compute the output shape.
     padding : int
         It is the number of padding elements to apply.
     dilation : int
         Controls the dilation factor of pooling.
-    ceil_mode : bool
-        When True, will use ceil instead of floor to compute the output shape.
+    stride : int
+        It is the stride size.
 
     Example
     -------
@@ -72,6 +72,10 @@ class QPooling2d(sb.nnet.pooling.Pooling2d):
         ---------
         x : torch.Tensor
             It represents a tensor for a mini-batch.
+
+        Returns
+        -------
+        The pooled tensor.
         """
         x_r, x_i, x_j, x_k = torch.chunk(x, 4, dim=-1)
 

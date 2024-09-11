@@ -176,6 +176,10 @@ def pad_feats(feats, divis_by):
     divis_by: int
         The stacking factor. The time dimension of feats will become divisible
         by this value.
+
+    Returns
+    -------
+    Padded features
     """
 
     B, T, C = feats.shape

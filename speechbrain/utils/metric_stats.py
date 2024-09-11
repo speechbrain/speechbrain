@@ -418,9 +418,9 @@ class WeightedErrorRateStats(MetricStats):
 
         Arguments
         ---------
-        *args
+        *args : tuple
             Ignored.
-        **kwargs
+        **kwargs : dict
             Ignored.
         """
 

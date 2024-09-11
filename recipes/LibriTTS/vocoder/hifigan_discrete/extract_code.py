@@ -67,6 +67,15 @@ def skip(splits, save_folder, conf):
     Detects if the ljspeech data_extraction has been already done.
     If the extraction has been done, we can skip it.
 
+    Arguments
+    ---------
+    splits : list
+        List of splits to check for existence.
+    save_folder : str
+        Folder containing prepared data.
+    conf : dict
+        The loaded configuration options.
+
     Returns
     -------
     bool
@@ -140,6 +149,10 @@ def extract_libritts(
         LibriTTS dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
+
+    Returns
+    -------
+    None
 
     Example
     -------

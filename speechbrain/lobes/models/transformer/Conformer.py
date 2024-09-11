@@ -699,7 +699,7 @@ class ConformerEncoder(nn.Module):
     ):
         """
         Arguments
-        ----------
+        ---------
         src : torch.Tensor
             The sequence to the encoder layer.
         src_mask : torch.Tensor, optional
