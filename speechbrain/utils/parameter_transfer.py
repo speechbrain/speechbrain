@@ -174,6 +174,7 @@ class Pretrainer:
         self,
         default_source=None,
         internal_ddp_handling=False,
+        use_auth_token=False,
         local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
     ):
         """Fetches parameters from known paths with fallback default_source
@@ -195,6 +196,9 @@ class Pretrainer:
         internal_ddp_handling : bool
             Whether/not the function should handle DDP i.e. `run_on_main`.
             (Default: False)
+        use_auth_token : bool (default: False)
+            If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
+            default is False because the majority of models are public.
         local_strategy : speechbrain.utils.fetching.LocalStrategy
             The fetching strategy to use, which controls the behavior of remote file
             fetching with regards to symlinking and copying.
@@ -233,7 +237,7 @@ class Pretrainer:
                 "savedir": self.collect_in,
                 "overwrite": False,
                 "save_filename": save_filename,
-                "use_auth_token": False,
+                "use_auth_token": use_auth_token,
                 "revision": None,
                 "local_strategy": local_strategy,
             }

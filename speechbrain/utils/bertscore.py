@@ -99,9 +99,9 @@ class BERTScoreStats(MetricStats):
         ---------
         ids: list
             the string IDs for the samples
-        predictions: list
+        predict: list
             the model's predictions in tokenizable format
-        targets: list
+        target: list
             the ground truths in tokenizable format
         """
         self.ids.extend(ids)
@@ -272,7 +272,7 @@ def get_bert_token_mask(tokenizer) -> torch.BoolTensor:
 
     Arguments
     ---------
-    tokenizer
+    tokenizer : transformers.PreTrainedTokenizer
         HuggingFace tokenizer for the BERT model.
 
     Returns
@@ -312,7 +312,7 @@ def get_bertscore_token_weights(
 
     Arguments
     ---------
-    tokenizer
+    tokenizer : transformers.PreTrainedTokenizer
         HuggingFace tokenizer for the BERT model.
     corpus : Iterable[str], optional
         Iterable corpus to compute the IDF from. Each iterated value is

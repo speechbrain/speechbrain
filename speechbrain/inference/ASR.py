@@ -653,7 +653,7 @@ class WhisperASR(Pretrained):
         **kwargs : dict
             Arguments forwarded to ``load_audio``
 
-        YIELDS
+        Yields
         ------
         ASRWhisperSegment
             A new ASRWhisperSegment instance initialized with the provided parameters.

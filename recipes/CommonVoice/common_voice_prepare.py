@@ -60,12 +60,12 @@ def prepare_common_voice(
         transformed to the closest non-accented letters.
     language: str
         Specify the language for text normalization.
+    skip_prep: bool
+        If True, skip data preparation.
     convert_to_wav: bool
         If True, mp3 files are converted (duplicated) to .wav. Wav are much
         faster to read than MP3 so use this if your filesystem is slow.
         FFMPEG must be installed.
-    skip_prep: bool
-        If True, skip data preparation.
 
     Returns
     -------
@@ -289,6 +289,10 @@ def create_csv(
 
     Arguments
     ---------
+    convert_to_wav : bool
+        If True, mp3 files are converted (duplicated) to .wav. Wav are much
+        faster to read than MP3 so use this if your filesystem is slow.
+        FFMPEG must be installed.
     orig_tsv_file : str
         Path to the Common Voice tsv file (standard file).
     csv_file : str
