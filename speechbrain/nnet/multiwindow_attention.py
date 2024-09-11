@@ -711,7 +711,7 @@ class MultiWindowMultiheadAttention(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([8, 60, 512])
-    >>> net = MultiWindowMultiheadAttention(nhead=4, d_model=inputs.shape[-1], window_sizes=[3, 5, 10, 15])
+    >>> net = MultiWindowMultiheadAttention(nhead=4, d_model=inputs.shape[-1], mwmha_windows=[3, 5, 10, 15])
     >>> outputs, attn = net(inputs, inputs, inputs)
     >>> outputs.shape
     torch.Size([8, 60, 512])
