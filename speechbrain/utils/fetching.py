@@ -304,7 +304,7 @@ def fetch(
         (default: None)
     local_strategy : LocalStrategy, optional
         Which strategy to use to deal with files locally. (default:
-        `LocalStrategy.SYMLINK`)
+        `LocalStrategy.NO_LINK`)
 
     Returns
     -------
