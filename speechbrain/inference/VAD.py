@@ -290,7 +290,7 @@ class VAD(Pretrained):
         """
         vad_activation = (vad_prob >= activation_th).int()
         vad_deactivation = (vad_prob >= deactivation_th).int()
-        vad_th = vad_activation + vad_deactivation
+        vad_th = (vad_activation + vad_deactivation).cpu().numpy()
 
         # Loop over batches and time steps
         for batch in range(vad_th.shape[0]):
@@ -301,6 +301,7 @@ class VAD(Pretrained):
                 ):
                     vad_th[batch, time_step + 1] = 2
 
+        vad_th = torch.from_numpy(vad_th)
         vad_th[vad_th == 1] = 0
         vad_th[vad_th == 2] = 1
         return vad_th
