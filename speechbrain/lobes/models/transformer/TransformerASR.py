@@ -325,7 +325,7 @@ class TransformerASR(TransformerInterface):
     def forward(self, src, tgt, wav_len=None, pad_idx=0):
         """
         Arguments
-        ----------
+        ---------
         src : torch.Tensor
             The sequence to the encoder.
         tgt : torch.Tensor
@@ -344,7 +344,6 @@ class TransformerASR(TransformerInterface):
         hidden_state_lst : list, optional
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
-
         """
 
         # reshape the src vector to [Batch, Time, Fea] is a 4d vector is given

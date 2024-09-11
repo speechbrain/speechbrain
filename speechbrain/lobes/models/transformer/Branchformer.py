@@ -342,7 +342,7 @@ class BranchformerEncoder(nn.Module):
     ):
         """
         Arguments
-        ----------
+        ---------
         src : torch.Tensor
             The sequence to the encoder layer.
         src_mask : torch.Tensor, optional
@@ -353,6 +353,8 @@ class BranchformerEncoder(nn.Module):
             Module or tensor containing the input sequence positional embeddings
             If custom pos_embs are given it needs to have the shape (1, 2*S-1, E)
             where S is the sequence length, and E is the embedding dimension.
+        dynchunktrain_config : None
+            This configuration is unsupported for this encoder.
 
         Returns
         -------
@@ -363,7 +365,6 @@ class BranchformerEncoder(nn.Module):
         hidden_state_lst : list, optional
             The output of the hidden layers of the encoder.
             Only works if output_hidden_states is set to true.
-
         """
         assert (
             dynchunktrain_config is None
