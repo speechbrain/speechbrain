@@ -13,8 +13,6 @@ from functools import wraps
 
 import torch
 
-MAIN_PROC_ONLY: int = 0
-
 
 def run_on_main(
     func,
@@ -88,13 +86,10 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
-        global MAIN_PROC_ONLY
-        MAIN_PROC_ONLY += 1
         if if_main_process():
             result = function(*args, **kwargs)
         else:
             result = None
-        MAIN_PROC_ONLY -= 1
         return result
 
     return main_proc_wrapped_func
@@ -135,7 +130,7 @@ def ddp_broadcast(communication_object, src=0):
     -------
     The communication_object passed on rank src.
     """
-    if MAIN_PROC_ONLY >= 1 or not torch.distributed.is_initialized():
+    if not torch.distributed.is_initialized():
         return communication_object
 
     # Wrapping object in a list is required for preventing
