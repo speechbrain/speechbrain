@@ -63,9 +63,11 @@ def prepare_common_voice(
     skip_prep: bool
         If True, skip data preparation.
     convert_to_wav: bool
-        If True, mp3 files are converted (duplicated) to .wav. Wav are much
-        faster to read than MP3 so use this if your filesystem is slow.
-        FFMPEG must be installed.
+        If True, `.mp3` files are converted (duplicated) to uncompressed `.wav`.
+        Uncompressed `wav`s can be much faster to decode than MP3, at the cost
+        of much higher disk usage and bandwidth. This might be useful if you are
+        CPU-limited in workers during training.
+        This invokes the `ffmpeg` commandline, so ffmpeg must be installed.
 
     Returns
     -------
@@ -201,9 +203,11 @@ def process_line(line, convert_to_wav, data_folder, language, accented_letters):
     line : str
         A line of the CommonVoice tsv file.
     convert_to_wav : bool
-        If True, mp3 files are converted (duplicated) to .wav. Wav are much
-        faster to read than MP3 so use this if your filesystem is slow.
-        FFMPEG must be installed.
+        If True, `.mp3` files are converted (duplicated) to uncompressed `.wav`.
+        Uncompressed `wav`s can be much faster to decode than MP3, at the cost
+        of much higher disk usage and bandwidth. This might be useful if you are
+        CPU-limited in workers during training.
+        This invokes the `ffmpeg` commandline, so ffmpeg must be installed.
     data_folder : str
         Path to the CommonVoice dataset.
     language : str
@@ -290,9 +294,11 @@ def create_csv(
     Arguments
     ---------
     convert_to_wav : bool
-        If True, mp3 files are converted (duplicated) to .wav. Wav are much
-        faster to read than MP3 so use this if your filesystem is slow.
-        FFMPEG must be installed.
+        If True, `.mp3` files are converted (duplicated) to uncompressed `.wav`.
+        Uncompressed `wav`s can be much faster to decode than MP3, at the cost
+        of much higher disk usage and bandwidth. This might be useful if you are
+        CPU-limited in workers during training.
+        This invokes the `ffmpeg` commandline, so ffmpeg must be installed.
     orig_tsv_file : str
         Path to the Common Voice tsv file (standard file).
     csv_file : str
