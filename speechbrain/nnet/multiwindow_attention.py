@@ -86,7 +86,7 @@ def trunc_normal_(tensor, mean=0.0, std=1.0, a=-2.0, b=2.0):
         b: the maximum cutoff value
     Examples:
         >>> w = torch.empty(3, 5)
-        >>> nn.init.trunc_normal_(w)
+        >>> trunc_normal_(w)
     """
     with torch.no_grad():
         return _trunc_normal_(tensor, mean, std, a, b)
@@ -685,8 +685,7 @@ class MultiWindowMultiheadAttention(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([8, 60, 512])
-    >>> net = MultiWindowMultiheadAttention(nhead=4, d_model=inputs.shape[-1],
-                                            window_sizes=[3, 5, 10, 15])
+    >>> net = MultiWindowMultiheadAttention(nhead=4, d_model=inputs.shape[-1], window_sizes=[3, 5, 10, 15])
     >>> outputs, attn = net(inputs, inputs, inputs)
     >>> outputs.shape
     torch.Size([8, 60, 512])
