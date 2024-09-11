@@ -57,6 +57,10 @@ class FlairEmbeddings:
             Extra positional arguments to pass to the flair class constructor
         **kwargs
             Extra keyword arguments to pass to the flair class constructor
+
+        Returns
+        -------
+        FlairEmbeddings
         """
 
         # figure out a unique name for this source

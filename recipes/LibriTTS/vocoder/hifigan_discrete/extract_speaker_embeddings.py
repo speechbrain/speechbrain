@@ -54,6 +54,15 @@ def skip(splits, save_folder, conf):
     Detects if the libritts data_extraction has been already done.
     If the extraction has been done, we can skip it.
 
+    Arguments
+    ---------
+    splits : list
+        List of splits to check.
+    save_folder : str
+        Path to the folder where the speech units are stored.
+    conf : dict
+        Loaded configuration options
+
     Returns
     -------
     bool
@@ -115,6 +124,10 @@ def extract_libritts_embeddings(
         LibriTTS dataset sample rate
     skip_extract: Bool
         If True, skip extraction.
+
+    Returns
+    -------
+    None
 
     Example
     -------
