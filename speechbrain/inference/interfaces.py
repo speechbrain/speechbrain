@@ -291,10 +291,6 @@ class Pretrained(torch.nn.Module):
         convert a file from a higher sampling rate to a lower one (downsampling).
         Similarly, it is simple to downmix a stereo file to mono.
         The path can be a local path, a web url, or a link to a huggingface repo.
-
-        Arguments
-        ---------
-        path:
         """
         source, fl = split_path(path)
         path = fetch(

@@ -116,6 +116,11 @@ def link_with_strategy(
         but the directory leading up to it must exist.
     local_strategy : LocalStrategy
         Strategy to adopt for linking.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the final file on disk, after linking/copying (if any).
     """
 
     src = src.absolute()
