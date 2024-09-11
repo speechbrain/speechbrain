@@ -210,6 +210,8 @@ class WandBLogger(TrainLogger):
             reinit: True
             resume: False
             dir: !ref <output_folder>/wandb
+            id: sb_run
+            resume: allow
     ```
 
     NOTE
