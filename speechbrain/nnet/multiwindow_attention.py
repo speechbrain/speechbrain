@@ -163,6 +163,7 @@ layernorm_wrapper = partial(nn.LayerNorm, eps=1e-6)
 class Attention(nn.Module):
     """
     This class is an implementation of the standard Multi-Head Attention module as used in the official implementation of [1].
+    Reference: [1] "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" https://openreview.net/pdf?id=Q53QLftNkA
 
     Arguments
     ---------
@@ -176,8 +177,6 @@ class Attention(nn.Module):
         dropout value for attention output.
     proj_drop : float
         dropout rate for projection output.
-
-    Reference: [1] "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" https://openreview.net/pdf?id=Q53QLftNkA
     """
 
     def __init__(
@@ -215,6 +214,10 @@ class Attention(nn.Module):
         ---------
         x : torch.Tensor
             input tensor.
+
+        Returns
+        -------
+        torch.Tensor
         """
         B, N, C = x.shape
         qkv = (
@@ -243,6 +246,11 @@ def find_attention_padding(n, ws):
         input size.
     ws : int
         window size.
+
+    Returns
+    -------
+    p : int
+        padding required.
     """
     remainder = n % ws
     p = (ws - remainder) % ws
@@ -282,6 +290,11 @@ def window_partition1d(x, window_size, attention_padding=0):
         window size.
     attention_padding : int
         padding required for the attention windows when input size is not divisible by the window size.
+
+    Returns
+    -------
+    windows : torch.Tensor
+        partitioned windows.
     """
     x = pad_tensor(x, padding=attention_padding)
     B, W, C = x.shape
@@ -336,6 +349,7 @@ def get_relative_position_index1d(win_w):
 class WindowedAttentionHead(nn.Module):
     """
     This class is an implementation of a Single Windowed Attention head, corresponding to the official implementation of [1].
+    Reference: [1] "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" https://openreview.net/pdf?id=Q53QLftNkA
 
     Arguments
     ---------
@@ -347,8 +361,6 @@ class WindowedAttentionHead(nn.Module):
         Whether to shift the windows or not.
     attn_drop : float
         dropout value for attention output.
-
-    Reference: [1] "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" https://openreview.net/pdf?id=Q53QLftNkA
     """
 
     def __init__(
@@ -414,6 +426,11 @@ class WindowedAttentionHead(nn.Module):
             key padding mask.
         attn_fill_value : float, optional
             fill value for attention mask.
+
+        Returns
+        -------
+        x, attn : torch.Tensor, torch.Tensor
+            output tensor and corresponding attention scores
         """
         B, W, C = q.shape
 
@@ -534,6 +551,10 @@ class AttentionHead(nn.Module):
         attn_fill_value : float, optional
             fill value for attention mask.
 
+        Returns
+        -------
+        x, attn : torch.Tensor, torch.Tensor
+            output tensor and corresponding attention scores
         """
         B, W, C = q.shape
         attn = (q @ torch.swapaxes(k, -2, -1)) * self.scale
@@ -554,7 +575,6 @@ class AttentionHead(nn.Module):
 
 class WindowedMultiHeadAttention(nn.Module):
     """This class is an implementation of the Multi-Window Multi-Head Attention (MW-MHA) module as proposed in [1].
-
     Reference: [1] "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" https://openreview.net/pdf?id=Q53QLftNkA
 
     Arguments
@@ -642,6 +662,11 @@ class WindowedMultiHeadAttention(nn.Module):
             input tensor.
         key_padding_mask : torch.Tensor, optional
             key padding mask.
+
+        Returns
+        -------
+        x, None : torch.Tensor, None
+            output tensor and None (for compatibility)
         """
         B, N, C = x.shape
         qkv = (
@@ -665,10 +690,11 @@ class WindowedMultiHeadAttention(nn.Module):
 
 
 class MultiWindowMultiheadAttention(nn.Module):
-    """This class is a wrapper over the WindowedMultiHeadAttention allowing for easy integration with SpeechBrain
+    """
+    This class is a wrapper over the WindowedMultiHeadAttention allowing for easy integration with SpeechBrain
 
     Arguments
-    ----------
+    ---------
     nhead : int
         parallel attention heads.
     d_model : int
@@ -679,7 +705,7 @@ class MultiWindowMultiheadAttention(nn.Module):
         add bias as to the output projection layer (default: True).
     add_bias_qkv : bool
         add bias to the qkv projection layer.
-    mwmha_windows: List[int]
+    mwmha_windows : List[int], optional
         List of window sizes for the different attention heads.
 
     Example
@@ -693,11 +719,11 @@ class MultiWindowMultiheadAttention(nn.Module):
 
     def __init__(
         self,
-        nhead,
-        d_model,
-        dropout=0.0,
-        bias=True,
-        add_bias_qkv=False,
+        nhead: int,
+        d_model: int,
+        dropout: float = 0.0,
+        bias: bool = True,
+        add_bias_qkv: bool = False,
         mwmha_windows: Optional[List[int]] = [],
     ):
         super().__init__()
@@ -716,14 +742,14 @@ class MultiWindowMultiheadAttention(nn.Module):
         query,
         key,
         value,
-        attn_mask: Optional[torch.Tensor] = None,
-        key_padding_mask: Optional[torch.Tensor] = None,
-        return_attn_weights: Optional[torch.Tensor] = True,
-        pos_embs: Optional[torch.Tensor] = None,
+        attn_mask: torch.Tensor = None,
+        key_padding_mask: torch.Tensor = None,
+        return_attn_weights: torch.Tensor = True,
+        pos_embs: torch.Tensor = None,
     ):
         """
         Arguments
-        ----------
+        ---------
         query : torch.Tensor
             (B, L, E) where L is the target sequence length,
             B is the batch size, E is the embedding dimension.
@@ -733,13 +759,6 @@ class MultiWindowMultiheadAttention(nn.Module):
         value : torch.Tensor
             (B, S, E) where S is the source sequence length,
             B is the batch size, E is the embedding dimension.
-        key_padding_mask : torch.Tensor, optional
-            (B, S) where B is the batch size, S is the source sequence
-            length. If a ByteTensor is provided, the non-zero positions will
-            be ignored while the position with the zero positions will be
-            unchanged. If a BoolTensor is provided, the positions with the
-            value of True will be ignored while the position with the value
-            of False will be unchanged.
         attn_mask : torch.Tensor, optional
             2D mask (L, S) where L is the target sequence length, S is
             the source sequence length.
@@ -751,10 +770,19 @@ class MultiWindowMultiheadAttention(nn.Module):
             be unchanged. If a BoolTensor is provided, positions with True is
             not allowed to attend while False values will be unchanged. If a
             FloatTensor is provided, it will be added to the attention weight.
-        pos_embs: torch.Tensor, optional
+        key_padding_mask : torch.Tensor, optional
+            (B, S) where B is the batch size, S is the source sequence
+            length. If a ByteTensor is provided, the non-zero positions will
+            be ignored while the position with the zero positions will be
+            unchanged. If a BoolTensor is provided, the positions with the
+            value of True will be ignored while the position with the value
+            of False will be unchanged.
+        return_attn_weights : bool, ignored
+            whether to return attention scores
+        pos_embs : torch.Tensor, optional
             Positional embeddings added to the attention map of shape (L, S, E) or (L, S, 1).
 
-        Outputs
+        Returns
         -------
         attn_output : torch.Tensor
             (B, L, E) where L is the target sequence length, B is the
