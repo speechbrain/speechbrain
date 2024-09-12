@@ -43,7 +43,7 @@ import torch
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.distributed import if_main_process, run_on_main, ddp_destroy_process_group
 
 logger = logging.getLogger(__name__)
 
@@ -483,3 +483,6 @@ if __name__ == "__main__":
             max_key="ACC",
             test_loader_kwargs=hparams["test_dataloader_opts"],
         )
+
+    # destroy ddp process group in the end
+    ddp_destroy_process_group()
