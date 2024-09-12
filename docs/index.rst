@@ -57,6 +57,19 @@ Referencing SpeechBrain
    multigpu.md
    tutorials.md
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Tutorial notebooks
+
+   tutorials/basics.rst
+   tutorials/advanced.rst
+   tutorials/asr.rst
+   tutorials/separation.rst
+   tutorials/enhancement.rst
+   tutorials/classification.rst
+   tutorials/processing.rst
+   tutorials/nn.rst
+
 
 .. toctree::
    :maxdepth: 1
