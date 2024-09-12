@@ -64,11 +64,26 @@ def estimate_f0(
     best_lag = compute_lag(autocorrelation, min_f0_steps, voicing_threshold)
 
     # Convert to Hz
-    return best_lag / sample_rate
+    return sample_rate / best_lag
 
 
 def autocorrelate(audio, step_samples, window_samples):
-    """Generate autocorrelation scores using circular convolution"""
+    """Generate autocorrelation scores using circular convolution.
+
+    Arguments
+    ---------
+    audio : torch.Tensor
+        The audio to be evaluated for autocorrelation.
+    step_samples : int
+        The number of samples between the beginning of each frame.
+    window_samples : int
+        The number of samples contained in each frame.
+
+    Returns
+    -------
+    autocorrelation : torch.Tensor
+        The auto-correlation tensor by convolving each frame with itself.
+    """
     chunks = audio.unfold(-1, window_samples, step_samples)
     padded_chunks = torch.nn.functional.pad(
         chunks, (0, window_samples // 2), mode="circular"
@@ -81,11 +96,28 @@ def autocorrelate(audio, step_samples, window_samples):
 
 
 def compute_lag(autocorrelation, min_f0_steps, voicing_threshold):
+    """Compute the (smoothed) lag corresponding to autocorrelation peaks.
+
+    Arguments
+    ---------
+    autocorrelation : torch.Tensor
+        Result of convolving a signal with itself.
+    min_f0_steps : int
+        Number of steps corresponding to the minimum allowed lag.
+    voicing_threshold : float
+        The minimum ratio between the highest peak and maximum autocorrelation
+        before a frame is considered unvoiced.
+
+    Returns
+    -------
+    lag : torch.Tensor
+        The number of steps between successive periods for each frame.
+    """
     # Find k-best candidates for each chunk
     # Excluding invalid indexes
     perfect_correlation = autocorrelation[:, :, 0]
     valid_scores = autocorrelation[:, :, min_f0_steps:]
-    kbest = torch.topk(valid_scores, k=5, dim=-1)
+    kbest = torch.topk(valid_scores, k=10, dim=-1)
 
     # Identify which frames are (un)voiced
     voiced = kbest.values[:, :, 0] > perfect_correlation * voicing_threshold
@@ -93,22 +125,25 @@ def compute_lag(autocorrelation, min_f0_steps, voicing_threshold):
     voiced_indices = kbest.indices[:, voiced, :]
 
     # Pick whichever kbest value is closest to the average of 5 neighbors
-    # Iterate twice to ensure stability
-    averaged_voiced_values = average(voiced_values)
-    new_voiced_values = pick_closest(
-        voiced_values[:, :, 0], voiced_indices, averaged_voiced_values
-    )
-    averaged_voiced_values = average(new_voiced_values)
-    new_voiced_values = pick_closest(
-        new_voiced_values, voiced_indices, averaged_voiced_values
-    )
-
-    return min_f0_steps + voiced_indices[new_voiced_values]
+    # Iterate a few times to ensure stability
+    best_selection = iterative_lag_selection(voiced_values, iterations=3)
+    return min_f0_steps + voiced_indices[:, :, best_selection]
 
 
-def average(voiced_values):
-    pass
+def iterative_lag_selection(voiced_values, iterations):
+    """Select the best lag out of available options by comparing
+    to an average of neighboring lags to reduce jumping octaves."""
+    best_selection = torch.zeros(voiced_values.size(1), dtype=int)
+    for i in range(iterations):
+        best_values = voiced_values[:, :, best_selection]
+        averaged_voiced_values = neighbor_average(best_values, 5)
+        distance = torch.abs(voiced_values - averaged_voiced_values)
+        best_selection = torch.argmin(distance, dim=-1)
+    return best_selection
 
 
-def pick_closest(kbest, averaged_voiced_values):
-    pass
+def neighbor_average(best_values, neighbors):
+    """Use convolutional kernel to average the neighbors."""
+    kernel = torch.ones(1, 1, neighbors) / neighbors
+    values = best_values.unsqeeze(1)
+    return torch.nn.conv1d(values, kernel, padding="same").squeeze(1)
