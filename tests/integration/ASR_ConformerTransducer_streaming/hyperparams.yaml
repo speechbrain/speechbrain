@@ -1,6 +1,6 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Training parameters
 # To make Transformers converge, the global bath size should be large enough.

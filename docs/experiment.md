@@ -94,3 +94,15 @@ We can also read multi-channel SFT data, that will be formatted in this way:
 ```
 (batch, time_step, n_fft, 2, n_audio_channels)
 ```
+
+## Reproducibility
+
+To improve reproducibility across experiments, SpeechBrain supports its own seeding function located in `speechbrain.utils.seed.seed_everything`. This function sets the seed for various generators such as NumPy, PyTorch, and Python, following the [PyTorch recommendations](https://pytorch.org/docs/stable/notes/randomness.html).
+
+However, due to the differences in how GPU and CPU executions work, results may not be fully reproducible even with identical seeds, especially when training models. This issue primarily affects training experiments.
+
+On the other hand, when preparing data using data preparation scripts, the output of these scripts is independent of the global seeds. This ensures that you will get identical outputs on different setups, even if different seeds are used.
+
+In distributed experiments, reproducibility becomes more complex as different seeds (offset by the rank) will be set on different machines or processes. This primarily impacts operations that rely on randomness, such as data augmentations. Since each process in a distributed setup is assigned its own seed, the randomness applied to data (e.g., augmentations) can differ between processes, even though the global seed is the same across machines.
+
+It’s important to note that this variance in seeding does not affect certain elements of the experiment. For instance, initial model parameters are broadcast to all processes from the main process in distributed training. Similarly, components like data loaders, which shuffle data, will be affected by per-process seeds, but the underlying data pipeline remains synchronized across processes.
