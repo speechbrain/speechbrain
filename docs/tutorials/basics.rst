@@ -49,7 +49,7 @@ this tutorial will provide you all the very basic elements needed to start using
      - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/what-can-i-do-with-speechbrain.ipynb>`__
 
 
-In this tutorial, we provide a high-level description of the speech tasks currently supported by SpeechBrain. 
+In this tutorial, we provide a high-level description of the speech tasks currently supported by SpeechBrain.
 We also show how to perform inference on speech recognition, speech separation, speaker verification, and other applications.
 
 

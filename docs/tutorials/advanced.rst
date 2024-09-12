@@ -137,7 +137,7 @@ or fine-tuning/knowledge distillation or whatever new fancy technique you can co
 
 
 Do you have a huge dataset stored in a shared file system? This tutorial will show you how to load large datasets from the shared file system and use them for training a neural network with SpeechBrain.
-In particular, we describe a solution based on the WebDataset library, that is easy to integrate within the SpeechBrain toolkit. 
+In particular, we describe a solution based on the WebDataset library, that is easy to integrate within the SpeechBrain toolkit.
 
 .. rubric:: `🔗 Text Tokenizer <advanced/text-tokenizer.html>`_
    :heading-level: 2

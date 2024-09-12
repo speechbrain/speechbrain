@@ -26,7 +26,7 @@ Speech Classification
      - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/classification/speech-classification-from-scratch.ipynb>`__
 
 
-In this tutorial, we show how to use SpeechBrain to implement an utterance-level speech classifier. 
+In this tutorial, we show how to use SpeechBrain to implement an utterance-level speech classifier.
 It might help if you want to develop systems for speaker-id, language-id, emotion recognition, sound classification, keyword spotting, and many 					     	     other tasks.
 
 .. rubric:: `🔗 Voice Activity Detection <classification/voice-activity-detection.html>`_
