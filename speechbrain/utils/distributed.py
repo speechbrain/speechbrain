@@ -97,6 +97,11 @@ def main_process_only(function):
 
     return main_proc_wrapped_func
 
+def is_distributed_initialized() -> bool:
+    # `is_initialized` is only defined conditionally
+    # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
+    # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
+    return torch.distributed.is_available() and torch.distributed.is_initialized()
 
 def ddp_barrier():
     """
@@ -114,7 +119,13 @@ def ddp_barrier():
     >>> print("hello world")
     hello world
     """
-    if torch.distributed.is_initialized():
+    if not is_distributed_initialized():
+        return
+    elif torch.distributed.get_backend() == "nccl":
+        # if NCCL, we can retrieve device_ids through this way
+        device_ids = [int(os.environ.get("LOCAL_RANK"))]
+        torch.distributed.barrier(device_ids=device_ids)
+    else:
         torch.distributed.barrier()
 
 
