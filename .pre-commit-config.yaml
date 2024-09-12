@@ -36,7 +36,9 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
-        args: [--ignore-words=.dict-speechbrain.txt]
+        args:
+          - "--ignore-words=.dict-speechbrain.txt"
+          - "--ignore-regex=base64,.*?=="  # for ipynb inline base64
         additional_dependencies:
           - tomli
 
