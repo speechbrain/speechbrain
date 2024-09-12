@@ -71,10 +71,15 @@ def run_on_main(
                 post_func(*post_args, **post_kwargs)
             ddp_barrier()
 
+def is_distributed_initialized() -> bool:
+    # `is_initialized` is only defined conditionally
+    # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
+    # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
+    return torch.distributed.is_available() and torch.distributed.is_initialized()
 
 def if_main_process() -> bool:
     "Returns whether the current process is the main process."
-    if torch.distributed.is_initialized(): 
+    if is_distributed_initialized(): 
         return torch.distributed.get_rank() == 0
     else:
         return True
@@ -96,12 +101,6 @@ def main_process_only(function):
         return result
 
     return main_proc_wrapped_func
-
-def is_distributed_initialized() -> bool:
-    # `is_initialized` is only defined conditionally
-    # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
-    # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
-    return torch.distributed.is_available() and torch.distributed.is_initialized()
 
 def ddp_barrier():
     """
@@ -145,7 +144,7 @@ def ddp_broadcast(communication_object, src=0):
     -------
     The communication_object passed on rank src.
     """
-    if not torch.distributed.is_initialized():
+    if not is_distributed_initialized():
         return communication_object
 
     # Wrapping object in a list is required for preventing
