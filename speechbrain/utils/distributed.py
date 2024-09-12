@@ -74,7 +74,10 @@ def run_on_main(
 
 def if_main_process() -> bool:
     "Returns whether the current process is the main process."
-    return torch.distributed.get_rank() == 0
+    if torch.distributed.is_initialized(): 
+        return torch.distributed.get_rank() == 0
+    else:
+        return True
 
 
 def main_process_only(function):
@@ -111,7 +114,8 @@ def ddp_barrier():
     >>> print("hello world")
     hello world
     """
-    torch.distributed.barrier()
+    if torch.distributed.is_initialized():
+        torch.distributed.barrier()
 
 
 def ddp_broadcast(communication_object, src=0):
