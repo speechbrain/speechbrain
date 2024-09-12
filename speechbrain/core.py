@@ -863,7 +863,7 @@ class Brain:
                 f"{class_name} Model Statistics:\n"
                 f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
                 f"* Total Number of Parameters: {total_parameters}\n"
-                f"* Trainable Parameters represent {0:.4f}% of the total size."
+                f"* Trainable Parameters represent {0:.2f}% of the total size."
             )
         elif total_trainable_params == 0:
             logger.warning("The model has no trainable parameters!")
