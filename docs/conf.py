@@ -70,6 +70,10 @@ intersphinx_mapping = {
     "torchaudio": ("https://pytorch.org/audio/stable/", None),
 }
 
+# Myst-NB documentation
+
+jupyter_execute_notebooks = "off"
+
 # AUTODOC:
 
 autodoc_default_options = {}
