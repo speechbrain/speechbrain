@@ -17,21 +17,20 @@ import torch
 MAIN_PROC_ONLY: int = 0
 
 
-def rank_prefixed_message(message: str, rank: Optional[int]) -> str:
+def rank_prefixed_message(message: str) -> str:
     r"""Prefix a message with the rank of the process.
 
     Arguments
     ---------
     message : str
         The message to prefix.
-    rank : int or None
-        The rank of the process, or None if the rank is unknown.
 
     Returns
     -------
     str
         The message prefixed with the rank, if known.
     """
+    rank = get_rank()
     if rank is not None:
         return f"[rank: {rank}] {message}"
     return message
@@ -41,7 +40,7 @@ def get_rank() -> Optional[int]:
     r"""Get the rank of the current process.
 
     This code is taken from the Pytorch Lightning library:
-    https://github.com/Lightning-AI/pytorch-lightning/
+    https://github.com/Lightning-AI/pytorch-lightning/blob/bc3c9c536dc88bfa9a46f63fbce22b382a86a9cb/src/lightning/fabric/utilities/rank_zero.py#L39-L48
 
     Returns
     -------
