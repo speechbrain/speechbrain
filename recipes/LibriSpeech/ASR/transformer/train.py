@@ -484,5 +484,5 @@ if __name__ == "__main__":
             test_loader_kwargs=hparams["test_dataloader_opts"],
         )
 
-    # destroy ddp process group in the end
+    # destroy ddp process group after training
     ddp_destroy_process_group()
