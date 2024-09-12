@@ -5,10 +5,18 @@ Speech Processing
    Originally generated with https://gist.github.com/asumagic/19f9809480b62bfd16094fb5c844a564 but OK to edit in repo now.
    Please ensure for each tutorial that you are adding it to the hidden toctree at the end of the file!
 
+.. toctree::
+   :hidden:
+
+   processing/speech-augmentation.ipynb
+   processing/fourier-transform-and-spectrograms.ipynb
+   processing/speech-features.ipynb
+   processing/environmental-corruption.ipynb
+   processing/multi-microphone-beamforming.ipynb
 
 
-`Speech Augmentation <processing/speech-augmentation.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Speech Augmentation <processing/speech-augmentation.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -18,7 +26,7 @@ Speech Processing
      - Jan. 2021
      - Difficulty: easy
      - Time: 20min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/speech-augmentation.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/speech-augmentation.ipynb>`__
 
 
 A popular saying in machine learning is "there is no better data than more data". However, collecting new data can be expensive
@@ -26,9 +34,8 @@ and we must cleverly use the available dataset. One popular technique is called 
 corrupt the original speech signals to give the network the "illusion" that we are processing a new signal. This acts as a powerful regularizer,
 that normally helps neural networks improving generalization and thus achieve better performance on test data.
 
-
-`Fourier Transform and Spectrograms <processing/fourier-transform-and-spectrograms.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Fourier Transform and Spectrograms <processing/fourier-transform-and-spectrograms.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -38,7 +45,7 @@ that normally helps neural networks improving generalization and thus achieve be
      - Jan. 2021
      - Difficulty: easy
      - Time: 20min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/fourier-transform-and-spectrograms.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/fourier-transform-and-spectrograms.ipynb>`__
 
 
 In speech and audio processing, the signal in the time-domain is often transformed into another domain.
@@ -49,9 +56,8 @@ Fourier Transform, which turns the time-domain signal into an equivalent represe
 In the following sections, we will describe the Fourier transforms along with other related transformations such as
 Short-Term Fourier Transform (STFT) and spectrograms.
 
-
-`Speech Features <processing/speech-features.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Speech Features <processing/speech-features.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -61,16 +67,15 @@ Short-Term Fourier Transform (STFT) and spectrograms.
      - Jan. 2021
      - Difficulty: easy
      - Time: 20min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/speech-features.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/speech-features.ipynb>`__
 
 
 Speech is a very high-dimensional signal. For instance, when the sampling frequency is 16 kHz,
 we have 16000 samples for each second. Working with such very high dimensional data can be critical from a machine learning perspective.
 The goal of feature extraction is to find more compact ways to represent speech.
 
-
-`Environmental corruption <processing/environmental-corruption.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Environmental corruption <processing/environmental-corruption.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -80,16 +85,15 @@ The goal of feature extraction is to find more compact ways to represent speech.
      - Feb. 2021
      - Difficulty: medium
      - Time: 20min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/environmental-corruption.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/environmental-corruption.ipynb>`__
 
 
 In realistic speech processing applications, the signal recorded by the microphone is corrupted by noise and reverberation.
 This is particularly harmful in distant-talking (far-field) scenarios, where the speaker and the reference microphone are distant
 (think about popular devices such as Google Home, Amazon Echo, Kinect, and similar devices).
 
-
-`Multi-microphone Beamforming <processing/multi-microphone-beamforming.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Multi-microphone Beamforming <processing/multi-microphone-beamforming.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -99,20 +103,10 @@ This is particularly harmful in distant-talking (far-field) scenarios, where the
      - Jan. 2021
      - Difficulty: medium
      - Time: 20min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/multi-microphone-beamforming.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/processing/multi-microphone-beamforming.ipynb>`__
 
 
 Using a microphone array can be very handy to improve the signal quality
 (e.g. reduce reverberation and noise) prior to performing speech recognition tasks.
 Microphone arrays can also estimate the direction of arrival of a sound source, and this information can later
 be used to "listen" in the direction of the source of interest.
-
-
-.. toctree::
-   :hidden:
-
-   processing/speech-augmentation.html
-   processing/fourier-transform-and-spectrograms.html
-   processing/speech-features.html
-   processing/environmental-corruption.html
-   processing/multi-microphone-beamforming.html

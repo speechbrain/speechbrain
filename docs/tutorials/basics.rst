@@ -5,10 +5,20 @@ SpeechBrain Basics
    Originally generated with https://gist.github.com/asumagic/19f9809480b62bfd16094fb5c844a564 but OK to edit in repo now.
    Please ensure for each tutorial that you are adding it to the hidden toctree at the end of the file!
 
+.. toctree::
+   :hidden:
+
+   basics/introduction-to-speechbrain.ipynb
+   basics/what-can-i-do-with-speechbrain.ipynb
+   basics/brain-class.ipynb
+   basics/hyperpyyaml.ipynb
+   basics/data-loading-pipeline.ipynb
+   basics/checkpointing.ipynb
+   basics/multi-gpu-considerations.ipynb
 
 
-`Introduction to SpeechBrain <basics/introduction-to-speechbrain.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Introduction to SpeechBrain <basics/introduction-to-speechbrain.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -18,16 +28,15 @@ SpeechBrain Basics
      - Feb. 2021
      - Difficulty: easy
      - Time: 10min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/introduction-to-speechbrain.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/introduction-to-speechbrain.ipynb>`__
 
 
 SpeechBrain is an open-source all-in-one speech toolkit based on PyTorch.
 It is designed to make the research and development of speech technology easier. Alongside with our documentation
 this tutorial will provide you all the very basic elements needed to start using SpeechBrain for your projects.
 
-
-`What can I do with SpeechBrain? <basics/what-can-i-do-with-speechbrain.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 What can I do with SpeechBrain? <basics/what-can-i-do-with-speechbrain.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -37,16 +46,15 @@ this tutorial will provide you all the very basic elements needed to start using
      - Jan. 2021
      - Difficulty: easy
      - Time: 10min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/what-can-i-do-with-speechbrain.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/what-can-i-do-with-speechbrain.ipynb>`__
 
 
 In this tutorial, we provide a high-level description of the speech tasks currently supported by SpeechBrain. 
 We also show how to perform inference on speech recognition, speech separation, speaker verification, and other applications.
 
 
-
-`Brain Class <basics/brain-class.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Brain Class <basics/brain-class.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -56,7 +64,7 @@ We also show how to perform inference on speech recognition, speech separation, 
      - Jan. 2021
      - Difficulty: easy
      - Time: 10min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/brain-class.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/brain-class.ipynb>`__
 
 
 One key component of deep learning is iterating the dataset multiple times and performing parameter updates.
@@ -65,9 +73,8 @@ SpeechBrain provides a convenient framework for organizing the training loop, in
 implemented in speechbrain/core.py. In each recipe, we sub-class this class and override the methods for which the default
 implementation doesn't do what is required for that particular recipe.
 
-
-`HyperPyYAML <basics/hyperpyyaml.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 HyperPyYAML <basics/hyperpyyaml.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -77,7 +84,7 @@ implementation doesn't do what is required for that particular recipe.
      - Jan. 2021
      - Difficulty: easy
      - Time: 15min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/hyperpyyaml.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/hyperpyyaml.ipynb>`__
 
 
 An essential part of any deep learning pipeline is the definition of hyperparameters and other metadata.
@@ -89,9 +96,8 @@ SpeechBrain-developed format, which we call "HyperPyYAML". We chose to extend YA
 readable format for data serialization. By extending an already useful format, we were able to create an
 expanded definition of hyperparameter, keeping our actual experimental code small and highly readable.
 
-
-`Data Loading Pipeline <basics/data-loading-pipeline.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Data Loading Pipeline <basics/data-loading-pipeline.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -101,7 +107,7 @@ expanded definition of hyperparameter, keeping our actual experimental code smal
      - Jan. 2021
      - Difficulty: medium
      - Time: 20min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/data-loading-pipeline.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/data-loading-pipeline.ipynb>`__
 
 
 Setting up an efficient data loading pipeline is often a tedious task which involves creating the examples,
@@ -109,9 +115,8 @@ defining your torch.utils.data.Dataset class as well as different data sampling 
 In SpeechBrain we provide efficient abstractions to simplify this time-consuming process without sacrificing
 flexibility. In fact our data pipeline is built around the Pytorch one.
 
-
-`Checkpointing <basics/checkpointing.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Checkpointing <basics/checkpointing.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -121,15 +126,14 @@ flexibility. In fact our data pipeline is built around the Pytorch one.
      - Feb. 2021
      - Difficulty: easy
      - Time: 15min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/checkpointing.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/checkpointing.ipynb>`__
 
 
 By checkpointing, we mean saving the model and all the other necessary state information
 (like optimizer parameters, which epoch and which iteration), at a particular point in time.
 
-
-`Multi-GPU Considerations <basics/multi-gpu-considerations.html>`_
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+.. rubric:: `🔗 Multi-GPU Considerations <basics/multi-gpu-considerations.html>`_
+   :heading-level: 2
 
 .. list-table::
    :widths: 20 20 20 20 20
@@ -139,20 +143,8 @@ By checkpointing, we mean saving the model and all the other necessary state inf
      - Mar. 2021
      - Difficulty: easy
      - Time: 15min
-     - `Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/multi-gpu-considerations.html>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/multi-gpu-considerations.ipynb>`__
 
 
 SpeechBrain provides two different methods to use multiple GPUs.
 These solutions follow PyTorch standards and allow for intra- or cross-node training. In this tutorial, the use of Data Parallel (DP) and Distributed Data Parallel (DDP) within SpeechBrain are explained.
-
-
-.. toctree::
-   :hidden:
-
-   basics/introduction-to-speechbrain.html
-   basics/what-can-i-do-with-speechbrain.html
-   basics/brain-class.html
-   basics/hyperpyyaml.html
-   basics/data-loading-pipeline.html
-   basics/checkpointing.html
-   basics/multi-gpu-considerations.html
