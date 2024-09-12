@@ -43,6 +43,9 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "recommonmark",
+    # chose myst-nb over nbsphinx is annoying because of the pandoc dependency
+    # of the latter, which needs to be installed system-wide or through conda
+    "myst_nb",
 ]
 
 
