@@ -48,9 +48,7 @@ def seed_everything(
         seed += seed_offset
 
     if verbose:
-        logger.info(
-            rank_prefixed_message(f"Setting seed to {seed}", get_rank())
-        )
+        logger.info(rank_prefixed_message(f"Setting seed to {seed}"))
 
     os.environ["SB_GLOBAL_SEED"] = str(seed)
     random.seed(seed)
