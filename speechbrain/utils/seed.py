@@ -26,9 +26,12 @@ def seed_everything(
 
     Arguments
     ---------
-    seed: the integer value seed for global random state.
-    verbose: Whether to print a message on each rank with the seed being set.
-    deterministic: Whether to set the seed for deterministic operations.
+    seed: int
+        the integer value seed for global random state.
+    verbose: bool
+        Whether to print a message on each rank with the seed being set.
+    deterministic: bool
+        Whether to set the seed for deterministic operations.
 
     Returns
     -------
