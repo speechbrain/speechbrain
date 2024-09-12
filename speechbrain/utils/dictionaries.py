@@ -30,7 +30,7 @@ class SynonymDictionary:
 
         Arguments
         ---------
-        file
+        file : file object
             File object that supports reading (e.g. an `open`ed file)
 
         Returns

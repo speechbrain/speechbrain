@@ -187,9 +187,13 @@ def torch_patched_state_dict_load(path, device="cpu"):
     ---------
     path : str, pathlib.Path
         Path where to load from.
-    device
+    device : str
         Device where the loaded `state_dict` tensors should reside. This is
         forwarded to :func:`torch.load`; see its documentation for details.
+
+    Returns
+    -------
+    The loaded state dict.
     """
     state_dict = torch.load(path, map_location=device)
     state_dict = hook_on_loading_state_dict_checkpoint(state_dict)

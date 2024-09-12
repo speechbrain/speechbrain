@@ -45,6 +45,10 @@ class FlairSequenceTagger:
         filename : str, optional
             The filename of the model. The default is the usual filename for
             this kind of model.
+
+        Returns
+        -------
+        FlairSequenceTagger
         """
 
         # figure out a unique name for this source

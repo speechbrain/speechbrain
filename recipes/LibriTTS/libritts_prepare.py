@@ -53,13 +53,13 @@ def prepare_libritts(
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
+    sample_rate : int
+        The sample rate to be used for the dataset
     split_ratio : list
         List composed of three integers that sets split ratios for train, valid,
         and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
-    sample_rate : int
-        The sample rate to be used for the dataset
     libritts_subsets: list
         List of librispeech subsets to use (e.g., dev-clean, train-clean-100, ...) for the experiment.
         This parameter will be ignored if explicit data splits are provided.
@@ -76,6 +76,10 @@ def prepare_libritts(
         Model name (used to prepare additional model specific data)
     skip_prep: Bool
         If True, skip preparation.
+
+    Returns
+    -------
+    None
     """
 
     if skip_prep:
@@ -260,6 +264,12 @@ def skip(*filenames):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    *filenames : tuple
+        Set of filenames to check for existence.
+
     Returns
     -------
     bool
@@ -284,8 +294,9 @@ def split_sets(wav_list, split_ratio):
         and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
+
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
     # Random shuffles the list

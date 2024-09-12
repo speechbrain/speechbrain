@@ -512,7 +512,7 @@ class VectorQuantizedPSIFocalNet_Audio(VectorQuantizedPSI_Audio):
     ---------
     dim : int
         Dimensionality of VQ vectors.
-    kwargs : dict
+    **kwargs : dict
         See documentation of `VectorQuantizedPSI_Audio`.
 
     Example
@@ -553,7 +553,7 @@ class VectorQuantizedPSIViT_Audio(VectorQuantizedPSI_Audio):
     ---------
     dim : int
         Dimensionality of VQ vectors.
-    kwargs : dict
+    **kwargs : dict
         See documentation of `VectorQuantizedPSI_Audio`.
 
     Example
