@@ -153,6 +153,12 @@ def ddp_broadcast(communication_object, src=0):
     torch.distributed.broadcast_object_list(communication_list, src=src)
     return communication_list[0]
 
+def ddp_destroy_process_group(group=None):
+    """
+    Destroys the process group. If one is not specified, the default process group is destroyed.
+    """
+    if is_distributed_initialized():
+        torch.distributed.destroy_process_group(group)
 
 def ddp_init_group(run_opts):
     """This function will initialize the ddp group if
