@@ -31,10 +31,17 @@ Tutorials are now inside of the main SpeechBrain repository.
 
 The `docs/tutorials` directory exclusively contains tutorials in Jupyter Notebook format. These tutorials are integrated into the doc semi-automatically. You should ensure that the following steps are respected so that they render correctly and so that we can keep consistent quality.
 
+#### Relatively important notices
+
 - Create your new notebook, preferably with the same structure as existing tutorials.
 - Keep the file size low! Limit images and audio.
   - Ideally it should be a few hundred KiB total, avoid anything larger than 1MiB unless you really have to.
   - It's OK if the user has to run the notebook to get some of the heavier outputs.
+- Preferably use Jupyter Notebook for final editing of your notebook.
+  - Jupyter Notebook tends to have somewhat sane `.ipynb` output. This avoids Git diffs from being excessively large.
+
+#### Integration in documentation
+
 - Add your notebook to the relevant category `.rst`, paying attention to keep the same structure and appearance as existing tutorials.
   - (Create a category if _really_ necessary, but this bloats the table of contents/sidebar.)
 - Add your notebook to the hidden `toctree` of the same document.
