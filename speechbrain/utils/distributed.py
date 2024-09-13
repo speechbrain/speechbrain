@@ -14,6 +14,7 @@ from typing import Optional
 
 import torch
 
+MAIN_PROC_ONLY: int = 0
 
 def rank_prefixed_message(message: str) -> str:
     r"""Prefix a message with the rank of the process.
@@ -114,6 +115,7 @@ def run_on_main(
             ddp_barrier()
 
 def is_distributed_initialized() -> bool:
+    "Returns whether the current system is distributed."
     # `is_initialized` is only defined conditionally
     # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
     # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
@@ -126,6 +128,24 @@ def if_main_process() -> bool:
     else:
         return True
 
+class MainProcessGuard:
+    """
+    Context manager to ensure code runs only on the main process.
+    This is useful to make sure that `MAIN_PROC_ONLY` global variable
+    is decreased even if there's an exception raised inside of
+    `main_proc_wrapped_func` fn.
+    """
+    
+    def __enter__(self):
+        """Enter the context. Increase the counter."""
+        global MAIN_PROC_ONLY
+        MAIN_PROC_ONLY += 1
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Exit the context. Decrease the counter."""
+        global MAIN_PROC_ONLY
+        MAIN_PROC_ONLY -= 1
 
 def main_process_only(function):
     """Function decorator to ensure the function runs only on the main process.
@@ -136,11 +156,11 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
-        if if_main_process():
-            result = function(*args, **kwargs)
-        else:
-            result = None
-        return result
+        with MainProcessGuard():
+            if if_main_process():
+                return function(*args, **kwargs)
+            else:
+                return None
 
     return main_proc_wrapped_func
 
@@ -160,8 +180,8 @@ def ddp_barrier():
     >>> print("hello world")
     hello world
     """
-    if not is_distributed_initialized():
-        return
+    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
+        return 
     elif torch.distributed.get_backend() == "nccl":
         # if NCCL, we can retrieve device_ids through this way
         device_ids = [int(os.environ.get("LOCAL_RANK"))]
@@ -186,7 +206,7 @@ def ddp_broadcast(communication_object, src=0):
     -------
     The communication_object passed on rank src.
     """
-    if not is_distributed_initialized():
+    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
         return communication_object
 
     # Wrapping object in a list is required for preventing
