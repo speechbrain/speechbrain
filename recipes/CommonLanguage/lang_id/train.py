@@ -286,7 +286,7 @@ if __name__ == "__main__":
     datasets, language_encoder = dataio_prep(hparams)
 
     # Fetch and load pretrained modules
-    sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
+    sb.utils.distributed.hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Initialize the Brain object to prepare for mask training.

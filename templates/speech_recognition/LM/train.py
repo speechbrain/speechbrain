@@ -224,7 +224,7 @@ if __name__ == "__main__":
 
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Create dataset objects "train", "valid", and "test"

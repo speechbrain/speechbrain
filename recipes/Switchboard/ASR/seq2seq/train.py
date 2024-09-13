@@ -400,7 +400,7 @@ if __name__ == "__main__":
 
     # Depending on the path given in the hparams YAML file,
     # we download the pretrained LM and Tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript

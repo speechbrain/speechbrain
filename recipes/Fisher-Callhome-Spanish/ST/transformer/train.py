@@ -592,7 +592,7 @@ if __name__ == "__main__":
     )
 
     # transcription/translation tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # We can now directly create the datasets for training, valid, and test

@@ -198,3 +198,36 @@ def get_environment_description():
     result += "==============================\n"
     result += cuda_str
     return result
+
+from speechbrain.utils.distributed import if_main_process
+import functools
+
+class MultiProcessAdapter(logging.LoggerAdapter):
+
+    @staticmethod
+    def _should_log(main_process_only):
+        "Check if log should be performed"
+        return not main_process_only or (main_process_only and if_main_process())
+
+    def log(self, level, msg, *args, **kwargs):
+        main_process_only = kwargs.pop("main_process_only", True)
+        # set `stacklevel` to exclude ourself in `Logger.findCaller()` while respecting user's choice
+        kwargs.setdefault("stacklevel", 2)
+
+        if self.isEnabledFor(level):
+            if self._should_log(main_process_only):
+                msg, kwargs = self.process(msg, kwargs)
+                self.logger.log(level, msg, *args, **kwargs)
+
+    @functools.lru_cache(None)
+    def warning_once(self, *args, **kwargs):
+        self.warning(*args, **kwargs)
+
+def get_logger(name: str, log_level: str = None):
+    if log_level is None:
+        log_level = os.environ.get("SPEECHBRAIN_LOG_LEVEL", None)
+    logger = logging.getLogger(name)
+    if log_level is not None:
+        logger.setLevel(log_level.upper())
+        logger.root.setLevel(log_level.upper())
+    return MultiProcessAdapter(logger, {})
