@@ -13,7 +13,7 @@ Neural Architectures
    nn/recurrent-neural-networks-and-speechbrain.ipynb
 
 
-.. rubric:: `🔗 Using Wav2Vec 2.0 / HuBERT / WavLM and Whisper from HuggingFace with SpeechBrain <nn/using-wav2vec-2.0-hubert-wavlm-and-whisper-from-huggingface-with-speechbrain.html>`_
+.. rubric:: `🔗 Fine-tuning or using Whisper, wav2vec2, HuBERT and others with SpeechBrain and HuggingFace <nn/using-wav2vec-2.0-hubert-wavlm-and-whisper-from-huggingface-with-speechbrain.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -32,7 +32,7 @@ coming from HuggingFace. Any wav2vec 2.0 / HuBERT / WavLM or Whisper model integ
 SpeechBrain to approach a speech-related task: automatic speech recognition, speaker recognition,
 spoken language understanding ...
 
-.. rubric:: `🔗 Complex and Quaternion Neural networks <nn/complex-and-quaternion-neural-networks.html>`_
+.. rubric:: `🔗 Complex and Quaternion Neural Networks <nn/complex-and-quaternion-neural-networks.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -50,7 +50,7 @@ This tutorial demonstrates how to use the SpeechBrain implementation of complex-
 for speech technologies. It covers the basics of highdimensional representations and the associated neural layers :
 Linear, Convolution, Recurrent and Normalisation.
 
-.. rubric:: `🔗 Recurrent Neural Networks and SpeechBrain <nn/recurrent-neural-networks-and-speechbrain.html>`_
+.. rubric:: `🔗 Recurrent Neural Networks <nn/recurrent-neural-networks-and-speechbrain.html>`_
    :heading-level: 2
 
 .. list-table::

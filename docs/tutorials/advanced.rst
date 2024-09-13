@@ -19,7 +19,7 @@ SpeechBrain Advanced
    advanced/model-quantization.ipynb
 
 
-.. rubric:: `🔗 Profiling and Benchmark <advanced/profiling-and-benchmark.html>`_
+.. rubric:: `🔗 Performance Profiling <advanced/profiling-and-benchmark.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -35,7 +35,7 @@ SpeechBrain Advanced
 
 Profiling and benchmark of SpeechBrain models can serve different purposes and look at different angles. Performance requirements are highly particular to the use case with that one desires to use SpeechBrain. This provides means to comprehensive self-learning as a starting point to individual growth beyond the provided.
 
-.. rubric:: `🔗 Dynamic Batching <advanced/dynamic-batching.html>`_
+.. rubric:: `🔗 Dynamic Batching: What is it and why it is necessary sometimes <advanced/dynamic-batching.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -84,7 +84,7 @@ Do you want to optimize the hyperparameters of your model? Are you tired of doin
 Are you interested in both federated learning (FL) and speech, but worried about the proper tools to run experiments? Today you will get the answer.
 This tutorial introduces how to integrate Flower and SpeechBrain to achieve federated speech model training.
 
-.. rubric:: `🔗 Inferring on your own SpeechBrain models <advanced/inferring-on-your-own-speechbrain-models.html>`_
+.. rubric:: `🔗 Inferring on your trained SpeechBrain model <advanced/inferring-on-your-own-speechbrain-models.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -139,7 +139,7 @@ or fine-tuning/knowledge distillation or whatever new fancy technique you can co
 Do you have a huge dataset stored in a shared file system? This tutorial will show you how to load large datasets from the shared file system and use them for training a neural network with SpeechBrain.
 In particular, we describe a solution based on the WebDataset library, that is easy to integrate within the SpeechBrain toolkit.
 
-.. rubric:: `🔗 Text Tokenizer <advanced/text-tokenizer.html>`_
+.. rubric:: `🔗 Text Tokenization <advanced/text-tokenizer.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -160,7 +160,7 @@ complexe computations, and more importantly, sub-optimal learning due to extreme
 one-hot vectors. In this tutorial, we provide all the basics needed to correctly use the SpeechBrain Tokenizer relying
 on SentencePiece (BPE and unigram).
 
-.. rubric:: `🔗 Model Quantization <advanced/model-quantization.html>`_
+.. rubric:: `🔗 Applying Quantization to a Speech Recognition Model <advanced/model-quantization.html>`_
    :heading-level: 2
 
 .. list-table::

@@ -12,7 +12,7 @@ Speech Classification
    classification/voice-activity-detection.ipynb
 
 
-.. rubric:: `🔗 Speech Classification from Scratch <classification/speech-classification-from-scratch.html>`_
+.. rubric:: `🔗 Speech Classification From Scratch <classification/speech-classification-from-scratch.html>`_
    :heading-level: 2
 
 .. list-table::

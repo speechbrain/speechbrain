@@ -52,7 +52,7 @@ In this tutorial, we provide a high-level description of the speech tasks curren
 We also show how to perform inference on speech recognition, speech separation, speaker verification, and other applications.
 
 
-.. rubric:: `🔗 Brain Class <basics/brain-class.html>`_
+.. rubric:: `🔗 The Brain Class <basics/brain-class.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -72,7 +72,7 @@ SpeechBrain provides a convenient framework for organizing the training loop, in
 implemented in speechbrain/core.py. In each recipe, we sub-class this class and override the methods for which the default
 implementation doesn't do what is required for that particular recipe.
 
-.. rubric:: `🔗 HyperPyYAML <basics/hyperpyyaml.html>`_
+.. rubric:: `🔗 HyperPyYAML Tutorial <basics/hyperpyyaml.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -95,7 +95,7 @@ SpeechBrain-developed format, which we call "HyperPyYAML". We chose to extend YA
 readable format for data serialization. By extending an already useful format, we were able to create an
 expanded definition of hyperparameter, keeping our actual experimental code small and highly readable.
 
-.. rubric:: `🔗 Data Loading Pipeline <basics/data-loading-pipeline.html>`_
+.. rubric:: `🔗 Data Loading <basics/data-loading-pipeline.html>`_
    :heading-level: 2
 
 .. list-table::

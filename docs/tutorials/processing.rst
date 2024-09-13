@@ -34,7 +34,7 @@ and we must cleverly use the available dataset. One popular technique is called 
 corrupt the original speech signals to give the network the "illusion" that we are processing a new signal. This acts as a powerful regularizer,
 that normally helps neural networks improving generalization and thus achieve better performance on test data.
 
-.. rubric:: `🔗 Fourier Transform and Spectrograms <processing/fourier-transform-and-spectrograms.html>`_
+.. rubric:: `🔗 Fourier Transforms and Spectrograms <processing/fourier-transform-and-spectrograms.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -74,7 +74,7 @@ Speech is a very high-dimensional signal. For instance, when the sampling freque
 we have 16000 samples for each second. Working with such very high dimensional data can be critical from a machine learning perspective.
 The goal of feature extraction is to find more compact ways to represent speech.
 
-.. rubric:: `🔗 Environmental corruption <processing/environmental-corruption.html>`_
+.. rubric:: `🔗 Environmental Corruption <processing/environmental-corruption.html>`_
    :heading-level: 2
 
 .. list-table::
