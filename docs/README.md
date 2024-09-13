@@ -29,6 +29,8 @@ Tutorials are now inside of the main SpeechBrain repository.
 
 ### Contributor guidelines for tutorials
 
+The `docs/tutorials` directory exclusively contains tutorials in Jupyter Notebook format. These tutorials are integrated into the doc semi-automatically. You should ensure that the following steps are respected so that they render correctly and so that we can keep consistent quality.
+
 - Create your new notebook, preferably with the same structure as existing tutorials.
 - Add your notebook to the relevant category `.rst`, paying attention to keep the same structure and appearance as existing tutorials.
   - (Create a category if _really_ necessary, but this bloats the table of contents/sidebar.)
