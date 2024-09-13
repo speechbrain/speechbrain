@@ -14,7 +14,6 @@ SpeechBrain Basics
    basics/hyperpyyaml.ipynb
    basics/data-loading-pipeline.ipynb
    basics/checkpointing.ipynb
-   basics/multi-gpu-considerations.ipynb
 
 
 .. rubric:: `🔗 Introduction to SpeechBrain <basics/introduction-to-speechbrain.html>`_
@@ -131,20 +130,3 @@ flexibility. In fact our data pipeline is built around the Pytorch one.
 
 By checkpointing, we mean saving the model and all the other necessary state information
 (like optimizer parameters, which epoch and which iteration), at a particular point in time.
-
-.. rubric:: `🔗 Multi-GPU Considerations <basics/multi-gpu-considerations.html>`_
-   :heading-level: 2
-
-.. list-table::
-   :widths: 20 20 20 20 20
-   :header-rows: 0
-
-   * - Heba A.
-     - Mar. 2021
-     - Difficulty: easy
-     - Time: 15min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/multi-gpu-considerations.ipynb>`__
-
-
-SpeechBrain provides two different methods to use multiple GPUs.
-These solutions follow PyTorch standards and allow for intra- or cross-node training. In this tutorial, the use of Data Parallel (DP) and Distributed Data Parallel (DDP) within SpeechBrain are explained.
