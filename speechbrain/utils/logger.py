@@ -160,15 +160,6 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
     -------
     MultiProcessLoggerAdapter
         An instance of `MultiProcessLoggerAdapter` wrapping the logger with the specified name.
-
-    Example
-    --------
-    >>> from speechbrain.utils.logger import get_logger
-    >>> logger = get_logger(__name__)
-    >>> logger.info("My log", main_process_only=True)
-    >>> logger = get_logger(__name__, log_level="DEBUG")
-    >>> logger.info("My log")
-    >>> logger.debug("My second log")
     """
     logger = logging.getLogger(name)
     return MultiProcessLoggerAdapter(logger, {})

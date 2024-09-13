@@ -17,7 +17,6 @@ Authors
  * Titouan Parcollet 2024
 """
 
-import logging
 import sys
 from pathlib import Path
 
@@ -26,8 +25,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ASR(sb.Brain):

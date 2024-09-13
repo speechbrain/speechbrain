@@ -6,7 +6,6 @@ Authors
 """
 
 import json
-import logging
 import os
 import random
 
@@ -16,9 +15,10 @@ from tqdm import tqdm
 
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

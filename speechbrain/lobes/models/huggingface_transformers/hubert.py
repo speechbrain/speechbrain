@@ -12,11 +12,10 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
-
 from speechbrain.lobes.models.huggingface_transformers.wav2vec2 import Wav2Vec2
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HuBERT(Wav2Vec2):

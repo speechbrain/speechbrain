@@ -42,10 +42,11 @@ from speechbrain.dataio.sampler import (
     ReproducibleRandomSampler,
 )
 from speechbrain.utils.distributed import is_distributed_initialized
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 torch._C._jit_set_profiling_executor(False)

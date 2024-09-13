@@ -9,7 +9,6 @@ Authors
  * Adel Moumen 2023
 """
 
-import logging
 import pathlib
 
 from speechbrain.utils.checkpoints import (
@@ -20,8 +19,9 @@ from speechbrain.utils.checkpoints import (
 )
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Pretrainer:

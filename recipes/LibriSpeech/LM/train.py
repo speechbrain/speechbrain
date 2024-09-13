@@ -10,7 +10,6 @@ Authors
  * Ju-Chieh Chou 2020
 """
 import glob
-import logging
 import os
 import sys
 
@@ -19,8 +18,9 @@ from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -87,7 +87,7 @@ class LM(sb.core.Brain):
 
 def dataio_prepare(hparams):
     """grab all the .txt files for transcripts"""
-    logging.info("generating datasets...")
+    logger.info("generating datasets...")
     data_folder = hparams["data_folder"]
     train_transcripts = glob.glob(
         os.path.join(data_folder, hparams["train_transcripts_pattern"]),

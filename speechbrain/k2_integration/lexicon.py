@@ -16,7 +16,6 @@ Authors:
 """
 
 import csv
-import logging
 import os
 import re
 from pathlib import Path
@@ -24,9 +23,11 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 
+from speechbrain.utils.logger import get_logger
+
 from . import k2  # import k2 from ./__init__.py
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 UNK = "<UNK>"  # unknown word
 UNK_t = "<unk>"  # unknown token

@@ -6,7 +6,6 @@ It is designed to work with wav2vec2 pre-training.
 
 """
 
-import logging
 import sys
 
 import torch
@@ -14,8 +13,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure

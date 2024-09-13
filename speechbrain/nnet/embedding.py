@@ -4,12 +4,12 @@ Authors
  * Abdelwahab Heba 2020
 """
 
-import logging
-
 import torch
 import torch.nn as nn
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Embedding(nn.Module):

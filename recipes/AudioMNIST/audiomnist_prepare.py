@@ -14,7 +14,6 @@ Mirco Ravanelli 2023
 
 import csv
 import json
-import logging
 import math
 import os
 from functools import partial
@@ -28,6 +27,7 @@ from tqdm.auto import tqdm
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import run_shell
 
 DEFAULT_SPLITS = ["train", "valid", "test"]
@@ -40,7 +40,7 @@ DB_MULTIPLIER = 0.05
 OPT_FILE = "opt_audiomnist_prepare.pkl"
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_audiomnist(
