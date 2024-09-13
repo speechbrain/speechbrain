@@ -237,13 +237,13 @@ class Pretrainer:
                 "revision": None,
                 "local_strategy": local_strategy,
             }
-            
+
             # path needs to be available only if it is a local source w/o symlink
             run_on_main(fetch, kwargs=fetch_kwargs)
 
             # we need the path; regardless of rank
             path = fetch(**fetch_kwargs)
-            
+
             loadable_paths[name] = path
             if isinstance(source, FetchSource):
                 _fetch_from, source = source

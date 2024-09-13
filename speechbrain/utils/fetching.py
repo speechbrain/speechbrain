@@ -6,7 +6,6 @@ Authors:
  * Andreas Nautsch 2022, 2023
 """
 
-from speechbrain.utils.logger import get_logger
 import pathlib
 import platform
 import shutil
@@ -19,6 +18,8 @@ from typing import Optional, Union
 
 import huggingface_hub
 from requests.exceptions import HTTPError
+
+from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

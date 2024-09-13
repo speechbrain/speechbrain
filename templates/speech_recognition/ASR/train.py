@@ -51,7 +51,6 @@ from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 

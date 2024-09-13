@@ -41,9 +41,9 @@ from speechbrain.dataio.sampler import (
     DistributedSamplerWrapper,
     ReproducibleRandomSampler,
 )
+from speechbrain.utils.distributed import is_distributed_initialized
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
-from speechbrain.utils.distributed import is_distributed_initialized
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))

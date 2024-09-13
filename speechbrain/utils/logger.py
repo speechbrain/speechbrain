@@ -6,6 +6,7 @@ Author
  * Aku Rouhe 2020
 """
 
+import functools
 import logging
 import logging.config
 import math
@@ -17,9 +18,8 @@ import tqdm
 import yaml
 
 from speechbrain.utils.data_utils import recursive_update
-from speechbrain.utils.superpowers import run_shell
 from speechbrain.utils.distributed import if_main_process
-import functools
+from speechbrain.utils.superpowers import run_shell
 
 ORDERS_ABBREV = {
     -24: "y",
@@ -63,6 +63,7 @@ ORDERS_WORDS = {
     24: "Septillion",
 }
 
+
 class MultiProcessLoggerAdapter(logging.LoggerAdapter):
     """
     Logger adapter that handles multi-process logging, ensuring logs are written
@@ -91,7 +92,9 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
             True if logging should be performed (based on the process and the flag),
             False otherwise.
         """
-        return not main_process_only or (main_process_only and if_main_process())
+        return not main_process_only or (
+            main_process_only and if_main_process()
+        )
 
     def log(self, level: int, msg: str, *args: tuple, **kwargs: dict):
         """

@@ -19,7 +19,6 @@ from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
 
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)
 en_detokenizer = MosesDetokenizer(lang="en")

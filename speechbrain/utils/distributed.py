@@ -16,6 +16,7 @@ import torch
 
 MAIN_PROC_ONLY: int = 0
 
+
 def rank_prefixed_message(message: str) -> str:
     r"""Prefix a message with the rank of the process.
 
@@ -114,19 +115,24 @@ def run_on_main(
                 post_func(*post_args, **post_kwargs)
             ddp_barrier()
 
+
 def is_distributed_initialized() -> bool:
     "Returns whether the current system is distributed."
     # `is_initialized` is only defined conditionally
     # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
     # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
-    return torch.distributed.is_available() and torch.distributed.is_initialized()
+    return (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    )
+
 
 def if_main_process() -> bool:
     "Returns whether the current process is the main process."
-    if is_distributed_initialized(): 
+    if is_distributed_initialized():
         return torch.distributed.get_rank() == 0
     else:
         return True
+
 
 class MainProcessGuard:
     """
@@ -135,7 +141,7 @@ class MainProcessGuard:
     is decreased even if there's an exception raised inside of
     `main_proc_wrapped_func` fn.
     """
-    
+
     def __enter__(self):
         """Enter the context. Increase the counter."""
         global MAIN_PROC_ONLY
@@ -146,6 +152,7 @@ class MainProcessGuard:
         """Exit the context. Decrease the counter."""
         global MAIN_PROC_ONLY
         MAIN_PROC_ONLY -= 1
+
 
 def main_process_only(function):
     """Function decorator to ensure the function runs only on the main process.
@@ -164,15 +171,21 @@ def main_process_only(function):
 
     return main_proc_wrapped_func
 
+
 def ddp_barrier():
     """
     Synchronize all processes in distributed data parallel (DDP) mode.
 
-    This function blocks the execution of the current process until all 
-    processes in the distributed group have reached the same point. It ensures 
-    that no process moves ahead until every other process has also reached this 
-    barrier. If DDP is not being used (i.e., only one process is running), 
+    This function blocks the execution of the current process until all
+    processes in the distributed group have reached the same point. It ensures
+    that no process moves ahead until every other process has also reached this
+    barrier. If DDP is not being used (i.e., only one process is running),
     this function has no effect and immediately returns.
+
+    Returns
+    -------
+    None
+
 
     Example
     -------
@@ -181,8 +194,9 @@ def ddp_barrier():
     hello world
     """
     if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
-        return 
-    elif torch.distributed.get_backend() == "nccl":
+        return
+
+    if torch.distributed.get_backend() == "nccl":
         # if NCCL, we can retrieve device_ids through this way
         device_ids = [int(os.environ.get("LOCAL_RANK"))]
         torch.distributed.barrier(device_ids=device_ids)

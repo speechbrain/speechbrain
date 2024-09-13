@@ -34,7 +34,6 @@ Authors
  * Titouan Parcollet 2021, 2022
 """
 
-import logging
 import os
 import sys
 from pathlib import Path
@@ -44,6 +43,7 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import logging
 
 logger = logging.getLogger(__name__)
 
