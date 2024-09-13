@@ -43,6 +43,7 @@ from speechbrain.dataio.sampler import (
 )
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
+from speechbrain.utils.distributed import is_distributed_initialized
 
 logger = logging.getLogger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
@@ -806,7 +807,7 @@ class Brain:
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
-            if not torch.distributed.is_initialized():
+            if not is_distributed_initialized():
                 if self.rank > 0:
                     raise ValueError(
                         " ================ WARNING ==============="
@@ -1485,7 +1486,7 @@ class Brain:
         decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
 
         # If the program is not distributed, just return
-        if not torch.distributed.is_initialized():
+        if not is_distributed_initialized():
             return decision
 
         # Otherwise, broadcast decision to all processes from main (rank 0)
