@@ -6,7 +6,7 @@ Authors:
  * Andreas Nautsch 2022, 2023
 """
 
-import logging
+from speechbrain.utils.logger import get_logger
 import pathlib
 import platform
 import shutil
@@ -20,7 +20,7 @@ from typing import Optional, Union
 import huggingface_hub
 from requests.exceptions import HTTPError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FetchFrom(Enum):
@@ -134,7 +134,7 @@ def link_with_strategy(
                 "Did you maybe incorrectly call fetch() with `source==savedir`?"
             )
 
-        logging.debug(
+        logger.debug(
             "Fetch: Source and destination '%s' are identical, returning assuming this is intended",
             src,
         )
@@ -149,7 +149,7 @@ def link_with_strategy(
                 "`LocalStrategy` documentation."
             )
 
-        logging.debug(
+        logger.debug(
             "Fetch: Local file found, creating symlink '%s' -> '%s'", src, dst
         )
 
@@ -158,14 +158,14 @@ def link_with_strategy(
         return dst
 
     if local_strategy in (LocalStrategy.COPY, LocalStrategy.COPY_SKIP_CACHE):
-        logging.info("Fetch: Local file found, copying '%s' -> '%s'", src, dst)
+        logger.info("Fetch: Local file found, copying '%s' -> '%s'", src, dst)
 
         dst.unlink(missing_ok=True)  # remove link or delete file
         shutil.copy(str(src), str(dst))
         return dst
 
     if local_strategy == LocalStrategy.NO_LINK:
-        logging.debug(
+        logger.debug(
             "Fetch: Local file found, returning '%s' (NOT linking to '%s' because NO_LINK was passed)",
             src,
             dst,
