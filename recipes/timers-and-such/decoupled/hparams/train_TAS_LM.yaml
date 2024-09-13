@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 experiment: train-real-and-synth
 output_folder: !ref results/TAS_LM/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
