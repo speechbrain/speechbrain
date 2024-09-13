@@ -7,7 +7,6 @@ Author
 """
 
 import logging
-import logging.config
 import math
 import os
 import sys
@@ -18,6 +17,8 @@ import yaml
 
 from speechbrain.utils.data_utils import recursive_update
 from speechbrain.utils.superpowers import run_shell
+from speechbrain.utils.distributed import if_main_process
+import functools
 
 ORDERS_ABBREV = {
     -24: "y",
@@ -60,6 +61,118 @@ ORDERS_WORDS = {
     21: "Sextillion",
     24: "Septillion",
 }
+
+class MultiProcessLoggerAdapter(logging.LoggerAdapter):
+    """
+    Logger adapter that handles multi-process logging, ensuring logs are written
+    only on the main process if specified. This class extends `logging.LoggerAdapter`
+    and provides additional functionality for controlling logging in multi-process
+    environments, with the option to limit logs to the main process only.
+
+    This class is heavily inspired by HuggingFace Accelerate toolkit:
+    https://github.com/huggingface/accelerate/blob/85b1a03552cf8d58e036634e004220c189bfb247/src/accelerate/logging.py#L22
+    """
+
+    @staticmethod
+    def _should_log(main_process_only: bool) -> bool:
+        """
+        Determines if logging should occur based on whether the code is running
+        on the main process or not.
+
+        Parameters
+        ----------
+        main_process_only : bool
+            A flag indicating if logging should be restricted to the main process.
+
+        Returns
+        -------
+        bool
+            True if logging should be performed (based on the process and the flag),
+            False otherwise.
+        """
+        return not main_process_only or (main_process_only and if_main_process())
+
+    def log(self, level: int, msg: str, *args: tuple, **kwargs: dict):
+        """
+        Logs a message with the specified log level, respecting the `main_process_only`
+        flag to decide whether to log based on the current process.
+
+        Parameters
+        ----------
+        level : int
+            Logging level (e.g., logging.INFO, logging.WARNING).
+        msg : str
+            The message to log.
+        *args : tuple
+            Additional positional arguments passed to the logger.
+        **kwargs : dict
+            Additional keyword arguments passed to the logger, including:
+            - main_process_only (bool): If True, log only from the main process (default: True).
+            - stacklevel (int): The stack level to use when logging (default: 2).
+
+        Notes
+        -----
+        If `main_process_only` is True, the log will only be written if the current process
+        is the main process, as determined by `if_main_process()`.
+        """
+        main_process_only = kwargs.pop("main_process_only", True)
+        kwargs.setdefault("stacklevel", 2)
+
+        if self.isEnabledFor(level):
+            if self._should_log(main_process_only):
+                msg, kwargs = self.process(msg, kwargs)
+                self.logger.log(level, msg, *args, **kwargs)
+
+    @functools.lru_cache(None)
+    def warning_once(self, *args: tuple, **kwargs: dict):
+        """
+        Logs a warning message only once by using caching to prevent duplicate warnings.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments passed to the warning log.
+        **kwargs : dict
+            Keyword arguments passed to the warning log.
+
+        Notes
+        -----
+        This method is decorated with `functools.lru_cache(None)`, ensuring that the warning
+        message is logged only once regardless of how many times the method is called.
+        """
+        self.warning(*args, **kwargs)
+
+
+def get_logger(name: str, log_level: str = None) -> MultiProcessLoggerAdapter:
+    """
+    Retrieves a logger by name and optionally sets its log level based on an environment
+    variable or the provided log level.
+
+    Parameters
+    ----------
+    name : str
+        The name of the logger to retrieve.
+    log_level : str, optional
+        The logging level to set for the logger. If not provided, the function will look
+        for an environment variable `SB_LOG_LEVEL` to determine the log level.
+
+    Returns
+    -------
+    MultiProcessLoggerAdapter
+        An instance of `MultiProcessLoggerAdapter` wrapping the logger with the specified name.
+    
+    Notes
+    -----
+    If `log_level` is provided or found in the environment, both the logger and the root
+    logger will have their log levels set accordingly.
+    """
+    if log_level is None:
+        log_level = os.environ.get("SB_LOG_LEVEL", None)
+    logger = logging.getLogger(name)
+    if log_level is not None:
+        logger.setLevel(log_level.upper())
+        logger.root.setLevel(log_level.upper())
+    return MultiProcessLoggerAdapter(logger, {})
 
 
 class TqdmCompatibleStreamHandler(logging.StreamHandler):
@@ -198,36 +311,3 @@ def get_environment_description():
     result += "==============================\n"
     result += cuda_str
     return result
-
-from speechbrain.utils.distributed import if_main_process
-import functools
-
-class MultiProcessAdapter(logging.LoggerAdapter):
-
-    @staticmethod
-    def _should_log(main_process_only):
-        "Check if log should be performed"
-        return not main_process_only or (main_process_only and if_main_process())
-
-    def log(self, level, msg, *args, **kwargs):
-        main_process_only = kwargs.pop("main_process_only", True)
-        # set `stacklevel` to exclude ourself in `Logger.findCaller()` while respecting user's choice
-        kwargs.setdefault("stacklevel", 2)
-
-        if self.isEnabledFor(level):
-            if self._should_log(main_process_only):
-                msg, kwargs = self.process(msg, kwargs)
-                self.logger.log(level, msg, *args, **kwargs)
-
-    @functools.lru_cache(None)
-    def warning_once(self, *args, **kwargs):
-        self.warning(*args, **kwargs)
-
-def get_logger(name: str, log_level: str = None):
-    if log_level is None:
-        log_level = os.environ.get("SPEECHBRAIN_LOG_LEVEL", None)
-    logger = logging.getLogger(name)
-    if log_level is not None:
-        logger.setLevel(log_level.upper())
-        logger.root.setLevel(log_level.upper())
-    return MultiProcessAdapter(logger, {})
