@@ -74,6 +74,10 @@ intersphinx_mapping = {
 
 jupyter_execute_notebooks = "off"
 
+myst_enable_extensions = [
+    "ansmath"
+]
+
 # AUTODOC:
 
 autodoc_default_options = {}
