@@ -63,11 +63,11 @@ Referencing SpeechBrain
 
    tutorials/basics.rst
    tutorials/advanced.rst
+   tutorials/processing.rst
    tutorials/asr.rst
    tutorials/separation.rst
    tutorials/enhancement.rst
    tutorials/classification.rst
-   tutorials/processing.rst
    tutorials/nn.rst
 
 
