@@ -14,7 +14,7 @@
 debug: False
 seed: 8886
 num_workers: 8
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/conformer/<seed>
 ckpt_interval_minutes: 15 # save checkpoint every N min
 bleu_file: !ref <output_folder>/bleu.txt

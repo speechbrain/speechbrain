@@ -20,7 +20,7 @@ import torchaudio
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
-from speechbrain.utils.fetching import fetch
+from speechbrain.utils.fetching import LocalStrategy, fetch
 
 
 class EncoderClassifier(Pretrained):
@@ -293,7 +293,12 @@ class AudioClassifier(Pretrained):
             (label encoder should be provided).
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
+        path = fetch(
+            fl,
+            source=source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.NO_LINK,
+        )
 
         batch, fs_file = torchaudio.load(path)
         batch = batch.to(self.device)

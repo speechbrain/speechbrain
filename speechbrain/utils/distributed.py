@@ -10,8 +10,50 @@ Authors:
 import datetime
 import os
 from functools import wraps
+from typing import Optional
 
 import torch
+
+
+def rank_prefixed_message(message: str) -> str:
+    r"""Prefix a message with the rank of the process.
+
+    Arguments
+    ---------
+    message : str
+        The message to prefix.
+
+    Returns
+    -------
+    str
+        The message prefixed with the rank, if known.
+    """
+    rank = get_rank()
+    if rank is not None:
+        return f"[rank: {rank}] {message}"
+    return message
+
+
+def get_rank() -> Optional[int]:
+    r"""Get the rank of the current process.
+
+    This code is taken from the Pytorch Lightning library:
+    https://github.com/Lightning-AI/pytorch-lightning/blob/bc3c9c536dc88bfa9a46f63fbce22b382a86a9cb/src/lightning/fabric/utilities/rank_zero.py#L39-L48
+
+    Returns
+    -------
+    int or None
+        The rank of the current process, or None if the rank could not be determined.
+    """
+    # SLURM_PROCID can be set even if SLURM is not managing the multiprocessing,
+    # therefore LOCAL_RANK needs to be checked first
+    rank_keys = ("RANK", "LOCAL_RANK", "SLURM_PROCID", "JSM_NAMESPACE_RANK")
+    for key in rank_keys:
+        rank = os.environ.get(key)
+        if rank is not None:
+            return int(rank)
+    # None to differentiate whether an environment variable was set at all
+    return None
 
 
 def run_on_main(
