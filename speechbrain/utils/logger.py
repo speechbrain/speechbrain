@@ -7,6 +7,7 @@ Author
 """
 
 import logging
+import logging.config
 import math
 import os
 import sys
@@ -143,56 +144,22 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
         self.warning(*args, **kwargs)
 
 
-def get_logger(name: str, log_level: str = None) -> MultiProcessLoggerAdapter:
+def get_logger(name: str) -> MultiProcessLoggerAdapter:
     """
-    Retrieves a logger by name and optionally sets its log level based on an environment
-    variable or the provided log level.
+    Retrieves a logger by name.
 
     Parameters
     ----------
     name : str
         The name of the logger to retrieve.
-    log_level : str, optional
-        The logging level to set for the logger. If not provided, the function will look
-        for an environment variable `SB_LOG_LEVEL` to determine the log level.
 
     Returns
     -------
     MultiProcessLoggerAdapter
         An instance of `MultiProcessLoggerAdapter` wrapping the logger with the specified name.
-    
-    Notes
-    -----
-    If `log_level` is provided or found in the environment, both the logger and the root
-    logger will have their log levels set accordingly.
     """
-    if log_level is None:
-        log_level = os.environ.get("SB_LOG_LEVEL", None)
     logger = logging.getLogger(name)
-    if log_level is not None:
-        logger.setLevel(log_level.upper())
-        logger.root.setLevel(log_level.upper())
     return MultiProcessLoggerAdapter(logger, {})
-
-
-class TqdmCompatibleStreamHandler(logging.StreamHandler):
-    """TQDM compatible StreamHandler.
-
-    Writes and prints should be passed through tqdm.tqdm.write
-    so that the tqdm progressbar doesn't get messed up.
-    """
-
-    def emit(self, record):
-        """TQDM compatible StreamHandler."""
-        try:
-            msg = self.format(record)
-            stream = self.stream
-            tqdm.tqdm.write(msg, end=self.terminator, file=stream)
-            self.flush()
-        except RecursionError:
-            raise
-        except Exception:
-            self.handleError(record)
 
 
 def setup_logging(
@@ -219,6 +186,26 @@ def setup_logging(
         logging.config.dictConfig(config)
     else:
         logging.basicConfig(level=default_level)
+
+
+class TqdmCompatibleStreamHandler(logging.StreamHandler):
+    """TQDM compatible StreamHandler.
+
+    Writes and prints should be passed through tqdm.tqdm.write
+    so that the tqdm progressbar doesn't get messed up.
+    """
+
+    def emit(self, record):
+        """TQDM compatible StreamHandler."""
+        try:
+            msg = self.format(record)
+            stream = self.stream
+            tqdm.tqdm.write(msg, end=self.terminator, file=stream)
+            self.flush()
+        except RecursionError:
+            raise
+        except Exception:
+            self.handleError(record)
 
 
 def format_order_of_magnitude(number, abbreviate=True):
