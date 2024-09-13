@@ -90,6 +90,7 @@ autodoc_mock_imports = [
     "flair",
     "fairseq",
     "spacy",
+    "ctc_segmentation",
 ]
 
 # Order of API items:
