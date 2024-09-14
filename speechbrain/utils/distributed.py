@@ -67,7 +67,7 @@ def run_on_main(
     post_kwargs=None,
     run_post_on_main=False,
 ):
-    """Runs a function with DPP (multi-gpu) support.
+    r"""Runs a function with DPP (multi-gpu) support.
 
     The main function is only run on the main process.
     A post_function can be specified, to be on non-main processes after the main
@@ -117,7 +117,7 @@ def run_on_main(
 
 
 def is_distributed_initialized() -> bool:
-    "Returns whether the current system is distributed."
+    r"Returns whether the current system is distributed."
     # `is_initialized` is only defined conditionally
     # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
     # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
@@ -127,15 +127,15 @@ def is_distributed_initialized() -> bool:
 
 
 def if_main_process() -> bool:
-    "Returns whether the current process is the main process."
+    r"Returns whether the current process is the main process."
     if is_distributed_initialized():
         return torch.distributed.get_rank() == 0
     else:
         return True
 
 
-class MainProcessGuard:
-    """
+class MainProcessContext:
+    r"""
     Context manager to ensure code runs only on the main process.
     This is useful to make sure that `MAIN_PROC_ONLY` global variable
     is decreased even if there's an exception raised inside of
@@ -143,19 +143,19 @@ class MainProcessGuard:
     """
 
     def __enter__(self):
-        """Enter the context. Increase the counter."""
+        r"""Enter the context. Increase the counter."""
         global MAIN_PROC_ONLY
         MAIN_PROC_ONLY += 1
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """Exit the context. Decrease the counter."""
+        r"""Exit the context. Decrease the counter."""
         global MAIN_PROC_ONLY
         MAIN_PROC_ONLY -= 1
 
 
 def main_process_only(function):
-    """Function decorator to ensure the function runs only on the main process.
+    r"""Function decorator to ensure the function runs only on the main process.
     This is useful for things like saving to the filesystem or logging
     to a web address where you only want it to happen on a single process.
     """
@@ -163,7 +163,7 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
-        with MainProcessGuard():
+        with MainProcessContext():
             if if_main_process():
                 return function(*args, **kwargs)
             else:
@@ -173,7 +173,7 @@ def main_process_only(function):
 
 
 def ddp_barrier():
-    """
+    r"""
     Synchronize all processes in distributed data parallel (DDP) mode.
 
     This function blocks the execution of the current process until all
@@ -205,7 +205,7 @@ def ddp_barrier():
 
 
 def ddp_broadcast(communication_object, src=0):
-    """In DDP mode, this function will broadcast an object to all
+    r"""In DDP mode, this function will broadcast an object to all
     processes.
 
     Arguments
@@ -231,7 +231,7 @@ def ddp_broadcast(communication_object, src=0):
 
 
 def ddp_init_group(run_opts):
-    """This function will initialize the ddp group if
+    r"""This function will initialize the ddp group if
     distributed_launch bool is given in the python command line.
 
     The ddp group will use distributed_backend arg for setting the
