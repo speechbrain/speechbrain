@@ -10,6 +10,9 @@ import random
 import torch
 
 from speechbrain.utils.distributed import get_rank, rank_prefixed_message
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 max_seed_value = 4294967295  # 2^32 - 1 (uint32)
 min_seed_value = 0
@@ -34,9 +37,6 @@ def seed_everything(
     int
         The seed that was set.
     """
-    from speechbrain.utils.logger import get_logger
-
-    logger = get_logger(__name__)
 
     # if DDP, we need to offset the seed by the rank
     # to avoid having the same seed on all processes
@@ -44,14 +44,17 @@ def seed_everything(
 
     if not (min_seed_value <= seed <= max_seed_value):
         logger.info(
-            f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}"
+            f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}",
         )
         seed = seed_offset
     else:
         seed += seed_offset
 
     if verbose:
-        logger.info(rank_prefixed_message(f"Setting seed to {seed}"))
+        logger.info(
+            rank_prefixed_message(f"Setting seed to {seed}"),
+            main_process_only=False,
+        )
 
     os.environ["SB_GLOBAL_SEED"] = str(seed)
     random.seed(seed)
@@ -70,5 +73,4 @@ def seed_everything(
 
     if deterministic:
         torch.use_deterministic_algorithms(True)
-
     return seed

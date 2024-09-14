@@ -162,6 +162,11 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
         An instance of `MultiProcessLoggerAdapter` wrapping the logger with the specified name.
     """
     logger = logging.getLogger(name)
+    log_level = os.environ.get("SB_LOG_LEVEL", None)
+    if log_level is None:
+        log_level = logging.INFO
+        os.environ["SB_LOG_LEVEL"] = str(log_level)
+    logging.basicConfig(level=int(log_level))
     return MultiProcessLoggerAdapter(logger, {})
 
 
@@ -189,6 +194,7 @@ def setup_logging(
         logging.config.dictConfig(config)
     else:
         logging.basicConfig(level=default_level)
+    os.environ["SB_LOG_LEVEL"] = default_level
 
 
 class TqdmCompatibleStreamHandler(logging.StreamHandler):
