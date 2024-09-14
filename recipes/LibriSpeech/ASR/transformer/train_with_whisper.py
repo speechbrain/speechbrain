@@ -107,14 +107,18 @@ class ASR(sb.Brain):
             )
 
             if hasattr(self.hparams, "normalized_transcripts"):
+
+                if hasattr(self.tokenizer, "normalize"):
+                    normalized_fn = self.tokenizer.normalize
+                else:
+                    normalized_fn = self.tokenizer._normalize
+
                 predicted_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in predicted_words
+                    normalized_fn(text).split(" ") for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in target_words
+                    normalized_fn(text).split(" ") for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
