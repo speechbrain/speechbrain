@@ -81,8 +81,8 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
         Determines if logging should occur based on whether the code is running
         on the main process or not.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         main_process_only : bool
             A flag indicating if logging should be restricted to the main process.
 
@@ -101,8 +101,8 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
         Logs a message with the specified log level, respecting the `main_process_only`
         flag to decide whether to log based on the current process.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         level : int
             Logging level (e.g., logging.INFO, logging.WARNING).
         msg : str
@@ -132,8 +132,8 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
         r"""
         Logs a warning message only once by using caching to prevent duplicate warnings.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         *args : tuple
             Positional arguments passed to the warning log.
         **kwargs : dict
@@ -149,10 +149,15 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
 
 def get_logger(name: str) -> MultiProcessLoggerAdapter:
     """
-    Retrieves a logger by name.
+    Retrieves a logger with the specified name, applying a log level from the environment variable
+    `SB_LOG_LEVEL` if set, or defaults to `INFO` level.
 
-    Parameters
-    ----------
+    If the environment variable `SB_LOG_LEVEL` is not defined, it defaults to `INFO` level and sets
+    this level in the environment for future use. The environment variable can be set manually or
+    automatically in `Brain` class following `setup_logging`.
+
+    Arguments
+    ---------
     name : str
         The name of the logger to retrieve.
 
@@ -161,6 +166,7 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
     MultiProcessLoggerAdapter
         An instance of `MultiProcessLoggerAdapter` wrapping the logger with the specified name.
     """
+
     logger = logging.getLogger(name)
     log_level = os.environ.get("SB_LOG_LEVEL", None)
     if log_level is None:
@@ -194,7 +200,7 @@ def setup_logging(
         logging.config.dictConfig(config)
     else:
         logging.basicConfig(level=default_level)
-    os.environ["SB_LOG_LEVEL"] = default_level
+    os.environ["SB_LOG_LEVEL"] = str(default_level)
 
 
 class TqdmCompatibleStreamHandler(logging.StreamHandler):
