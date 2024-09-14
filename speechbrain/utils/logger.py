@@ -65,7 +65,7 @@ ORDERS_WORDS = {
 
 
 class MultiProcessLoggerAdapter(logging.LoggerAdapter):
-    """
+    r"""
     Logger adapter that handles multi-process logging, ensuring logs are written
     only on the main process if specified. This class extends `logging.LoggerAdapter`
     and provides additional functionality for controlling logging in multi-process
@@ -77,7 +77,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
 
     @staticmethod
     def _should_log(main_process_only: bool) -> bool:
-        """
+        r"""
         Determines if logging should occur based on whether the code is running
         on the main process or not.
 
@@ -97,7 +97,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
         )
 
     def log(self, level: int, msg: str, *args: tuple, **kwargs: dict):
-        """
+        r"""
         Logs a message with the specified log level, respecting the `main_process_only`
         flag to decide whether to log based on the current process.
 
@@ -129,7 +129,7 @@ class MultiProcessLoggerAdapter(logging.LoggerAdapter):
 
     @functools.lru_cache(None)
     def warning_once(self, *args: tuple, **kwargs: dict):
-        """
+        r"""
         Logs a warning message only once by using caching to prevent duplicate warnings.
 
         Parameters
