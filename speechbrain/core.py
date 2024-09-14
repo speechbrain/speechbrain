@@ -1766,6 +1766,9 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
@@ -1782,7 +1785,7 @@ class Brain:
             for batch in tqdm(
                 test_set,
                 dynamic_ncols=True,
-                disable=not progressbar,
+                disable=not enable,
                 colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
