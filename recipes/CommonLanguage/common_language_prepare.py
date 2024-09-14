@@ -9,15 +9,15 @@ Pavlo Ruban 2021
 """
 
 import csv
-import logging
 import os
 
 import torchaudio
 from tqdm.contrib import tzip
 
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 LANGUAGES = [

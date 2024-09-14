@@ -17,6 +17,7 @@ import torchaudio
 import tqdm
 
 from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_cvss_prepare.pkl"
 
@@ -40,7 +41,7 @@ SMALL_EVAL_SIZE = 1000
 
 log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
 logging.basicConfig(format=log_format, level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_cvss(

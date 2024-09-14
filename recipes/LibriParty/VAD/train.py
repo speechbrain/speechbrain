@@ -22,7 +22,6 @@ Authors
  * Mirco Ravanelli 2021
 """
 
-import logging
 import sys
 
 import numpy as np
@@ -32,8 +31,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class VADBrain(sb.Brain):

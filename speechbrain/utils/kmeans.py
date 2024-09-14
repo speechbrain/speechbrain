@@ -5,10 +5,11 @@ Author
  * Pooneh Mousavi 2023
 """
 
-import logging
 import os
 
 from tqdm.contrib import tqdm
+
+from speechbrain.utils.logger import get_logger
 
 try:
     from sklearn.cluster import MiniBatchKMeans
@@ -21,7 +22,7 @@ except ImportError:
     raise ImportError(err_msg)
 import joblib
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def accumulate_and_extract_features(

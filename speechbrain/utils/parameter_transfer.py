@@ -9,7 +9,6 @@ Authors
  * Adel Moumen 2023
 """
 
-import logging
 import pathlib
 
 from speechbrain.utils.checkpoints import (
@@ -20,8 +19,9 @@ from speechbrain.utils.checkpoints import (
 )
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Pretrainer:
@@ -173,7 +173,6 @@ class Pretrainer:
     def collect_files(
         self,
         default_source=None,
-        internal_ddp_handling=False,
         use_auth_token=False,
         local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
     ):
@@ -193,9 +192,6 @@ class Pretrainer:
             This is used for each loadable which doesn't have a path already
             specified. If the loadable has key "asr", then the file to look for is
             default_source/asr.ckpt
-        internal_ddp_handling : bool
-            Whether/not the function should handle DDP i.e. `run_on_main`.
-            (Default: False)
         use_auth_token : bool (default: False)
             If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
             default is False because the majority of models are public.
@@ -241,15 +237,12 @@ class Pretrainer:
                 "revision": None,
                 "local_strategy": local_strategy,
             }
-            if internal_ddp_handling:
-                # path needs to be available only if it is a local source w/o symlink
-                run_on_main(fetch, kwargs=fetch_kwargs)
 
-                # we need the path; regardless of rank
-                path = fetch(**fetch_kwargs)
-            else:
-                # main node is the only one calling this, so path is available
-                path = fetch(**fetch_kwargs)
+            # path needs to be available only if it is a local source w/o symlink
+            run_on_main(fetch, kwargs=fetch_kwargs)
+
+            # we need the path; regardless of rank
+            path = fetch(**fetch_kwargs)
 
             loadable_paths[name] = path
             if isinstance(source, FetchSource):

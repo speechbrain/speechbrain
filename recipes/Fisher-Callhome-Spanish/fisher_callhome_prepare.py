@@ -7,7 +7,6 @@ YAO-FEI, CHENG 2021
 """
 
 import json
-import logging
 import os
 import re
 import string
@@ -21,6 +20,7 @@ from tqdm import tqdm
 
 from speechbrain.augment.time_domain import Resample
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 try:
@@ -30,7 +30,7 @@ except ImportError:
     err_msg += "Install using `pip install sacremoses`.\n"
     raise ImportError(err_msg)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 check_torchaudio_backend()
 
 es_normalizer = MosesPunctNormalizer(lang="es")
