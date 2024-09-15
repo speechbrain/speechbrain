@@ -196,10 +196,9 @@ def ddp_barrier():
     if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
         return
 
-    if torch.distributed.get_backend() == "nccl":
+    if torch.distributed.get_backend() == torch.distributed.Backend.NCCL:
         # if NCCL, we can retrieve device_ids through this way
-        device_ids = [int(os.environ.get("LOCAL_RANK"))]
-        torch.distributed.barrier(device_ids=device_ids)
+        torch.distributed.barrier(device_ids=[torch.cuda.current_device()])
     else:
         torch.distributed.barrier()
 
@@ -274,6 +273,13 @@ def ddp_init_group(run_opts):
             run_opts["distributed_backend"]
             + " communication protocol doesn't exist."
         )
+
+    # Switch to the right context ; this is needed for DDP barriers
+    # otherwise, everything before an instance of `Brain(...)`
+    # is going to have `LOCAL_RANK` equal to 0. 
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    device = torch.device(f"cuda:{local_rank}")
+    torch.cuda.set_device(device)
 
     # rank arg is used to set the right rank of the current process for ddp.
     # if you have 2 servers with 2 gpu:
