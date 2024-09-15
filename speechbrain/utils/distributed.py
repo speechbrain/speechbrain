@@ -276,7 +276,7 @@ def ddp_init_group(run_opts):
 
     # Switch to the right context ; this is needed for DDP barriers
     # otherwise, everything before an instance of `Brain(...)`
-    # is going to have `LOCAL_RANK` equal to 0. 
+    # is going to have `LOCAL_RANK` equal to 0.
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
     device = torch.device(f"cuda:{local_rank}")
     torch.cuda.set_device(device)
