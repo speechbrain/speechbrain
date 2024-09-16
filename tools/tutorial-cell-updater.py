@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""This script, which should be run from the `docs/` directory, updates all the
+notebooks under `docs/tutorials` in order to automatically perform mass updates
+of certain common cells (header, footer, install steps).
+
+Authors
+
+* Sylvain de Langen 2024"""
 
 import glob
 import json
