@@ -64,10 +64,7 @@ Referencing SpeechBrain
    tutorials/basics.rst
    tutorials/advanced.rst
    tutorials/preprocessing.rst
-   tutorials/asr.rst
-   tutorials/separation.rst
-   tutorials/enhancement.rst
-   tutorials/classification.rst
+   tutorials/tasks.rst
    tutorials/nn.rst
 
 
