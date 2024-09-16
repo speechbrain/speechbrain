@@ -5,7 +5,7 @@
 [![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=40&duration=7000&pause=1000&random=false&width=1200&height=100&lines=Simplify+Conversational+AI+Development)](https://git.io/typing-svg)
 
 
-| 📘 [Tutorials](https://speechbrain.github.io/tutorial_basics.html) | 🌐 [Website](https://speechbrain.github.io/) | 📚 [Documentation](https://speechbrain.readthedocs.io/en/latest/index.html) | 🤝 [Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html) | 🤗 [HuggingFace](https://huggingface.co/speechbrain) | ▶️ [YouTube](https://www.youtube.com/@SpeechBrainProject) | 🐦 [X](https://twitter.com/SpeechBrain1) |
+| 📘 [Tutorials](https://speechbrain.readthedocs.io) | 🌐 [Website](https://speechbrain.github.io/) | 📚 [Documentation](https://speechbrain.readthedocs.io/en/latest/index.html) | 🤝 [Contributing](https://speechbrain.readthedocs.io/en/latest/contributing.html) | 🤗 [HuggingFace](https://huggingface.co/speechbrain) | ▶️ [YouTube](https://www.youtube.com/@SpeechBrainProject) | 🐦 [X](https://twitter.com/SpeechBrain1) |
 
 ![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain?style=social) *Please, help our community project. Star on GitHub!*
 
@@ -57,7 +57,7 @@ asr_model.transcribe_file("speechbrain/asr-conformer-transformerlm-librispeech/e
 
 ##  <a href="https://speechbrain.github.io/" target="_blank"> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Google_Colaboratory_SVG_Logo.svg/1200px-Google_Colaboratory_SVG_Logo.svg.png" alt="drawing" width="50"/> </a>  Documentation
 - We are deeply dedicated to promoting inclusivity and education.
-- We have authored over 30 [tutorials](https://speechbrain.github.io/) on Google Colab that not only describe how SpeechBrain works but also help users familiarize themselves with Conversational AI.
+- We have authored over 30 [tutorials](https://speechbrain.readthedocs.io) that not only describe how SpeechBrain works but also help users familiarize themselves with Conversational AI.
 - Every class or function has clear explanations and examples that you can run. Check out the [documentation](https://speechbrain.readthedocs.io/en/latest/index.html) for more details 📚.
 
 
@@ -134,7 +134,7 @@ The results will be saved in the `output_folder` specified in the YAML file.
 
 - **Website:** Explore general information on the [official website](https://speechbrain.github.io).
 
-- **Tutorials:** Start with [basic tutorials](https://speechbrain.github.io/tutorial_basics.html) covering fundamental functionalities. Find advanced tutorials and topics in the Tutorials menu on the [SpeechBrain website](https://speechbrain.github.io).
+- **Tutorials:** Start with [basic tutorials](https://speechbrain.readthedocs.io/en/latest/tutorials/basics.html) covering fundamental functionalities. Find advanced tutorials and topics in the Tutorial notebooks category in the [SpeechBrain documentation](https://speechbrain.readthedocs.io).
 
 - **Documentation:** Detailed information on the SpeechBrain API, contribution guidelines, and code is available in the [documentation](https://speechbrain.readthedocs.io/en/latest/index.html).
 
