@@ -46,7 +46,10 @@ def estimate_f0(
 
     Returns
     -------
-    A per-frame estimate of f0
+    estimated_f0 : torch.Tensor
+        A per-frame estimate of the f0 in Hz.
+    voiced_frames : torch.Tensor
+        The estimate for each frame if it is voiced or unvoiced.
     """
 
     step_samples = int(step_size * sample_rate)
@@ -60,11 +63,22 @@ def estimate_f0(
         )
 
     # Use autocorrelation to compute an estimate of f0 for each frame
-    autocorrelation = autocorrelate(audio, step_samples, window_samples)
-    best_lag = compute_lag(autocorrelation, min_f0_steps, voicing_threshold)
+    # Batched estimation is hard due to removing voiced frames, do this one sample at a time
+    best_lags_list, voiced_frames_list = [], []
+    for i in range(len(audio)):
+        autocorrelation = autocorrelate(audio[i], step_samples, window_samples)
+        best_lags, voiced_frames = compute_lag(
+            autocorrelation, min_f0_steps, voicing_threshold
+        )
+
+        best_lags_list.append(best_lags)
+        voiced_frames_list.append(voiced_frames)
 
     # Convert to Hz
-    return sample_rate / best_lag
+    best_lags = sample_rate / torch.stack(best_lags_list, dim=0)
+    voiced_frames = torch.stack(voiced_frames_list, dim=0)
+
+    return best_lags, voiced_frames
 
 
 def autocorrelate(audio, step_samples, window_samples):
@@ -73,7 +87,7 @@ def autocorrelate(audio, step_samples, window_samples):
     Arguments
     ---------
     audio : torch.Tensor
-        The audio to be evaluated for autocorrelation.
+        The audio to be evaluated for autocorrelation, shape [time]
     step_samples : int
         The number of samples between the beginning of each frame.
     window_samples : int
@@ -84,7 +98,7 @@ def autocorrelate(audio, step_samples, window_samples):
     autocorrelation : torch.Tensor
         The auto-correlation tensor by convolving each frame with itself.
     """
-    chunks = audio.unfold(-1, window_samples, step_samples)
+    chunks = audio.unsqueeze(0).unfold(-1, window_samples, step_samples)
     padded_chunks = torch.nn.functional.pad(
         chunks, (0, window_samples // 2), mode="circular"
     )
@@ -92,7 +106,7 @@ def autocorrelate(audio, step_samples, window_samples):
         input=padded_chunks,
         weight=chunks.transpose(0, 1),
         groups=chunks.size(1),
-    )
+    ).squeeze(0)
 
 
 def compute_lag(autocorrelation, min_f0_steps, voicing_threshold):
@@ -101,7 +115,7 @@ def compute_lag(autocorrelation, min_f0_steps, voicing_threshold):
     Arguments
     ---------
     autocorrelation : torch.Tensor
-        Result of convolving a signal with itself.
+        Result of convolving a signal with itself, shape [time, window]
     min_f0_steps : int
         Number of steps corresponding to the minimum allowed lag.
     voicing_threshold : float
@@ -110,34 +124,44 @@ def compute_lag(autocorrelation, min_f0_steps, voicing_threshold):
 
     Returns
     -------
-    lag : torch.Tensor
+    best_lag_steps : torch.Tensor
         The number of steps between successive periods for each frame.
+    voiced : torch.Tensor
+        The estimation for each frame whether it is primarily voiced or unvoiced.
     """
-    # Find k-best candidates for each chunk
-    # Excluding invalid indexes
-    perfect_correlation = autocorrelation[:, :, 0]
-    valid_scores = autocorrelation[:, :, min_f0_steps:]
+    # Find k-best candidate lags for each window, excluding too-short lags.
+    perfect_correlation = autocorrelation[:, 0]
+    valid_scores = autocorrelation[:, min_f0_steps:]
     kbest = torch.topk(valid_scores, k=10, dim=-1)
 
-    # Identify which frames are (un)voiced
-    voiced = kbest.values[:, :, 0] > perfect_correlation * voicing_threshold
-    voiced_values = kbest.values[:, voiced, :]
-    voiced_indices = kbest.indices[:, voiced, :]
+    # Identify which frames are (un)voiced by comparing the best candidate lag's
+    # autocorrelation with the maximum possible autocorrelation.
+    voiced = kbest.values[:, 0] > perfect_correlation * voicing_threshold
+    voiced_values = kbest.values[voiced]
+    voiced_indices = kbest.indices[voiced]
 
     # Pick whichever kbest value is closest to the average of 5 neighbors
     # Iterate a few times to ensure stability
     best_selection = iterative_lag_selection(voiced_values, iterations=3)
-    return min_f0_steps + voiced_indices[:, :, best_selection]
+    print(best_selection.shape)
+    print(voiced_indices.shape)
+    indexes = torch.arange(voiced_indices.size(0))
+    best_lag_steps = min_f0_steps + voiced_indices[indexes, best_selection]
+    return best_lag_steps, voiced
 
 
 def iterative_lag_selection(voiced_values, iterations):
     """Select the best lag out of available options by comparing
     to an average of neighboring lags to reduce jumping octaves."""
-    best_selection = torch.zeros(voiced_values.size(1), dtype=int)
+    # kbest returns sorted list, first entry should be the highest autocorrelation
+    n = voiced_values.size(0)
+    best_selection = torch.zeros(n, dtype=int)
     for i in range(iterations):
-        best_values = voiced_values[:, :, best_selection]
+        best_values = voiced_values[torch.arange(n), best_selection]
         averaged_voiced_values = neighbor_average(best_values, 5)
-        distance = torch.abs(voiced_values - averaged_voiced_values)
+        distance = torch.abs(
+            voiced_values - averaged_voiced_values.unsqueeze(1)
+        )
         best_selection = torch.argmin(distance, dim=-1)
     return best_selection
 
@@ -145,5 +169,8 @@ def iterative_lag_selection(voiced_values, iterations):
 def neighbor_average(best_values, neighbors):
     """Use convolutional kernel to average the neighbors."""
     kernel = torch.ones(1, 1, neighbors) / neighbors
-    values = best_values.unsqeeze(1)
-    return torch.nn.conv1d(values, kernel, padding="same").squeeze(1)
+    values = best_values[None, None, :]
+
+    # Use conv to compute average
+    # TODO: Use median rather than mean to reduce outlier impact
+    return torch.nn.functional.conv1d(values, kernel, padding="same").squeeze()
