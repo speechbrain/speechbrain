@@ -1,5 +1,5 @@
-Speech Processing
-=================
+Speech Preprocessing
+====================
 
 ..
    Originally generated with https://gist.github.com/asumagic/19f9809480b62bfd16094fb5c844a564 but OK to edit in repo now.
@@ -8,14 +8,14 @@ Speech Processing
 .. toctree::
    :hidden:
 
-   processing/speech-augmentation.ipynb
-   processing/fourier-transform-and-spectrograms.ipynb
-   processing/speech-features.ipynb
-   processing/environmental-corruption.ipynb
-   processing/multi-microphone-beamforming.ipynb
+   preprocessing/speech-augmentation.ipynb
+   preprocessing/fourier-transform-and-spectrograms.ipynb
+   preprocessing/speech-features.ipynb
+   preprocessing/environmental-corruption.ipynb
+   preprocessing/multi-microphone-beamforming.ipynb
 
 
-.. rubric:: `🔗 Speech Augmentation <processing/speech-augmentation.html>`_
+.. rubric:: `🔗 Speech Augmentation <preprocessing/speech-augmentation.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -34,7 +34,7 @@ and we must cleverly use the available dataset. One popular technique is called 
 corrupt the original speech signals to give the network the "illusion" that we are processing a new signal. This acts as a powerful regularizer,
 that normally helps neural networks improving generalization and thus achieve better performance on test data.
 
-.. rubric:: `🔗 Fourier Transforms and Spectrograms <processing/fourier-transform-and-spectrograms.html>`_
+.. rubric:: `🔗 Fourier Transforms and Spectrograms <preprocessing/fourier-transform-and-spectrograms.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -56,7 +56,7 @@ Fourier Transform, which turns the time-domain signal into an equivalent represe
 In the following sections, we will describe the Fourier transforms along with other related transformations such as
 Short-Term Fourier Transform (STFT) and spectrograms.
 
-.. rubric:: `🔗 Speech Features <processing/speech-features.html>`_
+.. rubric:: `🔗 Speech Features <preprocessing/speech-features.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -74,7 +74,7 @@ Speech is a very high-dimensional signal. For instance, when the sampling freque
 we have 16000 samples for each second. Working with such very high dimensional data can be critical from a machine learning perspective.
 The goal of feature extraction is to find more compact ways to represent speech.
 
-.. rubric:: `🔗 Environmental Corruption <processing/environmental-corruption.html>`_
+.. rubric:: `🔗 Environmental Corruption <preprocessing/environmental-corruption.html>`_
    :heading-level: 2
 
 .. list-table::
@@ -92,7 +92,7 @@ In realistic speech processing applications, the signal recorded by the micropho
 This is particularly harmful in distant-talking (far-field) scenarios, where the speaker and the reference microphone are distant
 (think about popular devices such as Google Home, Amazon Echo, Kinect, and similar devices).
 
-.. rubric:: `🔗 Multi-microphone Beamforming <processing/multi-microphone-beamforming.html>`_
+.. rubric:: `🔗 Multi-microphone Beamforming <preprocessing/multi-microphone-beamforming.html>`_
    :heading-level: 2
 
 .. list-table::
