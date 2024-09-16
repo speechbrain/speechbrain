@@ -84,7 +84,7 @@ def update_footer_cell(footer_cell: dict):
         {
             "cell_type": "markdown",
             "metadata": {"id": "sb_auto_footer", "tags": ["sb_auto_footer"]},
-            "source": FOOTER_CONTENTS.splitlines(True)
+            "source": FOOTER_CONTENTS.splitlines(True),
         }
     )
 
