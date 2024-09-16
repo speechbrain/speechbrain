@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """This script, which should be run from the `docs/` directory, updates all the
 notebooks under `docs/tutorials` in order to automatically perform mass updates
-of certain common cells (header, footer, install steps).
+of certain common cells (e.g. footer, header).
 
 Authors
 
@@ -73,7 +73,7 @@ def update_header_cell(header_cell: dict, tutorial_path: str):
 
 def update_footer_cell(footer_cell: dict):
     """Updates the content of a jupyter cell from the footer template.
-    
+
     Arguments
     ---------
     footer_cell: dict
