@@ -20,9 +20,6 @@ docstrings. Sphinx natively supports reStructuredText directives.
 Automatically generating documentation based on docstrings is not the
 core of Sphinx. For this, after much searching, we use better-apidoc.
 
-It seems better-apidoc doesn't use autodoc\_mock\_imports so we currently just
-add all extra dependencies to docs-requirements.txt
-
 ## Tutorial integration
 
 Tutorials are now inside of the main SpeechBrain repository.
@@ -44,6 +41,7 @@ The `docs/tutorials` directory exclusively contains tutorials in Jupyter Noteboo
 
 - Add your notebook to the relevant category `.rst`, paying attention to keep the same structure and appearance as existing tutorials.
   - (Create a category if _really_ necessary, but this bloats the table of contents/sidebar.)
+- **The Colab header/citation footer** are generated automatically and should not be manually inserted or edited. See `tools/tutorial-cell-update.py`. You should run this for your notebook.
 - Add your notebook to the hidden `toctree` of the same document.
 - Make sure that your headings are consistent!
   - Please use a single top-level heading for the title of your notebook.
