@@ -25,7 +25,7 @@ Speech Processing Tasks
      - Apr. 2021
      - Difficulty: medium
      - Time: 45min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/asr/speech-recognition-from-scratch.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/asr/speech-recognition-from-scratch.ipynb>`__
 
 
 Do you want to figure out how to implement your speech recognizer with SpeechBrain? Look no further, you're in the right place. This tutorial will walk you through all the steps needed to implement an offline end-to-end attention-based speech recognizer. This is a self-contained tutorial that will help you "connecting the dots" across all the steps needed to train a modern speech recognizer. We will address data preparation, tokenizer training, language model, ASR model, and inference. We will explain how to train your model on your data.
@@ -41,7 +41,7 @@ Do you want to figure out how to implement your speech recognizer with SpeechBra
      - Jan. 2021
      - Difficulty: medium
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/separation/source-separation.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/separation/source-separation.ipynb>`__
 
 
 In source separation, the goal is to be able to separate out the sources from an observed mixture signal
@@ -58,7 +58,7 @@ which consists of superposition of several sources. In this tutorial, we cover f
      - Feb. 2021
      - Difficulty: medium
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/enhancement/speech-enhancement-from-scratch.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/enhancement/speech-enhancement-from-scratch.ipynb>`__
 
 
 So you want to do regression tasks with speech? Look no further, you're in the right place.
@@ -76,7 +76,7 @@ show all the components needed for making a new recipe.
      - Jan. 2021
      - Difficulty: medium
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/classification/speech-classification-from-scratch.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/classification/speech-classification-from-scratch.ipynb>`__
 
 
 In this tutorial, we show how to use SpeechBrain to implement an utterance-level speech classifier.
@@ -93,7 +93,7 @@ It might help if you want to develop systems for speaker-id, language-id, emotio
      - Sept. 2021
      - Difficulty: easy
      - Time: 15min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/classification/voice-activity-detection.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/classification/voice-activity-detection.ipynb>`__
 
 
 In this tutorial, we show how to use SpeechBrain for voice activity detection. The tutorial will describe how to train a neural VAD and use it for inference on long audio recordings.

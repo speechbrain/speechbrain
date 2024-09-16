@@ -24,7 +24,7 @@ Neural Architectures
      - Dec. 2022
      - Difficulty: medium
      - Time: 20m
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/nn/using-wav2vec-2.0-hubert-wavlm-and-whisper-from-huggingface-with-speechbrain.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/nn/using-wav2vec-2.0-hubert-wavlm-and-whisper-from-huggingface-with-speechbrain.ipynb>`__
 
 
 This tutorial describes how to combine (use and finetune) pretrained models
@@ -43,7 +43,7 @@ spoken language understanding ...
      - Feb. 2021
      - Difficulty: medium
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/nn/complex-and-quaternion-neural-networks.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/nn/complex-and-quaternion-neural-networks.ipynb>`__
 
 
 This tutorial demonstrates how to use the SpeechBrain implementation of complex-valued and quaternion-valued neural networks
@@ -61,7 +61,7 @@ Linear, Convolution, Recurrent and Normalisation.
      - Feb. 2021
      - Difficulty: easy
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/nn/recurrent-neural-networks-and-speechbrain.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/nn/recurrent-neural-networks-and-speechbrain.ipynb>`__
 
 
 Recurrent Neural Networks (RNNs) offer a natural way to process sequences.

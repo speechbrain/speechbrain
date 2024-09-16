@@ -26,7 +26,7 @@ Speech Preprocessing
      - Jan. 2021
      - Difficulty: easy
      - Time: 20min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/processing/speech-augmentation.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/processing/speech-augmentation.ipynb>`__
 
 
 A popular saying in machine learning is "there is no better data than more data". However, collecting new data can be expensive
@@ -45,7 +45,7 @@ that normally helps neural networks improving generalization and thus achieve be
      - Jan. 2021
      - Difficulty: easy
      - Time: 20min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/processing/fourier-transform-and-spectrograms.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/processing/fourier-transform-and-spectrograms.ipynb>`__
 
 
 In speech and audio processing, the signal in the time-domain is often transformed into another domain.
@@ -67,7 +67,7 @@ Short-Term Fourier Transform (STFT) and spectrograms.
      - Jan. 2021
      - Difficulty: easy
      - Time: 20min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/processing/speech-features.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/processing/speech-features.ipynb>`__
 
 
 Speech is a very high-dimensional signal. For instance, when the sampling frequency is 16 kHz,
@@ -85,7 +85,7 @@ The goal of feature extraction is to find more compact ways to represent speech.
      - Feb. 2021
      - Difficulty: medium
      - Time: 20min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/processing/environmental-corruption.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/processing/environmental-corruption.ipynb>`__
 
 
 In realistic speech processing applications, the signal recorded by the microphone is corrupted by noise and reverberation.
@@ -103,7 +103,7 @@ This is particularly harmful in distant-talking (far-field) scenarios, where the
      - Jan. 2021
      - Difficulty: medium
      - Time: 20min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/processing/multi-microphone-beamforming.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/processing/multi-microphone-beamforming.ipynb>`__
 
 
 Using a microphone array can be very handy to improve the signal quality

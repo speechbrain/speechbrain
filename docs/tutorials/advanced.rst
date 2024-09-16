@@ -30,7 +30,7 @@ SpeechBrain Advanced
      - June. 2022
      - Difficulty: medium
      - Time: 45min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/profiling-and-benchmark.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/profiling-and-benchmark.ipynb>`__
 
 
 Profiling and benchmark of SpeechBrain models can serve different purposes and look at different angles. Performance requirements are highly particular to the use case with that one desires to use SpeechBrain. This provides means to comprehensive self-learning as a starting point to individual growth beyond the provided.
@@ -46,7 +46,7 @@ Profiling and benchmark of SpeechBrain models can serve different purposes and l
      - Nov. 2021
      - Difficulty: medium
      - Time: 25min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/dynamic-batching.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/dynamic-batching.ipynb>`__
 
 
 Do you want to speed up training or make it less memory-demanding? One possible solution could be dynamic batching. With this approach, you can dynamically sample batches composed of a variable number of sentences. In this tutorial, we show how to use this technique within SpeechBrain.
@@ -62,7 +62,7 @@ Do you want to speed up training or make it less memory-demanding? One possible 
      - Dec. 2021
      - Difficulty: medium
      - Time: 25min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/hyperparameter-optimization.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/hyperparameter-optimization.ipynb>`__
 
 
 Do you want to optimize the hyperparameters of your model? Are you tired of doing it by hand? This tutorial will describe how you can optimize the hyperparameter of your SpeechBrain model using the Orion toolkit.
@@ -78,7 +78,7 @@ Do you want to optimize the hyperparameters of your model? Are you tired of doin
      - Nov. 2021
      - Difficulty: high
      - Time: 45min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/federated-speech-model-training-via-speechbrain-and-flower.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/federated-speech-model-training-via-speechbrain-and-flower.ipynb>`__
 
 
 Are you interested in both federated learning (FL) and speech, but worried about the proper tools to run experiments? Today you will get the answer.
@@ -95,7 +95,7 @@ This tutorial introduces how to integrate Flower and SpeechBrain to achieve fede
      - Sept.. 2021
      - Difficulty: medium
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/inferring-on-your-own-speechbrain-models.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/inferring-on-your-own-speechbrain-models.ipynb>`__
 
 
 In this tutorial, we will learn the three different ways of inferring on a trained model.
@@ -112,7 +112,7 @@ This is particularly useful to debug your pipeline or to deploy a model in a pro
      - Mar. 2021
      - Difficulty: medium
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/pre-trained-models-and-fine-tuning-with-huggingface.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/pre-trained-models-and-fine-tuning-with-huggingface.ipynb>`__
 
 
 Training DNN models is often very time-consuming and expensive.
@@ -133,7 +133,7 @@ or fine-tuning/knowledge distillation or whatever new fancy technique you can co
      - Feb. 2021
      - Difficulty: medium
      - Time: 15min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/data-loading-for-big-datasets-and-shared-filesystems.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/data-loading-for-big-datasets-and-shared-filesystems.ipynb>`__
 
 
 Do you have a huge dataset stored in a shared file system? This tutorial will show you how to load large datasets from the shared file system and use them for training a neural network with SpeechBrain.
@@ -150,7 +150,7 @@ In particular, we describe a solution based on the WebDataset library, that is e
      - Feb. 2021
      - Difficulty: easy
      - Time: 20min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/text-tokenizer.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/text-tokenizer.ipynb>`__
 
 
 Machine Learning tasks that process text may contain thousands of vocabulary
@@ -171,7 +171,7 @@ on SentencePiece (BPE and unigram).
      - Apr. 2024
      - Difficulty: medium
      - Time: 30min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/advanced/model-quantization.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/advanced/model-quantization.ipynb>`__
 
 
 Quantization is a necessary step for many deep neural networks, particularly for tasks requiring low latency and efficient memory usage like real-time automatic speech recognition. This tutorial will introduce the problem of quantization and explain how to perform quantization using SpeechBrain.
