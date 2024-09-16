@@ -27,7 +27,7 @@ SpeechBrain Basics
      - Feb. 2021
      - Difficulty: easy
      - Time: 10min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/introduction-to-speechbrain.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/basics/introduction-to-speechbrain.ipynb>`__
 
 
 SpeechBrain is an open-source all-in-one speech toolkit based on PyTorch.
@@ -45,7 +45,7 @@ this tutorial will provide you all the very basic elements needed to start using
      - Jan. 2021
      - Difficulty: easy
      - Time: 10min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/what-can-i-do-with-speechbrain.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/basics/what-can-i-do-with-speechbrain.ipynb>`__
 
 
 In this tutorial, we provide a high-level description of the speech tasks currently supported by SpeechBrain.
@@ -63,7 +63,7 @@ We also show how to perform inference on speech recognition, speech separation, 
      - Jan. 2021
      - Difficulty: easy
      - Time: 10min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/brain-class.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/basics/brain-class.ipynb>`__
 
 
 One key component of deep learning is iterating the dataset multiple times and performing parameter updates.
@@ -83,7 +83,7 @@ implementation doesn't do what is required for that particular recipe.
      - Jan. 2021
      - Difficulty: easy
      - Time: 15min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/hyperpyyaml.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/basics/hyperpyyaml.ipynb>`__
 
 
 An essential part of any deep learning pipeline is the definition of hyperparameters and other metadata.
@@ -106,7 +106,7 @@ expanded definition of hyperparameter, keeping our actual experimental code smal
      - Jan. 2021
      - Difficulty: medium
      - Time: 20min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/data-loading-pipeline.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/basics/data-loading-pipeline.ipynb>`__
 
 
 Setting up an efficient data loading pipeline is often a tedious task which involves creating the examples,
@@ -125,7 +125,7 @@ flexibility. In fact our data pipeline is built around the Pytorch one.
      - Feb. 2021
      - Difficulty: easy
      - Time: 15min
-     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/master/tutorials/basics/checkpointing.ipynb>`__
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/tutorials/basics/checkpointing.ipynb>`__
 
 
 By checkpointing, we mean saving the model and all the other necessary state information
