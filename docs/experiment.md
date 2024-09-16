@@ -46,7 +46,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
   every user either by editing the yaml, or with an override (passed to
   `load_extended_yaml`).
 
-For more details on YAML and our extensions, please see our dedicated [tutorial](https://colab.research.google.com/drive/1Pg9by4b6-8QD2iC0U7Ic3Vxq4GEwEdDz).
+For more details on YAML and our extensions, please see our dedicated [tutorial](https://speechbrain.readthedocs.io/en/latest/tutorials/basics/hyperpyyaml.html).
 
 ## Running arguments
 SpeechBrain defines a set of running arguments that can be set from the command line args (or within the YAML file).
@@ -57,7 +57,7 @@ SpeechBrain defines a set of running arguments that can be set from the command 
 - `distributed_backend`: default "nccl", options: `["nccl", "gloo", "mpi"]`, this backend will be used as a DDP communication protocol. See PyTorch documentation for more details.
 - Additional runtime arguments are documented in the Brain class.
 
-Please note that we provide a dedicated [tutorial](https://colab.research.google.com/drive/13pBUacPiotw1IvyffvGZ-HrtBr9T6l15) to document the different multi-gpu training strategies:
+Please note that we provide [documentation](https://speechbrain.readthedocs.io/en/latest/multigpu.html) on multi-GPU training strategies.
 
 You can also override parameters in YAML in this way:
 
