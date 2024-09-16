@@ -1,6 +1,6 @@
 # Profiling & benchmark as part of testing
 
-> [!WARNING]  
+> [!WARNING]
 > This documentation is out-of-date and requires updating.
 
 _Recognition performance aside, are we real-time?_
