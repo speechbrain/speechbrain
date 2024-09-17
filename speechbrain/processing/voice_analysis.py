@@ -14,6 +14,7 @@ import torchaudio
 def estimate_f0(
     audio: torch.Tensor,
     min_f0_Hz: int = 75,
+    max_f0_Hz: int = 400,
     step_size: float = 0.01,
     window_size: float = 0.04,
     sample_rate: int = 16000,
@@ -29,7 +30,10 @@ def estimate_f0(
         The audio signal being analyzed, shape: [batch, time].
     min_f0_Hz: int
         The minimum allowed fundamental frequency, to reduce octave errors.
-        Default is 80 Hz, based on human voice standard frequency range.
+        Default is 75 Hz, based on human voice standard frequency range.
+    max_f0_Hz: int
+        The maximum allowed fundamental frequency, to reduce octave errors.
+        Default is 400 Hz, based on human voice standard frequency range.
     step_size: float
         The time between analysis windows (in seconds).
     window_size: float
@@ -52,9 +56,11 @@ def estimate_f0(
         The estimate for each frame if it is voiced or unvoiced.
     """
 
+    # Max lag corresponds to min f0 and vice versa
     step_samples = int(step_size * sample_rate)
     window_samples = int(window_size * sample_rate)
-    min_f0_steps = int(sample_rate / min_f0_Hz) // 2
+    max_lag_samples = int(sample_rate / min_f0_Hz)
+    min_lag_samples = int(sample_rate / max_f0_Hz)
 
     # This preparation improves accuracy by removing unwanted peaks
     if lowpass_prepare:
@@ -68,14 +74,16 @@ def estimate_f0(
     for i in range(len(audio)):
         autocorrelation = autocorrelate(audio[i], step_samples, window_samples)
         best_lags, voiced_frames = compute_lag(
-            autocorrelation, min_f0_steps, voicing_threshold
+            autocorrelation, min_lag_samples, max_lag_samples, voicing_threshold
         )
 
         best_lags_list.append(best_lags)
         voiced_frames_list.append(voiced_frames)
 
     # Convert to Hz
+    print(best_lags)
     best_lags = sample_rate / torch.stack(best_lags_list, dim=0)
+    print(best_lags)
     voiced_frames = torch.stack(voiced_frames_list, dim=0)
 
     return best_lags, voiced_frames
@@ -109,30 +117,39 @@ def autocorrelate(audio, step_samples, window_samples):
     ).squeeze(0)
 
 
-def compute_lag(autocorrelation, min_f0_steps, voicing_threshold):
+def compute_lag(
+    autocorrelation, min_lag_samples, max_lag_samples, voicing_threshold
+):
     """Compute the (smoothed) lag corresponding to autocorrelation peaks.
 
     Arguments
     ---------
     autocorrelation : torch.Tensor
         Result of convolving a signal with itself, shape [time, window]
-    min_f0_steps : int
+    min_lag_samples : int
         Number of steps corresponding to the minimum allowed lag.
+    max_lag_samples : int
+        Number of steps corresponding to the maximum allowed lag.
     voicing_threshold : float
         The minimum ratio between the highest peak and maximum autocorrelation
         before a frame is considered unvoiced.
 
     Returns
     -------
-    best_lag_steps : torch.Tensor
-        The number of steps between successive periods for each frame.
+    best_lag : torch.Tensor
+        The number of samples between successive periods for each frame.
     voiced : torch.Tensor
         The estimation for each frame whether it is primarily voiced or unvoiced.
     """
+    print(min_lag_samples)
+    print(max_lag_samples)
+    # print(autocorrelation[50])
     # Find k-best candidate lags for each window, excluding too-short lags.
     perfect_correlation = autocorrelation[:, 0]
-    valid_scores = autocorrelation[:, min_f0_steps:]
+    valid_scores = autocorrelation[:, min_lag_samples:max_lag_samples]
     kbest = torch.topk(valid_scores, k=10, dim=-1)
+    print(kbest.values[50])
+    print(kbest.indices[50])
 
     # Identify which frames are (un)voiced by comparing the best candidate lag's
     # autocorrelation with the maximum possible autocorrelation.
@@ -143,11 +160,9 @@ def compute_lag(autocorrelation, min_f0_steps, voicing_threshold):
     # Pick whichever kbest value is closest to the average of 5 neighbors
     # Iterate a few times to ensure stability
     best_selection = iterative_lag_selection(voiced_values, iterations=3)
-    print(best_selection.shape)
-    print(voiced_indices.shape)
     indexes = torch.arange(voiced_indices.size(0))
-    best_lag_steps = min_f0_steps + voiced_indices[indexes, best_selection]
-    return best_lag_steps, voiced
+    best_lag = min_lag_samples + voiced_indices[indexes, best_selection]
+    return best_lag, voiced
 
 
 def iterative_lag_selection(voiced_values, iterations):
