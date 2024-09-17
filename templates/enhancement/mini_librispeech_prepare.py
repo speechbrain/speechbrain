@@ -7,14 +7,14 @@ Authors:
 """
 
 import json
-import logging
 import os
 import shutil
 
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"
 MINILIBRI_VALID_URL = "http://www.openslr.org/resources/31/dev-clean-2.tar.gz"
 MINILIBRI_TEST_URL = "https://www.openslr.org/resources/12/test-clean.tar.gz"

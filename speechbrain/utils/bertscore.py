@@ -4,7 +4,6 @@ Authors
 * Sylvain de Langen 2024
 """
 
-import logging
 import math
 from collections import defaultdict
 from typing import Iterable, Optional
@@ -13,9 +12,10 @@ import torch
 
 from speechbrain.lobes.models.huggingface_transformers import TextEncoder
 from speechbrain.utils.distances import cosine_similarity_matrix
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import MetricStats
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BERTScoreStats(MetricStats):
@@ -99,9 +99,9 @@ class BERTScoreStats(MetricStats):
         ---------
         ids: list
             the string IDs for the samples
-        predictions: list
+        predict: list
             the model's predictions in tokenizable format
-        targets: list
+        target: list
             the ground truths in tokenizable format
         """
         self.ids.extend(ids)
@@ -272,7 +272,7 @@ def get_bert_token_mask(tokenizer) -> torch.BoolTensor:
 
     Arguments
     ---------
-    tokenizer
+    tokenizer : transformers.PreTrainedTokenizer
         HuggingFace tokenizer for the BERT model.
 
     Returns
@@ -312,7 +312,7 @@ def get_bertscore_token_weights(
 
     Arguments
     ---------
-    tokenizer
+    tokenizer : transformers.PreTrainedTokenizer
         HuggingFace tokenizer for the BERT model.
     corpus : Iterable[str], optional
         Iterable corpus to compute the IDF from. Each iterated value is

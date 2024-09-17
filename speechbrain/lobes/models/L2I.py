@@ -390,13 +390,8 @@ class CNN14PSI_stft(nn.Module):
     K : int
         Defines the number of output channels in the saliency map.
 
-    Returns
-    --------
-    xhat : torch.Tensor
-        Estimated saliency map (before sigmoid)
-
-    Example:
-    --------
+    Example
+    -------
     >>> from speechbrain.lobes.models.Cnn14 import Cnn14
     >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
     >>> x = torch.randn(2, 201, 80)
@@ -407,11 +402,7 @@ class CNN14PSI_stft(nn.Module):
     torch.Size([2, 20, 207])
     """
 
-    def __init__(
-        self,
-        dim=128,
-        K=100,
-    ):
+    def __init__(self, dim=128, K=100):
         super().__init__()
 
         self.convt1 = nn.ConvTranspose1d(dim, dim, 3, 2, 1)
@@ -491,13 +482,8 @@ class CNN14PSI_stft_2d(nn.Module):
     K : int
         Defines the number of output channels in the saliency map.
 
-    Returns
-    --------
-    xhat : torch.Tensor
-        Estimated saliency map (before sigmoid)
-
-    Example:
-    --------
+    Example
+    -------
     >>> from speechbrain.lobes.models.Cnn14 import Cnn14
     >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
     >>> x = torch.randn(2, 201, 80)
@@ -508,11 +494,7 @@ class CNN14PSI_stft_2d(nn.Module):
     torch.Size([2, 20, 207])
     """
 
-    def __init__(
-        self,
-        dim=128,
-        K=100,
-    ):
+    def __init__(self, dim=128, K=100):
         super().__init__()
 
         self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 4), 1)

@@ -10,10 +10,52 @@ Authors:
 import datetime
 import os
 from functools import wraps
+from typing import Optional
 
 import torch
 
 MAIN_PROC_ONLY: int = 0
+
+
+def rank_prefixed_message(message: str) -> str:
+    r"""Prefix a message with the rank of the process.
+
+    Arguments
+    ---------
+    message : str
+        The message to prefix.
+
+    Returns
+    -------
+    str
+        The message prefixed with the rank, if known.
+    """
+    rank = get_rank()
+    if rank is not None:
+        return f"[rank: {rank}] {message}"
+    return message
+
+
+def get_rank() -> Optional[int]:
+    r"""Get the rank of the current process.
+
+    This code is taken from the Pytorch Lightning library:
+    https://github.com/Lightning-AI/pytorch-lightning/blob/bc3c9c536dc88bfa9a46f63fbce22b382a86a9cb/src/lightning/fabric/utilities/rank_zero.py#L39-L48
+
+    Returns
+    -------
+    int or None
+        The rank of the current process, or None if the rank could not be determined.
+    """
+    # SLURM_PROCID can be set even if SLURM is not managing the multiprocessing,
+    # therefore LOCAL_RANK needs to be checked first
+    rank_keys = ("RANK", "LOCAL_RANK", "SLURM_PROCID", "JSM_NAMESPACE_RANK")
+    for key in rank_keys:
+        rank = os.environ.get(key)
+        if rank is not None:
+            return int(rank)
+    # None to differentiate whether an environment variable was set at all
+    return None
 
 
 def run_on_main(
@@ -25,7 +67,7 @@ def run_on_main(
     post_kwargs=None,
     run_post_on_main=False,
 ):
-    """Runs a function with DPP (multi-gpu) support.
+    r"""Runs a function with DPP (multi-gpu) support.
 
     The main function is only run on the main process.
     A post_function can be specified, to be on non-main processes after the main
@@ -74,23 +116,46 @@ def run_on_main(
             ddp_barrier()
 
 
-def if_main_process():
-    """Checks if the current process is the main process and authorized to run
-    I/O commands. The main process is the one with `RANK == 0`. In standard mode,
-    the process will not have `RANK` Unix var and will be authorized to run the I/O commands.
+def is_distributed_initialized() -> bool:
+    r"Returns whether the current system is distributed."
+    # `is_initialized` is only defined conditionally
+    # https://github.com/pytorch/pytorch/blob/v2.1.0/torch/distributed/__init__.py#L25
+    # this might happen to MacOS builds from source (default) or any build from source that sets `USE_DISTRIBUTED=0`
+    return (
+        torch.distributed.is_available() and torch.distributed.is_initialized()
+    )
+
+
+def if_main_process() -> bool:
+    r"Returns whether the current process is the main process."
+    if is_distributed_initialized():
+        return torch.distributed.get_rank() == 0
+    else:
+        return True
+
+
+class MainProcessContext:
+    r"""
+    Context manager to ensure code runs only on the main process.
+    This is useful to make sure that `MAIN_PROC_ONLY` global variable
+    is decreased even if there's an exception raised inside of
+    `main_proc_wrapped_func` fn.
     """
-    if "RANK" in os.environ:
-        if os.environ["RANK"] == "":
-            return False
-        else:
-            if int(os.environ["RANK"]) == 0:
-                return True
-            return False
-    return True
+
+    def __enter__(self):
+        r"""Enter the context. Increase the counter."""
+        global MAIN_PROC_ONLY
+        MAIN_PROC_ONLY += 1
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        r"""Exit the context. Decrease the counter."""
+        global MAIN_PROC_ONLY
+        MAIN_PROC_ONLY -= 1
 
 
 def main_process_only(function):
-    """Function decorator to ensure the function runs only on the main process.
+    r"""Function decorator to ensure the function runs only on the main process.
     This is useful for things like saving to the filesystem or logging
     to a web address where you only want it to happen on a single process.
     """
@@ -98,32 +163,47 @@ def main_process_only(function):
     @wraps(function)
     def main_proc_wrapped_func(*args, **kwargs):
         """This decorated function runs only if this is the main process."""
-        global MAIN_PROC_ONLY
-        MAIN_PROC_ONLY += 1
-        if if_main_process():
-            result = function(*args, **kwargs)
-        else:
-            result = None
-        MAIN_PROC_ONLY -= 1
-        return result
+        with MainProcessContext():
+            if if_main_process():
+                return function(*args, **kwargs)
+            else:
+                return None
 
     return main_proc_wrapped_func
 
 
 def ddp_barrier():
-    """In DDP mode, this function will synchronize all processes.
-    torch.distributed.barrier() will block processes until the whole
-    group enters this function.
+    r"""
+    Synchronize all processes in distributed data parallel (DDP) mode.
+
+    This function blocks the execution of the current process until all
+    processes in the distributed group have reached the same point. It ensures
+    that no process moves ahead until every other process has also reached this
+    barrier. If DDP is not being used (i.e., only one process is running),
+    this function has no effect and immediately returns.
+
+    Returns
+    -------
+    None
+
+
+    Example
+    -------
+    >>> ddp_barrier()
+    >>> print("hello world")
+    hello world
     """
-    # Check if we're in a single-threaded section, skip barrier
-    if MAIN_PROC_ONLY >= 1:
+    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
         return
-    elif torch.distributed.is_initialized():
+
+    if torch.distributed.get_backend() == torch.distributed.Backend.NCCL:
+        torch.distributed.barrier(device_ids=[torch.cuda.current_device()])
+    else:
         torch.distributed.barrier()
 
 
 def ddp_broadcast(communication_object, src=0):
-    """In DDP mode, this function will broadcast an object to all
+    r"""In DDP mode, this function will broadcast an object to all
     processes.
 
     Arguments
@@ -138,7 +218,7 @@ def ddp_broadcast(communication_object, src=0):
     -------
     The communication_object passed on rank src.
     """
-    if MAIN_PROC_ONLY >= 1 or not torch.distributed.is_initialized():
+    if MAIN_PROC_ONLY >= 1 or not is_distributed_initialized():
         return communication_object
 
     # Wrapping object in a list is required for preventing
@@ -149,7 +229,7 @@ def ddp_broadcast(communication_object, src=0):
 
 
 def ddp_init_group(run_opts):
-    """This function will initialize the ddp group if
+    r"""This function will initialize the ddp group if
     distributed_launch bool is given in the python command line.
 
     The ddp group will use distributed_backend arg for setting the
@@ -192,6 +272,10 @@ def ddp_init_group(run_opts):
             run_opts["distributed_backend"]
             + " communication protocol doesn't exist."
         )
+
+    if run_opts["distributed_backend"] == "nccl":
+        device = torch.device(f"cuda:{local_rank}")
+        torch.cuda.set_device(device)
 
     # rank arg is used to set the right rank of the current process for ddp.
     # if you have 2 servers with 2 gpu:

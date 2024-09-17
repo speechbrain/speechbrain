@@ -387,6 +387,8 @@ def wer_details_for_batch(
     compute_alignments : bool, optional
         Whether to compute alignments or not. If computed, the details
         will also store the refs and hyps. (default: False)
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------
@@ -447,6 +449,8 @@ def wer_details_by_utterance(
         * 'strict': Raise error for missing hypotheses.
         * 'all': Score missing hypotheses as empty.
         * 'present': Only score existing hypotheses.
+    equality_comparator : Callable[[str, str], bool]
+        The function used to check whether two words are equal.
 
     Returns
     -------

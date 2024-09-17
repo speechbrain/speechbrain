@@ -19,7 +19,6 @@ Authors
 """
 
 import csv
-import logging
 import os
 import sys
 
@@ -36,6 +35,7 @@ import speechbrain.nnet.schedulers as schedulers
 from speechbrain.core import AMPConfig
 from speechbrain.processing.features import spectral_magnitude
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import MetricStats
 
 
@@ -621,7 +621,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Logger info
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     # Create experiment directory
     sb.create_experiment_directory(

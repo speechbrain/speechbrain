@@ -22,7 +22,7 @@ setup(
     description="All-in-one speech toolkit in pure Python and Pytorch",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Mirco Ravanelli & Others",
+    author="Mirco Ravanelli, Titouan Parcollet & Others",
     author_email="speechbrain@gmail.com",
     classifiers=[
         "Programming Language :: Python :: 3",
