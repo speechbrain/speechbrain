@@ -42,7 +42,12 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
+    "sphinx_copybutton",
+    "sphinx_design",
     "recommonmark",
+    # chose myst-nb over nbsphinx is annoying because of the pandoc dependency
+    # of the latter, which needs to be installed system-wide or through conda
+    "myst_nb",
 ]
 
 
@@ -67,6 +72,18 @@ intersphinx_mapping = {
     "torchaudio": ("https://pytorch.org/audio/stable/", None),
 }
 
+# Myst-NB documentation
+
+jupyter_execute_notebooks = "off"
+
+myst_enable_extensions = [
+    "amsmath",
+    "colon_fence",
+    "deflist",
+    "dollarmath",
+    "html_image",
+]
+
 # AUTODOC:
 
 autodoc_default_options = {}
@@ -83,6 +100,7 @@ autodoc_mock_imports = [
     "flair",
     "fairseq",
     "spacy",
+    "ctc_segmentation",
 ]
 
 # Order of API items:
@@ -98,7 +116,7 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_apidoc_templates"]
+exclude_patterns = ["_apidoc_templates", "build"]
 
 # Make backticks behave as inline code blocks rather than italics
 default_role = "code"
