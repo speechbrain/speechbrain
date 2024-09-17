@@ -93,6 +93,7 @@ def update_notebook(fname: str):
     """Updates the tagged programmatically updated cells, see:
 
     - `tutorials/notebook-header.md`
+    - `tutorials/notebook-footer.md`
 
     These cells are created when they don't exist, but they can be moved around
     as they are identified by their cell tag.
