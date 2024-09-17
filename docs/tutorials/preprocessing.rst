@@ -49,9 +49,11 @@ that normally helps neural networks improving generalization and thus achieve be
 
 
 In speech and audio processing, the signal in the time-domain is often transformed into another domain.
-Ok, but why do we need to transform an audio signal? Some speech characteristics/patterns of the signal (e.g, pitch, formats)
+But why do we need to transform an audio signal? This is because some speech characteristics/patterns of the signal (e.g, pitch, formats)
 might not be very evident when looking at the audio in the time-domain. With properly designed transformations,
-it might be easier to extract the needed information from the signal itself. The most popular transformation is the
+it might be easier to extract the needed information from the signal itself.
+
+The most popular transformation is the
 Fourier Transform, which turns the time-domain signal into an equivalent representation in the frequency domain.
 In the following sections, we will describe the Fourier transforms along with other related transformations such as
 Short-Term Fourier Transform (STFT) and spectrograms.

@@ -68,8 +68,9 @@ We also show how to perform inference on speech recognition, speech separation, 
 
 One key component of deep learning is iterating the dataset multiple times and performing parameter updates.
 This process is sometimes called the "training loop" and there are usually many stages to this loop.
+
 SpeechBrain provides a convenient framework for organizing the training loop, in the form of a class known as the "Brain" class,
-implemented in speechbrain/core.py. In each recipe, we sub-class this class and override the methods for which the default
+implemented in `speechbrain/core.py`. In each recipe, we sub-class this class and override the methods for which the default
 implementation doesn't do what is required for that particular recipe.
 
 .. rubric:: `🔗 HyperPyYAML Tutorial <basics/hyperpyyaml.html>`_
@@ -88,9 +89,11 @@ implementation doesn't do what is required for that particular recipe.
 
 An essential part of any deep learning pipeline is the definition of hyperparameters and other metadata.
 These data in conjunction with the deep learning algorithms control the various aspects of the pipeline,
-such as model architecture, training, and decoding. At SpeechBrain, we decided that the distinction between
+such as model architecture, training, and decoding.
+
+At SpeechBrain, we decided that the distinction between
 hyperparameters and learning algorithms ought to be evident in the structure of our toolkit, so we split our
-recipes into two primary files: experiment.py and hyperparams.yaml. The hyperparams.yaml file is in a
+recipes into two primary files: `train.py` and `hyperparams.yaml`. The `hyperparams.yaml` file is in a
 SpeechBrain-developed format, which we call "HyperPyYAML". We chose to extend YAML since it is a highly
 readable format for data serialization. By extending an already useful format, we were able to create an
 expanded definition of hyperparameter, keeping our actual experimental code small and highly readable.
@@ -111,7 +114,7 @@ expanded definition of hyperparameter, keeping our actual experimental code smal
 
 Setting up an efficient data loading pipeline is often a tedious task which involves creating the examples,
 defining your torch.utils.data.Dataset class as well as different data sampling and augmentations strategies.
-In SpeechBrain we provide efficient abstractions to simplify this time-consuming process without sacrificing
+In SpeechBrain, we provide efficient abstractions to simplify this time-consuming process without sacrificing
 flexibility. In fact our data pipeline is built around the Pytorch one.
 
 .. rubric:: `🔗 Checkpointing <basics/checkpointing.html>`_
