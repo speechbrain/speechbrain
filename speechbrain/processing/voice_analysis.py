@@ -11,7 +11,7 @@ import torch
 import torchaudio
 
 
-def estimate_f0(
+def vocal_characteristics(
     audio: torch.Tensor,
     min_f0_Hz: int = 75,
     max_f0_Hz: int = 400,
@@ -22,12 +22,13 @@ def estimate_f0(
     lowpass_frequency: int = 1000,
     voicing_threshold: float = 0.5,
 ):
-    """Estimates the fundamental frequency of a signal using auto-correlation.
+    """Estimates the vocal characteristics of a signal using auto-correlation.
+    Batched estimation is hard due to removing voiced frames, so only accepts a single sample.
 
     Arguments
     ---------
     audio: torch.Tensor
-        The audio signal being analyzed, shape: [batch, time].
+        The audio signal being analyzed, shape: [time].
     min_f0_Hz: int
         The minimum allowed fundamental frequency, to reduce octave errors.
         Default is 75 Hz, based on human voice standard frequency range.
@@ -54,7 +55,14 @@ def estimate_f0(
         A per-frame estimate of the f0 in Hz.
     voiced_frames : torch.Tensor
         The estimate for each frame if it is voiced or unvoiced.
+    jitter : torch.Tensor
+        The estimate for the jitter value for each frame.
+    shimmer : torch.Tensor
+        The estimate for the shimmer value for each frame.
     """
+
+    if audio.dim() != 1:
+        raise ValueError("Takes audio tensors of only one dimension (time)")
 
     # Max lag corresponds to min f0 and vice versa
     step_samples = int(step_size * sample_rate)
@@ -69,51 +77,46 @@ def estimate_f0(
         )
 
     # Use autocorrelation to compute an estimate of f0 for each frame
-    # Batched estimation is hard due to removing voiced frames, do this one sample at a time
-    best_lags_list, voiced_frames_list = [], []
-    for i in range(len(audio)):
-        autocorrelation = autocorrelate(audio[i], step_samples, window_samples)
-        best_lags, voiced_frames = compute_lag(
-            autocorrelation, min_lag_samples, max_lag_samples, voicing_threshold
-        )
+    windowed_audio = audio.unsqueeze(0).unfold(-1, window_samples, step_samples)
+    autocorrelation = autocorrelate(windowed_audio)
 
-        best_lags_list.append(best_lags)
-        voiced_frames_list.append(voiced_frames)
+    # Use autocorrelation to find voiced frames and estimate f0
+    best_lags, voiced_frames = compute_lag(
+        autocorrelation, min_lag_samples, max_lag_samples, voicing_threshold
+    )
+
+    # Use estimated f0 to compute jitter and shimmer
+    jitter, shimmer = compute_periodic_features(
+        windowed_audio[:, voiced_frames], best_lags
+    )
 
     # Convert to Hz
-    print(best_lags)
-    best_lags = sample_rate / torch.stack(best_lags_list, dim=0)
-    print(best_lags)
-    voiced_frames = torch.stack(voiced_frames_list, dim=0)
+    estimated_f0 = sample_rate / best_lags
 
-    return best_lags, voiced_frames
+    return estimated_f0, voiced_frames, jitter, shimmer
 
 
-def autocorrelate(audio, step_samples, window_samples):
+def autocorrelate(windowed_audio):
     """Generate autocorrelation scores using circular convolution.
 
     Arguments
     ---------
-    audio : torch.Tensor
-        The audio to be evaluated for autocorrelation, shape [time]
-    step_samples : int
-        The number of samples between the beginning of each frame.
-    window_samples : int
-        The number of samples contained in each frame.
+    windowed_audio : torch.Tensor
+        The windowed_audio to be evaluated for autocorrelation, shape [1, time, window_samples]
 
     Returns
     -------
     autocorrelation : torch.Tensor
-        The auto-correlation tensor by convolving each frame with itself.
+        The auto-correlation tensor from convolving each frame with itself.
     """
-    chunks = audio.unsqueeze(0).unfold(-1, window_samples, step_samples)
-    padded_chunks = torch.nn.functional.pad(
-        chunks, (0, window_samples // 2), mode="circular"
+    window_samples = windowed_audio.size(2)
+    padded_windows = torch.nn.functional.pad(
+        windowed_audio, (0, window_samples // 2), mode="circular"
     )
     return torch.nn.functional.conv1d(
-        input=padded_chunks,
-        weight=chunks.transpose(0, 1),
-        groups=chunks.size(1),
+        input=padded_windows,
+        weight=windowed_audio.transpose(0, 1),
+        groups=windowed_audio.size(1),
     ).squeeze(0)
 
 
@@ -141,15 +144,10 @@ def compute_lag(
     voiced : torch.Tensor
         The estimation for each frame whether it is primarily voiced or unvoiced.
     """
-    print(min_lag_samples)
-    print(max_lag_samples)
-    # print(autocorrelation[50])
     # Find k-best candidate lags for each window, excluding too-short lags.
     perfect_correlation = autocorrelation[:, 0]
     valid_scores = autocorrelation[:, min_lag_samples:max_lag_samples]
     kbest = torch.topk(valid_scores, k=10, dim=-1)
-    print(kbest.values[50])
-    print(kbest.indices[50])
 
     # Identify which frames are (un)voiced by comparing the best candidate lag's
     # autocorrelation with the maximum possible autocorrelation.
@@ -160,8 +158,7 @@ def compute_lag(
     # Pick whichever kbest value is closest to the average of 5 neighbors
     # Iterate a few times to ensure stability
     best_selection = iterative_lag_selection(voiced_values, iterations=3)
-    indexes = torch.arange(voiced_indices.size(0))
-    best_lag = min_lag_samples + voiced_indices[indexes, best_selection]
+    best_lag = min_lag_samples + select_indices(voiced_indices, best_selection)
     return best_lag, voiced
 
 
@@ -172,7 +169,7 @@ def iterative_lag_selection(voiced_values, iterations):
     n = voiced_values.size(0)
     best_selection = torch.zeros(n, dtype=int)
     for i in range(iterations):
-        best_values = voiced_values[torch.arange(n), best_selection]
+        best_values = select_indices(voiced_values, best_selection)
         averaged_voiced_values = neighbor_average(best_values, 5)
         distance = torch.abs(
             voiced_values - averaged_voiced_values.unsqueeze(1)
@@ -189,3 +186,55 @@ def neighbor_average(best_values, neighbors):
     # Use conv to compute average
     # TODO: Use median rather than mean to reduce outlier impact
     return torch.nn.functional.conv1d(values, kernel, padding="same").squeeze()
+
+
+def compute_periodic_features(voiced_windows, best_lag):
+    """Function to compute periodic features: jitter, shimmer
+
+    Arguments
+    ---------
+    voiced_windows : torch.Tensor
+        The voiced frames of the windowed audio to use for feature computation.
+    best_lag : torch.Tensor
+        The average period length for each frame.
+
+    Returns
+    -------
+    jitters : torch.Tensor
+        The average absolute deviation in period over the frame.
+    shimmers : torch.Tensor
+        The average absolute deviation in amplitude over the frame.
+    """
+
+    # Compute the peak for each window as a basis for computing periods
+    peak_indexes = torch.argmax(voiced_windows, dim=-1)
+
+    # Iterating frames is slow, but I don't see an easy way around it.
+    n = voiced_windows.size(1)
+    jitter, shimmer = torch.empty(n), torch.empty(n)
+    for i in range(n):
+        frame = voiced_windows[:, i].squeeze()
+        peak_index = peak_indexes[:, i].squeeze()
+        lag = best_lag[i]
+
+        # Cut to half period on either side, then unfold
+        front_offset = (peak_index + lag // 2) % lag
+        back_offset = (len(frame) - front_offset) % lag
+        periods = torch.reshape(frame[front_offset:-back_offset], (-1, lag))
+
+        # Compare amplitude of each period to its successor. Divide by average to get relative.
+        amplitudes = periods.abs().mean(dim=1)
+        shimmer[i] = torch.abs(amplitudes[:-1] - amplitudes[1:]).mean()
+        shimmer[i] /= amplitudes.mean()
+
+        # Compare average peak lag of each period to its successor. Divide by lag to get relative.
+        peak_lags = periods.argmax(dim=1)
+        jitter[i] = torch.abs(peak_lags[:-1] - peak_lags[1:]).float().mean()
+        jitter[i] /= lag
+
+    return jitter, shimmer
+
+
+def select_indices(tensor, indices):
+    """Utility function to extract a list of indices from a tensor"""
+    return tensor[torch.arange(tensor.size(0)), indices]
