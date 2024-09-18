@@ -16,6 +16,7 @@ from speechbrain.utils.data_utils import (
     batch_pad_right,
     mod_default_collate,
     recursive_to,
+    undo_padding,
 )
 
 PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
@@ -195,6 +196,10 @@ class PaddedBatch:
         """Returns the bach size"""
         return self.__length
 
+    def as_dict(self):
+        """Converts this batch to a dictionary"""
+        return {key: getattr(self, key) for key in self.__keys}
+
 
 class BatchsizeGuesser:
     """Try to figure out the batchsize, but never error out
@@ -277,3 +282,49 @@ class BatchsizeGuesser:
     def fallback(self, batch):
         """Implementation of fallback."""
         return 1
+
+
+def undo_batch(batch):
+    """Converts a padded batch or a dicitionary to a list of
+    dictionaries. Any instances of PaddedData encountered will
+    be converted to plain tensors
+
+    Arguments
+    ---------
+    batch: dict|speechbrain.dataio.batch.PaddedBatch
+        the batch
+
+    Returns
+    -------
+    result: dict
+        a list of dictionaries with each dictionary as a batch
+        element
+    """
+    if hasattr(batch, "as_dict"):
+        batch = batch.as_dict()
+    keys = batch.keys()
+    return [
+        dict(zip(keys, item))
+        for item in zip(
+            *[_unpack_feature(feature) for feature in batch.values()]
+        )
+    ]
+
+
+def _unpack_feature(feature):
+    """Un-batches a single feature. If a PaddedBatch is provided, it will be converted
+    to a list of unpadded tensors. Otherwise, it will be returned unmodified
+
+    Arguments
+    ---------
+    feature : any
+        The feature to un-batch
+
+    Returns
+    -------
+    features : any
+        the feature, un-batched if PaddedData was provided
+    """
+    if isinstance(feature, PaddedData):
+        feature = undo_padding(feature.data, feature.lengths, keep_tensor=True)
+    return feature

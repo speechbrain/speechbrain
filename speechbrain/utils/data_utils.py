@@ -25,7 +25,7 @@ import tqdm
 import speechbrain as sb
 
 
-def undo_padding(batch, lengths):
+def undo_padding(batch, lengths, keep_tensor=False):
     """Produces Python lists given a batch of sentences with
     their corresponding relative lengths.
 
@@ -35,6 +35,9 @@ def undo_padding(batch, lengths):
         Batch of sentences gathered in a batch.
     lengths : torch.Tensor
         Relative length of each sentence in the batch.
+    keep_tensor : bool, optional
+        If set to true, the batch elements will be returned
+        as tensors and not as lists
 
     Returns
     -------
@@ -54,7 +57,9 @@ def undo_padding(batch, lengths):
     for seq, seq_length in zip(batch, lengths):
         actual_size = int(torch.round(seq_length * batch_max_len))
         seq_true = seq.narrow(0, 0, actual_size)
-        as_list.append(seq_true.tolist())
+        if not keep_tensor:
+            seq_true.tolist()
+        as_list.append(seq_true)
     return as_list
 
 
