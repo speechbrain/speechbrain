@@ -9,6 +9,7 @@ Speech Processing Tasks
    :hidden:
 
    tasks/speech-recognition-from-scratch.ipynb
+   tasks/asr-metrics.ipynb
    tasks/source-separation.ipynb
    tasks/speech-enhancement-from-scratch.ipynb
    tasks/speech-classification-from-scratch.ipynb
@@ -29,6 +30,29 @@ Speech Processing Tasks
 
 
 Do you want to figure out how to implement your speech recognizer with SpeechBrain? Look no further, you're in the right place. This tutorial will walk you through all the steps needed to implement an offline end-to-end attention-based speech recognizer. This is a self-contained tutorial that will help you "connecting the dots" across all the steps needed to train a modern speech recognizer. We will address data preparation, tokenizer training, language model, ASR model, and inference. We will explain how to train your model on your data.
+
+.. rubric:: `🔗 Metrics for Speech Recognition <tasks/asr-metrics.html>`_
+   :heading-level: 2
+
+.. list-table::
+   :widths: 20 20 20 20 20
+   :header-rows: 0
+
+   * - de Langen S.
+     - Sep. 2024
+     - Difficulty: medium
+     - Time: 30min
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/tasks/asr-metrics.ipynb>`__
+
+
+Estimating the accuracy of a speech recognition model is not a trivial problem.
+The Word Error Rate (WER) and Character Error Rate (CER) metrics are standard,
+but some research has been trying to develop alternatives that better correlate
+with human evaluation (such as SemDist).
+
+This tutorial introduces some alternative ASR metrics and their flexible
+integration into SpeechBrain, which can help you research, use or develop new
+metrics.
 
 .. rubric:: `🔗 Source Separation <tasks/source-separation.html>`_
    :heading-level: 2
