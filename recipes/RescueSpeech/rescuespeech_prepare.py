@@ -19,7 +19,6 @@ adapted from the CommonVoice recipe)
 
 import csv
 import glob
-import logging
 import os
 import re
 import unicodedata
@@ -29,8 +28,9 @@ from tqdm import tqdm
 from tqdm.contrib import tzip
 
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_RescueSpeech(

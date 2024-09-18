@@ -6,7 +6,6 @@ Authors
 * Luca Della Libera 2024
 """
 
-import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -24,8 +23,9 @@ from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.containers import ModuleList
 from speechbrain.nnet.linear import Linear
 from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

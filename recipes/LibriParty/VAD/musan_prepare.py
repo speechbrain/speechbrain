@@ -1,12 +1,12 @@
-import logging
 import os
 
 import torchaudio
 
 import speechbrain as sb
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_musan(folder, music_csv, noise_csv, speech_csv, max_noise_len=None):

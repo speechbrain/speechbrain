@@ -13,7 +13,6 @@ Authors
  * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
-import logging
 import os
 import sys
 
@@ -22,6 +21,7 @@ from train import dataio_prep
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 # The following hyperparameters are used in dataio_prep, shared with the
 # main G2P training script:
@@ -45,7 +45,7 @@ from speechbrain.utils.distributed import run_on_main
 # - hparams["blank_index"]
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Brain class for language model training

@@ -10,7 +10,6 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
-import logging
 from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -19,11 +18,12 @@ import torch
 
 from speechbrain.lm.arpa import arpa_to_fst
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 from . import k2  # import k2 from ./__init__.py
 from . import graph_compiler, utils
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def get_decoding(

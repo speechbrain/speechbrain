@@ -14,14 +14,13 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import logging
-
 import torch
 
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HIFIGAN(Pretrained):

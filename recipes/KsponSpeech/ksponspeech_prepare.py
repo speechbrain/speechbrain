@@ -7,7 +7,6 @@ Dongwon Kim, Dongwoo Kim 2021
 """
 
 import csv
-import logging
 import os
 import re
 
@@ -15,8 +14,9 @@ import torchaudio
 
 from speechbrain.dataio.dataio import load_pkl, merge_csvs, save_pkl
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_ksponspeech_prepare.pkl"
 SAMPLERATE = 16000
 

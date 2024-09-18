@@ -20,13 +20,12 @@ Authors
  * Artem Ploujnikov 2023
 """
 
-import logging
-
 import torch
 from huggingface_hub import hf_hub_download
 from torch import nn
 
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.logger import get_logger
 
 try:
     from vocos import Vocos as VocosModel
@@ -40,7 +39,7 @@ except ImportError:
 DEFAULT_SAMPLE_RATE = 24000
 BANDWIDTHS = [1.5, 3.0, 6.0, 12.0]
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # cspell:ignore charactr

@@ -11,7 +11,6 @@ Yingzhi Wang 2023
 """
 
 import json
-import logging
 import os
 import random
 import re
@@ -21,7 +20,9 @@ import numpy as np
 from datasets.vad import write_audio
 from pydub import AudioSegment
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 combinations = ["neu_emo", "emo_neu", "neu_emo_neu", "emo_emo"]
 probabilities = np.array([0.25, 0.25, 0.25, 0.25])
 

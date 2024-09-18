@@ -8,14 +8,14 @@ Authors
 
 import csv
 import functools
-import logging
 import os
 
 import torchaudio
 
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def make_splits(sph_file, stm_file, utt_save_folder, avoid_if_shorter_than):

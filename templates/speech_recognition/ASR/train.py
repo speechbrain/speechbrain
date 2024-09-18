@@ -43,7 +43,6 @@ Authors
  * Samuele Cornell 2020
 """
 
-import logging
 import sys
 
 import torch
@@ -51,9 +50,9 @@ from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Brain class for speech recognition training
@@ -472,7 +471,7 @@ if __name__ == "__main__":
     # you can train from scratch and avoid this step.
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Trainer initialization

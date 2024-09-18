@@ -20,7 +20,6 @@ Authors
 """
 
 import csv
-import logging
 import os
 import sys
 
@@ -36,9 +35,10 @@ from tqdm import tqdm
 import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import MetricStats
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure

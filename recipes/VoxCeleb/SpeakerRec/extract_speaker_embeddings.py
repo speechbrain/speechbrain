@@ -28,7 +28,6 @@ Author
     * Nauman Dawalatabad 2020
     * Xuechen Liu 2023
 """
-import logging
 import os
 import sys
 
@@ -40,6 +39,7 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 
 def compute_embeddings_single(wavs, wav_lens, params):
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     os.makedirs(out_dir, exist_ok=True)
 
     # Logger setup
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
 

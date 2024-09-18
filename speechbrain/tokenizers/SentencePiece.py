@@ -6,7 +6,6 @@ Authors
 
 import csv
 import json
-import logging
 import os.path
 from dataclasses import dataclass
 from typing import List
@@ -17,8 +16,9 @@ import torch
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SentencePiece:
