@@ -128,18 +128,19 @@ def check_url(url, delay=0.5):
 
     Returns
     -------
-    Bool
-        False if the URL is broken, True otherwise.
+    Optional[Any]
+        Error that might have occurred. If `None`, then the URL was fetched
+        correctly. Either a status code or an exception.
     """
     try:
         response = requests.head(url)
         time.sleep(delay)
         if response.status_code == 404 or response.status_code >= 500:
-            return False
+            return response.status_code
         else:
-            return True
-    except requests.ConnectionError:
-        return False
+            return None
+    except requests.ConnectionError as e:
+        return e
 
 
 def check_links(
@@ -195,18 +196,18 @@ def check_links(
     #     print(url)
 
     # Check all the urls
-    for url, passed in zip(
+    for url, err in zip(
         all_urls.keys(),
         parallel_map(
             check_url, list(all_urls.keys()), chunk_size=1, process_count=8
         ),
     ):
 
-        if not passed:
-            print("WARNING: %s is DOWN!" % (url))
+        if err is not None:
+            print("WARNING: {url} is DOWN! got {err}")
             for path in all_urls[url]:
-                print("\t link appears in %s" % (path))
+                print(f"\t link appears in {path}")
 
-        check_test &= passed
+        check_test &= err is not None
         time.sleep(0.1)
     return check_test
