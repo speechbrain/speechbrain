@@ -21,8 +21,9 @@ DEFAULT_URL_FILE_MATCH_REGEX = r"\.(py|ipynb|md|txt|yaml|yml)$"
 # - references to `.git` repos (they can be only valid for Git)
 # - links to anything localhost (duh)
 # - links to arxiv (let's be nice on their mirrors)
+# - links to kaggle (links seem to 404 from `requests`... might be intentional. let's not bother them if they don't wanna be bothered)
 # - links to the web archive (let's be nice on their mirrors + they shouldn't go down)
-DEFAULT_URL_LINE_EXCLUDE_REGEX = r"(ignore-url-check|https://github.com/speechbrain/speechbrain\.git|https://localhost|https://arxiv.org/|web.archive.org)"
+DEFAULT_URL_LINE_EXCLUDE_REGEX = r"(ignore-url-check|https?://github\.com/speechbrain/speechbrain\.git|https?://localhost|https?://arxiv\.org/|https?://www\.kaggle\.com|https?://web\.archive\.org)"
 
 
 def find_urls_in_file(path, line_exclude_regex):
