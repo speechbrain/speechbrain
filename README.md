@@ -24,7 +24,7 @@
 - We think it is now time for a **holistic toolkit** that, mimicking the human brain, jointly supports diverse technologies for complex Conversational AI systems.
 
 - This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond.
-  
+
 - Aligned with our long-term goal of natural human-machine conversation, including for non-verbal individuals, we have recently added support for the [EEG modality](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB).
 
 
