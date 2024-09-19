@@ -25,6 +25,8 @@
 
 - This spans *speech recognition*, *speaker recognition*, *speech enhancement*, *speech separation*, *language modeling*, *dialogue*, and beyond.
 
+- Aligned with our long-term goal of natural human-machine conversation, including for non-verbal individuals, we have recently added support for the [EEG modality](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB).
+
 
 
 ## 📚 Training Recipes
@@ -173,6 +175,16 @@ The results will be saved in the `output_folder` specified in the YAML file.
 | Response Generation | [MultiWOZ](https://github.com/speechbrain/speechbrain/tree/unstable-v0.6/recipes/MultiWOZ/response_generation)| [GPT2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf), [Llama2](https://arxiv.org/abs/2307.09288) |
 | Grapheme-to-Phoneme | [LibriSpeech](https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech) | [RNN](https://arxiv.org/abs/2207.13703), [Transformer](https://arxiv.org/abs/2207.13703), [Curriculum Learning](https://arxiv.org/abs/2207.13703), [Homograph loss](https://arxiv.org/abs/2207.13703) |
 
+## 🧠 EEG Processing
+| Tasks        | Datasets           | Technologies/Models  |
+| ------------- |-------------| -----|
+| Motor Imagery | [BNCI2014001](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/MotorImagery/BNCI2014001), [BNCI2014004](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/MotorImagery/BNCI2014004), [BNCI2015001](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/MotorImagery/BNCI2015001), [Lee2019_MI](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/MotorImagery/Lee2019_MI), [Zhou201](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/MotorImagery/Zhou2016) | [EEGNet](https://github.com/speechbrain/benchmarks/blob/main/benchmarks/MOABB/models/EEGNet.py), [ShallowConvNet](https://github.com/speechbrain/benchmarks/blob/main/benchmarks/MOABB/models/ShallowConvNet.py), [EEGConformer](https://github.com/speechbrain/benchmarks/blob/main/benchmarks/MOABB/models/EEGConformer.py) |
+| P300 | [BNCI2014009](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/P300/BNCI2014009), [EPFLP300](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/P300/EPFLP300), [bi2015a](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/P300/bi2015a), | [EEGNet](https://github.com/speechbrain/benchmarks/blob/main/benchmarks/MOABB/models/EEGNet.py) |
+| SSVEP | [Lee2019_SSVEP](https://github.com/speechbrain/benchmarks/tree/main/benchmarks/MOABB/hparams/SSVEP/Lee2019_SSVEP) | [EEGNet](https://github.com/speechbrain/benchmarks/blob/main/benchmarks/MOABB/models/EEGNet.py) |
+
+
+
+
 ## 🔍 Additional Features
 
 SpeechBrain includes a range of native functionalities that enhance the development of Conversational AI technologies. Here are some examples:
@@ -222,6 +234,8 @@ We have ambitious plans for the future, with a focus on the following priorities
 - **Scale Up:** We aim to provide comprehensive recipes and technologies for training massive models on extensive datasets.
 
 - **Scale Down:** While scaling up delivers unprecedented performance, we recognize the challenges of deploying large models in production scenarios. We are focusing on real-time, streamable, and small-footprint Conversational AI.
+
+- **Multimodal Large Language Models**: We envision a future where a single foundation model can handle a wide range of text, speech, and audio tasks. Our core team is focused on enabling the training of advanced multimodal LLMs.
 
 #
 # 🤝 Contributing
