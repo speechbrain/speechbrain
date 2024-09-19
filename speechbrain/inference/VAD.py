@@ -289,17 +289,18 @@ class VAD(Pretrained):
             torch.Tensor containing 1 for speech regions and 0 for non-speech regions.
         """
         # whether the n-th frame falls below threshold and triggers deactivation
-        frame_does_not_deactivate = vad_prob < deactivation_th
+        frame_does_not_deactivate = vad_prob >= deactivation_th
 
         # always start keeping frames over activation threshold activated
         vad_th = vad_prob >= activation_th
 
-        for i in range(1, len(vad_prob)):
-            # if past frame was activated then keep activated
-            vad_th[..., i] |= vad_th[..., i - 1]
+        for i in range(1, vad_prob.shape[1]):
+            # if the previous frame was activated, then keep it activated...
+            vad_th[:, i, ...] |= vad_th[:, i - 1, ...]
 
-            # ... unless the i-th frame is below threshold
-            vad_th[..., i] &= frame_does_not_deactivate[..., i]
+            # ... unless the i-th (current) frame is below threshold
+            vad_th[:, i, ...] &= frame_does_not_deactivate[:, i, ...]
+
         return vad_th
 
     def get_boundaries(self, prob_th, output_value="seconds"):
