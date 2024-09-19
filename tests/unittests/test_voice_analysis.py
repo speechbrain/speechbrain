@@ -12,8 +12,8 @@ def test_voice_analysis():
     from speechbrain.processing.voice_analysis import vocal_characteristics
 
     # Create 3-second pure tone wave with known f0
-    sample_rate = 44100
-    frequency = 220
+    sample_rate = 16000
+    frequency = 150
     duration = 3
     values = [
         frequency * 2 * torch.pi * x / sample_rate
@@ -26,7 +26,7 @@ def test_voice_analysis():
         tone, sample_rate=sample_rate
     )
 
-    assert all(abs(estimated_f0[5:-5] - frequency) < 5)
+    assert all(abs(estimated_f0 - frequency) < 2)
 
-    assert all(jitter[5:-5] < 0.02)
-    assert all(shimmer[5:-5] < 0.001)
+    assert all(jitter < 0.01)
+    assert all(shimmer < 0.001)
