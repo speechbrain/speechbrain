@@ -7,21 +7,27 @@ Authors
 
 import os
 import re
+import subprocess
 import time
 
 import requests
-from tqdm.contrib import tqdm
 
-from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.parallel import parallel_map
+
+DEFAULT_URL_FILE_MATCH_REGEX = r"\.(py|ipynb|md|txt|yaml|yml)$"
+DEFAULT_URL_LINE_EXCLUDE_REGEX = r"(ignore-url-check|https://github.com/speechbrain/speechbrain\.git|https://localhost)"
 
 
-def get_url(path):
+def find_urls_in_file(path, line_exclude_regex):
     """This function searches for the URLs in the specified file.
 
     Arguments
     ---------
     path: path
         Path of the file where to search for URLs.
+    line_exclude_regex: Optional[str]
+        If a line containing an URL has any match with this regular-expression,
+        then the URL is ignored and won't be checked for this line.
 
     Returns
     -------
@@ -37,6 +43,13 @@ def get_url(path):
     with open(path, "r") as file:
         text = file.read()
 
+    lines = text.split("\n")
+    if line_exclude_regex is not None:
+        lines = [
+            line for line in lines if not re.search(line_exclude_regex, line)
+        ]
+    text = "\n".join(lines)
+
     # Set up Regex for URL detection
     url_regex = re.compile(
         r"((https?):((//)|(\\\\))+([\w\d:#@%/;$()~_?\+-=\\\.&](#!)?)*)",
@@ -47,7 +60,7 @@ def get_url(path):
     return list(set(urls))
 
 
-def get_all_urls(file_lst, avoid_urls):
+def get_all_urls(file_lst, avoid_urls, line_exclude_regex):
     """This function searches for all the URLs in the specified file list
 
     Arguments
@@ -56,6 +69,9 @@ def get_all_urls(file_lst, avoid_urls):
         List of the files where to search for URLs.
     avoid_urls: list
         List of URLs to avoid.
+    line_exclude_regex: str
+        If a line containing an URL has any match with this regular-expression,
+        then the URL is ignored and won't be checked for this line.
 
     Returns
     -------
@@ -68,18 +84,26 @@ def get_all_urls(file_lst, avoid_urls):
     for path in file_lst:
         if ".gz" in path:
             continue
-        print(path)
-        urls = get_url(path)
+
+        urls = find_urls_in_file(path, line_exclude_regex)
 
         for url in urls:
-
             # Clean up urls
-            url = url[0].split(")")[0]
+            if "(" not in url:
+                # heuristic: if there is a '(' in the URL assume that a later
+                # ')' (including at the end) is probably intentional...
+                url = url[0].split(")")[0]
+
+            # common in jupyter notebook
+            if url.endswith("\\n"):
+                url = url[:-2]
+
             if (
                 url[-1] == "."
                 or url[-1] == ","
                 or url[-1] == " "
                 or url[-1] == "/"
+                or url[-1] == "\\"
             ):
                 url = url[:-1]
 
@@ -92,13 +116,15 @@ def get_all_urls(file_lst, avoid_urls):
     return all_urls
 
 
-def check_url(url):
+def check_url(url, delay=0.5):
     """Checks if an URL is broken
 
     Arguments
     ---------
     url: string
         URL to check
+    delay: float
+        Time to wait after a request
 
     Returns
     -------
@@ -107,7 +133,8 @@ def check_url(url):
     """
     try:
         response = requests.head(url)
-        if response.status_code == 404 or response.status_code > 499:
+        time.sleep(delay)
+        if response.status_code == 404 or response.status_code >= 500:
             return False
         else:
             return True
@@ -117,25 +144,27 @@ def check_url(url):
 
 def check_links(
     folder=".",
-    match_or=[".py", ".md", ".txt"],
-    exclude_or=[".pyc"],
-    avoid_files=[""],
+    file_match_regex=DEFAULT_URL_FILE_MATCH_REGEX,
+    line_exclude_regex=DEFAULT_URL_LINE_EXCLUDE_REGEX,
     avoid_urls=["http:/", "http://", "https:/", "https://"],
 ):
-    """This test checks if the files in the specified folders contain broken URLs
+    """This test checks if files indexed by git in the given folder contain any
+    URL which, when fetched using `requests.head`, returns a 404 error or an
+    error code `>= 500`.
 
     Arguments
     ---------
     folder: path
-        The top Folder for searching for the files.
-    match_or: list
-        Used to specify the extensions of the files to check.
-    exclude_or: list
-        Used to avoid some file extensions.
-    avoid_files: list
-        Used to avoid testing some specific file.
+        The top Folder for searching for the files. This string should be
+        trusted as it is not escaped for the shell.
+    file_match_regex: Optional[str]
+        If a file path has any match with this regular expression, then it is a
+        candidate for URL checking.
+    line_exclude_regex: Optional[str]
+        If a line containing an URL has any match with this regular-expression,
+        then the URL is ignored and won't be checked for this line.
     avoid_urls: list
-        Used to avoid certain urls.
+        Exclude URLs that strictly match any of the values in the list.
 
     Returns
     -------
@@ -144,18 +173,40 @@ def check_links(
     """
     check_test = True
     # Find all the files that potentially contain urls
-    file_lst = get_all_files(folder, match_or=match_or, exclude_or=exclude_or)
+    file_lst = (
+        subprocess.check_output(f"git ls-files {folder}", shell=True)
+        .decode("utf-8")
+        .split("\n")
+    )
+    print(f"Unfiltered file count: {len(file_lst)}")
+
+    if file_match_regex is not None:
+        file_lst = [
+            path for path in file_lst if re.search(file_match_regex, path)
+        ]
+        print(f"Filtered file count: {len(file_lst)}")
 
     # Get urls for the list of files - unique list
-    all_urls = get_all_urls(file_lst, avoid_urls)
+    all_urls = get_all_urls(file_lst, avoid_urls, line_exclude_regex)
+
+    print(f"Found {len(all_urls)} URLs to check")
+
+    # for url in all_urls.keys():
+    #     print(url)
 
     # Check all the urls
-    with tqdm(all_urls) as all_urls_progressbar:
-        for url in all_urls_progressbar:
-            time.sleep(1)
-            if not check_url(url):
-                check_test = False
-                print("WARNING: %s is DOWN!" % (url))
-                for path in all_urls[url]:
-                    print("\t link detected in %s" % (path))
+    for url, passed in zip(
+        all_urls.keys(),
+        parallel_map(
+            check_url, list(all_urls.keys()), chunk_size=1, process_count=8
+        ),
+    ):
+
+        if not passed:
+            print("WARNING: %s is DOWN!" % (url))
+            for path in all_urls[url]:
+                print("\t link appears in %s" % (path))
+
+        check_test &= passed
+        time.sleep(0.1)
     return check_test
