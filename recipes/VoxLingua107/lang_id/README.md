@@ -52,7 +52,7 @@ python create_wds_shards.py /data/voxlingua107/dev/ /data/voxlingua107_shards/de
 
 ### 2nd option: download the pre-compiled WebDataset shards
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > As of 2024-09-19, according to the
 > [official website](https://bark.phon.ioc.ee/voxlingua107/), the pre-compiled
 > WebDataset shards are currently unavailable. As a result, this method is
