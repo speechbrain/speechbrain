@@ -218,7 +218,7 @@ SpeechBrain is rapidly evolving, with ongoing efforts to support a growing array
 
 - SpeechBrain integrates a variety of technologies, including those that achieves competitive or state-of-the-art performance.
 
-- For a comprehensive overview of the achieved performance across different tasks, datasets, and technologies, please visit [here](https://github.com/speechbrain/speechbrain/blob/develop/PERFORMANCE.md).
+- For a comprehensive overview of the achieved performance across different tasks, datasets, and technologies, please visit [here](PERFORMANCE.md).
 
 #
 # 📜 License
