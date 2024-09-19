@@ -52,6 +52,12 @@ python create_wds_shards.py /data/voxlingua107/dev/ /data/voxlingua107_shards/de
 
 ### 2nd option: download the pre-compiled WebDataset shards
 
+> [!IMPORTANT]  
+> As of 2024-09-19, according to the
+> [official website](https://bark.phon.ioc.ee/voxlingua107/), the pre-compiled
+> WebDataset shards are currently unavailable. As a result, this method is
+> likely broken. If you get a 503 error, it is because of that.
+
 Download the shards:
 
 ```
@@ -59,7 +65,7 @@ Download the shards:
 cd /data/
 mkdir voxlingua107_shards
 cd voxlingua107_shards
-wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
+wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/  # ignore-url-check
 ```
 
 ## Installing Extra Dependencies
