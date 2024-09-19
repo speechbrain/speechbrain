@@ -165,7 +165,7 @@ BLOB_NAMES = [
 ]
 
 AZURE_URL = (
-    "https://dns4public.blob.core.windows.net/dns4archive/datasets_fullband"
+    "https://dns4public.blob.core.windows.net/dns4archive/datasets_fullband"  # noqa ignore-url-check
 )
 
 # Impulse response and Blind testset
