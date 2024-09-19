@@ -97,10 +97,7 @@ def get_all_urls(file_lst, avoid_urls, line_exclude_regex):
 
         for url in urls:
             # Clean up urls
-            if "(" not in url:
-                # heuristic: if there is a '(' in the URL assume that a later
-                # ')' (including at the end) is probably intentional...
-                url = url[0].split(")")[0]
+            url = url[0].split(")")[0]
 
             # common in jupyter notebook
             if url.endswith("\\n"):
