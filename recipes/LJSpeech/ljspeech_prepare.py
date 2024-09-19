@@ -114,8 +114,8 @@ def prepare_ljspeech(
     frozen_split_path : str | path-like
         The path to the frozen split file (used to standardize multiple
         experiments)
-    device : str
-        Device for to be used for computation (used as required)
+    device : str | torch.device
+        The device for to be used for computation
 
     Returns
     -------

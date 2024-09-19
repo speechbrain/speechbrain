@@ -1,0 +1,437 @@
+# ############################################################################
+# Model: Tokenized TTS (WhisperSpeech-inspired)
+# Authors:  Artem Ploujnikov
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+
+seed: 74443
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+output_folder: !ref results/transformer/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e.g., /path/to/LibriSpeech
+data_folder_alignments: null
+prepare_save_folder: !ref <data_folder>/prepared
+pretrained_model_save_folder: !ref <prepare_save_folder>
+ssl_model_type: wavlm
+representation_mode: discrete
+vocoder_model_name: !ref unithifigan-<ssl_model_type>-<representation_mode>-ms
+vocoder_model_path: !ref <pretrained_model_save_folder>/<vocoder_model_name>
+prepare_archive_path: null
+prepare_skip_ignore_folders: False
+data_mode: lite
+train_json: !ref <prepare_save_folder>/train.json
+valid_json: !ref <prepare_save_folder>/valid.json
+test_json: !ref <prepare_save_folder>/test.json
+train_split: !apply:speechbrain.utils.hparams.choice
+    value: !ref <data_mode>
+    choices:
+        lite: ["train-clean-100"]
+        clean: ["train-clean-100", "train-clean-360"]
+        full: ["train-clean-100", "train-clean-360", "train-other-500"]
+valid_split: ["dev-clean"]
+test_split: ["test-clean"]
+frozen_split_path: null
+sample_path: null
+progress_folder: !ref <output_folder>/progress
+progress_archive: !ref <progress_folder>/progress.tar
+progress_current: !ref <progress_folder>/current
+progress_meta: !ref <progress_folder>/meta.yaml
+num_audio_samples: 32
+samples_interval: 5
+freeze_token_model: True
+
+token_model_src: !apply:speechbrain.utils.hparams.choice
+    value: !ref <ssl_model_type>
+    choices:
+        wavlm: microsoft/wavlm-large
+        hubert: facebook/hubert-large-ll60k
+        wav2vec2: facebook/wav2vec2-large-960h-lv60-self
+g2p_src: flexthink/soundchoice-g2p
+token_model_kmeans_src: poonehmousavi/SSL_Quantization
+token_model_kmeans_dataset: LibriSpeech-100-360-500
+ssl_model_layers: [1, 3, 7, 12, 18, 23]
+token_model_layers: !ref <ssl_model_layers>
+select_layers: null
+token_offset: 1
+vocoder_src_discrete: !apply:speechbrain.utils.hparams.choice
+    value: !ref <ssl_model_type>
+    choices:
+        wavlm: chaanks/hifigan-wavlm-l1-3-7-12-18-23-k1000-LibriTTS
+        hubert: chaanks/hifigan-hubert-l1-3-7-12-18-23-k1000-LibriTTS
+        wav2vec2: chaanks/hifigan-wav2vec-l1-3-7-12-18-23-k1000-LibriTTS
+vocoder_src_continous: !apply:speechbrain.utils.hparams.choice
+    value: !ref <ssl_model_type>
+    choices:
+        wavlm: chaanks/hifigan-wavlm-l1-3-7-12-18-23-LibriTTS
+        hubert: chaanks/hifigan-hubert-l1-3-7-12-18-23-LibriTTS
+        wav2vec2: chaanks/hifigan-wav2vec-l1-3-7-12-18-23-LibriTTS
+vocoder_src: !apply:speechbrain.utils.hparams.choice
+    value: !ref <representation_mode>
+    choices:
+        discrete: !ref <vocoder_src_discrete>
+        continuous: !ref <vocoder_src_continous>
+vocoder_available_layers: [1, 3, 7, 12, 18, 23]
+vocoder_takes_spk_emb: True
+spk_emb_src: speechbrain/spkrec-ecapa-voxceleb-mel-spec
+spk_emb_discrete_src: !apply:speechbrain.utils.hparams.choice
+    value: !ref <ssl_model_type>
+    choices:
+        wavlm: flexthink/discrete_wavlm_spk_rec_ecapatdn_lite
+        hubert: flexthink/discrete_hubert_spk_rec_ecapatdn_lite
+        wav2vec2: flexthink/discrete_wav2vec2_spk_rec_ecapatdn_lite
+asr_src: speechbrain/asr-transformer-transformerlm-librispeech
+spk_emb_shuffle: True
+
+splits: ["train", "valid", "test"]
+split_ratio: [90, 5, 5]
+
+
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
+# Training parameters
+input: text
+number_of_epochs: 1000
+reset_annealing_epoch: null
+batch_size: 16
+batch_size_guided: 2
+extract_features_batch_size: 32
+grad_accumulation_factor: 1
+max_grad_norm: 0.01
+sorting: random
+num_workers: 4
+skip_prep: False
+overfit_test: False
+overfit_test_sample_count: !ref <batch_size>
+overfit_test_epoch_data_count: 1000
+
+
+# index
+pad_index: 0
+bos_index: 0
+bos_width: 1
+eos_index: 0
+eos_width: 1
+audio_token_shift: 0
+
+# stages related parameters
+lr: 0.0005
+lr_warmup_steps: 10000
+lr_annealing_mode: step
+guided_attention_weight: 50.0
+guided_attention_sigma: 0.5
+gate_loss_weight: 1.0
+gate_threshold: 0.5
+gate_loss_beta: 0.2
+gate_loss_gamma: 0.01
+gate_loss_max_weight: 1.
+
+# Inference parameters
+inference_mode: autoregressive
+eos_mode: gate
+decoder_mode: autoregressive
+scale_factor: 4
+
+# Embedding Injection
+spk_emb_injection: null
+
+# Beam Search-specific parameters
+min_decode_ratio: 1.0
+max_decode_ratio: 10.0
+beam_size: 5
+
+
+# Feature parameters
+sample_rate: 24000
+model_sample_rate: 16000
+max_audio_length: 2000
+infer_max_audio_length: !ref <max_audio_length>
+debug_infer_max_audio_length: 10
+
+# Label encoder
+label_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+token_list_file_text: ./hparams/char_en.txt
+token_list_file_phn: ./hparams/arpabet.txt
+token_list_file: !apply:speechbrain.utils.hparams.choice
+    value: !ref <input>
+    choices:
+        text: !ref <token_list_file_text>
+        phonemes: !ref <token_list_file_phn>
+
+# Gate offset
+gate_offset: !apply:speechbrain.lobes.models.discrete.Tokotron.distance_diff_loss_ramp
+    beta: !ref <gate_loss_beta>
+    gamma: !ref <gate_loss_gamma>
+    max_weight: !ref <gate_loss_max_weight>
+
+silence_padding: !ref <gate_offset>
+use_silence_padding: True
+
+
+# Token model (pretrained)
+ssl_model: !apply:speechbrain.utils.hparams.choice
+    value: !ref <ssl_model_type>
+    choices:
+        wavlm: !new:speechbrain.lobes.models.huggingface_transformers.wavlm.WavLM
+            source: !ref <token_model_src>
+            save_path: !ref <pretrained_model_save_folder>
+            freeze: !ref <freeze_token_model>
+            output_all_hiddens: True
+        hubert: !new:speechbrain.lobes.models.huggingface_transformers.hubert.HuBERT
+            source: !ref <token_model_src>
+            save_path: !ref <pretrained_model_save_folder>
+            freeze: !ref <freeze_token_model>
+            output_all_hiddens: True
+        wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+            source: !ref <token_model_src>
+            save_path: !ref <pretrained_model_save_folder>
+            freeze: !ref <freeze_token_model>
+            output_all_hiddens: True
+
+
+token_model: !new:speechbrain.lobes.models.huggingface_transformers.discrete_ssl.DiscreteSSL
+    ssl_model: !ref <ssl_model>
+    kmeans_repo_id: !ref <token_model_kmeans_src>
+    kmeans_dataset: !ref <token_model_kmeans_dataset>
+    num_clusters: !ref <audio_num_tokens>
+    save_path: !ref <pretrained_model_save_folder>
+    layers_num: !ref <token_model_layers>
+
+spk_emb_model: !name:speechbrain.inference.encoders.MelSpectrogramEncoder.from_hparams
+    source: !ref <spk_emb_src>
+    savedir: !ref <pretrained_model_save_folder>/ecapa
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
+
+valid_dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
+
+test_dataloader_opts:
+    batch_size: 1
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
+
+sample_dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+    collate_fn: !name:speechbrain.dataio.batch.PaddedBatch
+        padding_kwargs:
+            value: !ref <pad_index>
+
+token_model_kwargs:
+    SSL_layers: !ref <token_model_layers>
+    deduplicates: null
+    bpe_tokenizers: null
+
+extract_features_opts:
+    dataloader_opts:
+        batch_size: !ref <extract_features_batch_size>
+        num_workers: !ref <num_workers>
+    token_model: !ref <token_model>
+    token_model_kwargs: !ref <token_model_kwargs>
+    ssl_model: !ref <ssl_model>
+    ssl_model_layers: !ref <ssl_model_layers>
+    token_model_layers: !ref <token_model_layers>
+    sample_rate: !ref <sample_rate>
+    model_sample_rate: !ref <model_sample_rate>
+    spk_emb_model: !ref <spk_emb_model>
+    data_folder_alignments: !ref <data_folder_alignments>
+
+
+####################### Model parameters ###########################
+# Transformer
+d_model: 512
+nhead: 4
+enc_num_layers: 6
+dec_num_layers: 12
+layerwise_renorm: True
+d_ffn: 2048
+transformer_dropout: 0.2
+target_dropout: 0.2
+emb_dropout: 0.0
+activation: !name:torch.nn.GELU
+audio_num_tokens: 1000
+audio_dim: 1024
+audio_emb_size: !apply:speechbrain.utils.hparams.choice
+    value: !ref <representation_mode>
+    choices:
+        discrete: 1024
+        continuous: 128
+audio_emb_freeze: False
+audio_emb_lr: 0.00001
+audio_emb_weight_decay: 0.001
+audio_emb_pretrained: False
+text_num_tokens: 39
+phn_num_tokens: 52
+input_num_tokens: !apply:speechbrain.utils.hparams.choice
+    value: !ref <input>
+    choices:
+        text: !ref <text_num_tokens>
+        phonemes: !ref <phn_num_tokens>
+audio_tokens_per_step: 6
+attention_type: regularMHA
+
+############################## models ################################
+
+vocoder_layers: !apply:speechbrain.utils.hparams.choice
+    value: !ref <select_layers>
+    default: !ref <select_layers>
+    choices:
+        null: !ref <token_model_layers>
+
+vocoder_discrete: !name:speechbrain.inference.vocoders.HierarchicalUnitWrapper
+    model: !name:speechbrain.inference.vocoders.UnitHIFIGAN.from_hparams
+        source: !ref <vocoder_src>
+        savedir: !ref <vocoder_model_path>
+    available_layers: !ref <vocoder_available_layers>
+    layers: !ref <token_model_layers>
+    num_units: !ref <audio_num_tokens>
+    offset: !ref <token_offset>
+
+vocoder_continuous: !name:speechbrain.inference.vocoders.VocoderWrapper
+    model: !name:speechbrain.inference.vocoders.HIFIGAN.from_hparams
+        source: !ref <vocoder_src>
+        savedir: !ref <vocoder_model_path>
+
+vocoder: !apply:speechbrain.utils.hparams.choice
+    value: !ref <representation_mode>
+    apply: True
+    choices:
+        discrete: !ref <vocoder_discrete>
+        continuous: !ref <vocoder_continuous>
+
+inference_search: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronSearchInference
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
+    min_decode_ratio: !ref <min_decode_ratio>
+    max_decode_ratio: !ref <max_decode_ratio>
+    beam_size: !ref <beam_size>
+    using_eos_threshold: False
+    length_normalization: True
+    audio_token_shift: !ref <audio_token_shift>
+
+inference_forward: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronForwardInference
+    scale_factor: !ref <scale_factor>
+    gate_threshold: !ref <gate_threshold>
+    eos_mode: !ref <eos_mode>
+    representation_mode: !ref <representation_mode>
+
+inference: !apply:speechbrain.utils.hparams.choice
+    value: !ref <inference_mode>
+    choices:
+        search: !ref <inference_search>
+        forward: !ref <inference_forward>
+
+emb:
+    spk:
+        kind: "pretrained"
+        dim: 192
+        vocoder: True
+        injection: !ref <spk_emb_injection>
+
+model: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronTransformerModel # yamllint disable-line rule:line-length
+    input_num_tokens: !ref <input_num_tokens>
+    audio_num_tokens: !ref <audio_num_tokens>
+    audio_tokens_per_step: !ref <audio_tokens_per_step>
+    d_model: !ref <d_model>
+    d_ffn: !ref <d_ffn>
+    nhead: !ref <nhead>
+    enc_num_layers: !ref <enc_num_layers>
+    dec_num_layers: !ref <dec_num_layers>
+    dropout: !ref <transformer_dropout>
+    target_dropout: !ref <target_dropout>
+    emb_dropout: !ref <emb_dropout>
+    activation: !ref <activation>
+    attention_type: !ref <attention_type>
+    vocoder: !ref <vocoder>
+    gate_threshold: !ref <gate_threshold>
+    gate_offset: !ref <gate_offset>
+    audio_emb_size: !ref <audio_emb_size>
+    audio_emb_freeze: !ref <audio_emb_freeze>
+    max_audio_length: !ref <max_audio_length>
+    inference: !ref <inference>
+    eos_mode: !ref <eos_mode>
+    infer_max_audio_length: !ref <infer_max_audio_length>
+    audio_token_shift: !ref <audio_token_shift>
+    decoder_mode: !ref <decoder_mode>
+    scale_factor: !ref <scale_factor>
+    representation_mode: !ref <representation_mode>
+    emb: !ref <emb>
+    layerwise_renorm: !ref <layerwise_renorm>
+
+modules:
+    model: !ref <model>
+    vocoder: !ref <vocoder>
+    compute_cost: !ref <compute_cost>
+
+# define two optimizers here for two-stage training
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+compute_cost: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronLoss
+    guided_attention_weight: !ref <guided_attention_weight>
+    guided_attention_sigma: !ref <guided_attention_sigma>
+    gate_weight: !ref <gate_loss_weight>
+    gate_beta: !ref <gate_loss_beta>
+    gate_gamma: !ref <gate_loss_gamma>
+    gate_max_weight: !ref <gate_loss_max_weight>
+    silence_padding: !ref <silence_padding>
+    bos_width: !ref <bos_width>
+    eos_mode: !ref <eos_mode>
+    eos_index: !ref <eos_index>
+    eos_width: !ref <eos_width>
+    audio_tokens_per_step: !ref <audio_tokens_per_step>
+    audio_token_shift: !ref <audio_token_shift>
+    representation_mode: !ref <representation_mode>
+
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: !ref <lr_warmup_steps>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        lr_scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+freezer: !new:speechbrain.dataio.preparation.Freezer
+    save_path: !ref <prepare_save_folder>
+    archive_path: !ref <prepare_archive_path>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+progress_logger: !new:speechbrain.utils.train_logger.ArchiveTrainLogger
+    current_path: !ref <progress_current>
+    archive_path: !ref <progress_archive>
+    meta_path: !ref <progress_meta>
+    epoch_counter: !ref <epoch_counter>
+
+progress_report: !new:speechbrain.utils.tts.TTSProgressReport
+    logger: !ref <progress_logger>
+    sample_rate: !ref <model_sample_rate>
+    eos_threshold: !ref <gate_threshold>
+
+
+spk_sampler: !name:speechbrain.dataio.sampler.ReproducibleRandomSampler
+    seed: !ref <seed>

@@ -1257,6 +1257,13 @@ class TokotronTransformerModel(nn.Module):
         self.scale_factor = scale_factor
         self.representation_mode = RepresentationMode(representation_mode)
         self.audio_dim = audio_dim
+        if emb is not None:
+            self.emb_proj = self._build_emb_proj(emb)
+            self.vocoder_emb = [
+                key
+                for key, emb_config in emb.items()
+                if emb_config.get("vocoder")
+            ]
         self.emb_dropout = emb_dropout
 
     def _build_emb_proj(self, emb):
