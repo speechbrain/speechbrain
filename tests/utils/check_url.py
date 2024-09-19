@@ -124,7 +124,10 @@ def get_all_urls(file_lst, avoid_urls, line_exclude_regex):
 
 
 def check_url(url, delay=0.5):
-    """Checks if an URL is broken
+    """Checks if an URL is broken. This does NOT perform SSL verification.
+    The MITM risk is basically nil here as we don't need to trust the contents,
+    and it works around some broken requests for certain websites and
+    configurations.
 
     Arguments
     ---------
@@ -140,7 +143,7 @@ def check_url(url, delay=0.5):
         correctly. Either a status code or an exception.
     """
     try:
-        response = requests.head(url)
+        response = requests.head(url, verify=False)
         time.sleep(delay)
         if response.status_code == 404 or response.status_code >= 500:
             return response.status_code
@@ -199,8 +202,8 @@ def check_links(
 
     print(f"Found {len(all_urls)} URLs to check")
 
-    # for url in all_urls.keys():
-    #     print(url)
+    for url in all_urls.keys():
+        print(url)
 
     # Check all the urls
     for url, err in zip(
