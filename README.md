@@ -166,7 +166,7 @@ The results will be saved in the `output_folder` specified in the YAML file.
 | Self-Supervised Learning | [CommonVoice](recipes/CommonVoice), [LibriSpeech](recipes/LibriSpeech) | [wav2vec2](https://arxiv.org/abs/2006.11477) |
 | Metric Learning | [REAL-M](recipes/REAL-M/sisnr-estimation), [Voicebank](recipes/Voicebank) | [Blind SNR-Estimation](https://arxiv.org/abs/2002.08909), [PESQ Learning](https://arxiv.org/abs/2110.05866) |
 | Alignment | [TIMIT](recipes/TIMIT) | [CTC](https://www.cs.toronto.edu/~graves/icml_2006.pdf), [Viterbi](https://www.cs.cmu.edu/~cga/behavior/rabiner1.pdf), [Forward Forward](https://www.cs.cmu.edu/~cga/behavior/rabiner1.pdf) |
-| Diarization | [AMI](recipes/AMI) | [ECAPA-TDNN](https://arxiv.org/abs/2005.07143), [X-vectors](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf), [Spectral Clustering](http://www.ifp.illinois.edu/~hning2/papers/Ning_spectral.pdf) |
+| Diarization | [AMI](recipes/AMI) | [ECAPA-TDNN](https://arxiv.org/abs/2005.07143), [X-vectors](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf), [Spectral Clustering](https://web.archive.org/web/20240305184559/http://www.ifp.illinois.edu/~hning2/papers/Ning_spectral.pdf) |
 
 ## 📝 Text Processing
 | Tasks        | Datasets           | Technologies/Models  |
