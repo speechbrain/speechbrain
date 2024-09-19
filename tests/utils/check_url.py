@@ -204,7 +204,7 @@ def check_links(
     ):
 
         if err is not None:
-            print("WARNING: {url} is DOWN! got {err}")
+            print(f"WARNING: {url} is DOWN! got {err}")
             for path in all_urls[url]:
                 print(f"\t link appears in {path}")
 
