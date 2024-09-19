@@ -285,7 +285,7 @@ class VAD(Pretrained):
 
         Returns
         -------
-        vad_th: torch.Tensor
+        vad_th: torch.BoolTensor
             torch.Tensor containing 1 for speech regions and 0 for non-speech regions.
         """
         # whether the n-th frame falls below threshold and triggers deactivation
