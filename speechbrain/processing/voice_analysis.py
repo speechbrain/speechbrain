@@ -152,40 +152,40 @@ def compute_lag(
     # Identify which frames are (un)voiced by comparing the best candidate lag's
     # autocorrelation with the maximum possible autocorrelation.
     voiced = kbest.values[:, 0] > perfect_correlation * voicing_threshold
-    voiced_values = kbest.values[voiced]
-    voiced_indices = kbest.indices[voiced]
+    kbest_lags = kbest.indices[voiced]
 
-    # Pick whichever kbest value is closest to the average of 5 neighbors
+    # Pick whichever lag is closest to the average of 5 neighbors
     # Iterate a few times to ensure stability
-    best_selection = iterative_lag_selection(voiced_values, iterations=3)
-    best_lag = min_lag_samples + select_indices(voiced_indices, best_selection)
+    best_lag = iterative_lag_selection(kbest_lags, iterations=3)
+    best_lag += min_lag_samples
     return best_lag, voiced
 
 
-def iterative_lag_selection(voiced_values, iterations):
+def iterative_lag_selection(kbest_lags, iterations):
     """Select the best lag out of available options by comparing
     to an average of neighboring lags to reduce jumping octaves."""
     # kbest returns sorted list, first entry should be the highest autocorrelation
-    n = voiced_values.size(0)
-    best_selection = torch.zeros(n, dtype=int)
+    best_lag = kbest_lags[:, 0]
     for i in range(iterations):
-        best_values = select_indices(voiced_values, best_selection)
-        averaged_voiced_values = neighbor_average(best_values, 5)
-        distance = torch.abs(
-            voiced_values - averaged_voiced_values.unsqueeze(1)
-        )
+        averaged_lag = neighbor_average(best_lag.float(), 5)
+        distance = torch.abs(kbest_lags - averaged_lag.unsqueeze(1))
         best_selection = torch.argmin(distance, dim=-1)
-    return best_selection
+        best_lag = select_indices(kbest_lags, best_selection)
+    return best_lag
 
 
 def neighbor_average(best_values, neighbors):
     """Use convolutional kernel to average the neighbors."""
     kernel = torch.ones(1, 1, neighbors) / neighbors
-    values = best_values[None, None, :]
+    values = torch.nn.functional.pad(
+        best_values[None, None, :],
+        pad=(neighbors // 2, neighbors // 2),
+        mode="reflect",
+    )
 
     # Use conv to compute average
     # TODO: Use median rather than mean to reduce outlier impact
-    return torch.nn.functional.conv1d(values, kernel, padding="same").squeeze()
+    return torch.nn.functional.conv1d(values, kernel).squeeze()
 
 
 def compute_periodic_features(voiced_windows, best_lag):
