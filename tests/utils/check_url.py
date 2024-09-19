@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import time
+import warnings
 
 import requests
 
@@ -141,7 +142,8 @@ def check_url(url, delay=0.5):
         correctly. Either a status code or an exception.
     """
     try:
-        response = requests.head(url, verify=False)
+        with warnings.catch_warnings(action="ignore"):
+            response = requests.head(url, verify=False)
         time.sleep(delay)
         if response.status_code == 404 or response.status_code >= 500:
             return response.status_code
