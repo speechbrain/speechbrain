@@ -46,7 +46,7 @@ These will automatically check the code when you commit and when you push.
 
 ## Important code guidelines
 
-See documentation for the currently supported version.
+We target a specific range of supported Python versions, which are tested via CI.
 
 ### Formatting & linting
 
