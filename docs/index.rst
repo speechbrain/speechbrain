@@ -57,7 +57,6 @@ Colab or run them locally with
    installation.md
    experiment.md
    guidance.md
-   multigpu.md
    Contributing <https://github.com/speechbrain/speechbrain/blob/develop/docs/contributing.md>
 
 
@@ -77,6 +76,7 @@ Colab or run them locally with
    :caption: Tips & tricks
 
    audioloading.rst
+   multigpu.md
 
 
 API
