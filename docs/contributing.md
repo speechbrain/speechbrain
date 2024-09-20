@@ -1,23 +1,19 @@
 # Contributing
 
-The goal is to write a set of libraries that process audio and speech in several ways. It is crucial to write a set of homogeneous libraries that are all compliant with the guidelines described in the following sub-sections.
-
 ## Zen of Speechbrain
-SpeechBrain could be used for *research*, *academic*, *commercial*, *non-commercial* purposes. Ideally, the code should have the following features:
+SpeechBrain is used for *research*, *academic*, *commercial*, *non-commercial* purposes, thus the code should be:
 
-- **Simple:**  the code must be easy to understand even by students or by users that are not professional programmers or speech researchers. Try to design your code such that it can be easily read. Given alternatives with the same level of performance, code the simplest one. (the most explicit and straightforward manner is preferred)
+- **Simple:** Straightforward and easy to understand even by students, academics and non-professional programmers. Complex code, if it _must_ exist, should be especially well explained.
 
-- **Readable:** SpeechBrain mostly adopts the code style conventions in PEP8. The code written by the users must be compliant with that. We test code style with `flake8`
+- **Readable:** Avoid abstract naming. Link to resources to help understand complex topics or implementations. Code style and formatting are automatically enforced.
 
-- **Efficient**: The code should be as efficient as possible. When possible, users should maximize the use of pytorch native operations.  Remember that in generally very convenient to process in parallel multiple signals rather than processing them one by one (e.g try to use *batch_size > 1* when possible). Test the code carefully with your favorite profiler (e.g, torch.utils.bottleneck https://pytorch.org/docs/stable/bottleneck.html ) to make sure there are no bottlenecks in your code.  Since we are not working in *c++* directly, the speed can be an issue. Despite that, our goal is to make SpeechBrain as fast as possible.
+- **Efficient**: Not _everything_ must be fast, but for what _should_ be, [profile and optimize it](https://speechbrain.readthedocs.io/en/develop/tutorials/advanced/profiling-and-benchmark.html). Operate on batches. Prefer tensor operations over Python-heavy constructs. Avoid CPU/GPU syncs.
 
-- **Modular:** Write your code such that it is very modular and fits well with the other functionalities of the toolkit. The idea is to develop a bunch of models that can be naturally interconnected with each other.
+- **Modular:** It should be easy to use any of the functionality from the toolkit. Break up functions/classes when it helps. Group functionality logically. Avoid unnecessary coupling.
 
-- **Well documented:**  Given the goals of SpeechBrain, writing rich and good documentation is a crucial step.
+- **Well documented:** Docs should be complete, easy to navigate and easy to discover. Consider [writing a tutorial](https://github.com/speechbrain/speechbrain/tree/develop/docs#tutorial-integration).
 
-## How to get your code in SpeechBrain
-
-Practically, development goes as follows:
+## Creating Pull Requests on GitHub
 
 0. We use git and GitHub.
 1. Fork the speechbrain repository (https://github.com/speechbrain/speechbrain)
