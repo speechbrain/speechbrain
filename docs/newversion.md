@@ -12,7 +12,7 @@ of what this would likely mean:
  * Added classes or features warrant a minor version bump. Most weekly updates should fall into this.
  * Patch version bumps should happen only for bug fixes.
 
-**[Final pre-release tests](../tests/PRE-RELEASE-TESTS.md) should be peformed!** Some of these checks aren't run by the CI.
+**[Final pre-release tests](../tests/PRE-RELEASE-TESTS.md) should be performed!** Some of these checks aren't run by the CI.
 
 When releasing a new version, there are a few user-initiated action that need to occur.
  1. On the `develop` branch, update `speechbrain/version.txt` to say the new version:
