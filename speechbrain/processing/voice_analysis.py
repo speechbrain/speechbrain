@@ -74,7 +74,7 @@ def vocal_characteristics(
     max_lag_samples = int(sample_rate / min_f0_Hz)
     min_lag_samples = int(sample_rate / max_f0_Hz)
 
-    # Use original and lowpassed audio for HNR computation
+    # Use original and lowpassed audio for power ratio computation
     orig_windows = audio.unfold(-1, window_samples, step_samples)
     lowpass_audio = torchaudio.functional.lowpass_biquad(
         audio, sample_rate, lowpass_frequency
