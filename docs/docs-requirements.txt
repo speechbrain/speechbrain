@@ -8,6 +8,7 @@ scikit-learn
 six
 sphinx-copybutton
 sphinx-design
+sphinx-markdown-tables
 sphinx-rtd-theme>=0.4.3
 Sphinx>=7.4.1
 transformers

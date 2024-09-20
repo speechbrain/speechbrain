@@ -56,6 +56,7 @@ Colab or run them locally with
 
    installation.md
    experiment.md
+   guidance.md
    multigpu.md
 
 
@@ -82,7 +83,6 @@ Colab or run them locally with
    :caption: Contributing
 
    contributing.md
-   guidance.md
    coverage.md
 
 API
