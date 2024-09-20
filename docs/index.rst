@@ -58,6 +58,7 @@ Colab or run them locally with
    experiment.md
    guidance.md
    multigpu.md
+   Contributing <https://github.com/speechbrain/speechbrain/blob/develop/docs/contributing.md>
 
 
 .. toctree::
@@ -77,13 +78,6 @@ Colab or run them locally with
 
    audioloading.rst
 
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Contributing
-
-   contributing.md
-   coverage.md
 
 API
 ---
