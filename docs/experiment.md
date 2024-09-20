@@ -92,6 +92,8 @@ In other words, a tensor will look like any of these:
 It is crucial to have a shared format for all the classes and functions. This makes model combination easier.
 Many formats are possible. For SpeechBrain we selected this one because it is commonly used in recurrent neural networks.
 
+For waveforms, we generally choose to squeeze the final dimension (i.e. it there is _no_ channel dimension for mono audio).
+
 Simple waveform examples:
 
 - A waveform of 3 seconds sampled at 16kHz in mono: `(1, 3*16000)`
