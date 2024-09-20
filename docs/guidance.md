@@ -16,8 +16,8 @@ This is not quite a complete list, but it gives a broad outline.
 | **[`speechbrain/utils/`](speechbrain/utils/)** | Miscellaneous utilities that don't really fit elsewhere |
 | **Documentation** | |
 | **[`docs/`](docs/)** | Documentation pages and configuration |
-| **[`docs/tutorials/`](docs/tutorials/)** | Jupyter Notebook tutorials | 
-| **Recipes** | | 
+| **[`docs/tutorials/`](docs/tutorials/)** | Jupyter Notebook tutorials |
+| **Recipes** | |
 | **[`recipes/`](recipes/)** | Ready-to-use recipes under the form `dataset/task/model/` |
 | **[`templates/`](templates/)** | Reference implementation for tasks to (optionally) use for new recipes |
 | **Testing/linting/meta** | |
