@@ -47,7 +47,7 @@ model: !new:speechbrain.lobes.models.CRDNN.CRDNN
 - `!ref <output_dir>/save` evaluates the part in angle brackets,
   referencing the YAML itself.
 - `!PLACEHOLDER` simply errors out when loaded; it should be replaced by
-  every user either by using the commandline (which passes an override to 
+  every user either by using the commandline (which passes an override to
   `load_hyperpyyaml`), or by manually editing the `.yaml` if necessary.
 
 [**Learn more with the dedicated HyperPyYAML tutorial!**](https://speechbrain.readthedocs.io/en/latest/tutorials/basics/hyperpyyaml.html)
