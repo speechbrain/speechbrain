@@ -18,9 +18,9 @@ def vocal_characteristics(
     step_size: float = 0.01,
     window_size: float = 0.04,
     sample_rate: int = 16000,
-    lowpass_prepare: bool = True,
     lowpass_frequency: int = 800,
-    voicing_threshold: float = 0.001,
+    autocorrelation_threshold: float = 0.5,
+    power_threshold: float = 0.1,
 ):
     """Estimates the vocal characteristics of a signal using auto-correlation.
     Batched estimation is hard due to removing voiced frames, so only accepts a single sample.
@@ -41,23 +41,27 @@ def vocal_characteristics(
         The size of the analysis window (in seconds).
     sample_rate: int
         The number of samples in a second.
-    lowpass_prepare: bool
-        Whether to prepare the signal with a lowpass filter for more accuracy.
     lowpass_frequency: int
         The upper-bound frequency of the lowpass filter, in Hz.
-    voicing_threshold: float
-        HNRs lower than this will be considered unvoiced
+    autocorrelation_threshold: float
+        One of two threshold values for considering a frame as voiced. Computed
+        as the ratio between lag 0 autocorrelation and t-max autocorrelation.
+    power_threshold: float
+        One of two threshold values for considering a frame as voiced. Computed
+        as the difference between the power of the lowpassed audio and the original audio.
 
     Returns
     -------
-    estimated_f0 : torch.Tensor
+    estimated_f0: torch.Tensor
         A per-frame estimate of the f0 in Hz.
-    voiced_frames : torch.Tensor
+    voiced_frames: torch.Tensor
         The estimate for each frame if it is voiced or unvoiced.
-    jitter : torch.Tensor
+    jitter: torch.Tensor
         The estimate for the jitter value for each frame.
-    shimmer : torch.Tensor
+    shimmer: torch.Tensor
         The estimate for the shimmer value for each frame.
+    hnr: torch.Tensor
+        The estimate for the HNR value for each frame.
     """
 
     if audio.dim() != 1:
@@ -76,100 +80,71 @@ def vocal_characteristics(
         audio, sample_rate, lowpass_frequency
     )
     lowpass_windows = lowpass_audio.unfold(-1, window_samples, step_samples)
-    hnr, voiced = compute_hnr(orig_windows, lowpass_windows, voicing_threshold)
 
-    # Use autocorrelation to estimate f0
-    voiced_windows = lowpass_windows[:, voiced]
-    best_lags = compute_lag(voiced_windows, min_lag_samples, max_lag_samples)
+    # Voiced signal detection, using autocorrelation ratio and power ratio
+    kbest_lags, autocorrelation_ratio = autocorrelate(
+        lowpass_windows, min_lag_samples, max_lag_samples
+    )
+    power_ratio = compute_power_ratio(orig_windows, lowpass_windows).squeeze()
+    voiced = autocorrelation_ratio > autocorrelation_threshold
+    voiced &= power_ratio > power_threshold
+
+    # Use neighboring frames to select best lag out of available options
+    best_lags = iterative_lag_selection(kbest_lags[voiced], iterations=3)
     estimated_f0 = sample_rate / best_lags
 
-    # Use estimated f0 to compute jitter and shimmer
-    jitter, shimmer = compute_periodic_features(voiced_windows, best_lags)
+    # Use estimated f0 to compute jitter and shimmer and harmonic-to-noise ratio
+    voiced_windows = orig_windows[:, voiced]
+    jitter, shimmer, hnr = compute_periodic_features(voiced_windows, best_lags)
 
     return estimated_f0, voiced, jitter, shimmer, hnr
 
 
-def compute_hnr(orig_windows, lowpass_windows, voicing_threshold=0.001):
-    """Compute the harmonic-to-noise ratio by comparing the amplitude of the
-    original signal to the amplitude of a low-passed version of the signal.
-
-    Arguments
-    ---------
-    orig_windows : torch.Tensor
-        The windowed original audio
-    lowpass_windows : torch.Tensor
-        The windowed lowpassed audio
-    voicing_threshold : float
-        HNRs lower than this will be considered unvoiced
-
-    Returns
-    -------
-    hnr : torch.Tensor
-        The estimated harmonics to noise ratio.
-    voiced : torch.Tensor
-        The estimation for each frame whether it is primarily voiced or unvoiced.
-    """
-    hnr = orig_windows.abs().mean(dim=-1) - lowpass_windows.abs().mean(dim=-1)
-    voiced = hnr.squeeze() > voicing_threshold
-    return hnr.squeeze(), voiced
-
-
-def autocorrelate(windowed_audio):
+def autocorrelate(windowed_audio, min_lag_samples, max_lag_samples):
     """Generate autocorrelation scores using circular convolution.
 
     Arguments
     ---------
-    windowed_audio : torch.Tensor
+    windowed_audio: torch.Tensor
         The windowed_audio to be evaluated for autocorrelation, shape [1, time, window_samples]
+    min_lag_samples: int
+        Number of steps corresponding to the minimum allowed lag.
+    max_lag_samples: int
+        Number of steps corresponding to the maximum allowed lag.
 
     Returns
     -------
-    autocorrelation : torch.Tensor
-        The auto-correlation tensor from convolving each frame with itself.
+    kbest_lags: torch.Tensor
+        The kbest candidate lags, as measured by peaks in autocorrelation.
+    autocorrelation_ratio: torch.Tensor
+        The ratio of the best candidate lag's autocorrelation score against
+        the theoretical maximum autocorrelation score at lag 0.
     """
     window_samples = windowed_audio.size(2)
     padded_windows = torch.nn.functional.pad(
         windowed_audio, (0, window_samples // 2), mode="circular"
     )
-    return torch.nn.functional.conv1d(
+    autocorrelation = torch.nn.functional.conv1d(
         input=padded_windows,
         weight=windowed_audio.transpose(0, 1),
         groups=windowed_audio.size(1),
     ).squeeze(0)
 
+    # Use autocorrelation to compute best lags and autocorrelation ratio
+    valid_lags = autocorrelation[:, min_lag_samples:max_lag_samples]
+    kbest = torch.topk(valid_lags, k=15, dim=-1)
+    kbest_lags = kbest.indices + min_lag_samples
+    autocorrelation_ratio = kbest.values[:, 0] / autocorrelation[:, 0]
 
-def compute_lag(windowed_audio, min_lag_samples, max_lag_samples):
-    """Compute the (smoothed) lag corresponding to autocorrelation peaks.
-
-    Arguments
-    ---------
-    windowed_audio : torch.Tensor
-        The windowed_audio to be evaluated for autocorrelation, shape [1, time, window_samples]
-    min_lag_samples : int
-        Number of steps corresponding to the minimum allowed lag.
-    max_lag_samples : int
-        Number of steps corresponding to the maximum allowed lag.
-
-    Returns
-    -------
-    best_lag : torch.Tensor
-        The number of samples between successive periods for each frame.
-    voiced : torch.Tensor
-        The estimation for each frame whether it is primarily voiced or unvoiced.
-    """
-    # Find k-best candidate lags for each window, excluding too-short lags.
-    autocorrelation = autocorrelate(windowed_audio)
-    valid_scores = autocorrelation[:, min_lag_samples:max_lag_samples]
-    kbest = torch.topk(valid_scores, k=15, dim=-1)
-
-    # Pick whichever lag is closest to the average of 5 neighbors
-    # Iterate a few times to ensure stability
-    best_lag = iterative_lag_selection(kbest.indices, iterations=3)
-    best_lag += min_lag_samples
-    return best_lag
+    return kbest_lags, autocorrelation_ratio
 
 
-def iterative_lag_selection(kbest_lags, iterations):
+def compute_power_ratio(orig_windows, lowpass_windows):
+    """The power ratio calculation is used for voiced speech detection."""
+    return lowpass_windows.square().mean(dim=-1) / orig_windows.square().mean()
+
+
+def iterative_lag_selection(kbest_lags, iterations=3):
     """Select the best lag out of available options by comparing
     to an average of neighboring lags to reduce jumping octaves."""
     # kbest returns sorted list, first entry should be the highest autocorrelation
@@ -196,8 +171,6 @@ def neighbor_average(best_values, neighbors):
         mode="reflect",
     )
 
-    # Use conv to compute average
-    # TODO: Use median rather than mean to reduce outlier impact
     return torch.nn.functional.conv1d(values, kernel).squeeze()
 
 
@@ -206,16 +179,16 @@ def compute_periodic_features(voiced_windows, best_lag):
 
     Arguments
     ---------
-    voiced_windows : torch.Tensor
+    voiced_windows: torch.Tensor
         The voiced frames of the windowed audio to use for feature computation.
-    best_lag : torch.Tensor
+    best_lag: torch.Tensor
         The average period length for each frame.
 
     Returns
     -------
-    jitters : torch.Tensor
+    jitters: torch.Tensor
         The average absolute deviation in period over the frame.
-    shimmers : torch.Tensor
+    shimmers: torch.Tensor
         The average absolute deviation in amplitude over the frame.
     """
 
@@ -224,7 +197,7 @@ def compute_periodic_features(voiced_windows, best_lag):
 
     # Iterating frames is slow, but I don't see an easy way around it.
     n = voiced_windows.size(1)
-    jitter, shimmer = torch.empty(n), torch.empty(n)
+    jitter, shimmer, hnr = torch.empty(n), torch.empty(n), torch.empty(n)
     for i in range(n):
         frame = voiced_windows[:, i].squeeze()
         peak_index = peak_indexes[:, i].squeeze()
@@ -245,4 +218,10 @@ def compute_periodic_features(voiced_windows, best_lag):
         jitter[i] = torch.abs(peak_lags[:-1] - peak_lags[1:]).float().mean()
         jitter[i] /= lag
 
-    return jitter, shimmer
+        # Compare power of averaged periods vs power of individuals
+        # suggested by https://doi.org/10.1121/1.387808
+        individual_power = periods.square().mean()
+        averaged_power = periods.mean(dim=0).square().mean()
+        hnr[i] = averaged_power / individual_power
+
+    return jitter, shimmer, hnr

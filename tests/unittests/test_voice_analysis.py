@@ -22,7 +22,7 @@ def test_voice_analysis():
     tone = torch.sin(torch.tensor(values))
 
     # Add noise for better HNR calculation
-    tone += torch.randn(tone.shape) * 0.03
+    tone += torch.randn(tone.shape) * 0.01
 
     # Add batch dimension
     estimated_f0, voiced_frames, jitter, shimmer, hnr = vocal_characteristics(
@@ -32,4 +32,4 @@ def test_voice_analysis():
     assert all(abs(estimated_f0 - frequency) < 2)
 
     assert all(jitter < 0.05)
-    assert all(shimmer < 0.05)
+    assert all(shimmer < 0.01)
