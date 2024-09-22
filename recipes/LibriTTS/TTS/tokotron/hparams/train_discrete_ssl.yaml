@@ -95,9 +95,9 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 input: text
 number_of_epochs: 1000
 reset_annealing_epoch: null
-batch_size: 16
+batch_size: 4
 batch_size_guided: 2
-extract_features_batch_size: 32
+extract_features_batch_size: 4
 grad_accumulation_factor: 1
 max_grad_norm: 0.01
 sorting: random
@@ -373,6 +373,7 @@ model: !new:speechbrain.lobes.models.discrete.Tokotron.TokotronTransformerModel 
     representation_mode: !ref <representation_mode>
     emb: !ref <emb>
     layerwise_renorm: !ref <layerwise_renorm>
+
 
 modules:
     model: !ref <model>
