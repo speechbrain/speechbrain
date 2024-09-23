@@ -78,7 +78,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, savedir="audio_cache"):
+    def separate_file(self, path, savedir="."):
         """Separate sources from file.
 
         Arguments

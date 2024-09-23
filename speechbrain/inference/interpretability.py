@@ -129,7 +129,7 @@ class PIQAudioInterpreter(Pretrained):
 
         return x_int_sound_domain, text_lab
 
-    def interpret_file(self, path, savedir="audio_cache"):
+    def interpret_file(self, path, savedir="."):
         """Classifies the given audiofile into the given set of labels.
         It also provides the interpretation in the audio domain.
 

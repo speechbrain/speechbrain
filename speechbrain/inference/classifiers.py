@@ -267,7 +267,7 @@ class AudioClassifier(Pretrained):
         text_lab = self.hparams.label_encoder.decode_torch(index)
         return out_probs, score, index, text_lab
 
-    def classify_file(self, path, savedir="audio_cache"):
+    def classify_file(self, path, savedir="."):
         """Classifies the given audiofile into the given set of labels.
 
         Arguments
