@@ -15,12 +15,9 @@ Authors:
 """
 
 import torch
-import torchaudio
 
 import speechbrain
 from speechbrain.inference.interfaces import Pretrained
-from speechbrain.utils.data_utils import split_path
-from speechbrain.utils.fetching import LocalStrategy, fetch
 
 
 class EncoderClassifier(Pretrained):
@@ -292,30 +289,7 @@ class AudioClassifier(Pretrained):
             List with the text labels corresponding to the indexes.
             (label encoder should be provided).
         """
-        source, fl = split_path(path)
-        path = fetch(
-            fl,
-            source=source,
-            savedir=savedir,
-            local_strategy=LocalStrategy.NO_LINK,
-        )
-
-        batch, fs_file = torchaudio.load(path)
-        batch = batch.to(self.device)
-        fs_model = self.hparams.sample_rate
-
-        # resample the data if needed
-        if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
-            tf = torchaudio.transforms.Resample(
-                orig_freq=fs_file, new_freq=fs_model
-            ).to(self.device)
-            batch = batch.mean(dim=0, keepdim=True)
-            batch = tf(batch)
+        batch = self.load_audio(path, savedir)
 
         out_probs, score, index, text_lab = self.classify_batch(batch)
         return out_probs, score, index, text_lab
