@@ -259,8 +259,9 @@ class Pretrained(torch.nn.Module):
         self._prepare_modules(freeze_params)
 
         # Audio normalization
+        default_sr = hparams.get("sample_rate", 16000)
         self.audio_normalizer = hparams.get(
-            "audio_normalizer", AudioNormalizer()
+            "audio_normalizer", AudioNormalizer(default_sr)
         )
 
     def _prepare_modules(self, freeze_params):
