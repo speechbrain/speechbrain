@@ -222,6 +222,8 @@ def compute_periodic_features(voiced_windows, best_lag):
         # suggested by https://doi.org/10.1121/1.387808
         individual_power = periods.square().mean()
         averaged_power = periods.mean(dim=0).square().mean()
-        hnr[i] = averaged_power / individual_power
+        hnr[i] = 10 * torch.log10(
+            averaged_power / (individual_power - averaged_power)
+        )
 
     return jitter, shimmer, hnr
