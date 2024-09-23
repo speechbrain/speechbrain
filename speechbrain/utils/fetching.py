@@ -6,6 +6,7 @@ Authors:
  * Andreas Nautsch 2022, 2023
 """
 
+import os
 import pathlib
 import platform
 import shutil
@@ -213,16 +214,16 @@ def guess_source(source: Union[str, FetchSource]) -> FetchSource:
 
 
 def fetch(
-    filename,
-    source: Union[str, FetchSource],
-    savedir: Union[str, pathlib.Path] = "./pretrained_model_checkpoints",
+    filename: str,
+    source: Union[os.PathLike, str, FetchSource],
+    savedir: Union[os.PathLike, str] = "./pretrained_model_checkpoints",
     overwrite: bool = False,
     allow_updates: bool = True,
     allow_network: bool = True,
     save_filename: Optional[str] = None,
     use_auth_token: bool = False,
     revision: Optional[str] = None,
-    huggingface_cache_dir: Optional[Union[str, pathlib.Path]] = None,
+    huggingface_cache_dir: Optional[Union[os.PathLike, str]] = None,
     local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
 ):
     """Ensures you have a local copy of the file and returns its path.

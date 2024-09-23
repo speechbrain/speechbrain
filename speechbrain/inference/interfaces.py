@@ -15,9 +15,11 @@ Authors:
 """
 
 import hashlib
+import os
 import sys
 import warnings
 from types import SimpleNamespace
+from typing import Union
 
 import torch
 import torchaudio
@@ -31,7 +33,7 @@ from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import LocalStrategy, fetch
+from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
 from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
 
@@ -283,15 +285,34 @@ class Pretrained(torch.nn.Module):
             for p in self.mods.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path, savedir="."):
-        """Load an audio file with this model's input spec
+    def load_audio(
+        self,
+        path: Union[os.PathLike, str, FetchSource],
+        savedir: Union[os.PathLike, str] = ".",
+    ):
+        """Loads a local or remote audio file and normalizes it to this model's
+        input spec, as defined by the `audio_normalizer` specified in hparams.
+        Check `Pretrained` source code for defaults.
 
-        When using a speech model, it is important to use the same type of data,
-        as was used to train the model. This means for example using the same
-        sampling rate and number of channels. It is, however, possible to
-        convert a file from a higher sampling rate to a lower one (downsampling).
-        Similarly, it is simple to downmix a stereo file to mono.
-        The path can be a local path, a web url, or a link to a huggingface repo.
+        This is helpful to perform sample rate or channel count normalization,
+        which is important in order to match what the model was trained on.
+
+        Arguments
+        ---------
+        path: str | os.PathLike | FetchSource
+            Local path to the file, or remote path (URL/HuggingFace) as
+            interpreted by :func:`speechbrain.utils.fetching.fetch`
+        savedir: str | os.PathLike
+            Local save directory, defaulting to the current working directory.
+            This is only used for URL fetches. HuggingFace fetches will save
+            the fetched file in the default HF cache directory.
+
+        Returns
+        -------
+        torch.Tensor
+            Audio tensor. The shape, type and device depends on the audio
+            normalizer that was configured. By default, this would be a tensor
+            of shape `(sample_count,)` on the CPU device.
         """
         source, fl = split_path(path)
         path = fetch(
