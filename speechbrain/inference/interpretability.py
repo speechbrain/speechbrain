@@ -149,7 +149,7 @@ class PIQAudioInterpreter(Pretrained):
         fs_model : int
             The sampling frequency of the model. Useful to save the audio.
         """
-        batch = self.load_audio(path, savedir)
+        batch = self.load_audio(path, savedir).unsqueeze(0)
         fs_model = self.hparams.sample_rate
 
         x_int_sound_domain, text_lab = self.interpret_batch(batch)

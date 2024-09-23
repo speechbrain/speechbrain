@@ -289,7 +289,7 @@ class AudioClassifier(Pretrained):
             List with the text labels corresponding to the indexes.
             (label encoder should be provided).
         """
-        batch = self.load_audio(path, savedir)
+        batch = self.load_audio(path, savedir).unsqueeze(0)
 
         out_probs, score, index, text_lab = self.classify_batch(batch)
         return out_probs, score, index, text_lab

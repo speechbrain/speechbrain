@@ -93,7 +93,7 @@ class SepformerSeparation(Pretrained):
         tensor
             Separated sources
         """
-        batch = self.load_audio(path, savedir)
+        batch = self.load_audio(path, savedir).unsqueeze(0)
 
         est_sources = self.separate_batch(batch)
         est_sources = (
