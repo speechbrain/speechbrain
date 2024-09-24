@@ -16,14 +16,14 @@ def vocal_characteristics(
     min_f0_Hz: int = 75,
     max_f0_Hz: int = 300,
     step_size: float = 0.01,
-    window_size: float = 0.04,
+    window_size: float = 0.03,
     sample_rate: int = 16000,
     lowpass_frequency: int = 800,
     autocorrelation_threshold: float = 0.5,
     power_threshold: float = 0.1,
 ):
     """Estimates the vocal characteristics of a signal using auto-correlation.
-    Batched estimation is hard due to removing voiced frames, so only accepts a single sample.
+    Batched estimation is hard due to removing unvoiced frames, so only accepts a single sample.
 
     Arguments
     ---------
@@ -94,7 +94,7 @@ def vocal_characteristics(
     estimated_f0 = sample_rate / best_lags
 
     # Use estimated f0 to compute jitter and shimmer and harmonic-to-noise ratio
-    voiced_windows = orig_windows[:, voiced]
+    voiced_windows = lowpass_windows[:, voiced]
     jitter, shimmer, hnr = compute_periodic_features(voiced_windows, best_lags)
 
     return estimated_f0, voiced, jitter, shimmer, hnr
@@ -214,9 +214,8 @@ def compute_periodic_features(voiced_windows, best_lag):
         shimmer[i] /= amplitudes.mean()
 
         # Compare average peak lag of each period to its successor. Divide by lag to get relative.
-        peak_lags = periods.argmax(dim=1)
-        jitter[i] = torch.abs(peak_lags[:-1] - peak_lags[1:]).float().mean()
-        jitter[i] /= lag
+        peak_lags = periods.argmax(dim=1).float()
+        jitter[i] = torch.abs(peak_lags[:-1] - peak_lags[1:]).mean() / lag
 
         # Compare power of averaged periods vs power of individuals
         # suggested by https://doi.org/10.1121/1.387808
