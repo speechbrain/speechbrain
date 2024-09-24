@@ -12,7 +12,7 @@ This is not quite a complete list, but it gives a broad outline.
 |-|-|
 | **Core** [(API doc)](https://speechbrain.readthedocs.io/en/latest/API/speechbrain.html) | |
 | **[`speechbrain/`](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain/)** | Source code for the core |
-| **[`speechbrain/inference/`](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain/inference/)** | Easy-to-use level inference code with HuggingFace integration |
+| **[`speechbrain/inference/`](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain/inference/)** | Easy-to-use inference code with HuggingFace integration |
 | **[`speechbrain/utils/`](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain/utils/)** | Miscellaneous utilities that don't really fit elsewhere |
 | **Documentation** | |
 | **[`docs/`](https://github.com/speechbrain/speechbrain/tree/develop/docs/)** | Documentation pages and configuration |
