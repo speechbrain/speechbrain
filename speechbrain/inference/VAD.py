@@ -580,7 +580,7 @@ class VAD(Pretrained):
 
             # Reading the speech segment
             segment, _ = torchaudio.load(
-                audio_file, frame_offset=begin_sample, num_frames=seg_len
+                str(audio_file), frame_offset=begin_sample, num_frames=seg_len
             )
             segment = segment.to(self.device)
             # Create chunks
@@ -822,7 +822,7 @@ class VAD(Pretrained):
 
             len_seg = end_sample - beg_sample
             vad_segment, fs = torchaudio.load(
-                audio_file, frame_offset=beg_sample, num_frames=len_seg
+                str(audio_file), frame_offset=beg_sample, num_frames=len_seg
             )
             segments.append(vad_segment)
         return segments
