@@ -74,7 +74,7 @@ class VAD(Pretrained):
         ---------
         audio_file: path
             Path of the audio file containing the recording. The file is read
-            with torchaudio.
+            with torchaudio, not using the usual `read_audio`/`fetch` mechanism.
         large_chunk_size: float
             Size (in seconds) of the large chunks that are read sequentially
             from the input audio file.
@@ -543,7 +543,7 @@ class VAD(Pretrained):
         ---------
         audio_file: path
             Path of the audio file containing the recording. The file is read
-            with torchaudio.
+            with torchaudio, not using the usual `read_audio`/`fetch` mechanism.
         boundaries: torch.Tensor
             torch.Tensor containing the speech boundaries. It can be derived using the
             get_boundaries method.
@@ -747,7 +747,8 @@ class VAD(Pretrained):
         boundaries: torch.Tensor
             torch.Tensor containing the boundaries of the speech segments.
         audio_file: path
-            The original audio file used to compute vad_out.
+            The original audio file used to compute vad_out. The file is read
+            with torchaudio, not using the usual `read_audio`/`fetch` mechanism.
         speech_th: float
             Threshold on the mean posterior probability over which speech is
             confirmed. Below that threshold, the segment is re-assigned to a
@@ -792,7 +793,8 @@ class VAD(Pretrained):
         boundaries: torch.Tensor
             torch.Tensor containing the boundaries of the speech segments.
         audio_file: path
-            The original audio file used to compute vad_out.
+            The original audio file used to compute vad_out. The file is read
+            with torchaudio, not using the usual `read_audio`/`fetch` mechanism.
         before_margin: float
             Used to cut the segments samples a bit before the detected margin.
         after_margin: float
