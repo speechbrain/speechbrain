@@ -15,6 +15,8 @@ Authors
 
 import logging
 import math
+import re
+import string
 import sys
 from functools import partial
 from pathlib import Path
@@ -25,6 +27,7 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.dataio.dataset import FilteredSortedDynamicItemDataset
 from speechbrain.dataio.preparation import add_prepared_features
+from speechbrain.inference.eval import SpeechEvaluationMetricStats
 from speechbrain.lobes.models.discrete.Tokotron import RepresentationMode
 from speechbrain.utils.audio_tokens import (
     feature_pad_to,
@@ -153,6 +156,65 @@ class TokotronBrain(sb.Brain):
         )
         return loss_details.loss
 
+    @torch.no_grad()
+    def evaluate_batch(self, batch, stage):
+        """Evaluate one batch, override for different procedure than train.
+
+        The default implementation depends on two methods being defined
+        with a particular behavior:
+
+        * ``compute_forward()``
+        * ``compute_objectives()``
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for evaluation. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        stage : Stage
+            The stage of the experiment: Stage.VALID, Stage.TEST
+
+        Returns
+        -------
+        detached loss
+        """
+        loss = super().evaluate_batch(batch, stage)
+        loss = loss.detach().cpu()
+        if self.is_evaluating():
+            with torch.no_grad():
+                with self.hparams.progress_report:
+                    tokens, tokens_length = batch.tokens
+                    emb = {"spk": batch.spk_emb.data.squeeze(1)}
+                    # Produce samples
+                    infer_out = self.modules.model.infer(
+                        input_tokens=tokens, input_length=tokens_length, emb=emb
+                    )
+                    # Save samples
+                    self.hparams.progress_report.write(
+                        ids=batch.uttid,
+                        audio=infer_out.wav,
+                        length_pred=infer_out.wav_length,
+                        length=batch.audio_pad.lengths,
+                        tgt_max_length=batch.audio_pad.data.size(1),
+                        alignments=infer_out.alignments,
+                        p_eos=infer_out.p_eos,
+                    )
+                    # Evaluate
+                    self.evaluation_metric.append(
+                        ids=batch.uttid,
+                        wav=infer_out.wav,
+                        text=batch.label_norm_eval,
+                        length=infer_out.wav_length,
+                        wav_ref=batch.sig.data,
+                        length_ref=batch.sig.lengths,
+                    )
+        return loss
+
+    def is_evaluating(self):
+        """Determines if evaluation should happen in the current epoch"""
+        epoch = self.hparams.epoch_counter.current
+        return epoch is None or epoch % self.hparams.eval_interval == 0
+
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch.
 
@@ -212,6 +274,13 @@ class TokotronBrain(sb.Brain):
             and epoch == self.hparams.reset_annealing_epoch
         ):
             self.hparams.lr_annealing.n_steps = 0
+
+        if not hasattr(self, "evaluation_metric"):
+            self.evaluation_metric = SpeechEvaluationMetricStats(
+                self.hparams, self.device
+            )
+        if stage != sb.Stage.TRAIN and self.is_evaluating():
+            self.evaluation_metric.on_evaluation_start()
 
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
@@ -279,45 +348,48 @@ class TokotronBrain(sb.Brain):
                 min_keys=["loss"],
             )
 
-            self.create_samples()
+        if stage != sb.Stage.TRAIN and self.is_evaluating():
+            self.save_eval()
+            self.evaluation_metric.on_evaluation_end()
+
+    def save_eval(self):
+        """Saves evaluation results"""
+        with self.hparams.progress_logger:
+            for file_name in self.evaluation_metric.files:
+                with open(file_name) as eval_file:
+                    content = eval_file.read()
+                self.hparams.progress_logger.save(
+                    name=file_name.name, content=content
+                )
+        self.evaluation_metric.clear()
 
     def fit_batch(self, batch):
+        """Fit one batch, override to do multiple updates.
+
+        The default implementation depends on a few methods being defined
+        with a particular behavior:
+
+        * ``compute_forward()``
+        * ``compute_objectives()``
+        * ``optimizers_step()``
+
+        Also depends on having optimizers passed at initialization.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+
+        Returns
+        -------
+        loss : torch.Tensor
+            detached loss
+        """
         loss = super().fit_batch(batch)
         if self.hparams.lr_annealing_mode == "step":
             self.hparams.lr_annealing(self.optimizer)
         return loss
-
-    def create_samples(self):
-        """Writes audio samples at the end of an epoch"""
-        epoch = self.hparams.epoch_counter.current
-        if epoch % self.hparams.samples_interval != 0:
-            return
-        if self.debug:
-            self.modules.model.decoder.infer_max_decoder_steps = (
-                self.hparams.debug_infer_max_audio_length
-            )
-        sample_loader = sb.dataio.dataloader.make_dataloader(
-            self.sample_data,
-            **self.hparams.sample_dataloader_opts,
-        )
-        with self.hparams.progress_report:
-            for batch in sample_loader:
-                batch = batch.to(self.device)
-                tokens, tokens_length = batch.tokens
-                infer_out = self.modules.model.infer(
-                    input_tokens=tokens,
-                    input_length=tokens_length,
-                    emb={"spk": batch.spk_emb.data.squeeze(1)},
-                )
-                self.hparams.progress_report.write(
-                    ids=batch.uttid,
-                    audio=infer_out.wav,
-                    length_pred=infer_out.wav_length,
-                    length=batch.audio_pad.lengths,
-                    tgt_max_length=batch.audio_pad.data.size(1),
-                    alignments=infer_out.alignments,
-                    p_eos=infer_out.p_eos,
-                )
 
     def create_perfect_samples(self):
         """Creates the best samples that can be created using
@@ -406,10 +478,13 @@ def dataio_prepare(hparams):
     input_feature = INPUT_FEATURE_MAP[hparams["input"]]
 
     @sb.utils.data_pipeline.takes("label")
-    @sb.utils.data_pipeline.provides("label_norm")
+    @sb.utils.data_pipeline.provides("label_norm", "label_norm_eval")
     def text_pipeline(label):
         """Processes the transcriptions to generate proper labels"""
-        return label.upper()
+        label_norm = label.upper()
+        yield label_norm
+        label_norm_eval = RE_PUNCTUATION.sub("", label_norm)
+        yield label_norm_eval
 
     @sb.utils.data_pipeline.takes(input_feature)
     @sb.utils.data_pipeline.provides("tokens")
@@ -466,6 +541,12 @@ def dataio_prepare(hparams):
         audio_bos = torch.cat([audio_bos_prefix, audio_pad], dim=0)
         yield audio_bos
 
+    @sb.utils.data_pipeline.takes("wav")
+    @sb.utils.data_pipeline.provides("sig")
+    def sig_pipeline(wav):
+        sig = sb.dataio.dataio.read_audio(wav)
+        return sig
+
     def spk_emb_random_match(uttid, dataset, spk_sample):
         # Sample a speaker-matched embedding
         selected_idx = spk_sample[uttid]
@@ -485,11 +566,17 @@ def dataio_prepare(hparams):
 
     resample_fn = {}
     for dataset in data_info:
+        dataset_dynamic_items = list(dynamic_items)
+        dataset_output_keys = list(output_keys)
+        if dataset != "train":
+            dataset_dynamic_items.append(sig_pipeline)
+            dataset_output_keys += ["sig", "label_norm_eval"]
+
         dynamic_dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
             json_path=data_info[dataset],
             replacements={"data_root": data_folder},
-            dynamic_items=dynamic_items,
-            output_keys=output_keys,
+            dynamic_items=dataset_dynamic_items,
+            output_keys=dataset_output_keys,
         )
 
         add_prepared_features(
@@ -773,6 +860,11 @@ def apply_overfit_test(hparams, dataset):
     return result
 
 
+RE_PUNCTUATION = re.compile(
+    "|".join(re.escape(char) for char in string.punctuation)
+)
+
+
 if __name__ == "__main__":
 
     # Reading command line arguments
@@ -783,7 +875,22 @@ if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
     with open(hparams_file) as fin:
-        hparams = load_hyperpyyaml(fin, overrides)
+        yaml = fin.read()
+
+    eval_hparams_file = Path(hparams_file).parent / "eval.yaml"
+    if eval_hparams_file.exists():
+        logger.info(
+            "Using evaluation hyperparameters from %s", eval_hparams_file
+        )
+        with open(eval_hparams_file) as eval_hparams:
+            hparams_yaml = eval_hparams.read()
+            yaml = "\n".join([yaml, hparams_yaml])
+    else:
+        logger.info(
+            "%s not found - not using evaluation hyperparameters",
+            eval_hparams_file,
+        )
+    hparams = load_hyperpyyaml(yaml, overrides, overrides_must_match=True)
 
     # Create experiment directory
     sb.create_experiment_directory(

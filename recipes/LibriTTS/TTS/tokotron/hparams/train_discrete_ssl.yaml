@@ -40,7 +40,6 @@ progress_archive: !ref <progress_folder>/progress.tar
 progress_current: !ref <progress_folder>/current
 progress_meta: !ref <progress_folder>/meta.yaml
 num_audio_samples: 32
-samples_interval: 5
 freeze_token_model: True
 
 token_model_src: !apply:speechbrain.utils.hparams.choice
