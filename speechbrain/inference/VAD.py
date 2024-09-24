@@ -60,6 +60,8 @@ class VAD(Pretrained):
         self.audio_normalizer = None
 
     def read_audio(*_args, **_kwargs):
+        """Override for `read_audio` that raises :class:`NotImplementedError`,
+        as it is unsupported/unused on VAD."""
         raise NotImplementedError("VAD.read_audio is not supported")
 
     def get_speech_prob_file(
