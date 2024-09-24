@@ -56,6 +56,12 @@ class VAD(Pretrained):
         self.time_resolution = self.hparams.time_resolution
         self.sample_rate = self.hparams.sample_rate
 
+        # This is NOT used in VAD, don't mislead the user into thinking it is
+        self.audio_normalizer = None
+
+    def read_audio(*_args, **_kwargs):
+        raise NotImplementedError("VAD.read_audio is not supported")
+
     def get_speech_prob_file(
         self,
         audio_file,
