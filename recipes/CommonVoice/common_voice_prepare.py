@@ -320,7 +320,7 @@ def create_csv(
     nb_samples = len(csv_data_lines)
 
     header_map = {
-        column_name: index for index, column_name in enumerate(header_line)
+        column_name: index for index, column_name in enumerate(header_line.split("\t"))
     }
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
