@@ -364,11 +364,12 @@ class TransformerASR(TransformerInterface):
         # add pos encoding to queries if are sinusoidal ones else
         if self.attention_type == "hypermixing":
             pos_embs_encoder = None
-        elif self.attention_type == "RelPosMHAXL":
+        elif self.attention_type == "RelPosMHAXL" or self.attention_type == "RoPEMHA":
             pos_embs_encoder = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)  # add the encodings here
             pos_embs_encoder = None
+
 
         outputs = self.encoder(
             src=src,
@@ -387,8 +388,9 @@ class TransformerASR(TransformerInterface):
             encoder_out, _ = outputs
 
         tgt = self.custom_tgt_module(tgt)
-
-        if self.attention_type == "RelPosMHAXL":
+        
+        # always use fixed abs sine for decoder. but why
+        if self.attention_type == "RelPosMHAXL" or self.attention_type == "RoPEMHA":
             tgt = tgt + self.positional_encoding_decoder(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
@@ -439,7 +441,8 @@ class TransformerASR(TransformerInterface):
             src_key_padding_mask = (1 - length_to_mask(enc_len)).bool()
 
         tgt = self.custom_tgt_module(tgt)
-        if self.attention_type == "RelPosMHAXL":
+        # always use fixed abs sine for decoder but why
+        if self.attention_type == "RelPosMHAXL" or self.attention_type == "RoPEMHA":
             tgt = tgt + self.positional_encoding_decoder(tgt)
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
@@ -508,7 +511,7 @@ class TransformerASR(TransformerInterface):
         src = self.custom_src_module(src)
         if self.attention_type == "hypermixing":
             pos_embs_source = None
-        elif self.attention_type == "RelPosMHAXL":
+        elif self.attention_type == "RelPosMHAXL" or self.attention_type == "RoPEMHA":
             pos_embs_source = self.positional_encoding(src)
         elif self.positional_encoding_type == "fixed_abs_sine":
             src = src + self.positional_encoding(src)
