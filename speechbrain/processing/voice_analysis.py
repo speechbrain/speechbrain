@@ -16,11 +16,11 @@ def vocal_characteristics(
     min_f0_Hz: int = 75,
     max_f0_Hz: int = 300,
     step_size: float = 0.01,
-    window_size: float = 0.03,
+    window_size: float = 0.04,
     sample_rate: int = 16000,
     lowpass_frequency: int = 800,
-    autocorrelation_threshold: float = 0.5,
-    power_threshold: float = 0.1,
+    autocorrelation_threshold: float = 0.45,
+    jitter_threshold: float = 0.02,
 ):
     """Estimates the vocal characteristics of a signal using auto-correlation.
     Batched estimation is hard due to removing unvoiced frames, so only accepts a single sample.
@@ -46,9 +46,9 @@ def vocal_characteristics(
     autocorrelation_threshold: float
         One of two threshold values for considering a frame as voiced. Computed
         as the ratio between lag 0 autocorrelation and t-max autocorrelation.
-    power_threshold: float
-        One of two threshold values for considering a frame as voiced. Computed
-        as the difference between the power of the lowpassed audio and the original audio.
+    jitter_threshold: float
+        One of two threshold values for considering a frame as voiced. Estimated
+        jitter values greater than this are conisdered unvoiced.
 
     Returns
     -------
@@ -74,20 +74,20 @@ def vocal_characteristics(
     max_lag_samples = int(sample_rate / min_f0_Hz)
     min_lag_samples = int(sample_rate / max_f0_Hz)
 
-    # Use original and lowpassed audio for power ratio computation
-    orig_windows = audio.unfold(-1, window_samples, step_samples)
-    lowpass_audio = torchaudio.functional.lowpass_biquad(
+    # Lowpass and window the audio for frame by frame analysis
+    lowpass_windows = torchaudio.functional.lowpass_biquad(
         audio, sample_rate, lowpass_frequency
-    )
-    lowpass_windows = lowpass_audio.unfold(-1, window_samples, step_samples)
+    ).unfold(-1, window_samples, step_samples)
 
-    # Voiced signal detection, using autocorrelation ratio and power ratio
+    # Voiced signal detection, using autocorrelation ratio and a jitter estimate
     kbest_lags, autocorrelation_ratio = autocorrelate(
         lowpass_windows, min_lag_samples, max_lag_samples
     )
-    power_ratio = compute_power_ratio(orig_windows, lowpass_windows).squeeze()
+    # Compute periodic features just for an estimate of jitter
+    jitter, _, _ = compute_periodic_features(lowpass_windows, kbest_lags[:, 0])
     voiced = autocorrelation_ratio > autocorrelation_threshold
-    voiced &= power_ratio > power_threshold
+    voiced &= jitter < jitter_threshold
+    voiced = neighbor_average(voiced.float(), neighbors=7).round().bool()
 
     # Use neighboring frames to select best lag out of available options
     best_lags = iterative_lag_selection(kbest_lags[voiced], iterations=3)
@@ -139,18 +139,13 @@ def autocorrelate(windowed_audio, min_lag_samples, max_lag_samples):
     return kbest_lags, autocorrelation_ratio
 
 
-def compute_power_ratio(orig_windows, lowpass_windows):
-    """The power ratio calculation is used for voiced speech detection."""
-    return lowpass_windows.square().mean(dim=-1) / orig_windows.square().mean()
-
-
 def iterative_lag_selection(kbest_lags, iterations=3):
     """Select the best lag out of available options by comparing
     to an average of neighboring lags to reduce jumping octaves."""
     # kbest returns sorted list, first entry should be the highest autocorrelation
     best_lag = kbest_lags[:, 0]
     for i in range(iterations):
-        averaged_lag = neighbor_average(best_lag.float(), neighbors=5)
+        averaged_lag = neighbor_average(best_lag.float(), neighbors=7)
         distance = torch.abs(kbest_lags - averaged_lag.unsqueeze(1))
         best_selection = torch.argmin(distance, dim=-1)
         best_lag = select_indices(kbest_lags, best_selection)
@@ -186,10 +181,12 @@ def compute_periodic_features(voiced_windows, best_lag):
 
     Returns
     -------
-    jitters: torch.Tensor
+    jitter: torch.Tensor
         The average absolute deviation in period over the frame.
-    shimmers: torch.Tensor
+    shimmer: torch.Tensor
         The average absolute deviation in amplitude over the frame.
+    hnr: torch.Tensor
+        The harmonic-to-noise ratio, computed by comparing each period's power to the average.
     """
 
     # Compute the peak for each window as a basis for computing periods
@@ -205,24 +202,23 @@ def compute_periodic_features(voiced_windows, best_lag):
 
         # Cut to half period on either side, then unfold
         front_offset = (peak_index + lag // 2) % lag
-        back_offset = (len(frame) - front_offset) % lag
-        periods = torch.reshape(frame[front_offset:-back_offset], (-1, lag))
+        back_offset = len(frame) - (len(frame) - front_offset) % lag
+        periods = torch.reshape(frame[front_offset:back_offset], (-1, lag))
 
-        # Compare amplitude of each period to its successor. Divide by average to get relative.
-        amplitudes = periods.abs().mean(dim=1)
-        shimmer[i] = torch.abs(amplitudes[:-1] - amplitudes[1:]).mean()
-        shimmer[i] /= amplitudes.mean()
-
-        # Compare average peak lag of each period to its successor. Divide by lag to get relative.
+        # Compare peak index of each period to its successor. Divide by lag to get relative.
         peak_lags = periods.argmax(dim=1).float()
         jitter[i] = torch.abs(peak_lags[:-1] - peak_lags[1:]).mean() / lag
 
-        # Compare power of averaged periods vs power of individuals
+        # Compare amplitude of each peak to its successor. Divide by average to get relative.
+        amp = periods.max(dim=1).values
+        shimmer[i] = torch.abs(amp[:-1] - amp[1:]).mean() / amp.mean()
+
+        # Compare power of each period against one averaged with neighbor
         # suggested by https://doi.org/10.1121/1.387808
-        individual_power = periods.square().mean()
-        averaged_power = periods.mean(dim=0).square().mean()
+        power = periods.square().mean()
+        averaged_power = ((periods[:-1] + periods[1:]) / 2).square().mean()
         hnr[i] = 10 * torch.log10(
-            averaged_power / (individual_power - averaged_power)
+            averaged_power / torch.abs(power - averaged_power)
         )
 
     return jitter, shimmer, hnr
