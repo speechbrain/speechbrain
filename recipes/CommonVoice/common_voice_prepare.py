@@ -213,6 +213,8 @@ def process_line(
     accented_letters : bool
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
+    header_map : Dict[str, int]
+        Map from column name to column indices
 
     Returns
     -------
