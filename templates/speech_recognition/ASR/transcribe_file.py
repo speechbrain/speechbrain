@@ -48,11 +48,11 @@ if __name__ == "__main__":
     target_dir = os.path.dirname(source_dir)
     link_file("model.ckpt", source_dir, target_dir)
     link_file("normalizer.ckpt", source_dir, target_dir)
+    link_file("inference.yaml", os.getcwd(), target_dir)
 
     transcriber = EncoderDecoderASR.from_hparams(
-        source=".",
+        source=target_dir,
         hparams_file="inference.yaml",
-        savedir=target_dir,
     )
     text = transcriber.transcribe_file(args.speech_file)
 

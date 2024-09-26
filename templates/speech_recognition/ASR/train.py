@@ -51,6 +51,7 @@ from mini_librispeech_prepare import prepare_mini_librispeech
 
 import speechbrain as sb
 from speechbrain.utils.logger import get_logger
+from speechbrain.utils.fetching import LocalStrategy
 
 logger = get_logger(__name__)
 
@@ -471,7 +472,7 @@ if __name__ == "__main__":
     # you can train from scratch and avoid this step.
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
-    hparams["pretrainer"].collect_files()
+    hparams["pretrainer"].collect_files(local_strategy=LocalStrategy.SYMLINK)
     hparams["pretrainer"].load_collected()
 
     # Trainer initialization
