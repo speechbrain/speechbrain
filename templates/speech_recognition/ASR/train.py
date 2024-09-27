@@ -50,8 +50,8 @@ from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
 
 import speechbrain as sb
-from speechbrain.utils.logger import get_logger
 from speechbrain.utils.fetching import LocalStrategy
+from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
