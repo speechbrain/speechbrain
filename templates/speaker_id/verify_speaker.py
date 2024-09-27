@@ -11,6 +11,7 @@ Authors
  * Peter Plantinga 2024
 """
 import argparse
+import os
 
 from speechbrain.inference.speaker import SpeakerRecognition
 
@@ -22,9 +23,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     verifier = SpeakerRecognition.from_hparams(
-        source=".",
-        hparams_file="inference.yaml",
-        savedir=args.save_directory,
+        source=args.save_directory,
+        hparams_file=os.path.join(os.getcwd(), "inference.yaml"),
     )
     score, prediction = verifier.verify_files(args.sample1, args.sample2)
     if prediction:
