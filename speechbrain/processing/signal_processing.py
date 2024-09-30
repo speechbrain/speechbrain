@@ -670,14 +670,14 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
 def gammatone_impulse_response(t, center, order, decay):
     """
         Function for generating gammatone impulse responses
-        as used by GammatoneConv1d proposed in
+        as used by GammatoneConv proposed in
 
         Helena Peic Tukuljac, Benjamin Ricaud, Nicolas Aspert and Laurent Colbois, "Learnable filter-banks
         for CNN-based audio applications", in Proc of NLDL 2022 (https://septentrio.uit.no/index.php/nldl/article/view/6279)
         """
     alpha = order - 1
 
-    norm_inv = ((4 * math.pi * decay)**(2 * alpha + 1))/torch.sqrt(torch.exp(torch.lgamma(2 * alpha + 1)) * 0.5)
+    norm_inv = ((4 * math.pi * decay)**((2 * alpha + 1) * 0.5))/torch.sqrt(torch.exp(torch.lgamma(2 * alpha + 1)) * 0.5)
 
     gaussian_decay = torch.exp(
         torch.tensordot(
@@ -687,6 +687,7 @@ def gammatone_impulse_response(t, center, order, decay):
         )
     )
     envelop = torch.pow(t, alpha) * gaussian_decay
+
     sinusoid = torch.cos(
          torch.tensordot(
             center.unsqueeze(1),
