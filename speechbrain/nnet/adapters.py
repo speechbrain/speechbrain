@@ -39,6 +39,10 @@ class AdaptedModel(nn.Module):
         Supports Unix shell-style wildcards `(*, ?, [seq], [!seq])` with `fnmatch`.
     adapter_kwargs: dict
         Ensemble of parameters that should be given to the adapter.
+    manual_adapter_insertion: bool
+        Whether to automatically insert the adapter or to wait for `insert_adapters`
+        to be called manually. This is required for e.g. use of Pretrainer so that
+        pre-trained parameters can be loaded to their original location.
 
     Example
     -------
@@ -84,27 +88,34 @@ class AdaptedModel(nn.Module):
         target_layers=[],
         unfrozen_layers=[],
         adapter_kwargs={},
+        manual_adapter_insertion=False,
     ):
         super().__init__()
 
         # Collect and freeze layers
-        replace_layers = []
+        self.adapted_model = model_to_adapt
+        self.adapter_class = adapter_class
+        self.adapter_kwargs = adapter_kwargs
+        self.replace_layers = []
         for name, module in model_to_adapt.named_modules():
             if is_layer_adaptable(
                 name, module, all_linear, all_conv, target_layers
             ):
-                replace_layers.append(name)
+                self.replace_layers.append(name)
             elif not any(fnmatch(name, layer) for layer in unfrozen_layers):
                 for param in module.parameters():
                     param.requires_grad = False
 
-        # Replace the collected layer names
-        for name in replace_layers:
-            module = model_to_adapt.get_submodule(name)
-            new_module = adapter_class(module, **adapter_kwargs)
-            replace_module(model_to_adapt, name, new_module)
+        # Some cases require a delay in adapter insertion, e.g. using Pretrainer
+        if not manual_adapter_insertion:
+            self.insert_adapters()
 
-        self.adapted_model = model_to_adapt
+    def insert_adapters(self):
+        """If this is in `__init__` it conflicts with `Pretrainer`. Call before training."""
+        for name in self.replace_layers:
+            module = self.adapted_model.get_submodule(name)
+            new_module = self.adapter_class(module, **self.adapter_kwargs)
+            replace_module(self.adapted_model, name, new_module)
 
     def forward(self, *args, **kwargs):
         """Pass arguments to adapted model."""
