@@ -667,7 +667,7 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
     return output
 
 
-def gammatone_impulse_response(t, center, order, decay):
+def gammatone_impulse_response(t, center_freq, order, decay):
     """
         Function for generating gammatone impulse responses
         as used by GammatoneConv proposed in
@@ -677,22 +677,15 @@ def gammatone_impulse_response(t, center, order, decay):
         """
     alpha = order - 1
 
-    norm_inv = ((4 * math.pi * decay)**((2 * alpha + 1) * 0.5))/torch.sqrt(torch.exp(torch.lgamma(2 * alpha + 1)) * 0.5)
+    modulation = torch.cos(2 * torch.pi * torch.outer(center_freq, t))
 
-    gaussian_decay = torch.exp(
-        torch.tensordot(
-            decay.unsqueeze(1),
-            (-(2 * math.pi * t)).unsqueeze(0),
-            dims=1,
-        )
-    )
-    envelop = torch.pow(t, alpha) * gaussian_decay
+    envelop = torch.float_power(t.unsqueeze(1), alpha).transpose(0, 1) * torch.exp(-2 * torch.pi * torch.outer(decay, t))
 
-    sinusoid = torch.cos(
-         torch.tensordot(
-            center.unsqueeze(1),
-            (2 * math.pi * t).unsqueeze(0),
-            dims=1,
-        )
-    )
-    return envelop * sinusoid * norm_inv
+    norm_n = (4 * torch.pi * decay) ** ((2 * alpha + 1) * 0.5)
+    norm_d = torch.sqrt(2 * torch.exp(torch.lgamma(2 * alpha + 1)))
+
+    gammatone_norm = norm_n / norm_d
+    gammatone = envelop * modulation * gammatone_norm.unsqueeze(1)
+    return gammatone
+
+

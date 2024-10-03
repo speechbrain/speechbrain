@@ -22,6 +22,7 @@ import torchaudio
 from speechbrain.processing.signal_processing import (
     gabor_impulse_response,
     gabor_impulse_response_legacy_complex,
+    gammatone_impulse_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -1410,31 +1411,9 @@ class GaborConv1d(nn.Module):
         x = F.pad(x, pad_value, mode=self.padding_mode, value=0)
         return x
 
-    def _mel_filters(self):
-        def _mel_filters_areas(filters):
-            peaks, _ = torch.max(filters, dim=1, keepdim=True)
-            return (
-                peaks
-                * (torch.sum((filters > 0).float(), dim=1, keepdim=True) + 2)
-                * np.pi
-                / self.n_fft
-            )
-
-        mel_filters = torchaudio.functional.melscale_fbanks(
-            n_freqs=self.n_fft // 2 + 1,
-            f_min=self.min_freq,
-            f_max=self.max_freq,
-            n_mels=self.filters,
-            sample_rate=self.sample_rate,
-        )
-        mel_filters = mel_filters.transpose(1, 0)
-        if self.normalize_energy:
-            mel_filters = mel_filters / _mel_filters_areas(mel_filters)
-        return mel_filters
-
     def _gabor_params_from_mels(self):
         coeff = torch.sqrt(2.0 * torch.log(torch.tensor(2.0))) * self.n_fft
-        sqrt_filters = torch.sqrt(self._mel_filters())
+        sqrt_filters = torch.sqrt(mel_filters(self.n_fft, self.min_freq, self.max_freq, self.filters, self.sample_rate, self.normalize_energy))
         center_frequencies = torch.argmax(sqrt_filters, dim=1)
         peaks, _ = torch.max(sqrt_filters, dim=1, keepdim=True)
         half_magnitudes = peaks / 2.0
@@ -1472,8 +1451,8 @@ class GaborConv1d(nn.Module):
         return in_channels
 
 
-class GammatoneConv(nn.Module):
-    """This function implements GammatoneConv.
+class GammatoneConv1d(nn.Module):
+    """This function implements Gammatone Convolutional Filterbank.
 
     Helena Peic Tukuljac, Benjamin Ricaud, Nicolas Aspert and Laurent Colbois, "Learnable filter-banks
         for CNN-based audio applications", in Proc of NLDL 2022 (https://septentrio.uit.no/index.php/nldl/article/view/6279)
@@ -1526,23 +1505,30 @@ class GammatoneConv(nn.Module):
         stride=1,
         dilation=1,
         padding="same",
-        padding_mode="reflect",
+        padding_mode="constant",
         sample_rate=16000,
-        min_low_hz=50,
-        min_band_hz=50,
+        min_freq=20.0,
+        max_freq=None,
+        n_fft=512,
+        gammatone_init_order=4,
+        bias=False,
+        sort_filters=False,
     ):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.filters = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
         self.padding = padding
         self.padding_mode = padding_mode
         self.sample_rate = sample_rate
-        self.min_low_hz = min_low_hz
-        self.min_band_hz = min_band_hz
-
+        self.min_freq = min_freq
+        self.max_freq = sample_rate / 2 if max_freq is None else max_freq
+        self.n_fft = n_fft,
+        self.gammatone_init_order = gammatone_init_order
+        self.sort_filters = sort_filters
         # input shape inference
         if input_shape is None and self.in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
@@ -1556,7 +1542,11 @@ class GammatoneConv(nn.Module):
             )
 
         # Initialize Gammatone filters
-        self._init_gammatone_conv()
+        self.kernel = nn.Parameter(self._initialize_kernel())
+        if bias:
+            self.bias = torch.nn.Parameter(torch.ones(self.filters))
+        else:
+            self.bias = None
 
     def forward(self, x):
         """Returns the output of the convolution.
@@ -1574,29 +1564,26 @@ class GammatoneConv(nn.Module):
         if unsqueeze:
             x = x.unsqueeze(1)
 
+        kernel = self._gammatone_constraint(self.kernel)
+        if self.sort_filters:
+            idxs = torch.argsort(kernel[:, 0]) # sort by frequency
+            kernel = kernel[idxs, :]
+        filters = self._gammatone_filters(kernel)
+
         if self.padding == "same":
             x = self._manage_padding(
                 x, self.kernel_size, self.dilation, self.stride
             )
-
-        elif self.padding == "causal":
-            num_pad = (self.kernel_size - 1) * self.dilation
-            x = F.pad(x, (num_pad, 0))
-
         elif self.padding == "valid":
             pass
-
         else:
             raise ValueError(
-                "Padding must be 'same', 'valid' or 'causal'. Got %s."
-                % (self.padding)
+                f"Padding must be 'same' or 'valid'. Got {self.padding}."
             )
-
-        gammatone_filters = self._get_gammatone_filters()
 
         wx = F.conv1d(
             x,
-            gammatone_filters,
+            filters,
             stride=self.stride,
             padding=0,
             dilation=self.dilation,
@@ -1619,7 +1606,7 @@ class GammatoneConv(nn.Module):
             in_channels = shape[-1]
         else:
             raise ValueError(
-                "sincconv expects 2d or 3d inputs. Got " + str(len(shape))
+                "gammatoneconv expects 2d or 3d inputs. Got " + str(len(shape))
             )
 
         # Kernel size must be odd
@@ -1630,86 +1617,41 @@ class GammatoneConv(nn.Module):
             )
         return in_channels
 
-    def _get_gammatone_filters(self,):
+    def _gammatone_constraint(self, kernel_data):
+        decay_lower = 0.0
+        order_lower = 1.0
+        f_lower = 0.0
+        f_upper = 0.5
+
+        clipped_f = torch.clamp(kernel_data[:, 0], f_lower, f_upper).unsqueeze(1)
+        clipped_order = torch.clamp(kernel_data[:, 1], order_lower, None).unsqueeze(1)
+        clipped_decay = torch.clamp(kernel_data[:, 2], decay_lower, None).unsqueeze(1)
+
+        return torch.cat([clipped_f, clipped_order, clipped_decay], dim=-1)
+
+    def _gammatone_filters(self, kernel):
         """This functions creates the Gammatone-filters to used for Gammatone-conv."""
-        # Computing the low frequencies of the filters
-        low = self.min_low_hz + torch.abs(self.low_hz_)
+        t = torch.arange(0, self.kernel_size, dtype=torch.float32)
+        return gammatone_impulse_response(t, center_freq=kernel[:, 0], order=kernel[:, 1], decay=kernel[:, 2])
 
-        # Setting minimum band and minimum freq
-        high = torch.clamp(
-            low + self.min_band_hz + torch.abs(self.band_hz_),
-            self.min_low_hz,
-            self.sample_rate / 2,
+    def _gammatone_params_from_mels(self):
+        filters = mel_filters(n_fft=self.n_fft, n_filters=self.filters, min_freq=self.min_freq, max_freq=self.max_freq, sample_rate=self.sample_rate)
+        center_frequencies = torch.argmax(filters, dim=1)
+        peaks, _ = torch.max(filters, dim=1, keepdim=True)
+        half_magnitudes = peaks / 2.0
+        fwhms = torch.sum((filters >= half_magnitudes).float(), dim=1)
+        output = torch.cat(
+            [
+                (center_frequencies / self.n_fft).unsqueeze(1),
+                torch.full((self.filters, 1), self.gammatone_init_order),
+                (fwhms / (self.n_fft * 2 * np.sqrt(2 ** (1 / self.gammatone_init_order) - 1))).unsqueeze(1),
+            ],
+            dim=-1,
         )
-        band = (high - low)[:, 0]
+        return output
 
-        # Passing from n_ to the corresponding f_times_t domain
-        self.n_ = self.n_.to(self.device)
-
-        f_times_t_low = torch.matmul(low, self.n_)
-        f_times_t_high = torch.matmul(high, self.n_)
-
-        # Left part of the filters.
-        band_pass_left = (
-            (torch.sin(f_times_t_high) - torch.sin(f_times_t_low))
-            / (self.n_ / 2)
-        ) * self.window_
-
-        # Central element of the filter
-        band_pass_center = 2 * band.view(-1, 1)
-
-        # Right part of the filter (sinc filters are symmetric)
-        band_pass_right = torch.flip(band_pass_left, dims=[1])
-
-        # Combining left, central, and right part of the filter
-        band_pass = torch.cat(
-            [band_pass_left, band_pass_center, band_pass_right], dim=1
-        )
-
-        # Amplitude normalization
-        band_pass = band_pass / (2 * band[:, None])
-
-        # Setting up the filter coefficients
-        filters = band_pass.view(self.out_channels, 1, self.kernel_size)
-
-        return filters
-
-    def _init_gammatone_conv(self):
-        """Initializes the parameters of the gammatone_conv layer."""
-
-        # Initialize filterbanks such that they are equally spaced in Mel scale
-        high_hz = self.sample_rate / 2 - (self.min_low_hz + self.min_band_hz)
-
-        mel = torch.linspace(
-            self._to_mel(self.min_low_hz),
-            self._to_mel(high_hz),
-            self.out_channels + 1,
-        )
-
-        hz = self._to_hz(mel)
-
-        # Filter lower frequency and bands
-        self.low_hz_ = hz[:-1].unsqueeze(1)
-        self.band_hz_ = (hz[1:] - hz[:-1]).unsqueeze(1)
-
-        # Maiking freq and bands learnable
-        self.low_hz_ = nn.Parameter(self.low_hz_)
-        self.band_hz_ = nn.Parameter(self.band_hz_)
-
-
-        # Time axis  (only half is needed due to symmetry)
-        n = (self.kernel_size - 1) / 2.0
-        self.n_ = (
-            2 * math.pi * torch.arange(-n, 0).view(1, -1) / self.sample_rate
-        )
-
-    def _to_mel(self, hz):
-        """Converts frequency in Hz to the mel scale."""
-        return 2595 * np.log10(1 + hz / 700)
-
-    def _to_hz(self, mel):
-        """Converts frequency in the mel scale to Hz."""
-        return 700 * (10 ** (mel / 2595) - 1)
+    def _initialize_kernel(self):
+        return self._gammatone_params_from_mels()
 
     def _manage_padding(
         self, x, kernel_size: int, dilation: int, stride: int,
@@ -1739,6 +1681,29 @@ class GammatoneConv(nn.Module):
         x = F.pad(x, padding, mode=self.padding_mode)
 
         return x
+
+
+def mel_filters(n_fft, min_freq, max_freq, n_filters, sample_rate, normalize_energy=False):
+    def _mel_filters_areas(filters):
+        peaks, _ = torch.max(filters, dim=1, keepdim=True)
+        return (
+            peaks
+            * (torch.sum((filters > 0).float(), dim=1, keepdim=True) + 2)
+            * np.pi
+            / n_fft
+        )
+
+    mel_filterbank = torchaudio.functional.melscale_fbanks(
+        n_freqs=n_fft // 2 + 1,
+        f_min=min_freq,
+        f_max=max_freq,
+        n_mels=n_filters,
+        sample_rate=sample_rate,
+    )
+    mel_filterbank = mel_filterbank.transpose(1, 0)
+    if normalize_energy:
+        mel_filterbank = mel_filterbank / _mel_filters_areas(mel_filterbank)
+    return mel_filterbank
 
 
 def get_padding_elem(L_in: int, stride: int, kernel_size: int, dilation: int):
