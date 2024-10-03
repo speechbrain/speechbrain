@@ -11,7 +11,6 @@ Authors
  * YAO-FEI, CHENG 2021
 """
 
-import logging
 import sys
 
 import torch
@@ -19,9 +18,9 @@ from hyperpyyaml import load_hyperpyyaml
 from sacremoses import MosesDetokenizer
 
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 en_detokenizer = MosesDetokenizer(lang="en")
 
 
@@ -592,7 +591,7 @@ if __name__ == "__main__":
     )
 
     # transcription/translation tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # We can now directly create the datasets for training, valid, and test

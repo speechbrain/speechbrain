@@ -7,7 +7,6 @@ Author
  * Pooneh Mousavi 2024
 """
 
-import logging
 import os
 from glob import glob
 
@@ -17,8 +16,9 @@ from huggingface_hub import snapshot_download
 from torch import nn
 
 from speechbrain.tokenizers.discrete_SSL_tokenizer import DiscreteSSLTokenizer
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DiscreteSSL(nn.Module):

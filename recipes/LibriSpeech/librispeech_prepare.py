@@ -14,7 +14,6 @@ Author
 
 import csv
 import functools
-import logging
 import os
 import random
 from collections import Counter
@@ -27,9 +26,10 @@ from speechbrain.dataio.dataio import (
     save_pkl,
 )
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
 SAMPLERATE = 16000
 OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"

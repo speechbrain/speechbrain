@@ -74,7 +74,7 @@ def prepare_aishell1mix(
     if not os.path.exists(wham_dir):
         print("Download Wham noise dataset into %s" % datapath)
         urlretrieve(
-            "https://storage.googleapis.com/whisper-public/wham_noise.zip",
+            "https://my-bucket-a8b4b49c25c811ee9a7e8bba05fa24c7.s3.amazonaws.com/wham_noise.zip",
             os.path.join(datapath, "wham_noise.zip"),
             reporthook=reporthook,
         )

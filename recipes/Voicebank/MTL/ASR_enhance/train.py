@@ -16,7 +16,6 @@ can be used for enhancement or ASR models.
 Authors
  * Peter Plantinga 2020, 2021
 """
-import logging
 import os
 import sys
 
@@ -30,8 +29,9 @@ from pystoi import stoi
 import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def pesq_eval(pred_wav, target_wav):

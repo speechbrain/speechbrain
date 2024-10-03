@@ -9,7 +9,6 @@ Authors
 
 import dataclasses
 import heapq
-import logging
 import math
 import warnings
 from itertools import groupby
@@ -19,8 +18,9 @@ import numpy as np
 import torch
 
 from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CTCPrefixScore:

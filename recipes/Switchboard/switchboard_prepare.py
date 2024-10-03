@@ -19,17 +19,15 @@ Dominik Wagner 2022
 """
 
 import csv
-import logging
 import os
 import re
 from collections import defaultdict
 
 from speechbrain.dataio.dataio import merge_csvs
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 SAMPLERATE = 8000
 
 

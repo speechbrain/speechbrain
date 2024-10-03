@@ -6,7 +6,6 @@ Authors
  * Yingzhi Wang 2022
 """
 
-import logging
 import os
 import sys
 
@@ -15,8 +14,9 @@ import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DiffWaveBrain(sb.Brain):

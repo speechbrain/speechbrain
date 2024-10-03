@@ -4,13 +4,14 @@ Authors
  * Mirco Ravanelli 2021
 """
 
-import logging
 import platform
 from typing import Optional
 
 import torchaudio
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def try_parse_torchaudio_major_version() -> Optional[int]:

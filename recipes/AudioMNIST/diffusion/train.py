@@ -12,7 +12,6 @@ for each batch during training.
 Authors
  * Artem Ploujnikov 2022
 """
-import logging
 import os
 import sys
 from collections import namedtuple
@@ -37,9 +36,10 @@ from speechbrain.utils.data_utils import (
     match_shape,
 )
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.train_logger import plot_spectrogram
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DiffusionMode(Enum):

@@ -9,7 +9,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 17234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 data_folder: !PLACEHOLDER # e.g, /data/member1/user_jasonfu/noisy-vctk-16k
 

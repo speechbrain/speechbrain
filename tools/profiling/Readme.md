@@ -1,5 +1,8 @@
 # Profiling & benchmark as part of testing
 
+> [!WARNING]
+> This documentation is out-of-date and requires updating.
+
 _Recognition performance aside, are we real-time?_
 
 Among the tools out there, PyTorch offers its profiler to benchmark computational time and memory demands.

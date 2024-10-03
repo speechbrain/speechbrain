@@ -11,16 +11,15 @@ Authors
  * Adel Moumen 2023, 2024
 """
 
-import logging
-
 import torch
 import torch.nn.functional as F
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WeightedSSLModel(HFTransformersInterface):
