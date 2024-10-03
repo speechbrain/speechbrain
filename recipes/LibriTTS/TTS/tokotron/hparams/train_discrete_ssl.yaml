@@ -20,7 +20,6 @@ representation_mode: discrete
 vocoder_model_name: !ref unithifigan-<ssl_model_type>-<representation_mode>-ms
 vocoder_model_path: !ref <pretrained_model_save_folder>/<vocoder_model_name>
 prepare_archive_path: null
-prepare_skip_ignore_folders: False
 data_mode: lite
 train_json: !ref <prepare_save_folder>/train.json
 valid_json: !ref <prepare_save_folder>/valid.json
@@ -33,7 +32,6 @@ train_split: !apply:speechbrain.utils.hparams.choice
         full: ["train-clean-100", "train-clean-360", "train-other-500"]
 valid_split: ["dev-clean"]
 test_split: ["test-clean"]
-frozen_split_path: null
 sample_path: null
 progress_folder: !ref <output_folder>/progress
 progress_archive: !ref <progress_folder>/progress.tar
@@ -48,7 +46,6 @@ token_model_src: !apply:speechbrain.utils.hparams.choice
         wavlm: microsoft/wavlm-large
         hubert: facebook/hubert-large-ll60k
         wav2vec2: facebook/wav2vec2-large-960h-lv60-self
-g2p_src: flexthink/soundchoice-g2p
 token_model_kmeans_src: poonehmousavi/SSL_Quantization
 token_model_kmeans_dataset: LibriSpeech-100-360-500
 ssl_model_layers: [1, 3, 7, 12, 18, 23]
@@ -81,11 +78,9 @@ spk_emb_discrete_src: !apply:speechbrain.utils.hparams.choice
         wavlm: flexthink/discrete_wavlm_spk_rec_ecapatdn_lite
         hubert: flexthink/discrete_hubert_spk_rec_ecapatdn_lite
         wav2vec2: flexthink/discrete_wav2vec2_spk_rec_ecapatdn_lite
-asr_src: speechbrain/asr-transformer-transformerlm-librispeech
 spk_emb_shuffle: True
 
 splits: ["train", "valid", "test"]
-split_ratio: [90, 5, 5]
 
 
 ckpt_interval_minutes: 30 # save checkpoint every N min
@@ -95,7 +90,6 @@ input: text
 number_of_epochs: 1000
 reset_annealing_epoch: null
 batch_size: 4
-batch_size_guided: 2
 extract_features_batch_size: 4
 grad_accumulation_factor: 1
 max_grad_norm: 0.01
@@ -147,7 +141,6 @@ sample_rate: 24000
 model_sample_rate: 16000
 max_audio_length: 2000
 infer_max_audio_length: !ref <max_audio_length>
-debug_infer_max_audio_length: 10
 
 # Label encoder
 label_encoder: !new:speechbrain.dataio.encoder.TextEncoder
@@ -272,8 +265,6 @@ audio_emb_size: !apply:speechbrain.utils.hparams.choice
         discrete: 1024
         continuous: 128
 audio_emb_freeze: False
-audio_emb_lr: 0.00001
-audio_emb_weight_decay: 0.001
 audio_emb_pretrained: False
 text_num_tokens: 39
 phn_num_tokens: 52

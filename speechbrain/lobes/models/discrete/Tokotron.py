@@ -88,16 +88,36 @@ IGNORE_IN_STATE_DICT = {"vocoder"}
 
 
 class EosMode(Enum):
+    """Indicates how end-of-sequence will be determined
+
+    EosMode.GATE : Using a separate gating mechanism similar to Tacotron2
+    EosMode.TOKEN : Using a specialized token
+    """
+
     GATE = "gate"
     TOKEN = "token"
 
 
 class DecoderMode(Enum):
+    """Indicates how decoding will proceed
+
+    DecoderMode.AUTOREGRESSIVE
+        One token at a time
+    DecoderMode.FORWARD
+        Single-pass "naive" non-autoregressive decoding
+    """
+
     AUTOREGRESSIVE = "autoregressive"
     FORWARD = "forward"
 
 
 class RepresentationMode(Enum):
+    """Indicates the representation mode
+
+    RepresentationMode.DISCRETE: Discrete representations (tokens)
+    RepresentationMode.CONTINUOUS: Continuous representations (e.g. a single layer
+        from an SSL model)"""
+
     DISCRETE = "discrete"
     CONTINUOUS = "continuous"
 
@@ -2527,7 +2547,22 @@ class NullEmbedding(nn.Module):
 
 
 class ContextProjectiveEmbedding(nn.Module):
-    """An embedding embedding mechanism that combines the embedding"""
+    """An embedding  mechanism that combines the embedding with
+    representations through concatenation and provides some
+    context
+
+    Arguments
+    ---------
+    emb_size : int
+        The embedding size
+    out_size : int
+        The output size
+    emb_proj_dim : int
+        The dimension of the embedding projection
+    context_window : int
+        The size of the context window (pooling layer)
+
+    """
 
     def __init__(
         self,
@@ -2561,9 +2596,39 @@ class ContextProjectiveEmbedding(nn.Module):
         )
 
     def before(self, inputs, emb):
+        """Injects embeddings into the model inputs
+
+        Arguments
+        ---------
+        inputs : torch.Tensor
+            The inputs
+        emb : torch.Tensor
+            The embedding tensor
+
+        Returns
+        -------
+        outputs : torch.Tensor
+            The outputs, with embeddings injected
+        """
         return inputs
 
     def after(self, inputs, outputs, emb):
+        """Injects embeddings into the model outputs
+
+        Arguments
+        ---------
+        inputs : torch.Tensor
+            The inputs
+        outputs : torch.Tensor
+            The outputs
+        emb : torch.Tensor
+            The embedding tensor
+
+        Returns
+        -------
+        outputs : torch.Tensor
+            The outputs, with embeddings injected
+        """
         batch_size, output_len, _ = outputs.shape
         emb_proj = self.emb_proj(emb.unsqueeze(1))
         emb_proj = self.emb_act(emb_proj)
@@ -2576,7 +2641,16 @@ class ContextProjectiveEmbedding(nn.Module):
 
 
 class ProjectiveEmbedding(nn.Module):
-    """An embedding embedding mechanism that combines the embedding"""
+    """An embedding  mechanism that combines the embedding with the input
+    using concatenation along the feature axis and a linear projection
+
+    Arguments
+    ---------
+    emb_size : int
+        The embedding size
+    out_size : int
+        The output size
+    """
 
     def __init__(
         self,
@@ -2591,9 +2665,39 @@ class ProjectiveEmbedding(nn.Module):
         self.emb_act = nn.LeakyReLU()
 
     def before(self, inputs, emb):
+        """Injects embeddings into the model inputs
+
+        Arguments
+        ---------
+        inputs : torch.Tensor
+            The inputs
+        emb : torch.Tensor
+            The embedding tensor
+
+        Returns
+        -------
+        outputs : torch.Tensor
+            The outputs, with embeddings injected
+        """
         return inputs
 
     def after(self, inputs, outputs, emb):
+        """Injects embeddings into the model outputs
+
+        Arguments
+        ---------
+        inputs : torch.Tensor
+            The inputs
+        outputs : torch.Tensor
+            The outputs
+        emb : torch.Tensor
+            The embedding tensor
+
+        Returns
+        -------
+        outputs : torch.Tensor
+            The outputs, with embeddings injected
+        """
         batch_size, input_len, _ = outputs.shape
         emb = emb.unsqueeze(1)
         emb = emb.expand(batch_size, input_len, emb.size(-1))
@@ -2604,6 +2708,9 @@ class ProjectiveEmbedding(nn.Module):
 
 
 class EmbeddingInjection(Enum):
+    """An enumeration for available injection mechanisms, to be used in
+    configuration"""
+
     ADD = "add"
     FILM = "film"
     PROJ = "proj"

@@ -125,7 +125,6 @@ sample_rate: 22050
 model_sample_rate: 16000
 max_audio_length: 1000
 infer_max_audio_length: !ref <max_audio_length>
-debug_infer_max_audio_length: 10
 
 # Label encoder
 label_encoder: !new:speechbrain.dataio.encoder.TextEncoder
