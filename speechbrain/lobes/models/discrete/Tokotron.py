@@ -2561,7 +2561,8 @@ class ContextProjectiveEmbedding(nn.Module):
         The dimension of the embedding projection
     context_window : int
         The size of the context window (pooling layer)
-
+    context_dim : int
+        The output dimension of the context projection
     """
 
     def __init__(
