@@ -1029,7 +1029,9 @@ class RoPEMHA(nn.Module):
         self.dropout = dropout
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
-
+        
+        self.use_pt_attn = True
+        
         assert (
             self.head_dim * num_heads == self.embed_dim
         ), "embed_dim must be divisible by num_heads"
@@ -1188,76 +1190,67 @@ class RoPEMHA(nn.Module):
         q_rotated = self.rotate(query, pos_embs)
         k_rotated = self.rotate(key, pos_embs)
         
-        attn_score = torch.matmul(
-            q_rotated.transpose(1, 2) * self.scale, k_rotated.permute(0, 2, 3, 1)
-        )
+        if not self.use_pt_attn:
         
-        # # Moved the `* self.scale` mul from after the `attn_score` sum to prior
-        # # to the matmul in order to lower overflow risks on fp16.
-        # # This change is inspired by the following paper, but no other changes
-        # # were ported from there so far.
-        # # ref: E.T.: Re-Thinking Self-Attention for Transformer Models on GPUs
-        # # https://asherliu.github.io/docs/sc21a.pdf
+            attn_score = torch.matmul(
+                q_rotated.transpose(1, 2) * self.scale, k_rotated.permute(0, 2, 3, 1)
+            )
+            
+            # compute attention probability
+            if attn_mask is not None:
+                if attn_mask.ndim == 2:
+                    attn_mask = attn_mask.view(1, 1, qlen, klen)
+                else:
+                    attn_mask = attn_mask.view(-1, self.num_heads, qlen, klen)
 
-        # # (batch, head, qlen, klen)
-        # matrix_ac = torch.matmul(
-        #     q_with_bias_u * self.scale, key.permute(0, 2, 3, 1)
-        # )
-        # # (batch, num_heads, klen, 2*klen-1)
-        # matrix_bd = torch.matmul(
-        #     q_with_bias_v * self.scale, p_k.permute(0, 2, 3, 1)
-        # )
-        # matrix_bd = self.rel_shift(matrix_bd)  # shifting trick
+                if attn_mask.dtype == torch.bool:
+                    attn_score = attn_score.masked_fill(
+                        attn_mask, self.attn_fill_value
+                    )
+                else:
+                    attn_score += attn_mask
 
-        # # if klen != qlen:
-        # #   import ipdb
-        # #  ipdb.set_trace(
-
-        # attn_score = matrix_ac + matrix_bd  # already scaled above
-
-        # compute attention probability
-        if attn_mask is not None:
-            if attn_mask.ndim == 2:
-                attn_mask = attn_mask.view(1, 1, qlen, klen)
-            else:
-                attn_mask = attn_mask.view(-1, self.num_heads, qlen, klen)
-
-            if attn_mask.dtype == torch.bool:
+            if key_padding_mask is not None:
                 attn_score = attn_score.masked_fill(
-                    attn_mask, self.attn_fill_value
+                    key_padding_mask.view(bsz, 1, 1, klen),
+                    self.attn_fill_value,
                 )
-            else:
-                attn_score += attn_mask
 
-        if key_padding_mask is not None:
-            attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen),
-                self.attn_fill_value,
+            attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
+            attn_score = self.dropout_att(attn_score)
+
+            # it is possible for us to hit full NaN when using chunked training
+            # so reapply masks, except with 0.0 instead as we are after the softmax
+            # because -inf would output 0.0 regardless anyway
+            if attn_mask is not None:
+                if attn_mask.dtype == torch.bool:
+                    attn_score = attn_score.masked_fill(attn_mask, 0.0)
+                else:
+                    # NOTE: the above fix is not implemented for this case as
+                    # summing the mask with NaN would still result in NaN
+                    pass
+
+            if key_padding_mask is not None:
+                attn_score = attn_score.masked_fill(
+                    key_padding_mask.view(bsz, 1, 1, klen),
+                    0.0,
+                )
+
+            x = torch.matmul(
+                attn_score, value.transpose(1, 2)
+            )  # (batch, head, time1, d_k)
+        else:
+            if key_padding_mask is not None:
+                key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(bsz, self.num_heads, klen, qlen)
+        
+            x = F.scaled_dot_product_attention(
+                query=q_rotated.permute(0,2,1,3),
+                key=k_rotated.permute(0,2,1,3),
+                value=value.permute(0,2,1,3),
+                attn_mask=torch.logical_not(key_padding_mask),
+                dropout_p=self.dropout,
             )
-
-        attn_score = F.softmax(attn_score, dim=-1, dtype=torch.float32)
-        attn_score = self.dropout_att(attn_score)
-
-        # it is possible for us to hit full NaN when using chunked training
-        # so reapply masks, except with 0.0 instead as we are after the softmax
-        # because -inf would output 0.0 regardless anyway
-        if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                attn_score = attn_score.masked_fill(attn_mask, 0.0)
-            else:
-                # NOTE: the above fix is not implemented for this case as
-                # summing the mask with NaN would still result in NaN
-                pass
-
-        if key_padding_mask is not None:
-            attn_score = attn_score.masked_fill(
-                key_padding_mask.view(bsz, 1, 1, klen),
-                0.0,
-            )
-
-        x = torch.matmul(
-            attn_score, value.transpose(1, 2)
-        )  # (batch, head, time1, d_k)
+                        
         x = (
             x.transpose(1, 2)
             .contiguous()
@@ -1266,5 +1259,5 @@ class RoPEMHA(nn.Module):
 
         out = self.out_proj(x)
         if return_attn_weights:
-            return out, attn_score
+            return out, None # out, attn_score
         return out
