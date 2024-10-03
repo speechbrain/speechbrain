@@ -44,6 +44,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
     "sphinx_design",
+    "sphinx_markdown_tables",
     "recommonmark",
     # chose myst-nb over nbsphinx is annoying because of the pandoc dependency
     # of the latter, which needs to be installed system-wide or through conda
