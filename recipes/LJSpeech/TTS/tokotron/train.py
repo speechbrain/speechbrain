@@ -728,27 +728,23 @@ if __name__ == "__main__":
         extract_features.append("spk_emb")
 
     if not hparams["skip_prep"]:
+        prepare_opts = {
+            "data_folder": hparams["data_folder"],
+            "save_folder": hparams["prepare_save_folder"],
+            "splits": hparams["splits"],
+            "split_ratio": hparams["split_ratio"],
+            "seed": hparams["seed"],
+            "extract_features": extract_features,
+            "extract_features_opts": hparams["extract_features_opts"],
+            "extract_phonemes": hparams["input"] == "phonemes",
+            "model_name": "tokotron",
+            "g2p_src": hparams["g2p_src"],
+            "skip_ignore_folders": hparams["prepare_skip_ignore_folders"],
+            "frozen_split_path": hparams.get("frozen_split_path"),
+            "device": run_opts.get("device", "cpu"),
+        }
         with hparams["freezer"]:
-            run_on_main(
-                prepare_ljspeech,
-                kwargs={
-                    "data_folder": hparams["data_folder"],
-                    "save_folder": hparams["prepare_save_folder"],
-                    "splits": hparams["splits"],
-                    "split_ratio": hparams["split_ratio"],
-                    "seed": hparams["seed"],
-                    "extract_features": extract_features,
-                    "extract_features_opts": hparams["extract_features_opts"],
-                    "extract_phonemes": hparams["input"] == "phonemes",
-                    "model_name": "tokotron",
-                    "g2p_src": hparams["g2p_src"],
-                    "skip_ignore_folders": hparams[
-                        "prepare_skip_ignore_folders"
-                    ],
-                    "frozen_split_path": hparams.get("frozen_split_path"),
-                    "device": run_opts.get("device", "cpu"),
-                },
-            )
+            run_on_main(prepare_ljspeech, kwargs=prepare_opts)
 
     # We can now directly create the datasets for training, valid, and test
     datasets, silence_padding = dataio_prepare(hparams)
