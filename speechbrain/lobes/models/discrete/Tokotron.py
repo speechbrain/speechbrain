@@ -2191,8 +2191,21 @@ class EmbeddingGuidedTransformerDecoder(nn.Module):
     -------
     >>> src = torch.rand((8, 60, 512))
     >>> tgt = torch.rand((8, 60, 512))
-    >>> net = TransformerDecoder(1, 8, 1024, d_model=512)
-    >>> output, _, _ = net(src, tgt)
+    >>> net = EmbeddingGuidedTransformerDecoder(
+    ...     num_layers=1,
+    ...     nhead=8,
+    ...     d_ffn=1024,
+    ...     d_model=512,
+    ...     emb={
+    ...         "spk": {
+    ...             "kind": "pretrained",
+    ...             "dim": 192,
+    ...             "injection": "add"
+    ...         }
+    ...     }
+    ... )
+    >>> emb = torch.randn(8, 192)
+    >>> output, _, _ = net(src, tgt, emb={"spk": emb})
     >>> output.shape
     torch.Size([8, 60, 512])
     """
