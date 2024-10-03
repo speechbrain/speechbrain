@@ -1160,6 +1160,36 @@ class TokotronTransformerModel(nn.Module):
     layerwise_renorm : bool
         Whether to apply normalization at the end of each decoder layer
 
+    Example
+    -------
+    >>> import torch
+    >>> emb_cfg = {
+    ...     "spk": {
+    ...         "kind": "pretrained",
+    ...         "dim": 192,
+    ...         "injection": "add"
+    ...     }
+    ... }
+    >>> model = TokotronTransformerModel(input_num_tokens=26, emb=emb_cfg)
+    >>> src = torch.randint(0, 26, (2, 50))
+    >>> src_length = torch.ones(2)
+    >>> tgt = torch.randint(0, 1024, (2, 100, 2))
+    >>> tgt_length = torch.ones(2)
+    >>> spk_emb = torch.randn(2, 192)
+    >>> emb = {"spk": spk_emb}
+    >>> tok_out = model(
+    ...     input_tokens=src,
+    ...     input_length=src_length,
+    ...     audio=tgt,
+    ...     audio_length=tgt_length,
+    ...     emb=emb
+    ... )
+    >>> tok_out.out.shape
+    torch.Size([2, 100, 2, 1024])
+    >>> tok_out.alignments.shape
+    torch.Size([2, 100, 50])
+    >>> tok_out.p_eos.shape
+    torch.Size([2, 100])
     """
 
     def __init__(
