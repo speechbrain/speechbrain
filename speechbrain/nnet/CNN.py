@@ -1513,6 +1513,7 @@ class GammatoneConv1d(nn.Module):
         gammatone_init_order=4,
         bias=False,
         sort_filters=False,
+        skip_transpose=False,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -1529,6 +1530,7 @@ class GammatoneConv1d(nn.Module):
         self.n_fft = n_fft,
         self.gammatone_init_order = gammatone_init_order
         self.sort_filters = sort_filters
+        self.skip_transpose = skip_transpose
         # input shape inference
         if input_shape is None and self.in_channels is None:
             raise ValueError("Must provide one of input_shape or in_channels")
@@ -1557,8 +1559,10 @@ class GammatoneConv1d(nn.Module):
             input to convolve. 2d or 4d tensors are expected.
 
         """
-        x = x.transpose(1, -1)
         self.device = x.device
+
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
 
         unsqueeze = x.ndim == 2
         if unsqueeze:
