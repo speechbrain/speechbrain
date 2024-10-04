@@ -1527,7 +1527,7 @@ class GammatoneConv1d(nn.Module):
         self.sample_rate = sample_rate
         self.min_freq = min_freq
         self.max_freq = sample_rate / 2 if max_freq is None else max_freq
-        self.n_fft = n_fft,
+        self.n_fft = n_fft
         self.gammatone_init_order = gammatone_init_order
         self.sort_filters = sort_filters
         self.skip_transpose = skip_transpose
