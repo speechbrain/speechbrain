@@ -98,10 +98,7 @@ class LocalStrategy(Enum):
 def link_with_strategy(
     src: pathlib.Path, dst: pathlib.Path, local_strategy: LocalStrategy
 ) -> pathlib.Path:
-    """If `src == dst` **or** if using `LocalStrategy.NO_LINK`, returns `src`
-    with no change to the files.
-
-    If using `LocalStrategy.COPY` or `LocalStrategy.COPY_SKIP_CACHE`, destroy
+    """If using `LocalStrategy.COPY` or `LocalStrategy.COPY_SKIP_CACHE`, destroy
     the file or symlink at `dst` if present and creates a copy from `src` to
     `dst`.
 
@@ -123,6 +120,8 @@ def link_with_strategy(
     pathlib.Path
         Path to the final file on disk, after linking/copying (if any).
     """
+
+    assert local_strategy != LocalStrategy.NO_LINK
 
     src = src.absolute()
     dst = dst.absolute()
@@ -165,14 +164,9 @@ def link_with_strategy(
         shutil.copy(str(src), str(dst))
         return dst
 
-    if local_strategy == LocalStrategy.NO_LINK:
-        logger.debug(
-            "Fetch: Local file found, returning '%s' (NOT linking to '%s' because NO_LINK was passed)",
-            src,
-            dst,
-        )
-
-        return src
+    raise ValueError(
+        f"Illegal local strategy {local_strategy} passed for linking"
+    )
 
 
 def guess_source(source: Union[str, FetchSource]) -> FetchSource:
@@ -215,7 +209,7 @@ def guess_source(source: Union[str, FetchSource]) -> FetchSource:
 def fetch(
     filename,
     source: Union[str, FetchSource],
-    savedir: Union[str, pathlib.Path] = "./pretrained_model_checkpoints",
+    savedir: Optional[Union[str, pathlib.Path]] = None,
     overwrite: bool = False,
     allow_updates: bool = True,
     allow_network: bool = True,
@@ -223,89 +217,64 @@ def fetch(
     use_auth_token: bool = False,
     revision: Optional[str] = None,
     huggingface_cache_dir: Optional[Union[str, pathlib.Path]] = None,
-    local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
+    local_strategy: Optional[LocalStrategy] = None,
 ):
-    """Ensures you have a local copy of the file and returns its path.
+    """Fetches a local path, remote URL or remote HuggingFace file, downloading
+    it locally if necessary and returns the local path.
 
-    If the file already exists under `<savedir>/<save_filename>` **and**
-    `overwrite == False`, then that path is always returned and no other action
-    is performed.
+    When a `savedir` is specified, but the file already exists locally
+    elsewhere, the specified :class:`~LocalStrategy` chooses whether to copy or
+    symlink it.
 
-    Unless the `local_strategy` is `LocalStrategy.NO_LINK`, the file will be
-    available under `<savedir>/<save_filename>`.
+    If `<savedir>/<save_filename>` exists locally, it is returned as is (unless using `overwrite` or `allow_updates`).
 
-    .. note::
-        If `source` is an URI but found locally, `fetch` will not attempt
-        downloading again, unless `override` is `True`.
-
-    Effect of local file strategies when the fetch source is a **local file**:
-
-    - `LocalStrategy.SYMLINK`: Create symlink to the file in the destination.
-    - `LocalStrategy.COPY`: Create copy of the file in the destination.
-    - `LocalStrategy.COPY_SKIP_CACHE`: Create copy of the file in the
-      destination.
-    - `LocalStrategy.NO_LINK`: Returns the path to the source file.
-
-    Effect of local file strategies when the fetch source is an **URI**:
-    Downloads the file to the destination.
-
-    Effect of local file strategies when the fetch source is the **HF Hub**:
-
-    - `LocalStrategy.SYMLINK`: Create symlink to the file in the cache.
-    - `LocalStrategy.COPY`: Downloads to cache if necessary, then copies to the
-      destination.
-    - `LocalStrategy.COPY_SKIP_CACHE`: Copies from cache if available, else
-      downloads directly to the destination.
-    - `LocalStrategy.NO_LINK`: Returns the path to the cache.
+    The `HF_HOME` environment (default: `~/.cache/huggingface`) `selects the cache directory for HF <https://huggingface.co/docs/huggingface_hub/guides/manage-cache#manage-huggingfacehub-cache-system>`__.
+    To prefer directly downloading to `savedir`, specify `local_strategy=LocalStrategy.COPY_SKIP_CACHE`.
+    **HF cache is always looked up first if possible.**
 
     Arguments
     ---------
     filename : str
         Name of the file including extensions.
     source : str or FetchSource
-        Where to look for the file. See :func:`~guess_source` for how the fetch
-        type is interpreted (e.g. local/URI/HF).
-    savedir : str
-        Directory path where the file will be reachable (unless using
-        `LocalStrategy.NO_LINK`, in which case it may or may not end up in this
-        directory).
-    overwrite : bool (default: `False`)
-        If `True`, always overwrite existing savedir/filename file and download
-        the file over again, even if it was unchanged.
-        If False (the default), if savedir/filename exists, assume it is
-        correct and don't download/relink.
-        Note that Huggingface local cache is always used - with overwrite=True
-        you may just relink from the local cache.
-    allow_updates : bool (default: `True`)
+        Local or remote root path for the filename. The final path is
+        determined by `<source>/<filename>`.
+        See :func:`~guess_source` for how the path kind is deduced.
+    savedir : str, optional
+        If specified, directory under which the files will be available
+        (possibly as a copy or symlink depending on `local_strategy`).
+        Must be specified when downloading from an URL.
+    overwrite : bool, defaults to `False`
+        Allows the destination to be recreated by copy/symlink/fetch.
+        This does **not** skip the HuggingFace cache (see `allow_updates`).
+    allow_updates : bool, defaults to `True`
         If `True`, for a remote file on HF, check for updates and download newer
         revisions if available.
         If `False`, when the requested files are available locally, load them
         without fetching from HF.
-    allow_network : bool (default: `True`)
+    allow_network : bool, defaults to `True`
         If `True`, network accesses are allowed. If `False`, then remote URLs
         or HF won't be fetched, regardless of any other parameter.
-    save_filename : str, optional (default: `None`)
+    save_filename : str, optional, defaults to `None`
         The filename to use for saving this file. Defaults to the `filename`
         argument if not given or `None`.
-    use_auth_token : bool (default: `False`)
-        If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
-        default is False because majority of models are public.
-    revision : str, optional (default: `None`)
-        The model revision corresponding to the HuggingFace Hub model revision,
-        in the form of a Git revision (branch name, tag, commit hash).
-        This allows to pin your code to a particular version of a model hosted
-        on HuggingFace.
-        When changing the revision while local files still exist,
+    use_auth_token : bool, defaults to  `False`
+        If `True`, use HuggingFace's `auth_token` to enable loading private
+        models from the Hub.
+    revision : str, optional, defaults to  `None`
+        HuggingFace Hub model revision (Git branch name/tag/commit hash) to pin
+        to a specific version.
+        When changing the revision while local files might still exist,
         `allow_updates` must be `True`.
-    huggingface_cache_dir: str, optional (default: `None`)
-        Path to HuggingFace cache; if `None`, the default cache directory is
-        used: `~/.cache/huggingface` unless overridden by environment variables.
-        See `huggingface_hub documentation <https://huggingface.co/docs/huggingface_hub/guides/manage-cache#manage-huggingfacehub-cache-system>`_
-        Ignored if the local strategy is `LocalStrategy.COPY_SKIP_CACHE`.
-        (default: None)
+    huggingface_cache_dir: str, optional, defaults to `None`
+        Path to HuggingFace cache; if `None`, `assumes the default cache location <https://huggingface.co/docs/huggingface_hub/guides/manage-cache#manage-huggingfacehub-cache-system>`__.
+        Ignored if using `LocalStrategy.COPY_SKIP_CACHE`.
+        Please prefer to let the user specify the cache directory themselves
+        through the environment.
     local_strategy : LocalStrategy, optional
-        Which strategy to use to deal with files locally. (default:
-        `LocalStrategy.NO_LINK`)
+        | Which strategy to use to deal with files locally, when it is available under a different directory than the chosen `savedir`.
+        | Defaults to `LocalStrategy.SYMLINK` if `savedir is not None`.
+        | Defaults to and must be `LocalStrategy.NO_LINK` otherwise.
 
     Returns
     -------
@@ -321,30 +290,56 @@ def fetch(
     if save_filename is None:
         save_filename = filename
 
-    savedir = pathlib.Path(savedir)
-    savedir.mkdir(parents=True, exist_ok=True)
+    if local_strategy is None:
+        local_strategy = (
+            LocalStrategy.SYMLINK
+            if savedir is not None
+            else LocalStrategy.NO_LINK
+        )
 
     fetch_from, source = guess_source(source)
+    source_path = f"{source}/{filename}"
 
-    sourcefile = f"{source}/{filename}"
-    destination = (savedir / save_filename).absolute()
+    if savedir is not None:
+        savedir = pathlib.Path(savedir)
+        savedir.mkdir(parents=True, exist_ok=True)
+        destination = (savedir / save_filename).absolute()
+    else:
+        destination = None
 
     # only HF supports updates
     should_try_update = overwrite or (
         fetch_from == FetchFrom.HUGGING_FACE and allow_updates
     )
 
-    if destination.exists() and not should_try_update:
-        MSG = f"Fetch {filename}: Using existing file/symlink in {str(destination)}"
-        logger.info(MSG)
+    if (
+        destination is not None
+        and destination.exists()
+        and not should_try_update
+    ):
+        file_kind = "symlink" if destination.is_symlink() else "file"
+        logger.info(
+            "Fetch %s: Using found %s '%s'",
+            filename,
+            file_kind,
+            str(destination),
+        )
         return destination
 
     if fetch_from == FetchFrom.LOCAL:
-        return link_with_strategy(
-            pathlib.Path(sourcefile).absolute(), destination, local_strategy
-        )
+        source_path = pathlib.Path(source_path).absolute()
+
+        if local_strategy == LocalStrategy.NO_LINK:
+            return source_path
+
+        return link_with_strategy(source_path, destination, local_strategy)
 
     if fetch_from == FetchFrom.URI:
+        if local_strategy == LocalStrategy.NO_LINK:
+            raise ValueError(
+                f"Fetch {filename}: `savedir` must be specified for URI fetches"
+            )
+
         if not allow_network:
             # TODO: streamline exceptions?
             raise ValueError(
@@ -352,15 +347,13 @@ def fetch(
                 "`allow_network` was disabled."
             )
 
-        logger.info(
-            "Fetch %s: Downloading from URL '%s'", filename, str(sourcefile)
-        )
+        logger.info("Fetch %s: Downloading '%s'", filename, str(source_path))
         # Download
         try:
-            urllib.request.urlretrieve(sourcefile, destination)
+            urllib.request.urlretrieve(source_path, destination)
         except urllib.error.URLError as e:
             raise ValueError(
-                f"Interpreted {source} as web address, but could not download."
+                f"Interpreted '{source}' as web address, but could not download."
             ) from e
 
         return destination
@@ -396,7 +389,7 @@ def fetch(
             fetched_file = pathlib.Path(fetched_file).absolute()
             assert fetched_file == destination, (
                 "Downloaded file unexpectedly in wrong location "
-                "because of the COPY strategy, this is a bug"
+                "because of the COPY_SKIP_CACHE strategy, this is a bug"
             )
 
             return pathlib.Path(fetched_file).absolute()
@@ -416,5 +409,8 @@ def fetch(
         if "404 Client Error" in str(e):
             raise ValueError("File not found on HF hub") from e
         raise
+
+    if local_strategy == LocalStrategy.NO_LINK:
+        return fetched_file
 
     return link_with_strategy(fetched_file, destination, local_strategy)
