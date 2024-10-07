@@ -72,6 +72,7 @@ compute_features: !new:speechbrain.lobes.features.LFB
     n_fft: 400
     sample_rate: !ref <sample_rate>
     gammatone_init_order: 4
+    skip_transpose: True
     activation: !new:torch.nn.LeakyReLU
 
 embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector

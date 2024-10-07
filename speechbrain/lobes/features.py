@@ -548,7 +548,7 @@ class LFB(torch.nn.Module):
             out_channels=out_channels,
             in_channels=in_channels,
             kernel_size=window_size,
-            stride=1,
+            stride=window_stride,
             padding="same",
             bias=False,
             n_fft=n_fft,
@@ -589,7 +589,7 @@ class LFB(torch.nn.Module):
         if self.activation:
             outputs = self.activation(outputs)
 
-        if not self.skip_transpose:
+        if self.skip_transpose: # match the order from LEAF
             outputs = outputs.transpose(1, -1)
         return outputs
 
