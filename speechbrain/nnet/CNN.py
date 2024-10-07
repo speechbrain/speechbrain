@@ -1572,7 +1572,8 @@ class GammatoneConv1d(nn.Module):
         if self.sort_filters:
             idxs = torch.argsort(kernel[:, 0]) # sort by frequency
             kernel = kernel[idxs, :]
-        filters = self._gammatone_filters(kernel)
+
+        filters = self._gammatone_filters(kernel).unsqueeze(1)
 
         if self.padding == "same":
             x = self._manage_padding(
