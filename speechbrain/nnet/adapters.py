@@ -40,9 +40,11 @@ class AdaptedModel(nn.Module):
     adapter_kwargs: dict
         Ensemble of parameters that should be given to the adapter.
     manual_adapter_insertion: bool
-        Whether to automatically insert the adapter or to wait for `insert_adapters`
-        to be called manually. This is required for e.g. use of Pretrainer so that
-        pre-trained parameters can be loaded to their original location.
+        The default value (`False`) leads to the adapters being inserted at
+        the time of initialization. However, in some cases, it is preferable
+        to wait to insert the adapters, e.g. when pretrained parameters need to
+        be loaded. In this case, one can set this to `True` and call
+        `insert_adapters` manually after the parameters have been loaded.
 
     Example
     -------
@@ -111,7 +113,10 @@ class AdaptedModel(nn.Module):
             self.insert_adapters()
 
     def insert_adapters(self):
-        """If this is in `__init__` it conflicts with `Pretrainer`. Call before training."""
+        """If this is in `__init__` it conflicts with `Pretrainer`.
+        Ensure this function is called exactly once before training.
+        See ``__init__.manual_adapter_insertion``
+        """
         for name in self.replace_layers:
             module = self.adapted_model.get_submodule(name)
             new_module = self.adapter_class(module, **self.adapter_kwargs)
