@@ -1586,7 +1586,7 @@ class GammatoneConv1d(nn.Module):
                 f"Padding must be 'same' or 'valid'. Got {self.padding}."
             )
 
-        wx = F.conv1d(
+        output = F.conv1d(
             x,
             filters,
             stride=self.stride,
@@ -1596,11 +1596,12 @@ class GammatoneConv1d(nn.Module):
         )
 
         if unsqueeze:
-            wx = wx.squeeze(1)
+            output = output.squeeze(1)
 
-        wx = wx.transpose(1, -1)
+        if not self.skip_transpose:
+            output = output.transpose(1, -1)
 
-        return wx
+        return output
 
     def _check_input_shape(self, shape):
         """Checks the input shape and returns the number of input channels."""
