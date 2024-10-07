@@ -1635,7 +1635,8 @@ class GammatoneConv1d(nn.Module):
 
     def _gammatone_filters(self, kernel):
         """This functions creates the Gammatone-filters to used for Gammatone-conv."""
-        t = torch.arange(0, self.kernel_size, dtype=torch.float32)
+        t = torch.arange(0, self.kernel_size,  dtype=kernel.dtype,
+            device=kernel.device)
         return gammatone_impulse_response(t, center_freq=kernel[:, 0], order=kernel[:, 1], decay=kernel[:, 2])
 
     def _gammatone_params_from_mels(self):
