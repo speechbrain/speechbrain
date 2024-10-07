@@ -556,6 +556,7 @@ class LFB(torch.nn.Module):
             min_freq=min_freq,
             max_freq=max_freq,
             gammatone_init_order=gammatone_init_order,
+            skip_transpose=skip_transpose
         )
 
         self.activation = activation
