@@ -1641,7 +1641,8 @@ class GammatoneConv1d(nn.Module):
         return gammatone_impulse_response(t, center_freq=kernel[:, 0], order=kernel[:, 1], decay=kernel[:, 2])
 
     def _gammatone_params_from_mels(self):
-        filters = mel_filters(n_fft=self.n_fft, n_filters=self.filters, min_freq=self.min_freq, max_freq=self.max_freq, sample_rate=self.sample_rate)
+        filters = mel_filters(n_fft=self.n_fft, n_filters=self.filters, min_freq=self.min_freq, max_freq=self.max_freq,
+                              sample_rate=self.sample_rate)
         center_frequencies = torch.argmax(filters, dim=1)
         peaks, _ = torch.max(filters, dim=1, keepdim=True)
         half_magnitudes = peaks / 2.0

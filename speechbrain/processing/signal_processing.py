@@ -686,6 +686,6 @@ def gammatone_impulse_response(t, center_freq, order, decay):
 
     gammatone_norm = norm_n / norm_d
     gammatone = envelop * modulation * gammatone_norm.unsqueeze(1)
-    return gammatone
+    return gammatone.float()
 
 
