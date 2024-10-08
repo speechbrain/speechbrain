@@ -11,7 +11,7 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 
 # Use 12 for V2 12 task and 35 for V2 35 task
 number_of_commands: 12
-output_folder: !ref results/xvect_lfb_legacy_complex_mvnorm_v<number_of_commands>/<seed>
+output_folder: !ref results/xvect_lfb_v<number_of_commands>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
