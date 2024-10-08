@@ -33,7 +33,7 @@ coming from HuggingFace. Any wav2vec 2.0 / HuBERT / WavLM or Whisper model integ
 SpeechBrain to approach a speech-related task: automatic speech recognition, speaker recognition,
 spoken language understanding ...
 
-.. rubric:: `🔗 # Neural Network Adapters for faster low-memory fine-tuning <nn/neural-network-adapters.html>`_
+.. rubric:: `🔗 Neural Network Adapters for faster low-memory fine-tuning <nn/neural-network-adapters.html>`_
    :heading-level: 2
 
 .. list-table::
