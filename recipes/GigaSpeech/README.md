@@ -10,4 +10,4 @@ SpeechBrain supports two ways of dealing with the GigaSpeech dataset:
 
 You simply need to follow the instructions on either of the above links. **We strongly
 recomment using HuggingFace as the download speed for people outside of China is
-much quicker".
+much quicker**.
