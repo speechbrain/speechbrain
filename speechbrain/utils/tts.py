@@ -63,7 +63,7 @@ class TTSProgressReport:
     def flush(self):
         """Writes out the length report and details file and resets
         internal counters"""
-        with self.progress_report:
+        with self.logger:
             self._write_length_report()
             self._write_details_file()
             self._clear()
