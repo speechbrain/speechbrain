@@ -43,6 +43,8 @@ gunzip -c 3gram_pruned_1e7.arpa.gz > 3gram_pruned_1e7.arpa
 gunzip -c 4gram.arpa.gz > 4gram.arpa
 ```
 
+Then simply modify the *test_beam_search* in the yaml by adding *kenlm_model_path:* and your path as a parameter.
+
 # Rescoring with a Neural Language Model
 This can be done by modifying the current recipe. We invite you to have a look at our LibriSpeech CTC recipe for many different examples.
 
