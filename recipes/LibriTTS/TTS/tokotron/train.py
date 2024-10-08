@@ -350,7 +350,7 @@ class TokotronBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN and self.is_evaluating():
-            self.progress_report.flush()
+            self.hparams.progress_report.flush()
             self.save_eval()
             self.evaluation_metric.on_evaluation_end()
 
@@ -642,7 +642,25 @@ def dataio_prepare(hparams):
             )
 
     datasets["sample"] = select_sample(hparams, datasets)
+    filter_valid(hparams, datasets)
     return datasets, silence_padding, resample_fn
+
+
+def filter_valid(hparams, datasets):
+    """Filters the validation set, if applicable
+
+    Arguments
+    ---------
+    hparams : dict
+        experiment hyperparameters
+    datasets : dict
+        a dictionary of datasets
+    """
+    valid_sample_count = hparams.get("valid_sample_count")
+    if valid_sample_count:
+        datasets["valid"] = datasets["valid"].filtered_sorted(
+            select_n=valid_sample_count
+        )
 
 
 def select_sample(hparams, datasets):
