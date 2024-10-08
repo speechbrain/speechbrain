@@ -1461,7 +1461,7 @@ class GaborConv1d(nn.Module):
 
 
 class GammatoneConv1d(nn.Module):
-    """This function implements Gammatone Convolutional Filterbank.
+    """This function implements Gammatone Convolutional Filterbank from
 
     Helena Peic Tukuljac, Benjamin Ricaud, Nicolas Aspert and Laurent Colbois, "Learnable filter-banks
         for CNN-based audio applications", in Proc of NLDL 2022 (https://septentrio.uit.no/index.php/nldl/article/view/6279)
@@ -1492,11 +1492,24 @@ class GammatoneConv1d(nn.Module):
         If True, the additive bias b is adopted.
     sample_rate : int,
         Sampling rate of the input signals.
+    min_freq : float
+        Lowest possible frequency (in Hz) for a filter
+    max_freq : float
+        Highest possible frequency (in Hz) for a filter
+    n_fft: int
+        number of FFT bins for initialization
+    gammatone_init_order: int
+        order of the gammatone filter initialization
+    sort_filters: bool
+        whether to sort filters by center frequencies. Default is False
+    skip_transpose: bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
 
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16000])
-    >>> conv = GammatoneConv1d(input_shape=inp_tensor.shape, out_channels=25, kernel_size=11)
+    >>> conv = GammatoneConv1d(input_shape=inp_tensor.shape, out_channels=24, kernel_size=160, stride=1)
     >>> out_tensor = conv(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16000, 25])
@@ -1726,6 +1739,23 @@ class GammatoneConv1d(nn.Module):
 def mel_filters(
     n_fft, min_freq, max_freq, n_filters, sample_rate, normalize_energy=False
 ):
+    """
+    This function creates a Mel-scale filterbank.
+
+    n_fft : int
+        Number of FFT bins.
+    min_freq : float
+        Minimum frequency in Hz.
+    max_freq : float
+        Maximum frequency in Hz.
+    n_filters : int
+        Number of filters.
+    sample_rate : int
+        Sampling rate in Hz.
+    normalize_energy : bool
+        If True, normalizes the energy of the filters to 1.
+    """
+
     def _mel_filters_areas(filters):
         peaks, _ = torch.max(filters, dim=1, keepdim=True)
         return (
