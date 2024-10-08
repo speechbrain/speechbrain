@@ -47,7 +47,7 @@ spoken language understanding ...
      - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/nn/neural-network-adapters.ipynb>`__
 
 
-TThis tutorial covers the SpeechBrain implementation of adapters such as LoRA. This includes how to integrate either SpeechBrain implemented adapters, custom adapters, and adapters from libraries such as PEFT into a pre-trained model.
+This tutorial covers the SpeechBrain implementation of adapters such as LoRA. This includes how to integrate either SpeechBrain implemented adapters, custom adapters, and adapters from libraries such as PEFT into a pre-trained model.
 
 .. rubric:: `🔗 Complex and Quaternion Neural Networks <nn/complex-and-quaternion-neural-networks.html>`_
    :heading-level: 2
