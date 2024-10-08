@@ -1413,7 +1413,16 @@ class GaborConv1d(nn.Module):
 
     def _gabor_params_from_mels(self):
         coeff = torch.sqrt(2.0 * torch.log(torch.tensor(2.0))) * self.n_fft
-        sqrt_filters = torch.sqrt(mel_filters(self.n_fft, self.min_freq, self.max_freq, self.filters, self.sample_rate, self.normalize_energy))
+        sqrt_filters = torch.sqrt(
+            mel_filters(
+                self.n_fft,
+                self.min_freq,
+                self.max_freq,
+                self.filters,
+                self.sample_rate,
+                self.normalize_energy,
+            )
+        )
         center_frequencies = torch.argmax(sqrt_filters, dim=1)
         peaks, _ = torch.max(sqrt_filters, dim=1, keepdim=True)
         half_magnitudes = peaks / 2.0
@@ -1479,9 +1488,6 @@ class GammatoneConv1d(nn.Module):
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    groups : int
-        This option specifies the convolutional groups. See torch.nn
-        documentation for more information.
     bias : bool
         If True, the additive bias b is adopted.
     sample_rate : int,
@@ -1490,7 +1496,7 @@ class GammatoneConv1d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16000])
-    >>> conv = GammatoneConv(input_shape=inp_tensor.shape, out_channels=25, kernel_size=11)
+    >>> conv = GammatoneConv1d(input_shape=inp_tensor.shape, out_channels=25, kernel_size=11)
     >>> out_tensor = conv(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 16000, 25])
@@ -1570,7 +1576,7 @@ class GammatoneConv1d(nn.Module):
 
         kernel = self._gammatone_constraint(self.kernel)
         if self.sort_filters:
-            idxs = torch.argsort(kernel[:, 0]) # sort by frequency
+            idxs = torch.argsort(kernel[:, 0])  # sort by frequency
             kernel = kernel[idxs, :]
 
         filters = self._gammatone_filters(kernel).unsqueeze(1)
@@ -1629,21 +1635,36 @@ class GammatoneConv1d(nn.Module):
         f_lower = 0.0
         f_upper = 0.5
 
-        clipped_f = torch.clamp(kernel_data[:, 0], f_lower, f_upper).unsqueeze(1)
-        clipped_order = torch.clamp(kernel_data[:, 1], order_lower, None).unsqueeze(1)
-        clipped_decay = torch.clamp(kernel_data[:, 2], decay_lower, None).unsqueeze(1)
+        clipped_f = torch.clamp(kernel_data[:, 0], f_lower, f_upper)
+        clipped_order = torch.clamp(kernel_data[:, 1], order_lower, None)
+        clipped_decay = torch.clamp(kernel_data[:, 2], decay_lower, None)
 
-        return torch.cat([clipped_f, clipped_order, clipped_decay], dim=-1)
+        return torch.cat(
+            [
+                clipped_f.unsqueeze(1),
+                clipped_order.unsqueeze(1),
+                clipped_decay.unsqueeze(1),
+            ],
+            dim=-1,
+        )
 
     def _gammatone_filters(self, kernel):
         """This functions creates the Gammatone-filters to used for Gammatone-conv."""
-        t = torch.arange(0, self.kernel_size,  dtype=kernel.dtype,
-            device=kernel.device)
-        return gammatone_impulse_response(t, center_freq=kernel[:, 0], order=kernel[:, 1], decay=kernel[:, 2])
+        t = torch.arange(
+            0, self.kernel_size, dtype=kernel.dtype, device=kernel.device
+        )
+        return gammatone_impulse_response(
+            t, center_freq=kernel[:, 0], order=kernel[:, 1], decay=kernel[:, 2]
+        )
 
     def _gammatone_params_from_mels(self):
-        filters = mel_filters(n_fft=self.n_fft, n_filters=self.filters, min_freq=self.min_freq, max_freq=self.max_freq,
-                              sample_rate=self.sample_rate)
+        filters = mel_filters(
+            n_fft=self.n_fft,
+            n_filters=self.filters,
+            min_freq=self.min_freq,
+            max_freq=self.max_freq,
+            sample_rate=self.sample_rate,
+        )
         center_frequencies = torch.argmax(filters, dim=1)
         peaks, _ = torch.max(filters, dim=1, keepdim=True)
         half_magnitudes = peaks / 2.0
@@ -1652,7 +1673,14 @@ class GammatoneConv1d(nn.Module):
             [
                 (center_frequencies / self.n_fft).unsqueeze(1),
                 torch.full((self.filters, 1), self.gammatone_init_order),
-                (fwhms / (self.n_fft * 2 * np.sqrt(2 ** (1 / self.gammatone_init_order) - 1))).unsqueeze(1),
+                (
+                    fwhms
+                    / (
+                        self.n_fft
+                        * 2
+                        * np.sqrt(2 ** (1 / self.gammatone_init_order) - 1)
+                    )
+                ).unsqueeze(1),
             ],
             dim=-1,
         )
@@ -1662,7 +1690,11 @@ class GammatoneConv1d(nn.Module):
         return self._gammatone_params_from_mels()
 
     def _manage_padding(
-        self, x, kernel_size: int, dilation: int, stride: int,
+        self,
+        x,
+        kernel_size: int,
+        dilation: int,
+        stride: int,
     ):
         """This function performs zero-padding on the time axis
         such that their lengths is unchanged after the convolution.
@@ -1691,7 +1723,9 @@ class GammatoneConv1d(nn.Module):
         return x
 
 
-def mel_filters(n_fft, min_freq, max_freq, n_filters, sample_rate, normalize_energy=False):
+def mel_filters(
+    n_fft, min_freq, max_freq, n_filters, sample_rate, normalize_energy=False
+):
     def _mel_filters_areas(filters):
         peaks, _ = torch.max(filters, dim=1, keepdim=True)
         return (

@@ -531,7 +531,7 @@ class LFB(torch.nn.Module):
         skip_transpose=False,
         gammatone_init_order=4,
         n_fft=512,
-        activation=None
+        activation=None,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -556,7 +556,7 @@ class LFB(torch.nn.Module):
             min_freq=min_freq,
             max_freq=max_freq,
             gammatone_init_order=gammatone_init_order,
-            skip_transpose=skip_transpose
+            skip_transpose=skip_transpose,
         )
 
         self.activation = activation
@@ -589,7 +589,7 @@ class LFB(torch.nn.Module):
         if self.activation:
             outputs = self.activation(outputs)
 
-        if self.skip_transpose: # match the order from LEAF
+        if self.skip_transpose:  # match the order from LEAF
             outputs = outputs.transpose(1, -1)
         return outputs
 
