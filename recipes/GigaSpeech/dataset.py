@@ -144,7 +144,6 @@ class GigaspeechConfig(datasets.BuilderConfig):
     """BuilderConfig for Gigaspeech."""
 
     def __init__(self, name, *args, **kwargs):
-        """BuilderConfig for Gigaspeech"""
         super().__init__(name=name, *args, **kwargs)
         # larger subsets are supersets of smaller subsets,
         # if we want to download "m", we need to download "xs" and "s" data too.
