@@ -9,17 +9,34 @@ Author
  * Adel Moumen, 2024
 """
 
+import csv
+import functools
+import json
 import logging
 import os
-import json
-import csv
 from dataclasses import dataclass
-import functools
-from speechbrain.utils.parallel import parallel_map
+
 import speechbrain as sb
+from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
-
+FILLERS = [
+    "UH",
+    "UHH",
+    "UM",
+    "EH",
+    "MM",
+    "HM",
+    "AH",
+    "HUH",
+    "HA",
+    "ER",
+    "OOF",
+    "HEE",
+    "ACH",
+    "EEE",
+    "EW",
+]
 GARBAGE_UTTERANCE_TAGS = ["<SIL>", "<MUSIC>", "<NOISE>", "<OTHER>"]
 PUNCTUATION_TAGS = {
     "<COMMA>": ",",
@@ -77,6 +94,8 @@ def prepare_gigaspeech(
     skip_prep: bool = False,
     convert_opus_to_wav: bool = True,
     download_with_HF: bool = False,
+    punctuation: bool = False,
+    filler: bool = False,
 ) -> None:
     """Prepare the csv files for GigaSpeech dataset.
 
@@ -115,6 +134,10 @@ def prepare_gigaspeech(
         be faster and more reliable than the official host. Make sure to read the
         instructions on how to get the dataset from Hugging Face here:
         https://huggingface.co/datasets/speechcolab/gigaspeech
+    punctuation: bool, optional
+        Keeping the punctuation, or not.
+    filler: bool, optional
+        Keeping filler words (hum), or not.
 
     Returns
     -------
@@ -163,6 +186,13 @@ def prepare_gigaspeech(
     if download_with_HF:
         from datasets import load_dataset
 
+        if os.path.exists("dataset.py"):
+            logger.info("HuggingFace dataset.py found.")
+        else:
+            raise FileNotFoundError(
+                "HuggingFace dataset.py not found. Please run this recipe from the correct recipe folder or copy the dataset.py file."
+            )
+
         hf_dataset = load_dataset(
             "dataset.py",
             train_split.lower(),
@@ -172,11 +202,7 @@ def prepare_gigaspeech(
         )
         for split, output in save_output.items():
             logger.info(f"Starting creating {output} using {split} split.")
-            HF_create_csv(
-                output,
-                hf_dataset[split],
-                split,
-            )
+            HF_create_csv(output, hf_dataset[split], split, punctuation, filler)
     else:
         # check that the data folder contains the GigaSpeech dataset
         check_gigaspeech_folders(data_folder, json_file)
@@ -188,7 +214,15 @@ def prepare_gigaspeech(
 
         for split, output in save_output.items():
             logger.info(f"Starting creating {output} using {split} split.")
-            create_csv(output, info, data_folder, split, convert_opus_to_wav)
+            create_csv(
+                output,
+                info,
+                data_folder,
+                split,
+                convert_opus_to_wav,
+                punctuation,
+                filler,
+            )
     logger.info("Data preparation completed!")
 
 
@@ -197,6 +231,8 @@ def process_line(
     data_folder: str,
     split: str,
     convert_opus_to_wav: bool,
+    punctuation: bool = False,
+    filler: bool = False,
 ) -> list:
     """
     Process the audio line and return the utterances for the given split.
@@ -211,6 +247,10 @@ def process_line(
         The split to be used for filtering the data.
     convert_opus_to_wav : bool
         If True, the opus files will be converted to wav files.
+    punctuation : bool
+        Keeping punctuation or not. Default is no.
+    filler : bool
+        Keeping filler words or not (hum, er). Default is no.
 
     Returns
     -------
@@ -228,7 +268,7 @@ def process_line(
         # 2. iterate over the utterances
         utterances = []
         for segment in audio["segments"]:
-            text = preprocess_text(segment["text_tn"])
+            text = preprocess_text(segment["text_tn"], punctuation, filler)
             if text:
                 begin_time = float(segment["begin_time"])
                 end_time = float(segment["end_time"])
@@ -253,6 +293,8 @@ def create_csv(
     data_folder: str,
     split: str,
     convert_opus_to_wav: bool,
+    punctuation: bool = False,
+    filler: bool = False,
 ) -> None:
     """
     Create a CSV file based on the info in the GigaSpeech JSON file and filter the data based on the split.
@@ -269,6 +311,10 @@ def create_csv(
         The split to be used for filtering the data.
     convert_opus_to_wav : bool
         If True, the opus files will be converted to wav files.
+    punctuation : bool
+        Keeping punctuation or not. Default is no.
+    filler : bool
+        Keeping filler words or not (hum, er). Default is no.
 
     Returns
     -------
@@ -334,20 +380,25 @@ def HF_create_csv(
     csv_file: str,
     hf_dataset,
     split: str,
+    punctuation: bool = False,
+    filler: bool = False,
 ) -> None:
     """
-    Create a CSV file based on the info in the GigaSpeech JSON file and filter the data based on the split.
+    Create a CSV file based on a HuggingFace dataset.
 
     Parameters
     ----------
     csv_file : str
         The path to the CSV file to be created.
-    info : dict
-        The GigaSpeech JSON file content.
-    data_folder : str
-        The path to the GigaSpeech dataset.
+    hf_dataset : huggingface dataset,
+        The huggingface dataset.
     split : str
         The split to be used for filtering the data.
+    punctuation : bool
+        Keeping punctuation or not. Default is no.
+    filler : bool
+        Keeping filler words or not (hum, er). Default is no.
+
 
     Returns
     -------
@@ -358,6 +409,8 @@ def HF_create_csv(
 
     line_processor = functools.partial(
         HF_process_line,
+        punctuation=punctuation,
+        filler=filler,
     )
 
     csv_file_tmp = csv_file + ".tmp"
@@ -406,9 +459,7 @@ def HF_create_csv(
     )
 
 
-def HF_process_line(
-    row,
-) -> list:
+def HF_process_line(row: dict, punctuation: bool, filler: bool) -> list:
     """
     Process the audio line and return the utterances for the given split.
 
@@ -416,6 +467,10 @@ def HF_process_line(
     ----------
     row: dict
         The audio line to be processed.
+    punctuation : bool
+        Keeping punctuation or not. Default is no.
+    filler : bool
+        Keeping filler words or not (hum, er). Default is no.
 
     Returns
     -------
@@ -433,7 +488,7 @@ def HF_process_line(
         logger.error(f"Failed reading {audio_path}: {e}")
         return None
 
-    text = preprocess_text(row["text"])
+    text = preprocess_text(row["text"], punctuation, filler)
     if text:
         utt_id = row["segment_id"]
         audio_id = row["audio_id"]
@@ -484,14 +539,19 @@ def convert_opus2wav(audio_opus_path):
     return audio_wav_path
 
 
-def preprocess_text(text: str) -> str:
+def preprocess_text(text: str, punctuation: bool, filler: bool) -> str:
     """
-    Preprocesses the input text by removing garbage tags and replacing punctuation tags.
+    Preprocesses the input text by removing garbage tags and removing punctuation
+    and filler words if specified.
 
     Parameters
     ----------
     text : str
         The input text to be preprocessed.
+    punctuation : bool
+        Keeping punctuation or not. Default is no.
+    filler : bool
+        Keeping filler words or not (hum, er). Default is no.
 
     Returns
     -------
@@ -515,19 +575,33 @@ def preprocess_text(text: str) -> str:
     >>> preprocess_text(text)
     "douglas mcgray is going to be our guide you walk through the door, you see the red carpeting, you see someone in a suit. they may be greeting you."
     """
-    # Remove garbage tags
-    for tag in GARBAGE_UTTERANCE_TAGS:
-        if tag in text:
-            return ""
 
-    # Remove punctuation tags
-    for tag, punctuation in PUNCTUATION_TAGS.items():
-        text = text.replace(" " + tag, punctuation)
+    text = text.upper()
+    text = text.replace("-", " ")
+
+    to_remove = GARBAGE_UTTERANCE_TAGS
+    if not punctuation:
+        to_remove += PUNCTUATION_TAGS
+    if not filler:
+        to_remove += FILLERS
+
+    processed = []
+    for word in text.split():
+        if word in to_remove:
+            continue
+        processed.append(word)
+
+    sentence = " ".join(processed)
+
+    if punctuation:
+        for tag, punctuation in PUNCTUATION_TAGS.items():
+            sentence = sentence.replace(" " + tag, punctuation)
 
     assert (
-        "<" not in text and ">" not in text
-    ), f"Found tags in the text: {text}"
-    return text.lower()
+        "<" not in sentence and ">" not in sentence
+    ), f"Found tags in the text: {sentence}"
+
+    return sentence
 
 
 def skip_csv(save_csv_files: dict) -> bool:

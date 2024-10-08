@@ -4,14 +4,17 @@ Authors
  * Adel Moumen 2024
 """
 
+import logging
 import os
 import sys
+
 import torch
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from speechbrain.tokenizers.SentencePiece import SentencePiece
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.tokenizers.SentencePiece import SentencePiece
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +96,9 @@ class ASR(sb.Brain):
             ]
 
         if stage != sb.Stage.TRAIN:
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
+            # Convert indices to words
+            target_words = undo_padding(tokens, tokens_lens)
+            target_words = self.tokenizer(target_words, task="decode_from_list")
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -273,7 +278,33 @@ def dataio_prepare(hparams, tokenizer):
         ["id", "sig", "text", "char_list", "tokens"],
     )
 
-    return train_data, valid_data, test_data
+    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
+    train_batch_sampler = None
+    valid_batch_sampler = None
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+
+        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
+        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
+
+        train_batch_sampler = DynamicBatchSampler(
+            train_data,
+            length_func=lambda x: x["duration"],
+            **dynamic_hparams_train,
+        )
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            length_func=lambda x: x["duration"],
+            **dynamic_hparams_valid,
+        )
+
+    return (
+        train_data,
+        valid_data,
+        test_data,
+        train_batch_sampler,
+        valid_batch_sampler,
+    )
 
 
 if __name__ == "__main__":
@@ -311,6 +342,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
             "convert_opus_to_wav": hparams["convert_opus_to_wav"],
             "download_with_HF": hparams["download_with_HF"],
+            "punctuation": hparams["keep_punctuation"],
+            "filler": hparams["keep_filler_words"],
         },
     )
 
@@ -319,7 +352,7 @@ if __name__ == "__main__":
         model_dir=hparams["save_folder"],
         vocab_size=hparams["output_neurons"],
         annotation_train=hparams["train_csv"],
-        annotation_read="wrd",
+        annotation_read="text",
         model_type=hparams["token_type"],
         character_coverage=hparams["character_coverage"],
         bos_id=hparams["bos_index"],
@@ -327,9 +360,13 @@ if __name__ == "__main__":
     )
 
     # here we create the datasets objects as well as tokenization and encoding
-    train_data, valid_data, test_data, label_encoder = dataio_prepare(
-        hparams, tokenizer
-    )
+    (
+        train_data,
+        valid_data,
+        test_data,
+        train_bsampler,
+        valid_bsampler,
+    ) = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -346,9 +383,34 @@ if __name__ == "__main__":
 
     # We dynamically add the tokenizer to our brain class.
     # NB: This tokenizer corresponds to the one used for the LM!!
-    asr_brain.tokenizer = label_encoder
+    asr_brain.tokenizer = tokenizer
 
-    ind2lab = label_encoder.ind2lab
+    # Manage dynamic batching
+    train_dataloader_opts = hparams["train_dataloader_opts"]
+    valid_dataloader_opts = hparams["valid_dataloader_opts"]
+    if train_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in train_dataloader_opts:
+            collate_fn = train_dataloader_opts["collate_fn"]
+
+        train_dataloader_opts = {
+            "batch_sampler": train_bsampler,
+            "num_workers": hparams["num_workers"],
+        }
+
+        if collate_fn is not None:
+            train_dataloader_opts["collate_fn"] = collate_fn
+
+    if valid_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in valid_dataloader_opts:
+            collate_fn = valid_dataloader_opts["collate_fn"]
+
+        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+        if collate_fn is not None:
+            valid_dataloader_opts["collate_fn"] = collate_fn
+
     vocab_list = [
         tokenizer.sp.id_to_piece(i) for i in range(tokenizer.sp.vocab_size())
     ]
@@ -365,8 +427,8 @@ if __name__ == "__main__":
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["train_dataloader_opts"],
-        valid_loader_kwargs=hparams["valid_dataloader_opts"],
+        train_loader_kwargs=train_dataloader_opts,
+        valid_loader_kwargs=valid_dataloader_opts,
     )
 
     # Testing

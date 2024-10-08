@@ -2,7 +2,7 @@
 # Model: wavlm + DNN + CTC
 # Decoding AM: Greedy for validation, and Beam search for testing
 # Augmentation: SpecAugment
-# Authors: Adel Moumen 2024
+# Authors: Adel Moumen 2024, Titouan Parcollet 2024
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -23,10 +23,12 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # see https://github.com/SpeechColab/GigaSpeech for more details on the dataset
 # must be one of ["XS", "S", "M", "L", "XL"]
 # and  ["DEV", "TEST"] for the eval splits.
-splits: ["XS", "DEV", "TEST"]
+splits: ["XL", "DEV", "TEST"]
 skip_prep: False
 download_with_HF: True
 convert_opus_to_wav: True
+keep_filler_words: False
+keep_punctuation: False
 ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev.csv
@@ -34,18 +36,18 @@ test_csv: !ref <output_folder>/test.csv
 json_file: !ref <data_folder>/GigaSpeech.json
 
 # Training parameters
-number_of_epochs: 1
+number_of_epochs: 5
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending
 num_workers: 4
-precision: fp32 # bf16, fp16 or fp32
+precision: fp16 # bf16, fp16 or fp32
 sample_rate: 16000
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 3 per GPU to fit 32GB of VRAM
-batch_size: 6
+batch_size: 8
 test_batch_size: 1
 
 # Dataloader options
@@ -59,15 +61,46 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
 
+# Using dynamic batching by default. This works with 4x24GB GPUs
+# Or turn it off (but training speed will decrease)
+dynamic_batching: True
+max_batch_length_train: 60
+max_batch_length_val: 30 # we reduce it as the beam is much wider (VRAM)
+num_bucket: 200
+shuffle: True # if true re-creates batches at each epoch shuffling examples.
+batch_ordering: random
+max_batch_ex: 256
+
+dynamic_batch_sampler_train:
+   max_batch_length: !ref <max_batch_length_train>
+   num_buckets: !ref <num_bucket>
+   shuffle: !ref <shuffle>
+   batch_ordering: !ref <batch_ordering>
+   max_batch_ex: !ref <max_batch_ex>
+
+dynamic_batch_sampler_valid:
+   max_batch_length: !ref <max_batch_length_val>
+   num_buckets: !ref <num_bucket>
+   shuffle: !ref <shuffle>
+   batch_ordering: !ref <batch_ordering>
+   max_batch_ex: !ref <max_batch_ex>
+
+# BPE parameters
+token_type: char  # ["unigram", "bpe", "char"]
+character_coverage: 1.0
+
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
-dnn_layers: 2
 dnn_neurons: 1024
-freeze_wav2vec: True
+dropout: 0.1
+freeze_wav2vec: False
+wav2vec_output_dim: 1024
 
 # Outputs
-output_neurons: 34
+output_neurons: 29 # without punctuation
 blank_index: 0
+bos_index: -1 # No bos/eos with CTC
+eos_index: -1
 
 # Decoding parameters
 test_beam_search:
@@ -109,8 +142,8 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
    concat_original: True
    repeat_augment: 1
    shuffle_augmentations: False
-   min_augmentations: 4
-   max_augmentations: 4
+   min_augmentations: 2
+   max_augmentations: 2
    augment_prob: 1.0
    augmentations: [
       !ref <speed_perturb>,
@@ -118,16 +151,33 @@ wav_augment: !new:speechbrain.augment.augmenter.Augmenter
       !ref <drop_chunk>]
 
 
-enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
-   input_shape: [null, null, 1024]
-   activation: !ref <activation>
-   dnn_blocks: !ref <dnn_layers>
-   dnn_neurons: !ref <dnn_neurons>
+enc: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation: !new:torch.nn.LeakyReLU
+   drop: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation2: !new:torch.nn.LeakyReLU
+   drop2: !new:torch.nn.Dropout
+      p: !ref <dropout>
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
+   activation3: !new:torch.nn.LeakyReLU
 
 wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
    source: !ref <wav2vec2_hub>
-   output_norm: True
+   output_norm: False
    freeze: !ref <freeze_wav2vec>
+   freeze_feature_extractor: True
    save_path: !ref <wav2vec2_folder>
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
@@ -153,7 +203,7 @@ model_opt_class: !name:torch.optim.Adadelta
    rho: 0.95
    eps: 1.e-8
 
-wav2vec_opt_class: !name:torch.optim.Adam
+wav2vec_opt_class: !name:torch.optim.AdamW
    lr: !ref <lr_wav2vec>
 
 lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
