@@ -25,7 +25,7 @@ class TTSProgressReport:
 
     Arguments
     ---------
-    logger : speechbrain.utils.train_logger.ArchiveTrainLogegr or compatible
+    logger : speechbrain.utils.train_logger.ArchiveTrainLogger or compatible
         The logger that will be used to save results
 
     sample_rate : int
@@ -50,11 +50,8 @@ class TTSProgressReport:
         self._writing = True
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self._write_length_report()
-        self._write_details_file()
         self._exit_stack.close()
         self._writing = False
-        self._clear()
 
     def _clear(self):
         """Clears accumulator variables"""
@@ -62,6 +59,14 @@ class TTSProgressReport:
         self.length_pred = []
         self.length = []
         self.details = None
+
+    def flush(self):
+        """Writes out the length report and details file and resets
+        internal counters"""
+        with self.progress_report:
+            self._write_length_report()
+            self._write_details_file()
+            self._clear()
 
     def _ensure_writing(self):
         """Throws ContextError if invoked without first entering the

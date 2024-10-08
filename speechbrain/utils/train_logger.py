@@ -572,7 +572,6 @@ class ArchiveTrainLogger:
             file_name.unlink()
 
     def __enter__(self):
-        self.clear()
         if self.archive is None:
             self.archive = tarfile.open(self.archive_path, "a")
 

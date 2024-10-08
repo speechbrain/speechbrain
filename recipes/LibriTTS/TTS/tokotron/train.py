@@ -182,13 +182,13 @@ class TokotronBrain(sb.Brain):
         loss = loss.detach().cpu()
         if self.is_evaluating():
             with torch.no_grad():
+                tokens, tokens_length = batch.tokens
+                emb = {"spk": batch.spk_emb.data.squeeze(1)}
+                # Produce samples
+                infer_out = self.modules.model.infer(
+                    input_tokens=tokens, input_length=tokens_length, emb=emb
+                )
                 with self.hparams.progress_report:
-                    tokens, tokens_length = batch.tokens
-                    emb = {"spk": batch.spk_emb.data.squeeze(1)}
-                    # Produce samples
-                    infer_out = self.modules.model.infer(
-                        input_tokens=tokens, input_length=tokens_length, emb=emb
-                    )
                     # Save samples
                     self.hparams.progress_report.write(
                         ids=batch.uttid,
@@ -280,6 +280,7 @@ class TokotronBrain(sb.Brain):
                 self.hparams, self.device
             )
         if stage != sb.Stage.TRAIN and self.is_evaluating():
+            self.hparams.progress_logger.clear()
             self.evaluation_metric.on_evaluation_start()
 
     def on_fit_start(self):
@@ -349,6 +350,7 @@ class TokotronBrain(sb.Brain):
             )
 
         if stage != sb.Stage.TRAIN and self.is_evaluating():
+            self.progress_report.flush()
             self.save_eval()
             self.evaluation_metric.on_evaluation_end()
 
