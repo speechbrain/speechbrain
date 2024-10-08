@@ -90,7 +90,6 @@ token_type: char  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
 # Model parameters
-activation: !name:torch.nn.LeakyReLU
 dnn_neurons: 1024
 dropout: 0.1
 freeze_wav2vec: False
