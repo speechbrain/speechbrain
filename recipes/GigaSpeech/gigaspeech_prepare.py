@@ -1,7 +1,9 @@
 """
 Data preparation script for the GigaSpeech dataset.
 
-Download instructions: https://github.com/SpeechColab/GigaSpeech
+Download instructions:
+    1. https://github.com/SpeechColab/GigaSpeech
+    2. https://huggingface.co/datasets/speechcolab/gigaspeech
 Reference: https://arxiv.org/abs/2106.06909
 
 Author
