@@ -38,15 +38,16 @@ Authors:
  * David Whipps, 2021
 """
 
-import os
 import json
-import logging
 import ntpath
-import torchaudio
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import load_data_csv
+import os
 
-logger = logging.getLogger(__name__)
+import torchaudio
+
+from speechbrain.dataio.dataio import load_data_csv, read_audio
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 URBAN_SOUND_8K_DOWNLOAD_FORM_URL = (
     "https://urbansounddataset.weebly.com/download-urbansound8k.html"

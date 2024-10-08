@@ -10,20 +10,14 @@ Authors
  * Adel Moumen 2023
 """
 
-import logging
-from typing import (
-    Collection,
-    Optional,
-    Set,
-    Tuple,
-    cast,
-)
+import math
+from typing import Collection, Optional, Set, Tuple, cast
 
 from pygtrie import CharTrie
 
-import math
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 try:
     import kenlm

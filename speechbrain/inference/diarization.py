@@ -15,6 +15,7 @@ Authors:
 """
 
 import torch
+
 from speechbrain.inference.interfaces import Pretrained
 
 
@@ -150,7 +151,7 @@ class Speech_Emotion_Diarization(Pretrained):
             results[batch_id[i]] = [
                 {"start": k[1], "end": k[2], "emotion": k[3]} for k in lol
             ]
-            return results
+        return results
 
     def forward(self, wavs, wav_lens, batch_id):
         """Get emotion diarization for a batch of waveforms."""

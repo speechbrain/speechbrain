@@ -8,22 +8,24 @@ Authors:
  * Sahar Ghannay 2021
 """
 
-import torch
 from typing import Callable, Optional
+
+import torch
 from joblib import Parallel, delayed
+
+from speechbrain.dataio.dataio import (
+    extract_concepts_values,
+    merge_char,
+    split_word,
+)
+from speechbrain.dataio.wer import print_alignments, print_wer_summary
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.edit_distance import (
     EDIT_SYMBOLS,
-    wer_summary,
-    wer_details_for_batch,
     _str_equals,
+    wer_details_for_batch,
+    wer_summary,
 )
-from speechbrain.dataio.dataio import (
-    merge_char,
-    split_word,
-    extract_concepts_values,
-)
-from speechbrain.dataio.wer import print_wer_summary, print_alignments
 
 
 class MetricStats:
@@ -416,9 +418,9 @@ class WeightedErrorRateStats(MetricStats):
 
         Arguments
         ---------
-        *args
+        *args : tuple
             Ignored.
-        **kwargs
+        **kwargs : dict
             Ignored.
         """
 

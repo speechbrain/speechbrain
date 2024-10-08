@@ -8,21 +8,23 @@ Authors
 """
 
 from dataclasses import dataclass
-import torch
 from typing import Optional
-from speechbrain.processing.features import (
-    STFT,
-    spectral_magnitude,
-    Filterbank,
-    DCT,
-    Deltas,
-    ContextWindow,
-)
-from speechbrain.utils.autocast import fwd_default_precision
-from speechbrain.utils.filter_analysis import FilterProperties
+
+import torch
+
 from speechbrain.nnet.CNN import GaborConv1d
 from speechbrain.nnet.normalization import PCEN
 from speechbrain.nnet.pooling import GaussianLowpassPooling
+from speechbrain.processing.features import (
+    DCT,
+    STFT,
+    ContextWindow,
+    Deltas,
+    Filterbank,
+    spectral_magnitude,
+)
+from speechbrain.utils.autocast import fwd_default_precision
+from speechbrain.utils.filter_analysis import FilterProperties
 
 
 class Fbank(torch.nn.Module):

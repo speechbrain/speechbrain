@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a neural speech separation system on wsjmix the
+"""Recipe for training a neural speech separation system on the wsjmix
 dataset. The system employs an encoder, a decoder, and a masking network.
 
 To run this recipe, do the following:
@@ -21,20 +21,22 @@ Authors
  * Jianyuan Zhong 2020
 """
 
+import csv
 import os
 import sys
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from tqdm import tqdm
+
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-import numpy as np
-from tqdm import tqdm
-import csv
-import logging
 from speechbrain.core import AMPConfig
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 
 # Define training procedure
@@ -146,7 +148,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
             else:
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN
@@ -178,7 +180,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -522,7 +524,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Logger info
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     # Create experiment directory
     sb.create_experiment_directory(

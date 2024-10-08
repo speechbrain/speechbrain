@@ -1,16 +1,8 @@
 """Package containing various tools (accuracy, checkpoints ...)
 """
 
-import os
+from speechbrain.utils.importutils import lazy_export_all
 
-__all__ = []
-for filename in os.listdir(os.path.dirname(__file__)):
-    filename = os.path.basename(filename)
-    if (
-        filename.endswith(".py")
-        and not filename.startswith("__")
-        and not filename == "kmeans.py"
-    ):
-        __all__.append(filename[:-3])
+lazy_export_all(__file__, __name__)
 
-from . import *  # noqa
+from speechbrain.utils.seed import seed_everything  # noqa

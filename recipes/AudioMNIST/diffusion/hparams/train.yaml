@@ -8,7 +8,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 metadata_folder: null
@@ -192,7 +192,7 @@ emb_speaker: !new:speechbrain.nnet.embedding.Embedding
     embedding_dim: !ref <speaker_emb_dim>
 
 diffusion: !new:speechbrain.nnet.diffusion.DenoisingDiffusion
-    model: !ref <unet>
+    model: !ref <unet.diffusion_forward>
     timesteps: !ref <train_timesteps>
     noise: !ref <noise>
     show_progress: !ref <eval_show_progress>

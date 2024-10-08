@@ -18,18 +18,20 @@ Authors
 """
 import os
 import sys
+
 import torch
 import torchaudio
-import logging
-import speechbrain as sb
-from pesq import pesq
-from pystoi import stoi
 from composite_eval import eval_composite
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main, if_main_process
+from pesq import pesq
+from pystoi import stoi
 
-logger = logging.getLogger(__name__)
+import speechbrain as sb
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def pesq_eval(pred_wav, target_wav):

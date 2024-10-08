@@ -12,21 +12,23 @@ Authors
  * Sylvain de Langen 2022
 """
 
-import os
-import torch
-import logging
-import numpy as np
-import pickle
-import hashlib
 import csv
-import time
-import torchaudio
+import hashlib
 import json
+import os
+import pickle
 import re
+import time
+
+import numpy as np
+import torch
+import torchaudio
+
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_data_json(json_path, replacements={}):

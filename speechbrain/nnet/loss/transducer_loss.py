@@ -6,16 +6,19 @@ Authors
  * Titouan Parcollet 2023
 """
 
-import torch
-from torch.autograd import Function
-from torch.nn import Module
 import logging
 import math
 import warnings
 
+import torch
+from torch.autograd import Function
+from torch.nn import Module
+
+from speechbrain.utils.logger import get_logger
+
 NUMBA_VERBOSE = 0
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 try:
     from numba import cuda

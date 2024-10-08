@@ -1,0 +1,175 @@
+# ############################################################################
+# Model: Best-RQ
+# Encoder: Conformer Encoder w/Random Projection Quantizer
+# Training: Librispeech 960h
+# Authors:  Ryan Whetten 2024
+# ############################################################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+
+seed: 1000
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+data_folder: !PLACEHOLDER # /path/to/LibriSpeech/
+output_folder: !ref results/<seed>
+save_folder: !ref <output_folder>/save
+# Logging file for every N optimizer steps (many lines)
+train_steps_log: !ref <output_folder>/train_steps_log.txt
+# Logging file per epoch
+train_stage_log: !ref <output_folder>/train_stage_log.txt
+
+train_splits: ["train-clean-100", "train-clean-360", "train-other-500"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean"]
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+skip_prep: False
+
+avoid_if_longer_than: 60.0
+avoid_if_shorter_than: 2.0
+log_interval: 500 # Logging every N optimizer steps
+max_grad_norm: 10
+precision: fp16 # bf16, fp16 or fp32
+
+# The training will either stops at number_of_epochs or optimizer_step_limit
+# I.e. the first that is reached.
+number_of_epochs: 3000
+optimizer_step_limit: 300000
+
+# This setup is for 8 V100.
+seconds_per_batch: 400
+train_num_buckets: 150
+grad_accumulation_factor: 2
+
+train_dataloader_options:
+    num_workers: 4
+
+test_dataloader_options:
+    batch_size: 8 # DynamicBatching not used at testing time
+    num_workers: 4
+
+lr: 0.0008
+
+# Mel-Filterbank parameters
+sample_rate: 16000
+n_fft: 400
+n_mels: 80
+hop_length: 10
+
+# BEST RQ quantiser has a special downsampling mechanism.
+# convolutions reduction dim by 4 in the time domain
+# so the input to quantizer also needs to reduce dim by 4
+pad_to_divisible_by: 4
+
+####################### Model parameters ###########################
+# Transformer
+d_model: 576
+nhead: 8
+num_encoder_layers: 12
+num_decoder_layers: 0
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: 5000
+encoder_layerdrop: 0.05
+
+# Masking parameters
+mask_length: 4
+mask_prob: 0.15
+noise_mean: 0
+noise_std: 0.1
+
+# quantizer (codebook = cb) parameters
+p_input: 320
+cb_dim: 16
+cb_vocab: 8192
+
+
+############################## Models ################################
+
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+    input_shape: (8, 10, 80)
+    num_blocks: 2
+    num_layers_per_block: 1
+    out_channels: (128, 32)
+    kernel_sizes: (3, 3)
+    strides: (2, 2)
+    residuals: (False, False)
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+    input_size: 640
+    tgt_vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    nhead: !ref <nhead>
+    num_encoder_layers: !ref <num_encoder_layers>
+    num_decoder_layers: !ref <num_decoder_layers>
+    d_ffn: !ref <d_ffn>
+    dropout: !ref <transformer_dropout>
+    activation: !ref <activation>
+    conformer_activation: !ref <activation>
+    encoder_module: conformer
+    attention_type: RelPosMHAXL
+    normalize_before: True
+    causal: False
+    layerdrop_prob: !ref <encoder_layerdrop>
+
+# We must call an encoder wrapper so the decoder isn't run (we don't have any)
+wrapper: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
+    transformer: !ref <Transformer>
+
+Quantizer: !new:speechbrain.nnet.quantisers.RandomProjectionQuantizer
+    input_dim: !ref <p_input>
+    cb_dim: !ref <cb_dim>
+    cb_vocab: !ref <cb_vocab>
+
+linear: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <d_model>
+    n_neurons: !ref <cb_vocab>
+
+modules:
+    CNN: !ref <CNN>
+    wrapper: !ref <wrapper>
+    Quantizer: !ref <Quantizer>
+    normalize: !ref <normalize>
+    linear: !ref <linear>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <CNN>, !ref <wrapper>]
+
+optimizer: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+    weight_decay: 0.01
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    sample_rate: !ref <sample_rate>
+    n_fft: !ref <n_fft>
+    n_mels: !ref <n_mels>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+    norm_type: sentence
+
+############################## running ################################
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+
+train_steps_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_steps_log>
+
+train_stage_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_stage_log>
+
+noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 25000
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        noam_scheduler: !ref <noam_annealing>
+        normalizer: !ref <normalize>
+        counter: !ref <epoch_counter>
+        quantizer: !ref <Quantizer>
+        linear: !ref <linear>

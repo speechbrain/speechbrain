@@ -16,9 +16,10 @@ Authors:
 
 import torch
 import torchaudio
+
+from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.fetching import fetch
-from speechbrain.inference.interfaces import Pretrained
 
 
 class VAD(Pretrained):
@@ -581,7 +582,7 @@ class VAD(Pretrained):
             segment, _ = torchaudio.load(
                 audio_file, frame_offset=begin_sample, num_frames=seg_len
             )
-
+            segment = segment.to(self.device)
             # Create chunks
             segment_chunks = self.create_chunks(
                 segment, chunk_size=chunk_len, chunk_stride=chunk_len

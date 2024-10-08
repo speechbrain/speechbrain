@@ -17,21 +17,22 @@ Author
     * Tanel Alumäe 2021
     * @nikvaessen
 """
-import os
-import sys
-import random
-from typing import Dict
 import json
+import os
+import random
+import sys
 from functools import partial
-import webdataset as wds
-import logging
+from typing import Dict
 
 import torch
-import speechbrain as sb
+import webdataset as wds
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.batch import PaddedBatch
 
-logger = logging.getLogger(__name__)
+import speechbrain as sb
+from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class LanguageBrain(sb.core.Brain):

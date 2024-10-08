@@ -3,7 +3,7 @@
 
 For a tutorial on hyperparameter optimization, refer to this tutorial:
 
-https://colab.research.google.com/drive/1b-5EOjZC7M9RvfWZ0Pq0HMV0KmQKu730#scrollTo=lJup9mNnYw_0
+https://speechbrain.readthedocs.io/en/latest/tutorials/advanced/hyperparameter-optimization.html
 
 The template can use used as a
 basic example for any signal classification task such as language_id,
@@ -33,9 +33,11 @@ Authors
 """
 import os
 import sys
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
+
+import speechbrain as sb
 from speechbrain.utils import hpopt as hp
 
 

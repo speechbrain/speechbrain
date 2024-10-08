@@ -9,18 +9,19 @@ Author
 Yingzhi Wang 2023
 """
 
+import json
 import os
 import random
-import json
-import logging
+
 from datasets.prepare_EMOVDB import prepare_emovdb
 from datasets.prepare_ESD import prepare_esd
 from datasets.prepare_IEMOCAP import prepare_iemocap
 from datasets.prepare_JLCORPUS import prepare_jlcorpus
 from datasets.prepare_RAVDESS import prepare_ravdess
 
-logging.getLogger().setLevel(logging.INFO)
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def getOverlap(a, b):

@@ -10,19 +10,21 @@ Authors:
  * Peter Plantinga, 2020
 """
 
-import os
 import json
-import string
-import urllib
+import os
 import shutil
-import logging
+import string
 import tempfile
+import urllib
+
 import torchaudio
 from torchaudio.transforms import Resample
-from speechbrain.utils.data_utils import get_all_files, download_file
-from speechbrain.dataio.dataio import read_audio
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
 TRAIN_JSON = "train.json"
 TEST_JSON = "test.json"

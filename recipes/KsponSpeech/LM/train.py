@@ -13,15 +13,15 @@ Authors
  * Dongwon Kim, Dongwoo Kim 2023
 """
 import sys
-import logging
 from pathlib import Path
+
 import torch
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     lm_brain = LM(

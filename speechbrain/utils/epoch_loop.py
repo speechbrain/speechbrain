@@ -5,13 +5,17 @@ Authors
  * Davide Borra 2021
 """
 
-from .checkpoints import register_checkpoint_hooks
-from .checkpoints import mark_as_saver
-from .checkpoints import mark_as_loader
-import logging
 import yaml
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+from .checkpoints import (
+    mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
+)
+
+logger = get_logger(__name__)
 
 
 @register_checkpoint_hooks

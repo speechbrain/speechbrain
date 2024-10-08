@@ -8,16 +8,17 @@ Authors
  * Adel Moumen 2023
 """
 
+import csv
+import functools
+import glob
 import os
 import shutil
-import logging
-import glob
-import csv
-from speechbrain.dataio.dataio import read_audio_info
-from speechbrain.utils.parallel import parallel_map
-import functools
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.parallel import parallel_map
+
+logger = get_logger(__name__)
 
 
 def extract_and_cleanup_wav_files(

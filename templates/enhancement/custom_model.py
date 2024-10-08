@@ -54,7 +54,7 @@ class CustomModel(torch.nn.Module):
         # Use ReLU to make sure outputs aren't negative (unhelpful for masking)
         self.layers.append(torch.nn.ReLU())
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Shift to time-first, pass layers, then back to batch-first."""
         x = x.transpose(0, 1)
         for layer in self.layers:

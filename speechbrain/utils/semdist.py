@@ -4,9 +4,11 @@ Authors
 * Sylvain de Langen 2024
 """
 
-from speechbrain.utils.metric_stats import MetricStats
-from typing import Literal, Callable, List
+from typing import Callable, List, Literal
+
 import torch
+
+from speechbrain.utils.metric_stats import MetricStats
 
 
 class BaseSemDistStats(MetricStats):
@@ -57,9 +59,9 @@ class BaseSemDistStats(MetricStats):
         ---------
         ids: list
             the string IDs for the samples
-        predictions: list
+        predict: list
             the model's predictions in tokenizable format
-        targets: list
+        target: list
             the ground truths in tokenizable format
         """
         self.ids.extend(ids)

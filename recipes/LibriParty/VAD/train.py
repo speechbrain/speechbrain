@@ -23,15 +23,17 @@ Authors
 """
 
 import sys
-import torch
-import logging
-import numpy as np
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from data_augment import augment_data
 
-logger = logging.getLogger(__name__)
+import numpy as np
+import torch
+from data_augment import augment_data
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class VADBrain(sb.Brain):

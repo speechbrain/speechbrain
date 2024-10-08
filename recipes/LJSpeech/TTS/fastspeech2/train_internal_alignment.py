@@ -12,18 +12,20 @@ Authors
 
 import os
 import sys
-import torch
-import logging
-import torchaudio
+from pathlib import Path
+
 import numpy as np
+import torch
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.inference.vocoders import HIFIGAN
-from pathlib import Path
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.data_utils import scalarize
+from speechbrain.utils.logger import get_logger
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FastSpeech2Brain(sb.Brain):

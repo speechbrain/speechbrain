@@ -6,17 +6,18 @@ Authors
 
 import torch
 import torch.nn as nn
-import logging
 import torch.nn.functional as F
+
 from speechbrain.nnet.CNN import get_padding_elem
 from speechbrain.nnet.complex_networks.c_ops import (
-    unitary_init,
-    complex_init,
     affect_conv_init,
     complex_conv_op,
+    complex_init,
+    unitary_init,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CConv1d(torch.nn.Module):

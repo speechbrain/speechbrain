@@ -35,18 +35,17 @@ Authors
 import functools
 import os
 import sys
-
-import torch
-import logging
 from pathlib import Path
 
+import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -446,8 +445,8 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    from switchboard_prepare import prepare_switchboard  # noqa
     from normalize_util import normalize_words, read_glm_csv  # noqa
+    from switchboard_prepare import prepare_switchboard  # noqa
 
     # Create experiment directory
     sb.create_experiment_directory(
@@ -475,7 +474,7 @@ if __name__ == "__main__":
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript

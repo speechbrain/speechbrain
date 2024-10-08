@@ -38,15 +38,17 @@ Authors
 #
 # *****************************************************************************
 
+from collections import namedtuple
 from math import sqrt
-from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
-from speechbrain.lobes.models.transformer.Transformer import (
-    get_mask_from_lengths,
-)
+
 import torch
 from torch import nn
 from torch.nn import functional as F
-from collections import namedtuple
+
+from speechbrain.lobes.models.transformer.Transformer import (
+    get_mask_from_lengths,
+)
+from speechbrain.nnet.loss.guidedattn_loss import GuidedAttentionLoss
 
 
 class LinearNorm(torch.nn.Module):

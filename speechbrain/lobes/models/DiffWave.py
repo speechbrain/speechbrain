@@ -28,15 +28,16 @@ Authors
 # limitations under the License.
 # ==============================================================================
 
+from math import sqrt
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from speechbrain.nnet.CNN import Conv1d
-from speechbrain.nnet import linear
-from speechbrain.nnet.diffusion import DenoisingDiffusion
-from math import sqrt
 from torchaudio import transforms
 
+from speechbrain.nnet import linear
+from speechbrain.nnet.CNN import Conv1d
+from speechbrain.nnet.diffusion import DenoisingDiffusion
 
 Linear = linear.Linear
 ConvTranspose2d = nn.ConvTranspose2d
@@ -489,6 +490,22 @@ class DiffWave(nn.Module):
         x = F.relu(x)
         x = self.output_projection(x)
         return x
+
+    def diffusion_forward(
+        self,
+        x,
+        timesteps,
+        cond_emb=None,
+        length=None,
+        out_mask_value=None,  # unused for diffwave
+        latent_mask_value=None,  # unused for diffwave
+    ):
+        """Forward function suitable for wrapping by diffusion.
+        For this model, `out_mask_value`/`latent_mask_value` are unused
+        and discarded.
+        See :meth:`~DiffWave.forward` for details."""
+
+        return self(x, timesteps, spectrogram=cond_emb, length=length)
 
 
 class DiffWaveDiffusion(DenoisingDiffusion):

@@ -7,24 +7,24 @@ Authors
 * Sylvain de Langen 2023
 """
 
+import warnings
 from dataclasses import dataclass
+from typing import List, Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, List
+
 import speechbrain as sb
-import warnings
-
-
+from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import (
-    RelPosMHAXL,
     MultiheadAttention,
     PositionalwiseFeedForward,
+    RelPosMHAXL,
 )
-from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 from speechbrain.nnet.hypermixing import HyperMixing
 from speechbrain.nnet.normalization import LayerNorm
-from speechbrain.nnet.activations import Swish
+from speechbrain.utils.dynamic_chunk_training import DynChunkTrainConfig
 
 
 @dataclass
@@ -141,8 +141,10 @@ class ConvolutionModule(nn.Module):
             bias=bias,
         )
 
-        # NOTE: there appears to be a mismatch compared to the Conformer paper:
-        # I believe the first LayerNorm below is supposed to be a BatchNorm.
+        # BatchNorm in the original Conformer replaced with a LayerNorm due to
+        # https://github.com/speechbrain/speechbrain/pull/1329
+        # see discussion
+        # https://github.com/speechbrain/speechbrain/pull/933#issuecomment-1033367884
 
         self.after_conv = nn.Sequential(
             nn.LayerNorm(input_size),
@@ -619,8 +621,11 @@ class ConformerEncoder(nn.Module):
     causal: bool, optional
         Whether the convolutions should be causal or not.
     attention_type: str, optional
-        type of attention layer, e.g. regularMHA for regular MultiHeadAttention.
-
+        type of attention layer, e.g. regulaMHA for regular MultiHeadAttention.
+    output_hidden_states: bool, optional
+        Whether the model should output the hidden states as a list of tensor.
+    layerdrop_prob: float
+        The probability to drop an entire layer.
 
     Example
     -------
@@ -631,6 +636,15 @@ class ConformerEncoder(nn.Module):
     >>> output, _ = net(x, pos_embs=pos_emb)
     >>> output.shape
     torch.Size([8, 60, 512])
+
+    >>> import torch
+    >>> from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
+    >>> x = torch.rand((8, 60, 512)); pos_emb = torch.rand((1, 2*60-1, 512));
+    >>> net = ConformerEncoder(4, 512, 512, 8, output_hidden_states=True)
+    >>> output, _, hs = net(x, pos_embs=pos_emb)
+    >>> hs[0].shape
+    torch.Size([8, 60, 512])
+
     """
 
     def __init__(
@@ -647,6 +661,8 @@ class ConformerEncoder(nn.Module):
         dropout=0.0,
         causal=False,
         attention_type="RelPosMHAXL",
+        output_hidden_states=False,
+        layerdrop_prob=0.0,
     ):
         super().__init__()
 
@@ -669,7 +685,9 @@ class ConformerEncoder(nn.Module):
             ]
         )
         self.norm = LayerNorm(d_model, eps=1e-6)
+        self.layerdrop_prob = layerdrop_prob
         self.attention_type = attention_type
+        self.output_hidden_states = output_hidden_states
 
     def forward(
         self,
@@ -681,7 +699,7 @@ class ConformerEncoder(nn.Module):
     ):
         """
         Arguments
-        ----------
+        ---------
         src : torch.Tensor
             The sequence to the encoder layer.
         src_mask : torch.Tensor, optional
@@ -696,6 +714,16 @@ class ConformerEncoder(nn.Module):
             Dynamic Chunk Training configuration object for streaming,
             specifically involved here to apply Dynamic Chunk Convolution to the
             convolution module.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The output of the Conformer.
+        attention_lst : list
+            The attention values.
+        hidden_state_lst : list, optional
+            The output of the hidden layers of the encoder.
+            Only works if output_hidden_states is set to true.
         """
         if self.attention_type == "RelPosMHAXL":
             if pos_embs is None:
@@ -704,18 +732,36 @@ class ConformerEncoder(nn.Module):
                 )
 
         output = src
+
+        if self.layerdrop_prob > 0.0:
+            keep_probs = torch.rand(len(self.layers))
+
         attention_lst = []
-        for enc_layer in self.layers:
-            output, attention = enc_layer(
-                output,
-                src_mask=src_mask,
-                src_key_padding_mask=src_key_padding_mask,
-                pos_embs=pos_embs,
-                dynchunktrain_config=dynchunktrain_config,
-            )
-            attention_lst.append(attention)
+        if self.output_hidden_states:
+            hidden_state_lst = [output]
+
+        for i, enc_layer in enumerate(self.layers):
+            if (
+                not self.training
+                or self.layerdrop_prob == 0.0
+                or keep_probs[i] > self.layerdrop_prob
+            ):
+                output, attention = enc_layer(
+                    output,
+                    src_mask=src_mask,
+                    src_key_padding_mask=src_key_padding_mask,
+                    pos_embs=pos_embs,
+                    dynchunktrain_config=dynchunktrain_config,
+                )
+                attention_lst.append(attention)
+
+                if self.output_hidden_states:
+                    hidden_state_lst.append(output)
+
         output = self.norm(output)
 
+        if self.output_hidden_states:
+            return output, attention_lst, hidden_state_lst
         return output, attention_lst
 
     def forward_streaming(

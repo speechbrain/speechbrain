@@ -17,18 +17,20 @@ Sangeet Sagar 2023
 adapted from the CommonVoice recipe)
 """
 
-import os
-import re
 import csv
 import glob
-import logging
-import torchaudio
+import os
+import re
 import unicodedata
+
+import torchaudio
 from tqdm import tqdm
 from tqdm.contrib import tzip
-from speechbrain.dataio.dataio import read_audio
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def prepare_RescueSpeech(

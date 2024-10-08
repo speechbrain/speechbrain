@@ -9,14 +9,15 @@ Authors:
  * Yingzhi Wang, 2022
 """
 
-import os
-import re
 import json
+import os
 import random
-import logging
-from speechbrain.dataio.dataio import read_audio
+import re
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 SAMPLERATE = 16000
 NUMBER_UTT = 5531
 

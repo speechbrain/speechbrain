@@ -5,15 +5,18 @@ Authors
 """
 
 import collections
+
 import torch
-from speechbrain.utils.data_utils import mod_default_collate
-from speechbrain.utils.data_utils import recursive_to
-from speechbrain.utils.data_utils import batch_pad_right
 from torch.utils.data._utils.collate import default_convert
 from torch.utils.data._utils.pin_memory import (
     pin_memory as recursive_pin_memory,
 )
 
+from speechbrain.utils.data_utils import (
+    batch_pad_right,
+    mod_default_collate,
+    recursive_to,
+)
 
 PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
 

@@ -1,13 +1,15 @@
-from itertools import product
-from statistics import mean
-from typing import Any, Dict, List, Optional, Set, Tuple
 import json
-import logging
 import os
 import re
 import shutil
+from itertools import product
+from statistics import mean
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 from tqdm import tqdm
+
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.logger import get_logger
 
 """
 Data preparation.
@@ -21,7 +23,7 @@ Author
  * Simone Alghisi 2023
 """
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 MULTIWOZ_21_DATASET_URL = (
     "https://github.com/budzianowski/multiwoz/raw/master/data/MultiWOZ_2.1.zip"
 )

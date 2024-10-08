@@ -8,17 +8,19 @@ Authors
  * Loren Lugosch 2020
 """
 
-import torch
-import logging
-import torch.nn as nn
-from speechbrain.nnet.attention import (
-    ContentBasedAttention,
-    LocationAwareAttention,
-    KeyValueAttention,
-)
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+import torch
+import torch.nn as nn
+
+from speechbrain.nnet.attention import (
+    ContentBasedAttention,
+    KeyValueAttention,
+    LocationAwareAttention,
+)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def pack_padded_sequence(inputs, lengths):

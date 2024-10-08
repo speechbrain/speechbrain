@@ -5,12 +5,14 @@ Authors
 """
 
 import random
-import logging
+
 import torch
 import torch.nn.functional as F
-from speechbrain.utils.callchains import lengths_arg_exists
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.callchains import lengths_arg_exists
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Augmenter(torch.nn.Module):

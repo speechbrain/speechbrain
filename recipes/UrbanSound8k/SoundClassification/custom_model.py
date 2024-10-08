@@ -17,11 +17,12 @@ Adapted From:
 
 import torch  # noqa: F401
 import torch.nn as nn
+
 import speechbrain as sb
-from speechbrain.nnet.pooling import StatisticsPooling
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
+from speechbrain.nnet.pooling import StatisticsPooling
 
 
 class Xvector(torch.nn.Module):

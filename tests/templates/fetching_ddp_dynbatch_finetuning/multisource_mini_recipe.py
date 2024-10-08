@@ -8,10 +8,11 @@ Authors:
 """
 
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+
+import speechbrain as sb
 
 
 # Define training procedure
@@ -326,7 +327,7 @@ if __name__ == "__main__":
     ) = data_io_prepare(hparams)
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Brain class initialization

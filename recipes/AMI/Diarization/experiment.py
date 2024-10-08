@@ -18,29 +18,30 @@ Authors
  * Nauman Dawalatabad 2020
 """
 
-import os
-import sys
-import torch
-import logging
-import pickle
-import json
 import glob
+import json
+import os
+import pickle
 import shutil
+import sys
+
 import numpy as np
-import speechbrain as sb
-from tqdm.contrib import tqdm
+import torch
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.processing.PLDA_LDA import StatObject_SB
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataio import read_audio, read_audio_multichannel
 from speechbrain.processing import diarization as diar
+from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.utils.DER import DER
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import read_audio_multichannel
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 np.random.seed(1234)
 
 # Logger setup
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 

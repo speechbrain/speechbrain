@@ -8,13 +8,14 @@ Authors:
 """
 
 import os
-import logging
+
 import torchaudio
-from speechbrain.utils.data_utils import download_file
-from speechbrain.utils.data_utils import get_all_files
+
+from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 
 # Logger init
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_dataset_from_URL(URL, dest_folder, ext, csv_file, max_length=None):

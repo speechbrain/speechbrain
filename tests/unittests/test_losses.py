@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 
 
 def test_nll(device):
@@ -76,9 +76,10 @@ def test_classification_error(device):
 
 
 def test_pitwrapper(device):
-    from speechbrain.nnet.losses import PitWrapper
     import torch
     from torch import nn
+
+    from speechbrain.nnet.losses import PitWrapper
 
     base_loss = nn.MSELoss(reduction="none")
     pit = PitWrapper(base_loss)

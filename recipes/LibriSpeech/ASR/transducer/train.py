@@ -32,16 +32,18 @@ Authors
  * Peter Plantinga 2020
 """
 
-import sys
-import torch
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from hyperpyyaml import load_hyperpyyaml
-from pathlib import Path
 import os
+import sys
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Define training procedure
 
@@ -466,7 +468,7 @@ if __name__ == "__main__":
     # We download the pretrained LM and the tokenizer from HuggingFace (or elsewhere
     # depending on the path given in the YAML file). The tokenizer is loaded at
     # the same time.
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Trainer initialization

@@ -5,17 +5,19 @@ Authors
   * Samuele Cornell 2020
 """
 
-import copy
 import contextlib
-from types import MethodType
-from torch.utils.data import Dataset
-from speechbrain.utils.data_pipeline import DataPipeline
-from speechbrain.dataio.dataio import load_data_json, load_data_csv
-from speechbrain.utils.data_utils import batch_shuffle
-import logging
+import copy
 import math
+from types import MethodType
 
-logger = logging.getLogger(__name__)
+from torch.utils.data import Dataset
+
+from speechbrain.dataio.dataio import load_data_csv, load_data_json
+from speechbrain.utils.data_pipeline import DataPipeline
+from speechbrain.utils.data_utils import batch_shuffle
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class DynamicItemDataset(Dataset):

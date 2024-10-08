@@ -12,21 +12,25 @@ Authors
 """
 
 import os
+import pickle
 import sys
+
+import numpy
 import torch
 import torchaudio
-import logging
-import speechbrain as sb
-import numpy
-import pickle
-from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import EER, minDCF
-from speechbrain.processing.PLDA_LDA import StatObject_SB
-from speechbrain.processing.PLDA_LDA import Ndx
-from speechbrain.processing.PLDA_LDA import fast_PLDA_scoring
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.processing.PLDA_LDA import (
+    Ndx,
+    StatObject_SB,
+    fast_PLDA_scoring,
+)
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.metric_stats import EER, minDCF
 
 
 # Compute embeddings from the waveforms
@@ -217,7 +221,7 @@ def dataio_prep(params):
 
 if __name__ == "__main__":
     # Logger setup
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
 

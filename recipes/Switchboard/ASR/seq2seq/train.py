@@ -32,18 +32,17 @@ Authors
 import functools
 import os
 import sys
-
-import torch
-import logging
-
-import torchaudio
-
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+import torch
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -326,9 +325,9 @@ def dataio_prepare(hparams):
     train_batch_sampler = None
     valid_batch_sampler = None
     if hparams["dynamic_batching"]:
-        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
         from speechbrain.dataio.batch import PaddedBatch  # noqa
+        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
         hop_size = hparams["feats_hop_size"]
@@ -372,8 +371,8 @@ if __name__ == "__main__":
     )
 
     # Dataset prep (parsing Switchboard)
-    from switchboard_prepare import prepare_switchboard  # noqa
     from normalize_util import normalize_words, read_glm_csv  # noqa
+    from switchboard_prepare import prepare_switchboard  # noqa
 
     # multi-gpu (ddp) save data preparation
     run_on_main(
@@ -401,7 +400,7 @@ if __name__ == "__main__":
 
     # Depending on the path given in the hparams YAML file,
     # we download the pretrained LM and Tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Helper function that removes optional/deletable parts of the transcript

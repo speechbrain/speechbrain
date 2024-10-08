@@ -27,7 +27,7 @@ def test_accumulatable_wer_stats():
 
 
 def test_op_table():
-    from speechbrain.utils.edit_distance import op_table, EDIT_SYMBOLS
+    from speechbrain.utils.edit_distance import EDIT_SYMBOLS, op_table
 
     assert len(op_table([1, 2, 3], [1, 2, 4])) == 4
     assert len(op_table([1, 2, 3], [1, 2, 4])[0]) == 4
@@ -39,7 +39,7 @@ def test_op_table():
 
 
 def test_alignment():
-    from speechbrain.utils.edit_distance import alignment, EDIT_SYMBOLS
+    from speechbrain.utils.edit_distance import EDIT_SYMBOLS, alignment
 
     I = EDIT_SYMBOLS["ins"]  # noqa: E741, here I is a good var name
     D = EDIT_SYMBOLS["del"]
@@ -50,7 +50,7 @@ def test_alignment():
 
 
 def test_count_ops():
-    from speechbrain.utils.edit_distance import count_ops, EDIT_SYMBOLS
+    from speechbrain.utils.edit_distance import EDIT_SYMBOLS, count_ops
 
     I = EDIT_SYMBOLS["ins"]  # noqa: E741, here I is a good var name
     D = EDIT_SYMBOLS["del"]

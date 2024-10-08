@@ -14,11 +14,13 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import torch
 from itertools import chain
+
+import torch
+
 from speechbrain.inference.interfaces import (
-    Pretrained,
     EncodeDecodePipelineMixin,
+    Pretrained,
 )
 
 
@@ -80,8 +82,15 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         if single:
             text = [text]
 
-        model_inputs = self.encode_input({"txt": text})
-        self._update_graphemes(model_inputs)
+        encoded_inputs = self.encode_input({"txt": text})
+        self._update_graphemes(encoded_inputs)
+
+        model_inputs = encoded_inputs
+        if hasattr(self.hparams, "model_input_keys"):
+            model_inputs = {
+                k: model_inputs[k] for k in self.hparams.model_input_keys
+            }
+
         model_outputs = self.mods.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
         phonemes = decoded_output["phonemes"]

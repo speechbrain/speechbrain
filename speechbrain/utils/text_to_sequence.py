@@ -27,9 +27,10 @@
 #
 # *****************************************************************************
 import re
-import logging
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 valid_symbols = [
     "AA",

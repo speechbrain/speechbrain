@@ -10,14 +10,16 @@ Authors:
 """
 
 import os
-import logging
 from pathlib import Path
 from typing import List, Union
+
 import torch
+
+from speechbrain.utils.logger import get_logger
 
 from . import k2  # import k2 from ./__init__.py
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def lattice_path_to_textid(

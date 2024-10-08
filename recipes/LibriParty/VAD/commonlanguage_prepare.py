@@ -1,10 +1,12 @@
 import os
-import logging
+
 import torchaudio
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 COMMON_LANGUAGE_URL = (
     "https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1"

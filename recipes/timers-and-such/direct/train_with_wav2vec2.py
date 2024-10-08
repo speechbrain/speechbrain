@@ -17,14 +17,15 @@ Authors
 """
 
 import sys
+
 import torch
-import speechbrain as sb
-import logging
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main, if_main_process
 
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Define training procedure
 
@@ -340,7 +341,7 @@ if __name__ == "__main__":
     ) = dataio_prepare(hparams)
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     hparams["wav2vec2"] = hparams["wav2vec2"].to(run_opts["device"])

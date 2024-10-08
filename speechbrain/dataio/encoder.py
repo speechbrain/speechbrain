@@ -6,18 +6,20 @@ Authors
 """
 
 import ast
-import torch
 import collections
 import itertools
-import logging
+
+import torch
+
 import speechbrain as sb
 from speechbrain.utils.checkpoints import (
-    mark_as_saver,
     mark_as_loader,
+    mark_as_saver,
     register_checkpoint_hooks,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # NOTE: Changing these does NOT change the defaults in the classes.
 # Consider these read-only.
@@ -732,7 +734,7 @@ class CategoricalEncoder:
                     f"but {real_len} categories found"
                 )
         else:
-            logger.debug(
+            logger.warning_once(
                 f"{self.__class__.__name__}.expect_len was never called: "
                 f"assuming category count of {len(self)} to be correct! "
                 "Sanity check your encoder using `.expect_len`. "

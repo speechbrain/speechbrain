@@ -9,22 +9,28 @@ speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
 
+To add adapters and train only a fraction of the parameters, do:
+> python train_with_whisper.py hparams/train_whisper_lora.yaml
+
 Authors
- * Adel Moumen 2022
+ * Peter Plantinga 2024
+ * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
 """
 
 import os
 import sys
-import torch
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from speechbrain.utils.data_utils import undo_padding
-from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -54,20 +60,15 @@ class ASR(sb.Brain):
 
         # Forward encoder + decoder
         enc_out, logits, _ = self.modules.whisper(wavs, bos_tokens)
-
         log_probs = self.hparams.log_softmax(logits)
 
         hyps = None
-        if stage == sb.Stage.VALID or stage == sb.Stage.TEST:
-            # Decide searcher for inference: valid or test search
-            if stage == sb.Stage.VALID:
-                hyps, _, _, _ = self.hparams.valid_search(
-                    enc_out.detach(), wav_lens
-                )
-            else:
-                hyps, _, _, _ = self.hparams.test_search(
-                    enc_out.detach(), wav_lens
-                )
+        if stage == sb.Stage.VALID:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+        elif stage == sb.Stage.TEST:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return log_probs, hyps, wav_lens
 
@@ -93,12 +94,11 @@ class ASR(sb.Brain):
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
-            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
-
             # Decode token terms to words
-            predicted_words = self.tokenizer.batch_decode(
-                hyps, skip_special_tokens=True
-            )
+            predicted_words = [
+                self.tokenizer.decode(t, skip_special_tokens=True).strip()
+                for t in hyps
+            ]
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -107,19 +107,23 @@ class ASR(sb.Brain):
             )
 
             if hasattr(self.hparams, "normalized_transcripts"):
+
+                if hasattr(self.tokenizer, "normalize"):
+                    normalized_fn = self.tokenizer.normalize
+                else:
+                    normalized_fn = self.tokenizer._normalize
+
                 predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
-                    for text in predicted_words
+                    normalized_fn(text).split(" ") for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text).split(" ")
-                    for text in target_words
+                    normalized_fn(text).split(" ") for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
-
                 target_words = [text.split(" ") for text in target_words]
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -143,15 +147,9 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr_whisper, new_lr_whisper = self.hparams.lr_annealing_whisper(
-                stage_stats["loss"]
-            )
-
-            sb.nnet.schedulers.update_learning_rate(
-                self.optimizer, new_lr_whisper
-            )
+            lr = self.hparams.lr_annealing_whisper.current_lr
             self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_whisper": old_lr_whisper},
+                stats_meta={"epoch": epoch, "lr": lr},
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
             )
@@ -235,14 +233,15 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
+        if hasattr(hparams, "normalized_transcripts"):
+            wrd = tokenizer.normalize(wrd)
         yield wrd
-        tokens_list = tokenizer.encode(wrd)
-        # avoid bos and eos tokens.
-        tokens_list = tokens_list[1:-1]
+        tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + tokens_list)
+        tokens_list = tokenizer.build_inputs_with_special_tokens(tokens_list)
+        tokens_bos = torch.LongTensor(tokens_list[:-1])
         yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        tokens_eos = torch.LongTensor(tokens_list[1:])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -295,14 +294,6 @@ if __name__ == "__main__":
 
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
-    tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
-
-    # we need to prepare the tokens for searchers
-    hparams["valid_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
-    hparams["valid_search"].set_language_token(tokenizer.prefix_tokens[1])
-
-    hparams["test_search"].set_decoder_input_tokens(tokenizer.prefix_tokens)
-    hparams["test_search"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_datasets = dataio_prepare(hparams, tokenizer)
@@ -318,7 +309,7 @@ if __name__ == "__main__":
 
     # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected(asr_brain.device)
 
     # We dynamically add the tokenizer to our brain class.
@@ -335,8 +326,7 @@ if __name__ == "__main__":
     )
 
     # Testing
-    if not os.path.exists(hparams["output_wer_folder"]):
-        os.makedirs(hparams["output_wer_folder"])
+    os.makedirs(hparams["output_wer_folder"], exist_ok=True)
 
     for k in test_datasets.keys():  # keys are test_clean, test_other etc
         asr_brain.hparams.test_wer_file = os.path.join(
