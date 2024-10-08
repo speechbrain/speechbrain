@@ -23,7 +23,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # see https://github.com/SpeechColab/GigaSpeech for more details on the dataset
 # must be one of ["XS", "S", "M", "L", "XL"]
 # and  ["DEV", "TEST"] for the eval splits.
-splits: ["XS", "DEV", "TEST"]
+splits: ["M", "DEV", "TEST"]
 skip_prep: False
 download_with_HF: True
 convert_opus_to_wav: True
@@ -41,7 +41,7 @@ json_file: !ref <data_folder>/GigaSpeech.json
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 5
+number_of_epochs: 100
 warmup_steps: 25000
 num_workers: 4
 batch_size_valid: 4
@@ -53,11 +53,12 @@ ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0
 loss_reduction: 'batchmean'
 precision: fp16 # bf16, fp16 or fp32
+grad_accumulation_factor: 1
 
 # The batch size is used if and only if dynamic batching is set to False
 # Validation and testing are done with fixed batches and not dynamic batching.
 batch_size: 8
-grad_accumulation_factor: 4
+
 sorting: random
 avg_checkpoints: 1 # Number of checkpoints to average for evaluation
 
@@ -102,6 +103,7 @@ test_dataloader_opts:
 
 # Using dynamic batching by default. This works with 4x24GB GPUs
 # Or turn it off (but training speed will decrease)
+# Play with grad_accum_factor such that the total batch is around 600 to 1500 s.
 dynamic_batching: True
 max_batch_length_train: 150
 max_batch_length_val: 50 # we reduce it as the beam is much wider (VRAM)
@@ -155,7 +157,6 @@ nbest: 1
 # https://arxiv.org/abs/1904.02619
 state_beam: 2.3
 expand_beam: 2.3
-lm_weight: 0.50
 
 # If True uses torchaudio loss. Otherwise, the numba one
 use_torchaudio: False
@@ -330,9 +331,6 @@ model: !new:torch.nn.ModuleList
    - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <proj_enc>, !ref <proj_dec>, !ref <proj_ctc>, !ref <transducer_lin>]
 
 ############################## Decoding & optimiser ############################
-
-# Tokenizer initialization
-tokenizer: !new:sentencepiece.SentencePieceProcessor
 
 Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
    decode_network_lst: [!ref <emb>, !ref <dec>, !ref <proj_dec>]
