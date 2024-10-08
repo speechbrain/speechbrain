@@ -12,6 +12,7 @@ Neural Architectures
    nn/neural-network-adapters.ipynb
    nn/complex-and-quaternion-neural-networks.ipynb
    nn/recurrent-neural-networks-and-speechbrain.ipynb
+   nn/conformer-streaming-asr.ipynb
 
 
 .. rubric:: `🔗 Fine-tuning or using Whisper, wav2vec2, HuBERT and others with SpeechBrain and HuggingFace <nn/using-wav2vec-2.0-hubert-wavlm-and-whisper-from-huggingface-with-speechbrain.html>`_
@@ -84,3 +85,23 @@ Linear, Convolution, Recurrent and Normalisation.
 Recurrent Neural Networks (RNNs) offer a natural way to process sequences.
 This tutorial demonstrates how to use the SpeechBrain implementations of RNNs including LSTMs, GRU, RNN and LiGRU a specific recurrent cell designed
 for speech-related tasks. RNNs are at the core of many sequence to sequence models.
+
+
+.. rubric:: `🔗 Streaming Speech Recognition with Conformers <nn/conformer-streaming-asr.html>`_
+   :heading-level: 2
+
+.. list-table::
+   :widths: 20 20 20 20 20
+   :header-rows: 0
+
+   * - de Langen S.
+     - Sep. 2024
+     - Difficulty: medium
+     - Time: 60min+
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/nn/conformer-streaming-asr.ipynb>`__
+
+
+Automatic Speech Recognition (ASR) models are often only designed to transcribe an entire large chunk of audio and are unsuitable for usecases like live stream transcription, which requires low-latency, long-form transcription.
+
+This tutorial introduces the Dynamic Chunk Training approach and architectural changes you can apply to make the Conformer model streamable. It introduces the tooling for training and inference that SpeechBrain can provide for you.
+This might be a good starting point if you're interested in training and understanding your own streaming models, or even if you want to explore improved streaming architectures.
