@@ -22,7 +22,7 @@ pip install -r extra_requirements.txt
 ```
 
 ## How to Run
-Before training the speech-to-unit translation (S2UT) model, we have to quantize the target speech into discrete speech units. This is achieved by training a k-means model on raw speech features, which will then serve as the target for training the S2UT model. By default, we use a pre-trained model with `k=100` trained on the 6th layer of HuBERT. For instructions on training a new quantization model, please refer to `recipes/LJSpeech/TTS/quantization`.
+Before training the speech-to-unit translation (S2UT) model, we have to quantize the target speech into discrete speech units. This is achieved by training a k-means model on raw speech features, which will then serve as the target for training the S2UT model. By default, we use a pre-trained model with `k=100` trained on the 6th layer of HuBERT. For instructions on training a new quantization model, please refer to `recipes/LJSpeech/quantization`.
 
 To train the S2UT model on French-English, simply run the following command:
 ```
@@ -53,6 +53,15 @@ To synthesize speech from the predicted speech units, you need to train a unit-b
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},

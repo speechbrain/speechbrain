@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
@@ -22,7 +22,6 @@ save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 save_interpretations: False
-concat_sources: False
 interpret_period: 10
 
 # Tensorboard logs
@@ -110,9 +109,9 @@ K: 1024
 
 # Pre-processing
 n_fft: 1024
-spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
+use_melspectra_log1p: False
 
 compute_stft: !new:speechbrain.processing.features.STFT
     n_fft: !ref <n_fft>

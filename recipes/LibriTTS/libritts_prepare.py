@@ -6,20 +6,19 @@ Authors
 """
 
 import json
-import logging
 import os
 import random
-import shutil
 
 import torch
 import torchaudio
 from tqdm import tqdm
 
-from speechbrain.inference.txt import GraphemeToPhoneme
-from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,6 +37,7 @@ def prepare_libritts(
     test_split=None,
     seed=1234,
     model_name=None,
+    skip_prep=False,
 ):
     """
     Prepares the json files for the LibriTTS dataset.
@@ -74,11 +74,16 @@ def prepare_libritts(
         Seed value
     model_name : str
         Model name (used to prepare additional model specific data)
+    skip_prep: Bool
+        If True, skip preparation.
 
     Returns
     -------
     None
     """
+
+    if skip_prep:
+        return
 
     # Setting the seed value
     random.seed(seed)
@@ -98,6 +103,8 @@ def prepare_libritts(
         create_json(wav_list, save_json_train, sample_rate, model_name)
     if valid_split:
         wav_list = prepare_split(data_folder, valid_split)
+        # TODO add better way to speedup evaluation
+        wav_list = random.sample(wav_list, 500)
         create_json(wav_list, save_json_valid, sample_rate, model_name)
     if test_split:
         wav_list = prepare_split(data_folder, test_split)
@@ -114,9 +121,13 @@ def prepare_libritts(
         # Random split the signal list into train, valid, and test sets.
         data_split = split_sets(wav_list, split_ratio)
         # Creating json files
-        create_json(data_split["train"], save_json_train, sample_rate)
-        create_json(data_split["valid"], save_json_valid, sample_rate)
-        create_json(data_split["test"], save_json_test, sample_rate)
+        create_json(
+            data_split["train"], save_json_train, sample_rate, model_name
+        )
+        create_json(
+            data_split["valid"], save_json_valid, sample_rate, model_name
+        )
+        create_json(data_split["test"], save_json_test, sample_rate, model_name)
 
 
 def prepare_split(data_folder, split_list):
@@ -144,8 +155,7 @@ def prepare_split(data_folder, split_list):
         subset_folder = os.path.join(data_folder, subset_name)
         subset_archive = os.path.join(subset_folder, subset_name + ".tar.gz")
 
-        subset_data = os.path.join(subset_folder, "LibriTTS")
-        if not check_folders(subset_data):
+        if not check_folders(subset_folder):
             logger.info(
                 f"No data found for {subset_name}. Checking for an archive file."
             )
@@ -153,16 +163,7 @@ def prepare_split(data_folder, split_list):
                 logger.info(
                     f"No archive file found for {subset_name}. Downloading and unpacking."
                 )
-                subset_url = LIBRITTS_URL_PREFIX + subset_name + ".tar.gz"
-                download_file(subset_url, subset_archive)
-                logger.info(f"Downloaded data for subset {subset_name}.")
-            else:
-                logger.info(
-                    f"Found an archive file for {subset_name}. Unpacking."
-                )
-
-            shutil.unpack_archive(subset_archive, subset_folder)
-
+                quit()
         # Collects all files matching the provided extension
         wav_list.extend(get_all_files(subset_folder, match_and=extension))
 
@@ -200,21 +201,30 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         # Reads the signal
         signal, sig_sr = torchaudio.load(wav_file)
         duration = signal.shape[1] / sig_sr
+
+        # TODO add better way to filter short utterances
+        if duration < 1.0:
+            continue
+
         # Manipulates path to get relative path and uttid
         path_parts = wav_file.split(os.path.sep)
         uttid, _ = os.path.splitext(path_parts[-1])
-        relative_path = os.path.join("{data_root}", *path_parts[-6:])
+        # relative_path = os.path.join("{data_root}", *path_parts[-4:])
 
         # Gets the path for the text files and extracts the input text
         normalized_text_path = os.path.join(
             "/", *path_parts[:-1], uttid + ".normalized.txt"
         )
-        with open(normalized_text_path) as f:
-            normalized_text = f.read()
-            if normalized_text.__contains__("{"):
-                normalized_text = normalized_text.replace("{", "")
-            if normalized_text.__contains__("}"):
-                normalized_text = normalized_text.replace("}", "")
+        try:
+            with open(normalized_text_path) as f:
+                normalized_text = f.read()
+                if normalized_text.__contains__("{"):
+                    normalized_text = normalized_text.replace("{", "")
+                if normalized_text.__contains__("}"):
+                    normalized_text = normalized_text.replace("}", "")
+        except FileNotFoundError:
+            print(f"Warning: The file {normalized_text_path} does not exist.")
+            continue
 
         # Resamples the audio file if required
         if sig_sr != sample_rate:
@@ -230,7 +240,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         # Creates an entry for the utterance
         json_dict[uttid] = {
             "uttid": uttid,
-            "wav": relative_path,
+            "wav": wav_file,
             "duration": duration,
             "spk_id": spk_id,
             "label": normalized_text,
@@ -238,7 +248,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
         }
 
         # Characters are used for Tacotron2, phonemes may be needed for other models
-        if model_name != "Tacotron2":
+        if model_name not in ["Tacotron2", "HiFi-GAN"]:
             # Computes phoneme labels using SpeechBrain G2P and keeps the punctuations
             phonemes = _g2p_keep_punctuations(g2p, normalized_text)
             json_dict[uttid].update({"label_phoneme": phonemes})
@@ -258,7 +268,7 @@ def skip(*filenames):
     Arguments
     ---------
     *filenames : tuple
-        List of paths to check for existence.
+        Set of filenames to check for existence.
 
     Returns
     -------

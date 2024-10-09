@@ -9,12 +9,15 @@ speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
 
+To add adapters and train only a fraction of the parameters, do:
+> python train_with_whisper.py hparams/train_whisper_lora.yaml
+
 Authors
+ * Peter Plantinga 2024
  * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
 """
 
-import logging
 import os
 import sys
 from pathlib import Path
@@ -25,8 +28,9 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -103,14 +107,18 @@ class ASR(sb.Brain):
             )
 
             if hasattr(self.hparams, "normalized_transcripts"):
+
+                if hasattr(self.tokenizer, "normalize"):
+                    normalized_fn = self.tokenizer.normalize
+                else:
+                    normalized_fn = self.tokenizer._normalize
+
                 predicted_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in predicted_words
+                    normalized_fn(text).split(" ") for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in target_words
+                    normalized_fn(text).split(" ") for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
@@ -301,7 +309,7 @@ if __name__ == "__main__":
 
     # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected(asr_brain.device)
 
     # We dynamically add the tokenizer to our brain class.

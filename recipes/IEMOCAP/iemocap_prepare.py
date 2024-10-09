@@ -10,14 +10,14 @@ Authors:
 """
 
 import json
-import logging
 import os
 import random
 import re
 
 from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 SAMPLERATE = 16000
 NUMBER_UTT = 5531
 

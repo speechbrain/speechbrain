@@ -12,7 +12,6 @@ Authors
  * Jianyuan Zhong 2020
  * Pooneh Mousavi 2023
 """
-import logging
 import os
 import sys
 
@@ -24,8 +23,9 @@ import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -269,7 +269,10 @@ def dataio_prepare(hparams, tokenizer):
         replacements={"data_root": data_folder},
     )
     # We also sort the validation data so it is faster to validate
-    valid_data = valid_data.filtered_sorted(sort_key="duration")
+    valid_data = valid_data.filtered_sorted(
+        sort_key="duration",
+        key_max_value={"duration": hparams["avoid_if_longer_than_val_test"]},
+    )
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
         csv_path=hparams["test_csv"],
@@ -277,7 +280,10 @@ def dataio_prepare(hparams, tokenizer):
     )
 
     # We also sort the validation data so it is faster to validate
-    test_data = test_data.filtered_sorted(sort_key="duration")
+    test_data = test_data.filtered_sorted(
+        sort_key="duration",
+        key_max_value={"duration": hparams["avoid_if_longer_than_val_test"]},
+    )
 
     datasets = [train_data, valid_data, test_data]
 

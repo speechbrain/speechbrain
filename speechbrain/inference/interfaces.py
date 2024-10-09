@@ -15,7 +15,6 @@ Authors:
 """
 
 import hashlib
-import logging
 import sys
 import warnings
 from types import SimpleNamespace
@@ -32,10 +31,11 @@ from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import fetch
+from speechbrain.utils.fetching import LocalStrategy, fetch
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def foreign_class(
@@ -49,6 +49,7 @@ def foreign_class(
     use_auth_token=False,
     download_only=False,
     huggingface_cache_dir=None,
+    local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -95,6 +96,10 @@ def foreign_class(
         If true, class and instance creation is skipped.
     huggingface_cache_dir : str
         Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
+    local_strategy : speechbrain.utils.fetching.LocalStrategy
+        The fetching strategy to use, which controls the behavior of remote file
+        fetching with regards to symlinking and copying.
+        See :func:`speechbrain.utils.fetching.fetch` for further details.
     **kwargs : dict
         Arguments to forward to class constructor.
 
@@ -114,6 +119,7 @@ def foreign_class(
         use_auth_token=use_auth_token,
         revision=None,
         huggingface_cache_dir=huggingface_cache_dir,
+        local_strategy=local_strategy,
     )
     pymodule_local_path = fetch(
         filename=pymodule_file,
@@ -124,6 +130,7 @@ def foreign_class(
         use_auth_token=use_auth_token,
         revision=None,
         huggingface_cache_dir=huggingface_cache_dir,
+        local_strategy=local_strategy,
     )
     sys.path.append(str(pymodule_local_path.parent))
 
@@ -135,7 +142,10 @@ def foreign_class(
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
     # For distributed setups, have this here:
-    run_on_main(pretrainer.collect_files, kwargs={"default_source": source})
+    run_on_main(
+        pretrainer.collect_files,
+        kwargs={"default_source": source, "use_auth_token": use_auth_token},
+    )
     # Load on the CPU. Later the params can be moved elsewhere by specifying
     if not download_only:
         # run_opts={"device": ...}
@@ -283,7 +293,12 @@ class Pretrained(torch.nn.Module):
         The path can be a local path, a web url, or a link to a huggingface repo.
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
+        path = fetch(
+            fl,
+            source=source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.NO_LINK,
+        )
         signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
 
@@ -394,6 +409,7 @@ class Pretrained(torch.nn.Module):
         download_only=False,
         huggingface_cache_dir=None,
         overrides_must_match=True,
+        local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -447,6 +463,9 @@ class Pretrained(torch.nn.Module):
             Path to HuggingFace cache; if None -> "~/.cache/huggingface" (default: None)
         overrides_must_match : bool
             Whether the overrides must match the parameters already in the file.
+        local_strategy : LocalStrategy, optional
+            Which strategy to use to deal with files locally. (default:
+            `LocalStrategy.SYMLINK`)
         **kwargs : dict
             Arguments to forward to class constructor.
 
@@ -466,6 +485,7 @@ class Pretrained(torch.nn.Module):
             use_auth_token=use_auth_token,
             revision=revision,
             huggingface_cache_dir=huggingface_cache_dir,
+            local_strategy=local_strategy,
         )
         try:
             pymodule_local_path = fetch(
@@ -477,6 +497,7 @@ class Pretrained(torch.nn.Module):
                 use_auth_token=use_auth_token,
                 revision=revision,
                 huggingface_cache_dir=huggingface_cache_dir,
+                local_strategy=local_strategy,
             )
             sys.path.append(str(pymodule_local_path.parent))
         except ValueError:
@@ -501,7 +522,11 @@ class Pretrained(torch.nn.Module):
             pretrainer.set_collect_in(savedir)
             # For distributed setups, have this here:
             run_on_main(
-                pretrainer.collect_files, kwargs={"default_source": source}
+                pretrainer.collect_files,
+                kwargs={
+                    "default_source": source,
+                    "use_auth_token": use_auth_token,
+                },
             )
             # Load on the CPU. Later the params can be moved elsewhere by specifying
             if not download_only:

@@ -6,7 +6,6 @@ Authors
 
 import csv
 import json
-import logging
 import os.path
 from dataclasses import dataclass
 from typing import List
@@ -17,8 +16,9 @@ import torch
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SentencePiece:
@@ -174,17 +174,6 @@ class SentencePiece:
         self.add_dummy_prefix = str(add_dummy_prefix)
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
-            logger.info("Train tokenizer with type:" + self.model_type)
-            if not os.path.isfile(self.text_file):
-                if annotation_format == "csv":
-                    run_on_main(self._csv2text)
-                elif annotation_format == "json":
-                    run_on_main(self._json2text)
-                else:
-                    raise ValueError(
-                        "Annotation format not supported. Supported formats are csv and json. Got "
-                        + annotation_format
-                    )
             run_on_main(self._train_BPE)
         else:
             logger.info("Tokenizer is already trained.")
@@ -195,6 +184,17 @@ class SentencePiece:
         logger.info("Tokenizer type: " + self.model_type)
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
+
+        if int(self.vocab_size) != self.sp.vocab_size():
+            base_msg = f"SentencePiece vocab size `{self.vocab_size}` requested, but the loaded model has `{self.sp.vocab_size()}`! This can cause decoding errors or weird model training behavior in some cases."
+            if self.model_type == "char":
+                logger.warning(
+                    f"{base_msg} The model type is 'char', for which `vocab_size` has no impact."
+                )
+            else:
+                logger.warning(
+                    f"{base_msg} Are you loading a tokenizer with the wrong parameters?"
+                )
 
         if annotation_list_to_check is not None:
             run_on_main(
@@ -287,6 +287,19 @@ class SentencePiece:
         SentencePiece Library. If you use "char" mode, the SentencePiece
         creates a char dict so the vocab_size attribute is not needed.
         """
+
+        logger.info("Train tokenizer with type:" + self.model_type)
+        if not os.path.isfile(self.text_file):
+            if self.annotation_format == "csv":
+                self._csv2text()
+            elif self.annotation_format == "json":
+                self._json2text()
+            else:
+                raise ValueError(
+                    "Annotation format not supported. Supported formats are csv and json. Got "
+                    + self.annotation_format
+                )
+
         query = (
             "--input="
             + self.text_file

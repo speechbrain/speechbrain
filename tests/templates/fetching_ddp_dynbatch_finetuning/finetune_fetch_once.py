@@ -7,7 +7,6 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
-import logging
 import os
 import sys
 from copy import deepcopy
@@ -30,8 +29,9 @@ from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.utils.data_utils import batch_pad_right
 from speechbrain.utils.distributed import ddp_barrier, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def eval_reporting(reports, single_node=False):

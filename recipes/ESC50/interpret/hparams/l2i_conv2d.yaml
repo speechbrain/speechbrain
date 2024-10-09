@@ -3,23 +3,40 @@
 #
 # Author:
 #  * Cem Subakan 2022, 2023
-#  * Francesco Paissan 2022, 2023
+#  * Francesco Paissan 2022, 2023, 2024
 #  (based on the SpeechBrain UrbanSound8k recipe)
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
+
+int_method: "l2i"
+add_wham_noise: False
+overlap_type: "mixtures"
+
+# this is needed for ood evaluation with ljspeech, when using eval.py
+ljspeech_path: null
+
+single_sample: null
+
+# this is needed when using eval.py to specify the path for the psi_model.ckpt
+# the typical path would be similar to results/LMAC_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/psi_model.ckpt
+pretrained_interpreter: null
 
 experiment_name: L2I
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+wham_folder: null
+wham_audio_folder: !ref <wham_folder>/tr
+
+test_only: False
 save_interpretations: False
 
 # Tensorboard logs
@@ -41,16 +58,16 @@ ckpt_interval_minutes: 15 # save checkpoint every N min
 # Training parameters
 number_of_epochs: 200
 batch_size: 16
-lr: 0.0002
+lr: 0.00002
 sample_rate: 16000
 interpret_period: 1
 relevance_th: 0.2
+signal_length_s: 5
+use_melspectra_log1p: False
 
 
 # Feature parameters
 n_mels: 80
-
-use_melspectra: False
 
 # Number of classes
 out_n_neurons: 50
@@ -66,7 +83,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
-    weight_decay: 0.000002
+    weight_decay: 0.0001
 
 lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
     factor: 0.5
@@ -87,6 +104,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256
 
+classifier_temp: 0.01  # classifier temperature for the auxiliary L2I classifier
 classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 256
     out_neurons: !ref <out_n_neurons>
@@ -124,6 +142,7 @@ psi_model: !new:speechbrain.lobes.models.L2I.PsiOptimized
     adapter_reduce_dim: False
 
 theta: !new:speechbrain.lobes.models.L2I.Theta
+    n_comp: !ref <K>
     T: 417
 
 # NMF Decoder
@@ -133,7 +152,6 @@ nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
 
 alpha: 10 # applied to NMF loss
 beta: 0.8 # L1 regularization to time activations
-k_fidelity: 3 # top-k fidelity
 
 modules:
     compute_stft: !ref <compute_stft>

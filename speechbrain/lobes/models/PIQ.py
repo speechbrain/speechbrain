@@ -488,6 +488,7 @@ class VectorQuantizedPSI_Audio(nn.Module):
         -------
         Reconstructed log-power spectrogram, reduced classifier's representations and quantized classifier's representations. : tuple
         """
+
         if self.use_adapter:
             hcat = self.adapter(hs)
         else:
@@ -511,7 +512,7 @@ class VectorQuantizedPSIFocalNet_Audio(VectorQuantizedPSI_Audio):
     ---------
     dim : int
         Dimensionality of VQ vectors.
-    kwargs : dict
+    **kwargs : dict
         See documentation of `VectorQuantizedPSI_Audio`.
 
     Example
@@ -552,7 +553,7 @@ class VectorQuantizedPSIViT_Audio(VectorQuantizedPSI_Audio):
     ---------
     dim : int
         Dimensionality of VQ vectors.
-    kwargs : dict
+    **kwargs : dict
         See documentation of `VectorQuantizedPSI_Audio`.
 
     Example

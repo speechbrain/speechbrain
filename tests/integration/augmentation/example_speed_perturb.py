@@ -5,12 +5,16 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.dataio.dataio import read_audio, write_audio
 
-output_folder = os.path.join("results", "speed_perturb")
 experiment_dir = os.path.dirname(os.path.abspath(__file__))
+output_folder = os.path.join(experiment_dir, "results", "speed_perturb")
+save_folder = os.path.join(output_folder, "save")
 hyperparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
 
 
 def main():
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
+
     overrides = {
         "output_folder": output_folder,
         "data_folder": os.path.join(experiment_dir, "..", "..", "samples"),
@@ -29,23 +33,26 @@ def main():
     )
     for id, (wav, wav_len) in iter(dataloader):
         wav_perturb = hyperparams["speed_perturb"](wav)
-        # save results on file
+        # save results in file
         for i, snt_id in enumerate(id):
-            filepath = (
-                hyperparams["output_folder"] + "/save/" + snt_id + ".flac"
-            )
+            filepath = os.path.join(save_folder, f"{snt_id}.flac")
             write_audio(filepath, wav_perturb[i], 16000)
 
 
-def test_perturb():
+def test_speed_perturb():
     from glob import glob
 
+    main()
     for filename in glob(os.path.join(output_folder, "save", "*.flac")):
         expected_file = filename.replace("results", "expected")
-        actual = read_audio(filename)
-        expected = read_audio(expected_file)
-        assert actual.allclose(expected)
+
+        actual_file_abs = os.path.join(experiment_dir, filename)
+        expected_file_abs = os.path.join(experiment_dir, expected_file)
+
+        actual = read_audio(actual_file_abs)
+        expected = read_audio(expected_file_abs)
+        assert actual.allclose(expected, atol=1e-4)
 
 
 if __name__ == "__main__":
-    main()
+    test_speed_perturb()

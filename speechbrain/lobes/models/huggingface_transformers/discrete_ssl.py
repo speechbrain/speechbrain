@@ -7,7 +7,6 @@ Author
  * Pooneh Mousavi 2024
 """
 
-import logging
 import os
 from glob import glob
 
@@ -17,8 +16,9 @@ from huggingface_hub import snapshot_download
 from torch import nn
 
 from speechbrain.tokenizers.discrete_SSL_tokenizer import DiscreteSSLTokenizer
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DiscreteSSL(nn.Module):
@@ -33,21 +33,18 @@ class DiscreteSSL(nn.Module):
 
     Arguments
     ---------
-    source : str
-        HuggingFace hub name: e.g "facebook/hubert-base-ls960"
     save_path : str
         Path (dir) of the downloaded model.
     ssl_model : str
         SSL model to extract semantic tokens from its layers' output. Note that output_all_hiddens should be set to True to enable multi-layer discretenation.
-    kmeans_repo_id : str
-        Huggingface repository that contains the pre-trained k-means models.
     kmeans_dataset : str
         Name of the dataset that Kmeans model on HF repo is trained with.
-    num_clusters:  int or List[int] (default: 1000)
+    kmeans_repo_id : str
+        Huggingface repository that contains the pre-trained k-means models.
+    num_clusters : int or List[int] (default: 1000)
             determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
-    layers_num: : List[int] (Optional)
+    layers_num : List[int] (Optional)
             detremine layers to be download from HF repo. If it is not provided, all layers with num_clusters(int) is loaded from HF repo. If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
-
 
     Example
     -------
@@ -59,7 +56,7 @@ class DiscreteSSL(nn.Module):
     >>> ssl_layer_num = [7,23]
     >>> deduplicate =[False, True]
     >>> bpe_tokenizers=[None, None]
-    >>> kmeans_repo_id = "poonehmousavi/SSL_Quantization"
+    >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
     >>> kmeans_dataset = "LJSpeech"
     >>> num_clusters = 1000
     >>> ssl_model = HuBERT(model_hub, save_path,output_all_hiddens=True)
@@ -106,13 +103,14 @@ class DiscreteSSL(nn.Module):
         self.tokenizer = DiscreteSSLTokenizer(self.num_clusters)
 
     def check_if_input_is_compatible(self, layers_num, num_clusters):
-        """check if layer_number and num_clusters is consisntent with each other.
+        """check if layer_number and num_clusters is consistent with each other.
+
         Arguments
         ---------
-        num_clusters:  int or List[int]
-            determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
-        layers_num: : List[int] (Optional)
+        layers_num: List[int] (Optional)
             If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
+        num_clusters: int or List[int]
+            determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
         """
 
         if layers_num:
@@ -144,17 +142,20 @@ class DiscreteSSL(nn.Module):
            The hugingface repo id that contains the model.
         kmeans_dataset : str
             Name of the dataset that Kmeans model are trained with in HF repo that need to be downloaded.
-        cache_dir: str
-            Path (dir) of the downloaded model.
-        num_clusters:  int or List[int]
+        encoder_name : str
+            Name of the encoder for locating files.
+        num_clusters : int or List[int]
             determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
-        layers_num: : List[int] (Optional)
+        cache_dir : str
+            Path (dir) of the downloaded model.
+        layers_num : List[int] (Optional)
             If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
-        Returns:
-        ---------
-        kmeans_model : MiniBatchKMeans:
+
+        Returns
+        -------
+        kmeans_model : MiniBatchKMeans
             pretrained Kmeans  model loaded from the HF.
-        layer_ids : List[int] :
+        layer_ids : List[int]
             supported layer nums for kmeans (extracted from the name of kmeans model.)
         """
 
@@ -164,7 +165,7 @@ class DiscreteSSL(nn.Module):
         if layers_num:
             for i, layer in enumerate(layers_num):
                 file_patterns.append(
-                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}*.pt"
+                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}.pt"
                 )
         else:
             file_patterns.append(
@@ -175,13 +176,16 @@ class DiscreteSSL(nn.Module):
         )
         files = []
         for ext in file_patterns:
-            files.extend(glob(os.path.join(kmeans_dir, ext)))
+            for file in glob(os.path.join(kmeans_dir, ext)):
+                if file not in files:
+                    files.append(file)
+                    layer_ids.append(
+                        int(
+                            file.split("/")[-1].split("_")[-1].split(".")[0][1:]
+                        )
+                    )
+                    kmeans_models.append(joblib.load(file))
 
-        for file in files:
-            layer_ids.append(
-                int(file.split("/")[-1].split("_")[-1].split(".")[0][1:])
-            )
-            kmeans_models.append(joblib.load(file))
         assert (
             len(layer_ids) > 0
         ), f"There is no trained k-means model available for {repo_id}/{encoder_name}/*_k{num_clusters[i]}_L*"
@@ -198,9 +202,9 @@ class DiscreteSSL(nn.Module):
         self,
         wav,
         wav_lens=None,
-        SSL_layers=[7],
-        deduplicates=[False],
-        bpe_tokenizers=[None],
+        SSL_layers=None,
+        deduplicates=None,
+        bpe_tokenizers=None,
     ):
         """Takes an input waveform and return its corresponding wav2vec encoding.
 
@@ -208,16 +212,17 @@ class DiscreteSSL(nn.Module):
         ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
-        wav_len : tensor
+        wav_lens : tensor
             The relative length of the wav given in SpeechBrain format.
-        SSL_layers: List[int] (default: [7]):
+        SSL_layers: List[int]:
             determine which layers of SSL should be used to extract information.
-        deduplicates: List[boolean] (default: [False]):
+        deduplicates: List[boolean]:
             determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
-        bpe_tokenizers: List[int] (default: [None]):
+        bpe_tokenizers: List[int]:
             determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
-        Returns:
-        ---------
+
+        Returns
+        -------
         tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens
         emb : torch.Tensor
@@ -225,6 +230,13 @@ class DiscreteSSL(nn.Module):
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """
+
+        if SSL_layers is None:
+            SSL_layers = self.ssl_layer_ids
+        if deduplicates is None:
+            deduplicates = [False] * len(SSL_layers)
+        if bpe_tokenizers is None:
+            bpe_tokenizers = [None] * len(SSL_layers)
 
         assert (
             len(deduplicates) == len(SSL_layers) == len(bpe_tokenizers)

@@ -11,16 +11,17 @@ Authors:
 """
 
 import abc
-import logging
 import os
 from typing import List, Optional, Tuple
 
 import torch
 
+from speechbrain.utils.logger import get_logger
+
 from . import k2  # import k2 from ./__init__.py
 from . import lexicon
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class GraphCompiler(abc.ABC):

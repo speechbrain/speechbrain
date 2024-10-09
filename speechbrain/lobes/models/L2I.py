@@ -377,3 +377,199 @@ class NMFEncoder(nn.Module):
         NMF encoded outputs.
         """
         return self.convenc(X)
+
+
+class CNN14PSI_stft(nn.Module):
+    """
+    This class estimates a saliency map on the STFT domain, given classifier representations.
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of the input representations.
+    K : int
+        Defines the number of output channels in the saliency map.
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.Cnn14 import Cnn14
+    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
+    >>> x = torch.randn(2, 201, 80)
+    >>> _, hs = classifier_embedder(x)
+    >>> psimodel = CNN14PSI_stft(2048, 20)
+    >>> xhat = psimodel.forward(hs)
+    >>> print(xhat.shape)
+    torch.Size([2, 20, 207])
+    """
+
+    def __init__(self, dim=128, K=100):
+        super().__init__()
+
+        self.convt1 = nn.ConvTranspose1d(dim, dim, 3, 2, 1)
+        self.convt2 = nn.ConvTranspose1d(dim // 2, dim, 3, 2, 1)
+        self.convt3 = nn.ConvTranspose1d(dim, dim, 7, 2, 1)
+        self.convt4 = nn.ConvTranspose1d(dim // 4, dim, 5, 2, 1)
+        self.convt5 = nn.ConvTranspose1d(dim, dim // 2, 3, 2, 1)
+        self.convt6 = nn.ConvTranspose1d(dim // 8, dim // 2, 3, 2, 1)
+        self.convt7 = nn.ConvTranspose1d(dim // 2, dim // 4, 4, 2, 0)
+        self.convt8 = nn.ConvTranspose1d(dim // 4, dim // 8, 3, 2, 0)
+        self.convt9 = nn.ConvTranspose1d(dim // 8, K, 7, 1, 0)
+
+        self.nonl = nn.ReLU(True)
+
+    def forward(self, hs, labels=None):
+        """
+        Forward step. Estimates NMF activations to be used to get the saliency mask.
+
+        Arguments
+        --------
+        hs : torch.Tensor
+            Classifier's representations.
+        labels : torch.Tensor
+            Predicted labels for classifier's representations.
+
+        Returns
+        --------
+        xhat : torch.Tensor
+            The estimated NMF activation coefficients
+        """
+
+        hs = [h.mean(-1) for h in hs]
+        h1 = self.convt1(hs[0])
+        h1 = self.nonl(h1)
+
+        h2 = self.convt2(hs[1])
+        h2 = self.nonl(h2)
+        h = h1 + h2
+
+        h3 = self.convt3(h)
+        h3 = self.nonl(h3)
+
+        h4 = self.convt4(hs[2])
+        h4 = self.nonl(h4)
+        h = h3 + h4
+
+        h5 = self.convt5(h)
+        h5 = self.nonl(h5)
+
+        h6 = self.convt6(hs[3])
+        h6 = self.nonl(h6)
+
+        h = h5 + h6
+
+        h = self.convt7(h)
+        h = self.nonl(h)
+
+        h = self.convt8(h)
+        h = self.nonl(h)
+
+        xhat = self.convt9(h)
+        xhat = self.nonl(xhat)
+
+        # apply ReLU
+        xhat = F.relu(xhat)
+        return xhat
+
+
+class CNN14PSI_stft_2d(nn.Module):
+    """
+    This class estimates the NMF activations to create a saliency map using the L2I framework
+
+    Arguments
+    ---------
+    dim : int
+        Dimensionality of the input representations.
+    K : int
+        Defines the number of output channels in the saliency map.
+
+    Example
+    -------
+    >>> from speechbrain.lobes.models.Cnn14 import Cnn14
+    >>> classifier_embedder = Cnn14(mel_bins=80, emb_dim=2048, return_reps=True)
+    >>> x = torch.randn(2, 201, 80)
+    >>> _, hs = classifier_embedder(x)
+    >>> psimodel = CNN14PSI_stft_2d(2048, 20)
+    >>> xhat = psimodel.forward(hs)
+    >>> print(xhat.shape)
+    torch.Size([2, 20, 207])
+    """
+
+    def __init__(self, dim=128, K=100):
+        super().__init__()
+
+        self.convt1 = nn.ConvTranspose2d(dim, dim, 3, (2, 4), 1)
+        self.convt2 = nn.ConvTranspose2d(dim // 2, dim, 3, (2, 4), 1)
+        self.convt3 = nn.ConvTranspose2d(dim, dim, (7, 4), (2, 4), 1)
+        self.convt4 = nn.ConvTranspose2d(dim // 4, dim, (5, 4), (2, 4), 1)
+        self.convt5 = nn.ConvTranspose2d(dim, dim // 2, (3, 5), (2, 2), 1)
+        self.convt6 = nn.ConvTranspose2d(dim // 8, dim // 2, (3, 3), (2, 4), 1)
+        self.convt7 = nn.ConvTranspose2d(
+            dim // 2, dim // 4, (4, 3), (2, 2), (0, 5)
+        )
+        self.convt8 = nn.ConvTranspose2d(
+            dim // 4, dim // 8, (3, 4), (2, 2), (0, 2)
+        )
+        self.convt9 = nn.ConvTranspose2d(dim // 8, K, (7, 5), (1, 4), 0)
+
+        self.nonl = nn.ReLU(True)
+
+    def forward(self, hs, labels=None):
+        """
+        Forward step. Estimates NMF activations to be used to get the saliency mask.
+
+        Arguments
+        --------
+        hs : torch.Tensor
+            Classifier's representations.
+        labels : torch.Tensor
+            Predicted labels for classifier's representations.
+
+        Returns
+        --------
+        xhat : torch.Tensor
+            The estimated NMF activation coefficients
+        """
+
+        h1 = self.convt1(hs[0])
+        h1 = self.nonl(h1)
+        # h1 = self.bn1(h1)
+
+        h2 = self.convt2(hs[1])
+        h2 = self.nonl(h2)
+        # h2 = self.bn2(h2)
+        h = h1 + h2
+
+        h3 = self.convt3(h)
+        h3 = self.nonl(h3)
+        # h3 = self.bn3(h3)
+
+        h4 = self.convt4(hs[2])
+        h4 = self.nonl(h4)
+        # h4 = self.bn4(h4)
+        h = h3 + h4
+
+        h5 = self.convt5(h)
+        h5 = self.nonl(h5)
+        # h5 = self.bn5(h5)
+
+        h6 = self.convt6(hs[3])
+        h6 = self.nonl(h6)
+        # h6 = self.bn6(h6)
+
+        h = h5 + h6
+
+        h = self.convt7(h)
+        h = self.nonl(h)
+        # h = self.bn7(h)
+
+        h = self.convt8(h)
+        h = self.nonl(h)
+
+        xhat = self.convt9(h)
+        xhat = self.nonl(xhat)
+
+        xhat = xhat.mean(-1)
+
+        # apply ReLU
+        xhat = F.relu(xhat)
+        return xhat

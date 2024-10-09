@@ -10,10 +10,10 @@ import setuptools
 # https://github.com/pypa/pip/issues/7953.
 site.ENABLE_USER_SITE = "--user" in sys.argv[1:]
 
-with open("README.md") as f:
+with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
 
-with open(os.path.join("speechbrain", "version.txt")) as f:
+with open(os.path.join("speechbrain", "version.txt"), encoding="utf-8") as f:
     version = f.read().strip()
 
 setup(
@@ -22,7 +22,7 @@ setup(
     description="All-in-one speech toolkit in pure Python and Pytorch",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Mirco Ravanelli & Others",
+    author="Mirco Ravanelli, Titouan Parcollet & Others",
     author_email="speechbrain@gmail.com",
     classifiers=[
         "Programming Language :: Python :: 3",

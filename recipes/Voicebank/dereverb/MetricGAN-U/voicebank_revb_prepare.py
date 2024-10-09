@@ -13,14 +13,14 @@ Authors:
 """
 
 import json
-import logging
 import os
 import string
 
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 LEXICON_URL = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
 TRAIN_JSON = "train_revb.json"
 TEST_JSON = "test_revb.json"

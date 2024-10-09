@@ -9,7 +9,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
@@ -50,6 +50,7 @@ use_vq: True
 rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
+use_melspectra_log1p: False
 
 
 # Feature parameters
@@ -113,7 +114,6 @@ K: 1024
 
 # pre-processing
 n_fft: 1024
-spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
 compute_stft: !new:speechbrain.processing.features.STFT

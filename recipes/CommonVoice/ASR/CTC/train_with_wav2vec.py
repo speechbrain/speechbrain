@@ -23,7 +23,6 @@ Authors
  * Titouan Parcollet 2021
 """
 
-import logging
 import sys
 
 import torch
@@ -34,8 +33,9 @@ import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -286,7 +286,34 @@ def dataio_prepare(hparams, tokenizer):
         datasets,
         ["id", "sig", "tokens_bos", "tokens_eos", "tokens"],
     )
-    return train_data, valid_data, test_data
+
+    # 5. If Dynamic Batching is used, we instantiate the needed samplers.
+    train_batch_sampler = None
+    valid_batch_sampler = None
+    if hparams["dynamic_batching"]:
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
+
+        dynamic_hparams_train = hparams["dynamic_batch_sampler_train"]
+        dynamic_hparams_valid = hparams["dynamic_batch_sampler_valid"]
+
+        train_batch_sampler = DynamicBatchSampler(
+            train_data,
+            length_func=lambda x: x["duration"],
+            **dynamic_hparams_train,
+        )
+        valid_batch_sampler = DynamicBatchSampler(
+            valid_data,
+            length_func=lambda x: x["duration"],
+            **dynamic_hparams_valid,
+        )
+
+    return (
+        train_data,
+        valid_data,
+        test_data,
+        train_batch_sampler,
+        valid_batch_sampler,
+    )
 
 
 if __name__ == "__main__":
@@ -334,7 +361,13 @@ if __name__ == "__main__":
     )
 
     # Create the datasets objects as well as tokenization and encoding :-D
-    train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)
+    (
+        train_data,
+        valid_data,
+        test_data,
+        train_bsampler,
+        valid_bsampler,
+    ) = dataio_prepare(hparams, tokenizer)
 
     # Trainer initialization
     asr_brain = ASR(
@@ -357,13 +390,39 @@ if __name__ == "__main__":
         vocab_list=vocab_list,
     )
 
+    # Manage dynamic batching
+    train_dataloader_opts = hparams["dataloader_options"]
+    valid_dataloader_opts = hparams["test_dataloader_options"]
+    if train_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in train_dataloader_opts:
+            collate_fn = train_dataloader_opts["collate_fn"]
+
+        train_dataloader_opts = {
+            "batch_sampler": train_bsampler,
+            "num_workers": hparams["num_workers"],
+        }
+
+        if collate_fn is not None:
+            train_dataloader_opts["collate_fn"] = collate_fn
+
+    if valid_bsampler is not None:
+        collate_fn = None
+        if "collate_fn" in valid_dataloader_opts:
+            collate_fn = valid_dataloader_opts["collate_fn"]
+
+        valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+        if collate_fn is not None:
+            valid_dataloader_opts["collate_fn"] = collate_fn
+
     # Training
     asr_brain.fit(
         asr_brain.hparams.epoch_counter,
         train_data,
         valid_data,
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["test_dataloader_options"],
+        train_loader_kwargs=train_dataloader_opts,
+        valid_loader_kwargs=valid_dataloader_opts,
     )
 
     # Test

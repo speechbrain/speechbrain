@@ -8,7 +8,7 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/conformer_en/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
@@ -31,17 +31,24 @@ convert_to_wav: False # Switch this to True to convert all mp3 files to wav.
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 10.0
 
+# THIS IS TERRIBLE BUT WE HAVE NO CHOICE.
+# Some version of the CV dataset may contain one or two files of more than
+# 2 min in the validation and or test. This is an error by design of the dataset
+# as these files contain 90% of silence. We exclude them.
+avoid_if_longer_than_val_test: 90.0
+
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 ####################### Training Parameters ####################################
 number_of_epochs: 50
+optimizer_step_limit: 250000
 batch_size: 32 # This works with a 32GB GPU ! (bs * nb_gpu * accum) > 128 !
 ctc_weight: 0.3
 grad_accumulation_factor: 4
 loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
-precision: fp32 # bf16, fp16 or fp32
+precision: fp16 # bf16, fp16 or fp32
 
 # stages related parameters
 lr_adam: 0.0008
@@ -61,7 +68,7 @@ n_mels: 80
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_length_train: 500
+max_batch_length_train: 300
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.

@@ -18,7 +18,6 @@ Author
     * @nikvaessen
 """
 import json
-import logging
 import os
 import random
 import sys
@@ -31,8 +30,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LanguageBrain(sb.core.Brain):

@@ -1471,3 +1471,53 @@ class DropBitResolution(torch.nn.Module):
         # To dequantize and recover the original float32 values
         dequantized_tensor = quantized_tensor.to(torch.float32) / scale_factor
         return dequantized_tensor
+
+
+class SignFlip(torch.nn.Module):
+    """Flip the sign of a signal.
+
+    This module negates all the values in a tensor with a given probability.
+    If the sign is not flipped, the original signal is returned
+    unchanged. This technique is outlined in the paper:
+    "CADDA: Class-wise Automatic Differentiable Data Augmentation for EEG Signals"
+    https://arxiv.org/pdf/2106.13695
+
+    Arguments
+    ---------
+    flip_prob : float
+        The probability with which to flip the sign of the signal. Default is 0.5.
+
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.tensor([1,2,3,4,5])
+    >>> flip = SignFlip(flip_prob=1) # 100% chance to flip sign
+    >>> flip(x)
+    tensor([-1, -2, -3, -4, -5])
+    """
+
+    def __init__(self, flip_prob=0.5):
+        super().__init__()
+        self.flip_prob = flip_prob
+
+    def forward(self, waveform):
+        """
+        Arguments
+        ---------
+        waveform : torch.Tensor
+            Input tensor representaing waveform, shape does not matter.
+
+        Returns
+        -------
+        torch.Tensor
+            The output tensor with same shape as the input, where the
+            sign of all values in the tensor has been flipped with
+            probability `flip_prob`.
+
+        """
+
+        # Flip sign with `flip_prob` probability.
+        if torch.rand(1).item() < self.flip_prob:
+            return -waveform
+
+        return waveform

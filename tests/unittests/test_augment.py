@@ -295,6 +295,31 @@ def test_pink_noise():
     assert torch.all(mean_first_fft_points < mean_last_fft_points)
 
 
+def test_sign_flip():
+    from speechbrain.augment.time_domain import SignFlip
+
+    signal = torch.rand(4, 500)
+    flip_sign = SignFlip(flip_prob=0)
+    assert torch.all(flip_sign(signal) > 0)
+
+    signal = torch.rand(4, 500)
+    flip_sign = SignFlip(flip_prob=1)
+    assert torch.all(flip_sign(signal) < 0)
+
+    signal = torch.rand(4, 500)
+    flip_sign = SignFlip(flip_prob=0.5)
+    flips = 0
+    trials = 1000
+    for _ in range(trials):
+        flipped_sig = flip_sign(signal)
+        if torch.all(flipped_sig == -signal):
+            flips += 1
+    test_prob = flips / trials
+    # these values are 5 stds in each direction,
+    # making a false negative extremely unlikely
+    assert 0.421 < test_prob < 0.579
+
+
 def test_SpectrogramDrop():
     from speechbrain.augment.freq_domain import SpectrogramDrop
 
@@ -310,6 +335,39 @@ def test_SpectrogramDrop():
     )
     output = drop(spectrogram)
     assert mean > output.mean()
+    assert spectrogram.shape == output.shape
+    from speechbrain.augment.freq_domain import SpectrogramDrop
+
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=0,
+        drop_length_high=1,
+        drop_count_low=3,
+        drop_count_high=3,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    print(output)
+    assert torch.allclose(mean, output.mean())
+    assert spectrogram.shape == output.shape
+
+    # NOTE: we're testing drop_length_high=1 above and drop_count_high=0 here
+    # because one +1 the upper bound and the other doesn't for the high
+    # exclusive range... see #2542
+    spectrogram = torch.rand(4, 100, 40)
+    mean = spectrogram.mean()
+    drop = SpectrogramDrop(
+        drop_length_low=1,
+        drop_length_high=15,
+        drop_count_low=0,
+        drop_count_high=0,
+        replace="zeros",
+        dim=1,
+    )
+    output = drop(spectrogram)
+    assert torch.allclose(mean, output.mean())
     assert spectrogram.shape == output.shape
 
     from speechbrain.augment.freq_domain import SpectrogramDrop

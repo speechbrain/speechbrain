@@ -9,7 +9,6 @@ Author
 """
 
 import csv
-import logging
 import os
 import sys
 
@@ -17,8 +16,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def csv2text():

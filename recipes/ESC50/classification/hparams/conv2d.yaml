@@ -10,17 +10,21 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
+
+wham_folder: null # Set it if add_wham_noise is True
+wham_audio_folder: !ref <wham_folder>/tr
 
 experiment_name: conv2dv2_classifier-16k
 output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+test_only: False
 
 # Tensorboard logs
 use_tensorboard: False
@@ -48,8 +52,10 @@ base_lr: 0.000002
 max_lr: !ref <lr>
 step_size: 65000
 sample_rate: 16000
+signal_length_s: 5
 
-device: "cpu"
+add_wham_noise: False
+
 
 # Feature parameters
 n_mels: 80
@@ -65,6 +71,7 @@ dataloader_options:
 
 use_pretrained: True
 use_melspectra: False
+use_log1p_mel: False
 embedding_model: !new:speechbrain.lobes.models.PIQ.Conv2dEncoder_v2
     dim: 256
 
@@ -72,6 +79,10 @@ classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
     input_size: 256
     out_neurons: !ref <out_n_neurons>
     lin_blocks: 1
+
+ #classifier: !new:torch.nn.Linear
+    #in_features: 256
+    #out_features: !ref <out_n_neurons>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>

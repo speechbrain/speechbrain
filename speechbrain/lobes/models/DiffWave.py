@@ -491,6 +491,22 @@ class DiffWave(nn.Module):
         x = self.output_projection(x)
         return x
 
+    def diffusion_forward(
+        self,
+        x,
+        timesteps,
+        cond_emb=None,
+        length=None,
+        out_mask_value=None,  # unused for diffwave
+        latent_mask_value=None,  # unused for diffwave
+    ):
+        """Forward function suitable for wrapping by diffusion.
+        For this model, `out_mask_value`/`latent_mask_value` are unused
+        and discarded.
+        See :meth:`~DiffWave.forward` for details."""
+
+        return self(x, timesteps, spectrogram=cond_emb, length=length)
+
 
 class DiffWaveDiffusion(DenoisingDiffusion):
     """An enhanced diffusion implementation with DiffWave-specific inference

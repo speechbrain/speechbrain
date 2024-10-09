@@ -1,4 +1,3 @@
-import logging
 import os
 import shutil
 import tempfile
@@ -9,8 +8,9 @@ import pytest
 import torch
 
 from speechbrain.k2_integration import k2
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @pytest.fixture

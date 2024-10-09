@@ -9,7 +9,6 @@ Authors
  * Adel Moumen 2023
 """
 
-import logging
 import pathlib
 
 from speechbrain.utils.checkpoints import (
@@ -19,9 +18,10 @@ from speechbrain.utils.checkpoints import (
     get_default_hook,
 )
 from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.fetching import FetchFrom, FetchSource, fetch
+from speechbrain.utils.fetching import FetchSource, LocalStrategy, fetch
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Pretrainer:
@@ -170,7 +170,12 @@ class Pretrainer:
         else:
             return split(path)
 
-    def collect_files(self, default_source=None, internal_ddp_handling=False):
+    def collect_files(
+        self,
+        default_source=None,
+        use_auth_token=False,
+        local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
+    ):
         """Fetches parameters from known paths with fallback default_source
 
         The actual parameter files may reside elsewhere, but this ensures a
@@ -187,9 +192,13 @@ class Pretrainer:
             This is used for each loadable which doesn't have a path already
             specified. If the loadable has key "asr", then the file to look for is
             default_source/asr.ckpt
-        internal_ddp_handling : bool
-            Whether/not the function should handle DDP i.e. `run_on_main`.
-            (Default: False)
+        use_auth_token : bool (default: False)
+            If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
+            default is False because the majority of models are public.
+        local_strategy : speechbrain.utils.fetching.LocalStrategy
+            The fetching strategy to use, which controls the behavior of remote file
+            fetching with regards to symlinking and copying.
+            See :func:`speechbrain.utils.fetching.fetch` for further details.
 
         Returns
         -------
@@ -217,52 +226,31 @@ class Pretrainer:
                     f"Path not specified for '{name}', "
                     "and no default_source given!"
                 )
-            if internal_ddp_handling:
-                # path needs to be available only if it is a local source w/o symlink
-                run_on_main(
-                    fetch,
-                    kwargs={
-                        "filename": filename,
-                        "source": source,
-                        "overwrite": False,
-                        "save_filename": save_filename,
-                        "use_auth_token": False,
-                        "revision": None,
-                    },
-                )
 
-                # we need the path; regardless of rank
-                path = fetch(
-                    filename=filename,
-                    source=source,
-                    savedir=self.collect_in,
-                    overwrite=False,
-                    save_filename=save_filename,
-                    use_auth_token=False,
-                    revision=None,
-                )
-            else:
-                # main node is the only one calling this, so path is available
-                path = fetch(
-                    filename=filename,
-                    source=source,
-                    savedir=self.collect_in,
-                    overwrite=False,
-                    save_filename=save_filename,
-                    use_auth_token=False,
-                    revision=None,
-                )
+            fetch_kwargs = {
+                "filename": filename,
+                "source": source,
+                "savedir": self.collect_in,
+                "overwrite": False,
+                "save_filename": save_filename,
+                "use_auth_token": use_auth_token,
+                "revision": None,
+                "local_strategy": local_strategy,
+            }
+
+            # path needs to be available only if it is a local source w/o symlink
+            run_on_main(fetch, kwargs=fetch_kwargs)
+
+            # we need the path; regardless of rank
+            path = fetch(**fetch_kwargs)
+
             loadable_paths[name] = path
-            fetch_from = None
             if isinstance(source, FetchSource):
-                fetch_from, source = source
-            if fetch_from is FetchFrom.LOCAL or (
-                pathlib.Path(path).resolve()
-                == pathlib.Path(source).resolve() / filename
-            ):
-                logger.info(f"Set local path in self.paths[{name}] = {path}")
-                self.paths[name] = str(path)
-                self.is_local.append(name)
+                _fetch_from, source = source
+
+            logger.debug(f'Set local path in self.paths["{name}"] = {path}')
+            self.paths[name] = str(path)
+            self.is_local.append(name)
         return loadable_paths
 
     def is_loadable(self, name):
@@ -300,7 +288,7 @@ class Pretrainer:
             paramfiles[name] = self.collect_in / filename
 
             if name in self.is_local:
-                logger.info(
+                logger.debug(
                     f"Redirecting (loading from local path): {paramfiles[name]} -> {self.paths[name]}"
                 )
                 paramfiles[name] = self.paths[name]

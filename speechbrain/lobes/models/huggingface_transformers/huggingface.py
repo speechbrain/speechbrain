@@ -22,7 +22,6 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
 import os
 import pathlib
 
@@ -42,8 +41,9 @@ from transformers import (
 
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.fetching import fetch
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class HFTransformersInterface(nn.Module):

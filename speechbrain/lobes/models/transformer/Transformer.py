@@ -7,7 +7,6 @@ Authors
 import math
 from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -15,6 +14,7 @@ import speechbrain as sb
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.attention import RelPosEncXL
 from speechbrain.nnet.CNN import Conv1d
+from speechbrain.utils.checkpoints import map_old_state_dict_weights
 
 from .Branchformer import BranchformerEncoder
 from .Conformer import ConformerEncoder
@@ -89,6 +89,10 @@ class TransformerInterface(nn.Module):
     use_linear_after_conv: bool, optional
         If True, will apply a linear transformation of size input_size//2.
         -> Branchformer
+    output_hidden_states: bool, optional
+        Whether the model should output the hidden states as a list of tensor.
+    layerdrop_prob: float
+        The probability to drop an entire layer.
     """
 
     def __init__(
@@ -119,6 +123,8 @@ class TransformerInterface(nn.Module):
         csgu_linear_units: Optional[int] = 3072,
         gate_activation: Optional[nn.Module] = nn.Identity,
         use_linear_after_conv: Optional[bool] = False,
+        output_hidden_states=False,
+        layerdrop_prob=0.0,
     ):
         super().__init__()
         self.causal = causal
@@ -128,6 +134,8 @@ class TransformerInterface(nn.Module):
         self.encoder_vdim = encoder_vdim
         self.decoder_kdim = decoder_kdim
         self.decoder_vdim = decoder_vdim
+        self.output_hidden_states = output_hidden_states
+        self.layerdrop_prob = layerdrop_prob
 
         assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
         assert positional_encoding in ["fixed_abs_sine", None]
@@ -166,6 +174,8 @@ class TransformerInterface(nn.Module):
                     attention_type=self.attention_type,
                     kdim=self.encoder_kdim,
                     vdim=self.encoder_vdim,
+                    output_hidden_states=self.output_hidden_states,
+                    layerdrop_prob=self.layerdrop_prob,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -179,6 +189,8 @@ class TransformerInterface(nn.Module):
                     bias=bias,
                     causal=self.causal,
                     attention_type=self.attention_type,
+                    output_hidden_states=self.output_hidden_states,
+                    layerdrop_prob=self.layerdrop_prob,
                 )
                 assert (
                     normalize_before
@@ -199,6 +211,8 @@ class TransformerInterface(nn.Module):
                     csgu_linear_units=csgu_linear_units,
                     gate_activation=gate_activation,
                     use_linear_after_conv=use_linear_after_conv,
+                    output_hidden_states=self.output_hidden_states,
+                    layerdrop_prob=self.layerdrop_prob,
                 )
 
         # initialize the decoder
@@ -489,6 +503,8 @@ class TransformerEncoder(nn.Module):
         type of ffn: regularFFN/1dcnn
     ffn_cnn_kernel_size_list: list of int
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
+    output_hidden_states: bool, optional
+        Whether the model should output the hidden states as a list of tensor.
 
     Example
     -------
@@ -498,6 +514,15 @@ class TransformerEncoder(nn.Module):
     >>> output, _ = net(x)
     >>> output.shape
     torch.Size([8, 60, 512])
+
+    >>> import torch
+    >>> x = torch.rand((8, 60, 512))
+    >>> net = TransformerEncoder(1, 8, 512, d_model=512, output_hidden_states=True)
+    >>> output, attn_list, hidden_list = net(x)
+    >>> hidden_list[0].shape
+    torch.Size([8, 60, 512])
+    >>> len(hidden_list)
+    2
     """
 
     def __init__(
@@ -517,6 +542,7 @@ class TransformerEncoder(nn.Module):
         attention_type="regularMHA",
         ffn_type="regularFFN",
         ffn_cnn_kernel_size_list=[3, 3],
+        output_hidden_states=False,
     ):
         super().__init__()
 
@@ -541,7 +567,7 @@ class TransformerEncoder(nn.Module):
         )
         self.norm = sb.nnet.normalization.LayerNorm(d_model, eps=1e-6)
         self.layerdrop_prob = layerdrop_prob
-        self.rng = np.random.default_rng()
+        self.output_hidden_states = output_hidden_states
 
     def forward(
         self,
@@ -571,17 +597,22 @@ class TransformerEncoder(nn.Module):
             The output of the transformer.
         attention_lst : list
             The attention values.
+        hidden_state_lst : list, optional
+            The output of the hidden layers of the encoder.
+            Only works if output_hidden_states is set to true.
         """
         assert (
             dynchunktrain_config is None
         ), "Dynamic Chunk Training unsupported for this encoder"
 
         output = src
+
         if self.layerdrop_prob > 0.0:
-            keep_probs = self.rng.random(len(self.layers))
-        else:
-            keep_probs = None
+            keep_probs = torch.rand(len(self.layers))
+
         attention_lst = []
+        if self.output_hidden_states:
+            hidden_state_lst = [output]
         for i, enc_layer in enumerate(self.layers):
             if (
                 not self.training
@@ -594,9 +625,15 @@ class TransformerEncoder(nn.Module):
                     src_key_padding_mask=src_key_padding_mask,
                     pos_embs=pos_embs,
                 )
-
                 attention_lst.append(attention)
+
+                if self.output_hidden_states:
+                    hidden_state_lst.append(output)
+
         output = self.norm(output)
+
+        if self.output_hidden_states:
+            return output, attention_lst, hidden_state_lst
         return output, attention_lst
 
 
@@ -778,6 +815,12 @@ class TransformerDecoderLayer(nn.Module):
             tgt = self.norm3(tgt)
 
         return tgt, self_attn, multihead_attention
+
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        """Load the model from a state_dict and map the old keys to the new keys."""
+        mapping = {"mutihead_attention": "multihead_attention"}
+        state_dict = map_old_state_dict_weights(state_dict, mapping)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
 class TransformerDecoder(nn.Module):
