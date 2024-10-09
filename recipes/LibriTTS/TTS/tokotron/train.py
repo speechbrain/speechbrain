@@ -351,17 +351,18 @@ class TokotronBrain(sb.Brain):
 
         if stage != sb.Stage.TRAIN and self.is_evaluating():
             self.hparams.progress_report.flush()
-            self.save_eval()
             self.evaluation_metric.on_evaluation_end()
+            self.save_eval(stage)
 
-    def save_eval(self):
+    def save_eval(self, stage):
         """Saves evaluation results"""
         with self.hparams.progress_logger:
+            stage_folder = Path(stage.name.lower())
             for file_name in self.evaluation_metric.files:
                 with open(file_name) as eval_file:
                     content = eval_file.read()
                 self.hparams.progress_logger.save(
-                    name=file_name.name, content=content
+                    name=str(stage_folder / file_name.name), content=content
                 )
         self.evaluation_metric.clear()
 

@@ -6,6 +6,7 @@ Authors
 """
 
 import os
+import shutil
 import tarfile
 from pathlib import Path
 
@@ -569,7 +570,10 @@ class ArchiveTrainLogger:
     def clear(self):
         """Clears the files currently in the current path"""
         for file_name in self.current_path.glob("*"):
-            file_name.unlink()
+            if file_name.is_dir():
+                shutil.rmtree(file_name)
+            else:
+                file_name.unlink()
 
     def __enter__(self):
         if self.archive is None:
@@ -605,6 +609,7 @@ class ArchiveTrainLogger:
             Additional arguments, passed straight through to the handler
         """
         current_file_name = self.current_path / name
+        current_file_name.parent.mkdir(exist_ok=True, parents=True)
         handler = self.handlers.get(mode)
         if handler is None:
             raise ValueError(f"Unsupported mode {mode}")
