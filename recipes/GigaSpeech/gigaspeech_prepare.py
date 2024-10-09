@@ -98,6 +98,7 @@ def prepare_gigaspeech(
     download_with_HF: bool = False,
     punctuation: bool = False,
     filler: bool = False,
+    hf_multiprocess_load: bool = True,
 ) -> None:
     """Prepare the csv files for GigaSpeech dataset.
 
@@ -138,10 +139,14 @@ def prepare_gigaspeech(
         https://huggingface.co/datasets/speechcolab/gigaspeech
         The dataset will be downloaded in the default folder specified in the
         environment variable HF_HUB_CACHE. Please change it if necessary.
-    punctuation: bool, optional
+    punctuation : bool, optional
         Keeping the punctuation, or not.
-    filler: bool, optional
+    filler : bool, optional
         Keeping filler words (hum), or not.
+    hf_multiprocess_load: bool, optional
+        If True, all the CPU threads will be used for data prepration. If set to
+        False, only one will be. Note that the data prepration of the larger sets
+        on a single core car take more than 24 hours (from downloading to done).
 
     Returns
     -------
@@ -209,11 +214,18 @@ def prepare_gigaspeech(
             "To change this directory modify the HF_HUB_CACHE env. variable."
         )
 
+        nproc = 1
+        if hf_multiprocess_load:
+            import multiprocessing
+
+            nproc = multiprocessing.cpu_count()
+
         hf_dataset = load_dataset(
             "dataset.py",
             train_split.lower(),
             trust_remote_code=True,
             data_dir=data_folder,
+            num_proc=nproc,
         )
         for split, output in save_output.items():
             logger.info(f"Starting creating {output} using {split} split.")
