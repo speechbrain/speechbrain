@@ -8,7 +8,7 @@ Authors:
  * Sahar Ghannay 2021
 """
 
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 import torch
 from joblib import Parallel, delayed
@@ -1427,7 +1427,7 @@ def _dictify(f):
 
 
 def dialogue_state_str2dict(
-    dialogue_state: str, slot_type_filtering: list[str] = None
+    dialogue_state: str, slot_type_filtering: List[str] = None
 ):
     """
     Converts the ; separated Dialogue State linearization to a domain-slot-value dictionary.
@@ -1491,7 +1491,7 @@ class JointGoalAccuracyTracker:
         self.correct = 0
         self.total = 0
 
-    def append(self, predictions: list[str], targets: list[str]):
+    def append(self, predictions: List[str], targets: List[str]):
         """
         This function is for updating the stats according to the a batch of predictions and targets.
 
