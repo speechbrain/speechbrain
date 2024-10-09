@@ -197,7 +197,11 @@ def prepare_gigaspeech(
                 "HuggingFace dataset.py not found. Please run this recipe from the correct recipe folder or copy the dataset.py file."
             )
 
-        hf_caching_dir = os.environ["HF_HUB_CACHE"]
+        if "HF_HUB_CACHE" in os.environ:
+            hf_caching_dir = os.environ["HF_HUB_CACHE"]
+        else:
+            hf_caching_dir = os.environ["HF_HOME"]
+
         logger.info(
             "Downloading dataset from HuggingFace to: " + str(hf_caching_dir)
         )
