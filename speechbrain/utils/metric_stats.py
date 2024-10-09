@@ -1479,10 +1479,6 @@ class JointGoalAccuracyTracker:
     """
     Class to track the Joint-Goal Accuracy during training.
     Keeps track of the number of correct and total dialogue states considered.
-
-    Arguments
-    ---------
-    None
     """
 
     def __init__(self):

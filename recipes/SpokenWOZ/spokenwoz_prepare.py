@@ -39,7 +39,7 @@ def prepare_spokenwoz(
     merge_lst=[],
     merge_name=None,
     skip_prep=False,
-):
+) -> None:
     """
     This class prepares the csv files for the Spoken-Woz dataset.
     Download:
@@ -52,6 +52,8 @@ def prepare_spokenwoz(
     ---------
     data_folder : str
         Path to the folder where the original Multi-Woz dataset is stored.
+    save_folder : str
+        The directory where to store the csv files.
     version : str
         Version of dataset to prepare ("cascade" using previously computed transcriptions,
         "local" using turn level states or "global" using dialogue level states).
@@ -61,8 +63,6 @@ def prepare_spokenwoz(
         List of dev splits to prepare from ['dev'].
     te_splits : list
         List of test splits to prepare from ['test'].
-    save_folder : str
-        The directory where to store the csv files.
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
@@ -153,7 +153,7 @@ def prepare_spokenwoz(
     save_pkl(conf, save_opt)
 
 
-def prepare_spokenwoz_split(text_dict, annotations, version):
+def prepare_spokenwoz_split(text_dict, annotations, version) -> None:
     """
     Fills the text dictionary with the adequate annotations according to the required version.
 
@@ -165,10 +165,6 @@ def prepare_spokenwoz_split(text_dict, annotations, version):
         The dictionary from which to extract the relevant information.
     version: str
         The version of the processing required (cascade[-MODEL] or e2e).
-
-    Returns
-    -------
-    None
     """
     for dialog_id, dialog_info in annotations.items():
         if dialog_id not in text_dict:
@@ -214,15 +210,15 @@ def prepare_spokenwoz_split(text_dict, annotations, version):
                             state.append(
                                 f'{domain}-{slot}={value.replace(",", "")}'
                             )
-                text_dict[dialog_id][f"Turn-{turn_id-1}"]["current"] = (
+                text_dict[dialog_id][f"Turn-{turn_id - 1}"]["current"] = (
                     "; ".join(state)
                 )
 
                 # Preparing data for next turn prediction: last dialogue turn has no succeeding user turn
                 if turn_id != len(dialog_info["log"]) - 1:
-                    if f"Turn-{turn_id+1}" not in text_dict[dialog_id]:
-                        text_dict[dialog_id][f"Turn-{turn_id+1}"] = {}
-                    next_turn = text_dict[dialog_id][f"Turn-{turn_id+1}"]
+                    if f"Turn-{turn_id + 1}" not in text_dict[dialog_id]:
+                        text_dict[dialog_id][f"Turn-{turn_id + 1}"] = {}
+                    next_turn = text_dict[dialog_id][f"Turn-{turn_id + 1}"]
                     # Agent transcription
                     if "cascade" in version:
                         # Considering the model's transcription if cascading with a provided model,
@@ -512,15 +508,18 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def check_spokenwoz_folders(data_folder, version, splits):
+def check_spokenwoz_folders(data_folder, splits) -> None:
     """
     Check if the data folder actually contains the Multi-Woz dataset.
 
     If it does not, an error is raised.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the extracted turn audio files are stored.
+    splits : list
+        A list of the splits expected in the preparation
 
     Raises
     ------

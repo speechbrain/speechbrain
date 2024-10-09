@@ -26,9 +26,6 @@ class DSTEval:
     """
 
     def __init__(self, slot_categories):
-        """
-        Prepares the class for data.
-        """
         self.references = {}
         self.predictions = {}
         with open(slot_categories, "r") as slots:

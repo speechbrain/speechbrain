@@ -36,7 +36,7 @@ def prepare_multiwoz(
     merge_lst=[],
     merge_name=None,
     skip_prep=False,
-):
+) -> None:
     """
     This function prepares the csv files for the spoken MultiWoz Dialogue State Tracking dataset.
     Download:
@@ -48,6 +48,8 @@ def prepare_multiwoz(
     ---------
     data_folder : str
         Path to the folder where the extracted turn audio files are stored.
+    save_folder : str
+        The directory where to store the csv files.
     version : str
         Version of dataset to prepare ("cascade[_model]" using previously computed transcriptions
         or "e2e" for completely neural approach).
@@ -57,8 +59,6 @@ def prepare_multiwoz(
         List of dev splits to prepare from ['dev_tts', 'dev_human'].
     te_splits : list
         List of test splits to prepare from ['test_tts', 'test_human', 'test_paraphrased'].
-    save_folder : str
-        The directory where to store the csv files.
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
@@ -105,7 +105,7 @@ def prepare_multiwoz(
         logger.info("Data preparation...")
 
     # Additional checks to make sure the data folder has the correct architecture
-    check_multiwoz_folders(data_folder, version, splits)
+    check_multiwoz_folders(data_folder, splits)
 
     # create csv files for each split
     all_texts = {}
@@ -382,15 +382,18 @@ def skip(splits, save_folder, conf):
     return skip
 
 
-def check_multiwoz_folders(data_folder, version, splits):
+def check_multiwoz_folders(data_folder, splits) -> None:
     """
     Check if the data folder actually contains the spoken Multiwoz dataset.
 
     If it does not, an error is raised.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        Path to the folder where the extracted turn audio files are stored.
+    splits : list
+        A list of the splits expected in the preparation
 
     Raises
     ------

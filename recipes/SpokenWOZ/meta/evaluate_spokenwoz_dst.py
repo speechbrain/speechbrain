@@ -49,7 +49,7 @@ class SpokenWOZDSTEval(DSTEval):
                     self.add_reference(
                         "; ".join(state),
                         dialogue_id=dialog_id,
-                        turn_id=f"Turn-{turn_id-1}",
+                        turn_id=f"Turn-{turn_id - 1}",
                     )
 
         print("\nExtracting the predictions...\n")
