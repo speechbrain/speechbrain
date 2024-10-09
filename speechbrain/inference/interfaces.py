@@ -87,8 +87,7 @@ def foreign_class(
         Whether an error will be thrown when an override does not match
         a corresponding key in the yaml_stream.
     savedir : str or Path
-        Where to put the pretraining material. If not given, will use
-        ./pretrained_models/<class-name>-hash(source).
+        Where to put the pretraining material. If not given, just use cache.
     use_auth_token : bool (default: False)
         If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because the majority of models are public.
@@ -108,8 +107,6 @@ def foreign_class(
     object
         An instance of a class with the given classname from the given pymodule file.
     """
-    if savedir is None:
-        savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
     hparams_local_path = fetch(
         filename=hparams_file,
         source=source,
