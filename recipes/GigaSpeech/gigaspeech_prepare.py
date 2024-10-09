@@ -136,6 +136,8 @@ def prepare_gigaspeech(
         be faster and more reliable than the official host. Make sure to read the
         instructions on how to get the dataset from Hugging Face here:
         https://huggingface.co/datasets/speechcolab/gigaspeech
+        The dataset will be downloaded in the default folder specified in the
+        environment variable HF_HUB_CACHE. Please change it if necessary.
     punctuation: bool, optional
         Keeping the punctuation, or not.
     filler: bool, optional
@@ -195,11 +197,18 @@ def prepare_gigaspeech(
                 "HuggingFace dataset.py not found. Please run this recipe from the correct recipe folder or copy the dataset.py file."
             )
 
+        hf_caching_dir = os.environ["HF_HUB_CACHE"]
+        logger.info(
+            "Downloading dataset from HuggingFace to: " + str(hf_caching_dir)
+        )
+        logger.info(
+            "To change this directory modify the HF_HUB_CACHE env. variable."
+        )
+
         hf_dataset = load_dataset(
             "dataset.py",
             train_split.lower(),
             trust_remote_code=True,
-            cache_dir=data_folder,
             data_dir=data_folder,
         )
         for split, output in save_output.items():
