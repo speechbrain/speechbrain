@@ -18,9 +18,9 @@ import random
 import re
 
 import torch
-import torchaudio
 
 import speechbrain
+from speechbrain.dataio.preprocess import AudioNormalizer
 from speechbrain.inference.classifiers import EncoderClassifier
 from speechbrain.inference.encoders import MelSpectrogramEncoder
 from speechbrain.inference.interfaces import Pretrained
@@ -161,6 +161,14 @@ class MSTacotron2(Pretrained):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        if "audio_normalizer" not in self.hparams:
+            # override the default normalizer as it uses the wrong input audio
+            # sample rate
+            self.audio_normalizer = AudioNormalizer(
+                sample_rate=self.hparams.spk_emb_sample_rate, mix="avg-to-mono"
+            )
+
         self.text_cleaners = ["english_cleaners"]
         self.infer = self.hparams.model.infer
         self.custom_mel_spec_encoder = self.hparams.custom_mel_spec_encoder
@@ -186,7 +194,7 @@ class MSTacotron2(Pretrained):
         sequence = text_to_sequence(txt, self.text_cleaners)
         return sequence, len(sequence)
 
-    def clone_voice(self, texts, audio_path):
+    def clone_voice(self, texts, audio_path, savedir="."):
         """
         Generates mel-spectrogram using input text and reference audio
 
@@ -196,6 +204,10 @@ class MSTacotron2(Pretrained):
             Input text
         audio_path : str
             Reference audio
+        savedir: str | os.PathLike
+            Local save directory, defaulting to the current working directory.
+            This is only used for URL fetches. HuggingFace fetches will save
+            the fetched file in the default HF cache directory.
 
         Returns
         -------
@@ -203,13 +215,7 @@ class MSTacotron2(Pretrained):
         """
 
         # Loads audio
-        ref_signal, signal_sr = torchaudio.load(audio_path)
-
-        # Resamples the audio if required
-        if signal_sr != self.hparams.spk_emb_sample_rate:
-            ref_signal = torchaudio.functional.resample(
-                ref_signal, signal_sr, self.hparams.spk_emb_sample_rate
-            )
+        ref_signal = self.load_audio(audio_path, savedir)
         ref_signal = ref_signal.to(self.device)
 
         # Computes speaker embedding

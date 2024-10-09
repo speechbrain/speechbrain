@@ -16,11 +16,8 @@ Authors:
 
 import torch
 import torch.nn.functional as F
-import torchaudio
 
 from speechbrain.inference.interfaces import Pretrained
-from speechbrain.utils.data_utils import split_path
-from speechbrain.utils.fetching import LocalStrategy, fetch
 
 
 class SepformerSeparation(Pretrained):
@@ -81,7 +78,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, savedir="audio_cache"):
+    def separate_file(self, path, savedir="."):
         """Separate sources from file.
 
         Arguments
@@ -96,30 +93,7 @@ class SepformerSeparation(Pretrained):
         tensor
             Separated sources
         """
-        source, fl = split_path(path)
-        path = fetch(
-            fl,
-            source=source,
-            savedir=savedir,
-            local_strategy=LocalStrategy.NO_LINK,
-        )
-
-        batch, fs_file = torchaudio.load(path)
-        batch = batch.to(self.device)
-        fs_model = self.hparams.sample_rate
-
-        # resample the data if needed
-        if fs_file != fs_model:
-            print(
-                "Resampling the audio from {} Hz to {} Hz".format(
-                    fs_file, fs_model
-                )
-            )
-            tf = torchaudio.transforms.Resample(
-                orig_freq=fs_file, new_freq=fs_model
-            ).to(self.device)
-            batch = batch.mean(dim=0, keepdim=True)
-            batch = tf(batch)
+        batch = self.load_audio(path, savedir).unsqueeze(0)
 
         est_sources = self.separate_batch(batch)
         est_sources = (

@@ -627,6 +627,8 @@ def split_path(path):
 
     def split(src):
         """Core function to split path."""
+        src = str(src)
+
         if "/" in src:
             return src.rsplit("/", maxsplit=1)
         else:
