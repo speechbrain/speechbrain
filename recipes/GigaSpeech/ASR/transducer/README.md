@@ -1,7 +1,6 @@
 # GigaSpeech streaming and non streaming speech recognition with Transducer models.
 This folder contains scripts necessary to run an ASR experiment with the GigaSpeech dataset.
 Before running this recipe, make sure numba is installed (pip install numba)
-You can download LibriSpeech at http://www.openslr.org/12
 
 # Extra-Dependencies
 This recipe supports two implementations of the transducer loss, see `use_torchaudio` arg in the yaml file:
@@ -22,7 +21,7 @@ python train.py hparams/conformer_transducer.yaml
 
 ## Precision Notes
 If your GPU effectively supports fp16 (half-precision) computations, it is recommended to execute the training script with the `--precision=fp16` (or `--precision=bf16`) option.
-Enabling half precision can significantly reduce the peak VRAM requirements. For example, in the case of the Conformer Transducer recipe trained with Librispeech, the peak VRAM decreases from 39GB to 12GB when using fp16.
+Enabling half precision can significantly reduce the peak VRAM requirements. For example, in the case of the Conformer Transducer recipe trained with GigaSpeech, the peak VRAM decreases from 39GB to 12GB when using fp16.
 According to our tests, the performance is not affected.
 
 # Results (non-streaming)
@@ -54,10 +53,6 @@ may end up forming indirect dependencies to audio many seconds ago.
 
 |       | full | cs=32 (1280ms) | 16 (640ms) | 8 (320ms) |
 |:-----:|:----:|:-----:|:-----:|:-----:|
-| it full  | 8.92 | -     | -     |  -   |
-| it lc=32    | -    | 10.04 | 10.82 | 12.01 |
-| fr full  | 12.47 | -     | -     |  -   |
-| fr lc=32    | -    | 13.92 | 14.88 | 16.22 |
 
 ### Inference
 
