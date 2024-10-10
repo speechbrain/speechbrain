@@ -341,6 +341,7 @@ if __name__ == "__main__":
             "convert_opus_to_wav": hparams["convert_opus_to_wav"],
             "download_with_HF": hparams["download_with_HF"],
             "punctuation": hparams["keep_punctuation"],
+            "skip_prep": hparams["skip_prep"],
             "filler": hparams["keep_filler_words"],
         },
     )
