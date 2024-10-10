@@ -9,6 +9,7 @@ Neural Architectures
    :hidden:
 
    nn/using-wav2vec-2.0-hubert-wavlm-and-whisper-from-huggingface-with-speechbrain.ipynb
+   nn/neural-network-adapters.ipynb
    nn/complex-and-quaternion-neural-networks.ipynb
    nn/recurrent-neural-networks-and-speechbrain.ipynb
    nn/conformer-streaming-asr.ipynb
@@ -32,6 +33,22 @@ This tutorial describes how to combine (use and finetune) pretrained models
 coming from HuggingFace. Any wav2vec 2.0 / HuBERT / WavLM or Whisper model integrated to the transformers interface of HuggingFace can be then plugged to
 SpeechBrain to approach a speech-related task: automatic speech recognition, speaker recognition,
 spoken language understanding ...
+
+.. rubric:: `🔗 Neural Network Adapters for faster low-memory fine-tuning <nn/neural-network-adapters.html>`_
+   :heading-level: 2
+
+.. list-table::
+   :widths: 20 20 20 20 20
+   :header-rows: 0
+
+   * - Plantinga P.
+     - Sept. 2024
+     - Difficulty: easy
+     - Time: 20m
+     - `🔗 Google Colab <https://colab.research.google.com/github/speechbrain/speechbrain/blob/develop/docs/tutorials/nn/neural-network-adapters.ipynb>`__
+
+
+This tutorial covers the SpeechBrain implementation of adapters such as LoRA. This includes how to integrate either SpeechBrain implemented adapters, custom adapters, and adapters from libraries such as PEFT into a pre-trained model.
 
 .. rubric:: `🔗 Complex and Quaternion Neural Networks <nn/complex-and-quaternion-neural-networks.html>`_
    :heading-level: 2
