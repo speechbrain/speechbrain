@@ -9,7 +9,6 @@ Abdou Mohamed Naira 2022
 
 import csv
 import glob
-import logging
 import os
 import random
 import re
@@ -21,8 +20,9 @@ from tqdm import tqdm
 from tqdm.contrib import tzip
 
 from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_dvoice(

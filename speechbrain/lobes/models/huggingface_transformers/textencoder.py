@@ -8,7 +8,6 @@ Authors
  * Sylvain de Langen 2024
 """
 
-import logging
 from typing import Optional
 
 import torch
@@ -16,8 +15,9 @@ import torch
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TextEncoder(HFTransformersInterface):
@@ -91,7 +91,7 @@ class TextEncoder(HFTransformersInterface):
         which generates batches of embeddings embeddings from input text.
 
         Arguments
-        ----------
+        ---------
         input_texts : list of str
             The list of texts (required).
         return_tokens : bool

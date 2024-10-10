@@ -7,7 +7,6 @@ Authors
 * Titouan Parcollet 2022
 """
 
-import logging
 import random
 
 import numpy as np
@@ -22,8 +21,6 @@ from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.normalization import LayerNorm
 from speechbrain.nnet.quantisers import GumbelVectorQuantizer
 from speechbrain.utils.data_utils import batch_pad_right
-
-logger = logging.getLogger()
 
 
 class W2VLatentExtractor(nn.Module):

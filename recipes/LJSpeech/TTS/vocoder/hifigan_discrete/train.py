@@ -38,13 +38,16 @@ class HifiGanBrain(sb.Brain):
         stage : Stage
             The stage of the experiment: Stage.TRAIN, Stage.VALID, Stage.TEST
 
+        Returns
+        -------
+        Generator and Discriminator outputs
         """
         batch = batch.to(self.device)
 
         x, _ = batch.code
         y, _ = batch.sig
 
-        # generate sythesized waveforms
+        # generate synthesized waveforms
         y_g_hat, (log_dur_pred, log_dur) = self.modules.generator(x)
         y_g_hat = y_g_hat[:, :, : y.size(2)]
 
@@ -322,6 +325,10 @@ class HifiGanBrain(sb.Brain):
         epoch: int or str
             the epoch number (used in file path calculations)
             or "test" for test stage
+
+        Returns
+        -------
+        None
         """
         with torch.no_grad():
             if self.last_batch is None:

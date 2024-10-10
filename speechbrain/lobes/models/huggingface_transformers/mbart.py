@@ -8,15 +8,14 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
-
 import torch
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class mBART(HFTransformersInterface):

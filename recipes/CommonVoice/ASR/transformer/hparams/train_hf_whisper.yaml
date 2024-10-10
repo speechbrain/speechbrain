@@ -6,7 +6,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/train_whisper/<seed>/<language>
 test_wer_file: !ref <output_folder>/wer_test.txt
 valid_wer_file: !ref <output_folder>/wer_valid.txt

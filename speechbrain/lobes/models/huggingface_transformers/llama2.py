@@ -8,8 +8,6 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
-
 import torch
 import torch.nn as nn
 from bitsandbytes.nn import Linear4bit
@@ -19,8 +17,9 @@ from transformers import BitsAndBytesConfig
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LLAMA2(HFTransformersInterface):

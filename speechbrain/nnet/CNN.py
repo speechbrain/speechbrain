@@ -9,7 +9,6 @@ Authors
  * Sarthak Yadav 2022
 """
 
-import logging
 import math
 from typing import Tuple
 
@@ -24,8 +23,9 @@ from speechbrain.processing.signal_processing import (
     gabor_impulse_response_legacy_complex,
     gammatone_impulse_response,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SincConv(nn.Module):

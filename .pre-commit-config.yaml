@@ -25,6 +25,7 @@ repos:
     hooks:
       - id: flake8
         types: [python]
+        additional_dependencies: ['pydoclint==0.4.1', 'pycodestyle==2.11.0']
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
@@ -32,10 +33,18 @@ repos:
       - id: yamllint
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.4
+    rev: v2.3.0
     hooks:
       - id: codespell
-        args: [--ignore-words=.dict-speechbrain.txt]
+        args:
+          - "--ignore-words=.dict-speechbrain.txt"
+          # skip jupyter notebook as there isn't a good way to only match inputs
+          # at the moment. manually fixing up outputs would be a pain and we
+          # cannot always expect to regex them out.
+          - "--skip=*.ipynb"
+          # for ipynb inline base64 -- although this isn't very useful since we
+          # are disabling support for ipynb for now
+          - "--ignore-regex='base64,.*?=='"
         additional_dependencies:
           - tomli
 

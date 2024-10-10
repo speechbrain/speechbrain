@@ -164,9 +164,7 @@ BLOB_NAMES = [
     "datasets_fullband.dev_testset_000.tar.bz2",
 ]
 
-AZURE_URL = (
-    "https://dns4public.blob.core.windows.net/dns4archive/datasets_fullband"
-)
+AZURE_URL = "https://dns4public.blob.core.windows.net/dns4archive/datasets_fullband"  # noqa ignore-url-check
 
 # Impulse response and Blind testset
 OTHER_URLS = {

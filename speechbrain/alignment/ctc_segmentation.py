@@ -9,7 +9,6 @@ Authors
  * Ludwig Kürzinger 2021
 """
 
-import logging
 from pathlib import Path
 from types import SimpleNamespace
 from typing import List, Optional, Union
@@ -19,6 +18,7 @@ import torch
 
 # speechbrain interface
 from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
+from speechbrain.utils.logger import get_logger
 
 # imports for CTC segmentation
 try:
@@ -37,7 +37,7 @@ except ImportError:
     )
     raise ImportError("The ctc_segmentation module is missing.")
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CTCSegmentationTask(SimpleNamespace):
