@@ -53,7 +53,7 @@ shuffle: True
 
 
 # Feature parameters
-n_features: 24
+n_features: 40
 
 # Number of classes (i.e. different commands)
 out_n_neurons: !ref <number_of_commands>  #includes core commands & auxiliary words
@@ -68,7 +68,9 @@ dataloader_options:
 compute_features: !new:speechbrain.lobes.features.LFB
     out_channels: !ref <n_features>
     in_channels: 1
-    min_freq: 20.
+    min_freq: 10.
+    window_stride: 5.
+    window_len: 25.
     n_fft: 400
     sample_rate: !ref <sample_rate>
     gammatone_init_order: 4
