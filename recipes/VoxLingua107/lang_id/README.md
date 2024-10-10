@@ -15,8 +15,6 @@ the tar files are opened in random order, the audio files in the shards are shuf
 and fed to the training process. This reduces the disk load during training by large margin. This is all
 handled by the WebDataset library.
 
-Warning: In the metadata of this dataset, the used ISO language code for Hebrew is obsolete (should be `he` instead of `iw`). The ISO language code for Javanese is incorrect (should be `jv` instead of `jw`). See [issue #2396](https://github.com/speechbrain/speechbrain/issues/2396).
-
 ## Downloading the data
 
 You have two options how to download and prepare the VoxLingua107 dataset for training the model:
