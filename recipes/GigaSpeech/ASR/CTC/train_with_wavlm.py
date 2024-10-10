@@ -312,9 +312,6 @@ if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    # create ddp_group with the right communication protocol
-    sb.utils.distributed.ddp_init_group(run_opts)
-
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
@@ -328,7 +325,9 @@ if __name__ == "__main__":
     # Dataset prep (parsing Librispeech)
     from gigaspeech_prepare import prepare_gigaspeech  # noqa
 
-    # multi-gpu (ddp) save data preparation
+    # We run on main for no reason as it is advised to not run this dataprep with
+    # DDP initialised. Indeed, it takes a lot of time and will most likely
+    # result in a timeout (internal DDP timeout).
     run_on_main(
         prepare_gigaspeech,
         kwargs={
@@ -339,13 +338,15 @@ if __name__ == "__main__":
             "output_dev": hparams["valid_csv"],
             "output_test": hparams["test_csv"],
             "json_file": hparams["json_file"],
-            "skip_prep": hparams["skip_prep"],
             "convert_opus_to_wav": hparams["convert_opus_to_wav"],
             "download_with_HF": hparams["download_with_HF"],
             "punctuation": hparams["keep_punctuation"],
             "filler": hparams["keep_filler_words"],
         },
     )
+
+    # create ddp_group with the right communication protocol
+    sb.utils.distributed.ddp_init_group(run_opts)
 
     # Defining tokenizer and loading it
     tokenizer = SentencePiece(

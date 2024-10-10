@@ -36,7 +36,8 @@ test_csv: !ref <output_folder>/test.csv
 json_file: !ref <data_folder>/GigaSpeech.json
 
 # Training parameters
-number_of_epochs: 5
+number_of_epochs: 3
+optimizer_step_limit: 400000
 lr: 0.9
 lr_wav2vec: 0.0001
 sorting: ascending
@@ -64,7 +65,7 @@ test_dataloader_opts:
 # Using dynamic batching by default. This works with 4x24GB GPUs
 # Or turn it off (but training speed will decrease)
 dynamic_batching: True
-max_batch_length_train: 60
+max_batch_length_train: 50
 max_batch_length_val: 30 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.
@@ -208,7 +209,7 @@ wav2vec_opt_class: !name:torch.optim.AdamW
 lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>
    improvement_threshold: 0.0025
-   annealing_factor: 0.8
+   annealing_factor: 0.75
    patient: 0
 
 lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
