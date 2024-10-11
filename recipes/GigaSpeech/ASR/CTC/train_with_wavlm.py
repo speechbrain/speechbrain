@@ -357,7 +357,12 @@ if __name__ == "__main__":
     )
 
     if hparams["data_prep_only"]:
-        exit
+        logger.info(
+            "Data preparation finished. Restart the script with data_prep_only to False. "
+        )
+        import sys
+
+        sys.exit()
 
     # Defining tokenizer and loading it
     tokenizer = SentencePiece(

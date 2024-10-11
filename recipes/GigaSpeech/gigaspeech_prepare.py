@@ -226,6 +226,7 @@ def prepare_gigaspeech(
             train_split.lower(),
             trust_remote_code=True,
             data_dir=data_folder,
+            cache_dir=data_folder,
             num_proc=nproc,
         )
         for split, output in save_output.items():

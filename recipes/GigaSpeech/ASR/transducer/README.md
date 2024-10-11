@@ -4,6 +4,8 @@ Before running this recipe, make sure numba is installed (pip install numba)
 
 ## Data access and download
 
+**The XL set is fairly large, 2.2TB are necessary to store the compressed and uncompressed version of the data**
+
 SpeechBrain supports two ways of dealing with the GigaSpeech dataset:
 1. [HuggingFace dataset](https://huggingface.co/datasets/speechcolab/gigaspeech/). For HuggingFacem note that **you must use** the HuggingFace client to log in first before running the recipe.
 2. [Original Github](https://github.com/SpeechColab/GigaSpeech).
@@ -16,7 +18,7 @@ much quicker**.
 
 **This step can be very long (24h+) for the XL split of GigaSpeech. For DDP (multi GPU) the recipe must be run once without DDP otherwise it will timeout. You do not want to let X GPUs hang out without doing nothing for 24 hours anyway. Use the *data_prep_only* flag from the yaml to exit after data preparation**
 
-SpeechBrain will automatically download the dataset if you use HuggingFace. Note that if you use HuggingFace, the *data_folder* argument in yaml becomes useless. Indeed, HuggingFace is a bit strict in the way it operates with dataset, and the data will be put into the folder specified by the environment variable *HF_HUB_CACHE* or, if not set, *HF_HOME* or, if not set, *XDG_CACHE_HOME*. Hence, we recommend setting the *HF_HUB_CACHE* to the place where you want to store the data first. For example, you can set it like this:
+SpeechBrain will automatically download the dataset if you use HuggingFace. Note that if you use HuggingFace, the *data_folder* argument is used to store the **extracted** dataset. However, HuggingFace first needs to download the compressed data, and this is not stored in *data_folder* by default. Indeed, HuggingFace is a bit strict in the way it operates with dataset, and the data will be put into the folder specified by the environment variable *HF_HUB_CACHE* or, if not set, *HF_HOME* or, if not set, *XDG_CACHE_HOME*. Hence, we recommend setting the *HF_HUB_CACHE* to the place where you want to store the data first. For example, you can set it like this:
 
 ```export HF_HUB_CACHE=/path/to/your/data/folder```
 
