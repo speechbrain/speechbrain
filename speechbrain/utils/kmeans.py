@@ -122,7 +122,7 @@ def process_chunks(data, chunk_size, model):
     """Process data in chunks of a specified size.
 
     Args:
-        data : list 
+        data : list
             The list of integers to be processed.
         chunk_size : int
             The size of each chunk.
