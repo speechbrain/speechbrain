@@ -31,6 +31,10 @@ import os
 
 import datasets
 
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 _CITATION = """\
 @article{DBLP:journals/corr/abs-2106-06909,
   author    = {Guoguo Chen and
@@ -239,7 +243,10 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
             }
             for split in splits
         }
-        n_archives_paths = dl_manager.download_and_extract(n_archives_links)
+        logger.info("Downloading the data. It may take a while.")
+        paths = dl_manager.download(n_archives_links)
+        logger.info("Extracting the data. It may take a while.")
+        n_archives_paths = dl_manager.extract(paths)
         n_archives = {
             # mapping from a subset to a single number - number of audio archives (shards) in a subset
             split: {
