@@ -129,8 +129,12 @@ class AdaptedModel(nn.Module):
     @checkpoints.mark_as_saver
     def saver(self, path):
         """Saves only the trainable parameters."""
+        # NOTE: In order to preserve the gradient info, we have to prevent `state_dict` from detaching
+        # all the parameters and buffers. The `keep_vars=True` does this, then we detach manually
         state_dict = {
-            n: p for n, p in self.state_dict().items() if p.requires_grad
+            name: param.detach()
+            for name, param in self.state_dict(keep_vars=True).items()
+            if param.requires_grad
         }
         torch.save(state_dict, path)
 
