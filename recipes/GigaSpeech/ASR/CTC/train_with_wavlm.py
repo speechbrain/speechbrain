@@ -133,23 +133,16 @@ class ASR(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
-                stage_stats["loss"]
-            )
-            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
-                stage_stats["loss"]
-            )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
-            sb.nnet.schedulers.update_learning_rate(
-                self.wav2vec_optimizer, new_lr_wav2vec
-            )
+            new_lr_model = self.hparams.optimizer_model.param_groups[0]["lr"]
+            new_lr_wav2vec = self.hparams.optimizer_wav2vec2.param_groups[0][
+                "lr"
+            ]
+
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
-                    "lr_model": old_lr_model,
-                    "lr_wav2vec": old_lr_wav2vec,
+                    "lr_model": new_lr_model,
+                    "lr_wav2vec": new_lr_wav2vec,
                 },
                 train_stats=self.train_stats,
                 valid_stats=stage_stats,
