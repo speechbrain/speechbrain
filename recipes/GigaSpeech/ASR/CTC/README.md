@@ -14,6 +14,14 @@ You simply need to follow the instructions on either of the above links. **We st
 recomment using HuggingFace as the download speed for people outside of China is
 much quicker**.
 
+## Data preparation
+
+**This step can be very long (24h+) for the XL split of GigaSpeech**
+
+SpeechBrain will automatically download the dataset if you use HuggingFace. Note that if you use HuggingFace, the *data_folder* argument in yaml becomes useless. Indeed, HuggingFace is a bit strict in the way it operates with dataset, and the data will be put into the folder specified by the environment variable *HF_HUB_CACHE* or, if not set, *HF_HOME* or, if not set, *XDG_CACHE_HOME*. Hence, we recommend setting the *HF_HUB_CACHE* to the place where you want to store the data first. For example, you can set it like this:
+
+```export HF_HUB_CACHE=/path/to/your/data/folder```
+
 ## Installing Extra Dependencies
 
 Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:

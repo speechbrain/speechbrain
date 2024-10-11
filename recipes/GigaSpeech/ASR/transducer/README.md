@@ -2,6 +2,24 @@
 This folder contains scripts necessary to run an ASR experiment with the GigaSpeech dataset.
 Before running this recipe, make sure numba is installed (pip install numba)
 
+## Data access and download
+
+SpeechBrain supports two ways of dealing with the GigaSpeech dataset:
+1. [HuggingFace dataset](https://huggingface.co/datasets/speechcolab/gigaspeech/). For HuggingFacem note that **you must use** the HuggingFace client to log in first before running the recipe.
+2. [Original Github](https://github.com/SpeechColab/GigaSpeech).
+
+You simply need to follow the instructions on either of the above links. **We strongly
+recomment using HuggingFace as the download speed for people outside of China is
+much quicker**.
+
+## Data preparation
+
+**This step can be very long (24h+) for the XL split of GigaSpeech**
+
+SpeechBrain will automatically download the dataset if you use HuggingFace. Note that if you use HuggingFace, the *data_folder* argument in yaml becomes useless. Indeed, HuggingFace is a bit strict in the way it operates with dataset, and the data will be put into the folder specified by the environment variable *HF_HUB_CACHE* or, if not set, *HF_HOME* or, if not set, *XDG_CACHE_HOME*. Hence, we recommend setting the *HF_HUB_CACHE* to the place where you want to store the data first. For example, you can set it like this:
+
+```export HF_HUB_CACHE=/path/to/your/data/folder```
+
 # Extra-Dependencies
 This recipe supports two implementations of the transducer loss, see `use_torchaudio` arg in the yaml file:
 1. Transducer loss from torchaudio (this requires torchaudio version >= 0.10.0).

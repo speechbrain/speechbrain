@@ -203,8 +203,10 @@ def prepare_gigaspeech(
 
         if "HF_HUB_CACHE" in os.environ:
             hf_caching_dir = os.environ["HF_HUB_CACHE"]
-        else:
+        elif "HF_HOME" in os.environ:
             hf_caching_dir = os.environ["HF_HOME"]
+        else:
+            hf_caching_dir = os.environ["XDG_CACHE_HOME"]
 
         logger.info(
             "Downloading dataset from HuggingFace to: " + str(hf_caching_dir)
