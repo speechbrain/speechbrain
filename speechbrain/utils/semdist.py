@@ -59,9 +59,9 @@ class BaseSemDistStats(MetricStats):
         ---------
         ids: list
             the string IDs for the samples
-        predictions: list
+        predict: list
             the model's predictions in tokenizable format
-        targets: list
+        target: list
             the ground truths in tokenizable format
         """
         self.ids.extend(ids)

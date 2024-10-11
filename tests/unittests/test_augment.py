@@ -295,6 +295,31 @@ def test_pink_noise():
     assert torch.all(mean_first_fft_points < mean_last_fft_points)
 
 
+def test_sign_flip():
+    from speechbrain.augment.time_domain import SignFlip
+
+    signal = torch.rand(4, 500)
+    flip_sign = SignFlip(flip_prob=0)
+    assert torch.all(flip_sign(signal) > 0)
+
+    signal = torch.rand(4, 500)
+    flip_sign = SignFlip(flip_prob=1)
+    assert torch.all(flip_sign(signal) < 0)
+
+    signal = torch.rand(4, 500)
+    flip_sign = SignFlip(flip_prob=0.5)
+    flips = 0
+    trials = 1000
+    for _ in range(trials):
+        flipped_sig = flip_sign(signal)
+        if torch.all(flipped_sig == -signal):
+            flips += 1
+    test_prob = flips / trials
+    # these values are 5 stds in each direction,
+    # making a false negative extremely unlikely
+    assert 0.421 < test_prob < 0.579
+
+
 def test_SpectrogramDrop():
     from speechbrain.augment.freq_domain import SpectrogramDrop
 

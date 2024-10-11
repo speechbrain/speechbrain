@@ -12,8 +12,6 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
-
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -24,8 +22,9 @@ from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
     make_padding_masks,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Wav2Vec2(HFTransformersInterface):

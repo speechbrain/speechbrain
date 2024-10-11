@@ -4,7 +4,6 @@ Authors
 * YAO FEI, CHENG 2021
 """
 
-import logging
 from typing import Optional
 
 import torch  # noqa 42
@@ -21,8 +20,9 @@ from speechbrain.lobes.models.transformer.Transformer import (
 from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
 from speechbrain.nnet.activations import Swish
 from speechbrain.nnet.containers import ModuleList
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TransformerST(TransformerASR):

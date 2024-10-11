@@ -8,15 +8,15 @@ Titouan Parcollet 2024
 
 import csv
 import functools
-import logging
 import os
 import re
 from dataclasses import dataclass
 
 from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_voxpopuli(
@@ -54,6 +54,10 @@ def prepare_voxpopuli(
     remove_if_longer_than: int, optional
         Some audio files in VoxPopuli can be very long (200+ seconds). This option
         removes them from the train set.
+
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -127,6 +131,15 @@ def skip(save_csv_train, save_csv_dev, save_csv_test):
     """
     Detects if the VoxPopuli data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    save_csv_train : str
+        Path to train manifest file
+    save_csv_dev : str
+        Path to dev manifest file
+    save_csv_test : str
+        Path to test manifest file
 
     Returns
     -------
@@ -232,10 +245,6 @@ def create_csv(
     remove_if_longer_than: int, optional
         Some audio files in VoxPopuli can be very long (200+ seconds). This option
         removes them from the train set. Information about the discarded data is given.
-
-    Returns
-    -------
-    None
     """
 
     # Check if the given files exists
@@ -313,9 +322,11 @@ def check_voxpopuli_folders(data_folder):
     Check if the data folder actually contains the voxpopuli dataset.
     If not, raises an error.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        Path to data folder to check
+
     Raises
     ------
     FileNotFoundError

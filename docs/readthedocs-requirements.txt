@@ -2,8 +2,6 @@
 # this file merges both the usual and the docs requirements so that everything
 # gets installed correctly.
 
---find-links https://k2-fsa.github.io/k2/cpu.html
 -r ../requirements.txt
 -r docs-requirements.txt
-k2==1.24.4.dev20240223+cpu.torch2.2.1
 torch==2.2.1

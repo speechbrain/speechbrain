@@ -324,6 +324,16 @@ def download_file(
         Destination path.
     unpack : bool
         If True, it unpacks the data in the dest folder.
+        The archive is preserved.
+
+        File formats supported for unpacking/decompression are:
+
+        - any format enumerated by `shutil.get_archive_formats()`, usually
+          including `.tar`, `.tar.gz`, `.zip`.
+        - plain `.gz` file (when not a `.tar` archive)
+
+        Note that you should ALWAYS trust an archive you are extracting, for
+        security reasons.
     dest_unpack: path
         Path where to store the unpacked dataset
     replace_existing : bool
@@ -373,18 +383,16 @@ def download_file(
                 if dest_unpack is None:
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
-                # shutil unpack_archive does not work with tar.gz files
-                if (
-                    source.endswith(".tar.gz")
-                    or source.endswith(".tgz")
-                    or source.endswith(".gz")
-                ):
-                    out = dest.replace(".gz", "")
-                    with gzip.open(dest, "rb") as f_in:
-                        with open(out, "wb") as f_out:
+
+                if source.endswith(".gz") and not source.endswith(".tar.gz"):
+                    # just a gzip'd file, but not an actual archive.
+                    # merely uncompress it and remove the `.gz`.
+                    with gzip.open(source, "rb") as f_in:
+                        with open(source[:-3], "wb") as f_out:
                             shutil.copyfileobj(f_in, f_out)
                 else:
                     shutil.unpack_archive(dest, dest_unpack)
+
                 if write_permissions:
                     set_writing_permissions(dest_unpack)
 

@@ -7,7 +7,6 @@ Author
  * Pooneh Mousavi 2023
 """
 
-import logging
 import os
 import sys
 
@@ -19,8 +18,9 @@ import speechbrain as sb
 from speechbrain.dataio.dataloader import LoopedLoader
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.kmeans import fetch_kmeans_model, save_model, train
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def dataio_prepare(hparams):

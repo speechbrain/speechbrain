@@ -19,7 +19,6 @@ Authors
  * Andreas Nautsch 2021
 """
 
-import logging
 import os
 import sys
 
@@ -31,8 +30,9 @@ from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure

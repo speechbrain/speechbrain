@@ -7,14 +7,14 @@ Does the following feature set work out together on some environment?
 Authors:
     * Andreas Nautsch 2023
 """
-import logging
 from copy import deepcopy
 
 import speechbrain as sb
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.utils.fetching import FetchFrom, FetchSource
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def run_hf_repo_single_node(run_options):

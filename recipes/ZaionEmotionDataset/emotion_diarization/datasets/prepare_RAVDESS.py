@@ -11,7 +11,6 @@ Yingzhi Wang 2023
 """
 
 import json
-import logging
 import os
 import random
 from pathlib import Path
@@ -20,7 +19,9 @@ import numpy as np
 from datasets.vad import vad_for_folder
 from pydub import AudioSegment
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 repos = [
     "Actor_01",
     "Actor_02",

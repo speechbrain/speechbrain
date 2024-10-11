@@ -8,7 +8,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2223
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/RNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -18,7 +18,7 @@ train_log: !ref <output_folder>/train_log.txt
 # transcriptions of LibriSpeech as well.
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 
-# path to the lm_corpus
+# path to the lm_corpus, assumed to be from a trusted source
 # if set to null, it will automatically download from the internet
 # in the case when there is no internet access, set this to your local file
 lm_corpus_path: null

@@ -23,7 +23,6 @@ import numbers
 import warnings
 
 import numpy as np
-import pytest
 import scipy
 from scipy import sparse
 from scipy.sparse.csgraph import connected_components
@@ -31,7 +30,6 @@ from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 from scipy.sparse.linalg import eigsh
 
 np.random.seed(1234)
-pytest.importorskip("sklearn")
 
 try:
     import sklearn

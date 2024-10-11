@@ -9,7 +9,6 @@
  * Jarod Duret 2023
 """
 
-import logging
 import pathlib as pl
 import sys
 
@@ -23,8 +22,9 @@ from torch.nn.parallel import DistributedDataParallel
 import speechbrain as sb
 from speechbrain.inference.ASR import EncoderDecoderASR
 from speechbrain.inference.vocoders import UnitHIFIGAN
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class S2UT(sb.core.Brain):
@@ -96,6 +96,11 @@ class S2UT(sb.core.Brain):
                         code = torch.LongTensor(hyp[:-1])
                         wav = self.test_vocoder.decode_unit(code.unsqueeze(-1))
                         wavs.append(wav.squeeze(0))
+                    else:
+                        logger.warn(
+                            f"Encountered hyp {hyp} too short for decoding, using fake blank audio for testing"
+                        )
+                        wavs.append(torch.zeros(40000))  # on cpu device
                 if wavs:
                     wavs, wav_lens = sb.utils.data_utils.batch_pad_right(wavs)
                     transcripts, _ = self.test_asr.transcribe_batch(

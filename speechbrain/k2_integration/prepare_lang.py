@@ -11,7 +11,6 @@ Modified by:
 """
 
 
-import logging
 import math
 import os
 from collections import defaultdict
@@ -20,10 +19,12 @@ from typing import Any, Dict, List, Tuple, Union
 
 import torch
 
+from speechbrain.utils.logger import get_logger
+
 from . import k2  # import k2 from ./__init__.py
 from .lexicon import EPS, read_lexicon, write_lexicon
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 Lexicon = List[Tuple[str, List[str]]]
 

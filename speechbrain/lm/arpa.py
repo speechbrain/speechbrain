@@ -62,11 +62,12 @@ Authors
 """
 
 import collections
-import logging
 from pathlib import Path
 from typing import Union
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def read_arpa(fstream):
