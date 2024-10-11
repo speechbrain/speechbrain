@@ -5,7 +5,7 @@ Authors
 """
 
 
-def choice(value, choices, default=None):
+def choice(value, choices, default=None, apply=False):
     """
     The equivalent of a "switch statement" for hparams files. The typical use case
     is where different options/modules are available, and a top-level flag decides
@@ -20,6 +20,10 @@ def choice(value, choices, default=None):
         to the corresponding return values
     default: any
         the default value
+    apply: bool
+        if set to true, the value is expected to
+        be a callable, and the result of the call
+        will be returned
 
     Returns
     -------
@@ -34,4 +38,10 @@ def choice(value, choices, default=None):
                 regular: !ref <encoder_emb>
                 normalized: !ref <encoder_emb_norm>
     """
-    return choices.get(value, default)
+    if value in choices:
+        choice = choices[value]
+        if apply and choice is not None:
+            choice = choice()
+    else:
+        choice = default
+    return choice
