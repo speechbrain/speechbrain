@@ -45,8 +45,6 @@ from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Define training procedure
-
 
 class ASR(sb.Brain):
     def compute_forward(self, batch, stage):

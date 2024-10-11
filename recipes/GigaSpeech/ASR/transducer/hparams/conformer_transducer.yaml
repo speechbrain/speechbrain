@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 experiment_name: conformer_transducer
 output_folder: !ref results/<experiment_name>/<seed>
 output_wer_folder: !ref <output_folder>/
@@ -23,7 +23,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # see https://github.com/SpeechColab/GigaSpeech for more details on the dataset
 # must be one of ["XS", "S", "M", "L", "XL"]
 # and  ["DEV", "TEST"] for the eval splits.
-splits: ["M", "DEV", "TEST"]
+splits: ["XL", "DEV", "TEST"]
 skip_prep: False
 download_with_HF: True
 convert_opus_to_wav: True
@@ -41,13 +41,12 @@ json_file: !ref <data_folder>/GigaSpeech.json
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 100
-warmup_steps: 25000
+number_of_epochs: 5
 num_workers: 4
 batch_size_valid: 4
 lr: 0.0008
 weight_decay: 0.01
-number_of_ctc_epochs: 1
+number_of_ctc_epochs: 2
 ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
 ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
 max_grad_norm: 5.0

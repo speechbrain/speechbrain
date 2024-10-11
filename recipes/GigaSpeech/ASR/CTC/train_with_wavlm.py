@@ -1,7 +1,13 @@
-"""TODO
+""" This recipe finetunes a pretrained wavlm model large
+on GigaSpeech for speech recognition with CTC and at the character level.
+The WavLM model can be swapped with any HuggingFace model if wanted.
+
+To run this recipe, do the following:
+> python train_with_wavlm.py hparams/train_hf_wavlm.yaml
 
 Authors
  * Adel Moumen 2024
+ * Titouan Parcollet 2024
 """
 
 import logging

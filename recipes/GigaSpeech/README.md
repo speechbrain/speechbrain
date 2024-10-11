@@ -5,7 +5,7 @@ GigaSpeech is an evolving, multi-domain English speech recognition corpus with 1
 # Data access and download
 
 SpeechBrain supports two ways of dealing with the GigaSpeech dataset:
-1. [HuggingFace dataset](https://huggingface.co/datasets/speechcolab/gigaspeech/). For HuggingFacem note that **you must use** the HuggingFace client to log in first before running the recipe.
+1. [HuggingFace dataset](https://huggingface.co/datasets/speechcolab/gigaspeech/). For HuggingFace note that **you must use** the HuggingFace client to log in first before running the recipe.
 2. [Original Github](https://github.com/SpeechColab/GigaSpeech).
 
 You simply need to follow the instructions on either of the above links. **We strongly
