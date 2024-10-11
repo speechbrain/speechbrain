@@ -18,6 +18,8 @@ import logging
 import os
 from dataclasses import dataclass
 
+import torchaudio
+
 from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
@@ -436,10 +438,16 @@ def HF_create_csv(
     total_duration = 0.0
     nb_samples = 0
 
+    to_remove = GARBAGE_UTTERANCE_TAGS
+    if not punctuation:
+        to_remove += PUNCTUATION_TAGS
+    if not filler:
+        to_remove += FILLERS
+
     line_processor = functools.partial(
         HF_process_line,
+        stopwords=to_remove,
         punctuation=punctuation,
-        filler=filler,
     )
 
     csv_file_tmp = csv_file + ".tmp"
@@ -488,7 +496,7 @@ def HF_create_csv(
     )
 
 
-def HF_process_line(row: dict, punctuation: bool, filler: bool) -> list:
+def HF_process_line(row: dict, punctuation: bool, stopwords: list) -> list:
     """
     Process the audio line and return the utterances for the given split.
 
@@ -498,8 +506,8 @@ def HF_process_line(row: dict, punctuation: bool, filler: bool) -> list:
         The audio line to be processed.
     punctuation : bool
         Keeping punctuation or not. Default is no.
-    filler : bool
-        Keeping filler words or not (hum, er). Default is no.
+    stopwords: list
+        List of stopwords to remove from the text of the labels.
 
     Returns
     -------
@@ -508,16 +516,18 @@ def HF_process_line(row: dict, punctuation: bool, filler: bool) -> list:
     """
     audio_path = os.path.join(row["audio"]["path"])
 
-    assert os.path.isfile(audio_path), f"File not found: {audio_path}"
+    if not os.path.isfile(audio_path):
+        return None
 
     # check reading the audio file ; HF may have some corrupted files
-    # try:
-    #    _ = sb.dataio.dataio.read_audio(audio_path)
-    # except Exception as e:
-    #    logger.error(f"Failed reading {audio_path}: {e}")
-    #    return None
+    try:
+        _ = torchaudio.info(audio_path)
+    except Exception as e:
+        logger.error(f"Failed reading {audio_path}: {e}")
+        return None
 
-    text = preprocess_text(row["text"], punctuation, filler)
+    text = preprocess_text(row["text"], punctuation, stopwords)
+
     if text:
         utt_id = row["segment_id"]
         audio_id = row["audio_id"]
@@ -568,7 +578,7 @@ def convert_opus2wav(audio_opus_path):
     return audio_wav_path
 
 
-def preprocess_text(text: str, punctuation: bool, filler: bool) -> str:
+def preprocess_text(text: str, punctuation: bool, stopwords) -> str:
     """
     Preprocesses the input text by removing garbage tags and removing punctuation
     and filler words if specified.
@@ -579,8 +589,8 @@ def preprocess_text(text: str, punctuation: bool, filler: bool) -> str:
         The input text to be preprocessed.
     punctuation : bool
         Keeping punctuation or not. Default is no.
-    filler : bool
-        Keeping filler words or not (hum, er). Default is no.
+    stopwords : list
+        List of words to remove from the input test string.
 
     Returns
     -------
@@ -608,27 +618,13 @@ def preprocess_text(text: str, punctuation: bool, filler: bool) -> str:
     text = text.upper()
     text = text.replace("-", " ")
 
-    to_remove = GARBAGE_UTTERANCE_TAGS
-    if not punctuation:
-        to_remove += PUNCTUATION_TAGS
-    if not filler:
-        to_remove += FILLERS
-
-    processed = []
-    for word in text.split():
-        if word in to_remove:
-            continue
-        processed.append(word)
-
-    sentence = " ".join(processed)
+    sentence = " ".join(
+        [word for word in text.split() if word not in stopwords]
+    )
 
     if punctuation:
         for tag, punctuation in PUNCTUATION_TAGS.items():
             sentence = sentence.replace(" " + tag, punctuation)
-
-    assert (
-        "<" not in sentence and ">" not in sentence
-    ), f"Found tags in the text: {sentence}"
 
     return sentence
 

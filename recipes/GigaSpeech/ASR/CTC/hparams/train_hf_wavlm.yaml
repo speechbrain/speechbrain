@@ -23,7 +23,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # see https://github.com/SpeechColab/GigaSpeech for more details on the dataset
 # must be one of ["XS", "S", "M", "L", "XL"]
 # and  ["DEV", "TEST"] for the eval splits.
-splits: ["XS", "DEV", "TEST"]
+splits: ["XL", "DEV", "TEST"]
 skip_prep: False
 data_prep_only: False
 download_with_HF: True
