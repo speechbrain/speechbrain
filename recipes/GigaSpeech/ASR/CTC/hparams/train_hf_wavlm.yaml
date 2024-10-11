@@ -25,6 +25,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # and  ["DEV", "TEST"] for the eval splits.
 splits: ["XL", "DEV", "TEST"]
 skip_prep: False
+data_prep_only: False
 download_with_HF: True
 convert_opus_to_wav: True
 keep_filler_words: False
