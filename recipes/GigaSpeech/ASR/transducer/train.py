@@ -456,6 +456,9 @@ if __name__ == "__main__":
         },
     )
 
+    if hparams["data_prep_only"]:
+        exit
+
     # Defining tokenizer and loading it
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],

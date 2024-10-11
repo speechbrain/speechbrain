@@ -14,7 +14,7 @@ much quicker**.
 
 ## Data preparation
 
-**This step can be very long (24h+) for the XL split of GigaSpeech**
+**This step can be very long (24h+) for the XL split of GigaSpeech. For DDP (multi GPU) the recipe must be run once without DDP otherwise it will timeout. You do not want to let X GPUs hang out without doing nothing for 24 hours anyway. Use the *data_prep_only* flag from the yaml to exit after data preparation**
 
 SpeechBrain will automatically download the dataset if you use HuggingFace. Note that if you use HuggingFace, the *data_folder* argument in yaml becomes useless. Indeed, HuggingFace is a bit strict in the way it operates with dataset, and the data will be put into the folder specified by the environment variable *HF_HUB_CACHE* or, if not set, *HF_HOME* or, if not set, *XDG_CACHE_HOME*. Hence, we recommend setting the *HF_HUB_CACHE* to the place where you want to store the data first. For example, you can set it like this:
 

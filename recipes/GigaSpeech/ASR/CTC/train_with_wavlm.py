@@ -2,7 +2,8 @@
 on GigaSpeech for speech recognition with CTC and at the character level.
 The WavLM model can be swapped with any HuggingFace model if wanted.
 
-To run this recipe, do the following:
+To run this recipe, do the follo
+wing:
 > python train_with_wavlm.py hparams/train_hf_wavlm.yaml
 
 Authors
@@ -321,6 +322,9 @@ if __name__ == "__main__":
     with open(hparams_file) as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
+    # create ddp_group with the right communication protocol
+    sb.utils.distributed.ddp_init_group(run_opts)
+
     # Create experiment directory
     sb.create_experiment_directory(
         experiment_directory=hparams["output_folder"],
@@ -352,8 +356,8 @@ if __name__ == "__main__":
         },
     )
 
-    # create ddp_group with the right communication protocol
-    sb.utils.distributed.ddp_init_group(run_opts)
+    if hparams["data_prep_only"]:
+        exit
 
     # Defining tokenizer and loading it
     tokenizer = SentencePiece(
