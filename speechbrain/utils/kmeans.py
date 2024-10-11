@@ -122,9 +122,9 @@ def process_chunks(data, chunk_size, model):
     """Process data in chunks of a specified size.
 
     Args:
-        data (list):
+        data : list 
             The list of integers to be processed.
-        chunk_size (int):
+        chunk_size : int
             The size of each chunk.
         model : MiniBatchKMeans
             The initial kmeans model for training.
@@ -218,7 +218,7 @@ def save_model(model, checkpoint_path):
     ---------
         model : MiniBatchKMeans
             The  kmeans model to be saved.
-        checkpoint_path : str)
+        checkpoint_path : str
             Path to save the model..
     """
     joblib.dump(model, open(checkpoint_path, "wb"))
