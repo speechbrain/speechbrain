@@ -23,7 +23,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/GigaSpeech
 # see https://github.com/SpeechColab/GigaSpeech for more details on the dataset
 # must be one of ["XS", "S", "M", "L", "XL"]
 # and  ["DEV", "TEST"] for the eval splits.
-splits: ["XL", "DEV", "TEST"]
+splits: ["XS", "DEV", "TEST"]
 skip_prep: False
 data_prep_only: False
 download_with_HF: True
@@ -37,9 +37,13 @@ test_csv: !ref <output_folder>/test.csv
 json_file: !ref <data_folder>/GigaSpeech.json
 
 # Training parameters
-number_of_epochs: 3
-optimizer_step_limit: 400000
-lr: 0.9
+
+# The training will either stops at number_of_epochs or optimizer_step_limit
+# I.e. the first that is reached.
+number_of_epochs: 10
+optimizer_step_limit: 300000
+warmup: 1000 # Not much is needed as models are pretrained
+lr: 0.001
 lr_wav2vec: 0.0001
 sorting: ascending
 num_workers: 4
@@ -95,6 +99,7 @@ character_coverage: 1.0
 dnn_neurons: 1024
 dropout: 0.1
 freeze_wav2vec: False
+freeze_wav2vec_extractor: False
 wav2vec_output_dim: 1024
 
 # Outputs
@@ -178,7 +183,7 @@ wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Ve
    source: !ref <wav2vec2_hub>
    output_norm: False
    freeze: !ref <freeze_wav2vec>
-   freeze_feature_extractor: True
+   freeze_feature_extractor: !ref <freeze_wav2vec_extractor>
    save_path: !ref <wav2vec2_folder>
 
 ctc_lin: !new:speechbrain.nnet.linear.Linear
@@ -199,25 +204,23 @@ modules:
 model: !new:torch.nn.ModuleList
    - [!ref <enc>, !ref <ctc_lin>]
 
-model_opt_class: !name:torch.optim.Adadelta
+model_opt_class: !name:torch.optim.AdamW
    lr: !ref <lr>
-   rho: 0.95
-   eps: 1.e-8
 
 wav2vec_opt_class: !name:torch.optim.AdamW
    lr: !ref <lr_wav2vec>
 
-lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr>
-   improvement_threshold: 0.0025
-   annealing_factor: 0.75
-   patient: 0
+lr_annealing_model: !new:speechbrain.nnet.schedulers.WarmAndExpDecayLRSchedule
+   lr: !ref <lr>
+   n_warmup_steps: !ref <warmup>
+   total_steps: !ref <optimizer_step_limit>
+   decay_factor: 0.05 # Divided by twenty at the end.
 
-lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr_wav2vec>
-   improvement_threshold: 0.0025
-   annealing_factor: 0.9
-   patient: 0
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.WarmAndExpDecayLRSchedule
+   lr: !ref <lr_wav2vec>
+   n_warmup_steps: !ref <warmup>
+   total_steps: !ref <optimizer_step_limit>
+   decay_factor: 0.1 # Divided by ten at the end.
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>

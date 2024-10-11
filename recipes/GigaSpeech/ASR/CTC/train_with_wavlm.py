@@ -167,6 +167,25 @@ class ASR(sb.Brain):
                 with open(self.hparams.test_wer_file, "w") as w:
                     self.wer_metric.write_stats(w)
 
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """Called after ``fit_batch()``.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        outputs : list or dictionary of torch.Tensors
+            Returned value of compute_forward().
+        loss : torch.Tensor
+            Returned value of compute_objectives().
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
+
+        self.hparams.lr_annealing_model(self.model_optimizer)
+        self.hparams.lr_annealing_wav2vec(self.wav2vec_optimizer)
+
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
         # Handling SpeechBrain vs HuggingFace pretrained models
