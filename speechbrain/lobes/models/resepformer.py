@@ -623,8 +623,8 @@ class ResourceEfficientSeparationPipeline(nn.Module):
 
             if i < (self.num_blocks - 1):
                 if self.mem_type == "av":
-                    hc = output.mean(1).unsqueeze(0)
-                    hc = self.mem_model[i](hc).permute(1, 0, 2)
+                    hc = output.mean(1).reshape(B, S, D)  # B, S, D
+                    hc = self.mem_model[i](hc).reshape(B * S, 1, D)  # BS, 1, D
                 else:
                     hc = self.mem_model[i](hc, S)
 
