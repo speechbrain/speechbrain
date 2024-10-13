@@ -342,15 +342,15 @@ modules:
 # update model if any HEAD module is added
 model: !new:torch.nn.ModuleList
    - [
-        !ref <CNN>,
-        !ref <enc>,
-        !ref <emb>,
-        !ref <dec>,
-        !ref <proj_enc>,
-        !ref <proj_dec>,
-        !ref <proj_ctc>,
-        !ref <transducer_lin>,
-     ]
+      !ref <CNN>,
+      !ref <enc>,
+      !ref <emb>,
+      !ref <dec>,
+      !ref <proj_enc>,
+      !ref <proj_dec>,
+      !ref <proj_ctc>,
+      !ref <transducer_lin>,
+   ]
 
 ############################## Decoding & optimiser ############################
 
