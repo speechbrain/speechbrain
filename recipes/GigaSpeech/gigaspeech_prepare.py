@@ -262,8 +262,8 @@ def process_line(
     data_folder: str,
     split: str,
     convert_opus_to_wav: bool,
-    punctuation: bool = False,
-    filler: bool = False,
+    punctuation: bool,
+    stopwords: list
 ) -> list:
     """
     Process the audio line and return the utterances for the given split.
@@ -280,8 +280,8 @@ def process_line(
         If True, the opus files will be converted to wav files.
     punctuation : bool
         Keeping punctuation or not. Default is no.
-    filler : bool
-        Keeping filler words or not (hum, er). Default is no.
+    stopwords: list
+        List of stopwords to remove from the text of the labels.
 
     Returns
     -------
@@ -299,7 +299,7 @@ def process_line(
         # 2. iterate over the utterances
         utterances = []
         for segment in audio["segments"]:
-            text = preprocess_text(segment["text_tn"], punctuation, filler)
+            text = preprocess_text(segment["text_tn"], punctuation, stopwords)
             if text:
                 begin_time = float(segment["begin_time"])
                 end_time = float(segment["end_time"])
@@ -354,11 +354,19 @@ def create_csv(
     total_duration = 0.0
     nb_samples = 0
 
+    to_remove = GARBAGE_UTTERANCE_TAGS
+    if not punctuation:
+        to_remove += PUNCTUATION_TAGS
+    if not filler:
+        to_remove += FILLERS
+
     line_processor = functools.partial(
         process_line,
         data_folder=data_folder,
         split=split,
         convert_opus_to_wav=convert_opus_to_wav,
+        stopwords=to_remove,
+        punctuation=punctuation,
     )
 
     csv_file_tmp = csv_file + ".tmp"
