@@ -11,6 +11,7 @@ Authors
  * Peter Plantinga 2024
 """
 import argparse
+import os
 
 from speechbrain.inference.enhancement import SpectralMaskEnhancement
 
@@ -22,8 +23,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     enhancer = SpectralMaskEnhancement.from_hparams(
-        source=".",
-        hparams_file="inference.yaml",
-        savedir=args.save_directory,
+        source=os.path.abspath(args.save_directory),
+        hparams_file=os.path.join(os.getcwd(), "inference.yaml"),
     )
     enhancer.enhance_file(args.noisy_file, args.enhanced_file)

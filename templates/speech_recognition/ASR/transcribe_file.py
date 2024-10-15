@@ -50,9 +50,8 @@ if __name__ == "__main__":
     link_file("normalizer.ckpt", source_dir, target_dir)
 
     transcriber = EncoderDecoderASR.from_hparams(
-        source=".",
-        hparams_file="inference.yaml",
-        savedir=target_dir,
+        source=target_dir,
+        hparams_file=os.path.join(os.getcwd(), "inference.yaml"),
     )
     text = transcriber.transcribe_file(args.speech_file)
 
