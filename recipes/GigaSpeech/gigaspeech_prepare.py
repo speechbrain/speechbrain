@@ -175,16 +175,20 @@ def prepare_gigaspeech(
 
     # Setting output paths
     save_output = {}
+    split_map = {}
     train_split = ""
     for split in splits:
         if split in TRAIN_SUBSET:
             save_output["train"] = output_train
+            split_map["train"] = split
             train_split = split
         else:
             if split == "DEV":
                 save_output["validation"] = output_dev
+                split_map["validation"] = split
             elif split == "TEST":
                 save_output["test"] = output_test
+                split_map["test"] = split
 
     # check if the data is already prepared
     if skip_csv(save_output):
@@ -249,7 +253,7 @@ def prepare_gigaspeech(
                 output,
                 info,
                 data_folder,
-                split,
+                split_map[split],
                 convert_opus_to_wav,
                 punctuation,
                 filler,
