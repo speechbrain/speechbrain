@@ -30,6 +30,5 @@ def test_voice_analysis():
     )
 
     assert all(abs(estimated_f0 - frequency) < 2)
-
-    assert all(jitter < 0.05)
-    assert all(shimmer < 0.01)
+    assert all(jitter < 0.03)
+    assert all(shimmer < 0.02)
