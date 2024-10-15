@@ -121,7 +121,8 @@ def fetch_kmeans_model(
 def process_chunks(data, chunk_size, model):
     """Process data in chunks of a specified size.
 
-    Args:
+    Arguments
+    ---------
         data : list
             The list of integers to be processed.
         chunk_size : int
@@ -129,7 +130,8 @@ def process_chunks(data, chunk_size, model):
         model : MiniBatchKMeans
             The initial kmeans model for training.
 
-    return:
+    Returns
+    -------
         model : MiniBatchKMeans
             The initial kmeans model for training.
     """
