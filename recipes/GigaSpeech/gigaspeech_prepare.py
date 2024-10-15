@@ -267,7 +267,7 @@ def process_line(
     split: str,
     convert_opus_to_wav: bool,
     punctuation: bool,
-    stopwords: list
+    stopwords: list,
 ) -> list:
     """
     Process the audio line and return the utterances for the given split.
