@@ -501,7 +501,7 @@ class LFB(torch.nn.Module):
     skip_transpose: bool
         If False, uses batch x time x channel convention of speechbrain.
         If True, uses batch x channel x time convention.
-    gammatone_init_order:
+    gammatone_init_order: int
         Order of the gammatone filter initialization (default: 4)
     n_fft: int
         Number of FFT bins

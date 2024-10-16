@@ -1468,14 +1468,14 @@ class GammatoneConv1d(nn.Module):
 
     Arguments
     ---------
-    input_shape : tuple
-        The shape of the input. Alternatively use ``in_channels``.
-    in_channels : int
-        The number of input channels. Alternatively use ``input_shape``.
     out_channels : int
         It is the number of output channels.
     kernel_size: int
         Kernel size of the convolutional filters.
+    input_shape : tuple
+        The shape of the input. Alternatively use ``in_channels``.
+    in_channels : int
+        The number of input channels. Alternatively use ``input_shape``.
     stride : int
         Stride factor of the convolutional filters. When the stride factor > 1,
         a decimation in time is performed.
@@ -1488,8 +1488,6 @@ class GammatoneConv1d(nn.Module):
     padding_mode : str
         This flag specifies the type of padding. See torch.nn documentation
         for more information.
-    bias : bool
-        If True, the additive bias b is adopted.
     sample_rate : int,
         Sampling rate of the input signals.
     min_freq : float
@@ -1500,6 +1498,8 @@ class GammatoneConv1d(nn.Module):
         number of FFT bins for initialization
     gammatone_init_order: int
         order of the gammatone filter initialization
+    bias : bool
+        If True, the additive bias b is adopted.
     sort_filters: bool
         whether to sort filters by center frequencies. Default is False
     skip_transpose: bool
@@ -1577,6 +1577,10 @@ class GammatoneConv1d(nn.Module):
         x : torch.Tensor (batch, time, channel)
             input to convolve. 2d or 4d tensors are expected.
 
+        Returns
+        -------
+        x : torch.Tensor
+            The output of the Gammatone convolution
         """
         self.device = x.device
 
@@ -1722,6 +1726,10 @@ class GammatoneConv1d(nn.Module):
             Dilation used.
         stride : int
             Stride.
+
+        Returns
+        -------
+        x : torch.Tensor
         """
 
         # Detecting input shape
