@@ -113,7 +113,7 @@ def test_LFB(device):
         window_len=25.0,
         window_stride=10.0,
         min_freq=10.0,
-        skip_transpose=False,
+        skip_transpose=True,
         gammatone_init_order=4,
         n_fft=256,
     ).to(device)
