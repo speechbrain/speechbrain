@@ -1048,9 +1048,8 @@ class Brain:
                 raise ValueError(
                     "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
-                )
-            seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
-            sampler = ReproducibleRandomSampler(dataset, seed=seed)
+                )@
+            sampler = ReproducibleRandomSampler(dataset)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
             # Delete the shuffle flag, since you cannot specify both a sampler and
