@@ -1049,7 +1049,8 @@ class Brain:
                     "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
-            sampler = ReproducibleRandomSampler(dataset)
+            seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+            sampler = ReproducibleRandomSampler(dataset, seed=seed)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
             # Delete the shuffle flag, since you cannot specify both a sampler and
@@ -1212,6 +1213,7 @@ class Brain:
         """
         amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
+        self.on_fit_batch_start(batch, should_step)
 
         with self.no_sync(not should_step):
             if self.use_amp:
@@ -1335,6 +1337,9 @@ class Brain:
 
     def on_fit_batch_start(self, batch, should_step):
         """Called at the beginning of ``fit_batch()``.
+
+        This method is not called under the AMP context manager. Do not assume
+        automatic casting of the input batch to a lower precision (e.g. fp16).
 
         Arguments
         ---------
