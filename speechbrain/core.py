@@ -1048,7 +1048,7 @@ class Brain:
                 raise ValueError(
                     "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
-                )@
+                )
             sampler = ReproducibleRandomSampler(dataset)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
