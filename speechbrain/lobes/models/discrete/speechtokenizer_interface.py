@@ -121,7 +121,7 @@ class SpeechTokenizer_interface(nn.Module):
 
         Arguments
         ---------
-        tokens : torch.Tensor
+        codes : torch.Tensor
             A (N_q, Batch x Seq) tensor of audio tokens
 
         Returns

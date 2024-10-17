@@ -15,7 +15,6 @@ Authors
 import csv
 import hashlib
 import json
-import logging
 import os
 import pickle
 import re
@@ -25,10 +24,11 @@ import numpy as np
 import torch
 import torchaudio
 
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 check_torchaudio_backend()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_data_json(json_path, replacements={}):

@@ -15,12 +15,10 @@ class DiscreteSSLTokenizer:
     It applies subwording for each layer independently if the sentence piece tokenizer is set to for the layer and padded all items with zero.
     If subwording is not applied, all token IDs are incremented by one to avoid conflict between pad_id(0) and cluster with centroid zero.
 
-
     Arguments
     ---------
     num_clusters: List[int]
         determine the number of clusters of the  kmeans models. It could be varying for each layer.
-
 
     Example
     -------
@@ -41,12 +39,14 @@ class DiscreteSSLTokenizer:
 
     def textify(self, tokens):
         """Convert token ID to char to be used for training sentencepiece tokenizer.
+
         Arguments
         ---------
         tokens : torch.Tensor
             A (Batch x Seq ) tensor of audio tokens
-        Returns:
-        ---------
+
+        Returns
+        -------
         processed_tokens : list
             A (Batch x Seq) list of corresponding char for each token ID.
         """
@@ -63,16 +63,17 @@ class DiscreteSSLTokenizer:
 
         Arguments
         ---------
-        tokens : torch.Tensor
-            A (Batch x Seq x num_SSL_layers) tensor of audio tokens
+        input : torch.Tensor
+            A (Batch x Seq x num_SSL_layers) tensor of audio tokens.
         SSL_layers: List[int] (default: [7]):
             determine which layers of SSL should be used to extract information.
         deduplicates: List[boolean] (default: [False]):
             determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
         bpe_tokenizers: List[int] (default: [None]):
             determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
-        Returns:
-        ---------
+
+        Returns
+        -------
         processed_tokens : torch.Tensor
             A (Batch x Seq x num_SSL_layers) tensor of audio tokens after applying deduplication and subwording if necessary.
         """

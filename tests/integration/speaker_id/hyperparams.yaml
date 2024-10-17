@@ -1,6 +1,6 @@
 # Basic parameters
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Training params
 N_epochs: 10

@@ -7,7 +7,6 @@ Authors
     * Ryan Whetten 2023
 """
 
-import logging
 import sys
 import time
 from functools import partial
@@ -21,8 +20,9 @@ from speechbrain.dataio.dataloader import SaveableDataLoader
 from speechbrain.dataio.sampler import DynamicBatchSampler
 from speechbrain.lobes.models.BESTRQ import brq_mask_collate_fn
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BestRQBrain(sb.core.Brain):
@@ -176,6 +176,10 @@ def pad_feats(feats, divis_by):
     divis_by: int
         The stacking factor. The time dimension of feats will become divisible
         by this value.
+
+    Returns
+    -------
+    Padded features
     """
 
     B, T, C = feats.shape
@@ -282,7 +286,6 @@ def dataio_prepare(hparams):
 
 
 def main():
-    logger.setLevel(logging.INFO)
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     sb.utils.distributed.ddp_init_group(run_opts)

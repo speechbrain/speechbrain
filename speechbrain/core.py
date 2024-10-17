@@ -7,7 +7,7 @@ Authors
  * Aku Rouhe 2021
  * Andreas Nautsch 2022
  * Sylvain de Langen 2023
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 
 import argparse
@@ -41,14 +41,18 @@ from speechbrain.dataio.sampler import (
     DistributedSamplerWrapper,
     ReproducibleRandomSampler,
 )
+from speechbrain.utils.distributed import is_distributed_initialized
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_set_profiling_mode(False)
+torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
+torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
@@ -804,7 +808,7 @@ class Brain:
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
-            if not torch.distributed.is_initialized():
+            if not is_distributed_initialized():
                 if self.rank > 0:
                     raise ValueError(
                         " ================ WARNING ==============="
@@ -861,7 +865,7 @@ class Brain:
                 f"{class_name} Model Statistics:\n"
                 f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
                 f"* Total Number of Parameters: {total_parameters}\n"
-                f"* Trainable Parameters represent {0:.4f}% of the total size."
+                f"* Trainable Parameters represent {0:.2f}% of the total size."
             )
         elif total_trainable_params == 0:
             logger.warning("The model has no trainable parameters!")
@@ -1049,7 +1053,8 @@ class Brain:
                     "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
-            sampler = ReproducibleRandomSampler(dataset)
+            seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+            sampler = ReproducibleRandomSampler(dataset, seed=seed)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
             # Delete the shuffle flag, since you cannot specify both a sampler and
@@ -1486,7 +1491,7 @@ class Brain:
         decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
 
         # If the program is not distributed, just return
-        if not torch.distributed.is_initialized():
+        if not is_distributed_initialized():
             return decision
 
         # Otherwise, broadcast decision to all processes from main (rank 0)
@@ -1765,6 +1770,9 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
@@ -1781,7 +1789,7 @@ class Brain:
             for batch in tqdm(
                 test_set,
                 dynamic_ncols=True,
-                disable=not progressbar,
+                disable=not enable,
                 colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import logging
 import os
 import sys
 
@@ -8,6 +7,7 @@ from common_language_prepare import prepare_common_language
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
 """Recipe for training a LID system with CommonLanguage.
 
@@ -20,7 +20,7 @@ Author
  * Pavlo Ruban 2021
 """
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Brain class for Language ID training
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     datasets, language_encoder = dataio_prep(hparams)
 
     # Fetch and load pretrained modules
-    sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
+    sb.utils.distributed.hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Initialize the Brain object to prepare for mask training.

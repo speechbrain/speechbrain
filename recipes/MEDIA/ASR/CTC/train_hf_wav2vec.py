@@ -20,7 +20,6 @@ Authors
  * Gaëlle Laperrière 2023
 """
 
-import logging
 import sys
 
 import torch
@@ -30,8 +29,9 @@ from media_prepare import prepare_media
 import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure.

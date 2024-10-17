@@ -5,7 +5,6 @@ Authors
  * Drew Wagner 2024
 """
 
-import logging
 from typing import Tuple
 
 import torch
@@ -21,8 +20,9 @@ from speechbrain.nnet.quaternion_networks.q_ops import (
     renorm_quaternion_weights_inplace,
     unitary_init,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class QConv1d(torch.nn.Module):

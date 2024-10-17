@@ -12,7 +12,6 @@ Authors
  * Jianyuan Zhong 2021
  * Mirco Ravanelli 2021
 """
-import logging
 import sys
 
 import torch
@@ -20,9 +19,9 @@ from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Brain class for language model training
@@ -151,7 +150,7 @@ def dataio_prepare(hparams):
         List containing "train", "valid", and "test" sets that correspond
         to the appropriate DynamicItemDataset object.
     """
-    logging.info("generating datasets...")
+    logger.info("generating datasets...")
 
     # Prepare datasets
     datasets = load_dataset(
@@ -224,7 +223,7 @@ if __name__ == "__main__":
 
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Create dataset objects "train", "valid", and "test"

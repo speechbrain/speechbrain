@@ -10,7 +10,6 @@ Authors
 
 import csv
 import json
-import logging
 import os
 import random
 import re
@@ -25,9 +24,10 @@ from unidecode import unidecode
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
 METADATA_CSV = "metadata.csv"
 TRAIN_JSON = "train.json"
@@ -36,7 +36,7 @@ TEST_JSON = "test.json"
 WAVS = "wavs"
 DURATIONS = "durations"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
 
 
