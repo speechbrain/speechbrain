@@ -1,0 +1,171 @@
+# ################################
+# Model: Whisper + TLTR + Audio_Proj + Llama3
+# Authors: Yingzhi Wang 2024
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1995 # The secret perfect seed
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+output_folder: !ref results/with_llama3-stage3/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+valid_file: !ref <output_folder>/valid.txt
+
+# pre-trained model for audio projection
+stage2_model_path: !PLACEHOLDER # /path/to/results/with_llama3-stage2/1995/save/CKPT+2024-04-29+02-16-21+00/model.ckpt
+stage2_llama_path: !PLACEHOLDER # /path/to/results/with_llama3-stage2/1995/save/CKPT+2024-04-29+02-16-21+00/llama3.ckpt
+
+precision: fp16
+
+# URL for the LLAMA3 model and its save folder
+llama_hub: meta-llama/Meta-Llama-3-8B-Instruct # lmsys/vicuna-7b-v1.5
+llama3_folder: !PLACEHOLDER # same as the llama3 folder of stage 1
+
+train_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/all.json
+valid_annotation: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/valid.json
+
+num_workers: 8
+ckpt_interval_minutes: 30 # save checkpoint every N min
+
+number_of_epochs: 1
+batch_size: 4
+valid_batch_size: 1
+
+# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
+grad_accumulation_factor: 16 # should be 256 total batch size, suppose 4 gpus are used
+
+gradient_checkpointing: True # whether to enable gradient checkpointing, slower but save memory
+
+lr: 2e-4
+
+# freeze models according to the curriculum
+freeze_llama: True # llama always frozen
+with_peft: True # activate lora
+freeze_tltr: False # unfreeze tltr
+
+# LLAMA3 tokenizer
+cutoff_len: 180 # adjust based on memory allowed
+
+################################################################################
+# LLAMA3
+train_on_input: False
+ignore_index: -100
+label_smoothing: 0
+
+# llama generation config
+num_beams: 3
+max_new_tokens: 400
+top_k: 500
+top_p: 0.95
+temperature: 0.1
+repetition_penalty: 1.1
+
+# lora config
+lora_dropout: 0.05
+lora_alpha: 16
+r: 8
+bias: "none"
+task_type: "CAUSAL_LM"
+lora_target_modules: ["q_proj", "v_proj"]
+
+# Whisper output
+whisper_output_dim: 1280
+
+# Audio Tagging model
+tltr_layers: 32
+llama_hidden_size: 4096
+
+# Masks
+text_padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
+
+tltr: !new:speechbrain.lobes.models.TLTR.AT_MODEL
+   n_layer: !ref <tltr_layers>
+   rep_dim: !ref <whisper_output_dim>
+   freeze: !ref <freeze_tltr>
+
+audio_proj: !new:speechbrain.lobes.models.TLTR.AudioProjection
+   input_size: !ref <whisper_output_dim>
+   hidden_size: !ref <llama_hidden_size>
+
+#LLAMA3 model
+llama3: !new:speechbrain.lobes.models.huggingface_transformers.llama2.LLAMA2
+   source: !ref <llama_hub>
+   freeze: !ref <freeze_llama>
+   save_path: !ref <llama3_folder>
+   max_new_tokens: !ref <max_new_tokens>
+   num_beams: !ref <num_beams>
+   top_k: !ref  <top_k>
+   top_p: !ref <top_p>
+   temperature: !ref <temperature>
+   repetition_penalty: !ref <repetition_penalty>
+   with_peft: !ref <with_peft>
+   lora_alpha: !ref <lora_alpha>
+   lora_dropout: !ref <lora_dropout>
+   r: !ref <r>
+   bias: !ref <bias>
+   task_type: !ref <task_type>
+   lora_target_modules: !ref <lora_target_modules>
+   gradient_checkpointing: !ref <gradient_checkpointing>
+
+modules:
+   tltr: !ref <tltr>
+   audio_proj: !ref <audio_proj>
+   llama3: !ref <llama3>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <tltr>, !ref <audio_proj>]
+
+# opt_class: !name:bitsandbytes.optim.PagedAdam32bit
+#     lr: !ref <lr>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.AdamW
+   lr: !ref <lr>
+
+ce_loss: !new:torch.nn.CrossEntropyLoss
+   ignore_index: !ref <ignore_index>
+   label_smoothing: !ref <label_smoothing>
+
+lr_annealing: !new:speechbrain.nnet.schedulers.LinearWarmupScheduler
+   initial_value: !ref <lr>
+   num_warmup_steps: 100
+   num_training_steps: 40000 # 1 epochs * 9M QA pairs / 256 total batch size
+
+############################## Logging and Pretrainer ##########################
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      model: !ref <model>
+      llama3: !ref <llama3>
+      scheduler: !ref <lr_annealing>
+      counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
+   shuffle: True
+   drop_last: False
+
+valid_dataloader_opts:
+   batch_size: !ref <valid_batch_size>
+   num_workers: !ref <num_workers>
+   shuffle: True
+   drop_last: True
+
+pretrained_models: !new:speechbrain.utils.parameter_transfer.Pretrainer
+   collect_in: !ref <save_folder>
+   loadables:
+      model: !ref <model>
+      llama3: !ref <llama3>
+   paths:
+      model: !ref <stage2_model_path>
+      llama3: !ref <stage2_llama_path>
+
+recipe_test: False

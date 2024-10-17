@@ -79,6 +79,7 @@ llama2_model: !new:speechbrain.lobes.models.huggingface_transformers.llama2.LLAM
     top_k: !ref  <top_k>
     top_p: !ref <top_p>
     with_peft: True
+    use_4bit: True
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
