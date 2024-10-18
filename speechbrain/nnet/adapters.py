@@ -39,6 +39,12 @@ class AdaptedModel(nn.Module):
         Supports Unix shell-style wildcards `(*, ?, [seq], [!seq])` with `fnmatch`.
     adapter_kwargs: dict
         Ensemble of parameters that should be given to the adapter.
+    manual_adapter_insertion: bool
+        The default value (`False`) leads to the adapters being inserted at
+        the time of initialization. However, in some cases, it is preferable
+        to wait to insert the adapters, e.g. when pretrained parameters need to
+        be loaded. In this case, one can set this to `True` and call
+        `insert_adapters` manually after the parameters have been loaded.
 
     Example
     -------
@@ -84,27 +90,37 @@ class AdaptedModel(nn.Module):
         target_layers=[],
         unfrozen_layers=[],
         adapter_kwargs={},
+        manual_adapter_insertion=False,
     ):
         super().__init__()
 
         # Collect and freeze layers
-        replace_layers = []
+        self.adapted_model = model_to_adapt
+        self.adapter_class = adapter_class
+        self.adapter_kwargs = adapter_kwargs
+        self.replace_layers = []
         for name, module in model_to_adapt.named_modules():
             if is_layer_adaptable(
                 name, module, all_linear, all_conv, target_layers
             ):
-                replace_layers.append(name)
+                self.replace_layers.append(name)
             elif not any(fnmatch(name, layer) for layer in unfrozen_layers):
                 for param in module.parameters():
                     param.requires_grad = False
 
-        # Replace the collected layer names
-        for name in replace_layers:
-            module = model_to_adapt.get_submodule(name)
-            new_module = adapter_class(module, **adapter_kwargs)
-            replace_module(model_to_adapt, name, new_module)
+        # Some cases require a delay in adapter insertion, e.g. using Pretrainer
+        if not manual_adapter_insertion:
+            self.insert_adapters()
 
-        self.adapted_model = model_to_adapt
+    def insert_adapters(self):
+        """If this is in `__init__` it conflicts with `Pretrainer`.
+        Ensure this function is called exactly once before training.
+        See ``__init__.manual_adapter_insertion``
+        """
+        for name in self.replace_layers:
+            module = self.adapted_model.get_submodule(name)
+            new_module = self.adapter_class(module, **self.adapter_kwargs)
+            replace_module(self.adapted_model, name, new_module)
 
     def forward(self, *args, **kwargs):
         """Pass arguments to adapted model."""
@@ -113,8 +129,12 @@ class AdaptedModel(nn.Module):
     @checkpoints.mark_as_saver
     def saver(self, path):
         """Saves only the trainable parameters."""
+        # NOTE: In order to preserve the gradient info, we have to prevent `state_dict` from detaching
+        # all the parameters and buffers. The `keep_vars=True` does this, then we detach manually
         state_dict = {
-            n: p for n, p in self.state_dict().items() if p.requires_grad
+            name: param.detach()
+            for name, param in self.state_dict(keep_vars=True).items()
+            if param.requires_grad
         }
         torch.save(state_dict, path)
 

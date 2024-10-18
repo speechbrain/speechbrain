@@ -36,6 +36,8 @@ The `docs/tutorials` directory exclusively contains tutorials in Jupyter Noteboo
   - It's OK if the user has to run the notebook to get some of the heavier outputs.
 - Preferably use Jupyter Notebook for final editing of your notebook.
   - Jupyter Notebook tends to have somewhat sane `.ipynb` output. This avoids Git diffs from being excessively large.
+- **Images can be put in the `docs/tutorials/assets` directory,** rather than embedded as base64. You can then refer to them in Markdown like `![alt text](../assets/myimage.png)`. These will work correctly when imported on Colab.
+  - Pick descriptive names.
 
 #### Integration in documentation
 

@@ -1217,6 +1217,7 @@ class Brain:
         """
         amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
+        self.on_fit_batch_start(batch, should_step)
 
         with self.no_sync(not should_step):
             if self.use_amp:
@@ -1340,6 +1341,9 @@ class Brain:
 
     def on_fit_batch_start(self, batch, should_step):
         """Called at the beginning of ``fit_batch()``.
+
+        This method is not called under the AMP context manager. Do not assume
+        automatic casting of the input batch to a lower precision (e.g. fp16).
 
         Arguments
         ---------
