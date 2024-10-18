@@ -623,8 +623,8 @@ def preprocess_text(text: str, punctuation: bool, stopwords) -> str:
     Examples
     --------
     >>> text = " DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR <COMMA> YOU SEE THE RED CARPETING <COMMA> YOU SEE SOMEONE IN A SUIT <PERIOD> THEY MAY BE GREETING YOU <PERIOD>"
-    >>> preprocess_text(text)
-    "douglas mcgray is going to be our guide you walk through the door, you see the red carpeting, you see someone in a suit. they may be greeting you."
+    >>> preprocess_text(text, punctuation=True, stopwords=GARBAGE_UTTERANCE_TAGS)
+    "DOUGLAS MCGRAY IS GOING TO BE OUR GUIDE YOU WALK THROUGH THE DOOR, YOU SEE THE RED CARPETING, YOU SEE SOMEONE IN A SUIT. THEY MAY BE GREETING YOU."
     """
 
     text = text.upper()
