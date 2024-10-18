@@ -14,7 +14,6 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import hashlib
 import sys
 import warnings
 from types import SimpleNamespace
@@ -445,8 +444,7 @@ class Pretrained(torch.nn.Module):
         overrides : dict
             Any changes to make to the hparams file when it is loaded.
         savedir : str or Path
-            Where to put the pretraining material. If not given, will use
-            ./pretrained_models/<class-name>-hash(source).
+            Where to put the pretraining material. If not given, just use cache.
         use_auth_token : bool (default: False)
             If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
             default is False because the majority of models are public.
@@ -470,9 +468,6 @@ class Pretrained(torch.nn.Module):
         -------
         Instance of cls
         """
-        if savedir is None:
-            clsname = cls.__name__
-            savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
             filename=hparams_file,
             source=source,
