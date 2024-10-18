@@ -148,6 +148,7 @@ def dataio_prep(hparams):
 
     datasets = [train_data, valid_data, test_data]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
+    label_encoder.expect_len(hparams["number_of_commands"])
 
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "start", "stop", "duration")
