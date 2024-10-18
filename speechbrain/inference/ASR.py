@@ -259,7 +259,9 @@ class EncoderASR(Pretrained):
                             opt_beam_search_params["kenlm_model_path"]
                         )
                         kenlm_model_path = str(
-                            fetch(fl, source=source, savedir=".")
+                            fetch(
+                                fl, source=source, savedir=self.hparams.savedir
+                            )
                         )
                         # we need to update the kenlm_model_path in the opt_beam_search_params
                         opt_beam_search_params["kenlm_model_path"] = (
