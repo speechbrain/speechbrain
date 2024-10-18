@@ -44,9 +44,11 @@ class SpeakerBrain(sb.core.Brain):
 
         if isinstance(
             self.modules.compute_features, speechbrain.lobes.features.Leaf
+        ) or isinstance(
+            self.modules.compute_features, speechbrain.lobes.features.LFB
         ):
-            # if leaf, first normalize the wavs before feeding them to leaf
-            # no normalization is needed after LEAF
+            # if leaf/lfb, first normalize the wavs before feeding them to leaf/lfb
+            # no normalization is needed after LEAF/LFB
             feats = self.modules.mean_var_norm(wavs, lens)
             feats = self.modules.compute_features(feats)
         else:
