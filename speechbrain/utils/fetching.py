@@ -183,12 +183,14 @@ def guess_source(source: Union[str, FetchSource]) -> FetchSource:
     Arguments
     ---------
     source : str or FetchSource
-        Where to look for the file. This is interpreted in special ways:
+        Where to look for the file. :func:`~fetch` interprets this path using
+        the following logic:
+
         - First, if the source begins with "http://" or "https://", it is
           interpreted as a web address and the file is downloaded.
-        - Second, if the source is a valid directory path, a symlink is
-          created to the file.
-        - Otherwise, the source is interpreted as a Huggingface model hub ID,
+        - Second, if the source is a valid directory path, the file is either
+          linked, copied or directly returned depending on the local strategy.
+        - Otherwise, the source is interpreted as a HuggingFace model hub ID,
           and the file is downloaded from there (potentially with caching).
 
     Returns
