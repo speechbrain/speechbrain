@@ -5,7 +5,7 @@ Authors
 """
 
 import math
-from typing import Optional
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
@@ -93,6 +93,8 @@ class TransformerInterface(nn.Module):
         Whether the model should output the hidden states as a list of tensor.
     layerdrop_prob: float
         The probability to drop an entire layer.
+    mwmha_windows: list of ints, optional
+        List of window sizes for Multi-Window Multi-head Attention.
     """
 
     def __init__(
@@ -125,6 +127,7 @@ class TransformerInterface(nn.Module):
         use_linear_after_conv: Optional[bool] = False,
         output_hidden_states=False,
         layerdrop_prob=0.0,
+        mwmha_windows: Optional[List[int]] = [],
     ):
         super().__init__()
         self.causal = causal
@@ -137,7 +140,12 @@ class TransformerInterface(nn.Module):
         self.output_hidden_states = output_hidden_states
         self.layerdrop_prob = layerdrop_prob
 
-        assert attention_type in ["regularMHA", "RelPosMHAXL", "hypermixing"]
+        assert attention_type in [
+            "regularMHA",
+            "RelPosMHAXL",
+            "hypermixing",
+            "MWMHA",
+        ]
         assert positional_encoding in ["fixed_abs_sine", None]
 
         assert (
@@ -176,6 +184,7 @@ class TransformerInterface(nn.Module):
                     vdim=self.encoder_vdim,
                     output_hidden_states=self.output_hidden_states,
                     layerdrop_prob=self.layerdrop_prob,
+                    mwmha_windows=mwmha_windows,
                 )
             elif encoder_module == "conformer":
                 self.encoder = ConformerEncoder(
@@ -325,6 +334,8 @@ class TransformerEncoderLayer(nn.Module):
     causal: bool, optional
         Whether the encoder should be causal or not (the decoder is always causal).
         If causal the Conformer convolutional layer is causal.
+    mwmha_windows: list of ints, optional
+        List of window sizes for Multi-Window Multi-head Attention.
 
     Example
     -------
@@ -350,6 +361,7 @@ class TransformerEncoderLayer(nn.Module):
         ffn_type="regularFFN",
         ffn_cnn_kernel_size_list=[3, 3],
         causal=False,
+        mwmha_windows: Optional[List[int]] = [],
     ):
         super().__init__()
 
@@ -373,6 +385,15 @@ class TransformerEncoderLayer(nn.Module):
                 tied=False,
                 num_heads=nhead,
                 fix_tm_hidden_size=False,
+            )
+        elif attention_type == "MWMHA":
+            self.self_att = (
+                sb.nnet.multiwindow_attention.MultiWindowMultiheadAttention(
+                    nhead=nhead,
+                    d_model=d_model,
+                    dropout=dropout,
+                    mwmha_windows=mwmha_windows,
+                )
             )
 
         if ffn_type == "regularFFN":
@@ -505,6 +526,8 @@ class TransformerEncoder(nn.Module):
         conv kernel size of 2 1d-convs if ffn_type is 1dcnn
     output_hidden_states: bool, optional
         Whether the model should output the hidden states as a list of tensor.
+    mwmha_windows: list of ints, optional
+        List of window sizes for Multi-Window Multi-head Attention.
 
     Example
     -------
@@ -543,6 +566,7 @@ class TransformerEncoder(nn.Module):
         ffn_type="regularFFN",
         ffn_cnn_kernel_size_list=[3, 3],
         output_hidden_states=False,
+        mwmha_windows: Optional[List[int]] = [],
     ):
         super().__init__()
 
@@ -561,6 +585,7 @@ class TransformerEncoder(nn.Module):
                     attention_type=attention_type,
                     ffn_type=ffn_type,
                     ffn_cnn_kernel_size_list=ffn_cnn_kernel_size_list,
+                    mwmha_windows=mwmha_windows,
                 )
                 for i in range(num_layers)
             ]
