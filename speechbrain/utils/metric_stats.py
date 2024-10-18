@@ -8,7 +8,7 @@ Authors:
  * Sahar Ghannay 2021
 """
 
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 import torch
 from joblib import Parallel, delayed
@@ -1424,3 +1424,102 @@ def _dictify(f):
         return result._asdict() if has_asdict else result
 
     return wrapper
+
+
+def dialogue_state_str2dict(
+    dialogue_state: str, slot_type_filtering: List[str] = None
+):
+    """
+    Converts the ; separated Dialogue State linearization to a domain-slot-value dictionary.
+    When *slot_type_filtering* is provided, it filters out the slots which are not part of this list.
+    """
+    dict_state = {}
+
+    # Considering every word after "[State] " to discard the transcription if present.
+    dialogue_state = dialogue_state.split("[State] ")[-1]
+    if ";" not in dialogue_state:
+        # One slot or none
+        if "=" not in dialogue_state:
+            return {}
+        else:
+            slot_value = dialogue_state.split("=")
+            slot, value = (slot_value[0], slot_value[1])
+            if "-" not in slot:
+                return {}
+            else:
+                domain_slot = slot.split("-")
+                domain, slot_type = (domain_slot[0], domain_slot[1])
+                return {domain: {slot_type: value}}
+    else:
+        # Multiple slots
+        slots = dialogue_state.split(";")
+        for slot_value in slots:
+            if "=" not in slot_value:
+                continue
+            else:
+                slot, value = (
+                    slot_value.split("=")[0].strip(),
+                    slot_value.split("=")[1].strip(),
+                )
+                if slot_type_filtering and slot not in slot_type_filtering:
+                    continue
+                elif "-" in slot:
+                    domain, slot_type = (
+                        slot.split("-")[0].strip(),
+                        slot.split("-")[1].strip(),
+                    )
+                    if domain not in dict_state.keys():
+                        dict_state[domain] = {}
+                    dict_state[domain][slot_type] = value
+
+        return dict_state
+
+
+class JointGoalAccuracyTracker:
+    """
+    Class to track the Joint-Goal Accuracy during training.
+    Keeps track of the number of correct and total dialogue states considered.
+    """
+
+    def __init__(self):
+        self.clear()
+
+    def clear(self):
+        """
+        Resets the correct and total counters of the metric.
+        """
+        self.correct = 0
+        self.total = 0
+
+    def append(self, predictions: List[str], targets: List[str]):
+        """
+        This function is for updating the stats according to the a batch of predictions and targets.
+
+        Arguments
+        ---------
+        predictions : list[str]
+            Predicted dialogue states.
+        targets : list[str]
+            Target dialogue states.
+        """
+        for prediction, reference in zip(predictions, targets):
+            pred = dialogue_state_str2dict(prediction)
+            ref = dialogue_state_str2dict(reference)
+            if pred == ref:
+                self.correct += 1
+            self.total += 1
+
+    def summarize(self):
+        """
+        Averages the current Joint-Goal Accuracy (JGA).
+        Returns
+        -------
+        average_jga
+           Current average Joint-Goal Accuracy (JGA).
+        """
+        average_jga = (
+            round(100 * self.correct / self.total, 2)
+            if self.total != 0
+            else 100.00
+        )
+        return average_jga
