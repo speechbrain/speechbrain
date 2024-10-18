@@ -94,9 +94,29 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         model_outputs = self.mods.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
         phonemes = decoded_output["phonemes"]
+        phonemes = self._remove_eos(phonemes)
         if single:
             phonemes = phonemes[0]
         return phonemes
+
+    def _remove_eos(self, phonemes):
+        """Removes the EOS character from the end of the sequence,
+        if encountered
+
+        Arguments
+        ---------
+        phonemes : list
+            a list of phomemic transcriptions
+
+        Returns
+        -------
+        result : list
+            phonemes, without <eos>
+        """
+        return [
+            item[:-1] if item and item[-1] == "<eos>" else item
+            for item in phonemes
+        ]
 
     def _update_graphemes(self, model_inputs):
         grapheme_sequence_mode = getattr(self.hparams, "grapheme_sequence_mode")
