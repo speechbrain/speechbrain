@@ -194,7 +194,7 @@ def create_experiment_directory(
             # Log quirks again so that it makes it to the log file.
             # Quirks are applied way earlier, before logging is properly setup,
             # so this gives a chance to the user to see them, lowering surprise.
-            sb.utils.quirks.log_quirks()
+            sb.utils.quirks.log_applied_quirks()
 
             # Log beginning of experiment!
             logger.info("Beginning experiment!")
