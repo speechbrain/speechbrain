@@ -1,11 +1,14 @@
 better-apidoc>=0.3.1
-ctc-segmentation>=1.7.0
 https://github.com/kpu/kenlm/archive/master.zip
+myst_nb
 numba>=0.54.1
 pyctcdecode
 recommonmark>=0.7.1
 scikit-learn
 six
+sphinx-copybutton
+sphinx-design
+sphinx-markdown-tables
 sphinx-rtd-theme>=0.4.3
-Sphinx>=3.4.3
+Sphinx>=7.4.1
 transformers

@@ -1,4 +1,4 @@
-Please, refer to the [Hyperparameter Optimization tutorial](https://speechbrain.github.io/tutorial_advanced.html) for more information.
+Please, refer to the [Hyperparameter Optimization tutorial](https://speechbrain.readthedocs.io/en/latest/tutorials/advanced/hyperparameter-optimization.html) for more information.
 
 # **About SpeechBrain**
 - Website: https://speechbrain.github.io/

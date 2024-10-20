@@ -33,4 +33,4 @@ python train.py train.yaml
 
 This template can help you figure out how to set speechbrain for implementing an e2e speech recognizer. However, in a real case, the system must be trained with much more data to provide acceptable performance. For a competitive recipe with more data, see for instance our recipes on LibriSpeech (https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech/ASR).
 
-[For more information, please take a look into the "ASR from scratch" tutorial](https://colab.research.google.com/drive/1aFgzrUv3udM_gNJNUoLaHIm78QHtxdIz)
+[For more information, please take a look into the "ASR from scratch" tutorial](https://speechbrain.readthedocs.io/en/latest/tutorials/tasks/speech-recognition-from-scratch.html)

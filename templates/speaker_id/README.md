@@ -28,4 +28,4 @@ Please reach out to the SpeechBrain
 team if any errors are found or clarification is needed about how
 parts of the template work. Good Luck!
 
-[For more information, please take a look into the "speaker-id from scratch" tutorial](https://colab.research.google.com/drive/1UwisnAjr8nQF3UnrkIJ4abBMAWzVwBMh)
+[For more information, please take a look into the "speaker-id from scratch" tutorial](https://speechbrain.readthedocs.io/en/latest/tutorials/tasks/speech-classification-from-scratch.html)
