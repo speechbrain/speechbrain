@@ -943,18 +943,27 @@ class PositionalwiseFeedForward(nn.Module):
 
 class RotationMatrix(nn.Module):
     """
-    The rotation matrices for each position in the sequence.
+    The rotation matrice for the :class:`~RoPEMHA`.
     The shape of these matrices is supposedly to be max_lengh * d_attnhead * d_attnhead.
     However, due to the sparsity of the rotation matrices, we only need to store max_lengh * d_attnhead elements
+    see eq(15) of https://arxiv.org/pdf/2104.09864
+
+    Arguments
+    ---------
+    max_len : int
+        The allowed max length of the input sequence.
+    emb_dim : int
+        Size of the embedding, which should be consistent with the dimsion of 
+        each attention head
     """
     
-    def __init__(self, max_len, emb_dim, base=10000.0, dtype = torch.float32):
+    def __init__(self, max_len: int, emb_dim: int):
         super().__init__()
         
         # 10000**(-2(i-1)/d) for i in [1,2,...,d/2]
         inv_freq = torch.exp(
             torch.arange(0, emb_dim, 2, dtype=torch.float32)
-            * -(math.log(base) / emb_dim)
+            * -(math.log(10000.0) / emb_dim)
         )
         
         positions = torch.arange(
@@ -978,7 +987,22 @@ class RotationMatrix(nn.Module):
         self.register_buffer("sines", sines)
         
     @torch.no_grad()
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
+        """
+        Builds the rotation matrice.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            input tensor with shape batch_size, seq_len, head_dim
+
+        Returns
+        -------
+        cosines, sines: torch.Tensor
+            The cosine and sine part of the rotation matrix.
+            Each part has a shape of `[seq_len, head_dim]`
+        """
+                
         with torch.no_grad():
             seq_len = x.size(1)
             return (
@@ -1004,8 +1028,9 @@ class RoPEMHA(nn.Module):
     Example
     -------
     >>> inputs = torch.rand([6, 60, 512])
-    >>> pos_emb = torch.rand([1, 2*60-1, 512])
-    >>> net = RelPosMHAXL(num_heads=8, embed_dim=inputs.shape[-1])
+    >>> num_heads = 8
+    >>> sinusoid_table = RotationMatrix([max_len, 512])
+    >>> net = RoPEMHA(num_heads=num_heads, embed_dim=inputs.shape[-1])
     >>> outputs, attn = net(inputs, inputs, inputs, pos_emb)
     >>> outputs.shape
     torch.Size([6, 60, 512])
@@ -1030,7 +1055,7 @@ class RoPEMHA(nn.Module):
         self.head_dim = embed_dim // num_heads
         self.vhead_dim = self.vdim // num_heads
         
-        self.use_pt_attn = True
+        self.use_pt_attn = False
         
         assert (
             self.head_dim * num_heads == self.embed_dim
@@ -1240,6 +1265,7 @@ class RoPEMHA(nn.Module):
                 attn_score, value.transpose(1, 2)
             )  # (batch, head, time1, d_k)
         else:
+            raise NotImplementedError
             if key_padding_mask is not None:
                 key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(bsz, self.num_heads, klen, qlen)
         
