@@ -119,6 +119,14 @@ Beyond waveforms, this format is used for any tensor in the computation pipeline
 (batch_size, time_steps, n_filters)
 ```
 
+## Modified PyTorch globals and GPU quirks
+
+For various reasons, SpeechBrain modifies some PyTorch global configuration to work around issues or improve execution speed, sometimes depending on GPU configuration.  
+We do so when we consider that some modified defaults make more sense given our usecases than PyTorch's defaults. For instance, we very commonly encounter dynamic tensor shapes, which comes at odds with certain auto-tuning methods.
+
+These changes are applied in a standardized location, [`quirks.py`](https://github.com/speechbrain/speechbrain/tree/develop/speechbrain/utils/quirks.py). They are logged when starting an experiment.
+
+The `SB_DISABLE_QUIRKS` environment variable lets you disable quirks easily. For instance, to disable TensorFloat32 and re-enable JIT profiling, you would use `SB_DISABLE_QUIRKS=allow_tf32,disable_jit_profiling`.
 
 ## Reproducibility
 
