@@ -386,7 +386,11 @@ class Filterbank(torch.nn.Module):
     log_mel : bool
         If True, it computes the log of the FBANKs.
     filter_shape : str
-        Shape of the filters ('triangular', 'rectangular', 'gaussian').
+        Shape of the filters ('triangular', 'rectangular', 'gaussian',
+        'triangularclassic'). `triangularclassic` does not use a (potentially
+        learnable) fixed band for both sides of the filter, but instead computes
+        the slopes for both sides according to the the previous and next
+        frequencies on the mel scale.
     f_min : int
         Lowest frequency for the Mel filters.
     f_max : int
@@ -421,6 +425,8 @@ class Filterbank(torch.nn.Module):
         If False, it the central frequency and the band of each filter are
         added into nn.parameters. If True, the standard frozen features
         are computed.
+    snap_to_bins : bool
+        If True, central frequencies get aligned to the smaller FFT bin.
 
     Example
     -------
@@ -448,6 +454,7 @@ class Filterbank(torch.nn.Module):
         param_change_factor=1.0,
         param_rand_factor=0.0,
         freeze=True,
+        snap_to_bins=False,
     ):
         super().__init__()
         self.n_mels = n_mels
@@ -481,16 +488,31 @@ class Filterbank(torch.nn.Module):
             )
             logger.error(err_msg, exc_info=True)
 
+        # Frequency axis
+        all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
+
         # Filter definition
         mel = torch.linspace(
             self._to_mel(self.f_min), self._to_mel(self.f_max), self.n_mels + 2
         )
         hz = self._to_hz(mel)
 
+        if snap_to_bins:
+            # Snap every frequency to the lower matching FFT bin
+            hz = torch.gather(all_freqs, 0, torch.searchsorted(all_freqs, hz))
+
         # Computation of the filter bands
         band = hz[1:] - hz[:-1]
         self.band = band[:-1]
         self.f_central = hz[1:-1]
+
+        if snap_to_bins and torch.any(band <= 0.00001).item():
+            raise ValueError(
+                "Failed to construct filterbank: at least 2 filterbanks shares "
+                "the same central frequency after snapping. Try lowering the "
+                "filterbank count or increasing the FFT size, they're likely "
+                "to be wrong anyway."
+            )
 
         # Adding the central frequency and the band to the list of nn param
         if not self.freeze:
@@ -501,9 +523,8 @@ class Filterbank(torch.nn.Module):
                 self.band / (self.sample_rate * self.param_change_factor)
             )
 
-        # Frequency axis
-        all_freqs = torch.linspace(0, self.sample_rate // 2, self.n_stft)
-
+        self.all_fourier_bins = all_freqs
+        self.all_fbank_freqs = hz
         # Replicating for all the filters
         self.all_freqs_mat = all_freqs.repeat(self.f_central.shape[0], 1)
 
@@ -615,7 +636,38 @@ class Filterbank(torch.nn.Module):
         """
         return 700 * (10 ** (mel / 2595) - 1)
 
-    def _triangular_filters(self, all_freqs, f_central, band):
+    def _triangular_classic_filters(self):
+        """Returns fbank matrix using triangular filters, using the more
+        conventional definition.
+
+        TODO"""
+
+        num_mels = self.f_central.shape[0]
+        num_bins = self.all_fourier_bins.shape[0]
+
+        fourier_bins_mat = self.all_fourier_bins.repeat(num_mels, 1)
+        fbank_freqs_mat = self.all_fbank_freqs.repeat(num_bins, 1).T
+
+        left_freq = fbank_freqs_mat[:-2]
+        right_freq = fbank_freqs_mat[2:]
+        center_freq = fbank_freqs_mat[1:-1]
+
+        left_band = center_freq - left_freq
+        right_band = right_freq - center_freq
+
+        left_side = (fourier_bins_mat - left_freq) / left_band
+        right_side = (right_freq - fourier_bins_mat) / right_band
+
+        # Adding zeros for negative values
+        zero = torch.zeros(1, device=self.device_inp)
+        fbank_matrix = torch.max(
+            zero, torch.min(left_side, right_side)
+        ).transpose(0, 1)
+
+        return fbank_matrix
+
+
+    def _triangular_fixed_band_filters(self, all_freqs, f_central, band):
         """Returns fbank matrix using triangular filters.
 
         Arguments
@@ -714,8 +766,11 @@ class Filterbank(torch.nn.Module):
         -------
         fbank_matrix : torch.Tensor
         """
-        if self.filter_shape == "triangular":
-            fbank_matrix = self._triangular_filters(
+        if self.filter_shape == "triangularclassic":
+            fbank_matrix = self._triangular_classic_filters()
+
+        elif self.filter_shape == "triangular":
+            fbank_matrix = self._triangular_fixed_band_filters(
                 self.all_freqs_mat, f_central_mat, band_mat
             )
 
