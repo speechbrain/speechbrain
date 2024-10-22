@@ -35,7 +35,11 @@ class ResGenBrain(sb.Brain):
         padding_mask = ~self.hparams.padding_mask(
             input_ids, pad_idx=tokenizer.pad_token_id
         )
-        outputs = self.modules.llama2_model(input_ids, padding_mask).logits
+
+        outputs = self.modules.llama2_model(
+            input_ids=input_ids,
+            attention_mask=padding_mask,
+        ).logits
 
         return outputs
 
@@ -57,14 +61,17 @@ class ResGenBrain(sb.Brain):
                 prompt_bos, pad_idx=tokenizer.pad_token_id
             )
             hyps = self.modules.llama2_model.generate(
-                prompt_bos.detach(), padding_mask.detach()
+                input_ids=prompt_bos.detach(),
+                attention_mask=padding_mask.detach(),
             )
         elif stage == sb.Stage.TEST:
             padding_mask = ~self.hparams.padding_mask(
                 prompt_bos, pad_idx=tokenizer.pad_token_id
             )
             hyps = self.modules.llama2_model.generate(
-                prompt_bos.detach(), padding_mask.detach(), "beam"
+                input_ids=prompt_bos.detach(),
+                attention_mask=padding_mask.detach(),
+                decoder_type="beam",
             )
 
         if stage != sb.Stage.TRAIN:

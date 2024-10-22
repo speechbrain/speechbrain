@@ -1,0 +1,18 @@
+# ################################
+# Model: Whisper + TLTR + Audio_Proj + LLaMa3
+# Authors: Yingzhi Wang 2024
+# ################################
+output_folder: results/with_llama3-evaluate
+eval_log: !ref <output_folder>/eval_log.txt
+
+inference_folder: !PLACEHOLDER # please make up an inference folder same as the huggingface repo with your trained model.ckpt and llama3.ckpt
+
+# URL for another llm model for audio classification, make sure enough num of gpus are allowed when using a large model
+external_llm: meta-llama/Meta-Llama-3-70B-Instruct
+
+# evaluation annotations
+eval_esc50_json: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/eval_esc50.json
+eval_iemocap_emo_json: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/eval_iemocap_emo.json
+eval_voxceleb_gender_json: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/eval_voxceleb_gender.json
+eval_voxceleb_age_json: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/eval_voxceleb_age.json
+eval_librispeech_asr_json: !PLACEHOLDER # /path/to/results/with_llama3-stage0/1995/eval_librispeech_asr.json
