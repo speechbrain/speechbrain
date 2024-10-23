@@ -359,8 +359,6 @@ def create_csv(
     nb_samples = 0
 
     to_remove = GARBAGE_UTTERANCE_TAGS
-    if not punctuation:
-        to_remove += PUNCTUATION_TAGS
     if not filler:
         to_remove += FILLERS
 
@@ -451,8 +449,6 @@ def HF_create_csv(
     nb_samples = 0
 
     to_remove = GARBAGE_UTTERANCE_TAGS
-    if not punctuation:
-        to_remove += PUNCTUATION_TAGS
     if not filler:
         to_remove += FILLERS
 
