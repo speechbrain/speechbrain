@@ -202,7 +202,8 @@ class ASR(sb.Brain):
             )
         elif stage == sb.Stage.TEST:
             predicted_words = [
-                hyp[0].text.split(" ") for hyp in predicted_tokens
+                self.tokenizer.decode_ids(utt_seq).split(" ")
+                for utt_seq in predicted_tokens
             ]
 
         if stage != sb.Stage.TRAIN:
