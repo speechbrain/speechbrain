@@ -1,0 +1,46 @@
+{
+    "Open slots": [
+        "attraction-name",
+        "hotel-name",
+        "restaurant-name",
+        "taxi-departure",
+        "taxi-destination",
+        "train-departure",
+        "train-destination",
+        "bus-destination",
+        "bus-departure"
+    ],
+    "Categorical slots": [
+        "attraction-area",
+        "attraction-type",
+        "hotel-area",
+        "hotel-type",
+        "hotel-day",
+        "hotel-people",
+        "hotel-pricerange",
+        "hotel-stay",
+        "hotel-stars",
+        "hotel-internet",
+        "hotel-parking",
+        "restaurant-area",
+        "restaurant-food",
+        "restaurant-day",
+        "restaurant-people",
+        "restaurant-pricerange",
+        "train-people",
+        "train-day",
+        "hospital-department",
+        "bus-people",
+        "bus-day"
+
+    ],
+    "Time slots": [
+        "restaurant-time",
+        "taxi-arriveby",
+        "taxi-leaveat",
+        "train-arriveby",
+        "train-leaveat",
+        "bus-leaveat",
+        "bus-arriveby"
+    ]
+}
