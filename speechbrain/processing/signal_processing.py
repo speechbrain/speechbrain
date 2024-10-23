@@ -665,3 +665,27 @@ def gabor_impulse_response_legacy_complex(t, center, fwhm):
         denominator_sinusoid[:, :, 0] * torch.zeros_like(gaussian)
     ) + (denominator_sinusoid[:, :, 1] * gaussian)
     return output
+
+
+def gammatone_impulse_response(t, center_freq, order, decay):
+    """
+    Function for generating gammatone impulse responses
+    as used by GammatoneConv proposed in
+
+    Helena Peic Tukuljac, Benjamin Ricaud, Nicolas Aspert and Laurent Colbois, "Learnable filter-banks
+    for CNN-based audio applications", in Proc of NLDL 2022 (https://septentrio.uit.no/index.php/nldl/article/view/6279)
+    """
+    alpha = order - 1
+
+    modulation = torch.cos(2 * torch.pi * torch.outer(center_freq, t))
+    t_alpha = torch.float_power(t.unsqueeze(1), alpha)
+    envelop = t_alpha.transpose(0, 1) * torch.exp(
+        -2 * torch.pi * torch.outer(decay, t)
+    )
+
+    norm_n = (4 * torch.pi * decay) ** ((2 * alpha + 1) * 0.5)
+    norm_d = torch.sqrt(2 * torch.exp(torch.lgamma(2 * alpha + 1)))
+
+    gammatone_norm = norm_n / norm_d
+    gammatone = envelop * modulation * gammatone_norm.unsqueeze(1)
+    return gammatone.float()
