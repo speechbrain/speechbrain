@@ -195,18 +195,12 @@ class ASR(sb.Brain):
                 logits_transducer, tokens, wav_lens, token_lens
             )
 
-        if stage == sb.Stage.VALID:
+        if stage != sb.Stage.TRAIN:
             # Decode token terms to words
             predicted_words = self.tokenizer(
                 predicted_tokens, task="decode_from_list"
             )
-        elif stage == sb.Stage.TEST:
-            predicted_words = [
-                self.tokenizer.decode_ids(utt_seq).split(" ")
-                for utt_seq in predicted_tokens
-            ]
 
-        if stage != sb.Stage.TRAIN:
             # Convert indices to words
             target_words = undo_padding(tokens, token_lens)
             target_words = self.tokenizer(target_words, task="decode_from_list")
