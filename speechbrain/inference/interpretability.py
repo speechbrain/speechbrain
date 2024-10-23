@@ -132,7 +132,7 @@ class PIQAudioInterpreter(Pretrained):
 
         return x_int_sound_domain, text_lab
 
-    def interpret_file(self, path, savedir="audio_cache"):
+    def interpret_file(self, path, savedir=None):
         """Classifies the given audiofile into the given set of labels.
         It also provides the interpretation in the audio domain.
 
@@ -157,7 +157,7 @@ class PIQAudioInterpreter(Pretrained):
             fl,
             source=source,
             savedir=savedir,
-            local_strategy=LocalStrategy.NO_LINK,
+            local_strategy=LocalStrategy.SYMLINK,
         )
 
         batch, fs_file = torchaudio.load(path)
