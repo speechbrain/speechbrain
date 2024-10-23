@@ -234,7 +234,6 @@ class GPTResponseGenerator(ResponseGenerator):
 
     >>> tmpdir = getfixture("tmpdir")
     >>> res_gen_model = GPTResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
-    ... savedir="tmpdir",
     ... pymodule_file="custom.py")  # doctest: +SKIP
     >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
     """
@@ -350,7 +349,6 @@ class Llama2ResponseGenerator(ResponseGenerator):
 
     >>> tmpdir = getfixture("tmpdir")
     >>> res_gen_model = Llama2ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-Llama2-Response_Generation",
-    ... savedir="tmpdir",
     ... pymodule_file="custom.py")  # doctest: +SKIP
     >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
     """

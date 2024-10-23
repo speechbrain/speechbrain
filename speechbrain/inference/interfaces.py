@@ -48,7 +48,7 @@ def foreign_class(
     use_auth_token=False,
     download_only=False,
     huggingface_cache_dir=None,
-    local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
+    local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -278,7 +278,7 @@ class Pretrained(torch.nn.Module):
             for p in self.mods.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path, savedir="."):
+    def load_audio(self, path, savedir=None):
         """Load an audio file with this model's input spec
 
         When using a speech model, it is important to use the same type of data,
@@ -293,7 +293,7 @@ class Pretrained(torch.nn.Module):
             fl,
             source=source,
             savedir=savedir,
-            local_strategy=LocalStrategy.NO_LINK,
+            local_strategy=LocalStrategy.SYMLINK,
         )
         signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
@@ -405,7 +405,7 @@ class Pretrained(torch.nn.Module):
         download_only=False,
         huggingface_cache_dir=None,
         overrides_must_match=True,
-        local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
+        local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
