@@ -134,6 +134,7 @@ def foreign_class(
     with open(hparams_local_path) as fin:
         hparams = load_hyperpyyaml(fin, overrides, overrides_must_match)
 
+    hparams["savedir"] = savedir
     # Pretraining:
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
@@ -507,6 +508,9 @@ class Pretrained(torch.nn.Module):
             hparams = load_hyperpyyaml(
                 fin, overrides, overrides_must_match=overrides_must_match
             )
+
+        # add savedir to hparams
+        hparams["savedir"] = savedir
 
         # Pretraining:
         pretrainer = hparams.get("pretrainer", None)
