@@ -344,7 +344,7 @@ class Pretrainer:
                 paramfiles[name] = self.collect_in / filename
             else:
                 raise ValueError(
-                    f'Pretrainer could not locate file `{name}` for loading! (hint: `Pretrainer.collect_in` no longer defaults to "model_checkpoints", is your code expecting that file to be there?)'
+                    f'Pretrainer has never collected `{name}`, did you forget a call to `collect_files`? Could not fall back to `collect_in`, as it was not specified (default is no longer "model_checkpoints").'
                 )
         self._call_load_hooks(paramfiles)
 
