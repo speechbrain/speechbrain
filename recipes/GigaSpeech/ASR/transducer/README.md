@@ -48,10 +48,18 @@ According to our tests, the performance is not affected.
 
 Results are obtained with beam search and no LM (no-streaming i.e. full context).
 
+**TBD: The final models are currently in training.** This model has already been succesfully trained, though. This will be updated when the checkpoints are ready for download.
+
+<!--
+
 | Language | Release |  LM | Val. CER | Val. WER | Test CER | Test WER | Model link | GPUs |
 | ------------- |:-------------:| -----:| -----:| -----:| -----:| -----:| :-----------:| :-----------:|
 
-The output folders with checkpoints and logs can be found [here](https://www.dropbox.com/sh/852eq7pbt6d65ai/AACv4wAzk1pWbDo4fjVKLICYa?dl=0).
+-->
+
+<!-- NOT READY YET: also update the following URL when uploaded
+
+The output folders with checkpoints and logs can be found [here](). -->
 
 ## Streaming model
 
@@ -73,6 +81,8 @@ may end up forming indirect dependencies to audio many seconds ago.
 
 |       | full | cs=32 (1280ms) | 16 (640ms) | 8 (320ms) |
 |:-----:|:----:|:-----:|:-----:|:-----:|
+
+**TBD: The final models are currently in training.** This model has already been succesfully trained, though. This will be updated when the checkpoints are ready for download.
 
 ### Inference
 

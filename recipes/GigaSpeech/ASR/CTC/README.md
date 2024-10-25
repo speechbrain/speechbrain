@@ -62,7 +62,9 @@ This can be done by modifying the current recipe. We invite you to have a look a
 
 | Release | Hyperparams file | Decoding method | Finetuning Split | Test WER | Dev WER |  HuggingFace link | Full model link | Training GPUs |
 |:-------------:|:---------------------------:|  :----------:|  :-----:| :-----:| :-----:| :-----:| :-----:| :-----:|
-| 05-08-23 | train_hf_wavlm.yaml | GreedySearch | XL  | xx | xx | TBD | TBD | 4xRTX 3090 |
+| 25-10-2024 | train_hf_wavlm.yaml | GreedySearch | XL  | 11.88% | 11.86% | Unavailable\* | Unavailable\* | 8xRTX 3090 |
+
+\*: Unfortunately, we are unable to upload the checkpoints for the WavLM model at this time. We currently don't have plans to remedy this.
 
 # **Citing SpeechBrain**
 Please, cite SpeechBrain if you use it for your research or business.
