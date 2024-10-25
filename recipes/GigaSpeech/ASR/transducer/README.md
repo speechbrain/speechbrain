@@ -48,7 +48,7 @@ According to our tests, the performance is not affected.
 
 Results are obtained with beam search and no LM (no-streaming i.e. full context).
 
-**TBD: The final models are currently in training.** This model has already been succesfully trained, though. This will be updated when the checkpoints are ready for download.
+**TBD: The final models are currently in training.** This model has already been successfully trained, though. This will be updated when the checkpoints are ready for download.
 
 <!--
 
@@ -82,7 +82,7 @@ may end up forming indirect dependencies to audio many seconds ago.
 |       | full | cs=32 (1280ms) | 16 (640ms) | 8 (320ms) |
 |:-----:|:----:|:-----:|:-----:|:-----:|
 
-**TBD: The final models are currently in training.** This model has already been succesfully trained, though. This will be updated when the checkpoints are ready for download.
+**TBD: The final models are currently in training.** This model has already been successfully trained, though. This will be updated when the checkpoints are ready for download.
 
 ### Inference
 
