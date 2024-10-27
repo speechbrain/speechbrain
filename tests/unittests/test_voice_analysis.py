@@ -9,7 +9,10 @@ import torch
 
 def test_voice_analysis():
 
-    from speechbrain.processing.voice_analysis import vocal_characteristics
+    from speechbrain.processing.voice_analysis import (
+        compute_gne,
+        vocal_characteristics,
+    )
 
     # Create 3-second pure tone wave with known f0
     sample_rate = 16000
@@ -22,7 +25,7 @@ def test_voice_analysis():
     tone = torch.sin(torch.tensor(values))
 
     # Add noise for better HNR calculation
-    tone += torch.randn(tone.shape) * 0.01
+    tone += torch.randn(tone.shape) * 0.005
 
     # Add batch dimension
     estimated_f0, voiced_frames, jitter, shimmer, hnr = vocal_characteristics(
@@ -30,5 +33,10 @@ def test_voice_analysis():
     )
 
     assert all(abs(estimated_f0 - frequency) < 2)
-    assert all(jitter < 0.03)
-    assert all(shimmer < 0.02)
+    assert jitter.mean() < 0.01
+    assert shimmer.mean() < 0.01
+    assert hnr.mean() > 33
+
+    gne = compute_gne(tone, sample_rate=sample_rate)
+
+    assert gne.mean() < -10
