@@ -182,7 +182,7 @@ def compute_periodic_features(audio, best_lag):
 
     # Divide into period-length segments
     back_offset = len(audio) - len(audio) % lag
-    periods = audio[:back_offset].view(-1, lag)
+    periods = audio[:back_offset].view(-1, lag).abs()
 
     # Compare peak index of each period to its neighbors. Divide by lag to get relative.
     # Here we use min of lag and 1 - lag to avoid wraparound errors
