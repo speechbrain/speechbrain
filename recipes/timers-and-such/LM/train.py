@@ -173,7 +173,7 @@ if __name__ == "__main__":
     )
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Create experiment directory

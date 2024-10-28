@@ -11,7 +11,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master

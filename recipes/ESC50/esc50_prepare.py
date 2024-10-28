@@ -2,7 +2,7 @@
 Creates data manifest files for ESC50
 If the data does not exist in the specified --data_folder, we download the data automatically.
 
-https://github.com/karoldvl/ESC-50/
+https://github.com/karolpiczak/ESC-50/
 
 Authors:
  * Cem Subakan 2022, 2023
@@ -12,7 +12,6 @@ Authors:
 """
 
 import json
-import logging
 import os
 import shutil
 
@@ -22,10 +21,11 @@ import torchaudio
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_data_csv, read_audio
 from speechbrain.utils.fetching import LocalStrategy, fetch
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-ESC50_DOWNLOAD_URL = "https://github.com/karoldvl/ESC-50/archive/master.zip"
+ESC50_DOWNLOAD_URL = "https://github.com/karolpiczak/ESC-50/archive/master.zip"
 MODIFIED_METADATA_FILE_NAME = "esc50_speechbrain.csv"
 
 ACCEPTABLE_FOLD_NUMS = [1, 2, 3, 4, 5]
@@ -49,7 +49,7 @@ def download_esc50(data_path):
         # download the data
         archive_path = fetch(
             "master.zip",
-            "https://github.com/karoldvl/ESC-50/archive/",
+            "https://github.com/karolpiczak/ESC-50/archive/",  # noqa ignore-url-check
             savedir=temp_path,
             # URL, so will be fetched directly in the savedir anyway
             local_strategy=LocalStrategy.COPY_SKIP_CACHE,

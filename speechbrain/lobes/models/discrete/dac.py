@@ -9,7 +9,6 @@ Author
 
 """
 
-import logging
 import math
 from pathlib import Path
 from typing import List, Union
@@ -18,6 +17,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from speechbrain.utils.logger import get_logger
 
 # Note: The path torch.nn.utils.parametrizations may not be available
 # in older PyTorch versions, such as 1.13.1. To ensure compatibility,
@@ -31,7 +32,7 @@ try:
 except ImportError:
     from torch.nn.utils import weight_norm
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 SUPPORTED_VERSIONS = ["1.0.0"]
 

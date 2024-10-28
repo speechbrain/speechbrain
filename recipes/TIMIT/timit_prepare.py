@@ -9,13 +9,13 @@ Authors
 """
 
 import json
-import logging
 import os
 
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 SAMPLERATE = 16000
 
 

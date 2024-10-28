@@ -10,7 +10,6 @@ Authors
  * Ha Nguyen 2023
 """
 
-import logging
 from functools import cached_property
 
 import numpy as np
@@ -20,6 +19,7 @@ import torch.nn as nn
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+from speechbrain.utils.logger import get_logger
 
 SAMPLE_RATE = 16000
 N_FFT = 400
@@ -27,7 +27,7 @@ HOP_LENGTH = 160
 CHUNK_LENGTH = 30
 N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Whisper(HFTransformersInterface):

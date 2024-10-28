@@ -11,7 +11,6 @@ Authors:
   * Adel Moumen 2023
 """
 
-import logging
 from collections import Counter
 from operator import itemgetter
 from typing import List
@@ -27,8 +26,9 @@ from torch.utils.data import (
 )
 
 from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ReproducibleRandomSampler(RandomSampler):

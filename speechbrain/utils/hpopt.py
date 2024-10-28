@@ -11,7 +11,6 @@ Authors
 
 import importlib
 import json
-import logging
 import os
 import sys
 from datetime import datetime
@@ -19,8 +18,9 @@ from datetime import datetime
 from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 MODULE_ORION = "orion.client"
 FORMAT_TIMESTAMP = "%Y%m%d%H%M%S%f"

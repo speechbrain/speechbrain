@@ -17,6 +17,7 @@ from tqdm import tqdm
 import speechbrain as sb
 from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.inference.encoders import MelSpectrogramEncoder
+from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_libritts_extract_speaker.pkl"
 TRAIN_JSON = "train.json"
@@ -28,7 +29,7 @@ def setup_logger():
     """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     return logger
 
 

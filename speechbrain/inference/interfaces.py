@@ -14,8 +14,6 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import hashlib
-import logging
 import sys
 import warnings
 from types import SimpleNamespace
@@ -33,9 +31,10 @@ from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import split_path
 from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.fetching import LocalStrategy, fetch
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.superpowers import import_from_path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def foreign_class(
@@ -49,7 +48,7 @@ def foreign_class(
     use_auth_token=False,
     download_only=False,
     huggingface_cache_dir=None,
-    local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
+    local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
     **kwargs,
 ):
     """Fetch and load an interface from an outside source
@@ -87,8 +86,7 @@ def foreign_class(
         Whether an error will be thrown when an override does not match
         a corresponding key in the yaml_stream.
     savedir : str or Path
-        Where to put the pretraining material. If not given, will use
-        ./pretrained_models/<class-name>-hash(source).
+        Where to put the pretraining material. If not given, just use cache.
     use_auth_token : bool (default: False)
         If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
         default is False because the majority of models are public.
@@ -108,8 +106,6 @@ def foreign_class(
     object
         An instance of a class with the given classname from the given pymodule file.
     """
-    if savedir is None:
-        savedir = f"./pretrained_models/{classname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
     hparams_local_path = fetch(
         filename=hparams_file,
         source=source,
@@ -138,6 +134,7 @@ def foreign_class(
     with open(hparams_local_path) as fin:
         hparams = load_hyperpyyaml(fin, overrides, overrides_must_match)
 
+    hparams["savedir"] = savedir
     # Pretraining:
     pretrainer = hparams["pretrainer"]
     pretrainer.set_collect_in(savedir)
@@ -282,7 +279,7 @@ class Pretrained(torch.nn.Module):
             for p in self.mods.parameters():
                 p.requires_grad = False
 
-    def load_audio(self, path, savedir="."):
+    def load_audio(self, path, savedir=None):
         """Load an audio file with this model's input spec
 
         When using a speech model, it is important to use the same type of data,
@@ -297,7 +294,7 @@ class Pretrained(torch.nn.Module):
             fl,
             source=source,
             savedir=savedir,
-            local_strategy=LocalStrategy.NO_LINK,
+            local_strategy=LocalStrategy.SYMLINK,
         )
         signal, sr = torchaudio.load(str(path), channels_first=False)
         return self.audio_normalizer(signal, sr)
@@ -409,7 +406,7 @@ class Pretrained(torch.nn.Module):
         download_only=False,
         huggingface_cache_dir=None,
         overrides_must_match=True,
-        local_strategy: LocalStrategy = LocalStrategy.NO_LINK,
+        local_strategy: LocalStrategy = LocalStrategy.SYMLINK,
         **kwargs,
     ):
         """Fetch and load based from outside source based on HyperPyYAML file
@@ -448,8 +445,7 @@ class Pretrained(torch.nn.Module):
         overrides : dict
             Any changes to make to the hparams file when it is loaded.
         savedir : str or Path
-            Where to put the pretraining material. If not given, will use
-            ./pretrained_models/<class-name>-hash(source).
+            Where to put the pretraining material. If not given, just use cache.
         use_auth_token : bool (default: False)
             If true Huggingface's auth_token will be used to load private models from the HuggingFace Hub,
             default is False because the majority of models are public.
@@ -473,9 +469,6 @@ class Pretrained(torch.nn.Module):
         -------
         Instance of cls
         """
-        if savedir is None:
-            clsname = cls.__name__
-            savedir = f"./pretrained_models/{clsname}-{hashlib.md5(source.encode('UTF-8', errors='replace')).hexdigest()}"
         hparams_local_path = fetch(
             filename=hparams_file,
             source=source,
@@ -515,6 +508,9 @@ class Pretrained(torch.nn.Module):
             hparams = load_hyperpyyaml(
                 fin, overrides, overrides_must_match=overrides_must_match
             )
+
+        # add savedir to hparams
+        hparams["savedir"] = savedir
 
         # Pretraining:
         pretrainer = hparams.get("pretrainer", None)

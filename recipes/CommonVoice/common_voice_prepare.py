@@ -12,16 +12,16 @@ Adel Moumen 2024
 
 import csv
 import functools
-import logging
 import os
 import re
 import unicodedata
 from dataclasses import dataclass
 
 from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 VERBOSE = False
 SAMPLING_RATE = 16_000
@@ -195,7 +195,9 @@ class CVRow:
     words: str
 
 
-def process_line(line, convert_to_wav, data_folder, language, accented_letters):
+def process_line(
+    line, convert_to_wav, data_folder, language, accented_letters, header_map
+):
     """Process a line of CommonVoice tsv file.
 
     Arguments
@@ -215,6 +217,8 @@ def process_line(line, convert_to_wav, data_folder, language, accented_letters):
     accented_letters : bool
         Defines if accented letters will be kept as individual letters or
         transformed to the closest non-accented letters.
+    header_map : Dict[str, int]
+        Map from column name to column indices
 
     Returns
     -------
@@ -222,15 +226,19 @@ def process_line(line, convert_to_wav, data_folder, language, accented_letters):
         A dataclass containing the information about the line.
     """
 
+    columns = line.strip().split("\t")
+    spk_id = columns[header_map["client_id"]]
+    audio_path_filename = columns[header_map["path"]]
+    words = columns[header_map["sentence"]]
+
     # Path is at indice 1 in Common Voice tsv files. And .mp3 files
     # are located in datasets/lang/clips/
-    audio_path = data_folder + "/clips/" + line.split("\t")[1]
+    audio_path = data_folder + "/clips/" + audio_path_filename
 
     if convert_to_wav:
         audio_path = convert_mp3_to_wav(audio_path)
 
     file_name = audio_path.split(".")[-2].split("/")[-1]
-    spk_id = line.split("\t")[0]
     snt_id = file_name
 
     # Reading the signal (to retrieve duration in seconds)
@@ -244,7 +252,6 @@ def process_line(line, convert_to_wav, data_folder, language, accented_letters):
     duration = info.num_frames / info.sample_rate
 
     # Getting transcript
-    words = line.split("\t")[2]
 
     # Unicode Normalization
     words = unicode_normalisation(words)
@@ -319,8 +326,15 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    loaded_csv = open(orig_tsv_file, "r").readlines()[1:]
-    nb_samples = len(loaded_csv)
+    csv_lines = open(orig_tsv_file, "r").readlines()
+    header_line = csv_lines[0]
+    csv_data_lines = csv_lines[1:]
+    nb_samples = len(csv_data_lines)
+
+    header_map = {
+        column_name: index
+        for index, column_name in enumerate(header_line.split("\t"))
+    }
 
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
     logger.info(msg)
@@ -338,6 +352,7 @@ def create_csv(
         data_folder=data_folder,
         language=language,
         accented_letters=accented_letters,
+        header_map=header_map,
     )
 
     # Stream into a .tmp file, and rename it to the real path at the end.
@@ -350,7 +365,7 @@ def create_csv(
 
         csv_writer.writerow(["ID", "duration", "wav", "spk_id", "wrd"])
 
-        for row in parallel_map(line_processor, loaded_csv):
+        for row in parallel_map(line_processor, csv_data_lines):
             if row is None:
                 continue
 
@@ -370,7 +385,7 @@ def create_csv(
     # Final prints
     msg = "%s successfully created!" % (csv_file)
     logger.info(msg)
-    msg = "Number of samples: %s " % (str(len(loaded_csv)))
+    msg = "Number of samples: %s " % (str(len(csv_data_lines)))
     logger.info(msg)
     msg = "Total duration: %s Hours" % (str(round(total_duration / 3600, 2)))
     logger.info(msg)

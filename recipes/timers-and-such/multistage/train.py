@@ -328,7 +328,7 @@ if __name__ == "__main__":
     ) = dataio_prepare(hparams)
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Brain class initialization
