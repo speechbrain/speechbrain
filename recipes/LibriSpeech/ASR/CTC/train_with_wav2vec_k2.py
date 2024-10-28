@@ -55,7 +55,7 @@ class ASR(sb.Brain):
 
         # Forward pass
 
-        # Handling SpeechBrain vs HuggingFance pretrained models
+        # Handling SpeechBrain vs HuggingFace pretrained models
         if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
             latents = self.modules.extractor(wavs)
             feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)[

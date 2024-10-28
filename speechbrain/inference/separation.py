@@ -81,7 +81,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, savedir="audio_cache"):
+    def separate_file(self, path, savedir=None):
         """Separate sources from file.
 
         Arguments
@@ -101,7 +101,7 @@ class SepformerSeparation(Pretrained):
             fl,
             source=source,
             savedir=savedir,
-            local_strategy=LocalStrategy.NO_LINK,
+            local_strategy=LocalStrategy.SYMLINK,
         )
 
         batch, fs_file = torchaudio.load(path)
