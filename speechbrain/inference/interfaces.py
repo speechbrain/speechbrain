@@ -131,7 +131,7 @@ def foreign_class(
     sys.path.append(str(pymodule_local_path.parent))
 
     # Load the modules:
-    with open(hparams_local_path) as fin:
+    with open(hparams_local_path, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides, overrides_must_match)
 
     hparams["savedir"] = savedir
@@ -504,7 +504,7 @@ class Pretrained(torch.nn.Module):
                 raise
 
         # Load the modules:
-        with open(hparams_local_path) as fin:
+        with open(hparams_local_path, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(
                 fin, overrides, overrides_must_match=overrides_must_match
             )

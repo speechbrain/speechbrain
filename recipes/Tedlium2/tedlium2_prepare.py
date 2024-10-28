@@ -44,7 +44,7 @@ def make_splits(sph_file, stm_file, utt_save_folder, avoid_if_shorter_than):
         return
 
     # load the annotation of the entire speech recording
-    annotation_file = open(stm_file, "r")
+    annotation_file = open(stm_file, "r", encoding="utf-8")
     annotations = annotation_file.readlines()
 
     # load the original speech recording

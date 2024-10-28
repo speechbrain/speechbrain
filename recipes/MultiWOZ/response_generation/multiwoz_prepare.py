@@ -198,7 +198,9 @@ def get_splits(dataset_folder) -> Tuple[List[str], List[str], List[str]]:
     tr_split: List[str] = []
     with open(os.path.join(dataset_folder, "valListFile.txt")) as f:
         dev_split: List[str] = [key.strip() for key in f]
-    with open(os.path.join(dataset_folder, "testListFile.txt")) as f:
+    with open(
+        os.path.join(dataset_folder, "testListFile.txt"), encoding="utf-8"
+    ) as f:
         te_split: List[str] = [key.strip() for key in f]
 
     for key in dialogues_keys:
@@ -296,7 +298,7 @@ def get_replacements(
         Pairs of elements used to substitute the first element with the second.
     """
     replacements = []
-    with open(replacements_path, "r") as fin:
+    with open(replacements_path, "r", encoding="utf-8") as fin:
         for line in fin.readlines():
             tok_from, tok_to = line.replace("\n", "").split("\t")
             replacements.append((" " + tok_from + " ", " " + tok_to + " "))
@@ -569,7 +571,7 @@ def get_json_object(data_path: str) -> dict:
     loaded_json: dict
         A loaded json object.
     """
-    with open(data_path, "r") as data_file:
+    with open(data_path, "r", encoding="utf-8") as data_file:
         data = json.load(data_file)
 
     return data
@@ -686,5 +688,5 @@ def save_dialogue_dataset(
     save_file: str
         Path to the folder where the original MultiWOZ dataset is stored.
     """
-    with open(save_file, "w") as f:
+    with open(save_file, "w", encoding="utf-8") as f:
         json.dump(dataset, f, indent=4)

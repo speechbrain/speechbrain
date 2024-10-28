@@ -222,7 +222,7 @@ class ST(sb.core.Brain):
                 test_stats=stage_stats,
             )
 
-            with open(self.hparams.bleu_file, "w") as w:
+            with open(self.hparams.bleu_file, "w", encoding="utf-8") as w:
                 self.bleu_metric.write_stats(w)
 
 
@@ -389,7 +389,7 @@ def dataio_prepare(hparams, tokenizer):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # create ddp_group with the right communication protocol

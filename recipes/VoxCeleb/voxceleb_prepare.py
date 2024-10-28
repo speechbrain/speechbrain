@@ -413,7 +413,7 @@ def prepare_csv(seg_dur, wav_lst, csv_file, random_segment=False, amp_th=0):
     csv_output = csv_output + entry
 
     # Writing the csv lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -490,7 +490,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
         csv_file = os.path.join(save_folder, ENROL_CSV)
 
         # Writing the csv lines
-        with open(csv_file, mode="w") as csv_f:
+        with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
@@ -526,7 +526,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
         csv_file = os.path.join(save_folder, TEST_CSV)
 
         # Writing the csv lines
-        with open(csv_file, mode="w") as csv_f:
+        with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )

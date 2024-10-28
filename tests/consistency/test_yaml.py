@@ -30,7 +30,9 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
         if recipe_csvfile in __skip_list:
             continue
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             reader = csv.DictReader(
                 csvfile, delimiter=",", skipinitialspace=True

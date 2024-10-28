@@ -383,10 +383,10 @@ def main_gen(params):
         "num_data_samples": len(valid_data_tuples),
     }
 
-    with (train_shards_path / "meta.json").open("w") as f:
+    with (train_shards_path / "meta.json").open("w", encoding="utf-8") as f:
         json.dump(train_meta_dict, f, indent=4)
 
-    with (valid_shards_path / "meta.json").open("w") as f:
+    with (valid_shards_path / "meta.json").open("w", encoding="utf-8") as f:
         json.dump(valid_meta_dict, f, indent=4)
 
     return (
@@ -406,7 +406,7 @@ def main_body():  # noqa
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Data Directories and Settings

@@ -315,7 +315,7 @@ class SaveableDataLoader(DataLoader):
             to_save = None
         else:
             to_save = self._speechbrain_iterator._num_yielded
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             fo.write(str(to_save))
 
     @mark_as_loader
@@ -333,7 +333,7 @@ class SaveableDataLoader(DataLoader):
             # Don't load at end of epoch, as we actually want to start a fresh
             # epoch iteration next.
             return
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             saved = fi.read()
             if saved == str(None):
                 # Saved at a point where e.g. an iterator did not yet exist.
@@ -398,7 +398,7 @@ class LoopedLoader:
     @mark_as_saver
     def save(self, path):
         """Saves the needed information."""
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             print(self.step, file=fo)
             print(self.total_steps, file=fo)
             print(self.total_samples, file=fo)
@@ -406,7 +406,7 @@ class LoopedLoader:
     @mark_as_loader
     def load(self, path, end_of_epoch=True):
         """Loads the needed information."""
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             self.step = int(fi.readline().strip())
             self.total_steps = int(fi.readline().strip())
             self.total_samples = int(fi.readline().strip())

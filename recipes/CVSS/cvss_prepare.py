@@ -216,7 +216,11 @@ def prepare_json(
 
     json_dict = {}
     tgt_meta = list(
-        csv.reader(open(tgt_split), delimiter="\t", quoting=csv.QUOTE_NONE)
+        csv.reader(
+            open(tgt_split, newline="", encoding="utf-8"),
+            delimiter="\t",
+            quoting=csv.QUOTE_NONE,
+        )
     )
 
     limit_to_n_sample = (
@@ -247,7 +251,7 @@ def prepare_json(
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

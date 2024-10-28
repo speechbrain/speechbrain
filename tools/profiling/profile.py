@@ -338,7 +338,7 @@ def profile_pretrained(
 
     # Store tables
     print("\n\tReal-time factor")
-    with open("benchmark_realtime_factors.md", "w") as f:
+    with open("benchmark_realtime_factors.md", "w", encoding="utf-8") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=realtime_factor,
@@ -348,7 +348,7 @@ def profile_pretrained(
         )
 
     print("\n\tPeak memory")
-    with open("benchmark_memory_peaks.md", "w") as f:
+    with open("benchmark_memory_peaks.md", "w", encoding="utf-8") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=memory_peaks,
@@ -366,7 +366,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides, overrides_must_match=False)
 
     # Ensure profiling dimensions are set

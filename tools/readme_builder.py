@@ -36,7 +36,7 @@ def create_table(fid_w, csv_file):
         None
     """
     # Read CSV file into a list of dictionaries
-    with open(csv_file, "r") as file:
+    with open(csv_file, "r", encoding="utf-8") as file:
         csv_reader = csv.DictReader(file)
         recipes_lst = [row for row in csv_reader]
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    file_w = open(args.output_file, "w")
+    file_w = open(args.output_file, "w", encoding="utf-8")
 
     # List of recipe files
     recipe_files = get_all_files(

@@ -143,7 +143,7 @@ class ESCContaminated(torch.utils.data.Dataset):
 if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     if hparams["add_wham_noise"]:

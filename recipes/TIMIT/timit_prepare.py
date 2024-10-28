@@ -409,7 +409,10 @@ def create_json(wav_lst, json_file, uppercase, phn_set):
             err_msg = "the wrd file %s does not exists!" % (wrd_file)
             raise FileNotFoundError(err_msg)
 
-        words = [line.rstrip("\n").split(" ")[2] for line in open(wrd_file)]
+        words = [
+            line.rstrip("\n").split(" ")[2]
+            for line in open(wrd_file, encoding="utf-8")
+        ]
         words = " ".join(words)
 
         # Retrieving phonemes
@@ -435,7 +438,7 @@ def create_json(wav_lst, json_file, uppercase, phn_set):
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

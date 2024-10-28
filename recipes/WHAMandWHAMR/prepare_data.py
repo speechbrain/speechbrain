@@ -185,7 +185,9 @@ def create_whamr_rir_csv(datapath, savepath):
     files = os.listdir(datapath)
     all_paths = [os.path.join(datapath, fl) for fl in files]
 
-    with open(savepath + "/whamr_rirs.csv", "w") as csvfile:
+    with open(
+        savepath + "/whamr_rirs.csv", "w", newline="", encoding="utf-8"
+    ) as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
         writer.writeheader()
         for i, wav_path in enumerate(all_paths):

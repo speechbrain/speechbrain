@@ -663,6 +663,7 @@ class S2SBeamSearcher(S2SBaseSearcher):
     eos_threshold : float
         The threshold coefficient for eos token. Default: 1.5.
         See 3.1.2 in reference: https://arxiv.org/abs/1904.02619
+        TODO https://arxiv.org/pdf/2005.09265 ?
     length_normalization : bool
         Whether to divide the scores by the length. Default: True.
     using_max_attn_shift: bool

@@ -185,7 +185,7 @@ def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
             break
 
     # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -258,7 +258,7 @@ def text_to_dict(trnpath):
     # Initialization of the text dictionary
     text_dict = {}
     # Reading all the transcription files is text_lst
-    with open(trnpath, "r") as f:
+    with open(trnpath, "r", encoding="utf-8") as f:
         # Reading all line of the transcription file
         for line in f:
             filename, raw_script = line.split(" :: ")
