@@ -361,7 +361,7 @@ def compute_cross_correlation(frames_a, frames_b, width=None):
 
     Example
     -------
-    >>> frames = torch.arange(10).view(1, 1, -1)
+    >>> frames = torch.arange(10).view(1, 1, -1).float()
     >>> compute_cross_correlation(frames, frames, width=3)
     tensor([[0.6316, 0.7193, 0.8421, 1.0000, 0.8421, 0.7193, 0.6316]])
     >>> compute_cross_correlation(frames, frames)
