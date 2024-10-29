@@ -46,13 +46,11 @@ from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
 
+sb.utils.quirks.apply_quirks()
+
 logger = get_logger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
-torch._C._jit_set_profiling_executor(False)
-torch._C._jit_set_profiling_mode(False)
-torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
-torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
@@ -192,6 +190,11 @@ def create_experiment_directory(
             }
             sb.utils.logger.setup_logging(log_config, logger_overrides)
             sys.excepthook = _logging_excepthook
+
+            # Log quirks again so that it makes it to the log file.
+            # Quirks are applied way earlier, before logging is properly setup,
+            # so this gives a chance to the user to see them, lowering surprise.
+            sb.utils.quirks.log_applied_quirks()
 
             # Log beginning of experiment!
             logger.info("Beginning experiment!")
@@ -1217,6 +1220,7 @@ class Brain:
         """
         amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
+        self.on_fit_batch_start(batch, should_step)
 
         with self.no_sync(not should_step):
             if self.use_amp:
@@ -1340,6 +1344,9 @@ class Brain:
 
     def on_fit_batch_start(self, batch, should_step):
         """Called at the beginning of ``fit_batch()``.
+
+        This method is not called under the AMP context manager. Do not assume
+        automatic casting of the input batch to a lower precision (e.g. fp16).
 
         Arguments
         ---------

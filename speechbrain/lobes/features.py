@@ -510,10 +510,10 @@ class LFB(torch.nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 8000])
-    >>> leaf = LFB(
-    ...     out_channels=40, window_len=25., window_stride=10., in_channels=1
+    >>> lfb = LFB(
+    ...     out_channels=40, window_len=25., window_stride=10., in_channels=1, skip_transpose=True
     ... )
-    >>> out_tensor = leaf(inp_tensor)
+    >>> out_tensor = lfb(inp_tensor)
     >>> out_tensor.shape
     torch.Size([10, 50, 40])
     """

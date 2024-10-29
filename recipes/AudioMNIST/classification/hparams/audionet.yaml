@@ -1,0 +1,110 @@
+# ################################
+# Model: Classification with AudioNet and Gammatone LFB
+# Authors: Nicolas Aspert 2024
+# ################################
+
+# Basic parameters
+seed: 1879
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+
+number_of_digits: 10
+# use "split[0-4].zip" for the official audiomnist splits, null for default data url in audiomnist_prepare.py
+metadata_repo: https://os.unil.cloud.switch.ch/swift/v1/lts2-speechbrain/AudioMNIST/metadata_split0.zip
+metadata_folder: null
+output_folder: !ref ./results/audionet/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+data_save_folder: !ref <data_folder>/audiomnist_prepared
+train_json: !ref <data_save_folder>/train.json
+valid_json: !ref <data_save_folder>/valid.json
+test_json: !ref <data_save_folder>/test.json
+
+# Data files
+data_folder: !PLACEHOLDER  # e.g. /path/to/audiomnist
+
+skip_prep: False
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Preparation Parameters
+data_prepare_norm: True
+data_prepare_trim: False
+data_prepare_trim_threshold: -30.
+data_prepare_sample_rate_src: 48000
+data_prepare_sample_rate_tgt: 8000
+# make all samples 1s long
+data_prepare_pad_output: !ref <data_prepare_sample_rate_tgt>
+
+
+####################### Training Parameters ####################################
+number_of_epochs: 50
+batch_size: 128
+lr: 0.001
+shuffle: True
+
+
+# Feature parameters
+audionet_features: 100
+
+# Number of classes (i.e. different commands)
+out_n_neurons: !ref <number_of_digits>
+
+num_workers: 4
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: !ref <num_workers>
+
+# Functions
+compute_features: !new:speechbrain.lobes.models.AudioNet.AudioNetFrontend
+    out_channels: !ref <audionet_features>
+    in_channels: 1
+    conv_kernel_size: 3
+    conv_dilation: 1
+    activation: !name:torch.nn.ReLU
+
+embedding_model: !new:speechbrain.lobes.models.AudioNet.AudioNet
+    in_channels: !ref <audionet_features>
+    activation: !name:torch.nn.ReLU
+    conv_blocks: 5
+    conv_channels: [64, 128, 128, 128, 128]
+    conv_kernel_sizes: [3, 3, 3, 3, 3]
+    conv_dilations: [1, 1, 1, 1, 1]
+    max_pooling_kernel: [2, 2, 2, 2, 2]
+    max_pooling_stride: [2, 2, 2, 2, 2]
+
+classifier: !new:speechbrain.lobes.models.AudioNet.Classifier
+    input_shape: [null, 16000]
+    activation: null
+    lin_blocks: 2
+    lin_neurons: [1024, 512]
+    out_neurons: !ref <out_n_neurons>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+
+modules:
+    compute_features: !ref <compute_features>
+    embedding_model: !ref <embedding_model>
+    classifier: !ref <classifier>
+
+# Cost + optimization
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+error_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.classification_error
+        reduction: batch
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        counter: !ref <epoch_counter>

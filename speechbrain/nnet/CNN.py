@@ -1509,10 +1509,10 @@ class GammatoneConv1d(nn.Module):
     Example
     -------
     >>> inp_tensor = torch.rand([10, 16000])
-    >>> conv = GammatoneConv1d(input_shape=inp_tensor.shape, out_channels=24, kernel_size=160, stride=1)
+    >>> conv = GammatoneConv1d(input_shape=inp_tensor.shape, out_channels=24, kernel_size=161, stride=1)
     >>> out_tensor = conv(inp_tensor)
     >>> out_tensor.shape
-    torch.Size([10, 16000, 25])
+    torch.Size([10, 16000, 24])
     """
 
     def __init__(

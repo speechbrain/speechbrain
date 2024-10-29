@@ -364,7 +364,7 @@ class Augmenter(torch.nn.Module):
         if self.concat_original:
 
             # Check start index
-            if self.concat_start_index >= x.shape[0]:
+            if self.concat_start_index >= x_original.shape[0]:
                 self.skip_concat = True
                 pass
             else:
