@@ -235,7 +235,7 @@ if __name__ == "__main__":
     # * the pretrained ASR from the local template checkpoint - local: speechbrain/asr-crdnn-rnnlm-librispeech
 
     # === this is the only block that changed to finetune.py
-    hparams["pretrainer"].collect_files(internal_ddp_handling=True)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected(run_opts["device"])
     # ===
 
