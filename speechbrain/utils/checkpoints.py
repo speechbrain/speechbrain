@@ -71,8 +71,9 @@ from speechbrain.utils.distributed import (
     if_main_process,
     main_process_only,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 CKPT_PREFIX = "CKPT"
 METAFNAME = f"{CKPT_PREFIX}.yaml"  # Important that this is not .ckpt
@@ -80,6 +81,7 @@ PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 # some keys have been renamed in the new version of the code
 KEYS_MAPPING: Dict[str, str] = {
     ".mutihead_attn": ".multihead_attn",  # see PR #2489
+    ".convs_intermedite": ".convs_intermediate",  # fix for PostNet blame #2463
 }
 
 
@@ -187,9 +189,13 @@ def torch_patched_state_dict_load(path, device="cpu"):
     ---------
     path : str, pathlib.Path
         Path where to load from.
-    device
+    device : str
         Device where the loaded `state_dict` tensors should reside. This is
         forwarded to :func:`torch.load`; see its documentation for details.
+
+    Returns
+    -------
+    The loaded state dict.
     """
     state_dict = torch.load(path, map_location=device)
     state_dict = hook_on_loading_state_dict_checkpoint(state_dict)

@@ -9,14 +9,13 @@ Authors
  * Salima Mdhaffar 2021
 """
 
-import logging
-
 import torch
 import torch.nn.functional as F
 from torch import nn
 
 from speechbrain.dataio.dataio import length_to_mask
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.logger import get_logger
 
 # We check if fairseq is installed.
 try:
@@ -26,7 +25,7 @@ except ImportError:
     MSG += "E.G. run: pip install fairseq"
     raise ImportError(MSG)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FairseqWav2Vec2(nn.Module):

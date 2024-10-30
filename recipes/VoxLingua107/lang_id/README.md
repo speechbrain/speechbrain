@@ -52,6 +52,12 @@ python create_wds_shards.py /data/voxlingua107/dev/ /data/voxlingua107_shards/de
 
 ### 2nd option: download the pre-compiled WebDataset shards
 
+> [!IMPORTANT]
+> As of 2024-09-19, according to the
+> [official website](https://bark.phon.ioc.ee/voxlingua107/), the pre-compiled
+> WebDataset shards are currently unavailable. As a result, this method is
+> likely broken. If you get a 503 error, it is because of that.
+
 Download the shards:
 
 ```
@@ -59,7 +65,7 @@ Download the shards:
 cd /data/
 mkdir voxlingua107_shards
 cd voxlingua107_shards
-wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
+wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/  # ignore-url-check
 ```
 
 ## Installing Extra Dependencies
@@ -149,14 +155,14 @@ print(emb.shape)
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
-@misc{ravanelli2024opensourceconversationalaispeechbrain,
-      title={Open-Source Conversational AI with SpeechBrain 1.0},
-      author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
-      year={2024},
-      eprint={2407.00463},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2407.00463},
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
 }
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},

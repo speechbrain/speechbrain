@@ -5,14 +5,14 @@ Authors
  * Jarod Duret 2023
 """
 
-import logging
 import os
 
 import torch
 
 from speechbrain.utils.distributed import if_main_process, main_process_only
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TrainLogger:
@@ -210,6 +210,8 @@ class WandBLogger(TrainLogger):
             reinit: True
             resume: False
             dir: !ref <output_folder>/wandb
+            id: sb_run
+            resume: allow
     ```
 
     NOTE

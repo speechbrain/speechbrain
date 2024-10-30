@@ -22,7 +22,6 @@ Authors
 """
 
 import csv
-import logging
 import os
 import sys
 
@@ -37,6 +36,7 @@ import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
 from speechbrain.core import AMPConfig
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 
 # from: recipes/LibriMix/separation/train.py
@@ -568,7 +568,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Logger info
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
 
     # If device is cpu use precision='bf16'
 

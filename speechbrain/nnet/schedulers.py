@@ -8,15 +8,15 @@ Authors
  * Shucong Zhang 2023
 """
 
-import logging
 import math
 
 import torch
 from torch import nn
 
 from speechbrain.utils import checkpoints
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def update_learning_rate(optimizer, new_lr, param_group=None):

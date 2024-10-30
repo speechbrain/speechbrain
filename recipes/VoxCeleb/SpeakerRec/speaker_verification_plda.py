@@ -11,7 +11,6 @@ Authors
     * Mirco Ravanelli 2020
 """
 
-import logging
 import os
 import pickle
 import sys
@@ -30,6 +29,7 @@ from speechbrain.processing.PLDA_LDA import (
 )
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import EER, minDCF
 
 
@@ -221,7 +221,7 @@ def dataio_prep(params):
 
 if __name__ == "__main__":
     # Logger setup
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
 

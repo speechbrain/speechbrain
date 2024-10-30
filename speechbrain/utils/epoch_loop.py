@@ -5,9 +5,9 @@ Authors
  * Davide Borra 2021
 """
 
-import logging
-
 import yaml
+
+from speechbrain.utils.logger import get_logger
 
 from .checkpoints import (
     mark_as_loader,
@@ -15,7 +15,7 @@ from .checkpoints import (
     register_checkpoint_hooks,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @register_checkpoint_hooks

@@ -7,7 +7,6 @@ Authors
 
 import contextlib
 import copy
-import logging
 import math
 from types import MethodType
 
@@ -16,8 +15,9 @@ from torch.utils.data import Dataset
 from speechbrain.dataio.dataio import load_data_csv, load_data_json
 from speechbrain.utils.data_pipeline import DataPipeline
 from speechbrain.utils.data_utils import batch_shuffle
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DynamicItemDataset(Dataset):

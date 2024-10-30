@@ -80,7 +80,12 @@ class SpacyPipeline:
         *args
             Extra positional arguments passed to `spacy.load`.
         **kwargs
-            Extra keyword arguments passed to `spacy.load`."""
+            Extra keyword arguments passed to `spacy.load`.
+
+        Returns
+        -------
+        New SpacyPipeline
+        """
 
         return SpacyPipeline(spacy.load(name, *args, **kwargs))
 

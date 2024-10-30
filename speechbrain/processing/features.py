@@ -34,7 +34,6 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import logging
 import math
 
 import torch
@@ -47,8 +46,9 @@ from speechbrain.utils.checkpoints import (
     register_checkpoint_hooks,
 )
 from speechbrain.utils.filter_analysis import FilterProperties
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class STFT(torch.nn.Module):
