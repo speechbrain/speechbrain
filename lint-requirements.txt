@@ -1,6 +1,7 @@
 black==24.3.0
 click==8.1.7
 flake8==7.0.0
+flake8-encodings==0.5.1
 isort==5.13.2
 pycodestyle==2.11.0
 pydoclint==0.4.1
