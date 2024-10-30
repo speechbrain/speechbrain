@@ -51,7 +51,9 @@ class ASR(sb.Brain):
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
-        abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
+        abs_tokens_lens = torch.round(
+            bos_tokens_lens * bos_tokens.shape[1]
+        ).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
             < abs_tokens_lens[:, None]
@@ -233,7 +235,7 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        if hasattr(hparams, "normalized_transcripts"):
+        if "normalized_transcripts" in hparams:
             wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
