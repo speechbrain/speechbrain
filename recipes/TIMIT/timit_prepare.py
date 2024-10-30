@@ -452,7 +452,7 @@ def get_phoneme_lists(phn_file, phn_set):
     phonemes = []
     ends = []
 
-    for line in open(phn_file):
+    for line in open(phn_file, encoding="utf-8"):
         end, phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[1:]
 
         # Getting dictionaries for phoneme conversion

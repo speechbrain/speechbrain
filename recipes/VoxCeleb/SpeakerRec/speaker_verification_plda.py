@@ -119,7 +119,7 @@ def verification_performance(scores_plda):
     labels = []
     positive_scores = []
     negative_scores = []
-    for line in open(veri_file_path):
+    for line in open(veri_file_path, encoding="utf-8"):
         lab = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
         test_id = line.split(" ")[2].rstrip().split(".")[0].strip()

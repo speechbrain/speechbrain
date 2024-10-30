@@ -118,7 +118,8 @@ for index, split in enumerate(["train", "dev", "eval"]):
 for index, split in enumerate(["train", "dev", "eval"]):
     # load metadata
     with open(
-        os.path.join(params["out_folder"], "metadata", split + ".json")
+        os.path.join(params["out_folder"], "metadata", split + ".json"),
+        encoding="utf-8",
     ) as f:
         c_meta = json.load(f)
     print("Creating {} set".format(split))

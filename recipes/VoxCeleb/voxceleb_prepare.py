@@ -269,7 +269,7 @@ def _get_utt_split_lists(
     for data_folder in data_folders:
         test_lst = [
             line.rstrip("\n").split(" ")[1]
-            for line in open(verification_pairs_file)
+            for line in open(verification_pairs_file, encoding="utf-8")
         ]
         test_lst = set(sorted(test_lst))
 
@@ -452,7 +452,7 @@ def prepare_csv_enrol_test(data_folders, save_folder, verification_pairs_file):
         enrol_ids, test_ids = [], []
 
         # Get unique ids (enrol and test utterances)
-        for line in open(test_lst_file):
+        for line in open(test_lst_file, encoding="utf-8"):
             e_id = line.split(" ")[1].rstrip().split(".")[0].strip()
             t_id = line.split(" ")[2].rstrip().split(".")[0].strip()
             enrol_ids.append(e_id)

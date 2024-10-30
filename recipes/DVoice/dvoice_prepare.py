@@ -232,10 +232,14 @@ def swahili_prepare(data_folder):
     )
 
     f_train_alffa = open(
-        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/train/text", "r"
+        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/train/text",
+        "r",
+        encoding="utf-8",
     )
     f_test_alffa = open(
-        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/test/text", "r"
+        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/test/text",
+        "r",
+        encoding="utf-8",
     )
     train_alffa = f_train_alffa.readlines()
     test_alffa = f_test_alffa.readlines()

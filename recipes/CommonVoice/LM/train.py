@@ -77,7 +77,7 @@ if __name__ == "__main__":
     cmd = f'lmplz -o {hparams["ngram"]} <"{hparams["text_file"]}" > "{tmp_ngram_file}"'
     os.system(cmd)
     with open(tmp_ngram_file, "r", encoding="utf-8") as read_file, open(
-        hparams["ngram_file"], "w"
+        hparams["ngram_file"], "w", encoding="utf-8"
     ) as write_file:
         has_added_eos = False
         for line in read_file:

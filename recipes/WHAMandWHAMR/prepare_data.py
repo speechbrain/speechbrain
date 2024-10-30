@@ -136,7 +136,9 @@ def create_wham_whamr_csv(
         ]
 
         with open(
-            os.path.join(savepath, savename + set_type + ".csv"), "w"
+            os.path.join(savepath, savename + set_type + ".csv"),
+            "w",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()

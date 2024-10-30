@@ -95,7 +95,9 @@ def create_custom_dataset(
         ]
 
         with open(
-            os.path.join(savepath, dataset_name + "_" + set_type + ".csv"), "w"
+            os.path.join(savepath, dataset_name + "_" + set_type + ".csv"),
+            "w",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()

@@ -1106,7 +1106,9 @@ def parse_glm_file(glm_dir, save_folder):
         Directory to store the parsed GLM file
     """
     results = defaultdict(list)
-    with open(os.path.join(glm_dir, "en20000405_hub5.glm")) as file:
+    with open(
+        os.path.join(glm_dir, "en20000405_hub5.glm"), encoding="utf-8"
+    ) as file:
         is_contraction = False
         for line in file:
             # Skip comments

@@ -196,7 +196,9 @@ def get_splits(dataset_folder) -> Tuple[List[str], List[str], List[str]]:
     )
     dialogues_keys: Set[str] = set(mwoz_21_dialogues.keys())
     tr_split: List[str] = []
-    with open(os.path.join(dataset_folder, "valListFile.txt")) as f:
+    with open(
+        os.path.join(dataset_folder, "valListFile.txt"), encoding="utf-8"
+    ) as f:
         dev_split: List[str] = [key.strip() for key in f]
     with open(
         os.path.join(dataset_folder, "testListFile.txt"), encoding="utf-8"

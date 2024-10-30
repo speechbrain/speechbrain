@@ -357,7 +357,9 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
 
         # Read text
         snt_id = filename.replace(".wav", "")
-        with open(os.path.join(txt_folder, snt_id + ".txt")) as f:
+        with open(
+            os.path.join(txt_folder, snt_id + ".txt"), encoding="utf-8"
+        ) as f:
             word_string = f.read()
         word_string = remove_punctuation(word_string).strip().upper()
         phones = [
