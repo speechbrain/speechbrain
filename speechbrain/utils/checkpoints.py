@@ -81,6 +81,7 @@ PARAMFILE_EXT = ".ckpt"  # ...because these files will be
 # some keys have been renamed in the new version of the code
 KEYS_MAPPING: Dict[str, str] = {
     ".mutihead_attn": ".multihead_attn",  # see PR #2489
+    ".convs_intermedite": ".convs_intermediate",  # fix for PostNet blame #2463
 }
 
 
