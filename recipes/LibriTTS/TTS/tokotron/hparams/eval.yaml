@@ -1,0 +1,64 @@
+eval_dataset: valid
+eval_suffix: ""
+eval_sample_rate: 16000
+eval_spk_sim_sample_rate: 16000
+eval_samples: null
+eval_interval: 1
+eval_subset: null
+eval_asr_beam_size: 66
+eval_asr_type: encoder_decoder
+eval_asr_source: !apply:speechbrain.utils.hparams.choice
+  value: !ref <eval_asr_type>
+  choices:
+    encoder_decoder: speechbrain/asr-transformer-transformerlm-librispeech
+    whisper: openai/whisper-small
+eval_spk_sim_source: microsoft/wavlm-base-sv
+evaluations: utmos,asr,spk_sim
+tmp_folder: null
+eval_utmos_source: chaanks/wav2vec2-small
+eval_utmos_save_path: !ref <pretrained_model_save_folder>/utmos
+eval_utmos_model_name: utmos.ckpt
+eval_utmos_model_url: https://huggingface.co/chaanks/UTMOS/resolve/main
+eval_utmos_domain_id: null
+eval_utmos_judge_id: null
+
+
+eval_asr: !apply:speechbrain.utils.hparams.choice
+  value: !ref <eval_asr_type>
+  choices:
+    encoder_decoder: !name:speechbrain.inference.eval.EncoderDecoderASRSpeechEvaluator
+      source: !ref <eval_asr_source>
+      sample_rate: !ref <eval_sample_rate>
+      overrides:
+        lm_weight: 0.0
+        test_beam_size: !ref <eval_asr_beam_size>
+    whisper: !name:speechbrain.inference.eval.WhisperASRSpeechEvaluator
+      source: !ref <eval_asr_source>
+      sample_rate: !ref <eval_sample_rate>
+      savedir: !ref <pretrained_model_save_folder>
+
+eval_utmos: !name:speechbrain.inference.eval.UTMOSSpeechEvaluator
+  source: !ref <eval_utmos_source>
+  save_path: !ref <eval_utmos_save_path>
+  model_name: !ref <eval_utmos_model_name>
+  model_url: !ref <eval_utmos_model_url>
+  domain_id: !ref <eval_utmos_domain_id>
+  judge_id: !ref <eval_utmos_judge_id>
+
+eval_spk_sim: !name:speechbrain.inference.eval.SpkSimWavLM
+  source: !ref <eval_spk_sim_source>
+  savedir: !ref <pretrained_model_save_folder>
+  model_sample_rate: !ref <eval_spk_sim_sample_rate>
+
+evaluators:
+  asr: !ref <eval_asr>
+  utmos: !ref <eval_utmos>
+  spk_sim: !ref <eval_spk_sim>
+
+eval_summary:
+  asr:
+    descriptive: ["wer", "cer", "wer_ref", "cer_ref", "dwer", "dcer"]
+  utmos:
+    descriptive: ["utmos"]
+  spk_sim:
+    descriptive: ["score"]

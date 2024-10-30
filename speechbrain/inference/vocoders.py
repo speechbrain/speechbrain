@@ -15,8 +15,9 @@ Authors:
 """
 
 import torch
+from torch import nn
 
-from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.dataio.dataio import clean_padding_, length_to_mask
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.logger import get_logger
 
@@ -388,3 +389,173 @@ class UnitHIFIGAN(Pretrained):
     def forward(self, units, spk=None):
         "Decodes the input units"
         return self.decode_batch(units, spk=spk)
+
+
+class HierarchicalUnitConverter(nn.Module):
+    """A wrapper for models similar to UnitHiFiGan that combine multiple layers with offsets
+
+    Arguments
+    ---------
+    available_layers : list
+        The list of available layers
+    num_units : int
+        The total number of units/tokens available
+    layers : list
+        The layers that will be used. If omitted, all layers will be used
+    offset : int, optional
+        The offset added globally to all layers
+    """
+
+    def __init__(self, available_layers, num_units, layers, offset):
+        super().__init__()
+        self.available_layers = available_layers
+        self.num_units = num_units
+        if layers is None:
+            self.layers = self.available_layers
+        self.layers = layers
+        layers_set = set(self.layers)
+        available_layers_set = set(available_layers)
+        if not layers_set.issubset(available_layers_set):
+            unavailable_layers = ",".join(
+                str(layer) for layer in (layers_set - available_layers_set)
+            )
+            raise ValueError(f"Layers {unavailable_layers} are not supported")
+
+        self.offset = offset
+        self.register_buffer(
+            "layer_offset", self.compute_offset(), persistent=False
+        )
+
+    def compute_offset(self):
+        """Computes offsets for each layer"""
+        _, layers_idx = torch.where(
+            torch.tensor(self.available_layers).unsqueeze(0)
+            == torch.tensor(self.layers).unsqueeze(1)
+        )
+        offset = torch.tensor(layers_idx) * self.num_units
+        return offset[None, None, :]
+
+    def forward(self, units):
+        """Computes the forward pass, adding offsets to the specified token vector
+
+        Arguments
+        ---------
+        units : torch.Tensor
+            A raw, tokenized representation
+
+        Returns
+        -------
+        result : torch.Tensor
+            Tokens with an offset
+        """
+        return units + self.layer_offset.to(units.device) + self.offset
+
+
+class HierarchicalUnitWrapper(torch.nn.Module):
+    """A wrapper for models similar to UnitHiFiGan that combine multiple layers with offsets
+
+    Arguments
+    ---------
+    model : torch.nn.Module | Pretrained | callable
+        A model
+    available_layers : list
+        The list of available layers
+    num_units : int
+        The total number of units/tokens available
+    layers : list
+        The layers that will be used. If omitted, all layers will be used
+    offset : int, optional
+        The offset added globally to all layers
+    use_length : False
+        Whether to use length
+    """
+
+    def __init__(
+        self,
+        model,
+        available_layers,
+        num_units,
+        layers=None,
+        offset=0,
+        use_length=False,
+    ):
+        super().__init__()
+        if callable(model) and not isinstance(model, nn.Module):
+            model = model()
+        self.model = model
+        self.device = next(iter(param for param in model.parameters())).device
+        self.unit_converter = HierarchicalUnitConverter(
+            available_layers=available_layers,
+            num_units=num_units,
+            layers=layers,
+            offset=offset,
+        )
+        if hasattr(self.model, "tokenize"):
+            self.model.tokenize = False
+        self.use_length = use_length
+
+    def forward(self, units, length, **kwargs):
+        """Computes the forward pass
+
+        Arguments
+        ---------
+        units : torch.Tensor
+            A raw tensor of audio tokens
+        length : torch.Tensor
+            Relative lengths
+        **kwargs : dict
+            Additional arguments, passed through
+
+        Returns
+        -------
+        result: torch.Tensor
+            A raw waveform tensor
+        """
+        units_with_offset = self.unit_converter(units)
+        if self.use_length:
+            result = self.model(units_with_offset, length, **kwargs)
+        else:
+            result = self.model(units_with_offset, **kwargs)
+        return result
+
+
+class VocoderWrapper(nn.Module):
+    """A wrapper for continuous vocoders
+
+    Arguments
+    ---------
+    model : nn.Module | callable
+        The vocoder model
+    use_length : bool
+        Whether or not the vocoder takes a lengths argument
+    """
+
+    def __init__(self, model, use_length=False):
+        super().__init__()
+        if callable(model) and not isinstance(model, nn.Module):
+            model = model()
+        self.model = model
+        self.use_length = use_length
+
+    def forward(self, audio, length=None):
+        """Invokes the vocoder
+
+        Arguments
+        ---------
+        audio : torch.Tensor
+            The audio representation
+        length : torch.Tensor
+            Relative lengths
+
+        Returns
+        -------
+        wav : torch.Tensor
+            The raw waveform
+        """
+        if self.use_length:
+            wav = self.model(audio, length)
+        else:
+            wav = self.model(audio)
+        if length is not None:
+            clean_padding_(wav, length)
+        return wav

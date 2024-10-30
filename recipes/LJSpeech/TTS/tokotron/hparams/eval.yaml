@@ -1,0 +1,51 @@
+eval_sample_rate: 16000
+eval_samples: null
+eval_interval: 1
+eval_asr_type: whisper
+eval_asr_source: !apply:speechbrain.utils.hparams.choice
+  value: !ref <eval_asr_type>
+  choices:
+    encoder_decoder: speechbrain/asr-transformer-transformerlm-librispeech
+    whisper: openai/whisper-small
+evaluations: utmos,asr
+tmp_folder: null
+eval_utmos_source: chaanks/wav2vec2-small
+eval_utmos_save_path: !ref <pretrained_model_save_folder>/utmos
+eval_utmos_model_name: utmos.ckpt
+eval_utmos_model_url: https://huggingface.co/chaanks/UTMOS/resolve/main
+eval_utmos_domain_id: null
+eval_utmos_judge_id: null
+
+
+eval_asr: !apply:speechbrain.utils.hparams.choice
+  value: !ref <eval_asr_type>
+  choices:
+    encoder_decoder: !name:speechbrain.inference.eval.EncoderDecoderASRSpeechEvaluator
+      source: !ref <eval_asr_source>
+      sample_rate: !ref <eval_sample_rate>
+      overrides:
+        lm_weight: 0.0
+    whisper: !name:speechbrain.inference.eval.WhisperASRSpeechEvaluator
+      source: !ref <eval_asr_source>
+      sample_rate: !ref <eval_sample_rate>
+      savedir: !ref <pretrained_model_save_folder>
+
+eval_utmos: !name:speechbrain.inference.eval.UTMOSSpeechEvaluator
+  source: !ref <eval_utmos_source>
+  save_path: !ref <eval_utmos_save_path>
+  model_name: !ref <eval_utmos_model_name>
+  model_url: !ref <eval_utmos_model_url>
+  domain_id: !ref <eval_utmos_domain_id>
+  judge_id: !ref <eval_utmos_judge_id>
+
+
+evaluators:
+  asr: !ref <eval_asr>
+  utmos: !ref <eval_utmos>
+
+
+eval_summary:
+  asr:
+    descriptive: ["wer", "cer", "wer_ref", "cer_ref", "dwer", "dcer"]
+  utmos:
+    descriptive: ["utmos"]

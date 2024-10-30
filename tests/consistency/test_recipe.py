@@ -27,6 +27,8 @@ def test_recipe_list(
         "hpopt.yaml",
         "recipes/LJSpeech/TTS/quantization/hparams/kmeans.yaml",
         "recipes/DNS/noisyspeech_synthesizer/noisyspeech_synthesizer.yaml",
+        "recipes/LibriTTS/TTS/tokotron/hparams/eval.yaml",
+        "recipes/LJSpeech/TTS/tokotron/hparams/eval.yaml",
     ],
 ):
     """This test checks if all the all hparam file of all the recipes are listed
