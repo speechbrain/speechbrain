@@ -107,7 +107,6 @@ class ASR(sb.Brain):
             target_words = self.tokenizer.batch_decode(
                 target_words, skip_special_tokens=True
             )
-
             if hasattr(self.hparams, "normalized_transcripts"):
 
                 if hasattr(self.tokenizer, "normalize"):
@@ -237,7 +236,7 @@ def dataio_prepare(hparams, tokenizer):
     def text_pipeline(wrd):
         if (
             "normalized_transcripts" in hparams
-            and hparams["normalized_transcripts"] == True
+            and hparams["normalized_transcripts"]
         ):
             wrd = tokenizer.normalize(wrd)
         yield wrd
