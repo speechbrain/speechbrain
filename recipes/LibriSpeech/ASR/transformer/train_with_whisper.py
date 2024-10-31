@@ -235,7 +235,10 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        if "normalized_transcripts" in hparams:
+        if (
+            "normalized_transcripts" in hparams
+            and hparams["normalized_transcripts"] == True
+        ):
             wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
