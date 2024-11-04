@@ -9,6 +9,8 @@
 
 ![GitHub Repo stars](https://img.shields.io/github/stars/speechbrain/speechbrain?style=social) *Please, help our community project. Star on GitHub!*
 
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20SpeechBrain%20Guru-006BFF)](https://gurubase.io/g/speechbrain)
+
 **Exciting News (January, 2024):** Discover what is new in SpeechBrain 1.0 [here](https://colab.research.google.com/drive/1IEPfKRuvJRSjoxu22GZhb3czfVHsAy0s?usp=sharing)!
 #
 # 🗣️💬 What SpeechBrain Offers
