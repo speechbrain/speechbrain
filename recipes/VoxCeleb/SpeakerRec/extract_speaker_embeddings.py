@@ -81,7 +81,7 @@ def compute_embeddings(params, wav_scp, outdir):
         numpy manner.
     """
     with torch.no_grad():
-        with open(wav_scp, "r") as wavscp:
+        with open(wav_scp, "r", encoding="utf-8") as wavscp:
             for line in wavscp:
                 utt, wav_path = line.split()
                 out_file = "{}/{}.npy".format(outdir, utt)
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         # Ensure to put the saved model in the output folder
         overrides += f"\noutput_folder: {out_dir}"
 
-    with open(params_file) as fin:
+    with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
     run_on_main(params["pretrainer"].collect_files)
     params["pretrainer"].load_collected(run_opts["device"])

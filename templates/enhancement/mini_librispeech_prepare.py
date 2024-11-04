@@ -102,7 +102,7 @@ def create_json(wav_list, json_file):
         json_dict[uttid] = {"wav": relative_path, "length": duration}
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

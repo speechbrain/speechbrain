@@ -243,7 +243,7 @@ def prepare_gigaspeech(
         check_gigaspeech_folders(data_folder, json_file)
 
         logger.info(f"Starting reading {json_file}.")
-        with open(json_file, "r") as f:
+        with open(json_file, "r", encoding="utf-8") as f:
             info = json.load(f)
         logger.info(f"Reading {json_file} done.")
 

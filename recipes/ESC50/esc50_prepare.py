@@ -266,7 +266,7 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
     if not os.path.exists(parent_dir):
         os.mkdir(parent_dir)
 
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

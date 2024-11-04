@@ -216,7 +216,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
             "/", *path_parts[:-1], uttid + ".normalized.txt"
         )
         try:
-            with open(normalized_text_path) as f:
+            with open(normalized_text_path, encoding="utf-8") as f:
                 normalized_text = f.read()
                 if normalized_text.__contains__("{"):
                     normalized_text = normalized_text.replace("{", "")
@@ -254,7 +254,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
             json_dict[uttid].update({"label_phoneme": phonemes})
 
     # Writes the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

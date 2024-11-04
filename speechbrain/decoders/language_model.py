@@ -44,7 +44,7 @@ def load_unigram_set_from_arpa(arpa_path: str) -> Set[str]:
         Set of unigrams.
     """
     unigrams = set()
-    with open(arpa_path) as f:
+    with open(arpa_path, encoding="utf-8") as f:
         start_1_gram = False
         for line in f:
             line = line.strip()

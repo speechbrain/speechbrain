@@ -139,7 +139,9 @@ def prepare_test(
         logger.info(f"Loading recipes from: {recipe_csvfile}")
         # Detect needed information for the recipe tests
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
@@ -256,7 +258,7 @@ def check_performance(
         return False
 
     # Real all the lines of the performance file
-    with open(filename) as file:
+    with open(filename, encoding="utf-8") as file:
         lines = file.readlines()
 
     # Filter the lines
@@ -407,8 +409,8 @@ def run_test_cmd(cmd, stdout_file, stderr_file):
         The return code obtained after running the command. If 0, the test is
         run without errors. If >0 the execution failed.
     """
-    f_stdout = open(stdout_file, "w")
-    f_stderr = open(stderr_file, "w")
+    f_stdout = open(stdout_file, "w", encoding="utf-8")
+    f_stderr = open(stderr_file, "w", encoding="utf-8")
     child = sp.Popen([cmd], stdout=f_stdout, stderr=f_stderr, shell=True)
     child.communicate()[0]
     rc = child.returncode
@@ -671,11 +673,11 @@ def download_only_test(
         cmd = (
             "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
             "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
-            "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
+            "fin=open(hparams_file, encoding='utf-8');hparams = load_hyperpyyaml(fin, overrides);fin.close();"
             # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
             # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
         )
-        with open(test_hparam[recipe_id]) as hparam_file:
+        with open(test_hparam[recipe_id], encoding="utf-8") as hparam_file:
             for line in hparam_file:
                 if "pretrainer" in line:
                     cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
@@ -820,7 +822,7 @@ def load_yaml_test(
 
         tag_custom_model = None
         # Append additional overrides when needed
-        with open(hparam_file) as f:
+        with open(hparam_file, encoding="utf-8") as f:
             for line in f:
                 # os.chdir(run_folder) is not changing sys.module, and pydoc.locate (in load_hyperpyyaml) fails
                 if "new:custom_model" in line:
@@ -851,7 +853,7 @@ def load_yaml_test(
                     if pattern in line and line.find(pattern) == 0:
                         overrides.update({key: value})
 
-        with open(hparam_file) as fin:
+        with open(hparam_file, encoding="utf-8") as fin:
             try:
                 _ = load_hyperpyyaml(fin, overrides)
             except Exception as e:
