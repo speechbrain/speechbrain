@@ -3,17 +3,11 @@
 Authors
  * Nauman Dawalatabad
 """
-import torch
-from speechbrain.processing.features import (
-    STFT,
-    ISTFT,
-)
 
-from speechbrain.processing.multi_mic import (
-    Covariance,
-    GccPhat,
-    DelaySum,
-)
+import torch
+
+from speechbrain.processing.features import ISTFT, STFT
+from speechbrain.processing.multi_mic import Covariance, DelaySum, GccPhat
 
 
 class DelaySum_Beamformer(torch.nn.Module):
@@ -39,8 +33,12 @@ class DelaySum_Beamformer(torch.nn.Module):
 
         Arguments
         ---------
-        mics_sginal : tensor
+        mics_signals : torch.Tensor
             Set of audio signals to be transformed.
+
+        Returns
+        -------
+        sig : torch.Tensor
         """
         with torch.no_grad():
 

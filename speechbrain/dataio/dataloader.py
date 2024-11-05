@@ -34,30 +34,109 @@ Example
 Authors:
   * Aku Rouhe 2020
 """
-from torch.utils.data import DataLoader
-from torch.utils.data import IterableDataset
-from torch.utils.data.dataloader import _BaseDataLoaderIter
-import logging
-import warnings
+
 import functools
-from speechbrain.dataio.batch import PaddedBatch, BatchsizeGuesser
+import os
+import warnings
+
+from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
+from torch.utils.data.dataloader import _BaseDataLoaderIter
+
+from speechbrain.dataio.batch import BatchsizeGuesser, PaddedBatch
 from speechbrain.dataio.dataset import DynamicItemDataset
-from speechbrain.dataio.sampler import ReproducibleRandomSampler
-from speechbrain.utils.checkpoints import (
-    register_checkpoint_hooks,
-    mark_as_saver,
-    mark_as_loader,
+from speechbrain.dataio.sampler import (
+    DistributedSamplerWrapper,
+    ReproducibleRandomSampler,
 )
+from speechbrain.utils.checkpoints import (
+    mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
+)
+from speechbrain.utils.logger import get_logger
 
 # Optional support for webdataset
 try:
     import webdataset as wds
+    from importlib_metadata import version
 
     WDS_AVAILABLE = True
+
+    # Use appropriate class based on webdataset version
+    if version("webdataset")[0:4] == "0.1.":
+        WDS_CLASS = wds.dataset.Composable
+    else:
+        WDS_CLASS = wds.DataPipeline
 except ImportError:
     WDS_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+
+def distributed_loader_specifics(
+    distributed_launch, rank, dataset, loader_kwargs
+):
+    """Prepare loader_kwargs for DDP when necessary.
+
+    Arguments
+    ---------
+    distributed_launch : bool
+        DDP flag
+    rank : int
+        node rank in DDP
+    dataset : Dataset
+        The dataset to make a DataLoader for.
+    loader_kwargs : dict
+        Keyword args to DataLoader, see PyTorch DataLoader for
+        options.
+
+    Returns
+    -------
+    loader_kwargs
+        augmented keyword args to DataLoader
+    """
+    sampler = loader_kwargs.get("sampler", None)
+    shuffle = loader_kwargs.get("shuffle", False)
+    # Possibly make a DistributedSampler or a wrapper for some other sampler
+    if distributed_launch and not isinstance(dataset, IterableDataset):
+        drop_last = loader_kwargs.get("drop_last", False)
+        # num_replicas arg is equal to world_size
+        # and retrieved automatically within
+        # DistributedSampler obj.
+        if sampler is not None:
+            sampler = DistributedSamplerWrapper(
+                sampler,
+                rank=rank,
+                drop_last=drop_last,
+                shuffle=shuffle,
+            )
+
+            # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+            loader_kwargs["shuffle"] = False
+            loader_kwargs["sampler"] = sampler
+        elif loader_kwargs.get("batch_sampler") is None:
+            # no sampler and batch-sampler
+            sampler = DistributedSampler(
+                dataset,
+                rank=rank,
+                drop_last=drop_last,
+            )
+
+            # with DistributedSamplerWrapper, one must disable shuffling for dataloader
+            loader_kwargs["shuffle"] = False
+            loader_kwargs["sampler"] = sampler
+        else:  # batch_sampler was specified
+            sampler = DistributedSamplerWrapper(
+                loader_kwargs.get("batch_sampler", None),
+                rank=rank,
+            )
+            loader_kwargs["batch_sampler"] = sampler
+    elif distributed_launch and isinstance(dataset, IterableDataset):
+        logger.warning(
+            "Cannot automatically solve distributed sampling "
+            "for IterableDataset."
+        )
+    return loader_kwargs
 
 
 def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
@@ -108,7 +187,8 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
                 "Cannot specify both shuffle=True and a "
                 "sampler in loader_kwargs"
             )
-        sampler = ReproducibleRandomSampler(dataset)
+        seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+        sampler = ReproducibleRandomSampler(dataset, seed=seed)
         loader_kwargs["sampler"] = sampler
         # Should delete shuffle because you can't set both Sampler and
         # shuffle
@@ -120,7 +200,7 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
     # which requires batch_size = None in the DataLoader
     if (
         WDS_AVAILABLE
-        and isinstance(dataset, wds.dataset.Composable)
+        and isinstance(dataset, WDS_CLASS)
         and "batch_size" not in loader_kwargs
     ):
         loader_kwargs["batch_size"] = None
@@ -204,7 +284,7 @@ class SaveableDataLoader(DataLoader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if isinstance(self.dataset, IterableDataset):
-            logging.warning(
+            logger.warning(
                 "SaveableDataLoader cannot save the position in an "
                 "IterableDataset. Save the position on the dataset itself."
             )
@@ -225,7 +305,7 @@ class SaveableDataLoader(DataLoader):
     @mark_as_saver
     def _speechbrain_save(self, path):
         if isinstance(self.dataset, IterableDataset):
-            logging.warning(
+            logger.warning(
                 "Warning again: a checkpoint was requested on "
                 "SaveableDataLoader, but the dataset is an IterableDataset. "
                 "Cannot save the position in an IterableDataset. Not raising "
@@ -235,14 +315,13 @@ class SaveableDataLoader(DataLoader):
             to_save = None
         else:
             to_save = self._speechbrain_iterator._num_yielded
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             fo.write(str(to_save))
 
     @mark_as_loader
-    def _speechbrain_load(self, path, end_of_epoch, device=None):
-        del device  # Unused here
+    def _speechbrain_load(self, path, end_of_epoch):
         if self._speechbrain_iterator is not None:
-            logging.debug(
+            logger.debug(
                 "SaveableDataLoader was requested to load a "
                 "checkpoint, but the DataLoader has already been "
                 "iterated. The DataLoader file will be ignored. "
@@ -254,7 +333,7 @@ class SaveableDataLoader(DataLoader):
             # Don't load at end of epoch, as we actually want to start a fresh
             # epoch iteration next.
             return
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             saved = fi.read()
             if saved == str(None):
                 # Saved at a point where e.g. an iterator did not yet exist.
@@ -279,6 +358,8 @@ class LoopedLoader:
     epoch_length : int
         The length of the nominal epoch. After this many steps, raises
         StopIteration
+    batchsize_fn : callable
+        Function for determining batch size, default ``BatchsizeGuesser``
     """
 
     def __init__(self, loader, epoch_length, batchsize_fn=None):
@@ -316,15 +397,16 @@ class LoopedLoader:
 
     @mark_as_saver
     def save(self, path):
-        with open(path, "w") as fo:
+        """Saves the needed information."""
+        with open(path, "w", encoding="utf-8") as fo:
             print(self.step, file=fo)
             print(self.total_steps, file=fo)
             print(self.total_samples, file=fo)
 
     @mark_as_loader
-    def load(self, path, end_of_epoch=True, device=None):
-        del device  # Unused here
-        with open(path) as fi:
+    def load(self, path, end_of_epoch=True):
+        """Loads the needed information."""
+        with open(path, encoding="utf-8") as fi:
             self.step = int(fi.readline().strip())
             self.total_steps = int(fi.readline().strip())
             self.total_samples = int(fi.readline().strip())

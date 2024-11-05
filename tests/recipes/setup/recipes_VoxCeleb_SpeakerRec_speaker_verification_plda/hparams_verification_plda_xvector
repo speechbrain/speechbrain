@@ -1,0 +1,1 @@
+ln -s `realpath tests/tmp/VoxCeleb_row_04/save/CK*/embedding_model*` tests/tmp/VoxCeleb_row_04/embedding_model.ckpt

@@ -1,0 +1,100 @@
+# #################################
+# The hyperparameters to train an NMF model on ESC50
+#
+# Author:
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023
+#  (based on the SpeechBrain UrbanSound8k recipe)
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Set up folders for reading from and writing to
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
+audio_data_folder: !ref <data_folder>/audio
+
+experiment_name: train_nmf
+output_folder: !ref ./results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+save_period: 10
+
+# if true we save the nmf dictionary at the end of training
+save_nmfdictionary: False
+nmf_savepath: nmf_dictionary.pt
+
+# Path where data manifest files will be stored
+train_annotation: !ref <data_folder>/manifest/train.json
+valid_annotation: !ref <data_folder>/manifest/valid.json
+test_annotation: !ref <data_folder>/manifest/test.json
+
+# To standardize results, UrbanSound8k has pre-separated samples into
+# 10 folds for multi-fold validation
+train_fold_nums: [1, 2, 3]
+valid_fold_nums: [4]
+test_fold_nums: [5]
+skip_manifest_creation: False
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 300
+batch_size: 2
+lr: 0.00005
+sample_rate: 44100
+signal_length_s: 5
+
+shuffle: True
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+## Data augmentation
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: 1024
+    hop_length: 11.6099
+    win_length: 23.2199
+    sample_rate: !ref <sample_rate>
+
+compute_stft_mag: !name:speechbrain.processing.features.spectral_magnitude
+    power: 0.5
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+
+# Interpretation hyperparams
+K: 100
+N_FREQ: 513
+
+# NMF Decoder
+nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
+    n_comp: !ref <K>
+    n_freq: !ref <N_FREQ>
+    # init_file: !ref <nmf_d_path>
+
+nmf_encoder: !new:speechbrain.lobes.models.L2I.NMFEncoder
+    n_comp: !ref <K>
+    n_freq: !ref <N_FREQ>
+
+modules:
+    nmf_decoder: !ref <nmf_decoder>
+    nmf_encoder: !ref <nmf_encoder>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        nmf_decoder: !ref <nmf_decoder>
+        nmf_encoder: !ref <nmf_encoder>
+        counter: !ref <epoch_counter>

@@ -1,6 +1,6 @@
 #!/usr/bin/env/python3
 """Recipe for training a BPE tokenizer with timers-and-such.
-The tokenizer coverts semantics into sub-word units that can
+The tokenizer converts semantics into sub-word units that can
 be used to train a language (LM) or an acoustic model (AM).
 
 To run this recipe, do the following:
@@ -14,18 +14,18 @@ Authors
 """
 
 import sys
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.distributed import run_on_main
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -47,6 +47,7 @@ if __name__ == "__main__":
             "save_folder": hparams["output_folder"],
             "train_splits": hparams["train_splits"],
             "type": "direct",
+            "skip_prep": hparams["skip_prep"],
         },
     )
 

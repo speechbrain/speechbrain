@@ -9,7 +9,7 @@ Given the training transcriptions, the tokenizers decide which word pieces alloc
 SpeechBrain relies on the popular [SentencePiece](https://github.com/google/sentencepiece) for tokenization. To train the tokenizer:
 
 ```
-cd python train.py tokenizer.yaml
+cd Tokenizer
 python train.py tokenizer.yaml
 ```
 
@@ -21,7 +21,7 @@ cd ../LM
 python train.py RNNLM.yaml
 ```
 
-In a real case, training LM is extremely computational demanding. It is thus a good practice to re-use existing LM or fine-tune them.
+In a real case, training LM is extremely computational demanding. It is thus a good practice to reuse existing LM or fine-tune them.
 
 3. Train the speech recognizer
 At this point, we can train our speech recognizer. In this case, we are using a simple CRDNN model with an autoregressive GRU decoder. An attention mechanism is employed between encoding and decoder. The final sequence of words is retrieved with beamsearch coupled with the RNN LM trained in the previous step. To train the ASR:
@@ -33,4 +33,4 @@ python train.py train.yaml
 
 This template can help you figure out how to set speechbrain for implementing an e2e speech recognizer. However, in a real case, the system must be trained with much more data to provide acceptable performance. For a competitive recipe with more data, see for instance our recipes on LibriSpeech (https://github.com/speechbrain/speechbrain/tree/develop/recipes/LibriSpeech/ASR).
 
-[For more information, please take a look into the "ASR from scratch" tutorial](https://colab.research.google.com/drive/1aFgzrUv3udM_gNJNUoLaHIm78QHtxdIz?usp=sharing)
+[For more information, please take a look into the "ASR from scratch" tutorial](https://speechbrain.readthedocs.io/en/latest/tutorials/tasks/speech-recognition-from-scratch.html)

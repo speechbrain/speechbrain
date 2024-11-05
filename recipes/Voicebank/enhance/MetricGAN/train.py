@@ -11,20 +11,22 @@ Authors
 """
 
 import os
-import sys
-import shutil
 import pickle
+import shutil
+import sys
+from enum import Enum, auto
+
 import torch
 import torchaudio
-import speechbrain as sb
-from pesq import pesq
-from enum import Enum, auto
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import MetricStats
-from speechbrain.processing.features import spectral_magnitude
-from speechbrain.nnet.loss.stoi_loss import stoi_loss
-from speechbrain.utils.distributed import run_on_main
+from pesq import pesq
+
+import speechbrain as sb
 from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from speechbrain.processing.features import spectral_magnitude
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 
 def pesq_eval(pred_wav, target_wav):
@@ -85,6 +87,7 @@ class MetricGanBrain(sb.Brain):
 
         clean_wav, lens = batch.clean_sig
         clean_spec = self.compute_feats(clean_wav)
+        clean_paths = batch.clean_wav
 
         ids = self.compute_ids(batch.id, optim_name)
 
@@ -109,7 +112,7 @@ class MetricGanBrain(sb.Brain):
 
             # Write enhanced wavs during discriminator training, because we
             # compute the actual score here and we can save it
-            self.write_wavs(batch.id, ids, predict_wav, target_score, lens)
+            self.write_wavs(ids, predict_wav, clean_paths, target_score, lens)
 
         # D Relearns to estimate the scores of previous epochs
         elif optim_name == "D_enh" and self.sub_stage == SubStage.HISTORICAL:
@@ -180,8 +183,12 @@ class MetricGanBrain(sb.Brain):
             The degraded waveform to score
         ref_wav : torch.Tensor
             The reference waveform to use for scoring
-        length : torch.Tensor
+        lens : torch.Tensor
             The relative lengths of the utterances
+
+        Returns
+        -------
+        score : torch.Tensor
         """
         new_ids = [
             i
@@ -199,7 +206,7 @@ class MetricGanBrain(sb.Brain):
                 lengths=lens[new_ids],
             )
             score = torch.tensor(
-                [[s] for s in self.target_metric.scores], device=self.device,
+                [[s] for s in self.target_metric.scores], device=self.device
             )
         elif self.hparams.target_metric == "stoi":
             self.target_metric.append(
@@ -210,7 +217,8 @@ class MetricGanBrain(sb.Brain):
                 reduction="batch",
             )
             score = torch.tensor(
-                [[-s] for s in self.target_metric.scores], device=self.device,
+                [[-s] for s in self.target_metric.scores],
+                device=self.device,
             )
         else:
             raise ValueError("Expected 'pesq' or 'stoi' for target_metric")
@@ -239,13 +247,17 @@ class MetricGanBrain(sb.Brain):
             The spectral features of the degraded utterance
         ref_spec : torch.Tensor
             The spectral features of the reference utterance
+
+        Returns
+        -------
+        est_score : torch.Tensor
         """
         combined_spec = torch.cat(
             [deg_spec.unsqueeze(1), ref_spec.unsqueeze(1)], 1
         )
         return self.modules.discriminator(combined_spec)
 
-    def write_wavs(self, clean_id, batch_id, wavs, scores, lens):
+    def write_wavs(self, batch_id, wavs, clean_paths, scores, lens):
         """Write wavs to files, for historical discriminator training
 
         Arguments
@@ -254,6 +266,8 @@ class MetricGanBrain(sb.Brain):
             A list of the utterance ids for the batch
         wavs : torch.Tensor
             The wavs to write to files
+        clean_paths : list of str
+            The paths to the clean wavs
         scores : torch.Tensor
             The actual scores for the corresponding utterances
         lens : torch.Tensor
@@ -261,8 +275,8 @@ class MetricGanBrain(sb.Brain):
         """
         lens = lens * wavs.shape[1]
         record = {}
-        for i, (cleanid, name, pred_wav, length) in enumerate(
-            zip(clean_id, batch_id, wavs, lens)
+        for i, (name, pred_wav, clean_path, length) in enumerate(
+            zip(batch_id, wavs, clean_paths, lens)
         ):
             path = os.path.join(self.hparams.MetricGAN_folder, name + ".wav")
             data = torch.unsqueeze(pred_wav[: int(length)].cpu(), 0)
@@ -270,9 +284,6 @@ class MetricGanBrain(sb.Brain):
 
             # Make record of path and score for historical training
             score = float(scores[i][0])
-            clean_path = os.path.join(
-                self.hparams.train_clean_folder, cleanid + ".wav"
-            )
             record[name] = {
                 "enh_wav": path,
                 "score": score,
@@ -296,8 +307,10 @@ class MetricGanBrain(sb.Brain):
                 )
                 self.d_optimizer.zero_grad()
                 loss.backward()
-                if self.check_gradients(loss):
-                    self.d_optimizer.step()
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.max_grad_norm
+                )
+                self.d_optimizer.step()
                 loss_tracker += loss.detach() / 3
         elif self.sub_stage == SubStage.HISTORICAL:
             loss = self.compute_objectives(
@@ -305,8 +318,10 @@ class MetricGanBrain(sb.Brain):
             )
             self.d_optimizer.zero_grad()
             loss.backward()
-            if self.check_gradients(loss):
-                self.d_optimizer.step()
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.max_grad_norm
+            )
+            self.d_optimizer.step()
             loss_tracker += loss.detach()
         elif self.sub_stage == SubStage.GENERATOR:
             for name, param in self.modules.generator.named_parameters():
@@ -322,8 +337,10 @@ class MetricGanBrain(sb.Brain):
 
             self.g_optimizer.zero_grad()
             loss.backward()
-            if self.check_gradients(loss):
-                self.g_optimizer.step()
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.max_grad_norm
+            )
+            self.g_optimizer.step()
             loss_tracker += loss.detach()
 
         return loss_tracker
@@ -440,15 +457,21 @@ class MetricGanBrain(sb.Brain):
     ):
         "Override dataloader to insert custom sampler/dataset"
         if stage == sb.Stage.TRAIN:
-
             # Create a new dataset each time, this set grows
             if self.sub_stage == SubStage.HISTORICAL:
                 dataset = sb.dataio.dataset.DynamicItemDataset(
                     data=dataset,
                     dynamic_items=[enh_pipeline],
-                    output_keys=["id", "enh_sig", "clean_sig", "score"],
+                    output_keys=[
+                        "id",
+                        "enh_sig",
+                        "clean_sig",
+                        "score",
+                        "clean_wav",
+                    ],
                 )
                 samples = round(len(dataset) * self.hparams.history_portion)
+                samples = max(samples, 1)  # Ensure there's at least one sample
             else:
                 samples = self.hparams.number_of_samples
 
@@ -458,8 +481,12 @@ class MetricGanBrain(sb.Brain):
             # Equal weights for all samples, we use "Weighted" so we can do
             # both "replacement=False" and a set number of samples, reproducibly
             weights = torch.ones(len(dataset))
+            replacement = samples > len(dataset)
             sampler = ReproducibleWeightedRandomSampler(
-                weights, epoch=epoch, replacement=False, num_samples=samples
+                weights,
+                epoch=epoch,
+                replacement=replacement,
+                num_samples=samples,
             )
             loader_kwargs["sampler"] = sampler
 
@@ -489,8 +516,12 @@ class MetricGanBrain(sb.Brain):
             self.checkpointer.add_recoverable("g_opt", self.g_optimizer)
             self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        self.g_optimizer.zero_grad(set_to_none)
+        self.d_optimizer.zero_grad(set_to_none)
 
-# Define audio piplines
+
+# Define audio pipelines
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
 def audio_pipeline(noisy_wav, clean_wav):
@@ -511,12 +542,17 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline],
-            output_keys=["id", "noisy_sig", "clean_sig"],
+            output_keys=["id", "noisy_sig", "clean_sig", "clean_wav"],
         )
 
     return datasets
@@ -529,10 +565,9 @@ def create_folder(folder):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

@@ -1,0 +1,2 @@
+fpath=`find tests/tmp/TIMIT_row_05 | grep model.ckpt | tail -n 1`
+ln -s `realpath $fpath` tests/tmp/TIMIT_row_05/model.ckpt

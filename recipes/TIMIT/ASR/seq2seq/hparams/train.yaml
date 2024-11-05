@@ -8,20 +8,21 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/CRDNN_seq2seq/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-train_annotation: !ref <output_folder>/train.json
-valid_annotation: !ref <output_folder>/dev.json
-test_annotation: !ref <output_folder>/test.json
+train_annotation: !ref <save_folder>/train.json
+valid_annotation: !ref <save_folder>/dev.json
+test_annotation: !ref <save_folder>/test.json
 skip_prep: False # Skip data preparation
+uppercase: False # Must be True when the TIMIT dataset is in the upper-case version
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 50
 batch_size: 8 # Used if dynamic_batching is False
 lr: 0.0003
@@ -33,7 +34,7 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
@@ -57,7 +58,7 @@ blank_index: 2
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
 beam_size: 16
-eos_threshold: 1.5
+# eos_threshold: 1.5
 
 # Dataloader options (used if dynamic_batching is False)
 train_dataloader_opts:
@@ -75,17 +76,52 @@ test_dataloader_opts:
 # For more info, see speechbrain.dataio.sampler.DynamicBatchSampler
 dynamic_batching: False
 
+feats_hop_size: 0.01
+max_batch_length: 5000 # in terms of frames
+num_buckets: 20
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+batch_ordering: random
+
 dynamic_batch_sampler:
-    feats_hop_size: 0.01
-    max_batch_len: 5000 # in terms of frames
-    num_buckets: 20
-    shuffle_ex: False # if true re-creates batches at each epoch shuffling examples.
-    batch_ordering: random
+    max_batch_length: !ref <max_batch_length>
+    num_buckets: !ref <num_buckets>
+    shuffle: !ref <shuffle>
+    batch_ordering: !ref <batch_ordering>
 
+############################## Augmentations ###################################
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+############################## Models ##########################################
+
 
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
@@ -148,7 +184,8 @@ ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
 seq_cost: !name:speechbrain.nnet.losses.nll_loss
     label_smoothing: 0.1
 
-greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
+
+valid_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
@@ -157,14 +194,12 @@ greedy_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
 
-beam_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
+test_searcher: !new:speechbrain.decoders.seq2seq.S2SRNNBeamSearcher
     embedding: !ref <emb>
     decoder: !ref <dec>
     linear: !ref <seq_lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <beam_size>

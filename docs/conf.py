@@ -12,10 +12,12 @@
 #
 import os
 import sys
+
+import better_apidoc
 import hyperpyyaml
+from sphinx.ext.autodoc.mock import mock
 
-
-sys.path.insert(0, os.path.abspath("../speechbrain"))
+sys.path.insert(-1, os.path.abspath("../"))
 
 
 # -- Project information -----------------------------------------------------
@@ -40,7 +42,13 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
+    "sphinx_copybutton",
+    "sphinx_design",
+    "sphinx_markdown_tables",
     "recommonmark",
+    # chose myst-nb over nbsphinx is annoying because of the pandoc dependency
+    # of the latter, which needs to be installed system-wide or through conda
+    "myst_nb",
 ]
 
 
@@ -62,14 +70,39 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "numpy": ("http://docs.scipy.org/doc/numpy/", None),
     "torch": ("https://pytorch.org/docs/master/", None),
+    "torchaudio": ("https://pytorch.org/audio/stable/", None),
 }
+
+# Myst-NB documentation
+
+jupyter_execute_notebooks = "off"
+
+myst_enable_extensions = [
+    "amsmath",
+    "colon_fence",
+    "deflist",
+    "dollarmath",
+    "html_image",
+]
 
 # AUTODOC:
 
 autodoc_default_options = {}
 
-# Autodoc mock extra dependencies:
-autodoc_mock_imports = ["sklearn"]
+# Autodoc mock extra dependencies -- doesn't work out of the box, because of better_apidoc.
+#
+# So, let's reuse the autodoc mock...
+#
+# We would also like to mock more imports than this but this is shockingly prone
+# to randomly breaking, so let's keep a small-ish set of dependencies that tend
+# to be more annoying to install and to nuke our CI on update
+autodoc_mock_imports = [
+    "k2",
+    "flair",
+    "fairseq",
+    "spacy",
+    "ctc_segmentation",
+]
 
 # Order of API items:
 autodoc_member_order = "bysource"
@@ -84,43 +117,52 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_apidoc_templates"]
+exclude_patterns = ["_apidoc_templates", "build"]
+
+# Make backticks behave as inline code blocks rather than italics
+default_role = "code"
 
 # -- Better apidoc -----------------------------------------------------------
 
 
 def run_apidoc(app):
-    """Generage API documentation"""
-    import better_apidoc
+    """Generate API documentation"""
 
-    better_apidoc.APP = app
+    with mock(autodoc_mock_imports):
+        try:
+            better_apidoc.APP = app
+            better_apidoc.main(
+                [
+                    "better-apidoc",
+                    "-t",
+                    "_apidoc_templates",
+                    "--force",
+                    "--no-toc",
+                    "--separate",
+                    "-o",
+                    "API",
+                    os.path.join("../", "speechbrain"),
+                ]
+            )
+            better_apidoc.main(
+                [
+                    "better-apidoc",
+                    "-t",
+                    "_apidoc_templates",
+                    "--force",
+                    "--no-toc",
+                    "--separate",
+                    "-o",
+                    "API",
+                    os.path.dirname(hyperpyyaml.__file__),
+                ]
+            )
+        except Exception:
+            # because otherwise sphinx very helpfully eats the backtrace
+            import traceback
 
-    better_apidoc.main(
-        [
-            "better-apidoc",
-            "-t",
-            "_apidoc_templates",
-            "--force",
-            "--no-toc",
-            "--separate",
-            "-o",
-            "API",
-            os.path.dirname(hyperpyyaml.__file__),
-        ]
-    )
-    better_apidoc.main(
-        [
-            "better-apidoc",
-            "-t",
-            "_apidoc_templates",
-            "--force",
-            "--no-toc",
-            "--separate",
-            "-o",
-            "API",
-            os.path.join("../", "speechbrain"),
-        ]
-    )
+            print(traceback.format_exc(), file=sys.stderr)
+            raise
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -132,12 +174,15 @@ html_theme = "sphinx_rtd_theme"
 # See https://sphinx-rtd-theme.readthedocs.io/en/stable/configuring.html
 # for rtd theme options
 html_theme_options = {
+    "logo_only": True,
     # Toc options
     "collapse_navigation": False,
     "sticky_navigation": True,
     "navigation_depth": 4,
     "includehidden": True,
 }
+
+html_logo = "images/speechbrain-logo.svg"
 
 
 # Add any paths that contain custom static files (such as style sheets) here,

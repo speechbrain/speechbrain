@@ -1,0 +1,126 @@
+# ############################################################################
+# Model: Transformer LM of E2E ASR
+# Tokens: unigram
+# losses: NLL
+# Training: Librispeech 960h transcripts + Librispeech LM corpus
+#           + Swbd transcripts + Fisher transcripts
+# Authors:  Jianyuan Zhong 2021, Dominik Wagner 2022
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1312
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/transformer_finetune/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+# Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
+data_folder: !PLACEHOLDER
+splits: ["train", "dev"]
+split_ratio: [99, 1]
+add_fisher_corpus: True
+# Maximum number of times the same utterance is allowed to appear
+# in the training data
+max_utt: 300
+skip_prep: False
+# train_lm.csv is is created, when the Fisher
+# corpus is included in the data preparation
+# procedure via add_fisher_corpus
+train_csv: !ref <save_folder>/train_lm.csv
+valid_csv: !ref <save_folder>/dev.csv
+test_csv: !ref <save_folder>/test.csv
+
+# Language model (LM) pretraining
+# NB: To avoid mismatch, the speech recognizer must be trained with the same
+# tokenizer used for LM training. Here, we download everything from the
+# speechbrain HuggingFace repository. However, a local path pointing to a
+# directory containing the lm.ckpt and tokenizer.ckpt may also be specified
+# instead. E.g if you want to use your own LM / tokenizer.
+pretrained_lm_tokenizer_path: speechbrain/asr-transformer-transformerlm-librispeech
+
+####################### Training Parameters ####################################
+number_of_epochs: 5
+batch_size: 128
+lr: 2
+grad_accumulation_factor: 2
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    pin_memory: True
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
+# Outputs
+output_neurons: 5000
+# blank_index: 0
+bos_index: 1
+eos_index: 2
+# unk_index: 0
+# pad_index: 0
+
+# model params
+d_model: 768
+
+# Functions
+model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # yamllint disable-line rule:line-length
+    vocab: !ref <output_neurons>
+    d_model: !ref <d_model>
+    nhead: 12
+    num_encoder_layers: 12
+    num_decoder_layers: 0
+    d_ffn: 3072
+    dropout: 0.0
+    activation: !name:torch.nn.GELU
+    normalize_before: False
+
+modules:
+    model: !ref <model>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+optimizer: !name:torch.optim.Adam
+    lr: 0
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
+    lr_initial: !ref <lr>
+    n_warmup_steps: 50000
+    model_size: !ref <d_model>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+tokenizer: !new:sentencepiece.SentencePieceProcessor
+
+# This object is used to load a pretrained language model and tokenizer
+# (defined above).
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        model: !ref <model>
+        tokenizer: !ref <tokenizer>
+    paths:
+        model: !ref <pretrained_lm_tokenizer_path>/lm.ckpt
+        tokenizer: !ref <pretrained_lm_tokenizer_path>/tokenizer.ckpt

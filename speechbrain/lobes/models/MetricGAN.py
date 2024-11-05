@@ -3,10 +3,12 @@
 Authors:
 * Szu-Wei Fu 2020
 """
+
 import torch
-import speechbrain as sb
 from torch import nn
 from torch.nn.utils import spectral_norm
+
+import speechbrain as sb
 
 
 def xavier_init_layer(
@@ -28,10 +30,19 @@ def xavier_init_layer(
 
 
 def shifted_sigmoid(x):
+    "Computes the shifted sigmoid."
     return 1.2 / (1 + torch.exp(-(1 / 1.6) * x))
 
 
 class Learnable_sigmoid(nn.Module):
+    """Implementation of a leanable sigmoid.
+
+    Arguments
+    ---------
+    in_features : int
+        Input dimensionality
+    """
+
     def __init__(self, in_features=257):
         super().__init__()
         self.slope = nn.Parameter(torch.ones(in_features))
@@ -41,6 +52,7 @@ class Learnable_sigmoid(nn.Module):
         # self.scale.requiresGrad = True # set requiresGrad to true!
 
     def forward(self, x):
+        """Processes the input tensor x and returns an output tensor."""
         return 1.2 * torch.sigmoid(self.slope * x)
 
 
@@ -60,7 +72,11 @@ class EnhancementGenerator(nn.Module):
     """
 
     def __init__(
-        self, input_size=257, hidden_size=200, num_layers=2, dropout=0,
+        self,
+        input_size=257,
+        hidden_size=200,
+        num_layers=2,
+        dropout=0,
     ):
         super().__init__()
         self.activation = nn.LeakyReLU(negative_slope=0.3)
@@ -91,6 +107,7 @@ class EnhancementGenerator(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, lengths):
+        """Processes the input tensor x and returns an output tensor."""
         out, _ = self.blstm(x, lengths=lengths)
 
         out = self.linear1(out)
@@ -116,10 +133,15 @@ class MetricDiscriminator(nn.Module):
         The dimensions of the 2-d kernel used for convolution.
     base_channels : int
         Number of channels used in each conv layer.
+    activation : Callable
+        Function to apply between layers.
     """
 
     def __init__(
-        self, kernel_size=(5, 5), base_channels=15, activation=nn.LeakyReLU,
+        self,
+        kernel_size=(5, 5),
+        base_channels=15,
+        activation=nn.LeakyReLU,
     ):
         super().__init__()
 
@@ -145,6 +167,7 @@ class MetricDiscriminator(nn.Module):
         self.Linear3 = xavier_init_layer(in_size=10, out_size=1)
 
     def forward(self, x):
+        """Processes the input tensor x and returns an output tensor."""
         out = self.BN(x)
 
         out = self.conv1(out)

@@ -13,10 +13,12 @@ Authors
 """
 
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 
 # Define training procedure
@@ -68,27 +70,18 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
-            return p_seq, asr_tokens_lens
-        else:
-            p_tokens, scores = self.hparams.beam_searcher(
+        p_tokens = None
+        if stage != sb.Stage.TRAIN:
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
                 encoder_out, asr_tokens_lens
             )
-            return p_seq, asr_tokens_lens, p_tokens
+
+        return p_seq, asr_tokens_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
 
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
-            p_seq, asr_tokens_lens = predictions
-        else:
-            p_seq, asr_tokens_lens, predicted_tokens = predictions
+        p_seq, asr_tokens_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
@@ -101,9 +94,7 @@ class SLU(sb.Brain):
         # (No ctc loss)
         loss = loss_seq
 
-        if (stage != sb.Stage.TRAIN) or (
-            self.batch_count % show_results_every == 0
-        ):
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
                 tokenizer.decode_ids(utt_seq).split(" ")
@@ -127,29 +118,10 @@ class SLU(sb.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        self.batch_count += 1
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        self.batch_count = 0
 
         if stage != sb.Stage.TRAIN:
-
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
@@ -174,25 +146,31 @@ class SLU(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"SER": stage_stats["SER"]}, min_keys=["SER"],
+                meta={"SER": stage_stats["SER"]},
+                min_keys=["SER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
+                    self.wer_metric.write_stats(w)
 
 
 def data_io_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -223,7 +201,8 @@ def data_io_prepare(hparams):
     else:
         valid_path = hparams["csv_dev_real"]
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=valid_path, replacements={"data_root": data_folder},
+        csv_path=valid_path,
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
@@ -306,15 +285,13 @@ def data_io_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     show_results_every = 100  # plots results every N iterations
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -351,8 +328,8 @@ if __name__ == "__main__":
     ) = data_io_prepare(hparams)
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].collect_files()
+    hparams["pretrainer"].load_collected()
 
     # Brain class initialization
     slu_brain = SLU(
@@ -377,9 +354,7 @@ if __name__ == "__main__":
 
     # Test (ALL real data)
     if slu_brain.hparams.test_on_all_real:
-        slu_brain.hparams.wer_file = (
-            hparams["output_folder"] + "/wer_all_real.txt"
-        )
+        slu_brain.hparams.test_wer_file = hparams["all_real_wer_file"]
         slu_brain.evaluate(
             all_real_set,
             test_loader_kwargs=hparams["dataloader_opts"],
@@ -387,7 +362,7 @@ if __name__ == "__main__":
         )
 
     # Test (real data)
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
+    slu_brain.hparams.test_wer_file = hparams["test_real_wer_file"]
     slu_brain.evaluate(
         test_real_set,
         test_loader_kwargs=hparams["dataloader_opts"],
@@ -395,9 +370,7 @@ if __name__ == "__main__":
     )
 
     # Test (synth data)
-    slu_brain.hparams.wer_file = (
-        hparams["output_folder"] + "/wer_test_synth.txt"
-    )
+    slu_brain.hparams.test_wer_file = hparams["test_synth_wer_file"]
     slu_brain.evaluate(
         test_synth_set,
         test_loader_kwargs=hparams["dataloader_opts"],

@@ -8,7 +8,7 @@
 # Seed needs to be set at top of yaml, before objects with parameters are made
 #
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Data params
 
@@ -33,14 +33,14 @@ skip_prep: False
 
 
 # Experiment params
-auto_mix_prec: True # Set it to True for mixed precision
-test_only: False
+precision: fp16 # bf16, fp16 or fp32 # Set it to True for mixed precision
 num_spks: 2 # set to 3 for wsj0-3mix
-progressbar: True
-save_audio: False # Save estimated sources on disk
+noprogressbar: False
+save_audio: True # Save estimated sources on disk
+n_audio_to_save: 20
 sample_rate: 8000
 
-# Training parameters
+####################### Training Parameters ####################################
 N_epochs: 200
 batch_size: 1
 lr: 0.00015
@@ -58,23 +58,42 @@ dynamic_mixing: False
 # Parameters for data augmentation
 use_wavedrop: False
 use_speedperturb: True
-use_speedperturb_sameforeachsource: False
 use_rand_shift: False
 min_shift: -8000
 max_shift: 8000
 
-speedperturb: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 1.0
-    drop_freq_prob: 0.0
-    drop_chunk_prob: 0.0
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
 
-wavedrop: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    perturb_prob: 0.0
-    drop_freq_prob: 1.0
-    drop_chunk_prob: 1.0
-    sample_rate: !ref <sample_rate>
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
 
 # loss thresholding -- this thresholds the training loss
 threshold_byloss: True

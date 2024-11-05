@@ -1,0 +1,6 @@
+matplotlib
+pandas
+quantus==0.5.3
+scikit-learn
+torchvision
+transformers

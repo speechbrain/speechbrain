@@ -8,15 +8,16 @@ Authors:
  * Mirco Ravanelli, 2021
 """
 
-import os
 import json
-import shutil
+import os
 import random
-import logging
-from speechbrain.utils.data_utils import get_all_files, download_file
-from speechbrain.dataio.dataio import read_audio
+import shutil
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"
 SAMPLERATE = 16000
 
@@ -49,12 +50,15 @@ def prepare_mini_librispeech(
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/mini_librispeech'
     >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
     """
-
     # Check if this phase is already done (if so, skip it)
     if skip(save_json_train, save_json_valid, save_json_test):
         logger.info("Preparation completed in previous run, skipping.")
@@ -116,7 +120,7 @@ def create_json(wav_list, json_file):
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
@@ -126,6 +130,12 @@ def skip(*filenames):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    *filenames: tuple
+        The path to files that should exist in order to consider
+        preparation already completed.
 
     Returns
     -------
@@ -158,7 +168,7 @@ def split_sets(wav_list, split_ratio):
 
     Arguments
     ---------
-    wav_lst : list
+    wav_list : list
         list of all the signals in the dataset
     split_ratio: list
         List composed of three integers that sets split ratios for train, valid,
@@ -167,7 +177,7 @@ def split_sets(wav_list, split_ratio):
         for test.
 
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
     # Random shuffle of the list

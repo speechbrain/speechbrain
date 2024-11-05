@@ -9,7 +9,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 17234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 data_folder: !PLACEHOLDER # e.g, /data/member1/user_jasonfu/noisy-vctk-16k
 
@@ -30,9 +30,9 @@ N_fft: 512
 window_fn: !name:torch.hamming_window
 
 # Data files
-train_annotation: !ref <data_folder>/train_revb.json
-valid_annotation: !ref <data_folder>/valid_revb.json
-test_annotation: !ref <data_folder>/test_revb.json
+train_annotation: !ref <output_folder>/train_revb.json
+valid_annotation: !ref <output_folder>/valid_revb.json
+test_annotation: !ref <output_folder>/test_revb.json
 skip_prep: False
 
 # Training Parameters
@@ -86,12 +86,12 @@ resynth: !name:speechbrain.processing.signal_processing.resynthesize
     stft: !ref <compute_STFT>
     istft: !ref <compute_ISTFT>
 
-mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
+# mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+#    norm_type: sentence
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-# Tensorboard logger (optional)
+# torch.Tensorboard logger (optional)
 tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
     save_dir: !ref <tensorboard_logs>

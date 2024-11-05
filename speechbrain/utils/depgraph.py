@@ -54,6 +54,7 @@ Example
 Authors:
     * Aku Rouhe 2020
 """
+
 import collections
 import uuid
 
@@ -99,7 +100,7 @@ class DependencyGraph:
 
     @staticmethod
     def get_unique_key():
-        # Returns a unique hashable identifier
+        """Returns a unique hashable identifier."""
         return uuid.uuid4()
 
     def add_node(self, key=None, data=None):
@@ -151,10 +152,6 @@ class DependencyGraph:
             The key which depends on.
         to_key : hashable
             The key which is depended on.
-
-        Returns
-        -------
-        None
         """
         from_ind = self._get_ind_and_add_if_new(from_key)
         to_ind = self._get_ind_and_add_if_new(to_key)
@@ -215,6 +212,7 @@ class DependencyGraph:
         seen_ever = set()
 
         def toposort(root_ind, visited):
+            """Implementation of toposort."""
             nonlocal seen_ever
             here = visited + [root_ind]
             if root_ind in visited:
@@ -243,10 +241,11 @@ class DependencyGraph:
                 yield self.digraph[ind]
 
     def _find_first_cycle(self):
-        # Depth-first search based algorithm for finding cycles in the graph
+        """Depth-first search based algorithm for finding cycles in the graph."""
         seen_ever = set()
 
         def cycle_dfs(root_ind, visited):
+            """Implementation of cycle_dfs."""
             nonlocal seen_ever
             print(root_ind, visited)
             here = visited + [root_ind]

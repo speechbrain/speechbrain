@@ -1,0 +1,98 @@
+{
+    "spk1_snt1": {
+        "wav": "{data_root}/spk1_snt1.wav",
+        "duration": "2.87",
+        "length": "2.87",
+        "spk_id": "spk1",
+        "ali": "{data_root}/spk1_snt1.pkl",
+        "phn": "dh ah sil ch ay l sil d aa l m ow s sil t hh er sil t sil dh ah s m aa l sil d aa sil",
+		"ground_truth_phn_ends": "194 426 884 4391 9455 9986 10342 11271 12168 12531 14612 17739 17903 18893 20726 21929 22360 22530 24798 25601 28365 29468 29631 30002 32311 32808 35114 44279 45388 45479",
+        "char": "t h e c h i l d a l m o s t h u r t t h e s m a l l d o g ",
+        "wrd": "THE CHILD ALMOST HURT THE SMALL DOG",
+        "emo": "anger"
+    },
+    "spk1_snt2": {
+        "wav": "{data_root}/spk1_snt2.wav",
+        "duration": "3.15",
+        "length": "3.15",
+        "spk_id": "spk1",
+        "ali": "{data_root}/spk1_snt2.pkl",
+        "phn": "sil d r aa sil p dh ah sil t uw sil w eh n y uw ae sil d dh ah f ih sil g y er",
+		"ground_truth_phn_ends": "326 519 1442 7249 7400 7782 9313 9647 12170 12358 12362 12834 16053 17413 17463 19508 19880 21328 24393 25351 32926 33872 35505 39419 41432 42846 44790 45438",
+        "char": "d r o p t h e t u e w h e n y o u a d d t h e f i g u r e s",
+        "wrd": "DROP THE TUE WHEN YOU ADD THE FIGURES",
+        "emo": "sadness"
+    },
+    "spk1_snt3": {
+        "wav": "{data_root}/spk1_snt3.wav",
+        "duration": "2.72",
+		"length": "2.72",
+        "spk_id": "spk1",
+        "ali": "{data_root}/spk1_snt3.pkl",
+        "phn": "ae sil t dh ae sil t hh ay l eh v ah l dh iy eh r ih z sil p y uh",
+		"ground_truth_phn_ends": "527 1141 2444 3366 5741 7283 11018 13149 13196 13883 16233 17710 18598 20542 23219 25111 27453 29274 30288 31049 35158 35795 36331 36387",
+        "char": "a t t h a t h i g h l e v e l t h e a i r i s p u r e",
+        "wrd": "AT THAT HIGH LEVEL THE AIR IS PURE",
+        "emo": "happiness"
+    },
+    "spk1_snt4": {
+        "wav": "{data_root}/spk1_snt4.wav",
+        "duration": "2.53",
+        "length": "2.53",
+        "spk_id": "spk1",
+        "ali": "{data_root}/spk1_snt4.pkl",
+        "phn": "ey th ih n s sil t r ay sil p r ah n z sil d aw n dh ah m ih sil d ah",
+		"ground_truth_phn_ends": "2799 5582 5757 10005 10114 11265 12283 14066 14141 16798 17097 18436 18751 19786 21522 28034 28366 28794 29452 30858 33511 35776 37489 37933 38441 38817",
+        "char": "a t h i n s t r i p e r u n s d o w n  t h e m i d d l e",
+        "wrd": "A THIN STRIPE RUNS DOWN THE MIDDLE",
+        "emo": "neutrality"
+    },
+    "spk2_snt1": {
+        "wav": "{data_root}/spk2_snt1.wav",
+        "duration": "2.01",
+        "length": "2.01",
+        "spk_id": "spk2",
+        "ali": "{data_root}/spk2_snt1.pkl",
+        "phn": "w iy er sh aa r dh ah dx w ah n w aa r ih z ih n ah",
+		"ground_truth_phn_ends": "556 1337 2834 2997 5821 10367 11912 13390 13887 14799 17368 19958 20390 20982 22806 24291 26293 26716 27697 28654",
+        "char": "w e a r e  s u r e t h a t o n e w o r e i s e n o u g h",
+        "wrd": "WE ARE SURE THAT ONE WORE IS ENOUGH",
+        "emo": "sadness"
+    },
+    "spk2_snt2": {
+        "wav": "{data_root}/spk2_snt2.wav",
+        "duration": "1.76",
+        "length": "1.76",
+        "spk_id": "spk2",
+        "ali": "{data_root}/spk2_snt2.pkl",
+        "phn": "w ah sil t sil jh oy dh eh r ih z ih n l ih v ih",
+		"ground_truth_phn_ends": "1785 4045 4351 5483 5634 6519 9581 9843 10271 14405 15467 16893 16942 19115 21663 22480 27162 27255",
+        "char": "w h a t j o y t h e r e i s i n l i v i n g",
+        "wrd": "WHAT JOY THERE IS IN LIVING",
+        "emo": "anger"
+    },
+    "spk2_snt3": {
+        "wav": "{data_root}/spk2_snt3.wav",
+        "duration": "1.88",
+        "length": "1.88",
+        "spk_id": "spk2",
+        "ali": "{data_root}/spk2_snt3.pkl",
+        "phn": "t eh r ah th ih n sh iy sil t f er m dh iy y eh l ow sil p ae sil",
+		"ground_truth_phn_ends": "650 1583 2832 5136 5309 5746 6328 7315 8947 9208 11911 15229 15917 17992 18695 21391 22528 25213 25471 28124 28319 29324 29583 29686",
+        "char": "t h e r a t i n s h i p  f r o m t h e y a l l o w p a v",
+        "wrd": "TEAR THIN SHEEP FROM THE OTHER PAT",
+        "emo": "anger"
+    },
+    "spk2_snt4": {
+        "wav": "{data_root}/spk2_snt4.wav",
+        "duration": "2.04",
+        "length": "2.04",
+        "spk_id": "spk2",
+        "ali": "{data_root}/spk2_snt4.pkl",
+        "phn": "m eh n sil d dh ah sil k ow sil t sil b ih f aa r y uw sil g ow aw cl",
+		"ground_truth_phn_ends": "221 2861 5242 5565 6026 8375 8995 11104 13245 15704 17867 18045 18166 18294 20855 21283 25187 25782 25881 28121 29653 30698 31398 31837 32287",
+        "char": "m e n t h e c o w t b e f o r e y o u g o o u t",
+        "wrd": "MEND THE COAT BEFORE YOU GO OUT",
+        "emo": "sadness"
+    }
+}

@@ -1,0 +1,26 @@
+{
+	"enh3": {
+		"noisy_wav": "{data_root}/mixture_3.wav",
+		"clean_wav": "{data_root}/source1_3.wav",
+		"phones": "dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl",
+		"enh_wav": "{data_root}/source2_3.wav",
+		"length": 1.0,
+		"words": "THE CHILD ALMOST HURT THE SMALL DOG"
+	},
+	"enh0": {
+		"noisy_wav": "{data_root}/mixture_0.wav",
+		"clean_wav": "{data_root}/source1_0.wav",
+		"phones": "dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl",
+		"enh_wav": "{data_root}/source2_0.wav",
+		"length": 1.0,
+		"words": "THE CHILD ALMOST HURT THE SMALL DOG"
+	},
+	"enh1": {
+		"noisy_wav": "{data_root}/mixture_1.wav",
+		"clean_wav": "{data_root}/source1_1.wav",
+		"phones": "dh ax cl ch ay l vcl d ao l m ow s cl t hh er cl t sil dh ax s m ao l vcl d ao vcl",
+		"enh_wav": "{data_root}/source2_1.wav",
+		"length": 1.0,
+		"words": "THE CHILD ALMOST HURT THE SMALL DOG"
+	}
+}

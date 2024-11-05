@@ -18,29 +18,30 @@ Authors
  * Nauman Dawalatabad 2020
 """
 
-import os
-import sys
-import torch
-import logging
-import pickle
-import json
 import glob
+import json
+import os
+import pickle
 import shutil
+import sys
+
 import numpy as np
-import speechbrain as sb
-from tqdm.contrib import tqdm
+import torch
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.processing.PLDA_LDA import StatObject_SB
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataio import read_audio, read_audio_multichannel
 from speechbrain.processing import diarization as diar
+from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.utils.DER import DER
-from speechbrain.dataio.dataio import read_audio
-from speechbrain.dataio.dataio import read_audio_multichannel
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 np.random.seed(1234)
 
 # Logger setup
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 
@@ -48,37 +49,33 @@ sys.path.append(os.path.dirname(current_dir))
 try:
     import sklearn  # noqa F401
 except ImportError:
-    err_msg = (
-        "Cannot import optional dependency `sklearn` used in this module.\n"
-    )
+    err_msg = "Cannot import optional dependency `scikit-learn` (sklearn) used in this module.\n"
     err_msg += "Please follow the below instructions\n"
     err_msg += "=============================\n"
     err_msg += "Using pip:\n"
-    err_msg += "pip install sklearn\n"
+    err_msg += "pip install scikit-learn\n"
     err_msg += "================================ \n"
     err_msg += "Using conda:\n"
-    err_msg += "conda install sklearn"
+    err_msg += "conda install scikit-learn"
     raise ImportError(err_msg)
 
 
 def compute_embeddings(wavs, lens):
-    """Definition of the steps for computation of embeddings from the waveforms.
-    """
+    """Definition of the steps for computation of embeddings from the waveforms."""
     with torch.no_grad():
-        wavs = wavs.to(params["device"])
+        wavs = wavs.to(run_opts["device"])
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, lens)
         emb = params["embedding_model"](feats, lens)
         emb = params["mean_var_norm_emb"](
-            emb, torch.ones(emb.shape[0], device=params["device"])
+            emb, torch.ones(emb.shape[0], device=run_opts["device"])
         )
 
     return emb
 
 
 def embedding_computation_loop(split, set_loader, stat_file):
-    """Extracts embeddings for a given dataset loader.
-    """
+    """Extracts embeddings for a given dataset loader."""
 
     # Note: We use speechbrain.processing.PLDA_LDA.StatObject_SB type to store embeddings.
     # Extract embeddings (skip if already done).
@@ -113,7 +110,7 @@ def embedding_computation_loop(split, set_loader, stat_file):
         modelset = np.array(modelset, dtype="|O")
         segset = np.array(segset, dtype="|O")
 
-        # Intialize variables for start, stop and stat0.
+        # Initialize variables for start, stop and stat0.
         s = np.array([None] * embeddings.shape[0])
         b = np.array([[1.0]] * embeddings.shape[0])
 
@@ -157,7 +154,7 @@ def prepare_subset_json(full_meta_data, rec_id, out_meta_file):
         if k.startswith(rec_id):
             subset[key] = full_meta_data[key]
 
-    with open(out_meta_file, mode="w") as json_f:
+    with open(out_meta_file, mode="w", encoding="utf-8") as json_f:
         json.dump(subset, json_f, indent=2)
 
 
@@ -195,8 +192,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
     if len(all_rec_ids) <= 0:
         msg = "No recording IDs found! Please check if meta_data json file is properly generated."
-        logger.error(msg)
-        sys.exit()
+        raise ValueError(msg)
 
     # Diarizing different recordings in a dataset.
     for rec_id in tqdm(all_rec_ids):
@@ -240,10 +236,10 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
         diary_set_loader = dataio_prep(params, meta_per_rec_file)
 
         # Putting modules on the device.
-        params["compute_features"].to(params["device"])
-        params["mean_var_norm"].to(params["device"])
-        params["embedding_model"].to(params["device"])
-        params["mean_var_norm_emb"].to(params["device"])
+        params["compute_features"].to(run_opts["device"])
+        params["mean_var_norm"].to(run_opts["device"])
+        params["embedding_model"].to(run_opts["device"])
+        params["mean_var_norm_emb"].to(run_opts["device"])
 
         # Compute Embeddings.
         diary_obj = embedding_computation_loop(
@@ -272,7 +268,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
             num_spkrs = diar.get_oracle_num_spkrs(rec_id, spkr_info)
         else:
             if params["affinity"] == "nn":
-                # Num of speakers tunned on dev set (only for nn affinity).
+                # Num of speakers tuned on dev set (only for nn affinity).
                 num_spkrs = n_lambdas
             else:
                 # Num of speakers will be estimated using max eigen gap for cos based affinity.
@@ -281,7 +277,7 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
 
         if params["backend"] == "kmeans":
             diar.do_kmeans_clustering(
-                diary_obj, out_rttm_file, rec_id, num_spkrs, pval,
+                diary_obj, out_rttm_file, rec_id, num_spkrs, pval
             )
 
         if params["backend"] == "SC":
@@ -306,11 +302,11 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     # This is not needed but just staying with the standards.
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
     logger.debug("Concatenating individual RTTM files...")
-    with open(concate_rttm_file, "w") as cat_file:
+    with open(concate_rttm_file, "w", encoding="utf-8") as cat_file:
         for f in glob.glob(out_rttm_dir + "/*.rttm"):
             if f == concate_rttm_file:
                 continue
-            with open(f, "r") as indi_rttm_file:
+            with open(f, "r", encoding="utf-8") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
     msg = "The system generated RTTM file for %s set : %s" % (
@@ -353,15 +349,14 @@ def dev_pval_tuner(full_meta, split_type):
             # p_val is needed in oracle_n_spkr=False when using kmeans backend.
             break
 
-    # Take p_val that gave minmum DER on Dev dataset.
+    # Take p_val that gave minimum DER on Dev dataset.
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
 
 
 def dev_ahc_threshold_tuner(full_meta, split_type):
-    """Tuning threshold for affinity matrix. This function is called when AHC is used as backend.
-    """
+    """Tuning threshold for affinity matrix. This function is called when AHC is used as backend."""
 
     DER_list = []
     prange = np.arange(0.0, 1.0, 0.1)
@@ -389,7 +384,7 @@ def dev_ahc_threshold_tuner(full_meta, split_type):
         if params["oracle_n_spkrs"] is True:
             break  # no need of threshold search.
 
-    # Take p_val that gave minmum DER on Dev dataset.
+    # Take p_val that gave minimum DER on Dev dataset.
     tuned_p_val = prange[DER_list.index(min(DER_list))]
 
     return tuned_p_val
@@ -403,11 +398,10 @@ def dev_nn_tuner(full_meta, split_type):
     DER_list = []
     pval = None
 
-    # Now assumming oracle num of speakers.
+    # Now assuming oracle num of speakers.
     n_lambdas = 4
 
     for nn in range(5, 15):
-
         # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_meta, split_type, n_lambdas, pval, nn
@@ -435,14 +429,13 @@ def dev_nn_tuner(full_meta, split_type):
 
 def dev_tuner(full_meta, split_type):
     """Tuning n_components on dev set. Used for nn based affinity matrix.
-    Note: This is a very basic tunning for nn based affinity.
+    Note: This is a very basic tuning for nn based affinity.
     This is work in progress till we find a better way.
     """
 
     DER_list = []
     pval = None
     for n_lambdas in range(1, params["max_num_spkrs"] + 1):
-
         # Process whole dataset for value of n_lambdas.
         concate_rttm_file = diarize_dataset(
             full_meta, split_type, n_lambdas, pval
@@ -459,7 +452,7 @@ def dev_tuner(full_meta, split_type):
 
         DER_list.append(DER_)
 
-    # Take n_lambdas with minmum DER.
+    # Take n_lambdas with minimum DER.
     tuned_n_lambdas = DER_list.index(min(DER_list)) + 1
 
     return tuned_n_lambdas
@@ -473,7 +466,8 @@ def dataio_prep(hparams, json_file):
     # 1. Datasets
     data_folder = hparams["data_folder"]
     dataset = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=json_file, replacements={"data_root": data_folder},
+        json_path=json_file,
+        replacements={"data_root": data_folder},
     )
 
     # 2. Define audio pipeline.
@@ -510,32 +504,32 @@ def dataio_prep(hparams, json_file):
 
 # Begin experiment!
 if __name__ == "__main__":  # noqa: C901
-
     # Load hyperparameters file with command-line overrides.
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
-    with open(params_file) as fin:
+    with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Dataset prep (peparing metadata files)
+    # Dataset prep (preparing metadata files)
     from ami_prepare import prepare_ami  # noqa
 
-    run_on_main(
-        prepare_ami,
-        kwargs={
-            "data_folder": params["data_folder"],
-            "save_folder": params["save_folder"],
-            "ref_rttm_dir": params["ref_rttm_dir"],
-            "meta_data_dir": params["meta_data_dir"],
-            "manual_annot_folder": params["manual_annot_folder"],
-            "split_type": params["split_type"],
-            "skip_TNO": params["skip_TNO"],
-            "mic_type": params["mic_type"],
-            "vad_type": params["vad_type"],
-            "max_subseg_dur": params["max_subseg_dur"],
-            "overlap": params["overlap"],
-        },
-    )
+    if not params["skip_prep"]:
+        run_on_main(
+            prepare_ami,
+            kwargs={
+                "data_folder": params["data_folder"],
+                "save_folder": params["save_folder"],
+                "ref_rttm_dir": params["ref_rttm_dir"],
+                "meta_data_dir": params["meta_data_dir"],
+                "manual_annot_folder": params["manual_annot_folder"],
+                "split_type": params["split_type"],
+                "skip_TNO": params["skip_TNO"],
+                "mic_type": params["mic_type"],
+                "vad_type": params["vad_type"],
+                "max_subseg_dur": params["max_subseg_dur"],
+                "overlap": params["overlap"],
+            },
+        )
 
     # Create experiment directory.
     sb.core.create_experiment_directory(
@@ -557,23 +551,20 @@ if __name__ == "__main__":  # noqa: C901
     # We download the pretrained Model from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
     run_on_main(params["pretrainer"].collect_files)
-    params["pretrainer"].load_collected(device=(params["device"]))
+    params["pretrainer"].load_collected()
     params["embedding_model"].eval()
-    params["embedding_model"].to(params["device"])
+    params["embedding_model"].to(run_opts["device"])
 
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
-    dev_meta_file = os.path.join(
-        params["meta_data_dir"],
-        "ami_dev." + params["mic_type"] + ".subsegs.json",
-    )
-    with open(dev_meta_file, "r") as f:
+    dev_meta_file = params["dev_meta_file"]
+    with open(dev_meta_file, "r", encoding="utf-8") as f:
         meta_dev = json.load(f)
 
     full_meta = meta_dev
 
     # Processing starts from here
-    # Following few lines selects option for different backend and affinity matrices. Finds best values for hyperameters using dev set.
+    # Following few lines selects option for different backend and affinity matrices. Finds best values for hyperparameters using dev set.
     best_nn = None
     if params["affinity"] == "nn":
         logger.info("Tuning for nn (Multiple iterations over AMI Dev set)")
@@ -608,11 +599,8 @@ if __name__ == "__main__":  # noqa: C901
 
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
-    eval_meta_file = os.path.join(
-        params["meta_data_dir"],
-        "ami_eval." + params["mic_type"] + ".subsegs.json",
-    )
-    with open(eval_meta_file, "r") as f:
+    eval_meta_file = params["eval_meta_file"]
+    with open(eval_meta_file, "r", encoding="utf-8") as f:
         full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.

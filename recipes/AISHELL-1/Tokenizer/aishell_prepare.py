@@ -1,0 +1,1 @@
+../aishell_prepare.py

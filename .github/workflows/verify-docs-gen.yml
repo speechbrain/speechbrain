@@ -1,0 +1,32 @@
+name: Verify docs generation
+
+# Runs on pushes to master and all pull requests
+on:    # yamllint disable-line rule:truthy
+    push:
+        branches: [main, develop]
+    pull_request:
+
+jobs:
+    docs:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/cache@v4
+              id: cache-uv
+              with:
+                  path: ~/.cache/uv
+                  key: ${{ runner.os }}-python-docs-uv
+            - name: Setup Python 3.12
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.12'
+            - name: Full dependencies
+              run: |
+                  pip install uv
+                  uv pip install --system sphinx>=7.4.1
+                  uv pip install --system -r requirements.txt -r docs/docs-requirements.txt torch==2.2.1+cpu torchaudio==2.2.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu kaldilm==1.15.1
+                  uv pip install --system --editable . --no-deps  # already installed pinned deps from requirements.txt, we're good
+            - name: Generate docs
+              run: |
+                  cd docs
+                  SPHINXOPTS="-j=auto" make html

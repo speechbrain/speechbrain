@@ -1,12 +1,11 @@
 # ################################
-# Model: VGG2 + LiGRU with time pooling for efficiency
-# Additions: TimeDomainSpecAugment
-# Authors: Mirco Ravanelli & Peter Plantinga 2020
+# Model: Wide ResNet for Enhancement
+# Authors: Peter Plantinga 2021
 # ################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1260
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/enhance_model/<seed>
 stats_file: !ref <output_folder>/stats.txt
 save_folder: !ref <output_folder>/save
@@ -19,13 +18,12 @@ valid_annotation: !ref <data_folder>/valid.json
 test_annotation: !ref <data_folder>/test.json
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 50
 batch_size: 8
 lr: 0.0001
 device: 'cuda:0'
 target_type: phones
-multigpu_count: 0  # Set to number of GPUs if multi-gpu
 checkpoint_avg: 1
 sorting: ascending
 train_loader_options:
@@ -38,24 +36,22 @@ test_loader_options:
     shuffle: False
 eval_max_key: pesq
 eval_min_key: null
-mask_weight: 1.0
+mask_weight: 0.99
 
 # Loss weights
 enhance_type: masking  # null, mapping, masking
 enhance_weight: 1.0
-mimic_weight: 0.15
+mimic_weight: 0.1
 ctc_weight: 0.0
 ctc_type: null  # null, clean, joint
 seq_weight: 0.0
 seq_type: null  # null, clean, joint
-alignment_weight: 0.0
-label_smoothing: 0.1
 
 # Here, the pretrained perceptual model is downloaded from the
 # speechbrain HuggingFace repository. However, a local path pointing
 # to a directory containing your checkpoints may also be specified
 # instead (see pretrainer below)
-pretrain_perceptual_path: speechbrain/mtl-mimic-voicebank
+pretrain_perceptual_path: speechbrain/mtl-mimic-voicebank/perceptual.ckpt
 
 frozen_models: [src_embedding]
 
@@ -67,12 +63,16 @@ hop_length: 16
 
 # Outputs
 output_neurons: 42
-blank_index: !ref <output_neurons> - 1
+# blank_index: !ref <output_neurons> - 1
 bos_index: !ref <output_neurons> - 1
 eos_index: !ref <output_neurons> - 1
 
 enhance_model: !include:models/enhance_model.yaml
     n_fft: !ref <n_fft>
+    win_length: !ref <win_length>
+    hop_length: !ref <hop_length>
+    sample_rate: !ref <sample_rate>
+    mask_weight: !ref <mask_weight>
 
 perceptual_model: !include:models/perceptual_model.yaml
     n_fft: !ref <n_fft>
@@ -83,31 +83,10 @@ perceptual_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
     loadables:
         perceptual_model: !ref <perceptual_model[src_embedding]>
     paths:
-        perceptual_model: !ref <pretrain_perceptual_path>/perceptual.ckpt
+        perceptual_model: !ref <pretrain_perceptual_path>
 
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
-
-compute_stft: !new:speechbrain.processing.features.STFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
-
-compute_istft: !new:speechbrain.processing.features.ISTFT
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    win_length: !ref <win_length>
-    hop_length: !ref <hop_length>
-
-spectral_magnitude: !name:speechbrain.processing.features.spectral_magnitude
-    power: 0.5
-
-resynth: !name:speechbrain.processing.signal_processing.resynthesize
-    stft: !ref <compute_stft>
-    istft: !ref <compute_istft>
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -116,29 +95,34 @@ modules:
     enhance_model: !ref <enhance_model[enhance_model]>
     src_embedding: !ref <perceptual_model[src_embedding]>
 
-jit_module_keys: [src_embedding]
-
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
         enhance_model: !ref <enhance_model[enhance_model]>
         counter: !ref <epoch_counter>
 
-enhance_loss: !name:speechbrain.nnet.losses.mse_loss
-mimic_loss: !name:speechbrain.nnet.losses.mse_loss
+enhance_loss: !name:speechbrain.nnet.losses.l1_loss
+mimic_loss: !name:speechbrain.nnet.losses.l1_loss
 
 enhance_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.mse_loss
+    metric: !name:speechbrain.nnet.losses.l1_loss
         reduction: batch
 mimic_stats: !name:speechbrain.utils.metric_stats.MetricStats
-    metric: !name:speechbrain.nnet.losses.mse_loss
+    metric: !name:speechbrain.nnet.losses.l1_loss
         reduction: batch
 estoi_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.estoi_eval
     n_jobs: 30
+    batch_eval: False
 pesq_stats: !name:speechbrain.utils.metric_stats.MetricStats
     metric: !name:train.pesq_eval
     n_jobs: 30
+    batch_eval: False
+composite_stats: !name:train.CompositeStats
+    metric: !name:train.composite_eval
+    n_jobs: 30
+    batch_eval: False
+err_rate_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>

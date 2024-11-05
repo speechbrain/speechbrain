@@ -1,0 +1,12 @@
+mkdir -p tests/tmp/TIMIT_row_15/
+rm -f tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_05/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_06/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_07/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_08/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_09/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_10/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_11/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_12/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_13/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt
+echo `find tests/tmp/TIMIT_row_14/save -type d | tail -n1`/model.ckpt >> tests/tmp/TIMIT_row_15/tea_models.txt

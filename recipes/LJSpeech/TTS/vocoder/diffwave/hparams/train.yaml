@@ -1,0 +1,169 @@
+# ################################################
+# Basic training parameters for a diffwave vocoder
+#
+# Author:
+#  * Yingzhi Wang 2022
+# ################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+data_folder: !PLACEHOLDER
+output_folder: !ref ./results/diffwave/<seed>
+save_folder: !ref <output_folder>/save
+progress_sample_path: !ref <output_folder>/samples
+train_log: !ref <output_folder>/train_log.txt
+progress_samples_interval: 10
+
+train_json: !ref <save_folder>/train.json
+valid_json: !ref <save_folder>/valid.json
+test_json: !ref <save_folder>/test.json
+splits: ["train", "valid"]
+split_ratio: [90, 10]
+skip_prep: False
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+keep_checkpoint_interval: 100
+
+# conditional training length
+segment_size: 15872
+
+# Training Parameters
+sample_rate: 22050
+number_of_epochs: 500
+batch_size: 16
+num_workers: 8
+
+lr: 0.0002
+
+# diffusion parameters
+train_timesteps: 50
+beta_start: 0.0001
+beta_end: 0.05
+fast_sampling: True
+fast_sampling_noise_schedule: [0.0001, 0.001, 0.01, 0.05, 0.2, 0.5]
+
+loss_l2_steps: 0
+
+adam_beta1: 0.95
+adam_beta2: 0.999
+adam_weight_decay: 0.000001
+adam_epsilon: 0.00000001
+
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    drop_last: False
+    num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+    batch_size: 1
+    num_workers: !ref <num_workers>
+
+test_dataloader_opts:
+    batch_size: 1
+    num_workers: !ref <num_workers>
+
+use_tensorboard: False
+tensorboard_logs: !ref <output_folder>/logs/
+
+residual_layers: 30
+residual_channels: 64
+dilation_cycle_length: 10
+
+unconditional: False
+
+# Spectrogram Parameters
+spec_n_fft: 1024
+spec_f_min: 0
+spec_f_max: 8000
+mel_normalized: False
+spec_n_mels: 80
+spec_power: 1
+spec_hop_length: 256
+spec_win_length: 1024
+spec_norm: "slaney"
+spec_mel_scale: "slaney"
+dynamic_range_compression: True
+
+# Feature extraction
+mel_spectogram: !name:speechbrain.lobes.models.HifiGAN.mel_spectogram
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <spec_hop_length>
+    win_length: !ref <spec_win_length>
+    n_fft: !ref <spec_n_fft>
+    n_mels: !ref <spec_n_mels>
+    f_min: !ref <spec_f_min>
+    f_max: !ref <spec_f_max>
+    power: !ref <spec_power>
+    normalized: !ref <mel_normalized>
+    norm: !ref <spec_norm>
+    mel_scale: !ref <spec_mel_scale>
+    compression: !ref <dynamic_range_compression>
+
+compute_cost: !new:speechbrain.nnet.schedulers.ScheduledLoss
+    schedule:
+        - loss_fn: !name:speechbrain.nnet.losses.mse_loss
+          steps: !ref <loss_l2_steps>
+        - loss_fn: !name:speechbrain.nnet.losses.l1_loss
+
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined.
+diffwave: !new:speechbrain.lobes.models.DiffWave.DiffWave
+    input_channels: !ref <spec_n_mels>
+    residual_layers: !ref <residual_layers>
+    residual_channels: !ref <residual_channels>
+    dilation_cycle_length: !ref <dilation_cycle_length>
+    total_steps: !ref <train_timesteps>
+    unconditional: !ref <unconditional>
+
+noise: !new:speechbrain.nnet.diffusion.GaussianNoise
+
+diffusion: !new:speechbrain.lobes.models.DiffWave.DiffWaveDiffusion
+    model: !ref <diffwave.diffusion_forward>
+    beta_start: !ref <beta_start>
+    beta_end: !ref <beta_end>
+    timesteps: !ref <train_timesteps>
+    noise: !ref <noise>
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    diffwave: !ref <diffwave>
+    diffusion: !ref <diffusion>
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+    betas: !ref (<adam_beta1>, <adam_beta2>)
+    weight_decay: !ref <adam_weight_decay>
+    eps: !ref <adam_epsilon>
+
+# This function manages learning rate annealing over the epochs.
+# We here use the simple lr annealing method that linearly decreases
+# the lr from the initial value to the final one.
+# lr_annealing: !new:speechbrain.nnet.schedulers.WarmCoolDecayLRSchedule
+#     lr: !ref <lr>
+#     warmup: !ref <lr_warmup_steps>
+#     cooldown: !ref <lr_cooldown_steps>
+#     total_steps: !ref <lr_total_steps>
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        diffwave: !ref <diffwave>
+        counter: !ref <epoch_counter>

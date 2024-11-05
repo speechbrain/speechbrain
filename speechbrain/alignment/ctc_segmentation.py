@@ -1,32 +1,34 @@
 #!/usr/bin/env python3
-# 2021, Technische Universität München, Ludwig Kürzinger
 """Perform CTC segmentation to align utterances within audio files.
 
 This uses the ctc-segmentation Python package.
 Install it with pip or see the installing instructions in
 https://github.com/lumaku/ctc-segmentation
+
+Authors
+ * Ludwig Kürzinger 2021
 """
 
-import logging
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
-from typing import Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
-from typing import List
 
 # speechbrain interface
-from speechbrain.pretrained.interfaces import EncoderASR, EncoderDecoderASR
+from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
+from speechbrain.utils.logger import get_logger
 
 # imports for CTC segmentation
 try:
-    from ctc_segmentation import ctc_segmentation
-    from ctc_segmentation import CtcSegmentationParameters
-    from ctc_segmentation import determine_utterance_segments
-    from ctc_segmentation import prepare_text
-    from ctc_segmentation import prepare_token_list
+    from ctc_segmentation import (
+        CtcSegmentationParameters,
+        ctc_segmentation,
+        determine_utterance_segments,
+        prepare_text,
+        prepare_token_list,
+    )
 except ImportError:
     print(
         "ImportError: "
@@ -35,7 +37,7 @@ except ImportError:
     )
     raise ImportError("The ctc_segmentation module is missing.")
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CTCSegmentationTask(SimpleNamespace):
@@ -49,8 +51,8 @@ class CTCSegmentationTask(SimpleNamespace):
     The human-readable output can be configured with
     the printing options.
 
-    Properties
-    ---------
+    Attributes
+    ----------
     text : list
         Utterance texts, separated by line. But without the utterance
             name at the beginning of the line (as in kaldi-style text).
@@ -75,9 +77,6 @@ class CTCSegmentationTask(SimpleNamespace):
         have the same length as the number of utterances.
     lpz : np.ndarray
         CTC posterior log probabilities (Optional).
-
-    Properties for printing
-    ----------------------
     print_confidence_score : bool
         Include the confidence score.
         Default: True.
@@ -178,16 +177,16 @@ class CTCSegmentation:
     Example
     -------
         >>> # using example file included in the SpeechBrain repository
-        >>> from speechbrain.pretrained import EncoderDecoderASR
+        >>> from speechbrain.inference.ASR import EncoderDecoderASR
         >>> from speechbrain.alignment.ctc_segmentation import CTCSegmentation
         >>> # load an ASR model
         >>> pre_trained = "speechbrain/asr-transformer-transformerlm-librispeech"
-        >>> asr_model = EncoderDecoderASR.from_hparams(source=pre_trained)
-        >>> aligner = CTCSegmentation(asr_model, kaldi_style_text=False)
+        >>> asr_model = EncoderDecoderASR.from_hparams(source=pre_trained)  # doctest: +SKIP
+        >>> aligner = CTCSegmentation(asr_model, kaldi_style_text=False)  # doctest: +SKIP
         >>> # load data
-        >>> audio_path = "./samples/audio_samples/example1.wav"
+        >>> audio_path = "tests/samples/single-mic/example1.wav"
         >>> text = ["THE BIRCH CANOE", "SLID ON THE", "SMOOTH PLANKS"]
-        >>> segments = aligner(audio_path, text, name="example1")
+        >>> segments = aligner(audio_path, text, name="example1")  # doctest: +SKIP
 
     On multiprocessing
     ------------------
@@ -197,7 +196,7 @@ class CTCSegmentation:
     (2) ``prepare_segmentation_task``: prepare the task, and
     (3) ``get_segments``: perform CTC segmentation.
     Note that the function `get_segments` is a staticmethod and therefore
-    independent of an already initialized CTCSegmentation obj́ect.
+    independent of an already initialized CTCSegmentation object.
 
     References
     ----------
@@ -206,7 +205,6 @@ class CTCSegmentation:
     https://arxiv.org/abs/2007.09127
 
     More parameters are described in https://github.com/lumaku/ctc-segmentation
-
     """
 
     fs = 16000
@@ -227,7 +225,6 @@ class CTCSegmentation:
         time_stamps: str = "auto",
         **ctc_segmentation_args,
     ):
-        """Initialize the CTCSegmentation module."""
         # Prepare ASR model
         if (
             isinstance(asr_model, EncoderDecoderASR)
@@ -251,9 +248,26 @@ class CTCSegmentation:
             )
         self.asr_model = asr_model
         self._encode = self.asr_model.encode_batch
+
         if isinstance(asr_model, EncoderDecoderASR):
-            # Assumption: log-softmax is already included in ctc_forward_step
-            self._ctc = self.asr_model.mods.decoder.ctc_forward_step
+            if not hasattr(self.asr_model.hparams, "scorer"):
+                raise AttributeError(
+                    "``ScorerBuilder`` module is required for CTC segmentation."
+                )
+
+            if "ctc" not in self.asr_model.hparams.scorer.full_scorers:
+                raise AttributeError(
+                    "``CTCScorer`` module is required for CTC segmentation."
+                )
+
+            def ctc_forward_step(x: torch.Tensor) -> torch.Tensor:
+                """Forward step for CTC module."""
+                module = self.asr_model.hparams.scorer.full_scorers["ctc"]
+                logits = module.ctc_fc(x)
+                log_probs = module.softmax(logits)
+                return log_probs
+
+            self._ctc = ctc_forward_step
         else:
             # Apply log-softmax to encoder output
             self._ctc = self.asr_model.hparams.log_softmax
@@ -430,8 +444,8 @@ class CTCSegmentation:
         of samples per encoded CTC frame are needed. This function estimates them by
         doing one inference, which is only needed once.
 
-        Args
-        ----
+        Arguments
+        ---------
         speech_len : int
             Length of randomly generated speech vector for single
             inference. Default: 215040.
@@ -452,8 +466,8 @@ class CTCSegmentation:
     def get_lpz(self, speech: Union[torch.Tensor, np.ndarray]):
         """Obtain CTC posterior log probabilities for given speech data.
 
-        Args
-        ----
+        Arguments
+        ---------
         speech : Union[torch.Tensor, np.ndarray]
             Speech audio input.
 
@@ -521,8 +535,8 @@ class CTCSegmentation:
         ``['▁', '▁r', '▁re', '▁real', '▁really']``. The alignment will be
         based on the most probable activation sequence given by the network.
 
-        Args
-        ----
+        Arguments
+        ---------
         text : list
             List or multiline-string with utterance ground truths.
         lpz : np.ndarray
@@ -590,8 +604,8 @@ class CTCSegmentation:
     def get_segments(task: CTCSegmentationTask):
         """Obtain segments for given utterance texts and CTC log posteriors.
 
-        Args
-        ----
+        Arguments
+        ---------
         task : CTCSegmentationTask
             Task object that contains ground truth and
             CTC posterior probabilities.
@@ -602,7 +616,7 @@ class CTCSegmentation:
             Dictionary with alignments. Combine this with the task
             object to obtain a human-readable segments representation.
         """
-        assert type(task) == CTCSegmentationTask
+        assert isinstance(task, CTCSegmentationTask)
         assert task.config is not None
         config = task.config
         lpz = task.lpz
@@ -636,8 +650,8 @@ class CTCSegmentation:
     ) -> CTCSegmentationTask:
         """Align utterances.
 
-        Args
-        ----
+        Arguments
+        ---------
         speech : Union[torch.Tensor, np.ndarray, str, Path]
             Audio file that can be given as path or as array.
         text : Union[List[str], str]

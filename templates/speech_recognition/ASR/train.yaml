@@ -11,7 +11,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are instantiated
 seed: 2602
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # If you plan to train a system on an HPC cluster with a big dataset,
 # we strongly suggest doing the following:
@@ -23,9 +23,15 @@ __set_seed: !apply:torch.manual_seed [!ref <seed>]
 # It allows you to read the data much faster without slowing down the shared filesystem.
 
 data_folder: ../data # In this case, data will be automatically downloaded here.
-data_folder_rirs: !ref <data_folder> # noise/ris dataset will automatically be downloaded here
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
+data_folder_rir: !ref <data_folder>/rir # The impulse responses used for data augmentation will automatically be downloaded here.
+
+# Data for augmentation
+NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
+RIR_DATASET_URL: https://www.dropbox.com/scl/fi/linhy77c36mu10965a836/RIRs.zip?rlkey=pg9cu8vrpn2u173vhiqyu743u&dl=1
+
 output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -43,6 +49,10 @@ pretrained_path: speechbrain/asr-crdnn-rnnlm-librispeech
 train_annotation: ../train.json
 valid_annotation: ../valid.json
 test_annotation: ../test.json
+noise_annotation: ../noise.csv
+rir_annotation: ../rir.csv
+
+skip_prep: False
 
 # The train logger writes training statistics to a file, as well as stdout.
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
@@ -58,21 +68,111 @@ sorting: ascending
 ckpt_interval_minutes: 15 # save checkpoint every N min
 label_smoothing: 0.1
 
+#Optimal Number of Workers for Data Reading
+#The ideal value depends on your machine's hardware, such as the number of available CPUs.
+num_workers: 4
+
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
 
 test_dataloader_opts:
     batch_size: !ref <batch_size>
-
+    num_workers: !ref <num_workers>
 
 # Feature parameters
 sample_rate: 16000
 n_fft: 400
 n_mels: 40
+
+# NOTE ON DATA AUGMENTATION
+# This template demonstrates the use of all available data augmentation strategies
+# to illustrate how they work and how you can combine them with the augmenter.
+# In practical applications (e.g., refer to other recipes), it is usually advisable
+# to select a subset of these strategies for better performance.
+
+# Waveform Augmentation Functions
+snr_low: 0  # Min SNR for noise augmentation
+snr_high: 15  # Max SNR for noise augmentation
+speed_changes: [85, 90, 95, 105, 110, 115]  # List of speed changes for time-stretching
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 3  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+clip_low: 0.1  # Min amplitude to clip
+clip_high: 0.5  # Max amplitude to clip
+amp_low: 0.05  # Min waveform amplitude
+amp_high: 1.0  # Max waveform amplitude
+babble_snr_low: 5  # Min SNR for babble (batch sum noise)
+babble_snr_high: 15  # Max SNR for babble (batch sum noise)
+
+# Feature Augmentation Functions
+min_time_shift: 0  # Min random shift of spectrogram in time
+max_time_shift: 15  # Max random shift of spectrogram in time
+min_freq_shift: 0  # Min random shift of spectrogram in frequency
+max_freq_shift: 5  # Max random shift of spectrogram in frequency
+time_drop_length_low: 5  # Min length for temporal chunk to drop in spectrogram
+time_drop_length_high: 15  # Max length for temporal chunk to drop in spectrogram
+time_drop_count_low: 1  # Min number of chunks to drop in time in the spectrogram
+time_drop_count_high: 3  # Max number of chunks to drop in time in the spectrogram
+time_drop_replace: "zeros"  # Method of dropping chunks
+freq_drop_length_low: 1  # Min length for chunks to drop in frequency in the spectrogram
+freq_drop_length_high: 5  # Max length for chunks to drop in frequency in the spectrogram
+freq_drop_count_low: 1  # Min number of chunks to drop in frequency in the spectrogram
+freq_drop_count_high: 3  # Max number of chunks to drop in frequency in the spectrogram
+freq_drop_replace: "zeros"  # Method of dropping chunks
+time_warp_window: 20  # Length of time warping window
+time_warp_mode: "bicubic"  # Time warping method
+freq_warp_window: 4  # Length of frequency warping window
+freq_warp_mode: "bicubic"  # Frequency warping method
+
+# Enable Waveform Augmentation Flags (useful for hyperparameter tuning)
+enable_codec_augment: False
+enable_add_reverb: True
+enable_add_noise: True
+enable_speed_perturb: True
+enable_drop_freq: True
+enable_drop_chunk: True
+enable_clipping: True
+enable_rand_amp: True
+enable_babble_noise: True
+enable_drop_resolution: True
+
+# Enable Feature Augmentations Flags (useful for hyperparameter tuning)
+enable_time_shift: True
+enable_freq_shift: True
+enable_time_drop: True
+enable_freq_drop: True
+enable_time_warp: True
+enable_freq_warp: True
+
+# Waveform Augmenter (combining augmentations)
+time_parallel_augment: False  # Apply augmentations in parallel if True, or sequentially if False
+time_concat_original: True  # Concatenate original signals to the training batch if True
+time_repeat_augment: 1  # Number of times to apply augmentation
+time_shuffle_augmentations: True  # Shuffle order of augmentations if True, else use specified order
+time_min_augmentations: 1  # Min number of augmentations to apply
+time_max_augmentations: 10  # Max number of augmentations to apply
+time_augment_prob: 1.0     # Probability to apply time augmentation
+
+# Feature Augmenter (combining augmentations)
+fea_parallel_augment: False  # Apply feature augmentations in parallel if True, or sequentially if False
+fea_concat_original: True  # Concatenate original signals to the training batch if True
+fea_repeat_augment: 1  # Number of times to apply feature augmentation
+fea_shuffle_augmentations: True  # Shuffle order of feature augmentations if True, else use specified order
+fea_min_augmentations: 1  # Min number of feature augmentations to apply
+fea_max_augmentations: 6  # Max number of feature augmentations to app
+fea_augment_prob: 1.0     # Probability to apply feature augmentation
 
 # Model parameters
 activation: !name:torch.nn.LeakyReLU
@@ -94,7 +194,6 @@ output_neurons: 1000  # Number of tokens (same as LM)
 blank_index: 0
 bos_index: 0
 eos_index: 0
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -126,20 +225,189 @@ compute_features: !new:speechbrain.lobes.features.Fbank
 normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
 
-# Added noise and reverb come from OpenRIR dataset, automatically
-# downloaded and prepared with this Environmental Corruption class.
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
 
-# Adds speech change + time and frequency dropouts (time-domain implementation).
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
+# Download and prepare the dataset of noisy sequences for augmentation
+prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <NOISE_DATASET_URL>
+    dest_folder: !ref <data_folder_noise>
+    ext: wav
+    csv_file: !ref <noise_annotation>
+
+# Download and prepare the dataset of room impulse responses for augmentation
+prepare_rir_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <RIR_DATASET_URL>
+    dest_folder: !ref <data_folder_rir>
+    ext: wav
+    csv_file: !ref <rir_annotation>
+
+
+# ----- WAVEFORM AUGMENTATION ----- #
+
+# Codec augmentation
+codec_augment: !new:speechbrain.augment.codec.CodecAugment
     sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
+
+# Add reverberation to input signal
+add_reverb: !new:speechbrain.augment.time_domain.AddReverb
+    csv_file: !ref <rir_annotation>
+    reverb_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Add noise to input signal
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
+    csv_file: !ref <noise_annotation>
+    snr_low: !ref <snr_low>
+    snr_high: !ref <snr_high>
+    noise_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
+
+# Clipping
+clipping: !new:speechbrain.augment.time_domain.DoClip
+    clip_low: !ref <clip_low>
+    clip_high: !ref <clip_high>
+
+# Random Amplitude
+rand_amp: !new:speechbrain.augment.time_domain.RandAmp
+    amp_low: !ref <amp_low>
+    amp_high: !ref <amp_high>
+
+# Noise sequence derived by summing up all the signals in the batch
+# It is similar to babble noise
+sum_batch: !name:torch.sum
+    dim: 0
+    keepdim: True
+
+babble_noise: !new:speechbrain.augment.time_domain.AddNoise
+    snr_low: !ref <babble_snr_low>
+    snr_high: !ref <babble_snr_high>
+    noise_funct: !ref <sum_batch>
+
+drop_resolution: !new:speechbrain.augment.time_domain.DropBitResolution
+    target_dtype: 'random'
+
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: !ref <time_parallel_augment>
+    concat_original: !ref <time_concat_original>
+    repeat_augment: !ref <time_repeat_augment>
+    shuffle_augmentations: !ref <time_shuffle_augmentations>
+    min_augmentations: !ref <time_min_augmentations>
+    max_augmentations: !ref <time_max_augmentations>
+    augment_prob: !ref <time_augment_prob>
+    augmentations: [
+        !ref <codec_augment>,
+        !ref <add_reverb>,
+        !ref <add_noise>,
+        !ref <babble_noise>,
+        !ref <speed_perturb>,
+        !ref <clipping>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>,
+        !ref <rand_amp>,
+        !ref <drop_resolution>]
+    enable_augmentations: [
+        !ref <enable_codec_augment>,
+        !ref <enable_add_reverb>,
+        !ref <enable_add_noise>,
+        !ref <enable_babble_noise>,
+        !ref <enable_speed_perturb>,
+        !ref <enable_clipping>,
+        !ref <enable_drop_freq>,
+        !ref <enable_drop_chunk>,
+        !ref <enable_rand_amp>,
+        !ref <enable_drop_resolution>]
+
+
+# ----- FEATURE AUGMENTATION ----- #
+
+# Time shift
+time_shift: !new:speechbrain.augment.freq_domain.RandomShift
+    min_shift: !ref <min_time_shift>
+    max_shift: !ref <max_time_shift>
+    dim: 1
+
+# Frequency shift
+freq_shift: !new:speechbrain.augment.freq_domain.RandomShift
+    min_shift: !ref <min_freq_shift>
+    max_shift: !ref <max_freq_shift>
+    dim: 2
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: !ref <time_drop_length_low>
+    drop_length_high: !ref <time_drop_length_high>
+    drop_count_low: !ref <time_drop_count_low>
+    drop_count_high: !ref <time_drop_count_high>
+    replace: !ref <time_drop_replace>
+    dim: 1
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: !ref <freq_drop_length_low>
+    drop_length_high: !ref <freq_drop_length_high>
+    drop_count_low: !ref <freq_drop_count_low>
+    drop_count_high: !ref <freq_drop_count_high>
+    replace: !ref <freq_drop_replace>
+    dim: 2
+
+# Time warp
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+    warp_window: !ref <time_warp_window>
+    warp_mode: !ref <time_warp_mode>
+    dim: 1
+
+freq_warp: !new:speechbrain.augment.freq_domain.Warping
+    warp_window: !ref <freq_warp_window>
+    warp_mode: !ref <freq_warp_mode>
+    dim: 2
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: !ref <fea_parallel_augment>
+    concat_original: !ref <fea_concat_original>
+    repeat_augment: !ref <fea_repeat_augment>
+    shuffle_augmentations: !ref <fea_shuffle_augmentations>
+    min_augmentations: !ref <fea_min_augmentations>
+    max_augmentations: !ref <fea_max_augmentations>
+    augment_start_index: !ref <batch_size> # This leaves original inputs unchanged
+    concat_end_index: !ref <batch_size> # This leaves original inputs unchanged
+    augment_prob: !ref <fea_augment_prob>
+    augmentations: [
+        !ref <time_shift>,
+        !ref <freq_shift>,
+        !ref <time_drop>,
+        !ref <freq_drop>,
+        !ref <time_warp>,
+        !ref <freq_warp>]
+    enable_augmentations: [
+        !ref <enable_time_shift>,
+        !ref <enable_freq_shift>,
+        !ref <enable_time_drop>,
+        !ref <enable_freq_drop>,
+        !ref <enable_time_warp>,
+        !ref <enable_freq_warp>]
 
 # The CRDNN model is an encoder that combines CNNs, RNNs, and DNNs.
 encoder: !new:speechbrain.lobes.models.CRDNN.CRDNN
@@ -213,7 +481,6 @@ modules:
     ctc_lin: !ref <ctc_lin>
     seq_lin: !ref <seq_lin>
     normalize: !ref <normalize>
-    env_corrupt: !ref <env_corrupt>
     lm_model: !ref <lm_model>
 
 # Gathering all the submodels in a single model object.
@@ -237,54 +504,88 @@ lm_model: !new:speechbrain.lobes.models.RNNLM.RNNLM
     dnn_neurons: 512
     return_hidden: True  # For inference
 
-# Beamsearch is applied on the top of the decoder. If the language model is
-# given, a language model is applied (with a weight specified in lm_weight).
-# If ctc_weight is set, the decoder uses CTC + attention beamsearch. This
-# improves the performance, but slows down decoding. For a description of
-# the other parameters, please see the speechbrain.decoders.S2SRNNBeamSearchLM.
+# Define scorers for beam search
+
+# If ctc_scorer is set, the decoder uses CTC + attention beamsearch. This
+# improves the performance, but slows down decoding.
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
+    eos_index: !ref <eos_index>
+    blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+# If coverage_scorer is set, coverage penalty is applied based on accumulated
+# attention weights during beamsearch.
+coverage_scorer: !new:speechbrain.decoders.scorer.CoverageScorer
+    vocab_size: !ref <output_neurons>
+
+# If the lm_scorer is set, a language model
+# is applied (with a weight specified in scorer).
+rnnlm_scorer: !new:speechbrain.decoders.scorer.RNNLMScorer
+    language_model: !ref <lm_model>
+    temperature: !ref <temperature_lm>
+
+# Gathering all scorers in a scorer instance for beamsearch:
+# - full_scorers are scorers which score on full vocab set, while partial_scorers
+# are scorers which score on pruned tokens.
+# - The number of pruned tokens is decided by scorer_beam_scale * beam_size.
+# - For some scorers like ctc_scorer, ngramlm_scorer, putting them
+# into full_scorers list would be too heavy. partial_scorers are more
+# efficient because they score on pruned tokens at little cost of
+# performance drop. For other scorers, please see the speechbrain.decoders.scorer.
+test_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    scorer_beam_scale: 1.5
+    full_scorers: [
+        !ref <rnnlm_scorer>,
+        !ref <coverage_scorer>]
+    partial_scorers: [!ref <ctc_scorer>]
+    weights:
+        rnnlm: !ref <lm_weight>
+        coverage: !ref <coverage_penalty>
+        ctc: !ref <ctc_weight_decode>
+
+valid_scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <coverage_scorer>]
+    weights:
+        coverage: !ref <coverage_penalty>
+
+# Beamsearch is applied on the top of the decoder. For a description of
+# the other parameters, please see the speechbrain.decoders.S2SRNNBeamSearcher.
 
 # It makes sense to have a lighter search during validation. In this case,
-# we don't use the LM and CTC probabilities during decoding.
+# we don't use scorers during decoding.
 valid_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <embedding>
     decoder: !ref <decoder>
     linear: !ref <seq_lin>
-    ctc_linear: !ref <ctc_lin>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
     eos_threshold: !ref <eos_threshold>
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
-    coverage_penalty: !ref <coverage_penalty>
     temperature: !ref <temperature>
+    scorer: !ref <valid_scorer>
 
 # The final decoding on the test set can be more computationally demanding.
-# In this case, we use the LM + CTC probabilities during decoding as well.
-# Please, remove this part if you need a faster decoder.
-test_search: !new:speechbrain.decoders.S2SRNNBeamSearchLM
+# In this case, we use the LM + CTC probabilities during decoding as well,
+# which are defined in scorer.
+# Please, remove scorer if you need a faster decoder.
+test_search: !new:speechbrain.decoders.S2SRNNBeamSearcher
     embedding: !ref <embedding>
     decoder: !ref <decoder>
     linear: !ref <seq_lin>
-    ctc_linear: !ref <ctc_lin>
-    language_model: !ref <lm_model>
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
     eos_threshold: !ref <eos_threshold>
     using_max_attn_shift: !ref <using_max_attn_shift>
     max_attn_shift: !ref <max_attn_shift>
-    coverage_penalty: !ref <coverage_penalty>
-    lm_weight: !ref <lm_weight>
-    ctc_weight: !ref <ctc_weight_decode>
     temperature: !ref <temperature>
-    temperature_lm: !ref <temperature_lm>
+    scorer: !ref <test_scorer>
 
 # This function manages learning rate annealing over the epochs.
 # We here use the NewBoB algorithm, that anneals the learning rate if

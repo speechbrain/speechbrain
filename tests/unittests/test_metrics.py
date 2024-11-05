@@ -1,11 +1,12 @@
+import math
+
 import torch
 import torch.nn
-import math
 
 
 def test_metric_stats(device):
-    from speechbrain.utils.metric_stats import MetricStats
     from speechbrain.nnet.losses import l1_loss
+    from speechbrain.utils.metric_stats import MetricStats
 
     l1_stats = MetricStats(metric=l1_loss)
     l1_stats.append(
@@ -48,6 +49,75 @@ def test_error_rate_stats(device):
     assert wer_stats.scores[0]["hyp_tokens"] == ["the", "world", "hello"]
 
 
+def test_weighted_error_rate_stats():
+    from speechbrain.utils.metric_stats import (
+        ErrorRateStats,
+        WeightedErrorRateStats,
+    )
+
+    # simple example where a and a' substitution get matched as similar
+    def test_cost(edit, a, b):
+        if edit != "S":
+            return 1.0
+
+        a_syms = ["a", "a'"]
+        if a in a_syms and b in a_syms:
+            return 0.1  # high similarity
+        return 1.0  # low similarity
+
+    wer_stats = ErrorRateStats()
+    weighted_wer_stats = WeightedErrorRateStats(
+        wer_stats, cost_function=test_cost
+    )
+
+    predict = [["d", "b", "c"], ["a'", "b", "c"]]
+    refs = [["a", "b", "c"]] * 2
+
+    wer_stats.append(
+        ids=["utterance1", "utterance2"], predict=predict, target=refs
+    )
+    summary = weighted_wer_stats.summarize()
+
+    assert math.isclose(summary["weighted_wer"], 18.33333, abs_tol=1e-3)
+    assert math.isclose(summary["weighted_substitutions"], 1.0 + 0.1)
+
+
+def test_synonym_dict_error_rate_stats():
+    from speechbrain.utils.dictionaries import SynonymDictionary
+    from speechbrain.utils.metric_stats import ErrorRateStats
+
+    syn_dict = SynonymDictionary()
+    syn_dict.add_synonym_set({"a", "a'"})
+    syn_dict.add_synonym_set({"b", "b'"})  # unused syn to check for correctness
+
+    wer_stats = ErrorRateStats(equality_comparator=syn_dict)
+
+    predict = [["a'", "b", "c", "e"]]
+    refs = [["a", "b", "c", "d"]]
+
+    wer_stats.append(ids=["utterance1"], predict=predict, target=refs)
+    summary = wer_stats.summarize()
+
+    assert math.isclose(summary["WER"], 25.0)
+
+
+def test_embedding_error_rate_stats(device):
+    from speechbrain.utils.metric_stats import EmbeddingErrorRateSimilarity
+
+    def test_word_embedding(sentence):
+        if sentence == "a":
+            return torch.tensor([1.0, 0.0], device=device)
+        if sentence == "b":
+            return torch.tensor([0.0, 1.0], device=device)
+        if sentence == "c":
+            return torch.tensor([0.9, 0.1], device=device)
+
+    ember = EmbeddingErrorRateSimilarity(test_word_embedding, 1.0, 0.1, 0.4)
+
+    assert ember("S", "a", "b") == 1.0  # low similarity
+    assert ember("S", "a", "c") == 0.1  # high similarity
+
+
 def test_binary_metrics(device):
     from speechbrain.utils.metric_stats import BinaryMetricStats
 
@@ -63,7 +133,11 @@ def test_binary_metrics(device):
     assert summary["FP"] == 1
     assert summary["FN"] == 2
 
-    summary = binary_stats.summarize()
+    summary = binary_stats.summarize(threshold=None)
+    assert summary["threshold"] >= 0.3 and summary["threshold"] < 0.4
+
+    summary = binary_stats.summarize(threshold=None, max_samples=1)
+    assert summary["threshold"] >= 0.1 and summary["threshold"] < 0.2
 
 
 def test_EER(device):
@@ -113,3 +187,87 @@ def test_minDCF(device):
     min_dcf, threshold = minDCF(positive_scores, negative_scores)
     assert min_dcf == 0
     assert threshold > 0.3 and threshold < 0.4
+
+
+def test_classification_stats():
+    import pytest
+
+    from speechbrain.utils.metric_stats import ClassificationStats
+
+    stats = ClassificationStats()
+    stats.append(ids=["1", "2"], predictions=["B", "A"], targets=["B", "A"])
+    stats.append(ids=["3", "4"], predictions=["A", "B"], targets=["B", "C"])
+
+    summary = stats.summarize()
+    assert pytest.approx(summary["accuracy"], 0.01) == 0.5
+    classwise_accuracy = summary["classwise_accuracy"]
+    assert pytest.approx(classwise_accuracy["A"]) == 1.0
+    assert pytest.approx(classwise_accuracy["B"]) == 0.5
+    assert pytest.approx(classwise_accuracy["C"]) == 0.0
+
+
+def test_categorized_classification_stats():
+    import pytest
+
+    from speechbrain.utils.metric_stats import ClassificationStats
+
+    stats = ClassificationStats()
+    stats.append(
+        ids=["1", "2"],
+        predictions=["B", "A"],
+        targets=["B", "A"],
+        categories=["C1", "C2"],
+    )
+    stats.append(
+        ids=["3", "4"],
+        predictions=["A", "B"],
+        targets=["B", "C"],
+        categories=["C2", "C1"],
+    )
+    stats.append(
+        ids=["5", "6"],
+        predictions=["A", "C"],
+        targets=["B", "C"],
+        categories=["C2", "C1"],
+    )
+
+    summary = stats.summarize()
+    assert pytest.approx(summary["accuracy"], 0.01) == 0.5
+    classwise_accuracy = summary["classwise_accuracy"]
+    assert pytest.approx(classwise_accuracy["C1", "B"]) == 1.0
+    assert pytest.approx(classwise_accuracy["C1", "C"]) == 0.5
+    assert pytest.approx(classwise_accuracy["C2", "A"]) == 1.0
+    assert pytest.approx(classwise_accuracy["C2", "B"]) == 0.0
+
+
+def test_classification_stats_report():
+    from io import StringIO
+
+    from speechbrain.utils.metric_stats import ClassificationStats
+
+    stats = ClassificationStats()
+    stats.append(ids=["1", "2"], predictions=["B", "A"], targets=["B", "A"])
+    stats.append(ids=["3", "4"], predictions=["A", "B"], targets=["B", "C"])
+    report_file = StringIO()
+    stats.write_stats(report_file)
+    report_file.seek(0)
+    report = report_file.read()
+    ref_report = """Overall Accuracy: 50%
+
+Class-Wise Accuracy
+-------------------
+A: 1 / 1 (100.00%)
+B: 1 / 2 (50.00%)
+C: 0 / 1 (0.00%)
+
+Confusion
+---------
+Target: A
+  -> A: 1 / 1 (100.00%)
+Target: B
+  -> A: 1 / 2 (50.00%)
+  -> B: 1 / 2 (50.00%)
+Target: C
+  -> B: 1 / 1 (100.00%)
+"""
+    assert report == ref_report

@@ -3,16 +3,20 @@
 Authors
   * Aku Rouhe 2020
 """
+
 import collections
+
 import torch
-from speechbrain.utils.data_utils import mod_default_collate
-from speechbrain.utils.data_utils import recursive_to
-from speechbrain.utils.data_utils import batch_pad_right
 from torch.utils.data._utils.collate import default_convert
 from torch.utils.data._utils.pin_memory import (
     pin_memory as recursive_pin_memory,
 )
 
+from speechbrain.utils.data_utils import (
+    batch_pad_right,
+    mod_default_collate,
+    recursive_to,
+)
 
 PaddedData = collections.namedtuple("PaddedData", ["data", "lengths"])
 
@@ -147,6 +151,10 @@ class PaddedBatch:
     def __iter__(self):
         """Iterates over the different elements of the batch.
 
+        Returns
+        -------
+        Iterator over the batch.
+
         Example
         -------
         >>> batch = PaddedBatch([
@@ -178,12 +186,13 @@ class PaddedBatch:
         return self
 
     def at_position(self, pos):
-        """Fetch an item by its position in the batch."""
+        """Gets the position."""
         key = self.__keys[pos]
         return getattr(self, key)
 
     @property
     def batchsize(self):
+        """Returns the bach size"""
         return self.__length
 
 
@@ -250,16 +259,21 @@ class BatchsizeGuesser:
         return bs
 
     def attr_based(self, batch):
+        """Implementation of attr_based."""
         return batch.batchsize
 
     def torch_tensor_bs(self, batch):
+        """Implementation of torch_tensor_bs."""
         return batch.shape[0]
 
     def len_of_first(self, batch):
+        """Implementation of len_of_first."""
         return len(batch[0])
 
     def len_of_iter_first(self, batch):
+        """Implementation of len_of_iter_first."""
         return len(next(iter(batch)))
 
     def fallback(self, batch):
+        """Implementation of fallback."""
         return 1

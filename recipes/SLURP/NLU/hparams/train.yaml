@@ -10,15 +10,16 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/better_tokenizer/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+test_wer_file: !ref <output_folder>/wer_test_real.txt
 
 # Data files
 # The SLURP dataset will be automatically downloaded in the specified data_folder
 data_folder: !PLACEHOLDER # e.g, /localscratch/SLURP
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train_synthetic", "train_real"]
 csv_train: !ref <output_folder>/train-type=decoupled.csv
 csv_valid: !ref <output_folder>/devel-type=decoupled.csv
@@ -27,15 +28,15 @@ asr_tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model
 slu_tokenizer_file: https://www.dropbox.com/s/tmwq12r5vgcsif9/58_unigram.model?dl=1
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 16
 lr: 0.0003
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
-# Model parameters
-sample_rate: 16000
+####################### Model Parameters #######################################
+# sample_rate: 1600
 emb_size: 128
 dec_neurons: 512
 output_neurons: 58 # index(eos/bos) = 0
@@ -127,9 +128,8 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     beam_size: !ref <slu_beam_size>
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
-    using_max_attn_shift: False
     max_attn_shift: 30
-    coverage_penalty: 0.
+    using_max_attn_shift: False
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>
@@ -146,10 +146,6 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
         model: !ref <model>
         scheduler: !ref <lr_annealing>
         counter: !ref <epoch_counter>
-
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
     apply_log: True

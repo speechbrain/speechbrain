@@ -1,0 +1,57 @@
+# ################################
+# Model: ConvTasnet for source separation
+# Data : Minimal Example
+# Author: Cem Subakan
+# ################################
+
+
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/conv_tasnet/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# Training params
+N_epochs: 150
+lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+mask_net: !new:speechbrain.lobes.models.conv_tasnet.MaskNet
+    N: 32
+    B: 32
+    H: 32
+    P: 3
+    X: 1
+    R: 2
+    C: 2
+    norm_type: 'gLN'
+    causal: False
+    mask_nonlinear: 'relu'
+
+encoder: !new:speechbrain.lobes.models.dual_path.Encoder
+    kernel_size: 16
+    out_channels: 32
+
+decoder: !new:speechbrain.lobes.models.dual_path.Decoder
+    in_channels: 32
+    out_channels: 1
+    kernel_size: 16
+    stride: 8
+    bias: False
+
+modules:
+    mask_net: !ref <mask_net>
+    encoder: !ref <encoder>
+    decoder: !ref <decoder>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

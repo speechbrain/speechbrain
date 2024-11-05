@@ -1,0 +1,39 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Training Parameters
+N_epochs: 30
+lr: 0.01
+dataloader_options:
+    batch_size: 8
+
+# token information
+bos_index: 0 # eos_index = bos_index + 1
+num_chars: 25 # 23 chars + 1 bos + 1 eos
+
+# Model parameters
+rnn_layers: 1
+rnn_neurons: 256
+emb_size: 128
+dropout: 0.0
+
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    output_neurons: !ref <num_chars>
+    embedding_dim: !ref <emb_size>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_layers: !ref <rnn_layers>
+    dropout: !ref <dropout>
+
+modules: {model: !ref <model>}
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss

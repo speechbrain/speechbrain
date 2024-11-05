@@ -1,14 +1,12 @@
 """
 Data preparation.
 
-Download: https://aihub.or.kr/aidata/105/download
-
 Author
 ------
 Dongwon Kim, Dongwoo Kim 2021
 """
+
 import csv
-import logging
 import os
 import re
 
@@ -16,8 +14,9 @@ import torchaudio
 
 from speechbrain.dataio.dataio import load_pkl, merge_csvs, save_pkl
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_ksponspeech_prepare.pkl"
 SAMPLERATE = 16000
 
@@ -35,12 +34,13 @@ def prepare_ksponspeech(
 ):
     """
     This class prepares the csv files for the KsponSpeech dataset.
-    Download link: https://aihub.or.kr/aidata/105/download
 
     Arguments
     ---------
     data_folder : str
         Path to the folder where the original KsponSpeech dataset is stored.
+    save_folder : str
+        The directory where to store the csv files.
     tr_splits : list
         List of train splits to prepare from ['train', 'dev', 'eval_clean',
         'eval_other'].
@@ -48,19 +48,20 @@ def prepare_ksponspeech(
         List of dev splits to prepare from ['dev'].
     te_splits : list
         List of test splits to prepare from ['eval_clean','eval_other'].
-    save_folder : str
-        The directory where to store the csv files.
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
     merge_lst : list
         List of KsponSpeech splits (e.g, eval_clean, eval_other) to
-        merge in a singe csv file.
+        merge in a single csv file.
     merge_name: str
         Name of the merged csv file.
     skip_prep: bool
         If True, data preparation is skipped.
 
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -103,7 +104,6 @@ def prepare_ksponspeech(
     # parse trn file
     all_texts = {}
     for split_index in range(len(splits)):
-
         split = splits[split_index]
         dirlist = split2dirs(split)
         wav_lst = []
@@ -121,24 +121,20 @@ def prepare_ksponspeech(
         else:
             n_sentences = len(wav_lst)
 
-        create_csv(
-            save_folder, wav_lst, text_dict, split, n_sentences,
-        )
+        create_csv(save_folder, wav_lst, text_dict, split, n_sentences)
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
         merge_files = [split_kspon + ".csv" for split_kspon in merge_lst]
         merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name
         )
 
     # saving options
     save_pkl(conf, save_opt)
 
 
-def create_csv(
-    save_folder, wav_lst, text_dict, split, select_n_sentences,
-):
+def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
     """
     Create the dataset csv file given a list of wav files.
 
@@ -154,10 +150,6 @@ def create_csv(
         The name of the current data split.
     select_n_sentences : int, optional
         The number of sentences to select.
-
-    Returns
-    -------
-    None
     """
     # Setting path for the csv file
     csv_file = os.path.join(save_folder, split + ".csv")
@@ -171,7 +163,6 @@ def create_csv(
     snt_cnt = 0
     # Processing all the wav files in wav_lst
     for wav_file in wav_lst:
-
         snt_id = wav_file.split("/")[-1].replace(".wav", "")
         spk_id = snt_id.split("_")[-1]
         wrds = text_dict[snt_id]
@@ -194,7 +185,7 @@ def create_csv(
             break
 
     # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -216,7 +207,7 @@ def skip(splits, save_folder, conf):
     splits : list
         A list of the splits expected in the preparation.
     save_folder : str
-        The location of the seave directory
+        The location of the save directory
     conf : dict
         The configuration options to ensure they haven't changed.
 
@@ -255,7 +246,7 @@ def text_to_dict(trnpath):
 
     Arguments
     ---------
-    text_lst : str
+    trnpath : str
         Path to the file containing the ksponspeech text transcription.
 
     Returns
@@ -267,7 +258,7 @@ def text_to_dict(trnpath):
     # Initialization of the text dictionary
     text_dict = {}
     # Reading all the transcription files is text_lst
-    with open(trnpath, "r") as f:
+    with open(trnpath, "r", encoding="utf-8") as f:
         # Reading all line of the transcription file
         for line in f:
             filename, raw_script = line.split(" :: ")
@@ -372,9 +363,12 @@ def check_ksponspeech_folders(data_folder, splits):
 
     If it does not, an error is raised.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        Path to directory with data.
+    splits : list
+        Portions of data to check.
 
     Raises
     ------

@@ -7,12 +7,13 @@ Author
 Samuele Cornell, 2020
 """
 
-
-import os
-import torch
 import json
+import os
+
 import numpy as np
+import torch
 import torchaudio
+
 from speechbrain.processing.signal_processing import rescale, reverberate
 
 
@@ -111,13 +112,14 @@ def create_mixture(session_n, output_dir, params, metadata):
             )
 
     with open(
-        os.path.join(output_dir, session_n, "{}.json".format(session_n)), "w"
+        os.path.join(output_dir, session_n, "{}.json".format(session_n)),
+        "w",
+        encoding="utf-8",
     ) as f:
         json.dump(session_meta, f, indent=4)
 
     # add impulsive noises
     for noise_event in metadata["noises"]:
-
         c_audio, fs = torchaudio.load(
             os.path.join(params["rirs_noises_root"], noise_event["file"])
         )

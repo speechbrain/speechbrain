@@ -1,0 +1,89 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Training Parameters
+N_epochs: 10
+lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+# token information
+bos_index: 0 # eos_index = bos_index + 1
+num_labels: 45
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU []
+dropout: 0.15
+cnn_blocks: 1
+cnn_channels: (16,)
+cnn_kernelsize: (3, 3)
+rnn_layers: 1
+rnn_neurons: 128
+rnn_bidirectional: True
+dnn_blocks: 1
+dnn_neurons: 128
+
+compute_features: !new:speechbrain.lobes.features.MFCC
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+enc: !new:speechbrain.lobes.models.CRDNN.CRDNN
+    input_shape: [null, null, 660]
+    activation: !ref <activation>
+    dropout: !ref <dropout>
+    cnn_blocks: !ref <cnn_blocks>
+    cnn_channels: !ref <cnn_channels>
+    cnn_kernelsize: !ref <cnn_kernelsize>
+    time_pooling: True
+    rnn_layers: !ref <rnn_layers>
+    rnn_neurons: !ref <rnn_neurons>
+    rnn_bidirectional: !ref <rnn_bidirectional>
+    dnn_blocks: !ref <dnn_blocks>
+    dnn_neurons: !ref <dnn_neurons>
+
+lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <dnn_neurons>
+    n_neurons: !ref <num_labels>
+    bias: False
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <num_labels>
+    embedding_dim: 128
+
+dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 128
+    input_size: 128
+    rnn_type: gru
+    attn_type: content
+    hidden_size: !ref <rnn_neurons>
+    attn_dim: !ref <rnn_neurons>
+    num_layers: 1
+
+softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    compute_features: !ref <compute_features>
+    enc: !ref <enc>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    lin: !ref <lin>
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <bos_index> + 1
+    min_decode_ratio: 0
+    max_decode_ratio: 0.1
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

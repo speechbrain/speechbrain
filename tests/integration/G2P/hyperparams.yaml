@@ -1,0 +1,76 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Training Parameters
+N_epochs: 10
+lr: 0.002
+dataloader_options:
+    batch_size: 1
+
+# token information
+bos_index: 0 # eos_index = bos_index + 1
+num_phns: 45 # 43 phonemes + 1 bos + 1 eos
+num_chars: 25 # 23 chars + 1 bos + 1 eos
+
+
+# Model parameters
+activation: !name:torch.nn.LeakyReLU
+rnn_layers: 1
+rnn_neurons: 128
+rnn_bidirectional: True
+
+enc: !new:speechbrain.nnet.RNN.LSTM
+    input_shape: [null, null, 128]
+    bidirectional: True
+    hidden_size: 64
+    num_layers: 1
+    dropout: 0.0
+
+lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <rnn_neurons>
+    n_neurons: !ref <num_phns>
+    bias: False
+
+encoder_emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <num_chars>
+    embedding_dim: 128
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+    num_embeddings: !ref <num_phns>
+    embedding_dim: 128
+
+dec: !new:speechbrain.nnet.RNN.AttentionalRNNDecoder
+    enc_dim: 128
+    input_size: 128
+    rnn_type: gru
+    attn_type: content
+    hidden_size: !ref <rnn_neurons>
+    attn_dim: !ref <rnn_neurons>
+    num_layers: 1
+
+softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+modules:
+    encoder_emb: !ref <encoder_emb>
+    enc: !ref <enc>
+    emb: !ref <emb>
+    dec: !ref <dec>
+    lin: !ref <lin>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+searcher: !new:speechbrain.decoders.seq2seq.S2SRNNGreedySearcher
+    embedding: !ref <emb>
+    decoder: !ref <dec>
+    linear: !ref <lin>
+    bos_index: !ref <bos_index>
+    eos_index: !ref <bos_index> + 1
+    min_decode_ratio: 0
+    max_decode_ratio: 0.1
+
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

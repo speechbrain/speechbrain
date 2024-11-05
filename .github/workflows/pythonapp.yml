@@ -14,23 +14,39 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                python-version: [3.7, 3.8, 3.9]
+                python-version: [3.8, 3.12]
         steps:
             - uses: actions/checkout@v2
+            - uses: actions/cache@v4
+              id: cache-uv
+              with:
+                  path: ~/.cache/uv
+                  key: ${{ runner.os }}-python-${{ matrix.python-version }}-uv
             - name: Set up Python ${{ matrix.python-version }}
-              uses: actions/setup-python@v1
+              uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
-            - name: Install libsndfile
-              run: |
-                  sudo apt-get install -y libsndfile1
-            - name: Display Python version
-              run: python -c "import sys; print(sys.version)"
             - name: Full dependencies
               run: |
-                  pip install -r requirements.txt
-                  pip install --editable .
-                  pip install ctc-segmentation
+                  pip install uv
+                  uv pip install --system ctc-segmentation  # ctc-segmentation is funky with uv due to their oldest-supported-numpy dependency
+                  uv pip install --system -r requirements.txt torch==2.2.1+cpu torchaudio==2.2.1+cpu --extra-index-url https://download.pytorch.org/whl/cpu k2==1.24.4.dev20240223+cpu.torch2.2.1 --find-links https://k2-fsa.github.io/k2/cpu.html kaldilm==1.15.1 spacy==3.7.4 flair==0.13.1 gensim==4.3.2
+                  uv pip install --system --editable . --no-deps  # already installed pinned deps from requirements.txt, we're good
+            - name: Install sox
+              run: |
+                  sudo apt-get update
+                  sudo apt install sox libsox-dev
+            # Installing only SoX for now due to FFmpeg issues on the CI server with Torchaudio 2.1.
+            # FFmpeg works fine on all other machines. We'll switch back when the CI server is fixed.
+            #- name: Install ffmpeg
+            #  run: |
+            #      sudo apt-get update
+            #      sudo apt-get install -y ffmpeg
+            - name: Display Python version
+              run: python -c "import sys; print(sys.version)"
+            - name: Consistency tests with pytest
+              run: |
+                  pytest tests/consistency
             - name: Unittests with pytest
               run: |
                   pytest tests/unittests

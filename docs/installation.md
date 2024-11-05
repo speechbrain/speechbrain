@@ -1,11 +1,12 @@
 
 # Quick installation
 
-SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time. SpeechBrain can be installed via PyPI to rapidly use the standard library. Moreover, a local installation can be used to run experiments and modify/customize the toolkit.
+SpeechBrain is constantly evolving. New features, tutorials, and documentation will appear over time. SpeechBrain can be installed via PyPI to rapidly use the standard library. Moreover, a local installation can be used to run experiments and modify/customize the toolkit and its recipes.
 
-SpeechBrain supports both CPU and GPU computations. For most recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
+SpeechBrain supports both CPU and GPU computation. For most recipes, however, a GPU is necessary during training. Please note that CUDA must be properly installed to use GPUs.
 
-We support pytorch >= 1.7 (https://pytorch.org/) and Python >= 3.7.
+We support [PyTorch](https://pytorch.org/get-started/locally/) 1.9+ and Python 3.8-3.12 (newer Python versions than advertised may work if supported by PyTorch).
+We recommend you upgrade to at least 3.9+ as support for 3.8 will be removed eventually.
 
 ## Install via PyPI
 
@@ -14,6 +15,8 @@ Once you have created your Python environment (see instructions below) you can s
 ```
 pip install speechbrain
 ```
+
+Depending on your OS, audio loading may require the install of optional torchaudio dependencies to work. If it does not work out-of-the box for you, please visit [audio troubleshooting](audioloading.html).
 
 Then you can then access SpeechBrain with:
 
@@ -59,20 +62,20 @@ tests/.run-doctests.sh
 SpeechBrain supports Linux-based distributions and macOS. A solution for windows users can be found
 in this [GitHub issue](https://github.com/speechbrain/speechbrain/issues/512).
 
-## Anaconda and venv
+## Setting up a Conda environment/virtualenv
 
 A good practice is to have different python environments for your different tools
 and toolkits, so they do not interfere with each other. This can be done either with
-[Anaconda](https://en.wikipedia.org/wiki/Anaconda_(Python_distribution)) or [venv](https://docs.python.org/3.8/library/venv.html).
+[Anaconda](https://www.anaconda.com/products/distribution) or [venv](https://docs.python.org/3.8/library/venv.html).
 
-Anaconda can be installed by simply following [this tutorial](https://docs.anaconda.com/anaconda/install/linux/). In practice, it is a matter of downloading the installation script and executing it.
+Anaconda can be installed by simply following [this tutorial](https://docs.anaconda.com/free/anaconda/install/linux/). In practice, it is a matter of downloading the installation script and executing it.
 
-## Anaconda setup
+### Conda
 
-Once Anaconda is installed, you can create a new environment with:
+Once Conda is installed, you can create a new environment with:
 
 ```
-conda create --name speechbrain python=3.9
+conda create --name speechbrain python=3.11
 ```
 
 Then, activate it with:

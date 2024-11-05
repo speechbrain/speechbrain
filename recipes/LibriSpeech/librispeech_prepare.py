@@ -5,25 +5,40 @@ Download: http://www.openslr.org/12
 
 Author
 ------
-Mirco Ravanelli, Ju-Chieh Chou, Loren Lugosch 2020
+ * Mirco Ravanelli, 2020
+ * Ju-Chieh Chou, 2020
+ * Loren Lugosch, 2020
+ * Pierre Champion, 2023
+ * Adel Moumen, 2024
 """
 
-import os
 import csv
+import functools
+import os
 import random
 from collections import Counter
-import logging
-import torchaudio
-from speechbrain.utils.data_utils import download_file, get_all_files
+from dataclasses import dataclass
+
 from speechbrain.dataio.dataio import (
     load_pkl,
-    save_pkl,
     merge_csvs,
+    read_audio_info,
+    save_pkl,
 )
+from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.parallel import parallel_map
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
 SAMPLERATE = 16000
+OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"
+OPEN_SLR_11_NGRAM_MODELs = [
+    "3-gram.arpa.gz",
+    "3-gram.pruned.1e-7.arpa.gz",
+    "3-gram.pruned.3e-7.arpa.gz",
+    "4-gram.arpa.gz",
+]
 
 
 def prepare_librispeech(
@@ -46,6 +61,8 @@ def prepare_librispeech(
     ---------
     data_folder : str
         Path to the folder where the original LibriSpeech dataset is stored.
+    save_folder : str
+        The directory where to store the csv files.
     tr_splits : list
         List of train splits to prepare from ['test-others','train-clean-100',
         'train-clean-360','train-other-500'].
@@ -53,14 +70,12 @@ def prepare_librispeech(
         List of dev splits to prepare from ['dev-clean','dev-others'].
     te_splits : list
         List of test splits to prepare from ['test-clean','test-others'].
-    save_folder : str
-        The directory where to store the csv files.
     select_n_sentences : int
         Default : None
         If not None, only pick this many sentences.
     merge_lst : list
         List of librispeech splits (e.g, train-clean, train-clean-360,..) to
-        merge in a singe csv file.
+        merge in a single csv file.
     merge_name: str
         Name of the merged csv file.
     create_lexicon: bool
@@ -69,6 +84,9 @@ def prepare_librispeech(
     skip_prep: bool
         If True, data preparation is skipped.
 
+    Returns
+    -------
+    None
 
     Example
     -------
@@ -110,7 +128,6 @@ def prepare_librispeech(
     # create csv files for each split
     all_texts = {}
     for split_index in range(len(splits)):
-
         split = splits[split_index]
 
         wav_lst = get_all_files(
@@ -129,41 +146,34 @@ def prepare_librispeech(
         else:
             n_sentences = len(wav_lst)
 
-        create_csv(
-            save_folder, wav_lst, text_dict, split, n_sentences,
-        )
+        create_csv(save_folder, wav_lst, text_dict, split, n_sentences)
 
     # Merging csv file if needed
     if merge_lst and merge_name is not None:
         merge_files = [split_libri + ".csv" for split_libri in merge_lst]
         merge_csvs(
-            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name,
+            data_folder=save_folder, csv_lst=merge_files, merged_csv=merge_name
         )
 
     # Create lexicon.csv and oov.csv
     if create_lexicon:
-        create_lexicon_and_oov_csv(all_texts, data_folder, save_folder)
+        create_lexicon_and_oov_csv(all_texts, save_folder)
 
     # saving options
     save_pkl(conf, save_opt)
 
 
-def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
+def create_lexicon_and_oov_csv(all_texts, save_folder):
     """
     Creates lexicon csv files useful for training and testing a
     grapheme-to-phoneme (G2P) model.
 
     Arguments
     ---------
-    all_text : dict
+    all_texts : dict
         Dictionary containing text from the librispeech transcriptions
-    data_folder : str
-        Path to the folder where the original LibriSpeech dataset is stored.
     save_folder : str
         The directory where to store the csv files.
-    Returns
-    -------
-    None
     """
     # If the lexicon file does not exist, download it
     lexicon_url = "http://www.openslr.org/resources/11/librispeech-lexicon.txt"
@@ -183,7 +193,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     # Get list of all words in the lexicon
     lexicon_words = []
     lexicon_pronunciations = []
-    with open(lexicon_path, "r") as f:
+    with open(lexicon_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
         for line in lines:
             word = line.split()[0]
@@ -194,7 +204,7 @@ def create_lexicon_and_oov_csv(all_texts, data_folder, save_folder):
     # Create lexicon.csv
     header = "ID,duration,char,phn\n"
     lexicon_csv_path = os.path.join(save_folder, "lexicon.csv")
-    with open(lexicon_csv_path, "w") as f:
+    with open(lexicon_csv_path, "w", newline="", encoding="utf-8") as f:
         f.write(header)
         for idx in range(len(lexicon_words)):
             separated_graphemes = [c for c in lexicon_words[idx]]
@@ -226,14 +236,10 @@ def split_lexicon(data_folder, split_ratio):
         List containing the training, validation, and test split ratio. Set it
         to [80, 10, 10] for having 80% of material for training, 10% for valid,
         and 10 for test.
-
-    Returns
-    -------
-    None
     """
     # Reading lexicon.csv
     lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
-    with open(lexicon_csv_path, "r") as f:
+    with open(lexicon_csv_path, "r", newline="", encoding="utf-8") as f:
         lexicon_lines = f.readlines()
     # Remove header
     lexicon_lines = lexicon_lines[1:]
@@ -251,17 +257,57 @@ def split_lexicon(data_folder, split_ratio):
     test_lines = [header] + lexicon_lines[tr_snts + valid_snts :]
 
     # Saving files
-    with open(os.path.join(data_folder, "lexicon_tr.csv"), "w") as f:
+    with open(
+        os.path.join(data_folder, "lexicon_tr.csv"),
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as f:
         f.writelines(train_lines)
-    with open(os.path.join(data_folder, "lexicon_dev.csv"), "w") as f:
+    with open(
+        os.path.join(data_folder, "lexicon_dev.csv"),
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as f:
         f.writelines(valid_lines)
-    with open(os.path.join(data_folder, "lexicon_test.csv"), "w") as f:
+    with open(
+        os.path.join(data_folder, "lexicon_test.csv"),
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as f:
         f.writelines(test_lines)
 
 
-def create_csv(
-    save_folder, wav_lst, text_dict, split, select_n_sentences,
-):
+@dataclass
+class LSRow:
+    snt_id: str
+    spk_id: str
+    duration: float
+    file_path: str
+    words: str
+
+
+def process_line(wav_file, text_dict) -> LSRow:
+    snt_id = wav_file.split("/")[-1].replace(".flac", "")
+    spk_id = "-".join(snt_id.split("-")[0:2])
+    wrds = text_dict[snt_id]
+    wrds = " ".join(wrds.split("_"))
+
+    info = read_audio_info(wav_file)
+    duration = info.num_frames / info.sample_rate
+
+    return LSRow(
+        snt_id=snt_id,
+        spk_id=spk_id,
+        duration=duration,
+        file_path=wav_file,
+        words=wrds,
+    )
+
+
+def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
     """
     Create the dataset csv file given a list of wav files.
 
@@ -284,6 +330,9 @@ def create_csv(
     """
     # Setting path for the csv file
     csv_file = os.path.join(save_folder, split + ".csv")
+    if os.path.exists(csv_file):
+        logger.info("Csv file %s already exists, not recreating." % csv_file)
+        return
 
     # Preliminary prints
     msg = "Creating csv lists in  %s..." % (csv_file)
@@ -292,34 +341,30 @@ def create_csv(
     csv_lines = [["ID", "duration", "wav", "spk_id", "wrd"]]
 
     snt_cnt = 0
+    line_processor = functools.partial(process_line, text_dict=text_dict)
     # Processing all the wav files in wav_lst
-    for wav_file in wav_lst:
-
-        snt_id = wav_file.split("/")[-1].replace(".flac", "")
-        spk_id = "-".join(snt_id.split("-")[0:2])
-        wrds = text_dict[snt_id]
-
-        signal, fs = torchaudio.load(wav_file)
-        signal = signal.squeeze(0)
-        duration = signal.shape[0] / SAMPLERATE
-
+    # FLAC metadata reading is already fast, so we set a high chunk size
+    # to limit main thread CPU bottlenecks
+    for row in parallel_map(line_processor, wav_lst, chunk_size=8192):
         csv_line = [
-            snt_id,
-            str(duration),
-            wav_file,
-            spk_id,
-            str(" ".join(wrds.split("_"))),
+            row.snt_id,
+            str(row.duration),
+            row.file_path,
+            row.spk_id,
+            row.words,
         ]
 
-        #  Appending current file to the csv_lines list
+        # Appending current file to the csv_lines list
         csv_lines.append(csv_line)
+
         snt_cnt = snt_cnt + 1
 
+        # parallel_map guarantees element ordering so we're OK
         if snt_cnt == select_n_sentences:
             break
 
     # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -341,7 +386,7 @@ def skip(splits, save_folder, conf):
     splits : list
         A list of the splits expected in the preparation.
     save_folder : str
-        The location of the seave directory
+        The location of the save directory
     conf : dict
         The configuration options to ensure they haven't changed.
 
@@ -393,7 +438,7 @@ def text_to_dict(text_lst):
     text_dict = {}
     # Reading all the transcription files is text_lst
     for file in text_lst:
-        with open(file, "r") as f:
+        with open(file, "r", encoding="utf-8") as f:
             # Reading all line of the transcription file
             for line in f:
                 line_lst = line.strip().split(" ")
@@ -407,9 +452,12 @@ def check_librispeech_folders(data_folder, splits):
 
     If it does not, an error is raised.
 
-    Returns
-    -------
-    None
+    Arguments
+    ---------
+    data_folder : str
+        The path to the directory with the data.
+    splits : list
+        The portions of the data to check.
 
     Raises
     ------
@@ -425,3 +473,55 @@ def check_librispeech_folders(data_folder, splits):
                 "Librispeech dataset)" % split_folder
             )
             raise OSError(err_msg)
+
+
+def download_librispeech_vocab_text(destination):
+    """Download librispeech vocab file and unpack it.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put vocab file.
+    """
+    f = "librispeech-vocab.txt"
+    download_file(OPEN_SLR_11_LINK + f, destination)
+
+
+def download_openslr_librispeech_lm(destination, rescoring_lm=True):
+    """Download openslr librispeech lm and unpack it.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put lm.
+    rescoring_lm : bool
+        Also download bigger 4grams model
+    """
+    os.makedirs(destination, exist_ok=True)
+    for f in OPEN_SLR_11_NGRAM_MODELs:
+        if f.startswith("4") and not rescoring_lm:
+            continue
+        d = os.path.join(destination, f)
+        download_file(OPEN_SLR_11_LINK + f, d, unpack=True)
+
+
+def download_sb_librispeech_lm(destination, rescoring_lm=True):
+    """Download sb librispeech lm and unpack it.
+
+    Arguments
+    ---------
+    destination : str
+        Place to put lm.
+    rescoring_lm : bool
+        Also download bigger 4grams model
+    """
+    os.makedirs(destination, exist_ok=True)
+    download_file(
+        "https://www.dropbox.com/scl/fi/3fkkdlliavhveb5n3nsow/3gram_lm.arpa?rlkey=jgdrluppfut1pjminf3l3y106&dl=1",
+        os.path.join(destination, "3-gram_sb.arpa"),
+    )
+    if rescoring_lm:
+        download_file(
+            "https://www.dropbox.com/scl/fi/roz46ee0ah2lvy5csno4z/4gram_lm.arpa?rlkey=2wt8ozb1mqgde9h9n9rp2yppz&dl=1",
+            os.path.join(destination, "4-gram_sb.arpa"),
+        )

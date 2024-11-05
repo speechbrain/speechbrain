@@ -1,0 +1,254 @@
+# ############################################################################
+# Model: Language model with a recurrent neural network (RNNLM)
+# Training: LibriG2P
+# Authors:  Ju-Chieh Chou 2020, Jianyuan Zhong 2021, Mirco Ravanelli 2021
+#           Artem Ploujnikov 2021
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 2602
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/RNNLM/
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+phoneme_tokenizer_output_folder: !ref <save_folder>/phoneme_tokenizer
+
+
+# If you plan to train a system on an HPC cluster with a big dataset,
+# we strongly suggest doing the following:
+# 1- Compress the dataset in a single tar or zip file.
+# 2- Copy your dataset locally (i.e., the local disk of the computing node).
+# 3- Uncompress the dataset in the local folder.
+# 4- Set lm_{train,valid,test}_data with the local path.
+# Reading data from the local disk of the compute node (e.g. $SLURM_TMPDIR with SLURM-based clusters) is very important.
+# It allows you to read the data much faster without slowing down the shared filesystem.
+data_folder: null
+
+dataset: flexthink/librig2p-nostress-space
+train_data: !ref <data_folder>/sentence_train.json
+valid_data: !ref <data_folder>/sentence_valid.json
+test_data: !ref <data_folder>/sentence_test.json
+tokenizer_train_data: !ref <save_folder>/tokenizer_annotation_train.json
+tokenizer_valid_data: !ref <save_folder>/tokenizer_annotation_valid.json
+data_load: !name:speechbrain.dataio.dataset.DynamicItemDataset.from_json
+sorting: random
+origins: "*"
+phn_token_output: 128
+token_space_index: !ref <phn_token_output>
+phonemes_count: 43
+phn_tokenize: True
+phn_token_wordwise: False
+phn_token_type: unigram
+character_coverage: 1.0
+
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# Tokenizer model (you must use the same tokenizer for LM and ASR training)
+tokenizer_file: <output_folder>/save/phoneme_tokenizer.model
+
+
+####################### Training Parameters ####################################
+number_of_epochs: 20
+batch_size: 80
+lr: 0.001
+grad_accumulation_factor: 1 # Gradient accumulation to simulate large batch training
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Dataloader options
+train_dataloader_opts:
+    batch_size: !ref <batch_size>
+    shuffle: True
+
+valid_dataloader_opts:
+    batch_size: 1
+
+test_dataloader_opts:
+    batch_size: 1
+
+####################### Model Parameters #######################################
+model_dim: !apply:speechbrain.utils.hparams.choice
+    value: !ref <phn_tokenize>
+    choices:
+        True: !ref <phn_token_output>
+        False: !ref <phonemes_count>
+emb_dim: !ref <model_dim> # dimension of the embeddings
+
+rnn_size: 512 # dimension of hidden layers
+layers: 2 # number of hidden layers
+dropout: 0.15
+
+# Outputs
+output_neurons: !ref <model_dim>
+bos_index: 0
+eos_index: 1
+blank_index: !apply:speechbrain.utils.hparams.choice
+    value: !ref <phn_tokenize>
+    choices:
+        True: 2
+        False: 0
+unk_index: !apply:speechbrain.utils.hparams.choice
+    value: !ref <phn_tokenize>
+    choices:
+        True: 2
+        False: 0
+
+graphemes:
+    - A
+    - B
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - J
+    - K
+    - L
+    - M
+    - N
+    - O
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - U
+    - V
+    - W
+    - X
+    - Y
+    - Z
+    - "'"
+    - " "
+
+phonemes:
+    - AA
+    - AE
+    - AH
+    - AO
+    - AW
+    - AY
+    - B
+    - CH
+    - D
+    - DH
+    - EH
+    - ER
+    - EY
+    - F
+    - G
+    - HH
+    - IH
+    - IY
+    - JH
+    - K
+    - L
+    - M
+    - N
+    - NG
+    - OW
+    - OY
+    - P
+    - R
+    - S
+    - SH
+    - T
+    - TH
+    - UH
+    - UW
+    - V
+    - W
+    - Y
+    - Z
+    - ZH
+    - " "
+
+
+phn_char_map: !apply:speechbrain.lobes.models.g2p.dataio.build_token_char_map
+    tokens: !ref <phonemes>
+
+# To design a custom model, either just edit the simple CustomModel
+# class that's listed here, or replace this `!new` call with a line
+# pointing to a different file you've defined..
+model: !new:speechbrain.lobes.models.RNNLM.RNNLM
+    embedding_dim: !ref <emb_dim>
+    rnn_layers: !ref <layers>
+    rnn_neurons: !ref <rnn_size>
+    output_neurons: !ref <output_neurons>
+    dropout: !ref <dropout>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+    apply_log: True
+
+
+# Cost function used for training the model
+compute_cost: !name:speechbrain.nnet.losses.nll_loss
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+    betas: (0.9, 0.98)
+    eps: 0.000000001
+
+# This function manages learning rate annealing over the epochs.
+# We here use the NewBoB algorithm, that anneals the learning rate if
+# the improvements over two consecutive epochs is less than the defined
+# threshold.
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class.
+modules:
+    model: !ref <model>
+
+# Tokenizer initialization
+phoneme_tokenizer: !apply:speechbrain.lobes.models.g2p.dataio.lazy_init
+    init: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+        model_dir: !ref <phoneme_tokenizer_output_folder>
+        bos_id: !ref <bos_index>
+        eos_id: !ref <eos_index>
+        unk_id: !ref <unk_index>
+        vocab_size: !ref <phn_token_output>
+        annotation_train: !ref <tokenizer_train_data>
+        annotation_read: phn
+        model_type: !ref <phn_token_type> # ["unigram", "bpe", "char"]
+        character_coverage: !ref <character_coverage>
+        annotation_format: json
+        text_file: !ref <save_folder>/phoneme_annotations.txt
+
+grapheme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+phoneme_encoder: !new:speechbrain.dataio.encoder.TextEncoder
+
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+# Pretrain the tokenizer
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    loadables:
+        phoneme_tokenizer: !ref <phoneme_tokenizer>
+    paths:
+        phoneme_tokenizer: !ref <tokenizer_file>

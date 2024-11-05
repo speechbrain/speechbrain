@@ -1,0 +1,40 @@
+# ############################################################################
+# Tokenizer: subword BPE with unigram 2K
+# Training: Switchboard and Fisher (optional)
+# Authors:  Dominik Wagner 2022
+# ############################################################################
+
+output_folder: !ref results/2K_subword_unigram
+
+# Data files
+# Set the local path to the Switchboard dataset (e.g. /nfs/data/swbd) here.
+data_folder: !PLACEHOLDER
+splits: ["train", "dev"]
+split_ratio: [99, 1]
+add_fisher_corpus: True
+# Maximum number of times the same utterance is allowed
+# to appear in the training data
+# Note that this only filters the swbd1 data but not the Fisher data.
+max_utt: 300
+train_csv: !ref <output_folder>/train_lm.csv
+valid_csv: !ref <output_folder>/dev.csv
+skip_prep: False
+
+####################### Training Parameters ####################################
+token_type: unigram  # ["unigram", "bpe", "char"]
+token_output: 2000  # index(blank/eos/bos/unk) = 0
+character_coverage: 1.0
+csv_read: words
+bos_index: 1
+eos_index: 2
+
+tokenizer: !name:speechbrain.tokenizers.SentencePiece.SentencePiece
+   model_dir: !ref <output_folder>
+   vocab_size: !ref <token_output>
+   annotation_train: !ref <train_csv>
+   annotation_read: !ref <csv_read>
+   model_type: !ref <token_type>
+   character_coverage: !ref <character_coverage>
+   bos_id: !ref <bos_index> # Define bos_id/eos_id if different from blank_id
+   eos_id: !ref <eos_index>
+   annotation_list_to_check: [!ref <train_csv>, !ref <valid_csv>]

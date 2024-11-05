@@ -8,7 +8,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1992
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/RNNLM_1024/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -23,13 +23,12 @@ csv_test_synth: !ref <output_folder>/test-synth-type=decoupled.csv
 csv_test_real: !ref <output_folder>/test-real-type=decoupled.csv
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 10
 batch_size: 128
 lr: 0.0003
 device: 'cuda:0'
-ddp_procs: 0  # Set to number of GPUs for multi-gpu training
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 dataloader_opts:

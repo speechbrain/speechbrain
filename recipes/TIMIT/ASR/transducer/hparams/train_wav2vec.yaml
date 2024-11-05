@@ -9,9 +9,9 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/augment_wav2vec/<seed>
-wer_file: !ref <output_folder>/wer.txt
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -22,35 +22,35 @@ freeze_wav2vec: False
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g. /path/to/TIMIT
-train_annotation: !ref <data_folder>/train.json
-valid_annotation: !ref <data_folder>/dev.json
-test_annotation: !ref <data_folder>/test.json
+train_annotation: !ref <save_folder>/train.json
+valid_annotation: !ref <save_folder>/dev.json
+test_annotation: !ref <save_folder>/test.json
 skip_prep: False # Skip data preparation
+uppercase: False # Must be True when the TIMIT dataset is in the upper-case version
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 8
 lr: 0.0003
 lr_wav2vec: 0.0001
 sorting: ascending # choose between ascending, descending and random
-auto_mix_prec: True
+precision: fp16 # bf16, fp16 or fp32
 
 # Feature parameters
 sample_rate: 16000
-n_fft: 400
-n_mels: 40
+# n_fft: 400
+# n_mels: 40
 
-
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
-dropout: 0.15
+# dropout: 0.15
 dnn_blocks: 1
-dnn_neurons: 40
+dnn_neurons: 43
 dec_neurons: 128
 
 # Outputs
-output_neurons: 40
-joint_dim: 40
+output_neurons: 43
+joint_dim: 43
 blank_index: 0
 
 # Decoding parameters
@@ -74,16 +74,41 @@ test_dataloader_opts:
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-compute_features: !new:speechbrain.lobes.features.Fbank
-    sample_rate: !ref <sample_rate>
-    n_fft: !ref <n_fft>
-    n_mels: !ref <n_mels>
+############################## Augmentations ###################################
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+############################## Models ##########################################
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
     output_norm: True
     freeze: !ref <freeze_wav2vec>
@@ -94,8 +119,6 @@ enc: !new:speechbrain.lobes.models.VanillaNN.VanillaNN
     activation: !ref <activation>
     dnn_blocks: !ref <dnn_blocks>
     dnn_neurons: !ref <dnn_neurons>
-
-jit_module_keys: [enc]
 
 enc_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <dnn_neurons>
@@ -127,9 +150,6 @@ output: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <joint_dim>
     n_neurons: !ref <output_neurons>  # 42 phonemes + 1 blank
     bias: False
-
-log_softmax: !new:speechbrain.nnet.activations.Softmax
-    apply_log: True
 
 compute_cost: !name:speechbrain.nnet.losses.transducer_loss
     use_torchaudio: True
@@ -188,7 +208,6 @@ modules:
     dec_lin: !ref <dec_lin>
     Tjoint: !ref <Tjoint>
     output: !ref <output>
-    augmentation: !ref <augmentation>
 
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>

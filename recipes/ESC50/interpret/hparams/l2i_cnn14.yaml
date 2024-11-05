@@ -1,0 +1,192 @@
+# #################################
+# The recipe for training an L2I interpretability method on the ESC50 dataset.
+#
+# Author:
+#  * Cem Subakan 2022, 2023, 2024
+#  * Francesco Paissan 2022, 2023, 2024
+#  (based on the SpeechBrain UrbanSound8k recipe)
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+overlap_type: "mixtures"
+
+int_method: "l2i"
+
+# this is needed for ood evaluation with ljspeech, when using eval.py
+ljspeech_path: null
+
+single_sample: null
+
+# this is needed when using eval.py to specify the path for the psi_model.ckpt
+# the typical path would be similar to results/LMAC_cnn14/1234/save/CKPT+2024-06-20+16-05-44+00/psi_model.ckpt
+pretrained_interpreter: null
+
+# Set up folders for reading from and writing to
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
+audio_data_folder: !ref <data_folder>/audio
+
+add_wham_noise: False
+signal_length_s: 5
+wham_folder: null
+wham_audio_folder: !ref <wham_folder>/tr
+
+experiment_name: L2I_cnn14
+output_folder: !ref ./results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+save_interpretations: False
+classifier_temp: 1   # classifier temperature for the auxiliary L2I classifier
+
+# Tensorboard logs
+use_tensorboard: False
+tensorboard_logs_folder: !ref <output_folder>/tb_logs/
+
+# Path where data manifest files will be stored
+train_annotation: !ref <data_folder>/manifest/train.json
+valid_annotation: !ref <data_folder>/manifest/valid.json
+test_annotation: !ref <data_folder>/manifest/test.json
+
+train_fold_nums: [1, 2, 3]
+valid_fold_nums: [4]
+test_fold_nums: [5]
+skip_manifest_creation: False
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 200
+batch_size: 2
+lr: 0.0001
+sample_rate: 16000
+interpret_period: 1
+relevance_th: 0.2
+
+# Feature parameters
+n_mels: 80
+left_frames: 0
+right_frames: 0
+deltas: False
+
+# Number of classes
+out_n_neurons: 50
+
+shuffle: True
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 3
+    dont_halve_until_epoch: 50
+
+
+use_melspectra_log1p: True
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        theta: !ref <theta>
+        psi_model: !ref <psi_model>
+        counter: !ref <epoch_counter>
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+    n_mels: !ref <n_mels>
+    left_frames: !ref <left_frames>
+    right_frames: !ref <right_frames>
+    deltas: !ref <deltas>
+    sample_rate: !ref <sample_rate>
+    n_fft: 1024
+    win_length: 20
+    hop_length: 10
+
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
+    mel_bins: !ref <n_mels>
+    emb_dim: 2048
+    return_reps: True
+    l2i: False
+
+classifier: !new:torch.nn.Linear
+    in_features: 2048
+    out_features: !ref <out_n_neurons>
+
+# Interpretation hyperparams
+K: 100
+n_freq: 513
+
+# pre-processing
+n_fft: 1024
+spec_mag_power: 0.5
+hop_length: 11.6099
+win_length: 23.2199
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: !ref <n_fft>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    sample_rate: !ref <sample_rate>
+
+compute_fbank: !new:speechbrain.processing.features.Filterbank
+    n_mels: 80
+    n_fft: !ref <n_fft>
+    sample_rate: !ref <sample_rate>
+    log_mel: False
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+
+psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft_2d
+    dim: 2048
+    K: !ref <K>
+
+theta: !new:speechbrain.lobes.models.L2I.Theta
+    num_classes: !ref <out_n_neurons>
+
+# NMF Decoder
+nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
+    n_comp: !ref <K>
+    n_freq: !ref <n_freq>
+
+alpha: 10 # applied to NMF loss
+beta: 0.8 # L1 regularization to time activations
+
+modules:
+    compute_stft: !ref <compute_stft>
+    compute_fbank: !ref <compute_fbank>
+    compute_istft: !ref <compute_istft>
+    compute_features: !ref <compute_features>
+    psi: !ref <psi_model>
+    theta: !ref <theta>
+
+embedding_model_path: 'fpaissan/r/embedding_model.ckpt'
+classifier_model_path: 'fpaissan/r/classifier.ckpt'
+
+nmf_decoder_path: 'speechbrain/PIQ-ESC50/nmf_decoder.ckpt'
+use_pretrained: True
+pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+        nmf_decoder: !ref <nmf_decoder>
+    paths:
+        embedding_model: !ref <embedding_model_path>
+        classifier: !ref <classifier_model_path>
+        nmf_decoder: !ref <nmf_decoder_path>

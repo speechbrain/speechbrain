@@ -18,27 +18,55 @@ Authors
 """
 import os
 import sys
+
 import torch
 import torchaudio
-import urllib.parse
-import speechbrain as sb
+from composite_eval import eval_composite
+from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 from pystoi import stoi
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_utils import download_file, undo_padding
-from speechbrain.utils.distributed import run_on_main
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def pesq_eval(pred_wav, target_wav):
     return pesq(
-        fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb",
+        fs=16000, ref=target_wav.numpy(), deg=pred_wav.numpy(), mode="wb"
     )
 
 
 def estoi_eval(pred_wav, target_wav):
     return stoi(
-        x=target_wav.numpy(), y=pred_wav.numpy(), fs_sig=16000, extended=True
+        x=target_wav.numpy(), y=pred_wav.numpy(), fs_sig=16000, extended=False
     )
+
+
+def composite_eval(pred_wav, target_wav):
+    return eval_composite(target_wav.numpy(), pred_wav.numpy())
+
+
+class CompositeStats(sb.utils.metric_stats.MetricStats):
+    def summarize(self, field=None):
+        self.summary = {
+            "csig": sum([s["csig"] for s in self.scores]) / len(self.scores),
+            "cbak": sum([s["cbak"] for s in self.scores]) / len(self.scores),
+            "covl": sum([s["covl"] for s in self.scores]) / len(self.scores),
+        }
+
+        if field is not None:
+            return self.summary[field]
+        else:
+            return self.summary
+
+    def write_stats(self, filestream):
+        if not self.summary:
+            self.summarize()
+        filestream.write(str(self.summary) + "\n")
 
 
 # Define training procedure
@@ -51,87 +79,89 @@ class MTLbrain(sb.Brain):
 
         predictions = {}
         if self.hparams.enhance_type is not None:
-            phase_wavs, noisy_feats, lens = self.prepare_feats(batch.noisy_sig)
+            noisy_wavs, lens = self.prepare_wavs(batch.noisy_sig, stage)
 
             # Mask with "signal approximation (SA)"
             if self.hparams.enhance_type == "masking":
-                mask = self.modules.enhance_model(noisy_feats)
-                m = self.hparams.mask_weight
-                predictions["feats"] = m * torch.mul(mask, noisy_feats)
-                predictions["feats"] += (1 - m) * noisy_feats
-            elif self.hparams.enhance_type == "mapping":
-                predictions["feats"] = self.modules.enhance_model(noisy_feats)
+                (
+                    predictions["wavs"],
+                    predictions["feats"],
+                ) = self.modules.enhance_model(noisy_wavs)
             elif self.hparams.enhance_type == "noisy":
-                predictions["feats"] = noisy_feats
+                predictions["wavs"] = noisy_wavs
             elif self.hparams.enhance_type == "clean":
-                phase_wavs, predictions["feats"], lens = self.prepare_feats(
-                    batch.clean_sig
-                )
-
-            # Resynthesize waveforms
-            enhanced_mag = torch.expm1(predictions["feats"])
-            predictions["wavs"] = self.hparams.resynth(enhanced_mag, phase_wavs)
+                predictions["wavs"], _ = self.prepare_wavs(batch.clean_sig)
 
         # Generate clean features for ASR pre-training
         if self.hparams.ctc_type == "clean" or self.hparams.seq_type == "clean":
-            _, clean_feats, lens = self.prepare_feats(batch.clean_sig)
+            clean_wavs, lens = self.prepare_wavs(batch.clean_sig, stage)
+            clean_feats = self.prepare_feats(clean_wavs)
 
         # Compute seq outputs
         if self.hparams.seq_type is not None:
-
             # Prepare target inputs
-            tokens, token_lens = self.prepare_targets(batch.tokens_bos)
+            tokens, token_lens = self.prepare_targets(batch.tokens_bos, stage)
             tokens = self.modules.tgt_embedding(tokens)
 
             if self.hparams.seq_type == "clean":
+                if hasattr(self.hparams, "perceptual_fbank"):
+                    clean_feats = self.hparams.fbank(clean_feats)
                 embed = self.modules.src_embedding(clean_feats)
             if self.hparams.seq_type == "joint":
                 asr_feats = predictions["wavs"]
-                if stage == sb.Stage.TRAIN:
-                    asr_feats = self.hparams.augment(asr_feats, lens)
                 asr_feats = self.hparams.fbank(asr_feats)
                 asr_feats = self.hparams.normalizer(asr_feats, lens)
                 embed = self.modules.src_embedding(asr_feats)
             dec_out = self.modules.recognizer(tokens, embed, lens)
             out = self.modules.seq_output(dec_out[0])
-            predictions["seq_pout"] = self.hparams.log_softmax(out)
+            predictions["seq_pout"] = torch.log_softmax(out, dim=-1)
 
             if self.hparams.ctc_type is not None:
                 out = self.modules.ctc_output(embed)
-                predictions["ctc_pout"] = self.hparams.log_softmax(out)
+                predictions["ctc_pout"] = torch.log_softmax(out, dim=-1)
 
             if stage != sb.Stage.TRAIN:
-                predictions["hyps"], _ = self.hparams.beam_searcher(
-                    embed.detach(), lens
+                hyps, _, _, _ = self.hparams.beam_searcher(embed.detach(), lens)
+
+                # Convert best hypothesis to list
+                predictions["hyps"] = hyps
+
+        elif self.hparams.ctc_type is not None:
+            if self.hparams.ctc_type == "clean":
+                embed = self.modules.src_embedding(clean_feats)
+            elif self.hparams.ctc_type == "joint":
+                enh_feats = self.hparams.spectral_magnitude(
+                    predictions["feats"]
                 )
+                enh_feats = torch.log1p(enh_feats)
+                embed = self.modules.src_embedding(enh_feats)
+            out = self.modules.ctc_output(embed)
+            predictions["ctc_pout"] = torch.log_softmax(out, dim=-1)
 
         return predictions
 
-    def prepare_feats(self, signal, augment=True):
-        """Prepare log-magnitude spectral features expected by enhance model"""
+    def prepare_wavs(self, signal, stage):
+        """Prepare possibly enhanced waveforms"""
         wavs, wav_lens = signal
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+        return wavs, wav_lens
 
-        if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
-            if augment:
-                wavs_noise = self.hparams.env_corr(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-            else:
-                wavs = torch.cat([wavs, wavs], dim=0)
-            wav_lens = torch.cat([wav_lens, wav_lens])
-
-        feats = self.hparams.compute_stft(wavs)
-        feats = self.hparams.spectral_magnitude(feats)
+    def prepare_feats(self, wavs):
+        """Prepare log-magnitude spectral features expected by perceptual model"""
+        stft = self.hparams.compute_stft(wavs)
+        feats = self.hparams.spectral_magnitude(stft)
         feats = torch.log1p(feats)
+        return feats
 
-        return wavs, feats, wav_lens
-
-    def prepare_targets(self, tokens):
+    def prepare_targets(self, tokens, stage):
         """Prepare target by concatenating self if "env_corr" is used"""
         tokens, token_lens = tokens
 
-        if self.stage == sb.Stage.TRAIN and hasattr(self.hparams, "env_corr"):
-            tokens = torch.cat([tokens, tokens], dim=0)
-            token_lens = torch.cat([token_lens, token_lens])
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens = self.hparams.wav_augment.replicate_labels(tokens)
+            token_lens = self.hparams.wav_augment.replicate_labels(token_lens)
 
         return tokens, token_lens
 
@@ -139,13 +169,13 @@ class MTLbrain(sb.Brain):
         """Compute possibly several loss terms: enhance, mimic, ctc, seq"""
 
         # Do not augment targets
-        clean_wavs, clean_feats, lens = self.prepare_feats(
-            batch.clean_sig, augment=False
-        )
+        clean_wavs, lens = self.prepare_wavs(batch.clean_sig, stage)
         loss = 0
 
         # Compute enhancement loss
         if self.hparams.enhance_weight > 0:
+            clean_stft = self.modules.enhance_model.stft(clean_wavs)
+            clean_feats = self.modules.enhance_model.extract_feats(clean_stft)
             enhance_loss = self.hparams.enhance_loss(
                 predictions["feats"], clean_feats, lens
             )
@@ -167,6 +197,13 @@ class MTLbrain(sb.Brain):
                     target=clean_wavs,
                     lengths=lens,
                 )
+                if stage == sb.Stage.TEST:
+                    self.composite_metrics.append(
+                        ids=batch.id,
+                        predict=predictions["wavs"],
+                        target=clean_wavs,
+                        lengths=lens,
+                    )
 
                 if hasattr(self.hparams, "enh_dir"):
                     abs_lens = lens * predictions["wavs"].size(1)
@@ -178,8 +215,12 @@ class MTLbrain(sb.Brain):
 
         # Compute mimic loss
         if self.hparams.mimic_weight > 0:
+            enhance_mag = predictions["feats"]
+            if hasattr(self.hparams, "perceptual_fbank"):
+                enhance_mag = self.hparams.perceptual_fbank(enhance_mag)
+                clean_feats = self.hparams.perceptual_fbank(clean_feats)
             clean_embed = self.modules.src_embedding.CNN(clean_feats)
-            enh_embed = self.modules.src_embedding.CNN(predictions["feats"])
+            enh_embed = self.modules.src_embedding.CNN(enhance_mag)
             mimic_loss = self.hparams.mimic_loss(enh_embed, clean_embed, lens)
             loss += self.hparams.mimic_weight * mimic_loss
 
@@ -193,35 +234,40 @@ class MTLbrain(sb.Brain):
             not hasattr(self.hparams, "ctc_epochs")
             or self.hparams.epoch_counter.current < self.hparams.ctc_epochs
         ):
-            tokens, token_lens = self.prepare_targets(batch.tokens)
-            ctc_loss = self.hparams.ctc_loss(
-                predictions["ctc_pout"], tokens, lens, token_lens
+            tokens, token_lens = self.prepare_targets(batch.tokens, stage)
+            ctc_loss = sb.nnet.losses.ctc_loss(
+                predictions["ctc_pout"],
+                tokens,
+                lens,
+                token_lens,
+                self.hparams.blank_index,
             )
             loss += self.hparams.ctc_weight * ctc_loss
 
             if stage != sb.Stage.TRAIN and self.hparams.seq_weight == 0:
                 predict = sb.decoders.ctc_greedy_decode(
-                    predictions["ctc_pout"], lens, blank_id=-1
+                    predictions["ctc_pout"],
+                    lens,
+                    blank_id=self.hparams.blank_index,
                 )
                 self.err_rate_metrics.append(
                     ids=batch.id,
                     predict=predict,
                     target=tokens,
                     target_len=token_lens,
-                    ind2lab=self.hparams.ind2lab,
+                    ind2lab=self.token_encoder.decode_ndim,
                 )
 
         # Compute nll loss for seq2seq model
         if self.hparams.seq_weight > 0:
-
-            tokens, token_lens = self.prepare_targets(batch.tokens_eos)
+            tokens, token_lens = self.prepare_targets(batch.tokens_eos, stage)
             seq_loss = self.hparams.seq_loss(
                 predictions["seq_pout"], tokens, token_lens
             )
             loss += self.hparams.seq_weight * seq_loss
 
             if stage != sb.Stage.TRAIN:
-                if hasattr(self.hparams, "asr_pretrained"):
+                if hasattr(self.hparams, "tokenizer"):
                     pred_words = [
                         self.token_encoder.decode_ids(token_seq)
                         for token_seq in predictions["hyps"]
@@ -233,6 +279,7 @@ class MTLbrain(sb.Brain):
                     self.err_rate_metrics.append(
                         batch.id, pred_words, target_words
                     )
+
                 else:
                     self.err_rate_metrics.append(
                         ids=batch.id,
@@ -246,11 +293,11 @@ class MTLbrain(sb.Brain):
 
     def on_stage_start(self, stage, epoch):
         if stage != sb.Stage.TRAIN:
-
             if self.hparams.enhance_weight > 0:
                 self.enh_metrics = self.hparams.enhance_stats()
                 self.stoi_metrics = self.hparams.estoi_stats()
                 self.pesq_metrics = self.hparams.pesq_stats()
+                self.composite_metrics = self.hparams.composite_stats()
 
             if self.hparams.mimic_weight > 0:
                 self.mimic_metrics = self.hparams.mimic_stats()
@@ -261,17 +308,20 @@ class MTLbrain(sb.Brain):
         # Freeze models before training
         else:
             for model in self.hparams.frozen_models:
-                for p in self.modules[model].parameters():
-                    if (
-                        hasattr(self.hparams, "unfreeze_epoch")
-                        and epoch >= self.hparams.unfreeze_epoch
-                        and (
-                            not hasattr(self.hparams, "unfrozen_models")
-                            or model in self.hparams.unfrozen_models
-                        )
-                    ):
+                if (
+                    hasattr(self.hparams, "unfreeze_epoch")
+                    and epoch >= self.hparams.unfreeze_epoch
+                    and (
+                        not hasattr(self.hparams, "unfrozen_models")
+                        or model in self.hparams.unfrozen_models
+                    )
+                ):
+                    self.modules[model].train()
+                    for p in self.modules[model].parameters():
                         p.requires_grad = True
-                    else:
+                else:
+                    self.modules[model].eval()
+                    for p in self.modules[model].parameters():
                         p.requires_grad = False
 
     def on_stage_end(self, stage, stage_loss, epoch):
@@ -287,6 +337,17 @@ class MTLbrain(sb.Brain):
                 stage_stats["stoi"] = self.stoi_metrics.summarize("average")
                 stage_stats["pesq"] = self.pesq_metrics.summarize("average")
                 max_keys.extend(["pesq", "stoi"])
+                if stage == sb.Stage.TEST:
+                    stage_stats["csig"] = self.composite_metrics.summarize(
+                        "csig"
+                    )
+                    stage_stats["cbak"] = self.composite_metrics.summarize(
+                        "cbak"
+                    )
+                    stage_stats["covl"] = self.composite_metrics.summarize(
+                        "covl"
+                    )
+                    max_keys.extend(["csig", "cbak", "covl"])
 
             if self.hparams.mimic_weight > 0:
                 stage_stats["mimic"] = self.mimic_metrics.summarize("average")
@@ -300,7 +361,7 @@ class MTLbrain(sb.Brain):
 
         if stage == sb.Stage.VALID:
             stats_meta = {"epoch": epoch}
-            if self.hparams.ctc_weight > 0 or self.hparams.seq_weight > 0:
+            if hasattr(self.hparams, "lr_annealing"):
                 old_lr, new_lr = self.hparams.lr_annealing(epoch - 1)
                 sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
                 stats_meta["lr"] = old_lr
@@ -322,18 +383,23 @@ class MTLbrain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.stats_file, "w") as w:
-                if self.hparams.enhance_weight > 0:
-                    w.write("\nstoi stats:\n")
-                    self.stoi_metrics.write_stats(w)
-                    w.write("\npesq stats:\n")
-                    self.pesq_metrics.write_stats(w)
-                if self.hparams.mimic_weight > 0:
-                    w.write("\nmimic stats:\n")
-                    self.mimic_metrics.write_stats(w)
-                if self.hparams.seq_weight > 0:
-                    self.err_rate_metrics.write_stats(w)
-                print("stats written to ", self.hparams.stats_file)
+            if if_main_process():
+                with open(
+                    self.hparams.stats_file + ".txt", "w", encoding="utf-8"
+                ) as w:
+                    if self.hparams.enhance_weight > 0:
+                        w.write("\nstoi stats:\n")
+                        self.stoi_metrics.write_stats(w)
+                        w.write("\npesq stats:\n")
+                        self.pesq_metrics.write_stats(w)
+                        w.write("\ncomposite stats:\n")
+                        self.composite_metrics.write_stats(w)
+                    if self.hparams.mimic_weight > 0:
+                        w.write("\nmimic stats:\n")
+                        self.mimic_metrics.write_stats(w)
+                    if self.hparams.seq_weight > 0:
+                        self.err_rate_metrics.write_stats(w)
+                    print("stats written to ", self.hparams.stats_file)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         self.checkpointer.recover_if_possible(max_key=max_key, min_key=min_key)
@@ -342,6 +408,7 @@ class MTLbrain(sb.Brain):
             min_key=min_key,
             max_num_checkpoints=self.hparams.checkpoint_avg,
         )
+        logger.info(f"Averaging {len(checkpoints)} Checkpoints...")
         for model in self.modules:
             if (
                 model not in self.hparams.frozen_models
@@ -369,7 +436,7 @@ def dataio_prep(hparams, token_encoder):
     @sb.utils.data_pipeline.takes(hparams["target_type"])
     @sb.utils.data_pipeline.provides("tokens_list", *[t for t in token_keys])
     def target_pipeline(target):
-        if "asr_pretrained" in hparams:
+        if "tokenizer" in hparams:
             tokens_list = token_encoder.encode_as_ids(target)
             yield tokens_list
         else:
@@ -385,9 +452,14 @@ def dataio_prep(hparams, token_encoder):
 
     # Create datasets
     data = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         data[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, target_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"] + token_keys,
@@ -398,7 +470,7 @@ def dataio_prep(hparams, token_encoder):
     # Sort train dataset and ensure it doesn't get un-sorted
     if hparams["sorting"] == "ascending" or hparams["sorting"] == "descending":
         data["train"] = data["train"].filtered_sorted(
-            sort_key="length", reverse=hparams["sorting"] == "descending",
+            sort_key="length", reverse=hparams["sorting"] == "descending"
         )
         hparams["train_loader_options"]["shuffle"] = False
     elif hparams["sorting"] != "random":
@@ -407,41 +479,20 @@ def dataio_prep(hparams, token_encoder):
         )
 
     # Update token_encoder
-    if "asr_pretrained" not in hparams:
+    if "tokenizer" not in hparams:
+        token_encoder.insert_blank()
         token_encoder.update_from_didataset(
             data["train"], output_key="tokens_list"
-        )
-        token_encoder.insert_bos_eos(
-            bos_label="<eos-bos>",
-            eos_label="<eos-bos>",
-            bos_index=hparams["bos_index"],
         )
 
     return data
 
 
-def download_to_dir(url, directory):
-    """Parse filename from url and download to directory."""
-    os.makedirs(directory, exist_ok=True)
-    filename = os.path.basename(urllib.parse.urlparse(url).path)
-    download_file(url, os.path.join(directory, filename))
-    return os.path.join(directory, filename)
-
-
 # Begin Recipe!
 if __name__ == "__main__":
-
-    # Download model yaml files so we can "!include" them
-    for url in [
-        "https://www.dropbox.com/s/e439h7oix9m7imn/perceptual_model.yaml?dl=1",
-        "https://www.dropbox.com/s/jgkw8byufw5zmco/enhance_model.yaml?dl=1",
-        "https://www.dropbox.com/s/wbu3i82urhxe3in/asr_model.yaml?dl=1",
-    ]:
-        download_to_dir(url, os.path.join("hparams", "models"))
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -462,6 +513,8 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    if "prepare_noise_data" in hparams:
+        run_on_main(hparams["prepare_noise_data"])
 
     # Load pretrained models
     for model in ["asr", "enhance", "perceptual"]:
@@ -472,7 +525,7 @@ if __name__ == "__main__":
             hparams[pretrained].load_collected()
 
     # Switch encoder based on task
-    if "asr_pretrained" in hparams:
+    if "tokenizer" in hparams:
         token_encoder = hparams["tokenizer"]
     else:
         token_encoder = sb.dataio.encoder.CTCTextEncoder()
@@ -501,7 +554,7 @@ if __name__ == "__main__":
     # Evaluate best checkpoint, using lowest or highest value on validation
     outdir = mtl_brain.hparams.output_folder
     for dset in ["valid", "test"]:
-        mtl_brain.hparams.stats_file = os.path.join(outdir, f"{dset}_stats.txt")
+        mtl_brain.hparams.stats_file = os.path.join(outdir, f"{dset}_stats")
         mtl_brain.evaluate(
             datasets[dset],
             max_key=hparams["eval_max_key"],

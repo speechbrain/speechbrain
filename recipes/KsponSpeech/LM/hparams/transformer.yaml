@@ -8,17 +8,13 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2222
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/Transformer/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # Data files
-data_folder: ../Tokenizer/results/5K_subword_unigram_LM
-train_splits: ["train"]
-dev_splits: ["dev"]
-test_splits: ["eval_clean", "eval_other"]
-skip_prep: False
+data_folder: !PLACEHOLDER # e.g., /path/to/KsponSpeech
 train_csv: !ref <data_folder>/train.csv
 valid_csv: !ref <data_folder>/dev.csv
 test_csv:
@@ -26,13 +22,13 @@ test_csv:
     - !ref <data_folder>/eval_other.csv
 
 # Tokenizer model
-tokenizer_file: ddwkim/ksponspeech-conformer-medium/tokenizer.ckpt
+tokenizer_file: ddwkim/asr-conformer-transformerlm-ksponspeech/tokenizer.ckpt
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 30
 batch_size: 256
 lr: 0.1
-accu_steps: 4 # Gradient accumulation to simulate large batch training
+grad_accumulation_factor: 4 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options
@@ -49,14 +45,14 @@ test_dataloader_opts:
 
 # Outputs
 output_neurons: 5000
-blank_index: 0
+# blank_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
-pad_index: 0
+# pad_index: 0
 
 # model params
 d_model: 768
+d_ffn: 3072
 
 
 # Functions
@@ -66,7 +62,7 @@ model: !new:speechbrain.lobes.models.transformer.TransformerLM.TransformerLM # y
     nhead: 12
     num_encoder_layers: 12
     num_decoder_layers: 0
-    d_ffn: 3072
+    d_ffn: !ref <d_ffn>
     dropout: 0.15
     activation: !name:torch.nn.GELU
     normalize_before: False

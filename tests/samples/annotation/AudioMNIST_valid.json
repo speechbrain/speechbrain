@@ -1,0 +1,41 @@
+{
+    "9_42_10": {
+      "file_name": "{data_root}/spk1_snt1.wav",
+      "digit": "9",
+      "speaker_id": "42",
+      "accent": "Arabic",
+      "age": "29",
+      "gender": "male",
+      "native_speaker": false,
+      "origin": "Europe, Syria, Damascus",
+      "recording_date": "2017-09-01T15:23:24",
+      "recording_room": "vr-room",
+      "char": "NINE",
+      "phn": [
+        "N",
+        "AY",
+        "N"
+      ],
+      "len": 8618,
+      "len_s": 0.538625
+    },
+    "2_08_8": {
+      "file_name": "{data_root}/spk1_snt2.wav",
+      "digit": "2",
+      "speaker_id": "08",
+      "accent": "German",
+      "age": "41",
+      "gender": "male",
+      "native_speaker": false,
+      "origin": "Europe, Germany, Ludwigsfelde",
+      "recording_date": "2017-07-10T17:39:41",
+      "recording_room": "Kino",
+      "char": "TWO",
+      "phn": [
+        "T",
+        "UW"
+      ],
+      "len": 6972,
+      "len_s": 0.43575
+    }
+}

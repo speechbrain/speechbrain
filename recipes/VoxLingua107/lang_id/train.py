@@ -17,26 +17,26 @@ Author
     * Tanel Alumäe 2021
     * @nikvaessen
 """
-import os
-import sys
-import random
-from typing import Dict
 import json
+import os
+import random
+import sys
 from functools import partial
-import webdataset as wds
-import logging
+from typing import Dict
 
 import torch
-import speechbrain as sb
+import webdataset as wds
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.dataio.batch import PaddedBatch
 
-logger = logging.getLogger(__name__)
+import speechbrain as sb
+from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class LanguageBrain(sb.core.Brain):
-    """Class for language ID training"
-    """
+    """Class for language ID training" """
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.
@@ -46,33 +46,9 @@ class LanguageBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -85,15 +61,14 @@ class LanguageBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         langid = batch.lang_id_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            langid = torch.cat([langid] * self.n_augment, dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            langid = self.hparams.wav_augment.replicate_labels(langid)
 
         # breakpoint()
         loss = self.hparams.compute_cost(predictions, langid.unsqueeze(1), lens)
@@ -139,11 +114,10 @@ class LanguageBrain(sb.core.Brain):
 
 
 def dataio_prep_shards(hparams):
-
     # load the meta info json file
-    with wds.gopen.gopen(hparams["train_meta"], "rb") as f:
+    with wds.gopen(hparams["train_meta"], "rb") as f:
         train_meta = json.load(f)
-    with wds.gopen.gopen(hparams["val_meta"], "rb") as f:
+    with wds.gopen(hparams["val_meta"], "rb") as f:
         val_meta = json.load(f)
 
     # define the mapping functions in the data pipeline
@@ -191,7 +165,7 @@ def dataio_prep_shards(hparams):
 
     train_data = (
         wds.WebDataset(
-            hparams["train_shards"], cache_dir=hparams["shard_cache_dir"],
+            hparams["train_shards"], cache_dir=hparams["shard_cache_dir"]
         )
         .repeat()
         .shuffle(1000)
@@ -204,7 +178,7 @@ def dataio_prep_shards(hparams):
 
     valid_data = (
         wds.WebDataset(
-            hparams["val_shards"], cache_dir=hparams["shard_cache_dir"],
+            hparams["val_shards"], cache_dir=hparams["shard_cache_dir"]
         )
         .decode("pil")
         .map(partial(audio_pipeline, random_chunk=False))
@@ -222,7 +196,6 @@ def dataio_prep_shards(hparams):
 
 
 if __name__ == "__main__":
-
     logger.info("Starting training...")
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
@@ -234,8 +207,12 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
+
+    # Data preparation for augmentation
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     (
         train_data,

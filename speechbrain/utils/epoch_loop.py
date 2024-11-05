@@ -4,12 +4,18 @@ Authors
  * Aku Rouhe 2020
  * Davide Borra 2021
 """
-from .checkpoints import register_checkpoint_hooks
-from .checkpoints import mark_as_saver
-from .checkpoints import mark_as_loader
-import logging
 
-logger = logging.getLogger(__name__)
+import yaml
+
+from speechbrain.utils.logger import get_logger
+
+from .checkpoints import (
+    mark_as_loader,
+    mark_as_saver,
+    register_checkpoint_hooks,
+)
+
+logger = get_logger(__name__)
 
 
 @register_checkpoint_hooks
@@ -19,6 +25,11 @@ class EpochCounter:
     Use this as the iterator for epochs.
     Note that this iterator gives you the numbers from [1 ... limit] not
     [0 ... limit-1] as range(limit) would.
+
+    Arguments
+    ---------
+    limit: int
+        maximum number of epochs
 
     Example
     -------
@@ -50,17 +61,16 @@ class EpochCounter:
 
     @mark_as_saver
     def _save(self, path):
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             fo.write(str(self.current))
 
     @mark_as_loader
-    def _recover(self, path, end_of_epoch=True, device=None):
+    def _recover(self, path, end_of_epoch=True):
         # NOTE: end_of_epoch = True by default so that when
         #  loaded in parameter transfer, this starts a new epoch.
         #  However, parameter transfer to EpochCounter should
         #  probably never be used really.
-        del device  # Not used.
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             saved_value = int(fi.read())
             if end_of_epoch:
                 self.current = saved_value
@@ -91,12 +101,19 @@ class EpochCounterWithStopper(EpochCounter):
     >>> epoch_counter = EpochCounterWithStopper(limit, limit_to_stop, limit_warmup, direction)
     >>> for epoch in epoch_counter:
     ...     # Run training...
-    ...     # Track a validation metric,
+    ...     # Track a validation metric, (insert calculation here)
     ...     current_valid_metric = 0
-    ...     # get the current valid metric (get current_valid_metric)
-    ...     if epoch_counter.should_stop(current=epoch,
-    ...                                  current_metric=current_valid_metric,):
-    ...         epoch_counter.current = epoch_counter.limit  # skipping unpromising epochs
+    ...     # Update epoch counter so that we stop at the appropriate time
+    ...     epoch_counter.update_metric(current_valid_metric)
+    ...     print(epoch)
+    1
+    2
+    3
+    4
+    5
+    6
+    7
+    8
     """
 
     def __init__(self, limit, limit_to_stop, limit_warmup, direction):
@@ -104,6 +121,7 @@ class EpochCounterWithStopper(EpochCounter):
         self.limit_to_stop = limit_to_stop
         self.limit_warmup = limit_warmup
         self.direction = direction
+        self.should_stop = False
 
         self.best_limit = 0
         self.min_delta = 1e-6
@@ -113,19 +131,66 @@ class EpochCounterWithStopper(EpochCounter):
         if self.limit_warmup < 0:
             raise ValueError("Stopper 'limit_warmup' must be >= 0")
         if self.direction == "min":
-            self.th, self.sign = float("inf"), 1
+            self.best_score, self.sign = float("inf"), 1
         elif self.direction == "max":
-            self.th, self.sign = -float("inf"), -1
+            self.best_score, self.sign = -float("inf"), -1
         else:
             raise ValueError("Stopper 'direction' must be 'min' or 'max'")
 
-    def should_stop(self, current, current_metric):
-        should_stop = False
-        if current > self.limit_warmup:
+    def __next__(self):
+        """Stop iteration if we've reached the condition."""
+        if self.should_stop:
+            raise StopIteration
+        else:
+            return super().__next__()
+
+    def update_metric(self, current_metric):
+        """Update the state to reflect most recent value of the relevant metric.
+
+        NOTE: Should be called only once per validation loop.
+
+        Arguments
+        ---------
+        current_metric : float
+            The metric used to make a stopping decision.
+        """
+        if self.current > self.limit_warmup:
             if self.sign * current_metric < self.sign * (
-                (1 - self.min_delta) * self.th
+                (1 - self.min_delta) * self.best_score
             ):
-                self.best_limit = current
-                self.th = current_metric
-            should_stop = (current - self.best_limit) >= self.limit_to_stop
-        return should_stop
+                self.best_limit = self.current
+                self.best_score = current_metric
+
+            epochs_without_improvement = self.current - self.best_limit
+            self.should_stop = epochs_without_improvement >= self.limit_to_stop
+            if self.should_stop:
+                logger.info(
+                    f"{epochs_without_improvement} epochs without improvement.\n"
+                    f"Patience of {self.limit_to_stop} is exhausted, stopping."
+                )
+
+    @mark_as_saver
+    def _save(self, path):
+        with open(path, "w", encoding="utf-8") as fo:
+            yaml.dump(
+                {
+                    "current_epoch": self.current,
+                    "best_epoch": self.best_limit,
+                    "best_score": self.best_score,
+                    "should_stop": self.should_stop,
+                },
+                fo,
+            )
+
+    @mark_as_loader
+    def _recover(self, path, end_of_epoch=True, device=None):
+        del device  # Not used.
+        with open(path, encoding="utf-8") as fi:
+            saved_dict = yaml.safe_load(fi)
+            if end_of_epoch:
+                self.current = saved_dict["current_epoch"]
+            else:
+                self.current = saved_dict["current_epoch"] - 1
+            self.best_limit = saved_dict["best_epoch"]
+            self.best_score = saved_dict["best_score"]
+            self.should_stop = saved_dict["should_stop"]

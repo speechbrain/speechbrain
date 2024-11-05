@@ -5,14 +5,12 @@
 # ################################
 
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Folders and train_log file
-voxceleb_source: /network/datasets/restricted/voxceleb_users/voxceleb/voxceleb1
 data_folder: !PLACEHOLDER #e.g., /localscratch/voxceleb1
-output_folder: results/voxceleb1_2/speaker_verification_ecapa_big
+output_folder: results/voxceleb1_2/speaker_verification_ecapa/<seed>
 save_folder: !ref <output_folder>/save/
-device: 'cuda:0'
 
 # Use the following links for the official voxceleb splits:
 # VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
@@ -32,17 +30,19 @@ pretrain_path: speechbrain/spkrec-ecapa-voxceleb
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
+split_ratio: [90, 10]
+skip_prep: False
 
 batch_size: 8
-score_norm: 's-norm' # z-norm t-norm s-norm none
+score_norm: s-norm  # z-norm t-norm s-norm (uncomment to enable it)
 cohort_size: 20000 # amount of imposter utterances in normalization cohort
 n_train_snts: 400000 # used for normalization stats
 
 # Feature parameters
 n_mels: 80
-left_frames: 0
-right_frames: 0
-deltas: False
+# left_frames: 0
+# right_frames: 0
+# deltas: False
 
 # Dataloader options
 train_dataloader_opts:
@@ -66,13 +66,8 @@ embedding_model: !new:speechbrain.lobes.models.ECAPA_TDNN.ECAPA_TDNN
     channels: [1024, 1024, 1024, 1024, 3072]
     kernel_sizes: [5, 3, 3, 3, 1]
     dilations: [1, 2, 3, 4, 1]
-    groups: [1, 1, 1, 1, 1]
     attention_channels: 128
     lin_neurons: 192
-
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: False
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

@@ -1,0 +1,4 @@
+gitpython==3.1.37
+mir-eval==0.6
+pyroomacoustics>=0.7.3
+

@@ -4,13 +4,12 @@
 # ################################
 
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Folders and train_log file
-data_folder: /localscratch/voxceleb1_2  # use vox 1, vox2, or vox1+vox2 datasets
-output_folder: results/voxceleb1/speaker_verification_plda_xvectors
+data_folder: !PLACEHOLDER
+output_folder: results/voxceleb1_2/speaker_verification_plda_xvectors
 save_folder: !ref <output_folder>/save/
-device: 'cuda:0'
 
 # Use the following links for the official voxceleb splits:
 # VoxCeleb1 (cleaned): https://www.robots.ox.ac.uk/~vgg/data/voxceleb/meta/veri_test2.txt
@@ -30,6 +29,9 @@ pretrain_path: speechbrain/spkrec-xvect-voxceleb
 train_data: !ref <save_folder>/train.csv
 enrol_data: !ref <save_folder>/enrol.csv
 test_data: !ref <save_folder>/test.csv
+split_ratio: [90, 10]
+seg_dur: 3
+skip_prep: False
 
 batch_size: 128
 n_train_snts: 300000 # used for normalization stats
@@ -37,6 +39,7 @@ n_train_snts: 300000 # used for normalization stats
 # Feature parameters
 n_mels: 24
 emb_dim: 512
+rank_f: 100
 
 # Dataloader options
 train_dataloader_opts:
@@ -65,12 +68,8 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>
 
-mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
-    norm_type: global
-    std_norm: False
-
 compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
-    rank_f: 100
+    rank_f: !ref <rank_f>
     nb_iter: 10
     scaling_factor: 0.05
 
@@ -78,7 +77,5 @@ pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
         embedding_model: !ref <embedding_model>
-        mean_var_norm_emb: !ref <mean_var_norm_emb>
     paths:
         embedding_model: !ref <pretrain_path>/embedding_model.ckpt
-        mean_var_norm_emb: !ref <pretrain_path>/mean_var_norm_emb.ckpt

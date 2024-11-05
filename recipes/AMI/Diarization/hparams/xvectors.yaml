@@ -6,7 +6,7 @@
 # #################################################
 
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Folders
 # Download data from: http://groups.inf.ed.ac.uk/ami/download/
@@ -17,7 +17,7 @@ manual_annot_folder: !PLACEHOLDER # e.g., /path/to/ami_public_manual_1.6.2/
 
 output_folder: results/ami/xvect/
 save_folder: !ref <output_folder>/save/
-device: 'cuda:0'
+skip_prep: False
 
 # Embedding model
 # Here, the pretrained embedding model trained with train_speaker_embeddings.py hparams/train_ecapa_tdnn.yaml
@@ -34,18 +34,15 @@ ref_rttm_dir: !ref <save_folder>/ref_rttms
 sys_rttm_dir: !ref <save_folder>/sys_rttms
 der_dir: !ref <save_folder>/DER
 
-# AMI: csv files
-csv_diary_dev: !ref <meta_data_dir>/ami_dev.subsegments.csv
-csv_diary_eval: !ref <meta_data_dir>/ami_eval.subsegments.csv
-
 # Spectral feature parameters
 n_mels: 24
-left_frames: 0
-right_frames: 0
-deltas: False
+# left_frames: 0
+# right_frames: 0
+# deltas: False
 
 # Xvector model
 emb_dim: 512
+emb_tdnn_channels: [512, 512, 512, 512, 1500]
 batch_size: 512
 
 # AMI data_prep parameters
@@ -53,6 +50,8 @@ split_type: 'full_corpus_asr'
 skip_TNO: True
 # Options for mic_type: 'Mix-Lapel', 'Mix-Headset', 'Array1', 'Array1-01', 'BeamformIt'
 mic_type: 'Mix-Headset'
+dev_meta_file: !ref <meta_data_dir>/ami_dev.<mic_type>.subsegs.json
+eval_meta_file: !ref <meta_data_dir>/ami_eval.<mic_type>.subsegs.json
 vad_type: 'oracle'
 max_subseg_dur: 3.0
 overlap: 1.5
@@ -83,7 +82,7 @@ embedding_model: !new:speechbrain.lobes.models.Xvector.Xvector
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.LeakyReLU
     tdnn_blocks: 5
-    tdnn_channels: [512, 512, 512, 512, 1500]
+    tdnn_channels: !ref <emb_tdnn_channels>
     tdnn_kernel_sizes: [5, 3, 3, 1, 1]
     tdnn_dilations: [1, 2, 3, 1, 1]
     lin_neurons: !ref <emb_dim>
@@ -92,10 +91,10 @@ mean_var_norm_emb: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     std_norm: False
 
-compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
-    rank_f: 100
-    nb_iter: 10
-    scaling_factor: 0.05
+# compute_plda: !new:speechbrain.processing.PLDA_LDA.PLDA
+#    rank_f: 100
+#    nb_iter: 10
+#    scaling_factor: 0.05
 
 pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>

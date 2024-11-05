@@ -8,7 +8,9 @@ contextlib.redirect_stdout, which may give a nicer syntax.
 Authors
  * Aku Rouhe 2020
 """
+
 import sys
+
 from speechbrain.utils import edit_distance
 
 
@@ -34,13 +36,15 @@ def print_wer_summary(wer_details, file=sys.stdout):
         end="",
     )
     print(
-        " [PARTIAL]"
-        if wer_details["num_scored_sents"] < wer_details["num_ref_sents"]
-        else "",
+        (
+            " [PARTIAL]"
+            if wer_details["num_scored_sents"] < wer_details["num_ref_sents"]
+            else ""
+        ),
         file=file,
     )
     print(
-        "%SER {SER:.2f} [ {num_erraneous_sents} / {num_scored_sents} ]".format(
+        "%SER {SER:.2f} [ {num_erroneous_sents} / {num_scored_sents} ]".format(
             **wer_details
         ),
         file=file,
@@ -54,7 +58,12 @@ def print_wer_summary(wer_details, file=sys.stdout):
 
 
 def print_alignments(
-    details_by_utterance, file=sys.stdout, empty_symbol="<eps>", separator=" ; "
+    details_by_utterance,
+    file=sys.stdout,
+    empty_symbol="<eps>",
+    separator=" ; ",
+    print_header=True,
+    sample_separator=None,
 ):
     """Print WER summary and alignments.
 
@@ -71,13 +80,19 @@ def print_alignments(
     separator : str
         String that separates each token in the output. Note the spaces in the
         default.
+    print_header: bool
+        Whether to print headers
+    sample_separator: str
+        A separator to put between samples (optional)
     """
-    _print_alignments_global_header(
-        file=file, empty_symbol=empty_symbol, separator=separator
-    )
+    if print_header:
+        _print_alignments_global_header(
+            file=file, empty_symbol=empty_symbol, separator=separator
+        )
     for dets in details_by_utterance:
         if dets["scored"]:
-            _print_alignment_header(dets, file=file)
+            if print_header:
+                _print_alignment_header(dets, file=file)
             _print_alignment(
                 dets["alignment"],
                 dets["ref_tokens"],
@@ -86,6 +101,8 @@ def print_alignments(
                 empty_symbol=empty_symbol,
                 separator=separator,
             )
+            if sample_separator:
+                print(sample_separator, file=file)
 
 
 # The following internal functions are used to

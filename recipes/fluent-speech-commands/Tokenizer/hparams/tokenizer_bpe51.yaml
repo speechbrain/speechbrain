@@ -5,7 +5,7 @@
 # ############################################################################
 
 output_folder: !ref results/tokenizer_bpe51/
-train_log: !ref <output_folder>/train_log.txt
+# train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e,g. /localscratch/fluent_speech_commands_dataset
@@ -13,7 +13,7 @@ train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/valid.csv
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 token_type: unigram  # ["unigram", "bpe", "char"]
 token_output: 51  # index(blank/eos/bos/unk) = 0
 character_coverage: 1.0

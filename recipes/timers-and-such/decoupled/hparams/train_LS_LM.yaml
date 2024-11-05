@@ -10,15 +10,18 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1986
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 experiment: train-real-and-synth
 output_folder: !ref results/LS_LM/<experiment>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
+all_real_wer_file: !ref <output_folder>/all_real_wer.txt
+test_real_wer_file: !ref <output_folder>/test_real_wer.txt
+test_synth_wer_file: !ref <output_folder>/test_synth_wer.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/timers-and-such
-data_folder_rirs: !ref <data_folder>
+# data_folder_rirs: !ref <data_folder>
 train_splits: ["train-synth", "train-real"]
 csv_train: !ref <output_folder>/train-type=decoupled.csv
 csv_dev_real: !ref <output_folder>/dev-real-type=decoupled.csv
@@ -31,15 +34,15 @@ skip_prep: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 test_on_all_real: False
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 1
 batch_size: 16
 lr: 0.0003
-token_type: unigram # ["unigram", "bpe", "char"]
+# token_type: unigram # ["unigram", "bpe", "char"]
 sorting: random
 
 # Model params
-sample_rate: 16000
+# sample_rate: 16000
 emb_size: 128
 dec_neurons: 512
 num_asr_tokens: 1000
@@ -64,7 +67,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
 # Models
-asr_model: !apply:speechbrain.pretrained.EncoderDecoderASR.from_hparams
+asr_model: !apply:speechbrain.inference.ASR.EncoderDecoderASR.from_hparams
     source: speechbrain/asr-crdnn-rnnlm-librispeech
     run_opts: {"device":"cuda:0"}
     overrides: {"beam_size": !ref <asr_beam_size>}
@@ -135,8 +138,6 @@ beam_searcher: !new:speechbrain.decoders.S2SRNNBeamSearcher
     eos_threshold: !ref <eos_threshold>
     temperature: !ref <temperature>
     using_max_attn_shift: False
-    max_attn_shift: 30
-    coverage_penalty: 0.
 
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr>

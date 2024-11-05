@@ -9,32 +9,33 @@ Authors
  * Szu-Wei Fu 2021/09
 """
 
+import json
 import os
-import sys
+import pickle
 import shutil
+import sys
+import time
+from enum import Enum, auto
+from urllib.parse import urljoin, urlparse
+
+import numpy as np
+import requests
 import torch
 import torchaudio
-import speechbrain as sb
-import numpy as np
-import json
-import pickle
-import requests
-import time
-
-from urllib.parse import urlparse, urljoin
-from srmrpy import srmr
-from pesq import pesq
-from enum import Enum, auto
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import MetricStats
-from speechbrain.processing.features import spectral_magnitude
-from speechbrain.nnet.loss.stoi_loss import stoi_loss
-from speechbrain.utils.distributed import run_on_main
+from pesq import pesq
+from srmrpy import srmr
+
+import speechbrain as sb
 from speechbrain.dataio.sampler import ReproducibleWeightedRandomSampler
+from speechbrain.nnet.loss.stoi_loss import stoi_loss
+from speechbrain.processing.features import spectral_magnitude
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 ### For DNSMSOS
 # URL for the web service
-SCORING_URI = "https://dnsmos-4.azurewebsites.net/score"
+SCORING_URI = "https://github.com/microsoft/DNS-Challenge"
 # If the service is authenticated, set the key or token
 AUTH_KEY = ""
 if AUTH_KEY == "":
@@ -44,7 +45,7 @@ if AUTH_KEY == "":
 # Set the content type
 headers = {"Content-Type": "application/json"}
 # If authentication is enabled, set the authorization header
-headers["Authorization"] = f"Basic {AUTH_KEY }"
+headers["Authorization"] = f"Basic {AUTH_KEY}"
 
 
 def sigmoid(x):
@@ -60,8 +61,8 @@ def pesq_eval(predict, target):
 
 
 def srmrpy_eval(predict, target):
-    """ Note target_wav is not used in the srmr function !!!
-        Normalize the score to 0~1 for training.
+    """Note target_wav is not used in the srmr function !!!
+    Normalize the score to 0~1 for training.
     """
     return float(
         sigmoid(
@@ -81,8 +82,8 @@ def srmrpy_eval(predict, target):
 
 
 def srmrpy_eval_valid(predict, target):
-    """ Note target_wav is not used in the srmr function !!!
-        Show the unnormalized score for valid and test set.
+    """Note target_wav is not used in the srmr function !!!
+    Show the unnormalized score for valid and test set.
     """
     return float(
         srmr(
@@ -99,8 +100,8 @@ def srmrpy_eval_valid(predict, target):
 
 
 def dnsmos_eval(predict, target):
-    """ Note target_wav is not used in the dnsmos function !!!
-        Normalize the score to 0~1 for training.
+    """Note target_wav is not used in the dnsmos function !!!
+    Normalize the score to 0~1 for training.
     """
     pred_wav = predict
 
@@ -118,19 +119,19 @@ def dnsmos_eval(predict, target):
                 headers=headers,
             )
             score_dict = resp.json()
-            score = float(
-                sigmoid(score_dict["mos"])
-            )  # normalize the score to 0~1
+            # normalize the score to 0~1
+            score = float(sigmoid(score_dict["mos"]))
             break
-        except Exception as e:  # sometimes, access the dnsmos server too ofen may disable the service.
+        # sometimes, access the dnsmos server too often may disable the service.
+        except Exception as e:
             print(e)
             time.sleep(10)  # wait for 10 secs
     return score
 
 
 def dnsmos_eval_valid(predict, target):
-    """ Note target_wav is not used in the dnsmos function !!!
-        Show the unnormalized score for valid and test set.
+    """Note target_wav is not used in the dnsmos function !!!
+    Show the unnormalized score for valid and test set.
     """
     pred_wav = predict
 
@@ -149,7 +150,8 @@ def dnsmos_eval_valid(predict, target):
             score_dict = resp.json()
             score = float(score_dict["mos"])
             break
-        except Exception as e:  # sometimes, access the dnsmos server too ofen may disable the service.
+        # sometimes, access the dnsmos server too often may disable the service.
+        except Exception as e:
             print(e)
             time.sleep(10)  # wait for 10 secs
     return score
@@ -314,8 +316,12 @@ class MetricGanBrain(sb.Brain):
             The degraded waveform to score
         ref_wav : torch.Tensor
             The reference waveform to use for scoring
-        length : torch.Tensor
+        lens : torch.Tensor
             The relative lengths of the utterances
+
+        Returns
+        -------
+        final_score : torch.Tensor
         """
         new_ids = [
             i
@@ -335,7 +341,8 @@ class MetricGanBrain(sb.Brain):
                 lengths=lens[new_ids],
             )
             score = torch.tensor(
-                [[s] for s in self.target_metric.scores], device=self.device,
+                [[s] for s in self.target_metric.scores],
+                device=self.device,
             )
         else:
             raise ValueError("Expected 'srmr' or 'dnsmos' for target_metric")
@@ -362,8 +369,10 @@ class MetricGanBrain(sb.Brain):
         ---------
         deg_spec : torch.Tensor
             The spectral features of the degraded utterance
-        ref_spec : torch.Tensor
-            The spectral features of the reference utterance
+
+        Returns
+        -------
+        est_score : torch.Tensor
         """
 
         """
@@ -418,8 +427,10 @@ class MetricGanBrain(sb.Brain):
                 )
                 self.d_optimizer.zero_grad()
                 loss.backward()
-                if self.check_gradients(loss):
-                    self.d_optimizer.step()
+                torch.nn.utils.clip_grad_norm_(
+                    self.modules.parameters(), self.max_grad_norm
+                )
+                self.d_optimizer.step()
                 loss_tracker += loss.detach() / 3
         elif self.sub_stage == SubStage.HISTORICAL:
             loss = self.compute_objectives(
@@ -427,8 +438,10 @@ class MetricGanBrain(sb.Brain):
             )
             self.d_optimizer.zero_grad()
             loss.backward()
-            if self.check_gradients(loss):
-                self.d_optimizer.step()
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.max_grad_norm
+            )
+            self.d_optimizer.step()
             loss_tracker += loss.detach()
         elif self.sub_stage == SubStage.GENERATOR:
             for name, param in self.modules.generator.named_parameters():
@@ -442,8 +455,10 @@ class MetricGanBrain(sb.Brain):
             )
             self.g_optimizer.zero_grad()
             loss.backward()
-            if self.check_gradients(loss):
-                self.g_optimizer.step()
+            torch.nn.utils.clip_grad_norm_(
+                self.modules.parameters(), self.max_grad_norm
+            )
+            self.g_optimizer.step()
             loss_tracker += loss.detach()
 
         return loss_tracker
@@ -601,7 +616,6 @@ class MetricGanBrain(sb.Brain):
     ):
         "Override dataloader to insert custom sampler/dataset"
         if stage == sb.Stage.TRAIN:
-
             # Create a new dataset each time, this set grows
             if self.sub_stage == SubStage.HISTORICAL:
                 dataset = sb.dataio.dataset.DynamicItemDataset(
@@ -610,6 +624,7 @@ class MetricGanBrain(sb.Brain):
                     output_keys=["id", "enh_sig", "score"],
                 )
                 samples = round(len(dataset) * self.hparams.history_portion)
+                samples = max(samples, 1)  # Ensure there's at least 1 sample
             else:
                 samples = self.hparams.number_of_samples
 
@@ -619,8 +634,12 @@ class MetricGanBrain(sb.Brain):
             # Equal weights for all samples, we use "Weighted" so we can do
             # both "replacement=False" and a set number of samples, reproducibly
             weights = torch.ones(len(dataset))
+            replacement = samples > len(dataset)
             sampler = ReproducibleWeightedRandomSampler(
-                weights, epoch=epoch, replacement=False, num_samples=samples
+                weights,
+                epoch=epoch,
+                replacement=replacement,
+                num_samples=samples,
             )
             loader_kwargs["sampler"] = sampler
 
@@ -650,15 +669,19 @@ class MetricGanBrain(sb.Brain):
             self.checkpointer.add_recoverable("g_opt", self.g_optimizer)
             self.checkpointer.add_recoverable("d_opt", self.d_optimizer)
 
+    def zero_grad(self, set_to_none=False):
+        self.g_optimizer.zero_grad(set_to_none)
+        self.d_optimizer.zero_grad(set_to_none)
 
-# Define audio piplines for training set
+
+# Define audio pipelines for training set
 @sb.utils.data_pipeline.takes("noisy_wav")
 @sb.utils.data_pipeline.provides("noisy_sig")
 def audio_pipeline_train(noisy_wav):
     yield sb.dataio.dataio.read_audio(noisy_wav)
 
 
-# Define audio piplines for validation/test set
+# Define audio pipelines for validation/test set
 @sb.utils.data_pipeline.takes("noisy_wav", "clean_wav")
 @sb.utils.data_pipeline.provides("noisy_sig", "clean_sig")
 def audio_pipeline_valid(noisy_wav, clean_wav):
@@ -678,21 +701,24 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-
-    dataset = "train"
-    datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-        json_path=hparams[f"{dataset}_annotation"],
+    datasets["train"] = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["train_annotation"],
         replacements={"data_root": hparams["data_folder"]},
         dynamic_items=[audio_pipeline_train],
         output_keys=["id", "noisy_sig"],
     )
-    for dataset in ["valid", "test"]:
-        datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
-            replacements={"data_root": hparams["data_folder"]},
-            dynamic_items=[audio_pipeline_valid],
-            output_keys=["id", "noisy_sig", "clean_sig"],
-        )
+    datasets["valid"] = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["valid_annotation"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[audio_pipeline_valid],
+        output_keys=["id", "noisy_sig", "clean_sig"],
+    )
+    datasets["test"] = sb.dataio.dataset.DynamicItemDataset.from_json(
+        json_path=hparams["test_annotation"],
+        replacements={"data_root": hparams["data_folder"]},
+        dynamic_items=[audio_pipeline_valid],
+        output_keys=["id", "noisy_sig", "clean_sig"],
+    )
 
     return datasets
 
@@ -704,10 +730,9 @@ def create_folder(folder):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

@@ -9,31 +9,50 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 8886
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 cer_file: !ref <output_folder>/cer.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
+# Data for augmentation
+NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
+
 # Data files
 data_folder: !PLACEHOLDER # e,g./path/to/aishell
-# noise/ris dataset will automatically be downloaded
-data_folder_rirs: !ref <data_folder> # Change this is needed
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
 skip_prep: False
+remove_compressed_wavs: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
-train_data: !ref <output_folder>/train.csv
-valid_data: !ref <output_folder>/dev.csv
-test_data: !ref <output_folder>/test.csv
+train_data: !ref <save_folder>/train.csv
+valid_data: !ref <save_folder>/dev.csv
+test_data: !ref <save_folder>/test.csv
+noise_annotation: !ref <save_folder>/noise.csv #The data manifest files are created by the data preparation script
 tokenizer_file: speechbrain/asr-transformer-aishell/tokenizer.ckpt
 
-# Training parameters
+####################### Training Parameters ####################################
+
 number_of_epochs: 50
 batch_size: 8
 ctc_weight: 0.3
-gradient_accumulation: 4
-gradient_clipping: 5.0
+grad_accumulation_factor: 4
 loss_reduction: 'batchmean'
 sorting: random
+avg_checkpoints: 10 # Number of checkpoints to average for evaluation
+precision: fp32 # bf16, fp16 or fp32
+
+dynamic_batching: False
+max_batch_length: 15 # in terms of "duration" in annotations by default, second here
+shuffle: False # if true re-creates batches at each epoch shuffling examples.
+num_buckets: 10 # floor(log(max_batch_len/left_bucket_len, multiplier)) + 1
+batch_ordering: ascending
+dynamic_batch_sampler:
+    max_batch_length: !ref <max_batch_length>
+    shuffle: !ref <shuffle>
+    num_buckets: !ref <num_buckets>
+    batch_ordering: !ref <batch_ordering>
+
+num_workers: 4
 
 # stages related parameters
 stage_one_epochs: 40
@@ -48,15 +67,18 @@ n_mels: 80
 # Dataloader options
 train_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
     shuffle: True
 
 valid_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
 
 test_dataloader_opts:
     batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
 
-####################### Model parameters ###########################
+####################### Model Parameters #######################################
 # Transformer
 d_model: 256
 nhead: 4
@@ -66,7 +88,6 @@ d_ffn: 2048
 transformer_dropout: 0.1
 activation: !name:torch.nn.GELU
 output_neurons: 5000
-vocab_size: 5000
 
 # Outputs
 blank_index: 0
@@ -74,7 +95,6 @@ label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
@@ -84,7 +104,7 @@ valid_beam_size: 10
 test_beam_size: 10
 ctc_weight_decode: 0.40
 
-############################## models ################################
+############################## Models ##########################################
 
 CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
     input_shape: (8, 10, 80)
@@ -106,6 +126,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     normalize_before: True
+    causal: False
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 
@@ -117,20 +138,12 @@ seq_lin: !new:speechbrain.nnet.linear.Linear
     input_size: !ref <d_model>
     n_neurons: !ref <output_neurons>
 
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <data_folder_rirs>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
 
 modules:
     CNN: !ref <CNN>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
     ctc_lin: !ref <ctc_lin>
-    env_corrupt: !ref <env_corrupt>
 
 model: !new:torch.nn.ModuleList
     - [!ref <CNN>, !ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
@@ -146,30 +159,39 @@ SGD: !name:torch.optim.SGD
     momentum: 0.99
     nesterov: True
 
+############################## Decoding & optimiser ############################
 
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
-    bos_index: !ref <bos_index>
+ctc_scorer: !new:speechbrain.decoders.scorer.CTCScorer
     eos_index: !ref <eos_index>
     blank_index: !ref <blank_index>
+    ctc_fc: !ref <ctc_lin>
+
+scorer: !new:speechbrain.decoders.scorer.ScorerBuilder
+    full_scorers: [!ref <ctc_scorer>]
+    weights:
+        ctc: !ref <ctc_weight_decode>
+
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
+    bos_index: !ref <bos_index>
+    eos_index: !ref <eos_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
+    scorer: !ref <scorer>
 
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, !ref <ctc_lin>]
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
-    ctc_weight: !ref <ctc_weight_decode>
     using_eos_threshold: False
     length_normalization: True
+    scorer: !ref <scorer>
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1
@@ -202,22 +224,71 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 4
 
-augmentation: !new:speechbrain.lobes.augment.SpecAugment
-    time_warp: True
-    time_warp_window: 5
-    time_warp_mode: bicubic
-    freq_mask: True
-    n_freq_mask: 2
-    time_mask: True
-    n_time_mask: 2
-    replace_with_zero: False
-    freq_mask_width: 30
-    time_mask_width: 40
 
 compute_features: !new:speechbrain.lobes.features.Fbank
     sample_rate: !ref <sample_rate>
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
+
+############################## Augmentation ####################################
+
+# Download and prepare the dataset of noisy sequences for augmentation
+prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <NOISE_DATASET_URL>
+    dest_folder: !ref <data_folder_noise>
+    ext: wav
+    csv_file: !ref <noise_annotation>
+
+
+# Add noise to input signal
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
+    csv_file: !ref <noise_annotation>
+    snr_low: 0
+    snr_high: 15
+    noise_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    concat_original: True
+    min_augmentations: 1
+    max_augmentations: 1
+    augment_prob: 1.0
+    augmentations: [
+        !ref <add_noise>]
+
+# Time Drop
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: 0
+    drop_length_high: 100
+    drop_count_low: 2
+    drop_count_high: 2
+
+# Frequency Drop
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+    drop_length_low: 30
+    drop_length_high: 40
+    drop_count_low: 2
+    drop_count_high: 2
+    dim: 2
+
+# Time warp
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+    concat_original: True
+    min_augmentations: 1
+    max_augmentations: 1
+    augment_start_index: !ref <batch_size> # This leaves original inputs unchanged
+    concat_end_index: !ref <batch_size> # This leaves original inputs unchanged
+    augment_prob: 1.0
+    augmentations: [
+        !ref <time_drop>,
+        !ref <freq_drop>,
+        !ref <time_warp>]
+
+############################## Logging and Pretrainer ##########################
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
@@ -226,7 +297,6 @@ train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
 # which Chinese writing normally does not do.
 # If remove_spaces, spaces are removed
 # from the transcript before computing CER.
-# (e.g., 祝 可爱 的 你 —> 祝可爱的你)
 remove_spaces: True
 split_tokens: !apply:operator.not_ [!ref <remove_spaces>]
 

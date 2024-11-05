@@ -6,14 +6,15 @@ Authors:
  * Mirco Ravanelli, 2021
 """
 
-import os
 import json
+import os
 import shutil
-import logging
-from speechbrain.utils.data_utils import get_all_files, download_file
-from speechbrain.dataio.dataio import read_audio
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"
 MINILIBRI_VALID_URL = "http://www.openslr.org/resources/31/dev-clean-2.tar.gz"
 MINILIBRI_TEST_URL = "https://www.openslr.org/resources/12/test-clean.tar.gz"
@@ -39,12 +40,15 @@ def prepare_mini_librispeech(
     save_json_test : str
         Path where the test data specification file will be saved.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/mini_librispeech'
     >>> prepare_mini_librispeech(data_folder, 'train.json', 'valid.json', 'test.json')
     """
-
     # Check if this phase is already done (if so, skip it)
     if skip(save_json_train, save_json_valid, save_json_test):
         logger.info("Preparation completed in previous run, skipping.")
@@ -87,12 +91,17 @@ def get_transcription(trans_list):
     ---------
     trans_list : list of str
         The list of transcription files.
+
+    Returns
+    -------
+    trans_dict: dict
+        utterance id => transcription
     """
     # Processing all the transcription files in the list
     trans_dict = {}
     for trans_file in trans_list:
         # Reading the text file
-        with open(trans_file) as f:
+        with open(trans_file, encoding="utf-8") as f:
             for line in f:
                 uttid = line.split(" ")[0]
                 text = line.rstrip().split(" ")[1:]
@@ -137,7 +146,7 @@ def create_json(wav_list, trans_dict, json_file):
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
@@ -147,6 +156,12 @@ def skip(*filenames):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    *filenames: tuple
+        The path to files that should exist in order to consider
+        preparation already completed.
 
     Returns
     -------

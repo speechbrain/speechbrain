@@ -6,14 +6,15 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-output_folder: !ref results/wav2vec2_ctc_en/<seed>
-wer_file: !ref <output_folder>/wer.txt
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/wav2vec2_ctc_fr/<seed>
+test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
 # URL for the biggest LeBenchmark wav2vec french.
 wav2vec2_hub: LeBenchmark/wav2vec2-FR-7K-large
+wav2vec2_folder: !ref <save_folder>/wav2vec2_checkpoint
 
 # Data files
 data_folder: !PLACEHOLDER  # e.g, /localscratch/cv-corpus-5.1-2020-06-22/fr
@@ -31,20 +32,20 @@ skip_prep: False # Skip data preparation
 # longer sentences certainly correspond to "open microphones".
 avoid_if_longer_than: 10.0
 
-# Training parameters
+####################### Training Parameters ####################################
+
 number_of_epochs: 30
-number_of_ctc_epochs: 15
 lr: 1.0
 lr_wav2vec: 0.0001
-ctc_weight: 0.3
 sorting: ascending
-auto_mix_prec: False
+precision: fp32 # bf16, fp16 or fp32
 sample_rate: 16000
 ckpt_interval_minutes: 30 # save checkpoint every N min
 
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 6 per GPU to fit 16GB of VRAM
+dynamic_batching: False
 batch_size: 12
 test_batch_size: 4
 
@@ -59,11 +60,14 @@ test_dataloader_options:
 token_type: char  # ["unigram", "bpe", "char"]
 character_coverage: 1.0
 
-# Model parameters
-activation: !name:torch.nn.LeakyReLU
+####################### Model Parameters #######################################
+# activation: !name:torch.nn.LeakyReLU
 wav2vec_output_dim: 1024
 dnn_neurons: 1024
 freeze_wav2vec: False
+freeze_feature_extractor: False
+dropout: 0.15
+warmup_steps: 500 # The wav2vec 2 model isn't updated for this amount of steps
 
 # Outputs
 output_neurons: 76  # BPE size, index(blank/eos/bos) = 0
@@ -73,52 +77,87 @@ output_neurons: 76  # BPE size, index(blank/eos/bos) = 0
 blank_index: 0
 bos_index: 1
 eos_index: 2
-min_decode_ratio: 0.0
-max_decode_ratio: 1.0
-beam_size: 80
-eos_threshold: 1.5
-using_max_attn_shift: True
-max_attn_shift: 140
-ctc_weight_decode: 0.0
-temperature: 1.50
 
+# Decoding parameters
+test_beam_search:
+    blank_index: !ref <blank_index>
+    beam_size: 100
+    beam_prune_logp: -12.0
+    token_prune_min_logp: -1.2
+    prune_history: True
+    topk: 1
+    alpha: 1.0
+    beta: 0.5
+    # To use n-gram LM for decoding, follow steps in README.md.
+    # kenlm_model_path: none
 #
 # Functions and classes
 #
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+############################## Models ##########################################
 
 enc: !new:speechbrain.nnet.containers.Sequential
     input_shape: [null, null, !ref <wav2vec_output_dim>]
     linear1: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn1: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation: !new:torch.nn.LeakyReLU
     drop: !new:torch.nn.Dropout
-        p: 0.15
+        p: !ref <dropout>
     linear2: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn2: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation2: !new:torch.nn.LeakyReLU
     drop2: !new:torch.nn.Dropout
-        p: 0.15
+        p: !ref <dropout>
     linear3: !name:speechbrain.nnet.linear.Linear
-        n_neurons: 1024
+        n_neurons: !ref <dnn_neurons>
         bias: True
     bn3: !name:speechbrain.nnet.normalization.BatchNorm1d
     activation3: !new:torch.nn.LeakyReLU
 
-wav2vec2: !new:speechbrain.lobes.models.huggingface_wav2vec.HuggingFaceWav2Vec2
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
     source: !ref <wav2vec2_hub>
-    output_norm: True
+    output_norm: False
     freeze: !ref <freeze_wav2vec>
-    save_path: !ref <save_folder>/wav2vec2_checkpoint
+    freeze_feature_extractor: !ref <freeze_feature_extractor>
+    save_path: !ref <wav2vec2_folder>
 
 #####
 # Uncomment this block if you prefer to use a Fairseq pretrained model instead

@@ -16,13 +16,15 @@ Authors
 
 import os
 import sys
-import torch
-import logging
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 
-logger = logging.getLogger(__name__)
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -33,11 +35,12 @@ class ASR(sb.Brain):
         wavs, wav_lens = batch.sig
         phns_bos, _ = batch.phn_encoded_bos
 
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            phns_bos = self.hparams.wav_augment.replicate_labels(phns_bos)
 
-        feats = self.modules.wav2vec2(wavs)
+        feats = self.modules.wav2vec2(wavs, wav_lens)
         x = self.modules.enc(feats)
 
         # output layer for ctc log-probabilities
@@ -51,26 +54,29 @@ class ASR(sb.Brain):
         logits = self.modules.seq_lin(h)
         p_seq = self.hparams.log_softmax(logits)
 
+        hyps = None
         if stage == sb.Stage.VALID:
-            hyps, scores = self.hparams.greedy_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
-
+            hyps, _, _, _ = self.hparams.valid_searcher(x, wav_lens)
         elif stage == sb.Stage.TEST:
-            hyps, scores = self.hparams.beam_searcher(x, wav_lens)
-            return p_ctc, p_seq, wav_lens, hyps
+            hyps, _, _, _ = self.hparams.test_searcher(x, wav_lens)
 
-        return p_ctc, p_seq, wav_lens
+        return p_ctc, p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the NLL loss."
-        if stage == sb.Stage.TRAIN:
-            p_ctc, p_seq, wav_lens = predictions
-        else:
-            p_ctc, p_seq, wav_lens, hyps = predictions
+        p_ctc, p_seq, wav_lens, hyps = predictions
 
         ids = batch.id
         phns_eos, phn_lens_eos = batch.phn_encoded_eos
         phns, phn_lens = batch.phn_encoded
+
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+            phns_eos = self.hparams.wav_augment.replicate_labels(phns_eos)
+            phn_lens_eos = self.hparams.wav_augment.replicate_labels(
+                phn_lens_eos
+            )
 
         loss_ctc = self.hparams.ctc_cost(p_ctc, phns, wav_lens, phn_lens)
         loss_seq = self.hparams.seq_cost(p_seq, phns_eos, phn_lens_eos)
@@ -82,16 +88,10 @@ class ASR(sb.Brain):
             self.ctc_metrics.append(ids, p_ctc, phns, wav_lens, phn_lens)
             self.seq_metrics.append(ids, p_seq, phns_eos, phn_lens_eos)
             self.per_metrics.append(
-                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim,
+                ids, hyps, phns, None, phn_lens, self.label_encoder.decode_ndim
             )
 
         return loss
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         "Gets called when a stage (either training, validation, test) starts."
@@ -143,72 +143,20 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("CTC loss stats:\n")
-                self.ctc_metrics.write_stats(w)
-                w.write("\nseq2seq loss stats:\n")
-                self.seq_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "CTC, seq2seq, and PER stats written to file",
-                    self.hparams.wer_file,
-                )
-
-    def fit_batch(self, batch):
-        """Fit one batch, override to do multiple updates.
-
-        The default implementation depends on a few methods being defined
-        with a particular behavior:
-
-        * ``compute_forward()``
-        * ``compute_objectives()``
-
-        Also depends on having optimizers passed at initialization.
-
-        Arguments
-        ---------
-        batch : list of torch.Tensors
-            Batch of data to use for training. Default implementation assumes
-            this batch has two elements: inputs and targets.
-
-        Returns
-        -------
-        detached loss
-        """
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-
-            self.wav2vec_optimizer.zero_grad()
-            self.adam_optimizer.zero_grad()
-
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.wav2vec_optimizer)
-            self.scaler.unscale_(self.adam_optimizer)
-
-            if self.check_gradients(loss):
-                self.scaler.step(self.wav2vec_optimizer)
-                self.scaler.step(self.adam_optimizer)
-
-            self.scaler.update()
-        else:
-            outputs = self.compute_forward(batch, sb.Stage.TRAIN)
-
-            loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
-            loss.backward()
-
-            if self.check_gradients(loss):
-                self.wav2vec_optimizer.step()
-                self.adam_optimizer.step()
-
-            self.wav2vec_optimizer.zero_grad()
-            self.adam_optimizer.zero_grad()
-
-        return loss.detach().cpu()
+            if if_main_process():
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
+                    w.write("CTC loss stats:\n")
+                    self.ctc_metrics.write_stats(w)
+                    w.write("\nseq2seq loss stats:\n")
+                    self.seq_metrics.write_stats(w)
+                    w.write("\nPER stats:\n")
+                    self.per_metrics.write_stats(w)
+                    print(
+                        "CTC, seq2seq, and PER stats written to file",
+                        self.hparams.test_wer_file,
+                    )
 
     def init_optimizers(self):
         "Initializes the wav2vec2 optimizer and model optimizer"
@@ -225,10 +173,16 @@ class ASR(sb.Brain):
             )
             self.checkpointer.add_recoverable("adam_opt", self.adam_optimizer)
 
+        self.optimizers_dict = {
+            "wav2vec_opt": self.wav2vec_optimizer,
+            "adam_opt": self.adam_optimizer,
+        }
+
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
     data_folder = hparams["data_folder"]
     # 1. Declarations:
     train_data = sb.dataio.dataset.DynamicItemDataset.from_json(
@@ -337,7 +291,7 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (parsing TIMIT and annotation into csv files)
@@ -362,6 +316,7 @@ if __name__ == "__main__":
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],
             "skip_prep": hparams["skip_prep"],
+            "uppercase": hparams["uppercase"],
         },
     )
 

@@ -1,49 +1,136 @@
 """Core SpeechBrain code for running experiments.
 
 Authors
- * Peter Plantinga 2020
+ * Peter Plantinga 2020, 2023
  * Abdel Heba 2020
  * Mirco Ravanelli 2020
  * Aku Rouhe 2021
+ * Andreas Nautsch 2022
+ * Sylvain de Langen 2023
+ * Adel Moumen 2023, 2024
 """
 
-import os
-import sys
-import yaml
-import time
-import torch
-import shutil
-import logging
-import inspect
-import pathlib
 import argparse
+import inspect
+import logging
+import os
+import pathlib
+import shutil
+import sys
 import tempfile
-import speechbrain as sb
+import time
+import warnings
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date
 from enum import Enum, auto
-from tqdm.contrib import tqdm
 from types import SimpleNamespace
-from torch.nn import SyncBatchNorm
-from torch.utils.data import DataLoader
-from torch.nn import DataParallel as DP
-from torch.utils.data import IterableDataset
-from torch.utils.data import DistributedSampler
-from torch.nn.parallel import DistributedDataParallel as DDP
-from hyperpyyaml import resolve_references
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.dataio.dataloader import LoopedLoader
-from speechbrain.dataio.dataloader import SaveableDataLoader
-from speechbrain.dataio.sampler import DistributedSamplerWrapper
-from speechbrain.dataio.sampler import ReproducibleRandomSampler
 
-logger = logging.getLogger(__name__)
+import torch
+import yaml
+from hyperpyyaml import resolve_references
+from torch.nn import DataParallel as DP
+from torch.nn import SyncBatchNorm
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataloader import LoopedLoader, SaveableDataLoader
+from speechbrain.dataio.sampler import (
+    DistributedSamplerWrapper,
+    ReproducibleRandomSampler,
+)
+from speechbrain.utils.distributed import is_distributed_initialized
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.optimizers import rm_vector_weight_decay
+from speechbrain.utils.profiling import prepare_profiler
+
+sb.utils.quirks.apply_quirks()
+
+logger = get_logger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
-torch._C._jit_set_profiling_executor(False)
-torch._C._jit_set_profiling_mode(False)
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
-PYTHON_VERSION_MINOR = 7
+PYTHON_VERSION_MINOR = 8
+
+# Arguments passed via the run opts dictionary
+run_opt_defaults = {
+    "test_only": False,
+    "debug": False,
+    "debug_batches": 2,
+    "debug_epochs": 2,
+    "debug_persistently": False,
+    "device": "cpu",
+    "data_parallel_backend": False,
+    "distributed_backend": "nccl",
+    "find_unused_parameters": False,
+    "jit": False,
+    "jit_module_keys": None,
+    "compile": False,
+    "compile_module_keys": None,
+    "compile_mode": "reduce-overhead",
+    "compile_using_fullgraph": False,
+    "compile_using_dynamic_shape_tracing": False,
+    "precision": "fp32",
+    "eval_precision": "fp32",
+    "auto_mix_prec": False,
+    "bfloat16_mix_prec": False,
+    "max_grad_norm": 5.0,
+    "skip_nonfinite_grads": False,
+    "nonfinite_patience": 3,
+    "noprogressbar": False,
+    "ckpt_interval_minutes": 0,
+    "ckpt_interval_steps": 0,
+    "grad_accumulation_factor": 1,
+    "optimizer_step_limit": None,
+    "tqdm_colored_bar": False,
+    "tqdm_barcolor": {"train": "GREEN", "valid": "MAGENTA", "test": "CYAN"},
+    "remove_vector_weight_decay": False,
+    "profile_training": False,
+    "profile_warmup": 5,
+    "profile_steps": 5,
+}
+
+
+@dataclass
+class AMPConfig:
+    """Configuration for automatic mixed precision (AMP).
+
+    Arguments
+    ---------
+    dtype : torch.dtype
+        The dtype to use for AMP.
+    """
+
+    dtype: torch.dtype
+
+    @classmethod
+    def from_name(self, name):
+        """Create an AMPConfig from a string name.
+
+        Arguments
+        ---------
+        name : str
+            The name of the AMPConfig to create.  Must be one of `fp32`,
+            `fp16`, or `bf16`.
+
+        Returns
+        -------
+        AMPConfig
+            The AMPConfig corresponding to the name.
+        """
+        if name is None or name == "fp32":
+            return AMPConfig(torch.float32)
+        elif name == "fp16":
+            return AMPConfig(torch.float16)
+        elif name == "bf16":
+            return AMPConfig(torch.bfloat16)
+        else:
+            raise ValueError(
+                f"Specified autocast mode ({name}) incorrect, expected one of `fp32`, `fp16`, `bf16`."
+            )
 
 
 def create_experiment_directory(
@@ -82,9 +169,9 @@ def create_experiment_directory(
                 hyperparams_filename = os.path.join(
                     experiment_directory, "hyperparams.yaml"
                 )
-                with open(hyperparams_to_save) as f:
+                with open(hyperparams_to_save, encoding="utf-8") as f:
                     resolved_yaml = resolve_references(f, overrides)
-                with open(hyperparams_filename, "w") as w:
+                with open(hyperparams_filename, "w", encoding="utf-8") as w:
                     print("# Generated %s from:" % date.today(), file=w)
                     print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
                     print("# yamllint disable", file=w)
@@ -104,6 +191,11 @@ def create_experiment_directory(
             sb.utils.logger.setup_logging(log_config, logger_overrides)
             sys.excepthook = _logging_excepthook
 
+            # Log quirks again so that it makes it to the log file.
+            # Quirks are applied way earlier, before logging is properly setup,
+            # so this gives a chance to the user to see them, lowering surprise.
+            sb.utils.quirks.log_applied_quirks()
+
             # Log beginning of experiment!
             logger.info("Beginning experiment!")
             logger.info(f"Experiment folder: {experiment_directory}")
@@ -112,7 +204,9 @@ def create_experiment_directory(
             if save_env_desc:
                 description_str = sb.utils.logger.get_environment_description()
                 with open(
-                    os.path.join(experiment_directory, "env.log"), "w"
+                    os.path.join(experiment_directory, "env.log"),
+                    "w",
+                    encoding="utf-8",
                 ) as fo:
                     fo.write(description_str)
     finally:
@@ -126,7 +220,7 @@ def _logging_excepthook(exc_type, exc_value, exc_traceback):
 
 
 def parse_arguments(arg_list=None):
-    r"""Parse command-line arguments to the experiment.
+    """Parse command-line arguments to the experiment.
 
     Arguments
     ---------
@@ -164,6 +258,14 @@ def parse_arguments(arg_list=None):
         "defined by SpeechBrain.",
     )
     parser.add_argument(
+        "--test_only",
+        default=False,
+        action="store_true",
+        help="Run the experiment in evaluate only mode."
+        "It skips the training and goes directly to the evaluation."
+        "The model is expected to be already trained.",
+    )
+    parser.add_argument(
         "--debug",
         default=False,
         action="store_true",
@@ -184,12 +286,16 @@ def parse_arguments(arg_list=None):
         "If a non-positive number is passed, all epochs are run.",
     )
     parser.add_argument(
+        "--debug_persistently",
+        default=False,
+        action="store_true",
+        help="Keep data stored during debug mode (not using /tmp).",
+    )
+    parser.add_argument(
         "--log_config",
         type=str,
         help="A file storing the configuration options for logging",
     )
-    # if use_env = False in torch.distributed.lunch then local_rank arg is given
-    parser.add_argument("--local_rank", type=int, help="Rank on local machine")
     parser.add_argument(
         "--device",
         type=str,
@@ -201,13 +307,6 @@ def parse_arguments(arg_list=None):
         default=False,
         action="store_true",
         help="This flag enables training with data_parallel.",
-    )
-    parser.add_argument(
-        "--distributed_launch",
-        default=False,
-        action="store_true",
-        help="This flag enables training with DDP. Assumes script run with "
-        "`torch.distributed.launch`",
     )
     parser.add_argument(
         "--distributed_backend",
@@ -222,10 +321,65 @@ def parse_arguments(arg_list=None):
         help="This flag disable unused parameters detection",
     )
     parser.add_argument(
+        "--jit",
+        default=False,
+        action="store_true",
+        help="Enables jit compilation for all modules. "
+        "Compilation may fail depending on the modules. "
+        "Use --jit_module_keys to compile a subset of modules.",
+    )
+    parser.add_argument(
         "--jit_module_keys",
         type=str,
         nargs="*",
         help="A list of keys in the 'modules' dict to jitify",
+    )
+    parser.add_argument(
+        "--compile",
+        default=False,
+        action="store_true",
+        help="Enabling this flag compiles all modules using torch.compile (if available). "
+        "Beta feature. Use --compile_module_keys to compile a subset of modules. "
+        "Set the compilation flags below properly. "
+        "Compilation can be time-consuming and might fail.",
+    )
+    parser.add_argument(
+        "--compile_module_keys",
+        type=str,
+        nargs="*",
+        help="A list of keys in the 'modules' dict to compile using "
+        "TorchInductor. If a module also has a JIT key specified, "
+        "TorchInductor will take precedence when available.",
+    )
+    parser.add_argument(
+        "--compile_mode",
+        type=str,
+        nargs="*",
+        help="One of {default, reduce-overhead, max-autotune}",
+    )
+    parser.add_argument(
+        "--compile_using_fullgraph",
+        type=bool,
+        nargs="*",
+        help="Whether it is ok to break model into several subgraphs",
+    )
+    parser.add_argument(
+        "--compile_using_dynamic_shape_tracing",
+        type=bool,
+        nargs="*",
+        help="Use dynamic shape tracing for compilation",
+    )
+    parser.add_argument(
+        "--precision",
+        type=str,
+        help="This flag enables training with automatic mixed-precision."
+        "It can be set to `fp32`, `fp16`, or `bf16`.",
+    )
+    parser.add_argument(
+        "--eval_precision",
+        type=str,
+        help="This flag enables inference with automatic mixed-precision."
+        "It can be set to `fp32`, `fp16`, or `bf16`.",
     )
     parser.add_argument(
         "--auto_mix_prec",
@@ -234,10 +388,22 @@ def parse_arguments(arg_list=None):
         help="This flag enables training with automatic mixed-precision.",
     )
     parser.add_argument(
+        "--bfloat16_mix_prec",
+        default=None,
+        action="store_true",
+        help="This flag enables training with bfloat16 mixed-precision.",
+    )
+    parser.add_argument(
         "--max_grad_norm",
         type=float,
         help="Gradient norm will be clipped to this value, "
         "enter negative value to disable.",
+    )
+    parser.add_argument(
+        "--skip_nonfinite_grads",
+        default=False,
+        action="store_true",
+        help="Set the gradients to None if they are nonfinite (inf or nan).",
     )
     parser.add_argument(
         "--nonfinite_patience",
@@ -256,6 +422,56 @@ def parse_arguments(arg_list=None):
         help="Amount of time between saving intra-epoch checkpoints "
         "in minutes. If non-positive, intra-epoch checkpoints are not saved.",
     )
+    parser.add_argument(
+        "--ckpt_interval_steps",
+        type=int,
+        help="Save an intra-epoch checkpoint after this many steps."
+        "If non-positive, intra-epoch checkpoints are not saved.",
+    )
+    parser.add_argument(
+        "--grad_accumulation_factor",
+        type=int,
+        help="Number of batches to accumulate gradients before optimizer step",
+    )
+    parser.add_argument(
+        "--optimizer_step_limit",
+        type=int,
+        help="Number of optimizer steps to run. If not passed, all epochs are run.",
+    )
+    parser.add_argument(
+        "--tqdm_colored_bar",
+        default=False,
+        action="store_true",
+        help="Enable colored progress-bar in tqdm. If this is "
+        "false, tqdm shall use default colors.",
+    )
+    parser.add_argument(
+        "--remove_vector_weight_decay",
+        default=False,
+        action="store_true",
+        help="Make vectors (e.g. norms and biases) a separate parameter group without weight_decay.",
+    )
+    parser.add_argument(
+        "--profile_training",
+        default=False,
+        action="store_true",
+        help=(
+            "If set to True, a profiler will be initiated and tensorboard logs will be generated. "
+            "Please ensure you have installed the torch.TensorBoard profiler with 'pip install torch_tb_profiler'."
+        ),
+    )
+    parser.add_argument(
+        "--profile_warmup",
+        default=5,
+        type=int,
+        help="Number of warmup steps before logging for the profiler.",
+    )
+    parser.add_argument(
+        "--profile_steps",
+        default=5,
+        type=int,
+        help="Number of steps of logging for the profiler",
+    )
 
     # Accept extra args to override yaml
     run_opts, overrides = parser.parse_known_args(arg_list)
@@ -273,17 +489,8 @@ def parse_arguments(arg_list=None):
         if torch.cuda.device_count() == 0:
             raise ValueError("You must have at least 1 GPU.")
 
-    # For DDP, the device args must equal to local_rank used by
-    # torch.distributed.launch. If run_opts["local_rank"] exists,
-    # use os.environ["LOCAL_RANK"]
-    local_rank = None
-    if "local_rank" in run_opts:
-        local_rank = run_opts["local_rank"]
-    else:
-        if "LOCAL_RANK" in os.environ and os.environ["LOCAL_RANK"] != "":
-            local_rank = int(os.environ["LOCAL_RANK"])
-
-    # force device arg to be the same as local_rank from torch.distributed.lunch
+    # force device arg to be the same as local_rank from torchrun
+    local_rank = os.environ.get("LOCAL_RANK")
     if local_rank is not None and "cuda" in run_opts["device"]:
         run_opts["device"] = run_opts["device"][:-1] + str(local_rank)
 
@@ -317,7 +524,7 @@ class Stage(Enum):
 
 @sb.utils.checkpoints.register_checkpoint_hooks
 class Brain:
-    r"""Brain class abstracts away the details of data loops.
+    """Brain class abstracts away the details of data loops.
 
     The primary purpose of the `Brain` class is the implementation of
     the ``fit()`` method, which iterates epochs and datasets for the
@@ -345,7 +552,7 @@ class Brain:
         These modules are passed to the optimizer by default if they have
         trainable parameters, and will have ``train()``/``eval()`` called on them.
     opt_class : torch.optim class
-        A torch optimizer constructor that has takes only the list of
+        A torch optimizer constructor that takes only the list of
         parameters (e.g. a lambda or partial function definition). By default,
         this will be passed all modules in ``modules`` at the
         beginning of the ``fit()`` method. This behavior can be changed
@@ -366,18 +573,46 @@ class Brain:
         debug_epochs (int)
             Number of epochs to run in debug mode, Default ``2``.
             If a non-positive number is passed, all epochs are run.
+        debug_persistently (bool)
+            Keep data stored during debug mode (not using /tmp), Default ``False``.
+        jit (bool)
+            Enable to compile all modules using jit, Default ``False``.
         jit_module_keys (list of str)
             List of keys in ``modules`` that should be jit compiled.
+        compile (bool)
+            Enable to compile all modules using torch.compile, Default ``False``.
+        compile_module_keys (list of str)
+            List of keys in ``modules`` that should be compiled using
+            ``torch.compile``. If ``torch.compile`` is unavailable,
+            an error is raised.
+        compile_mode (str)
+            One of ``default``, ``reduce-overhead``, ``max-autotune``, Default ``reduce-overhead``.
+        compile_using_fullgraph (bool)
+            Whether it is ok to break model into several subgraphs, Default ``False``.
+        compile_using_dynamic_shape_tracing (bool)
+            Use dynamic shape tracing for compilation, Default ``False``.
         distributed_backend (str)
             One of ``nccl``, ``gloo``, ``mpi``.
         device (str)
             The location for performing computations.
+        precision (str)
+            One of ``fp32``, ``fp16``, ``bf16``.
+        eval_precision (str)
+            One of ``fp32``, ``fp16``, ``bf16``.
         auto_mix_prec (bool)
-            If ``True``, automatic mixed-precision is used.
-            Activate it only with cuda.
+            If ``True``, automatic mixed-precision (fp16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
+        bfloat16_mix_prec (bool)
+            If ``True``, automatic mixed-precision (bf16) is used.
+            Activate it only with cuda. Note: this is a
+            deprecated feature, and will be removed in the future.
         max_grad_norm (float)
             Default implementation of ``fit_batch()`` uses
             ``clip_grad_norm_`` with this value. Default: ``5``.
+        skip_nonfinite_grads (bool)
+            If ``True``, sets gradients to zero if they are non-finite
+            (e.g., NaN, Inf). Default: ``False``.
         nonfinite_patience (int)
             Number of times to ignore non-finite losses before stopping.
             Default: ``3``.
@@ -386,6 +621,10 @@ class Brain:
         ckpt_interval_minutes (float)
             Amount of time between saving intra-epoch checkpoints,
             in minutes, default: ``15.0``. If non-positive, these are not saved.
+        ckpt_interval_steps (int)
+            Number of steps between saving intra-epoch checkpoints.
+            If non-positive, these are not saved. Default: ``0``.
+
 
         Typically in a script this comes from ``speechbrain.parse_args``, which
         has different defaults than Brain. If an option is not defined here
@@ -416,26 +655,9 @@ class Brain:
         run_opts=None,
         checkpointer=None,
     ):
+        self.optimizers_dict = None
         self.opt_class = opt_class
         self.checkpointer = checkpointer
-
-        # Arguments passed via the run opts dictionary
-        run_opt_defaults = {
-            "debug": False,
-            "debug_batches": 2,
-            "debug_epochs": 2,
-            "device": "cpu",
-            "data_parallel_backend": False,
-            "distributed_launch": False,
-            "distributed_backend": "nccl",
-            "find_unused_parameters": False,
-            "jit_module_keys": None,
-            "auto_mix_prec": False,
-            "max_grad_norm": 5.0,
-            "nonfinite_patience": 3,
-            "noprogressbar": False,
-            "ckpt_interval_minutes": 0,
-        }
 
         for arg, default in run_opt_defaults.items():
             if run_opts is not None and arg in run_opts:
@@ -463,7 +685,7 @@ class Brain:
             sys.version_info.major == PYTHON_VERSION_MAJOR
             and sys.version_info.minor >= PYTHON_VERSION_MINOR
         ):
-            logger.warn(
+            logger.warning(
                 "Detected Python "
                 + str(sys.version_info.major)
                 + "."
@@ -474,15 +696,26 @@ class Brain:
                 + str(PYTHON_VERSION_MINOR)
             )
 
+        # Assume `torchrun` was used if `RANK` and `LOCAL_RANK` are set
+        self.distributed_launch = (
+            os.environ.get("RANK") is not None
+            and os.environ.get("LOCAL_RANK") is not None
+        )
+
         if self.data_parallel_backend and self.distributed_launch:
-            sys.exit(
+            raise ValueError(
                 "To use data_parallel backend, start your script with:\n\t"
                 "python experiment.py hyperparams.yaml "
-                "--data_parallel_backend=True"
+                "--data_parallel_backend=True\n"
                 "To use DDP backend, start your script with:\n\t"
-                "python -m torch.distributed.lunch [args]\n"
-                "experiment.py hyperparams.yaml --distributed_launch=True "
-                "--distributed_backend=nccl"
+                "torchrun [args] experiment.py hyperparams.yaml"
+            )
+
+        if self.ckpt_interval_minutes > 0 and self.ckpt_interval_steps > 0:
+            sys.exit(
+                "The options `ckpt_interval_minutes` and `ckpt_interval_steps` "
+                "are mutually exclusive. "
+                "Please keep only one active per experiment run."
             )
 
         # Switch to the right context
@@ -494,6 +727,12 @@ class Brain:
         # Put modules on the right device, accessible with dot notation
         self.modules = torch.nn.ModuleDict(modules).to(self.device)
 
+        # The next line ensures that both tensors marked as parameters and standard tensors,
+        # such as those used in InputNormalization, are placed on the right device.
+        for module in self.modules:
+            if hasattr(self.modules[module], "to"):
+                self.modules[module] = self.modules[module].to(self.device)
+
         # Make hyperparams available with dot notation too
         if hparams is not None:
             self.hparams = SimpleNamespace(**hparams)
@@ -501,6 +740,7 @@ class Brain:
         # Checkpointer should point at a temporary directory in debug mode
         if (
             self.debug
+            and not self.debug_persistently
             and self.checkpointer is not None
             and hasattr(self.checkpointer, "checkpoints_dir")
         ):
@@ -520,33 +760,69 @@ class Brain:
         # to have your_sampler.set_epoch() called on each epoch.
         self.train_sampler = None
 
-        # Automatic mixed precision init
         if self.auto_mix_prec:
-            self.scaler = torch.cuda.amp.GradScaler()
+            logger.warning(
+                "The option `--auto_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=fp16` instead."
+            )
+            self.precision = "fp16"
+
+        if self.bfloat16_mix_prec:
+            logger.warning(
+                "The option `--bfloat16_mix_prec` is deprecated and will be removed in the future. "
+                "Please use `--precision=bf16` instead."
+            )
+            self.precision = "bf16"
+
+        if self.device == "cpu" and (
+            self.precision == "fp16" or self.eval_precision == "fp16"
+        ):
+            raise ValueError(
+                "The option `--precision` or `--eval_precision` is set to fp16. "
+                "This option is not yet supported on CPU. "
+                "Please use `--precision=bf16` or `--eval_precision=bf16` instead "
+                "to enable mixed precision on CPU."
+            )
+
+        gradscaler_enabled = self.precision == "fp16" and "cuda" in self.device
+        if self.skip_nonfinite_grads and gradscaler_enabled:
+            logger.warning(
+                "The option `skip_nonfinite_grads` will be ignored "
+                "because GradScaler is enabled and will automatically "
+                "skip nonfinite gradients."
+            )
+
+        logger.info(
+            f"Gradscaler enabled: {gradscaler_enabled}. Using precision: {self.precision}."
+        )
+        self.scaler = torch.cuda.amp.GradScaler(enabled=gradscaler_enabled)
+
+        self.use_amp = False
+        if self.device == "cpu" and self.precision == "bf16":
+            self.use_amp = True
+        elif "cuda" in self.device and self.precision in ["fp16", "bf16"]:
+            self.use_amp = True
+
+        if self.use_amp and self.checkpointer is not None:
+            self.checkpointer.add_recoverable(
+                "scaler", self.scaler, optional_load=True
+            )
 
         # List parameter count for the user
-        total_params = sum(
-            p.numel() for p in self.modules.parameters() if p.requires_grad
-        )
-        if total_params > 0:
-            clsname = self.__class__.__name__
-            fmt_num = sb.utils.logger.format_order_of_magnitude(total_params)
-            logger.info(f"{fmt_num} trainable parameters in {clsname}")
+        self.print_trainable_parameters()
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
-            if not torch.distributed.is_initialized():
+            if not is_distributed_initialized():
                 if self.rank > 0:
-                    sys.exit(
+                    raise ValueError(
                         " ================ WARNING ==============="
                         "Please add sb.ddp_init_group() into your exp.py"
                         "To use DDP backend, start your script with:\n\t"
-                        "python -m torch.distributed.launch [args]\n\t"
-                        "experiment.py hyperparams.yaml "
-                        "--distributed_launch=True --distributed_backend=nccl"
+                        "torchrun [args] experiment.py hyperparams.yaml"
                     )
                 else:
-                    logger.warn(
+                    logger.warning(
                         "To use DDP, please add "
                         "sb.utils.distributed.ddp_init_group() into your exp.py"
                     )
@@ -558,10 +834,73 @@ class Brain:
         # Prepare iterating variables
         self.avg_train_loss = 0.0
         self.step = 0
+        self.optimizer_step = 0
 
         # Add this class to the checkpointer for intra-epoch checkpoints
         if self.checkpointer is not None:
             self.checkpointer.add_recoverable("brain", self)
+
+        # Force default color for tqdm progressbar
+        if not self.tqdm_colored_bar:
+            self.tqdm_barcolor = dict.fromkeys(self.tqdm_barcolor, "")
+
+        # Profiler setup
+        self.profiler = None
+        if self.profile_training:
+            logger.info("Pytorch profiler has been activated.")
+            self.tot_prof_steps = (self.profile_steps + self.profile_warmup) - 1
+            self.profiler = prepare_profiler(
+                self.profile_warmup,
+                self.profile_steps,
+                self.hparams.output_folder,
+            )
+
+    def print_trainable_parameters(self):
+        """Prints the number of trainable parameters in the model."""
+        total_trainable_params = 0
+        total_parameters = 0
+        for parameter in self.modules.parameters():
+            total_parameters += parameter.numel()
+            if parameter.requires_grad:
+                total_trainable_params += parameter.numel()
+        class_name = self.__class__.__name__
+        if total_parameters == 0:
+            logger.warning("The model has no parameters!")
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
+                f"* Total Number of Parameters: {total_parameters}\n"
+                f"* Trainable Parameters represent {0:.2f}% of the total size."
+            )
+        elif total_trainable_params == 0:
+            logger.warning("The model has no trainable parameters!")
+            formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+                total_parameters
+            )
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
+                f"* Total Number of Parameters: {formatted_total_params}\n"
+                f"* Trainable Parameters represent {0:.4f}% of the total size."
+            )
+        else:
+            percentage_trainable = (
+                100 * total_trainable_params / total_parameters
+            )
+            formatted_trainable_params = (
+                sb.utils.logger.format_order_of_magnitude(
+                    total_trainable_params
+                )
+            )
+            formatted_total_params = sb.utils.logger.format_order_of_magnitude(
+                total_parameters
+            )
+            logger.info(
+                f"{class_name} Model Statistics:\n"
+                f"* Total Number of Trainable Parameters: {formatted_trainable_params}\n"
+                f"* Total Number of Parameters: {formatted_total_params}\n"
+                f"* Trainable Parameters represent {percentage_trainable:.4f}% of the total size."
+            )
 
     def compute_forward(self, batch, stage):
         """Forward pass, to be overridden by sub-classes.
@@ -575,18 +914,19 @@ class Brain:
 
         Returns
         -------
-        torch.Tensor or Tensors
+        torch.Tensor or torch.Tensors
             The outputs after all processing is complete.
             Directly passed to ``compute_objectives()``.
         """
         raise NotImplementedError
+        return
 
     def compute_objectives(self, predictions, batch, stage):
         """Compute loss, to be overridden by sub-classes.
 
         Arguments
         ---------
-        predictions : torch.Tensor or Tensors
+        predictions : torch.Tensor or torch.Tensors
             The output tensor or tensors to evaluate.
             Comes directly from ``compute_forward()``.
         batch : torch.Tensor or tensors
@@ -600,6 +940,7 @@ class Brain:
             A tensor with the computed loss.
         """
         raise NotImplementedError
+        return
 
     def on_stage_start(self, stage, epoch=None):
         """Gets called when a stage starts.
@@ -675,10 +1016,20 @@ class Brain:
         **loader_kwargs : dict
             Additional keyword arguments to the DataLoader.
             E.g., batch_size, num_workers, pin_memory.
+
+        Returns
+        -------
+        DataLoader for the input dataset
         """
         # TRAIN stage is handled specially.
         if stage == sb.Stage.TRAIN:
             loader_kwargs = self._train_loader_specifics(dataset, loader_kwargs)
+        # This commented-out code block is useful when one can ensure
+        # metric reporting is DDP-valid for VALID & EVAL datasets.
+        # elif self.distributed_launch:
+        #     loader_kwargs = sb.dataio.dataloader.distributed_loader_specifics(
+        #         self.distributed_launch, self.rank, dataset, loader_kwargs
+        #     )
         dataloader = sb.dataio.dataloader.make_dataloader(
             dataset, **loader_kwargs
         )
@@ -707,7 +1058,8 @@ class Brain:
                     "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
-            sampler = ReproducibleRandomSampler(dataset)
+            seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+            sampler = ReproducibleRandomSampler(dataset, seed=seed)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
             # Delete the shuffle flag, since you cannot specify both a sampler and
@@ -716,6 +1068,14 @@ class Brain:
 
         # Possibly make a DistributedSampler or a wrapper for some other sampler
         if self.distributed_launch and not isinstance(dataset, IterableDataset):
+            # sort or not
+            if hasattr(self.hparams, "sorting"):
+                shuffle_ddp = (
+                    self.hparams.sorting == "random"
+                )  # False if 'ascending' or 'descending'
+            else:
+                shuffle_ddp = True
+
             drop_last = loader_kwargs.get("drop_last", False)
             # num_replicas arg is equal to world_size
             # and retrieved automatically within
@@ -734,7 +1094,10 @@ class Brain:
             elif loader_kwargs.get("batch_sampler") is None:
                 # no sampler and batch-sampler
                 self.train_sampler = DistributedSampler(
-                    dataset, rank=self.rank, shuffle=False, drop_last=drop_last
+                    dataset,
+                    rank=self.rank,
+                    shuffle=shuffle_ddp,
+                    drop_last=drop_last,
                 )
 
                 # with DistributedSamplerWrapper, one must disable shuffling for dataloader
@@ -744,7 +1107,7 @@ class Brain:
                 self.train_sampler = DistributedSamplerWrapper(
                     loader_kwargs.get("batch_sampler", None),
                     rank=self.rank,
-                    shuffle=False,
+                    shuffle=shuffle_ddp,
                 )
                 loader_kwargs["batch_sampler"] = self.train_sampler
         elif self.distributed_launch and isinstance(dataset, IterableDataset):
@@ -761,9 +1124,9 @@ class Brain:
         Default implementation compiles the jit modules, initializes
         optimizers, and loads the latest checkpoint to resume training.
         """
-        # Run this *after* starting all processes since jit modules cannot be
-        # pickled.
-        self._compile_jit()
+        # Run this *after* starting all processes since jit/compiled modules
+        # cannot be pickled.
+        self._compile()
 
         # Wrap modules with parallel backend after jit
         self._wrap_distributed()
@@ -773,9 +1136,7 @@ class Brain:
 
         # Load latest checkpoint to resume training if interrupted
         if self.checkpointer is not None:
-            self.checkpointer.recover_if_possible(
-                device=torch.device(self.device)
-            )
+            self.checkpointer.recover_if_possible()
 
     def init_optimizers(self):
         """Called during ``on_fit_start()``, initialize optimizers
@@ -788,11 +1149,32 @@ class Brain:
 
         Override this class if there are multiple optimizers.
         """
+
+        all_params = self.modules.parameters()
+
         if self.opt_class is not None:
-            self.optimizer = self.opt_class(self.modules.parameters())
+            if self.remove_vector_weight_decay:
+                all_params = rm_vector_weight_decay(self.modules)
+
+            self.optimizer = self.opt_class(all_params)
+
+            self.optimizers_dict = {"opt_class": self.optimizer}
 
             if self.checkpointer is not None:
                 self.checkpointer.add_recoverable("optimizer", self.optimizer)
+
+    def zero_grad(self, set_to_none=False):
+        """Sets the gradients of all optimized ``torch.Tensor``s to zero
+        if ``set_to_none=False`` (default) or to None otherwise.
+
+        Setting gradients to None should save the memory, e.g.
+        during ``evaluate()`` and thus larger batch might be used.
+        """
+        if self.optimizers_dict is not None:
+            for opt in self.freeze_optimizers(self.optimizers_dict).values():
+                opt.zero_grad(set_to_none=set_to_none)
+        elif self.opt_class is not None:
+            self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
@@ -813,9 +1195,7 @@ class Brain:
         # Recover best checkpoint for evaluation
         if self.checkpointer is not None:
             self.checkpointer.recover_if_possible(
-                max_key=max_key,
-                min_key=min_key,
-                device=torch.device(self.device),
+                max_key=max_key, min_key=min_key
             )
 
     def fit_batch(self, batch):
@@ -826,6 +1206,7 @@ class Brain:
 
         * ``compute_forward()``
         * ``compute_objectives()``
+        * ``optimizers_step()``
 
         Also depends on having optimizers passed at initialization.
 
@@ -839,51 +1220,54 @@ class Brain:
         -------
         detached loss
         """
-        # Managing automatic mixed precision
-        if self.auto_mix_prec:
-            self.optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                outputs = self.compute_forward(batch, Stage.TRAIN)
-                loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            self.scaler.scale(loss).backward()
-            self.scaler.unscale_(self.optimizer)
-            if self.check_gradients(loss):
-                self.scaler.step(self.optimizer)
-            self.scaler.update()
-        else:
-            outputs = self.compute_forward(batch, Stage.TRAIN)
-            loss = self.compute_objectives(outputs, batch, Stage.TRAIN)
-            loss.backward()
-            if self.check_gradients(loss):
-                self.optimizer.step()
-            self.optimizer.zero_grad()
+        amp = AMPConfig.from_name(self.precision)
+        should_step = (self.step % self.grad_accumulation_factor) == 0
+        self.on_fit_batch_start(batch, should_step)
 
+        with self.no_sync(not should_step):
+            if self.use_amp:
+                with torch.autocast(
+                    dtype=amp.dtype, device_type=torch.device(self.device).type
+                ):
+                    outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                    loss = self.compute_objectives(
+                        outputs, batch, sb.Stage.TRAIN
+                    )
+            else:
+                outputs = self.compute_forward(batch, sb.Stage.TRAIN)
+                loss = self.compute_objectives(outputs, batch, sb.Stage.TRAIN)
+
+            scaled_loss = self.scaler.scale(
+                loss / self.grad_accumulation_factor
+            )
+            self.check_loss_isfinite(scaled_loss)
+            scaled_loss.backward()
+
+        if should_step:
+            self.optimizers_step()
+
+        self.on_fit_batch_end(batch, outputs, loss, should_step)
         return loss.detach().cpu()
 
-    def check_gradients(self, loss):
-        """Check if gradients are finite and not too large.
+    def check_loss_isfinite(self, loss):
+        """Check if the loss is finite.
 
-        Automatically clips large gradients.
+        If the loss is not finite, log a helpful message and increment the `nonfinite_count`.
+        If the `nonfinite_count` exceeds the `--nonfinite_patience` threshold, stop the training
+        and raise an error.
+
+        This check is particularly useful when the loss becomes NaN or inf, while the
+        parameters and gradients remain finite. It helps prevent getting stuck in an
+        infinite loop during training.
 
         Arguments
         ---------
         loss : tensor
             The loss tensor after ``backward()`` has been called but
             before the optimizers ``step()``.
-
-        Returns
-        -------
-        bool
-            Whether or not the optimizer step should be carried out.
         """
         if not torch.isfinite(loss):
             self.nonfinite_count += 1
-
-            # Print helpful debug info
-            logger.warn(f"Loss is {loss}.")
-            for p in self.modules.parameters():
-                if not torch.isfinite(p).all():
-                    logger.warn("Parameter is not finite: " + str(p))
 
             # Check if patience is exhausted
             if self.nonfinite_count > self.nonfinite_patience:
@@ -894,16 +1278,106 @@ class Brain:
                     "torch.autograd.detect_anomaly():\n\tbrain.fit(...)"
                 )
             else:
-                logger.warn("Patience not yet exhausted, ignoring this batch.")
-                return False
+                logger.warning("Patience not yet exhausted.")
 
-        # Clip gradient norm
-        torch.nn.utils.clip_grad_norm_(
-            (p for p in self.modules.parameters()), self.max_grad_norm
-        )
+    def check_gradients(self):
+        """Checks if the gradients are finite. If not, it will emit a warning and set them to zero."""
+        for param in self.modules.parameters():
+            if param.requires_grad and param.grad is not None:
+                if not torch.isfinite(param.grad).all():
+                    param.grad = None
+                    logger.warning(
+                        f"Gradients {param.name} contain NaN or Inf. Setting to None."
+                    )
 
-        return True
+    def freeze_optimizers(self, optimizers):
+        """By default, this method returns the passed optimizers.
+        Override this method if you want to freeze some optimizers
+        during training. To do so, return a of active optimizers.
+        """
+        return optimizers
 
+    def optimizers_step(self):
+        """Performs a step of gradient descent on the optimizers. This method is called every
+        ``grad_accumulation_factor`` steps."""
+        # 1. get the valid optimizers, i.e., the ones that are not frozen during this step
+        if self.optimizers_dict is not None:
+            valid_optimizers = self.freeze_optimizers(self.optimizers_dict)
+        elif self.opt_class is not None:
+            # if valid_optimizers is not defined which could happen if a user is using an old
+            # init_optimizers() method, then we assume that the only valid optimizer is
+            # self.optimizer (which is the default behavior).
+            valid_optimizers = {"optimizer": self.optimizer}
+        else:
+            # Note: in some cases you might want to only compute gradients statistics and
+            # you do not need to call the optimizers.step() method. In this case, you can
+            # simply return from this method and skip the rest of the code.
+            return
+
+        # 2. unscale the gradients of the valid optimizers
+        for opt in valid_optimizers.values():
+            self.scaler.unscale_(opt)
+
+        # 3. clip gradients
+        # We are clipping this way because clipping on self.modules.parameters()
+        # can leads to NaN/Inf gradients norm as doing the concatenation
+        # of all parameters in a single vector can lead to overflow/underflow.
+        for opt in valid_optimizers.values():
+            torch.nn.utils.clip_grad_norm_(
+                opt.param_groups[0]["params"], self.max_grad_norm
+            )
+
+        # Note: no need to activate this flag if you are in fp16
+        # since GradScaler is automatically handling the nonfinite gradients
+        if not self.scaler.is_enabled() and self.skip_nonfinite_grads:
+            self.check_gradients()
+
+        # 4. step the valid optimizers
+        # If the scaler is disable, it simply calls optimizer.step()
+        for opt in valid_optimizers.values():
+            self.scaler.step(opt)
+
+        self.scaler.update()
+
+        for opt in valid_optimizers.values():
+            opt.zero_grad(set_to_none=True)
+
+        self.optimizer_step += 1
+
+    def on_fit_batch_start(self, batch, should_step):
+        """Called at the beginning of ``fit_batch()``.
+
+        This method is not called under the AMP context manager. Do not assume
+        automatic casting of the input batch to a lower precision (e.g. fp16).
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
+        pass
+
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """Called after ``fit_batch()``.
+
+        Arguments
+        ---------
+        batch : list of torch.Tensors
+            Batch of data to use for training. Default implementation assumes
+            this batch has two elements: inputs and targets.
+        outputs : list or dictionary of torch.Tensors
+            Returned value of compute_forward().
+        loss : torch.Tensor
+            Returned value of compute_objectives().
+        should_step : boolean
+            Whether optimizer.step() was called or not.
+        """
+        pass
+
+    @torch.no_grad()
     def evaluate_batch(self, batch, stage):
         """Evaluate one batch, override for different procedure than train.
 
@@ -925,10 +1399,137 @@ class Brain:
         -------
         detached loss
         """
-
-        out = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(out, batch, stage=stage)
+        amp = AMPConfig.from_name(self.eval_precision)
+        if self.use_amp:
+            with torch.autocast(
+                dtype=amp.dtype, device_type=torch.device(self.device).type
+            ):
+                out = self.compute_forward(batch, stage=stage)
+                loss = self.compute_objectives(out, batch, stage=stage)
+        else:
+            out = self.compute_forward(batch, stage=stage)
+            loss = self.compute_objectives(out, batch, stage=stage)
         return loss.detach().cpu()
+
+    def _fit_train(self, train_set, epoch, enable):
+        # Training stage
+        self.on_stage_start(Stage.TRAIN, epoch)
+        self.modules.train()
+        self.zero_grad()
+
+        # Reset nonfinite count to 0 each epoch
+        self.nonfinite_count = 0
+
+        if self.train_sampler is not None and hasattr(
+            self.train_sampler, "set_epoch"
+        ):
+            self.train_sampler.set_epoch(epoch)
+
+        # Time since last intra-epoch checkpoint
+        last_ckpt_time = time.time()
+        steps_since_ckpt = 0
+        with tqdm(
+            train_set,
+            initial=self.step,
+            dynamic_ncols=True,
+            disable=not enable,
+            colour=self.tqdm_barcolor["train"],
+        ) as t:
+            if self.profiler is not None:
+                self.profiler.start()
+            for batch in t:
+                if self._optimizer_step_limit_exceeded:
+                    logger.info("Train iteration limit exceeded")
+                    break
+                self.step += 1
+                steps_since_ckpt += 1
+                loss = self.fit_batch(batch)
+                self.avg_train_loss = self.update_average(
+                    loss, self.avg_train_loss
+                )
+                t.set_postfix(train_loss=self.avg_train_loss)
+
+                if self.profiler is not None:
+                    self.profiler.step()
+                    if self.profiler.step_num > self.tot_prof_steps:
+                        logger.info(
+                            "The profiler finished, training is stopped."
+                        )
+                        self.profiler.stop()
+                        quit()
+
+                # Debug mode only runs a few batches
+                if self.debug and self.step == self.debug_batches:
+                    break
+
+                if self._should_save_intra_epoch_ckpt(
+                    last_ckpt_time, steps_since_ckpt
+                ):
+                    # Checkpointer class will handle running this on main only
+                    self._save_intra_epoch_ckpt()
+                    last_ckpt_time = time.time()
+                    steps_since_ckpt = 0
+
+        # Run train "on_stage_end" on all processes
+        self.zero_grad(set_to_none=True)  # flush gradients
+        self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
+        self.avg_train_loss = 0.0
+        self.step = 0
+
+    def _should_save_intra_epoch_ckpt(self, last_ckpt_time, steps_since_ckpt):
+        """Determines if an intra-epoch checkpoint should be saved.
+
+        Returns True if there's a checkpointer and time or steps has exceeded limit.
+        """
+        if self.checkpointer is None:
+            return False
+
+        # Return early if mid-epoch checkpoints are disabled to avoid sync
+        if self.ckpt_interval_minutes <= 0 and self.ckpt_interval_steps <= 0:
+            return False
+
+        # Check if we've run for the requested amount of time
+        elapsed_minutes = (time.time() - last_ckpt_time) / 60.0
+        decision = 0 < self.ckpt_interval_minutes < elapsed_minutes
+
+        # Save after requested # of steps
+        decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
+
+        # If the program is not distributed, just return
+        if not is_distributed_initialized():
+            return decision
+
+        # Otherwise, broadcast decision to all processes from main (rank 0)
+        # This solves synchronization issues where main gets a different
+        # timing result than the other processes.
+        else:
+            broadcast_list = [decision]
+            torch.distributed.broadcast_object_list(broadcast_list, src=0)
+            return broadcast_list[0]
+
+    def _fit_valid(self, valid_set, epoch, enable):
+        # Validation stage
+        if valid_set is not None:
+            self.on_stage_start(Stage.VALID, epoch)
+            self.modules.eval()
+            avg_valid_loss = 0.0
+            with torch.no_grad():
+                for batch in tqdm(
+                    valid_set,
+                    dynamic_ncols=True,
+                    disable=not enable,
+                    colour=self.tqdm_barcolor["valid"],
+                ):
+                    self.step += 1
+                    loss = self.evaluate_batch(batch, stage=Stage.VALID)
+                    avg_valid_loss = self.update_average(loss, avg_valid_loss)
+
+                    # Debug mode only runs a few batches
+                    if self.debug and self.step == self.debug_batches:
+                        break
+
+                self.step = 0
+                self.on_stage_end(Stage.VALID, avg_valid_loss, epoch)
 
     def fit(
         self,
@@ -966,6 +1567,8 @@ class Brain:
             A set of data to use for validation. If a Dataset is given, a
             DataLoader is automatically created. If a DataLoader is given, it is
             used directly.
+        progressbar : bool
+            Whether to display the progress of each epoch in a progressbar.
         train_loader_kwargs : dict
             Kwargs passed to `make_dataloader()` for making the train_loader
             (if train_set is a Dataset, not DataLoader).
@@ -976,9 +1579,16 @@ class Brain:
             (if valid_set is a Dataset, not DataLoader).
             E.g., batch_size, num_workers.
             DataLoader kwargs are all valid.
-        progressbar : bool
-            Whether to display the progress of each epoch in a progressbar.
+
+        Returns
+        -------
+        None
         """
+        if self.test_only:
+            logger.info(
+                "Test only mode, skipping training and validation stages."
+            )
+            return
 
         if not (
             isinstance(train_set, DataLoader)
@@ -1003,94 +1613,28 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         # Iterate epochs
         for epoch in epoch_counter:
-
-            # Training stage
-            self.on_stage_start(Stage.TRAIN, epoch)
-            self.modules.train()
-
-            # Reset nonfinite count to 0 each epoch
-            self.nonfinite_count = 0
-
-            if self.train_sampler is not None and hasattr(
-                self.train_sampler, "set_epoch"
-            ):
-                self.train_sampler.set_epoch(epoch)
-
-            # Time since last intra-epoch checkpoint
-            last_ckpt_time = time.time()
-
-            # Only show progressbar if requested and main_process
-            enable = progressbar and sb.utils.distributed.if_main_process()
-            with tqdm(
-                train_set,
-                initial=self.step,
-                dynamic_ncols=True,
-                disable=not enable,
-            ) as t:
-                for batch in t:
-                    self.step += 1
-                    loss = self.fit_batch(batch)
-                    self.avg_train_loss = self.update_average(
-                        loss, self.avg_train_loss
-                    )
-                    t.set_postfix(train_loss=self.avg_train_loss)
-
-                    # Debug mode only runs a few batches
-                    if self.debug and self.step == self.debug_batches:
-                        break
-
-                    if (
-                        self.checkpointer is not None
-                        and self.ckpt_interval_minutes > 0
-                        and time.time() - last_ckpt_time
-                        >= self.ckpt_interval_minutes * 60.0
-                    ):
-                        # This should not use run_on_main, because that
-                        # includes a DDP barrier. That eventually leads to a
-                        # crash when the processes'
-                        # time.time() - last_ckpt_time differ and some
-                        # processes enter this block while others don't,
-                        # missing the barrier.
-                        if sb.utils.distributed.if_main_process():
-                            self._save_intra_epoch_ckpt()
-                        last_ckpt_time = time.time()
-
-            # Run train "on_stage_end" on all processes
-            self.on_stage_end(Stage.TRAIN, self.avg_train_loss, epoch)
-            self.avg_train_loss = 0.0
-            self.step = 0
-
-            # Validation stage
-            if valid_set is not None:
-                self.on_stage_start(Stage.VALID, epoch)
-                self.modules.eval()
-                avg_valid_loss = 0.0
-                with torch.no_grad():
-                    for batch in tqdm(
-                        valid_set, dynamic_ncols=True, disable=not enable
-                    ):
-                        self.step += 1
-                        loss = self.evaluate_batch(batch, stage=Stage.VALID)
-                        avg_valid_loss = self.update_average(
-                            loss, avg_valid_loss
-                        )
-
-                        # Debug mode only runs a few batches
-                        if self.debug and self.step == self.debug_batches:
-                            break
-
-                    # Only run validation "on_stage_end" on main process
-                    self.step = 0
-                    run_on_main(
-                        self.on_stage_end,
-                        args=[Stage.VALID, avg_valid_loss, epoch],
-                    )
+            self._fit_train(train_set=train_set, epoch=epoch, enable=enable)
+            self._fit_valid(valid_set=valid_set, epoch=epoch, enable=enable)
 
             # Debug mode only runs a few epochs
-            if self.debug and epoch == self.debug_epochs:
+            if (
+                self.debug
+                and epoch == self.debug_epochs
+                or self._optimizer_step_limit_exceeded
+            ):
                 break
+
+    @property
+    def _optimizer_step_limit_exceeded(self):
+        return (
+            self.optimizer_step_limit is not None
+            and self.optimizer_step >= self.optimizer_step_limit
+        )
 
     def _save_intra_epoch_ckpt(self):
         """Saves a CKPT with specific intra-epoch flag."""
@@ -1102,16 +1646,67 @@ class Brain:
             verbosity=logging.DEBUG,
         )
 
-    def _compile_jit(self):
-        """Compile requested modules with ``torch.jit.script``."""
-        if self.jit_module_keys is None:
-            return
+    def _compile(self):
+        """Compile requested modules with either JIT or TorchInductor."""
+        compile_available = hasattr(torch, "compile")
 
-        for name in self.jit_module_keys:
+        if not compile_available and self.compile_module_keys is not None:
+            raise ValueError(
+                "'compile_module_keys' specified, but this install of PyTorch "
+                "seems to be too old to support it."
+            )
+        # Modules to compile with torch.compile
+        compile_module_keys = set()
+        if self.compile:
+            if self.compile_module_keys is None:
+                compile_module_keys = set(self.modules)
+            else:
+                compile_module_keys = set(self.compile_module_keys)
+                logger.warning(
+                    "--compile and --compile_module_keys are both specified. "
+                    "Only modules specified in --compile_module_keys will be compiled."
+                )
+
+        # Modules to compile with jit
+        jit_module_keys = set()
+        if self.jit:
+            if self.jit_module_keys is None:
+                jit_module_keys = set(self.modules)
+            else:
+                jit_module_keys = set(self.jit_module_keys)
+                logger.warning(
+                    "--jit and --jit_module_keys are both specified. "
+                    "Only modules specified in --jit_module_keys will be compiled."
+                )
+
+        # find missing keys
+        for name in compile_module_keys | jit_module_keys:
             if name not in self.modules:
                 raise ValueError(
-                    "module" + name + " is not defined in your hparams file."
+                    f"module {name} is not defined in your hparams file."
                 )
+
+        # try 'torch.compile', remove successful compiles from JIT list
+        for name in compile_module_keys:
+            try:
+                module = torch.compile(
+                    self.modules[name],
+                    mode=self.compile_mode,
+                    fullgraph=self.compile_using_fullgraph,
+                    dynamic=self.compile_using_dynamic_shape_tracing,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"'{name}' in 'compile_module_keys' failed to compile "
+                    f"and will be skipped (may fallback onto JIT, if "
+                    f"specified): {e}"
+                )
+                continue
+
+            self.modules[name] = module.to(self.device)
+            jit_module_keys.discard(name)
+
+        for name in jit_module_keys:
             module = torch.jit.script(self.modules[name])
             self.modules[name] = module.to(self.device)
 
@@ -1123,11 +1718,18 @@ class Brain:
             for name, module in self.modules.items():
                 if any(p.requires_grad for p in module.parameters()):
                     module = SyncBatchNorm.convert_sync_batchnorm(module)
-                    module = DDP(
-                        module,
-                        device_ids=[self.device],
-                        find_unused_parameters=self.find_unused_parameters,
-                    )
+                    if self.distributed_backend == "gloo":
+                        module = DDP(
+                            module,
+                            device_ids=None,
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
+                    else:
+                        module = DDP(
+                            module,
+                            device_ids=[self.device],
+                            find_unused_parameters=self.find_unused_parameters,
+                        )
                     self.modules[name] = module
         else:
             # data_parallel_backend
@@ -1173,6 +1775,9 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
@@ -1187,7 +1792,10 @@ class Brain:
         avg_test_loss = 0.0
         with torch.no_grad():
             for batch in tqdm(
-                test_set, dynamic_ncols=True, disable=not progressbar
+                test_set,
+                dynamic_ncols=True,
+                disable=not enable,
+                colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
                 loss = self.evaluate_batch(batch, stage=Stage.TEST)
@@ -1197,11 +1805,9 @@ class Brain:
                 if self.debug and self.step == self.debug_batches:
                     break
 
-            # Only run evaluation "on_stage_end" on main process
-            run_on_main(
-                self.on_stage_end, args=[Stage.TEST, avg_test_loss, None]
-            )
+            self.on_stage_end(Stage.TEST, avg_test_loss, None)
         self.step = 0
+        return avg_test_loss
 
     def update_average(self, loss, avg_loss):
         """Update running average of the loss.
@@ -1223,17 +1829,65 @@ class Brain:
             avg_loss += float(loss) / self.step
         return avg_loss
 
+    @contextmanager
+    def no_sync(self, use=True):
+        """Copies pytorch's implementation for doing no_sync across all modules.
+
+        Explanation: nn.module.no_sync() is a context manager for when one does
+        not want to sync gradients, which happens when using both DDP and gradient accumulation.
+        Speechbrain brain's class can contain multiple modules and calling no_sync on these
+        individually would be very awkward, therefore this contextmanager exists.
+
+        Arguments
+        ---------
+        use : bool
+            If set to `False` will still sync gradients, useful to make behavior toggleable.
+
+        Yields
+        ------
+        None
+        """
+        if use:
+            old_values_list = []
+            for module in self.modules.values():
+                if not hasattr(module, "require_backward_grad_sync"):
+                    # if not using DDP
+                    continue
+                old_values_list.append(module.require_backward_grad_sync)
+                module.require_backward_grad_sync = False
+            yield
+            i = 0
+            for module in self.modules.values():
+                if not hasattr(module, "require_backward_grad_sync"):
+                    continue
+                module.require_backward_grad_sync = old_values_list[i]
+                i += 1
+        else:
+            yield
+
     @sb.utils.checkpoints.mark_as_saver
     def _save(self, path):
-        save_dict = {"step": self.step, "avg_train_loss": self.avg_train_loss}
-        with open(path, "w") as w:
+        save_dict = {
+            "step": self.step,
+            "avg_train_loss": self.avg_train_loss,
+            "optimizer_step": self.optimizer_step,
+        }
+        with open(path, "w", encoding="utf-8") as w:
             w.write(yaml.dump(save_dict))
 
     @sb.utils.checkpoints.mark_as_loader
-    def _recover(self, path, end_of_epoch, device):
+    def _recover(self, path, end_of_epoch):
         del end_of_epoch
-        del device
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]
+        # Ensure compatibility with checkpoints from before optimizer_step:
+        if "optimizer_step" not in save_dict:
+            clsname = self.__class__.__name__
+            MSG = f"'optimizer_step' not found in {clsname} checkpoint."
+            MSG += " Using the saved 'step' value (BACKWARDS COMPATIBILITY)"
+            warnings.warn(MSG)
+            self.optimizer_step = self.step
+        else:
+            self.optimizer_step = save_dict["optimizer_step"]

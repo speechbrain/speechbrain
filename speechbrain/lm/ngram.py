@@ -4,6 +4,7 @@ N-gram language model query interface
 Authors
  * Aku Rouhe 2020
 """
+
 import collections
 
 NEGINFINITY = float("-inf")
@@ -78,6 +79,7 @@ class BackoffNgramLM:
         self.top_order = order
 
     def logprob(self, token, context=tuple()):
+        """Computes the backoff log weights and applies them."""
         # If a longer context is given than we can ever use,
         # just use less context.
         query_order = len(context) + 1
@@ -195,5 +197,5 @@ def ngram_perplexity(eval_details, logbase=10.0):
     """
     counter = sum(eval_details, collections.Counter())
     exponent = counter["neglogprob"] / counter["num_tokens"]
-    perplexity = logbase ** exponent
+    perplexity = logbase**exponent
     return perplexity

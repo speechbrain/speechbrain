@@ -1,0 +1,25 @@
+# ############################################################################
+# Profile: pretrained SpeechBrain model
+# Benchmark: real-time factors + memory peaks
+#
+# Authors:  Andreas Nautsch 2022
+# # ############################################################################
+
+# Which model to profile? What is its type?
+pretrained_model:
+  source: speechbrain/asr-wav2vec2-commonvoice-fr
+  type: EncoderASR
+
+# Which settings should be benchmarked?
+#   by audio duration (random values) -> simulation for nominal level of data
+#   by batch size -> simulation for nominal level of environment
+#   take a long example_audio, the profiling script will break it down to its first 1s and then add more duration
+#   example_audio: None  # this will simulate random data for a batch as outlined by audio_mockup_secs & batch_sizes
+#   triangle_only: True  # expecting more VRAM than your GPU can handle? This profiling recipe has Gb overheads, too.
+#   export_logs: True  # store tracing data for visualisation in `log` folder - e.g. tensorboard (reports might differ)
+profiling_dimensions:
+  audio_mockup_secs: [1, 2, 5, 8, 32]
+  batch_sizes: [1, 4, 8]
+  example_audio: ../../samples/audio_samples/example2.flac
+  triangle_only: False
+  # export_logs: True

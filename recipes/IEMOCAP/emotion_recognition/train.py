@@ -11,21 +11,22 @@ Authors
  * Pierre-Yves Yanni 2021
 """
 
+import csv
 import os
 import sys
-import csv
-import speechbrain as sb
-import torch
-from torch.utils.data import DataLoader
 from enum import Enum, auto
-from tqdm.contrib import tqdm
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+from torch.utils.data import DataLoader
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
 
 
 class EmoIdBrain(sb.Brain):
     def compute_forward(self, batch, stage):
-        """Computation pipeline based on a encoder + emotion classifier.
-        """
+        """Computation pipeline based on a encoder + emotion classifier."""
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
@@ -39,32 +40,13 @@ class EmoIdBrain(sb.Brain):
 
         return outputs
 
-    def fit_batch(self, batch):
-        """Trains the parameters given a single batch in input"""
-
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not finite
-            self.check_gradients(loss)
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-        return loss.detach()
-
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         _, lens = batch.sig
         emoid, _ = batch.emo_encoded
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
-
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
@@ -123,7 +105,6 @@ class EmoIdBrain(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -185,7 +166,7 @@ class EmoIdBrain(sb.Brain):
             save_file = os.path.join(
                 self.hparams.output_folder, "predictions.csv"
             )
-            with open(save_file, "w", newline="") as csvfile:
+            with open(save_file, "w", newline="", encoding="utf-8") as csvfile:
                 outwriter = csv.writer(csvfile, delimiter=",")
                 outwriter.writerow(["id", "prediction", "true_value"])
 
@@ -204,7 +185,9 @@ class EmoIdBrain(sb.Brain):
                     torch.argmax(output, dim=-1).squeeze(dim=1).tolist()
                 )
 
-                with open(save_file, "a", newline="") as csvfile:
+                with open(
+                    save_file, "a", newline="", encoding="utf-8"
+                ) as csvfile:
                     outwriter = csv.writer(csvfile, delimiter=",")
                     for emo_id, prediction, true_val in zip(
                         emo_ids, predictions, true_vals
@@ -254,7 +237,7 @@ def dataio_prep(hparams):
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
 
-    # Initialization of the label encoder. The label encoder assignes to each
+    # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
@@ -269,16 +252,21 @@ def dataio_prep(hparams):
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "emo_encoded"],
         )
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
 
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
@@ -292,7 +280,6 @@ def dataio_prep(hparams):
 
 # RECIPE BEGINS!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -300,7 +287,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -313,19 +300,20 @@ if __name__ == "__main__":
     from iemocap_prepare import prepare_data  # noqa E402
 
     # Data preparation, to be run on only one process.
-    sb.utils.distributed.run_on_main(
-        prepare_data,
-        kwargs={
-            "data_original": hparams["data_original"],
-            "data_transformed": hparams["data_folder"],
-            "save_json_train": hparams["train_annotation"],
-            "save_json_valid": hparams["valid_annotation"],
-            "save_json_test": hparams["test_annotation"],
-            "split_ratio": [80, 10, 10],
-            "different_speakers": hparams["different_speakers"],
-            "seed": hparams["seed"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        sb.utils.distributed.run_on_main(
+            prepare_data,
+            kwargs={
+                "data_original": hparams["data_folder"],
+                "save_json_train": hparams["train_annotation"],
+                "save_json_valid": hparams["valid_annotation"],
+                "save_json_test": hparams["test_annotation"],
+                "split_ratio": hparams["split_ratio"],
+                "different_speakers": hparams["different_speakers"],
+                "test_spk_id": hparams["test_spk_id"],
+                "seed": hparams["seed"],
+            },
+        )
 
     # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams)

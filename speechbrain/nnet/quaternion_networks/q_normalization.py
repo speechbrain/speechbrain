@@ -2,6 +2,7 @@
 
 Authors
  * Titouan Parcollet 2020
+ * Drew Wagner 2024
 """
 
 import torch
@@ -54,7 +55,7 @@ class QBatchNorm(torch.nn.Module):
         eps=1e-4,
         track_running_stats=True,
     ):
-        super(QBatchNorm, self).__init__()
+        super().__init__()
 
         self.num_features = input_size // 4
         self.gamma_init = gamma_init
@@ -90,9 +91,18 @@ class QBatchNorm(torch.nn.Module):
         ---------
         input : torch.Tensor (batch, time, [channels])
             Input to normalize. It can be 2d, 3d, 4d.
+
+        Returns
+        -------
+        The normalized input.
         """
 
         exponential_average_factor = 0.0
+
+        repeats = [
+            4 if dim == (self.dim % input.dim()) else 1
+            for dim in range(input.dim())
+        ]
 
         # Entering training mode
         if self.training:
@@ -108,7 +118,7 @@ class QBatchNorm(torch.nn.Module):
 
             # Get mean along batch axis
             mu = torch.mean(input, dim=0)
-            mu_r, mu_i, mu_j, mu_k = torch.chunk(mu, 4, dim=self.dim)
+            # mu_r, mu_i, mu_j, mu_k = torch.chunk(mu, 4, dim=self.dim)
 
             # Get variance along batch axis
             delta = input - mu
@@ -116,48 +126,37 @@ class QBatchNorm(torch.nn.Module):
                 delta, 4, dim=self.dim
             )
             quat_variance = torch.mean(
-                (delta_r ** 2 + delta_i ** 2 + delta_j ** 2 + delta_k ** 2),
+                (delta_r**2 + delta_i**2 + delta_j**2 + delta_k**2),
                 dim=0,
             )
 
-            denominator = torch.sqrt(quat_variance + self.eps)
+            # Reciprocal sqrt was 8x faster in testing
+            denominator = torch.rsqrt(quat_variance + self.eps)
 
-            # x - mu / sqrt(var + e)
-            out = input / torch.cat(
-                [denominator, denominator, denominator, denominator],
-                dim=self.dim,
-            )
+            # (x - mu) / sqrt(var + e)
+            out = delta * denominator.repeat(repeats)
 
             # Update the running stats
             if self.track_running_stats:
-                self.running_mean = (
-                    1 - exponential_average_factor
-                ) * self.running_mean + exponential_average_factor * mu.view(
-                    self.running_mean.size()
-                )
+                if self.num_batches_tracked == 1:
+                    self.running_mean = mu
+                    self.running_var = quat_variance
+                else:
+                    self.running_mean = (
+                        1 - exponential_average_factor
+                    ) * self.running_mean + exponential_average_factor * mu
 
-                self.running_var = (
-                    1 - exponential_average_factor
-                ) * self.running_var + exponential_average_factor * quat_variance.view(
-                    self.running_var.size()
-                )
+                    self.running_var = (
+                        (1 - exponential_average_factor) * self.running_var
+                        + exponential_average_factor * quat_variance
+                    )
         else:
-            q_var = torch.cat(
-                [
-                    self.running_var,
-                    self.running_var,
-                    self.running_var,
-                    self.running_var,
-                ],
-                dim=self.dim,
-            )
-            out = (input - self.running_mean) / q_var
+            denominator = torch.rsqrt(self.running_var + self.eps)
+            denominator = denominator.repeat(repeats)
+            out = (input - self.running_mean) * denominator
 
         # lambda * (x - mu / sqrt(var + e)) + beta
-
-        q_gamma = torch.cat(
-            [self.gamma, self.gamma, self.gamma, self.gamma], dim=self.dim
-        )
+        q_gamma = self.gamma.repeat(repeats)
         out = (q_gamma * out) + self.beta
 
         return out

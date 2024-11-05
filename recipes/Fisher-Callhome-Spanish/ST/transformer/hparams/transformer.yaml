@@ -14,7 +14,7 @@
 debug: False
 seed: 8886
 num_workers: 8
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 ckpt_interval_minutes: 15 # save checkpoint every N min
 bleu_file: !ref <output_folder>/bleu.txt
@@ -54,18 +54,21 @@ normalize: !new:speechbrain.processing.features.InputNormalization
     norm_type: global
     update_until_epoch: 4
 
-speed_perturb: !new:speechbrain.processing.speech_augmentation.SpeedPerturb
+# Speed perturbation
+speed_changes: [90, 100, 110]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
     orig_freq: !ref <sample_rate>
-    speeds: [90, 100, 110]
+    speeds: !ref <speed_changes>
 
 # Trainer settings
 number_of_epochs: 50
-valid_search_eopch: 10
+valid_search_epoch: 10
 batch_size: 8 # this works for 2 GPUs with 11GB
-gradient_accumulation: 8
-gradient_clipping: 5.0
+grad_accumulation_factor: 8
 loss_reduction: batchmean
 sorting: random
+avg_checkpoints: 5 # Number of checkpoints to average for evaluation
 
 # stages related parameters
 stage_one_epochs: 100 # not gonna changing optimizer in this recipe
@@ -88,7 +91,7 @@ test_dataloader_opts:
     batch_size: !ref <batch_size>
     num_workers: !ref <num_workers>
 
-####################### Model parameters ###########################
+####################### Model Parameters ###########################
 # Transformer
 d_model: 256
 nhead: 4
@@ -125,12 +128,11 @@ label_smoothing: 0.1
 pad_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
 
 # Decoding parameters
 min_decode_ratio: 0.0
 max_decode_ratio: 1.0
-valid_search_interval: !ref <valid_search_eopch>
+valid_search_interval: !ref <valid_search_epoch>
 valid_beam_size: 10
 test_beam_size: 10
 
@@ -181,6 +183,7 @@ modules:
     CNN: !ref <CNN>
     Transformer: !ref <Transformer>
     seq_lin: !ref <seq_lin>
+    asr_seq_lin: !ref <asr_seq_lin>
     ctc_lin: !ref <ctc_lin>
 
 model: !new:torch.nn.ModuleList
@@ -197,29 +200,25 @@ SGD: !name:torch.optim.SGD
     momentum: 0.99
     nesterov: True
 
-valid_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, null]
+valid_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <valid_beam_size>
     using_eos_threshold: False
-    length_normalization: False
+    length_normalization: True
 
-test_search: !new:speechbrain.decoders.S2STransformerBeamSearch
-    modules: [!ref <Transformer>, !ref <seq_lin>, null]
+test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
+    modules: [!ref <Transformer>, !ref <seq_lin>]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>
-    blank_index: !ref <blank_index>
     min_decode_ratio: !ref <min_decode_ratio>
     max_decode_ratio: !ref <max_decode_ratio>
     beam_size: !ref <test_beam_size>
     using_eos_threshold: True
     length_normalization: True
-    ctc_weight: 0
-    lm_weight: 0
 
 log_softmax: !new:torch.nn.LogSoftmax
     dim: -1

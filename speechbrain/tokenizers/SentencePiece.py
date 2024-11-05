@@ -4,17 +4,21 @@ Authors
  * Loren Lugosch 2020
 """
 
-import os.path
-import torch
-import logging
 import csv
 import json
+import os.path
+from dataclasses import dataclass
+from typing import List
+
 import sentencepiece as spm
+import torch
+
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SentencePiece:
@@ -62,6 +66,10 @@ class SentencePiece:
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
     eos_id : int
         If -1 the bos_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    pad_id : int
+        If -1 the pad_id = unk_id = 0. otherwise, bos_id = int. (default: -1)
+    unk_id : int
+        The token corresponding to an unknown symbol (not in token set).
     split_by_whitespace : bool
         If False, allow the sentencepiece to extract piece crossing multiple
         words. This feature is important for : Chinese/Japanese/Korean.
@@ -74,29 +82,31 @@ class SentencePiece:
         recovering words from the tokenizer.
     annotation_format : str
         The format of the annotation file. JSON or csv are the formats supported.
+    text_file: str
+        An alternate path to the text file (needed when multiple models are trained on
+        the same data file)
     add_dummy_prefix : bool
         If True the tokenizer adds dummy whitespace at the beginning of text. (default: True)
+
     Example
     -------
     >>> import torch
     >>> dict_int2lab = {1: "HELLO", 2: "MORNING"}
-    >>> model_dir = "tests/unittests/tokenizer_data/"
+    >>> model_dir = getfixture('tmpdir') / "tokenizer_data"
     >>> # Example with csv
-    >>> annotation_train = "tests/unittests/tokenizer_data/dev-clean.csv"
+    >>> annotation_train = "tests/samples/annotation/dev-clean.csv"
     >>> annotation_read = "wrd"
     >>> model_type = "bpe"
-    >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
-    ...                     model_type)
+    >>> bpe = SentencePiece(str(model_dir), 100, annotation_train, annotation_read, model_type)
     >>> batch_seq = torch.Tensor([[1, 2, 2, 1],[1, 2, 1, 0]])
     >>> batch_lens = torch.Tensor([1.0, 0.75])
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )
     >>> # Example using JSON
-    >>> annotation_train = "tests/unittests/tokenizer_data/dev-clean.json"
+    >>> annotation_train = str(model_dir + "/dev-clean.json")
     >>> annotation_read = "wrd"
-    >>> bpe = SentencePiece(model_dir,100, annotation_train, annotation_read,
-    ...                     model_type, annotation_format = 'json')
+    >>> bpe = SentencePiece(model_dir, 100, annotation_train, annotation_read, model_type, annotation_format = 'json')
     >>> encoded_seq_ids, encoded_seq_pieces = bpe(
     ...     batch_seq, batch_lens, dict_int2lab, task="encode"
     ... )
@@ -121,6 +131,7 @@ class SentencePiece:
         num_sequences=None,
         annotation_list_to_check=None,
         annotation_format="csv",
+        text_file=None,
         add_dummy_prefix=True,
     ):
         if model_type not in ["unigram", "bpe", "char"]:
@@ -136,7 +147,14 @@ class SentencePiece:
 
         if self.annotation_train is not None:
             ext = os.path.splitext(self.annotation_train)[1]
-            self.text_file = self.annotation_train.replace(ext, ".txt")
+            if text_file is None:
+                text_file = os.path.join(
+                    model_dir,
+                    os.path.basename(self.annotation_train).replace(
+                        ext, ".txt"
+                    ),
+                )
+            self.text_file = text_file
 
         self.prefix_model_file = os.path.join(
             model_dir, str(vocab_size) + "_" + model_type
@@ -156,17 +174,6 @@ class SentencePiece:
         self.add_dummy_prefix = str(add_dummy_prefix)
 
         if not os.path.isfile(self.prefix_model_file + ".model"):
-            logger.info("Train tokenizer with type:" + self.model_type)
-            if not os.path.isfile(self.text_file):
-                if annotation_format == "csv":
-                    run_on_main(self._csv2text)
-                elif annotation_format == "json":
-                    run_on_main(self._json2text)
-                else:
-                    raise ValueError(
-                        "Annotation format not supported. Supported formats are csv and json. Got "
-                        + annotation_format
-                    )
             run_on_main(self._train_BPE)
         else:
             logger.info("Tokenizer is already trained.")
@@ -178,6 +185,17 @@ class SentencePiece:
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
 
+        if int(self.vocab_size) != self.sp.vocab_size():
+            base_msg = f"SentencePiece vocab size `{self.vocab_size}` requested, but the loaded model has `{self.sp.vocab_size()}`! This can cause decoding errors or weird model training behavior in some cases."
+            if self.model_type == "char":
+                logger.warning(
+                    f"{base_msg} The model type is 'char', for which `vocab_size` has no impact."
+                )
+            else:
+                logger.warning(
+                    f"{base_msg} Are you loading a tokenizer with the wrong parameters?"
+                )
+
         if annotation_list_to_check is not None:
             run_on_main(
                 self._check_coverage_from_bpe,
@@ -185,8 +203,7 @@ class SentencePiece:
             )
 
     def _csv2text(self):
-        """Read CSV file and convert specific data entries into text file.
-        """
+        """Read CSV file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train
@@ -198,7 +215,7 @@ class SentencePiece:
             + " sequences from:"
             + self.annotation_train
         )
-        annotation_file = open(self.annotation_train, "r")
+        annotation_file = open(self.annotation_train, "r", encoding="utf-8")
         reader = csv.reader(annotation_file)
         headers = next(reader, None)
         if self.annotation_read not in headers:
@@ -206,7 +223,7 @@ class SentencePiece:
                 self.annotation_read + " must exist in:" + self.annotation_train
             )
         index_label = headers.index(self.annotation_read)
-        text_file = open(self.text_file, "w+")
+        text_file = open(self.text_file, "w+", encoding="utf-8")
         row_idx = 0
         for row in reader:
             if self.num_sequences is not None and row_idx > self.num_sequences:
@@ -226,8 +243,7 @@ class SentencePiece:
         logger.info("Text file created at: " + self.text_file)
 
     def _json2text(self):
-        """Read JSON file and convert specific data entries into text file.
-        """
+        """Read JSON file and convert specific data entries into text file."""
         if not os.path.isfile(os.path.abspath(self.annotation_train)):
             raise ValueError(
                 self.annotation_train
@@ -241,11 +257,11 @@ class SentencePiece:
         )
 
         # Read JSON
-        with open(self.annotation_train, "r") as f:
+        with open(self.annotation_train, "r", encoding="utf-8") as f:
             out_json = json.load(f)
 
         # Save text file
-        text_file = open(self.text_file, "w+")
+        text_file = open(self.text_file, "w+", encoding="utf-8")
         row_idx = 0
 
         for snt_id in out_json.keys():
@@ -271,6 +287,19 @@ class SentencePiece:
         SentencePiece Library. If you use "char" mode, the SentencePiece
         creates a char dict so the vocab_size attribute is not needed.
         """
+
+        logger.info("Train tokenizer with type:" + self.model_type)
+        if not os.path.isfile(self.text_file):
+            if self.annotation_format == "csv":
+                self._csv2text()
+            elif self.annotation_format == "json":
+                self._json2text()
+            else:
+                raise ValueError(
+                    "Annotation format not supported. Supported formats are csv and json. Got "
+                    + self.annotation_format
+                )
+
         query = (
             "--input="
             + self.text_file
@@ -305,9 +334,10 @@ class SentencePiece:
 
     def _check_coverage_from_bpe(self, list_annotation_files=[]):
         """Logging the accuracy of the BPE model to recover words from the training text.
+
         Arguments
         ---------
-        annotation_list_to_check : list,
+        list_annotation_files : list,
             List of the annotation file which is used for checking the accuracy of recovering words from the tokenizer.
         """
         for annotation_file in list_annotation_files:
@@ -317,7 +347,9 @@ class SentencePiece:
                 )
                 # csv reading
                 if self.annotation_format == "csv":
-                    fannotation_file = open(annotation_file, "r")
+                    fannotation_file = open(
+                        annotation_file, "r", encoding="utf-8"
+                    )
                     reader = csv.reader(fannotation_file)
                     headers = next(reader, None)
                     if self.annotation_read not in headers:
@@ -329,7 +361,9 @@ class SentencePiece:
                     index_label = headers.index(self.annotation_read)
                 # json reading
                 else:
-                    with open(self.annotation_train, "r") as f:
+                    with open(
+                        self.annotation_train, "r", encoding="utf-8"
+                    ) as f:
                         reader = json.load(f)
                         index_label = self.annotation_read
 
@@ -360,13 +394,13 @@ class SentencePiece:
                     fannotation_file.close()
                 logger.info("recover words from: " + annotation_file)
                 if len(wrong_recover_list) > 0:
-                    logger.warn(
+                    logger.warning(
                         "Wrong recover words: " + str(len(wrong_recover_list))
                     )
-                    logger.warn(
+                    logger.warning(
                         "Tokenizer vocab size: " + str(self.sp.vocab_size())
                     )
-                    logger.warn(
+                    logger.warning(
                         "accuracy recovering words: "
                         + str(
                             1
@@ -382,9 +416,7 @@ class SentencePiece:
                     "No accuracy recover checking for" + annotation_file
                 )
 
-    def __call__(
-        self, batch, batch_lens=None, ind2lab=None, task="encode",
-    ):
+    def __call__(self, batch, batch_lens=None, ind2lab=None, task="encode"):
         """This __call__ function implements the tokenizer encoder and decoder
         (restoring the string of word) for BPE, Regularized BPE (with unigram),
         and char (speechbrain/nnet/RNN.py).
@@ -453,3 +485,84 @@ class SentencePiece:
                 ).split(" ")
                 for i, utt_seq in enumerate(batch)
             ]
+
+
+def get_spm_tokens(model_path):
+    """Fetch list of tokens, can be indexed by token id
+
+    The resulting list can be used to map id to token.
+
+    Arguments
+    ---------
+    model_path : str
+        Path to SentencePiece model
+
+    Returns
+    -------
+    list
+        Tokens in order by id (can be indexed by id)
+    """
+    model = spm.SentencePieceProcessor()
+    model.load(model_path)
+    mapping = [model.sp.id_to_piece(i) for i in range(model.sp.vocab_size())]
+    return mapping
+
+
+@dataclass
+class SentencePieceDecoderStreamingContext:
+    """Mutable streaming context for a single SentencePiece streaming session."""
+
+    emitted_symbol_count: int = 0
+    """The number of symbols that have been emitted for this transcription."""
+
+
+def spm_decode_preserve_leading_space(
+    tokenizer: spm.SentencePieceProcessor,
+    hyps: List[int],
+    context: SentencePieceDecoderStreamingContext,
+) -> List[str]:
+    """Assuming the tokenizer is sentencepiece, decodes the input hypothesis
+    but avoids incorrectly stripping leading spaces when streaming.
+    Operates on a single hypothesis, not a batch of hypotheses.
+
+    Normally, the tokenizer always decodes full sentences at a time, with the
+    consequence that the first space in decoding will get removed.
+    However, when streaming, we might be decoding mid-utterance where spaces
+    must not be removed mid-sentence. This function handles this case.
+
+    e.g. if within the same streaming context, you decode `["▁how", "▁are"]`
+    then `["▁you"]`, the decoder would normally return `"how areyou"` instead of
+    `"how are you"` like this function does.
+
+    Arguments
+    ---------
+    tokenizer : sentencepiece.SentencePieceProcessor
+        The SentencePiece processor to use for decoding.
+    hyps : list of output token hypotheses
+        List of tokens to decode of any length `>=0`.
+    context : SentencePieceDecoderStreamingContext
+        Mutable streaming context for the sentencepiece decoder, which should be
+        reused across calls for the same decoding stream.
+
+    Returns
+    -------
+    str
+        Decoded text. Leading spaces are preserved, except at the start of a
+        transcription.
+    """
+    proto = tokenizer.decode([hyps], out_type="immutable_proto")[0]
+    text = proto.text
+
+    if len(proto.pieces) >= 1:
+        should_preserve_space = context.emitted_symbol_count > 0
+        # By default, SentencePiece tags spaces with `▁` i.e. \u2581
+        # (unicode for "Lower One Eighth Block").
+        if should_preserve_space and proto.pieces[0].piece.startswith("\u2581"):
+            # We are mid-sentence and the decoder has nuked the first space,
+            # as the decoder believes we are decoding a full sentence.
+            # Insert it back.
+            text = " " + text
+
+        context.emitted_symbol_count += len(proto.pieces)
+
+    return text

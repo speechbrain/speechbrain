@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2020 The TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
+# Copyright 2020 The torch.TensorFlow Datasets Authors and the HuggingFace Datasets Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,16 @@
 # Lint as: python3
 """
 Librispeech language modeling dataset.
-    this is an extented from huggingface's official implementation to allow the use of train-960 trainscript and lm_corpus for LM training
+    this is extended from huggingface's official implementation to allow the use of train-960 trainscript and lm_corpus for LM training
 Authors
  * Jianyuan Zhong 2021
 """
 
 from __future__ import absolute_import, division, print_function
 
-import datasets
 import re
-from typing import Optional
 
+import datasets
 
 _CITATION = """\
 @inproceedings{panayotov2015librispeech,
@@ -49,10 +48,13 @@ _DL_URL = "http://www.openslr.org/resources/11/librispeech-lm-norm.txt.gz"
 
 
 class LibrispeechLmConfig(datasets.BuilderConfig):
-    """builder config for LibriSpeech LM
-    """
+    """builder config for LibriSpeech LM"""
 
-    lm_corpus_path: Optional[str] = None
+    def __init__(self, **kwargs):
+        self.lm_corpus_path = kwargs.pop("lm_corpus_path", None)
+        super().__init__(
+            **kwargs,
+        )
 
     def __post_init__(self):
         if self.lm_corpus_path is None:
@@ -81,7 +83,7 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
         for split_name, files in self.config.data_files.items():
             if (
                 split_name == "train"
-            ):  # concatination lm_copus and train transcripts
+            ):  # concatenation lm_corpus and train transcripts
                 path_dic[split_name] = dl_manager.download_and_extract(
                     [self.config.lm_corpus_path] + files
                 )
@@ -97,9 +99,10 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
 
     def _generate_examples(self, archive_path):
         """Yields examples."""
+        key = 0
         for p in archive_path:
             with open(p, "r", encoding="utf-8") as f:
-                for key, line in enumerate(f):
+                for line in f:
                     line = re.sub(
                         r"\d+-\d+-\d+\s", "", line
                     )  # remove ids in transcripts
@@ -109,3 +112,4 @@ class LibrispeechLm(datasets.GeneratorBasedBuilder):
                     # very long sentences (>1000 char) are removed to prevent OOM
                     if text and len(text) < 1000:
                         yield key, {"text": text}
+                    key += 1

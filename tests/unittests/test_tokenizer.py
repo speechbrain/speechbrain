@@ -1,4 +1,5 @@
 import os
+
 import torch
 
 
@@ -14,10 +15,10 @@ def test_tokenizer():
     dict_int2lab = {1: "HELLO", 2: "MORNING"}
 
     spm = SentencePiece(
-        os.path.abspath("tokenizer_data/"),
+        os.path.abspath("tests/tmp/tokenizer_data"),
         100,
         annotation_train=os.path.abspath(
-            "tests/unittests/tokenizer_data/dev-clean.csv"
+            "tests/samples/annotation/tokenizer.csv"
         ),
         annotation_read="wrd",
         model_type="bpe",
@@ -55,10 +56,10 @@ def test_tokenizer():
     }
 
     spm = SentencePiece(
-        os.path.abspath("tokenizer_data/"),
+        os.path.abspath("tests/tmp/tokenizer_data"),
         100,
         annotation_train=os.path.abspath(
-            "tests/unittests/tokenizer_data/dev-clean.csv"
+            "tests/sample/annotation/tokenizer.csv"
         ),
         annotation_read="char",
         char_format_input=True,

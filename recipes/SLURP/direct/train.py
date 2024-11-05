@@ -15,14 +15,16 @@ Authors
  * Mirco Ravanelli 2020
 """
 
-import sys
-import torch
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-import jsonlines
 import ast
+import sys
+
+import jsonlines
 import pandas as pd
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
 
 
 # Define training procedure
@@ -33,16 +35,13 @@ class SLU(sb.Brain):
         wavs, wav_lens = batch.sig
         tokens_bos, tokens_bos_lens = batch.tokens_bos
 
-        # Add augmentation if specified
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                tokens_bos = torch.cat([tokens_bos, tokens_bos], dim=0)
-                tokens_bos_lens = torch.cat([tokens_bos_lens, tokens_bos_lens])
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            tokens_bos = self.hparams.wav_augment.replicate_labels(tokens_bos)
+            tokens_bos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_bos_lens
+            )
 
         # ASR encoder forward pass
         with torch.no_grad():
@@ -60,34 +59,28 @@ class SLU(sb.Brain):
         p_seq = self.hparams.log_softmax(logits)
 
         # Compute outputs
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
-            return p_seq, wav_lens
+        if stage == sb.Stage.TRAIN and self.step % show_results_every != 0:
+            return p_seq, wav_lens, None
         else:
-            p_tokens, scores = self.hparams.beam_searcher(encoder_out, wav_lens)
+            p_tokens, _, _, _ = self.hparams.beam_searcher(
+                encoder_out, wav_lens
+            )
+
             return p_seq, wav_lens, p_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (NLL) given predictions and targets."""
 
-        if (
-            stage == sb.Stage.TRAIN
-            and self.batch_count % show_results_every != 0
-        ):
-            p_seq, wav_lens = predictions
-        else:
-            p_seq, wav_lens, predicted_tokens = predictions
+        p_seq, wav_lens, predicted_tokens = predictions
 
         ids = batch.id
         tokens_eos, tokens_eos_lens = batch.tokens_eos
         tokens, tokens_lens = batch.tokens
 
-        if hasattr(self.hparams, "env_corrupt") and stage == sb.Stage.TRAIN:
-            tokens_eos = torch.cat([tokens_eos, tokens_eos], dim=0)
-            tokens_eos_lens = torch.cat(
-                [tokens_eos_lens, tokens_eos_lens], dim=0
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            tokens_eos = self.hparams.wav_augment.replicate_labels(tokens_eos)
+            tokens_eos_lens = self.hparams.wav_augment.replicate_labels(
+                tokens_eos_lens
             )
 
         loss_seq = self.hparams.seq_cost(
@@ -97,9 +90,7 @@ class SLU(sb.Brain):
         # (No ctc loss)
         loss = loss_seq
 
-        if (stage != sb.Stage.TRAIN) or (
-            self.batch_count % show_results_every == 0
-        ):
+        if (stage != sb.Stage.TRAIN) or (self.step % show_results_every == 0):
             # Decode token terms to words
             predicted_semantics = [
                 tokenizer.decode_ids(utt_seq).split(" ")
@@ -136,7 +127,14 @@ class SLU(sb.Brain):
                                     "action": "none",
                                     "entities": [],
                                 }
-                        except SyntaxError:  # need this if the output is not a valid dictionary
+                        # need this if the output is not a valid dictionary
+                        except SyntaxError:
+                            _dict = {
+                                "scenario": "none",
+                                "action": "none",
+                                "entities": [],
+                            }
+                        except ValueError:
                             _dict = {
                                 "scenario": "none",
                                 "action": "none",
@@ -148,35 +146,16 @@ class SLU(sb.Brain):
         return loss
 
     def log_outputs(self, predicted_semantics, target_semantics):
-        """ TODO: log these to a file instead of stdout """
+        """TODO: log these to a file instead of stdout"""
         for i in range(len(target_semantics)):
             print(" ".join(predicted_semantics[i]).replace("|", ","))
             print(" ".join(target_semantics[i]).replace("|", ","))
             print("")
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss.backward()
-        if self.check_gradients(loss):
-            self.optimizer.step()
-        self.optimizer.zero_grad()
-        self.batch_count += 1
-        return loss.detach()
-
-    def evaluate_batch(self, batch, stage):
-        """Computations needed for validation/test batches"""
-        predictions = self.compute_forward(batch, stage=stage)
-        loss = self.compute_objectives(predictions, batch, stage=stage)
-        return loss.detach()
-
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
-        self.batch_count = 0
 
         if stage != sb.Stage.TRAIN:
-
             self.cer_metric = self.hparams.cer_computer()
             self.wer_metric = self.hparams.error_rate_computer()
 
@@ -200,25 +179,31 @@ class SLU(sb.Brain):
                 valid_stats=stage_stats,
             )
             self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
+                meta={"WER": stage_stats["WER"]},
+                min_keys=["WER"],
             )
         elif stage == sb.Stage.TEST:
             self.hparams.train_logger.log_stats(
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.wer_file, "w") as w:
-                self.wer_metric.write_stats(w)
+            if if_main_process():
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
+                    self.wer_metric.write_stats(w)
 
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     data_folder = hparams["data_folder"]
 
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_train"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_train"],
+        replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -243,12 +228,14 @@ def dataio_prepare(hparams):
         )
 
     valid_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_valid"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_valid"],
+        replacements={"data_root": data_folder},
     )
     valid_data = valid_data.filtered_sorted(sort_key="duration")
 
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=hparams["csv_test"], replacements={"data_root": data_folder},
+        csv_path=hparams["csv_test"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
@@ -292,15 +279,13 @@ def dataio_prepare(hparams):
 
 
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     show_results_every = 100  # plots results every N iterations
 
-    # If distributed_launch=True then
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
@@ -325,13 +310,28 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    run_on_main(hparams["prepare_noise_data"])
+    run_on_main(hparams["prepare_rir_data"])
 
     # here we create the datasets objects as well as tokenization and encoding
-    (train_set, valid_set, test_set, tokenizer,) = dataio_prepare(hparams)
+    (
+        train_set,
+        valid_set,
+        test_set,
+        tokenizer,
+    ) = dataio_prepare(hparams)
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].collect_files()
+    hparams["pretrainer"].load_collected()
+
+    # Download pretrained ASR model
+    from speechbrain.inference.ASR import EncoderDecoderASR
+
+    hparams["asr_model"] = EncoderDecoderASR.from_hparams(
+        source=hparams["asr_model_source"],
+        run_opts={"device": run_opts["device"]},
+    )
 
     # Brain class initialization
     slu_brain = SLU(
@@ -361,5 +361,4 @@ if __name__ == "__main__":
     for i in range(len(df)):
         id_to_file[str(df.ID[i])] = df.wav[i].split("/")[-1]
 
-    slu_brain.hparams.wer_file = hparams["output_folder"] + "/wer_test_real.txt"
     slu_brain.evaluate(test_set, test_loader_kwargs=hparams["dataloader_opts"])

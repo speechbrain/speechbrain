@@ -1,0 +1,1 @@
+{"language_ids": ["en: English", "fr: French"], "sample_keys_per_language": {"en: English": ["tests/samples/single-mic/example1_wav", "tests/samples/single-mic/example5_wav"], "fr: French": ["tests/samples/single-mic/example6_wav", "tests/samples/single-mic/example6_wav"]}, "num_data_samples": 3}

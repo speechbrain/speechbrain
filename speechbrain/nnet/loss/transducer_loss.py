@@ -3,14 +3,43 @@ Transducer loss implementation (depends on numba)
 
 Authors
  * Abdelwahab Heba 2020
+ * Titouan Parcollet 2023
 """
+
+import logging
+import math
+import warnings
 
 import torch
 from torch.autograd import Function
 from torch.nn import Module
 
+from speechbrain.utils.logger import get_logger
+
+NUMBA_VERBOSE = 0
+
+logger = get_logger(__name__)
+
 try:
     from numba import cuda
+
+    # Numba is extra verbose and this may lead to log.txt file of multiple gigabytes... we deactivate
+    if not NUMBA_VERBOSE:
+        logger.info(
+            "Numba verbose is deactivated. To enable it, set NUMBA_VERBOSE to 1."
+        )
+
+        nb_logger = logging.getLogger("numba")
+        nb_logger.setLevel(logging.ERROR)  # only show error
+
+        from numba.core.errors import NumbaPerformanceWarning
+
+        warnings.simplefilter("ignore", category=NumbaPerformanceWarning)
+    else:
+        logger.info(
+            "Numba verbose is enabled. To deactivate it, set NUMBA_VERBOSE to 0."
+        )
+
 except ImportError:
     err_msg = "The optional dependency Numba is needed to use this module\n"
     err_msg += "Cannot import numba. To use Transducer loss\n"
@@ -22,15 +51,11 @@ except ImportError:
     err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
     err_msg += "================================ \n"
     err_msg += "If you use conda:\n"
-    err_msg += "conda install numba cudatoolkit=9.0"
+    err_msg += "conda install numba cudatoolkit"
     raise ImportError(err_msg)
 
-import math
 
-
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:], float32[:,:,:], float32[:], int32[:], int32[:], int32, int32[:,:])"
-)
+@cuda.jit()
 def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
     """
     Compute forward pass for the forward-backward algorithm using Numba cuda kernel.
@@ -38,21 +63,21 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    alpha : tensor
+    alpha : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for forward computation.
-    log_p : tensor
+    log_p : torch.Tensor
         1D Tensor of (batch) for forward cost computation.
-    T : tensor
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
-    lock : tensor
+        Blank index.
+    lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
 
@@ -106,9 +131,7 @@ def cu_kernel_forward(log_probs, labels, alpha, log_p, T, U, blank, lock):
             ) / T[b]
 
 
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:], float32[:,:,:], float32[:], int32[:], int32[:], int32, int32[:,:])"
-)
+@cuda.jit()
 def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
     """
     Compute backward pass for the forward-backward algorithm using Numba cuda kernel.
@@ -116,21 +139,21 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    beta : tensor
+    beta : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    log_p : tensor
+    log_p : torch.Tensor
         1D Tensor of (batch) for backward cost computation.
-    T : tensor
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
-    lock : tensor
+        Blank index.
+    lock : torch.Tensor
         2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
     """
     # parallelize the forward algorithm over batch and target length dim
@@ -180,9 +203,7 @@ def cu_kernel_backward(log_probs, labels, beta, log_p, T, U, blank, lock):
         log_p[b] = beta[b, 0, 0] / T[b]
 
 
-@cuda.jit(
-    "(float32[:,:,:,:], int32[:,:],float32[:,:,:], float32[:,:,:], float32[:,:,:,:], int32[:], int32[:], int32)"
-)
+@cuda.jit()
 def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
     """
     Compute gradient for the forward-backward algorithm using Numba cuda kernel.
@@ -190,22 +211,22 @@ def cu_kernel_compute_grad(log_probs, labels, alpha, beta, grads, T, U, blank):
 
     Arguments
     ---------
-    log_probs : tensor
+    log_probs : torch.Tensor
         4D Tensor of (batch x TimeLength x LabelLength x outputDim) from the Transducer network.
-    labels : tensor
+    labels : torch.Tensor
         2D Tensor of (batch x MaxSeqLabelLength) containing targets of the batch with zero padding.
-    beta : tensor
+    alpha : torch.Tensor
         3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
-    log_p : tensor
-        1D Tensor of (batch) for backward cost computation.
-    T : tensor
+    beta : torch.Tensor
+        3D Tensor of (batch x TimeLength x LabelLength) for backward computation.
+    grads : torch.Tensor
+        Grads for backward computation.
+    T : torch.Tensor
         1D Tensor of (batch) containing TimeLength of each target.
-    U : tensor
+    U : torch.Tensor
         1D Tensor of (batch) containing LabelLength of each target.
     blank : int
-        Blank indice.
-    lock : int
-        2D Tensor of (batch x LabelLength) containing bool(1-0) lock for parallel computation.
+        Blank index.
     """
     # parallelize the gradient computation over batch and timeseq length dim
     t = cuda.blockIdx.x
@@ -251,20 +272,29 @@ class Transducer(Function):
 
     @staticmethod
     def forward(ctx, log_probs, labels, T, U, blank, reduction):
+        """Computes the transducer loss."""
         log_probs = log_probs.detach()
         B, maxT, maxU, A = log_probs.shape
         grads = torch.zeros(
-            (B, maxT, maxU, A), dtype=torch.float32, device=log_probs.device
+            (B, maxT, maxU, A), dtype=log_probs.dtype, device=log_probs.device
         )
-        alpha = torch.zeros((B, maxT, maxU), device=log_probs.device)
-        beta = torch.zeros((B, maxT, maxU), device=log_probs.device)
+        alpha = torch.zeros(
+            (B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype
+        )
+        beta = torch.zeros(
+            (B, maxT, maxU), device=log_probs.device, dtype=log_probs.dtype
+        )
         lock = torch.zeros(
             (B, maxU), dtype=torch.int32, device=log_probs.device
         )
-        log_p_alpha = torch.zeros((B,), device=log_probs.device)
-        log_p_beta = torch.zeros((B,), device=log_probs.device)
+        log_p_alpha = torch.zeros(
+            (B,), device=log_probs.device, dtype=log_probs.dtype
+        )
+        log_p_beta = torch.zeros(
+            (B,), device=log_probs.device, dtype=log_probs.dtype
+        )
         cu_kernel_forward[B, maxU](
-            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock,
+            log_probs, labels, alpha, log_p_alpha, T, U, blank, lock
         )
         lock = lock * 0
         cu_kernel_backward[B, maxU](
@@ -287,6 +317,7 @@ class Transducer(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
+        """Backward computations for the transducer loss."""
         grad_output = grad_output.view(-1, 1, 1, 1).to(ctx.grads)
         return ctx.grads.mul_(grad_output), None, None, None, None, None, None
 
@@ -296,24 +327,33 @@ class TransducerLoss(Module):
     This class implements the Transduce loss computation with forward-backward algorithm.
     Sequence Transduction with naive implementation : https://arxiv.org/pdf/1211.3711.pdf
 
-    The TranducerLoss(nn.Module) use Transducer(autograd.Function)
+    The TransducerLoss(nn.Module) use Transducer(autograd.Function)
     to compute the forward-backward loss and gradients.
+
+    Input tensors must be on a cuda device.
+
+    Arguments
+    ---------
+    blank : int
+        Token to use as blank token.
+    reduction : str
+        Type of reduction to use, default "mean"
 
     Example
     -------
     >>> import torch
     >>> loss = TransducerLoss(blank=0)
-    >>> acts = torch.randn((1,2,3,5)).cuda().log_softmax(dim=-1).requires_grad_()
+    >>> logits = torch.randn((1,2,3,5)).cuda().requires_grad_()
     >>> labels = torch.Tensor([[1,2]]).cuda().int()
     >>> act_length = torch.Tensor([2]).cuda().int()
     >>> # U = label_length+1
     >>> label_length = torch.Tensor([2]).cuda().int()
-    >>> l = loss(acts, labels, act_length, label_length)
+    >>> l = loss(logits, labels, act_length, label_length)
     >>> l.backward()
     """
 
     def __init__(self, blank=0, reduction="mean"):
-        super(TransducerLoss, self).__init__()
+        super().__init__()
         self.blank = blank
         self.reduction = reduction
         self.loss = Transducer.apply
@@ -330,8 +370,18 @@ class TransducerLoss(Module):
             err_msg += "export NUMBAPRO_NVVM='/usr/local/cuda/nvvm/lib64/libnvvm.so' \n"
             err_msg += "================================ \n"
             err_msg += "If you use conda:\n"
-            err_msg += "conda install numba cudatoolkit=9.0"
+            err_msg += "conda install numba cudatoolkit=XX (XX is your cuda toolkit version)"
             raise ImportError(err_msg)
 
-    def forward(self, log_probs, labels, T, U):
-        return self.loss(log_probs, labels, T, U, self.blank, self.reduction)
+    def forward(self, logits, labels, T, U):
+        """Computes the transducer loss."""
+        # Transducer.apply function take log_probs tensor.
+        if all(t.is_cuda for t in (logits, labels, T, U)):
+            log_probs = logits.log_softmax(-1)
+            return self.loss(
+                log_probs, labels, T, U, self.blank, self.reduction
+            )
+        else:
+            raise ValueError(
+                f"Found inputs tensors to be on {[logits.device, labels.device, T.device, U.device]} while needed to be on a 'cuda' device to use the transducer loss."
+            )

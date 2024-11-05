@@ -1,0 +1,56 @@
+# target of this test
+sorting: descending
+avoid_if_longer_than: 6.283
+
+# below from: tests/integration/VAD/hyperparams.yaml
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+sample_rate: 16000
+
+
+# Training params
+N_epochs: 1
+lr: 0.01
+dataloader_options:
+    batch_size: 20
+
+# Feature parameters
+n_mfcc: 20
+
+# Model parameters
+rnn_layers: 2
+rnn_neurons: 256
+emb_size: 23
+dropout: 0.1
+output_neurons: 1
+
+compute_features: !new:speechbrain.lobes.features.MFCC
+    n_mfcc: !ref <n_mfcc>
+
+mean_var_norm: !new:speechbrain.processing.features.InputNormalization
+    norm_type: global
+
+rnn: !new:speechbrain.nnet.RNN.LSTM
+    input_size: !ref <n_mfcc> * 33  # d & dd = *3, 5 left & 5 right = *11
+    hidden_size: !ref <rnn_neurons>
+    num_layers: !ref <rnn_layers>
+    dropout: !ref <dropout>
+    bidirectional: False
+    re_init: True
+
+lin: !new:speechbrain.nnet.linear.Linear
+    input_size: !ref <rnn_neurons>
+    n_neurons: !ref <output_neurons>
+    bias: False
+
+modules:
+    compute_features: !ref <compute_features>
+    rnn: !ref <rnn>
+    lin: !ref <lin>
+    mean_var_norm: !ref <mean_var_norm>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+compute_loss: !name:speechbrain.nnet.losses.bce_loss

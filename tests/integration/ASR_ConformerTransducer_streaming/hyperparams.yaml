@@ -1,0 +1,268 @@
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 3407
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Training parameters
+# To make Transformers converge, the global bath size should be large enough.
+# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
+# Empirically, we found that this value should be >= 128.
+# Please, set your parameters accordingly.
+number_of_epochs: 30
+lr: 1.0
+ctc_weight: 0.3 # Multitask with CTC for the encoder (0.0 = disabled)
+ce_weight: 0.0 # Multitask with CE for the decoder (0.0 = disabled)
+max_grad_norm: 5.0
+loss_reduction: 'batchmean'
+precision: fp32 # bf16, fp16 or fp32
+
+# Feature parameters
+sample_rate: 16000
+n_fft: 512
+n_mels: 80
+win_length: 32
+
+# Streaming & dynamic chunk training options
+# At least for the current architecture on LibriSpeech, we found out that
+# non-streaming accuracy is very similar between `streaming: True` and
+# `streaming: False`.
+streaming: True  # controls all Dynamic Chunk Training & chunk size & left context mechanisms
+
+# Configuration for Dynamic Chunk Training.
+# In this model, a chunk is roughly equivalent to 40ms of audio.
+dynchunktrain_config_sampler: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfigRandomSampler # yamllint disable-line rule:line-length
+   chunkwise_prob: 0.6 # Probability during a batch to limit attention and sample a random chunk size in the following range
+   chunk_size_min: 2 # Minimum chunk size (if in a DynChunkTrain batch)
+   chunk_size_max: 8 # Maximum chunk size (if in a DynChunkTrain batch)
+   limited_left_context_prob: 0.75 # If in a DynChunkTrain batch, the probability during a batch to restrict left context to a random number of chunks
+   left_context_chunks_min: 1 # Minimum left context size (in # of chunks)
+   left_context_chunks_max: 8 # Maximum left context size (in # of chunks)
+   # If you specify a valid/test config, you can optionally have evaluation be
+   # done with a specific DynChunkTrain configuration.
+   # valid_config: !new:speechbrain.utils.dynamic_chunk_training.DynChunkTrainConfig
+   #    chunk_size: 24
+   #    left_context_size: 16
+   # test_config: ...
+
+dataloader_options:
+   batch_size: 1
+
+# Model parameters
+# Transformer
+d_model: 64
+joint_dim: 128
+nhead: 2
+num_encoder_layers: 1
+num_decoder_layers: 0
+d_ffn: 128
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: !ref <num_labels>
+dec_dim: 128
+dec_emb_dropout: 0.2
+dec_dropout: 0.1
+
+# Decoding parameters
+# Special tokens and labels
+blank_index: 0
+bos_index: 1
+pad_index: 1
+num_labels: 45
+beam_size: 10
+nbest: 1
+
+# If True uses torchaudio loss. Otherwise, the numba one
+use_torchaudio: True
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+   norm_type: global
+   update_until_epoch: 4
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+   sample_rate: !ref <sample_rate>
+   n_fft: !ref <n_fft>
+   n_mels: !ref <n_mels>
+   win_length: !ref <win_length>
+
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: !ref <speed_changes>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: False
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 1
+   max_augmentations: 1
+   augment_prob: 1.0
+   augmentations: [!ref <speed_perturb>]
+
+
+# Time Drop
+time_drop_length_low: 15  # Min length for temporal chunk to drop in spectrogram
+time_drop_length_high: 25  # Max length for temporal chunk to drop in spectrogram
+time_drop_count_low: 5  # Min number of chunks to drop in time in the spectrogram
+time_drop_count_high: 5  # Max number of chunks to drop in time in the spectrogram
+time_drop_replace: "zeros"  # Method of dropping chunks
+
+time_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: !ref <time_drop_length_low>
+   drop_length_high: !ref <time_drop_length_high>
+   drop_count_low: !ref <time_drop_count_low>
+   drop_count_high: !ref <time_drop_count_high>
+   replace: !ref <time_drop_replace>
+   dim: 1
+
+# Frequency Drop
+freq_drop_length_low: 25  # Min length for chunks to drop in frequency in the spectrogram
+freq_drop_length_high: 35  # Max length for chunks to drop in frequency in the spectrogram
+freq_drop_count_low: 2  # Min number of chunks to drop in frequency in the spectrogram
+freq_drop_count_high: 2  # Max number of chunks to drop in frequency in the spectrogram
+freq_drop_replace: "zeros"  # Method of dropping chunks
+
+freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
+   drop_length_low: !ref <freq_drop_length_low>
+   drop_length_high: !ref <freq_drop_length_high>
+   drop_count_low: !ref <freq_drop_count_low>
+   drop_count_high: !ref <freq_drop_count_high>
+   replace: !ref <freq_drop_replace>
+   dim: 2
+
+# Time warp
+time_warp_window: 5  # Length of time warping window
+time_warp_mode: "bicubic"  # Time warping method
+
+time_warp: !new:speechbrain.augment.freq_domain.Warping
+   warp_window: !ref <time_warp_window>
+   warp_mode: !ref <time_warp_mode>
+   dim: 1
+
+fea_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: False
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 3
+   max_augmentations: 3
+   augment_prob: 1.0
+   augmentations: [
+      !ref <time_drop>,
+      !ref <freq_drop>,
+      !ref <time_warp>]
+
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+   input_shape: (8, 10, 80)
+   num_blocks: 2
+   num_layers_per_block: 1
+   out_channels: (64, 32)
+   kernel_sizes: (3, 3)
+   strides: (2, 2)
+   residuals: (False, False)
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+   input_size: 640
+   tgt_vocab: !ref <output_neurons>
+   d_model: !ref <d_model>
+   nhead: !ref <nhead>
+   num_encoder_layers: !ref <num_encoder_layers>
+   num_decoder_layers: !ref <num_decoder_layers>
+   d_ffn: !ref <d_ffn>
+   dropout: !ref <transformer_dropout>
+   activation: !ref <activation>
+   encoder_module: conformer
+   attention_type: RelPosMHAXL
+   normalize_before: True
+   causal: False
+
+# We must call an encoder wrapper so the decoder isn't run (we don't have any)
+enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
+   transformer: !ref <Transformer>
+
+# For MTL CTC over the encoder
+proj_ctc: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <joint_dim>
+   n_neurons: !ref <output_neurons>
+
+# Define some projection layers to make sure that enc and dec
+# output dim are the same before joining
+proj_enc: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <d_model>
+   n_neurons: !ref <joint_dim>
+   bias: False
+
+proj_dec: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dec_dim>
+   n_neurons: !ref <joint_dim>
+   bias: False
+
+# Uncomment for MTL with CTC
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+   blank_index: !ref <blank_index>
+   reduction: !ref <loss_reduction>
+
+emb: !new:speechbrain.nnet.embedding.Embedding
+   num_embeddings: !ref <output_neurons>
+   consider_as_one_hot: True
+   blank_id: !ref <blank_index>
+
+dec: !new:speechbrain.nnet.RNN.LSTM
+   input_shape: [null, null, !ref <output_neurons> - 1]
+   hidden_size: !ref <dec_dim>
+   num_layers: 1
+   re_init: True
+
+# For MTL
+ce_cost: !name:speechbrain.nnet.losses.nll_loss
+   label_smoothing: 0.1
+
+Tjoint: !new:speechbrain.nnet.transducer.transducer_joint.Transducer_joint
+   joint: sum # joint [sum | concat]
+   nonlinearity: !ref <activation>
+
+transducer_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <joint_dim>
+   n_neurons: !ref <output_neurons>
+   bias: False
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+transducer_cost: !name:speechbrain.nnet.losses.transducer_loss
+   blank_index: !ref <blank_index>
+   use_torchaudio: !ref <use_torchaudio>
+
+modules:
+   CNN: !ref <CNN>
+   enc: !ref <enc>
+   emb: !ref <emb>
+   dec: !ref <dec>
+   Tjoint: !ref <Tjoint>
+   transducer_lin: !ref <transducer_lin>
+   normalize: !ref <normalize>
+   proj_ctc: !ref <proj_ctc>
+   proj_dec: !ref <proj_dec>
+   proj_enc: !ref <proj_enc>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <CNN>, !ref <enc>, !ref <emb>, !ref <dec>, !ref <proj_enc>, !ref <proj_dec>, !ref <proj_ctc>, !ref <transducer_lin>]
+
+Greedysearcher: !new:speechbrain.decoders.transducer.TransducerBeamSearcher
+   decode_network_lst: [!ref <emb>, !ref <dec>, !ref <proj_dec>]
+   tjoint: !ref <Tjoint>
+   classifier_network: [!ref <transducer_lin>]
+   blank_id: !ref <blank_index>
+   beam_size: 1
+   nbest: 1
+
+opt_class: !name:torch.optim.Adadelta
+   lr: !ref <lr>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+per_stats: !name:speechbrain.utils.metric_stats.ErrorRateStats

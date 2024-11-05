@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import os
 import sys
-import torch
-import logging
+
 import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
 from common_language_prepare import prepare_common_language
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
 """Recipe for training a LID system with CommonLanguage.
 
@@ -19,7 +20,7 @@ Author
  * Pavlo Ruban 2021
 """
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Brain class for Language ID training
@@ -33,18 +34,19 @@ class LID(sb.Brain):
             Input signals (tensor) and their relative lengths (tensor).
         stage : sb.Stage
             The current stage of training.
+
+        Returns
+        -------
+        feats : torch.Tensor
+            Computed features.
+        lens : torch.Tensor
+            The length of the corresponding features.
         """
         wavs, lens = wavs
 
-        # Add augmentation if specified. In this version of augmentation, we
-        # concatenate the original and the augment batches in a single bigger
-        # batch. This is more memory-demanding, but helps to improve the
-        # performance. Change it if you run OOM.
-        if stage == sb.Stage.TRAIN:
-            wavs_noise = self.modules.env_corrupt(wavs, lens)
-            wavs = torch.cat([wavs, wavs_noise], dim=0)
-            lens = torch.cat([lens, lens], dim=0)
-            wavs = self.hparams.augmentation(wavs, lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -65,8 +67,8 @@ class LID(sb.Brain):
 
         Returns
         -------
-        predictions : Tensor
-            Tensor that contains the posterior probabilities over the N classes.
+        predictions : torch.Tensor
+            torch.Tensor that contains the posterior probabilities over the N classes.
         """
 
         # We first move the batch to the appropriate device.
@@ -103,11 +105,10 @@ class LID(sb.Brain):
 
         # Concatenate labels (due to data augmentation)
         if stage == sb.Stage.TRAIN:
-            targets = torch.cat([targets, targets], dim=0)
-            lens = torch.cat([lens, lens], dim=0)
-
-            if hasattr(self.hparams.lr_annealing, "on_batch_end"):
-                self.hparams.lr_annealing.on_batch_end(self.optimizer)
+            if hasattr(self.hparams, "wav_augment"):
+                targets = self.hparams.wav_augment.replicate_labels(targets)
+                if hasattr(self.hparams.lr_annealing, "on_batch_end"):
+                    self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         loss = self.hparams.compute_cost(predictions, targets)
 
@@ -159,7 +160,6 @@ class LID(sb.Brain):
 
         # At the end of validation...
         if stage == sb.Stage.VALID:
-
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
@@ -182,7 +182,7 @@ class LID(sb.Brain):
 
 
 def dataio_prep(hparams):
-    """ This function prepares the datasets to be used in the brain class.
+    """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
     We expect `prepare_common_language` to have been called before this,
     so that the `train.csv`, `dev.csv`,  and `test.csv` manifest files
@@ -201,7 +201,7 @@ def dataio_prep(hparams):
         to the appropriate DynamicItemDataset object.
     """
 
-    # Initialization of the label encoder. The label encoder assignes to each
+    # Initialization of the label encoder. The label encoder assigns to each
     # of the observed label a unique index (e.g, 'lang01': 0, 'lang02': 1, ..)
     language_encoder = sb.dataio.encoder.CategoricalEncoder()
 
@@ -229,7 +229,7 @@ def dataio_prep(hparams):
     datasets = {}
     for dataset in ["train", "dev", "test"]:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_csv(
-            csv_path=os.path.join(hparams["save_folder"], dataset + ".csv"),
+            csv_path=hparams[f"{dataset}_csv"],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "language_encoded"],
@@ -237,7 +237,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     language_encoder_file = os.path.join(
         hparams["save_folder"], "language_encoder.txt"
     )
@@ -252,7 +252,6 @@ def dataio_prep(hparams):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Reading command line arguments.
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
@@ -260,7 +259,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -279,13 +278,16 @@ if __name__ == "__main__":
             "skip_prep": hparams["skip_prep"],
         },
     )
+    # Data preparation for augmentation
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # Create dataset objects "train", "dev", and "test" and language_encoder
     datasets, language_encoder = dataio_prep(hparams)
 
-    # Fetch and laod pretrained modules
-    sb.utils.distributed.run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    # Fetch and load pretrained modules
+    hparams["pretrainer"].collect_files()
+    hparams["pretrainer"].load_collected()
 
     # Initialize the Brain object to prepare for mask training.
     lid_brain = LID(

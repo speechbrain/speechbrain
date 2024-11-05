@@ -12,14 +12,16 @@ Authors
 
 import os
 import sys
+
 import torch
 import torchaudio
-import speechbrain as sb
-from pesq import pesq
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import MetricStats
+from pesq import pesq
+
+import speechbrain as sb
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 
 # Brain class for speech enhancement training
@@ -33,12 +35,12 @@ class SEBrain(sb.Brain):
 
     def compute_forward_d(self, noisy_wavs, clean_wavs):
         """Forward computations from discriminator. Input denoised-noisy pair,
-        output whether denoising was properly acheived"""
+        output whether denoising was properly achieved"""
         noisy_wavs = noisy_wavs.to(self.device)
         clean_wavs = clean_wavs.to(self.device)
 
-        inpt = torch.cat((noisy_wavs, clean_wavs), -1)
-        out = self.modules["model_d"](inpt)
+        input = torch.cat((noisy_wavs, clean_wavs), -1)
+        out = self.modules["model_d"](input)
         return out
 
     def compute_objectives_d1(self, d_outs, batch):
@@ -94,7 +96,6 @@ class SEBrain(sb.Brain):
         )
 
         if stage != sb.Stage.TRAIN:
-
             # Evaluate speech quality/intelligibility
             predict_wavs = predict_wavs.reshape(self.batch_current, -1)
             clean_wavs = clean_wavs.reshape(self.batch_current, -1)
@@ -167,8 +168,10 @@ class SEBrain(sb.Brain):
         out_d1 = self.compute_forward_d(noisy_wavs, clean_wavs)
         loss_d1 = self.compute_objectives_d1(out_d1, batch)
         loss_d1.backward()
-        if self.check_gradients(loss_d1):
-            self.optimizer_d.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer_d.step()
         self.optimizer_d.zero_grad()
 
         # second training step
@@ -181,8 +184,10 @@ class SEBrain(sb.Brain):
         out_d2 = self.compute_forward_d(out_g2, clean_wavs)
         loss_d2 = self.compute_objectives_d2(out_d2, batch)
         loss_d2.backward(retain_graph=True)
-        if self.check_gradients(loss_d2):
-            self.optimizer_d.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer_d.step()
         self.optimizer_d.zero_grad()
 
         # third (last) training step
@@ -198,8 +203,10 @@ class SEBrain(sb.Brain):
             z_logvar=z_logvar,
         )
         loss_g3.backward()
-        if self.check_gradients(loss_g3):
-            self.optimizer_g.step()
+        torch.nn.utils.clip_grad_norm_(
+            self.modules.parameters(), self.max_grad_norm
+        )
+        self.optimizer_g.step()
         self.optimizer_g.zero_grad()
         self.optimizer_d.zero_grad()
 
@@ -310,6 +317,10 @@ class SEBrain(sb.Brain):
                     "optimizer_d", self.optimizer_d
                 )
 
+    def zero_grad(self, set_to_none=False):
+        self.optimizer_d.zero_grad(set_to_none)
+        self.optimizer_g.zero_grad(set_to_none)
+
     def on_stage_start(self, stage, epoch=None):
         """Gets called at the beginning of each epoch"""
         self.loss_metric_d1 = MetricStats(
@@ -392,9 +403,10 @@ def create_chunks(x, chunk_size=16384, chunk_stride=16384):
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
-    # Define audio piplines
+    # Define audio pipelines
     @sb.utils.data_pipeline.takes("noisy_wav")
     @sb.utils.data_pipeline.provides("noisy_sig")
     def noisy_pipeline(noisy_wav):
@@ -409,9 +421,14 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],
@@ -439,10 +456,9 @@ def create_folder(folder):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

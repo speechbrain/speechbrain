@@ -58,11 +58,16 @@ Example
 
 Authors
  * Aku Rouhe 2020
+ * Pierre Champion 2023
 """
-import collections
-import logging
 
-logger = logging.getLogger(__name__)
+import collections
+from pathlib import Path
+from typing import Union
+
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def read_arpa(fstream):
@@ -198,6 +203,11 @@ def _find_data_section(fstream):
 
 def _next_section_or_end(fstream):
     """
+    Arguments
+    ---------
+    fstream : stream
+        Stream from which to read lines
+
     Returns
     -------
     bool
@@ -227,3 +237,116 @@ def _parse_order(line):
 
 def _ends_arpa(line):
     return line == "\\end\\"
+
+
+def arpa_to_fst(
+    words_txt: Union[str, Path],
+    in_arpa: Union[str, Path],
+    out_fst: Union[str, Path],
+    ngram_order: int,
+    disambig_symbol: str = "#0",
+    cache: bool = True,
+):
+    r"""
+    Use kaldilm to convert an ARPA LM to FST. For example, you could use
+    speechbrain.lm.train_ngram to create an ARPA LM and then use this function
+    to convert it to an FST.
+
+    It is worth noting that if the fst already exists in the output_dir,
+    then they will not be converted again (so you may need to delete them
+    by hand if you, at any point, change your ARPA model).
+
+    Arguments
+    ---------
+    words_txt: str | Path
+        path to the words.txt file created by prepare_lang.
+    in_arpa: str | Path
+        Path to an ARPA LM to convert to an FST.
+    out_fst: str | Path
+        Path to where the fst will be saved.
+    ngram_order: int
+        ARPA (and FST) ngram order.
+    disambig_symbol: str
+        the disambiguation symbol to use.
+    cache: bool
+        Whether or not to re-create the fst.txt file if it already exist.
+
+    Raises
+    ------
+    ImportError: If kaldilm is not installed.
+
+    Returns
+    -------
+    None
+
+    Example
+    -------
+    >>> from speechbrain.lm.arpa import arpa_to_fst
+
+    >>> # Create a small arpa model
+    >>> arpa_file = getfixture('tmpdir').join("bigram.arpa")
+    >>> arpa_file.write(
+    ...     "Anything can be here\n"
+    ...     + "\n"
+    ...     + "\\data\\\n"
+    ...     + "ngram 1=3\n"
+    ...     + "ngram 2=4\n"
+    ...     + "\n"
+    ...     + "\\1-grams:\n"
+    ...     + "0 <s>\n"
+    ...     + "-0.6931 a\n"
+    ...     + "-0.6931 b 0.\n"
+    ...     + "" # Ends unigram section
+    ...     + "\\2-grams:\n"
+    ...     + "-0.6931 <s> a\n"
+    ...     + "-0.6931 a a\n"
+    ...     + "-0.6931 a b\n"
+    ...     + "-0.6931 b a\n"
+    ...     + "\n"  # Ends bigram section
+    ...     + "\\end\\\n")  # Ends whole file
+    >>> # Create words vocab
+    >>> vocav = getfixture('tmpdir').join("words.txt")
+    >>> vocav.write(
+    ...     "a 1\n"
+    ...     + "b 2\n"
+    ...     + "<s> 3\n"
+    ...     + "#0 4")  # Ends whole file
+    >>> out = getfixture('tmpdir').join("bigram.txt.fst")
+    >>> arpa_to_fst(vocav, arpa_file, out, 2)
+    """
+    try:
+        from kaldilm.arpa2fst import arpa2fst
+    except ImportError:
+        # This error will occur when there is fst LM in the provided lm_dir
+        # and we are trying to create it by converting an ARPA LM to FST.
+        # For this, we need to install kaldilm.
+        raise ImportError(
+            "Optional dependencies must be installed to use kaldilm.\n"
+            "Install using `pip install kaldilm`."
+        )
+
+    if cache and out_fst.exists():
+        return
+    if not in_arpa.exists():
+        raise FileNotFoundError(
+            f"{in_arpa} not found while trying to create"
+            f" the {ngram_order} FST."
+        )
+    try:
+        logger.info(f"Converting arpa LM '{in_arpa}' to FST")
+        s = arpa2fst(
+            input_arpa=str(in_arpa),
+            disambig_symbol=disambig_symbol,
+            read_symbol_table=str(words_txt),
+            max_order=ngram_order,
+        )
+    except Exception as e:
+        logger.info(
+            f"Failed to create {ngram_order}-gram FST from input={in_arpa}"
+            f", disambig_symbol={disambig_symbol},"
+            f" read_symbol_table={words_txt}"
+        )
+        raise e
+    logger.info(f"Writing {out_fst}")
+    with open(out_fst, "w", encoding="utf-8") as f:
+        f.write(s)

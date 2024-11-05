@@ -1,0 +1,125 @@
+# #################################
+# Recipe to interpret a ViT audio classifier by-design via activation map thresholding (AMT)
+# applied to its attention maps.
+#
+# Author:
+#  * Cem Subakan 2022, 2023
+#  * Francesco Paissan 2022, 2023
+#  * Luca Della Libera 2024
+#  (based on the SpeechBrain UrbanSound8k recipe)
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Set up folders for reading from and writing to
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
+audio_data_folder: !ref <data_folder>/audio
+
+experiment_name: amt_vit-base
+output_folder: !ref ./results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+save_interpretations: False
+concat_sources: False
+
+# Tensorboard logs
+use_tensorboard: False
+tensorboard_logs_folder: !ref <output_folder>/tb_logs/
+
+# Path where data manifest files will be stored
+train_annotation: !ref <data_folder>/manifest/train.json
+valid_annotation: !ref <data_folder>/manifest/valid.json
+test_annotation: !ref <data_folder>/manifest/test.json
+
+# To standardize results, UrbanSound8k has pre-separated samples into
+# 10 folds for multi-fold validation
+train_fold_nums: [1, 2, 3]
+valid_fold_nums: [4]
+test_fold_nums: [5]
+skip_manifest_creation: False
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 100
+batch_size: 6
+lr: 0.0002
+sample_rate: 16000
+use_mask_output: True
+mask_th: 0.35
+
+# Number of classes
+out_n_neurons: 50
+
+shuffle: True
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        counter: !ref <epoch_counter>
+
+use_pretrained: True
+
+embedding_model: !apply:transformers.ViTModel.from_pretrained
+    pretrained_model_name_or_path: google/vit-base-patch16-224
+    attn_implementation: eager
+
+
+classifier: !new:speechbrain.lobes.models.ECAPA_TDNN.Classifier
+    input_size: 768
+    out_neurons: !ref <out_n_neurons>
+    lin_blocks: 1
+
+embedding_model_path: speechbrain/vit-base-esc50/embedding_model.ckpt
+classifier_model_path: speechbrain/vit-base-esc50/classifier.ckpt
+
+pretrained_esc50: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+    paths:
+        embedding_model: !ref <embedding_model_path>
+        classifier: !ref <classifier_model_path>
+
+# Interpretation hyperparams
+quantile: 0.90
+
+# Pre-processing
+n_fft: 1024
+spec_mag_power: 0.5
+hop_length: 11.6099
+win_length: 23.2199
+
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: !ref <n_fft>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    sample_rate: !ref <sample_rate>
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+
+modules:
+    compute_stft: !ref <compute_stft>
+    compute_istft: !ref <compute_istft>

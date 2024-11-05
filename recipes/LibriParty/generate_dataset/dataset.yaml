@@ -17,7 +17,8 @@ save_dry_sources: False
 # Source datasets paths #
 #########################
 
-librispeech_root: /media/sam/bx500/LibriSpeech
+librispeech_root: !PLACEHOLDER # e.g., /workspace/LibriParty/LibriSpeech/
+# /media/sam/bx500/LibriSpeech
 # root path to librispeech: download from https://openslr.org/12/
 
 librispeech_folders: # folders one wants to use for the train dataset.
@@ -28,13 +29,13 @@ librispeech_folders: # folders one wants to use for the train dataset.
   eval:
     - !ref <librispeech_root>/test-clean/
 
-rirs_noises_root: /media/sam/bx500/LibriParty/RIRS_NOISES/
+rirs_noises_root: !PLACEHOLDER #e.g., /workspace/LibriParty/RIRS_NOISES/
 rirs_folders:
   - !ref <rirs_noises_root>/simulated_rirs/
   - !ref <rirs_noises_root>/real_rirs_isotropic_noises
 noises_folders:
   - !ref <rirs_noises_root>/pointsource_noises/
-backgrounds_root: /media/sam/bx500/LibriParty/QUT_NOISE_16kHz/
+backgrounds_root: !PLACEHOLDER # e.g., /workspace/LibriParty/QUT_NOISE_16kHz/
 # optional background noise from QUT (required for "official" dataset)
 # One can use also other background noises.
 

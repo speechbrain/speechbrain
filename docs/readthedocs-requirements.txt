@@ -1,0 +1,7 @@
+# readthedocs only lets us define a single requirements file in the yaml
+# this file merges both the usual and the docs requirements so that everything
+# gets installed correctly.
+
+-r ../requirements.txt
+-r docs-requirements.txt
+torch==2.2.1

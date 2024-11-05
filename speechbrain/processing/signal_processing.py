@@ -6,9 +6,12 @@ Authors
  * Francois Grondin 2020
  * William Aris 2020
  * Samuele Cornell 2020
+ * Sarthak Yadav 2022
 """
-import torch
+
 import math
+
+import torch
 from packaging import version
 
 
@@ -17,7 +20,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
 
     Arguments
     ---------
-    waveform : tensor
+    waveforms : tensor
         The waveforms used for computing amplitude.
         Shape should be `[time]` or `[batch, time]` or
         `[batch, time, channels]`.
@@ -44,7 +47,7 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
     if len(waveforms.shape) == 1:
         waveforms = waveforms.unsqueeze(0)
 
-    assert amp_type in ["avg", "peak"]
+    assert amp_type in ["avg", "rms", "peak"]
     assert scale in ["linear", "dB"]
 
     if amp_type == "avg":
@@ -52,7 +55,21 @@ def compute_amplitude(waveforms, lengths=None, amp_type="avg", scale="linear"):
             out = torch.mean(torch.abs(waveforms), dim=1, keepdim=True)
         else:
             wav_sum = torch.sum(input=torch.abs(waveforms), dim=1, keepdim=True)
+            # Manage multi-channel waveforms
+            if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
+                lengths = lengths.unsqueeze(2)
             out = wav_sum / lengths
+    elif amp_type == "rms":
+        if lengths is None:
+            out = torch.sqrt(torch.mean(waveforms**2, dim=1, keepdim=True))
+        else:
+            wav_sum = torch.sum(
+                input=torch.pow(waveforms, 2), dim=1, keepdim=True
+            )
+            if len(wav_sum.shape) == 3 and isinstance(lengths, torch.Tensor):
+                lengths = lengths.unsqueeze(2)
+            out = torch.sqrt(wav_sum / lengths)
+
     elif amp_type == "peak":
         out = torch.max(torch.abs(waveforms), dim=1, keepdim=True)[0]
     else:
@@ -89,7 +106,6 @@ def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
     waveforms : tensor
         Normalized level waveform.
     """
-
     assert amp_type in ["avg", "peak"]
 
     batch_added = False
@@ -101,6 +117,31 @@ def normalize(waveforms, lengths=None, amp_type="avg", eps=1e-14):
     if batch_added:
         waveforms = waveforms.squeeze(0)
     return waveforms / den
+
+
+def mean_std_norm(waveforms, dims=1, eps=1e-06):
+    """This function normalizes the mean and std of the input
+        waveform (along the specified axis).
+
+    Arguments
+    ---------
+    waveforms : tensor
+        The waveforms to normalize.
+        Shape should be `[batch, time]` or `[batch, time, channels]`.
+    dims : int or tuple
+        The dimension(s) on which mean and std are computed
+    eps : float
+        A small number to add to the denominator to prevent NaN.
+
+    Returns
+    -------
+    waveforms : tensor
+        Normalized level waveform.
+    """
+    mean = waveforms.mean(dims, keepdim=True)
+    std = waveforms.std(dims, keepdim=True)
+    waveforms = (waveforms - mean) / (std + eps)
+    return waveforms
 
 
 def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
@@ -128,7 +169,6 @@ def rescale(waveforms, lengths, target_lvl, amp_type="avg", scale="linear"):
     waveforms : tensor
         Rescaled waveforms.
     """
-
     assert amp_type in ["peak", "avg"]
     assert scale in ["linear", "dB"]
 
@@ -203,7 +243,7 @@ def convolve1d(
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = torch.rand(1, 10, 1)
     >>> signal = convolve1d(signal, kernel, padding=(9, 0))
@@ -218,7 +258,7 @@ def convolve1d(
     # Padding can be a tuple (left_pad, right_pad) or an int
     if isinstance(padding, tuple):
         waveform = torch.nn.functional.pad(
-            input=waveform, pad=padding, mode=pad_type,
+            input=waveform, pad=padding, mode=pad_type
         )
 
     # This approach uses FFT, which is more efficient if the kernel is large
@@ -299,9 +339,7 @@ def reverberate(waveforms, rir_waveform, rescale_amp="avg"):
     -------
     waveforms: tensor
         Reverberated signal.
-
     """
-
     orig_shape = waveforms.shape
 
     if len(waveforms.shape) > 3 or len(rir_waveform.shape) > 3:
@@ -359,6 +397,10 @@ def dB_to_amplitude(SNR):
     SNR : float
         The ratio in decibels to convert.
 
+    Returns
+    -------
+    The amplitude ratio
+
     Example
     -------
     >>> round(dB_to_amplitude(SNR=10), 3)
@@ -386,15 +428,18 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
     notch_width : float
         Width of the notch, as a fraction of the sampling_rate / 2.
 
+    Returns
+    -------
+    The computed filter
+
     Example
     -------
     >>> from speechbrain.dataio.dataio import read_audio
-    >>> signal = read_audio('samples/audio_samples/example1.wav')
+    >>> signal = read_audio('tests/samples/single-mic/example1.wav')
     >>> signal = signal.unsqueeze(0).unsqueeze(2)
     >>> kernel = notch_filter(0.25)
     >>> notched_signal = convolve1d(signal, kernel)
     """
-
     # Check inputs
     assert 0 < notch_freq <= 1
     assert filter_width % 2 != 0
@@ -406,6 +451,8 @@ def notch_filter(notch_freq, filter_width=101, notch_width=0.05):
 
     # Define sinc function, avoiding division by zero
     def sinc(x):
+        """Computes the sinc function."""
+
         def _sinc(x):
             return torch.sin(x) / x
 
@@ -435,11 +482,17 @@ def overlap_and_add(signal, frame_step):
     `[..., frames, frame_length]`, offsetting subsequent frames by `frame_step`.
     The resulting tensor has shape `[..., output_size]` where
         output_size = (frames - 1) * frame_step + frame_length
-    Args:
-        signal: A [..., frames, frame_length] Tensor. All dimensions may be unknown, and rank must be at least 2.
-        frame_step: An integer denoting overlap offsets. Must be less than or equal to frame_length.
-    Returns:
-        A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
+
+    Arguments
+    ---------
+    signal: A [..., frames, frame_length] torch.Tensor.
+        All dimensions may be unknown, and rank must be at least 2.
+    frame_step: int
+        An integer denoting overlap offsets. Must be less than or equal to frame_length.
+
+    Returns
+    -------
+    A Tensor with shape [..., output_size] containing the overlap-added frames of signal's inner-most two dimensions.
         output_size = (frames - 1) * frame_step + frame_length
     Based on https://github.com/tensorflow/tensorflow/blob/r1.12/tensorflow/contrib/signal/python/ops/reconstruction_ops.py
 
@@ -489,8 +542,6 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft, normalize_wavs=True):
         Predicted spectral magnitude, should be three dimensional.
     noisy_inputs : torch.Tensor
         The noisy waveforms before any processing, to extract phase.
-    lengths : torch.Tensor
-        The length of each waveform for normalization.
     stft : torch.nn.Module
         Module for computing the STFT for extracting phase.
     istft : torch.nn.Module
@@ -503,7 +554,6 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft, normalize_wavs=True):
     enhanced_wav : torch.Tensor
         The resynthesized waveforms of the enhanced magnitudes with noisy phase.
     """
-
     # Extract noisy phase from inputs
     noisy_feats = stft(noisy_inputs)
     noisy_phase = torch.atan2(noisy_feats[:, :, :, 1], noisy_feats[:, :, :, 0])
@@ -526,3 +576,92 @@ def resynthesize(enhanced_mag, noisy_inputs, stft, istft, normalize_wavs=True):
         pred_wavs = normalize(pred_wavs, amp_type="peak")
 
     return pred_wavs
+
+
+def gabor_impulse_response(t, center, fwhm):
+    """
+    Function for generating gabor impulse responses
+    as used by GaborConv1d proposed in
+
+    Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
+    FOR AUDIO CLASSIFICATION", in Proc of ICLR 2021 (https://arxiv.org/abs/2101.08596)
+    """
+    denominator = 1.0 / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
+    gaussian = torch.exp(
+        torch.tensordot(
+            1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
+            (-(t**2.0)).unsqueeze(0),
+            dims=1,
+        )
+    )
+    center_frequency_complex = center.type(torch.complex64)
+    t_complex = t.type(torch.complex64)
+    sinusoid = torch.exp(
+        torch.complex(torch.tensor(0.0), torch.tensor(1.0))
+        * torch.tensordot(
+            center_frequency_complex.unsqueeze(1),
+            t_complex.unsqueeze(0),
+            dims=1,
+        )
+    )
+    denominator = denominator.type(torch.complex64).unsqueeze(1)
+    gaussian = gaussian.type(torch.complex64)
+    return denominator * sinusoid * gaussian
+
+
+def gabor_impulse_response_legacy_complex(t, center, fwhm):
+    """
+    Function for generating gabor impulse responses, but without using complex64 dtype
+    as used by GaborConv1d proposed in
+
+    Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
+    FOR AUDIO CLASSIFICATION", in Proc of ICLR 2021 (https://arxiv.org/abs/2101.08596)
+    """
+    denominator = 1.0 / (torch.sqrt(torch.tensor(2.0) * math.pi) * fwhm)
+    gaussian = torch.exp(
+        torch.tensordot(
+            1.0 / (2.0 * fwhm.unsqueeze(1) ** 2),
+            (-(t**2.0)).unsqueeze(0),
+            dims=1,
+        )
+    )
+    temp = torch.tensordot(center.unsqueeze(1), t.unsqueeze(0), dims=1)
+    temp2 = torch.zeros(*temp.shape + (2,), device=temp.device)
+
+    # since output of torch.tensordot(..) is multiplied by 0+j
+    # output can simply be written as flipping real component of torch.tensordot(..) to the imag component
+
+    temp2[:, :, 0] *= -1 * temp2[:, :, 0]
+    temp2[:, :, 1] = temp[:, :]
+
+    # exponent of complex number c is
+    # o.real = exp(c.real) * cos(c.imag)
+    # o.imag = exp(c.real) * sin(c.imag)
+
+    sinusoid = torch.zeros_like(temp2, device=temp.device)
+    sinusoid[:, :, 0] = torch.exp(temp2[:, :, 0]) * torch.cos(temp2[:, :, 1])
+    sinusoid[:, :, 1] = torch.exp(temp2[:, :, 0]) * torch.sin(temp2[:, :, 1])
+
+    # multiplication of two complex numbers c1 and c2 -> out:
+    # out.real = c1.real * c2.real - c1.imag * c2.imag
+    # out.imag = c1.real * c2.imag + c1.imag * c2.real
+
+    denominator_sinusoid = torch.zeros(*temp.shape + (2,), device=temp.device)
+
+    denominator_sinusoid[:, :, 0] = (
+        denominator.view(-1, 1) * sinusoid[:, :, 0]
+    ) - (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 1])
+
+    denominator_sinusoid[:, :, 1] = (
+        denominator.view(-1, 1) * sinusoid[:, :, 1]
+    ) + (torch.zeros_like(denominator).view(-1, 1) * sinusoid[:, :, 0])
+
+    output = torch.zeros(*temp.shape + (2,), device=temp.device)
+
+    output[:, :, 0] = (denominator_sinusoid[:, :, 0] * gaussian) - (
+        denominator_sinusoid[:, :, 1] * torch.zeros_like(gaussian)
+    )
+    output[:, :, 1] = (
+        denominator_sinusoid[:, :, 0] * torch.zeros_like(gaussian)
+    ) + (denominator_sinusoid[:, :, 1] * gaussian)
+    return output

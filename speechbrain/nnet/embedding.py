@@ -5,10 +5,11 @@ Authors
 """
 
 import torch
-import logging
 import torch.nn as nn
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Embedding(nn.Module):
@@ -60,7 +61,7 @@ class Embedding(nn.Module):
     >>> e = emb(torch.LongTensor([[0, 1, 2], [3, 4, 2]]))
     >>> e.shape
     torch.Size([2, 3, 3])
-     """
+    """
 
     def __init__(
         self,
@@ -69,7 +70,6 @@ class Embedding(nn.Module):
         consider_as_one_hot=False,
         blank_id=0,
     ):
-
         super().__init__()
         self.num_embeddings = num_embeddings
         self.consider_as_one_hot = consider_as_one_hot
@@ -109,6 +109,10 @@ class Embedding(nn.Module):
         ---------
         x : torch.Tensor
            Input to embed.
+
+        Returns
+        -------
+        The embedded outputs.
         """
         # pytorch embedding layer only accept long dtype
         return self.Embedding(x.long())

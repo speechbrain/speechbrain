@@ -6,23 +6,22 @@ Author
 YAO-FEI, CHENG 2021
 """
 
+import json
 import os
 import re
-import json
 import string
-import logging
 import subprocess
-
-from typing import List
 from dataclasses import dataclass, field
+from typing import List
 
 import torch
 import torchaudio
-
 from tqdm import tqdm
+
+from speechbrain.augment.time_domain import Resample
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
-from speechbrain.processing.speech_augmentation import Resample
 
 try:
     from sacremoses import MosesPunctNormalizer, MosesTokenizer
@@ -31,7 +30,7 @@ except ImportError:
     err_msg += "Install using `pip install sacremoses`.\n"
     raise ImportError(err_msg)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 check_torchaudio_backend()
 
 es_normalizer = MosesPunctNormalizer(lang="es")
@@ -52,7 +51,7 @@ class TDF:
     end: int
         end time of utterance
     transcript: str
-        transcript of utteranc
+        transcript of utterance
     """
 
     channel: int
@@ -78,19 +77,26 @@ class Data:
 def prepare_fisher_callhome_spanish(
     data_folder: str, save_folder: str, device: str = "cpu"
 ):
-
     """
     Prepares the json files for the Mini Fisher-Callhome-Spanish dataset.
+
     Arguments
     ---------
     data_folder : str
         Path to the folder where the Fisher-Callhome-Spanish dataset is stored.
-    save_folder: str:
+    save_folder : str
         Path of train/valid/test specification file will be saved.
+    device : str
+        The device on which to perform computation, e.g. "cpu", "cuda"
+
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> data_folder = '/path/to/fisher-callhome'
-    >>> save_foler = 'data'
+    >>> save_folder = 'data'
     >>> prepare_fisher_callhome_spanish(data_folder, save_folder)
     """
 
@@ -272,7 +278,7 @@ def extract_transcription(transcription_path: str) -> List[TDF]:
     """Extract transcriptions from given file"""
     extracted_transcriptions = []
 
-    with open(transcription_path) as transcription_file:
+    with open(transcription_path, encoding="utf-8") as transcription_file:
         # get rid of the first three useless headers
         transcriptions = transcription_file.readlines()[3:]
 
@@ -357,11 +363,11 @@ def concate_transcriptions_by_mapping_file(
                 need_to_be_concate_lines[0] - 1
             ].channel
             channel_symbol = "B" if channel == 1 else "A"
-            uttrance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
+            utterance_id = f"{uid}-{channel_symbol}-{start:06d}-{end:06d}"
 
             utterances.append(
                 Data(
-                    uid=uttrance_id,
+                    uid=utterance_id,
                     transcription=concated_transcripts,
                     wav=f"{speech_folder}/{uid}.sph {channel} {start} {end}",
                     duration=(end - start) / 100,
@@ -418,7 +424,7 @@ def get_transcription_files_by_dataset(
 
 
 def get_translations_from_path(translation_path: str) -> List[str]:
-    """"return translations from the given path"""
+    """ "return translations from the given path"""
     extracted_translations = []
     with open(translation_path, "rb") as translations_file:
         original_translations = translations_file.readlines()
@@ -504,7 +510,7 @@ def remove_punctuation(text: str) -> str:
 
     # remove consecutive commas and spaces
     text = re.sub(r"\s+", " ", text)
-    text = re.sub(f"^\\s+", "", text)
+    text = re.sub(r"^\s+", "", text)
     text = re.sub(r"\s+$", "", text)
 
     return text
@@ -513,7 +519,7 @@ def remove_punctuation(text: str) -> str:
 def normalize_punctuation(text: str) -> str:
     """remove punctuation from given string"""
 
-    # remove brachets and inside
+    # remove brackets and inside
     text = re.sub(r"\([^)]*\)", " ", text)
     text = re.sub(r"\[[^]]+\]", " ", text)
 
@@ -550,7 +556,7 @@ def normalize_punctuation(text: str) -> str:
     text = re.sub(r"\<players with the meaning of singers\>", "", text)
     text = re.sub(r"\<this phrase barely made any sense whatsoever\>", "", text)
     text = re.sub(
-        r"\<colorcito does not exist as a word so I have no ideea what he means about that\>",
+        r"\<colorcito does not exist as a word so I have no ideea what he means about that\>",  # cspell:ignore ideea
         "",
         text,
     )
@@ -672,7 +678,7 @@ def clean_transcription(transcription: str) -> str:
 
 
 def clean_translation(translation: str) -> str:
-    """clean a given translation and returne a cleaned translation"""
+    """clean a given translation and return a cleaned translation"""
     translation = translation.strip()
     translation = translation.lower()
 
@@ -710,7 +716,7 @@ def remove_labels(transcription: str):
     transcription = re.sub(r"<foreign langenglishonline", "", transcription)
     transcription = re.sub(r"<foreign langenglish", "", transcription)
     transcription = re.sub(r"</foreign", "", transcription)
-    transcription = re.sub(r"<[/]?foreing\s*\w*>", "", transcription)
+    transcription = re.sub(r"<[/]?foreign\s*\w*>", "", transcription)
     transcription = re.sub(r"</b", "", transcription)
     transcription = re.sub(r"<foreign langengullís>", "", transcription)
     transcription = re.sub(r"foreign>", "", transcription)

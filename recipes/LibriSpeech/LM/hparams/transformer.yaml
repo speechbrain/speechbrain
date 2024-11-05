@@ -8,7 +8,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2223
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/Transformer/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -18,19 +18,22 @@ train_log: !ref <output_folder>/train_log.txt
 # transcriptions of LibriSpeech as well.
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 
-# path to the lm_corpus
+# path to the lm_corpus, assumed to be from a trusted source
 # if set to null, it will automatically download from the internet
 # in the case when there is no internet access, set this to your local file
 lm_corpus_path: null
+train_transcripts_pattern: "train*/**/*.trans.txt"
+dev_transcripts_pattern: "dev*/**/*.trans.txt"
+test_transcripts_pattern: "test*/**/*.trans.txt"
 
 # Tokenizer model
 tokenizer_file: speechbrain/asr-transformer-transformerlm-librispeech/tokenizer.ckpt
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 16
 lr: 10
-accu_steps: 8 # Gradient accumulation to simulate large batch training
+grad_accumulation_factor: 8 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options
@@ -47,11 +50,10 @@ test_dataloader_opts:
 
 # Outputs
 output_neurons: 5000
-blank_index: 0
+# blank_index: 0
 bos_index: 1
 eos_index: 2
-unk_index: 0
-pad_index: 0
+# pad_index: 0
 
 # model params
 d_model: 768

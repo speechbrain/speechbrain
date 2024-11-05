@@ -2,10 +2,10 @@
 """
 Recipe for training a Voice Activity Detection (VAD) model on LibriParty.
 This code heavily relis on data augmentation with external datasets.
-(e.g, open_rir, musan, CommonLanguge is used as well).
+(e.g, open_rir, musan, CommonLanguage is used as well).
 
 Make sure you download all the datasets before staring the experiment:
-- LibriParty: https://drive.google.com/file/d/1--cAS5ePojMwNY5fewioXAv9YlYAWzIJ/view?usp=sharing
+- LibriParty: https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
 - Musan: https://www.openslr.org/resources/17/musan.tar.gz
 - CommonLanguage: https://zenodo.org/record/5036977/files/CommonLanguage.tar.gz?download=1
 
@@ -23,15 +23,17 @@ Authors
 """
 
 import sys
-import torch
-import logging
-import numpy as np
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from data_augment import augment_data
 
-logger = logging.getLogger(__name__)
+import numpy as np
+import torch
+from data_augment import augment_data
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class VADBrain(sb.Brain):
@@ -55,7 +57,7 @@ class VADBrain(sb.Brain):
             self.lens = lens
             self.targets = targets
 
-        # From wav input to output binary prediciton
+        # From wav input to output binary prediction
         feats = self.hparams.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
         feats = feats.detach()
@@ -201,12 +203,11 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)
@@ -233,30 +234,35 @@ if __name__ == "__main__":
         },
     )
 
+    # Prepare openrir
+    run_on_main(hparams["prepare_noise_data"])
+
     # Prepare Musan
     from musan_prepare import prepare_musan
 
-    run_on_main(
-        prepare_musan,
-        kwargs={
-            "folder": hparams["musan_folder"],
-            "music_csv": hparams["music_csv"],
-            "noise_csv": hparams["noise_csv"],
-            "speech_csv": hparams["speech_csv"],
-            "max_noise_len": hparams["example_length"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_musan,
+            kwargs={
+                "folder": hparams["musan_folder"],
+                "music_csv": hparams["music_csv"],
+                "noise_csv": hparams["noise_csv"],
+                "speech_csv": hparams["speech_csv"],
+                "max_noise_len": hparams["example_length"],
+            },
+        )
 
     # Prepare common
     from commonlanguage_prepare import prepare_commonlanguage
 
-    run_on_main(
-        prepare_commonlanguage,
-        kwargs={
-            "folder": hparams["commonlanguage_folder"],
-            "csv_file": hparams["multilang_speech_csv"],
-        },
-    )
+    if not hparams["skip_prep"]:
+        run_on_main(
+            prepare_commonlanguage,
+            kwargs={
+                "folder": hparams["commonlanguage_folder"],
+                "csv_file": hparams["multilang_speech_csv"],
+            },
+        )
 
     # Dataset IO prep: creating Dataset objects
     train_data, valid_data, test_data = dataio_prep(hparams)

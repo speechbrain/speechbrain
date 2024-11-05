@@ -1,0 +1,22 @@
+#########
+# Recipe for Training kenLM on CommonVoice Data
+# It is  used to boost Wav2Vec2 with n-grams.
+#
+# Author: Pooneh Mousavi (2023)
+################################
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/CommonVoice/ngrams/<language>/<seed>
+
+# Data files
+data_folder: !PLACEHOLDER # e.g, /localscratch/cv-corpus-14.0-2023-06-23/en
+train_tsv_file: !ref <data_folder>/train.tsv
+language: en
+# accented_letters should be set according to the language
+accented_letters: True
+train_csv: !ref <output_folder>/train.csv
+skip_prep: False
+text_file: !ref <output_folder>/train.txt
+ngram: 5
+ngram_file: !ref <output_folder>/<language>_<ngram>gram.arpa

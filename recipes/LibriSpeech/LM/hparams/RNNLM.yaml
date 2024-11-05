@@ -8,7 +8,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 2223
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/RNN/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -18,19 +18,22 @@ train_log: !ref <output_folder>/train_log.txt
 # transcriptions of LibriSpeech as well.
 data_folder: !PLACEHOLDER # e.g, /localscratch/LibriSpeech
 
-# path to the lm_corpus
+# path to the lm_corpus, assumed to be from a trusted source
 # if set to null, it will automatically download from the internet
 # in the case when there is no internet access, set this to your local file
 lm_corpus_path: null
+train_transcripts_pattern: "train*/**/*.trans.txt"
+dev_transcripts_pattern: "dev*/**/*.trans.txt"
+test_transcripts_pattern: "test*/**/*.trans.txt"
 
 # Tokenizer model
 tokenizer_file: https://www.dropbox.com/s/o7gnouwdoqchotj/1000_unigram.model?dl=1
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 20
 batch_size: 80
 lr: 0.001
-accu_steps: 1 # Gradient accumulation to simulate large batch training
+grad_accumulation_factor: 1 # Gradient accumulation to simulate large batch training
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Dataloader options
@@ -44,7 +47,7 @@ valid_dataloader_opts:
 test_dataloader_opts:
     batch_size: 1
 
-# Model parameters
+####################### Model Parameters #######################################
 emb_size: 128
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.0
@@ -55,7 +58,7 @@ dnn_neurons: 512
 
 # Outputs
 output_neurons: 1000 # index(blank/eos/bos) = 0
-blank_index: 0
+# blank_index: 0
 bos_index: 0
 eos_index: 0
 

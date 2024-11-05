@@ -5,15 +5,19 @@ Authors
   * Samuele Cornell 2020
 """
 
-import copy
 import contextlib
+import copy
+import math
 from types import MethodType
-from torch.utils.data import Dataset
-from speechbrain.utils.data_pipeline import DataPipeline
-from speechbrain.dataio.dataio import load_data_json, load_data_csv
-import logging
 
-logger = logging.getLogger(__name__)
+from torch.utils.data import Dataset
+
+from speechbrain.dataio.dataio import load_data_csv, load_data_json
+from speechbrain.utils.data_pipeline import DataPipeline
+from speechbrain.utils.data_utils import batch_shuffle
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class DynamicItemDataset(Dataset):
@@ -143,9 +147,7 @@ class DynamicItemDataset(Dataset):
         and value is the internal key.
     """
 
-    def __init__(
-        self, data, dynamic_items=[], output_keys=[],
-    ):
+    def __init__(self, data, dynamic_items=[], output_keys=[]):
         self.data = data
         self.data_ids = list(self.data.keys())
         static_keys = list(self.data[self.data_ids[0]].keys())
@@ -213,6 +215,11 @@ class DynamicItemDataset(Dataset):
     def output_keys_as(self, keys):
         """Context manager to temporarily set output keys.
 
+        Arguments
+        ---------
+        keys : list
+            A set of output keys to use in the context.
+
         Example
         -------
         >>> dataset = DynamicItemDataset({"a":{"x":1,"y":2},"b":{"x":3,"y":4}},
@@ -227,6 +234,10 @@ class DynamicItemDataset(Dataset):
         ----
         Not thread-safe. While in this context manager, the output keys
         are affected for any call.
+
+        Yields
+        ------
+        self
         """
         saved_output = self.pipeline.output_mapping
         self.pipeline.set_output_keys(keys)
@@ -282,7 +293,7 @@ class DynamicItemDataset(Dataset):
         Temporarily changes the output keys!
         """
         filtered_sorted_ids = self._filtered_sorted_ids(
-            key_min_value, key_max_value, key_test, sort_key, reverse, select_n,
+            key_min_value, key_max_value, key_test, sort_key, reverse, select_n
         )
         return FilteredSortedDynamicItemDataset(
             self, filtered_sorted_ids
@@ -300,6 +311,7 @@ class DynamicItemDataset(Dataset):
         """Returns a list of data ids, fulfilling the sorting and filtering."""
 
         def combined_filter(computed):
+            """Applies filter."""
             for key, limit in key_min_value.items():
                 # NOTE: docstring promises >= so using that.
                 # Mathematically could also use < for nicer syntax, but
@@ -348,6 +360,47 @@ class DynamicItemDataset(Dataset):
             filtered_sorted_ids = filtered_ids
         return filtered_sorted_ids
 
+    def overfit_test(self, sample_count, total_count):
+        """Creates a subset of this dataset for an overfitting
+        test - repeating sample_count samples to create a repeating
+        dataset with a total of epoch_data_count samples
+
+        Arguments
+        ---------
+        sample_count: int
+            the number of samples to select
+        total_count: int
+            the total data count
+
+        Returns
+        -------
+        dataset: FilteredSortedDynamicItemDataset
+            a dataset with a repeated subset
+        """
+        num_repetitions = math.ceil(total_count / sample_count)
+        overfit_samples = self.data_ids[:sample_count] * num_repetitions
+        overfit_samples = overfit_samples[:total_count]
+        return FilteredSortedDynamicItemDataset(self, overfit_samples)
+
+    def batch_shuffle(self, batch_size):
+        """Shuffles batches within a dataset. This is particularly
+        useful in combination with length sorting - to ensure
+        that the length variation within a batch is not very high,
+        but the batches themselves remain randomized
+
+        Arguments
+        ---------
+        batch_size: int
+            the batch size
+
+        Returns
+        -------
+        dataset: FilteredSortedDynamicItemDataset
+            a shuffled dataset
+        """
+        data_ids = batch_shuffle(self.data_ids, batch_size)
+        return FilteredSortedDynamicItemDataset(self, data_ids)
+
     @classmethod
     def from_json(
         cls, json_path, replacements={}, dynamic_items=[], output_keys=[]
@@ -369,8 +422,10 @@ class DynamicItemDataset(Dataset):
         cls, dataset, replacements={}, dynamic_items=[], output_keys=[]
     ):
         """Loading a prepared huggingface dataset"""
-        # define an unbound method to generate puesdo keys
+
+        # define an unbound method to generate pseudo keys
         def keys(self):
+            "Returns the keys."
             return [i for i in range(dataset.__len__())]
 
         # bind this method to arrow dataset
@@ -413,3 +468,37 @@ def set_output_keys(datasets, output_keys):
     """Helper for setting the same item to multiple datasets."""
     for dataset in datasets:
         dataset.set_output_keys(output_keys)
+
+
+def apply_overfit_test(
+    overfit_test,
+    overfit_test_sample_count,
+    overfit_test_epoch_data_count,
+    dataset,
+):
+    """Applies the overfit test to the specified dataset,
+    as configured in the hyperparameters file
+
+    Arguments
+    ---------
+
+    overfit_test: bool
+        when True the overfitting test is performed
+    overfit_test_sample_count: int
+        number of samples for the overfitting test
+    overfit_test_epoch_data_count: int
+        number of epochs for the overfitting test
+
+    dataset: DynamicItemDataset
+        the dataset
+
+    Returns
+    -------
+    dataset: DynamicItemDataset
+        the dataset, with the overfit test apply
+    """
+    if overfit_test:
+        sample_count = overfit_test_sample_count
+        epoch_data_count = overfit_test_epoch_data_count
+        dataset = dataset.overfit_test(sample_count, epoch_data_count)
+    return dataset

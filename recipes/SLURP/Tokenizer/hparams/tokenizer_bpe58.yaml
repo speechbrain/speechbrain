@@ -5,7 +5,7 @@
 # ############################################################################
 
 output_folder: !ref results/tokenizer_bpe58/
-train_log: !ref <output_folder>/train_log.txt
+# train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g., /localscratch/SLURP
@@ -14,7 +14,7 @@ train_csv: !ref <output_folder>/train-type=direct.csv
 valid_csv: !ref <output_folder>/devel-type=direct.csv
 skip_prep: False
 
-# Training parameters
+####################### Training Parameters ####################################
 token_type: unigram  # ["unigram", "bpe", "char"]
 token_output: 58  # index(blank/eos/bos/unk) = 0
 character_coverage: 1.0

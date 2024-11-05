@@ -1,0 +1,25 @@
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Training params
+N_epochs: 5
+lr: 0.004
+dataloader_options:
+    batch_size: 2
+
+models: !include:models.yaml
+
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
+
+modules:
+    generator: !ref <models[generator]>
+    discriminator: !ref <models[discriminator]>
+
+g_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+d_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr> / 4
+
+compute_cost: !name:speechbrain.nnet.losses.mse_loss

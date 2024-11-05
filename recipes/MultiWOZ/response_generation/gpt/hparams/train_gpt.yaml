@@ -1,0 +1,136 @@
+# ########################################
+# Model: GPT2LMHeadModel +  NLL
+# Authors:
+    # Pooneh Mousavi 2023
+    # Simone Alghisi 2023
+# ########################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1995
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Dataset will be downloaded to the `data_original`
+data_folder: !PLACEHOLDER
+output_folder: !ref results/train_with_gpt2/<seed>
+replacements_path: mapping.pair
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+bleu_4_test_file: !ref <output_folder>/bleu_4_test.txt
+bleu_4_valid_file: !ref <output_folder>/bleu_4_valid.txt
+
+# URL for the gpt2 model
+gpt_hub: gpt2
+gpt_folder: !ref <save_folder>/gpt_checkpoint
+
+# Path where data manifest files will be stored
+train_annotation: !ref <output_folder>/train.json
+valid_annotation: !ref <output_folder>/dev.json
+test_annotation: !ref <output_folder>/test.json
+
+skip_prep: False
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# Special tokens
+bos_token: "BOS"
+eos_token: "EOS"
+
+system_token: "SPK_1"
+user_token: "SPK_2"
+
+special_tokens: [
+    !ref <bos_token>,
+    !ref <eos_token>,
+    !ref <system_token>,
+    !ref <user_token>
+]
+
+attr_to_special_tokens:
+    "bos_token": !ref <bos_token>
+    "eos_token": !ref <eos_token>
+    "additional_special_tokens": [!ref <system_token>, !ref <user_token>]
+
+# history_window, i.e. how many user-system exchanges consider as context.
+max_history: 5
+
+ignore_index: -100
+label_smoothing: 0
+
+####################### Training Parameters ####################################
+number_of_epochs: 4
+batch_size: 8
+test_batch_size: 4
+lr: 1.97125e-4
+
+#freeze GPT model
+freeze_gptmodel: False
+num_beams: 3
+max_new_tokens: 50
+top_k: 45
+top_p: 0.9
+
+
+train_dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: True
+    num_workers: 2
+    drop_last: False
+
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    shuffle: True
+    num_workers: 2
+    drop_last: True
+
+# Masks
+padding_mask: !name:speechbrain.lobes.models.transformer.Transformer.get_key_padding_mask
+
+# gpt model
+gpt_model: !new:speechbrain.lobes.models.huggingface_transformers.gpt.GPT
+    source: !ref <gpt_hub>
+    freeze: !ref <freeze_gptmodel>
+    save_path: !ref <gpt_folder>
+    max_new_tokens: !ref <max_new_tokens>
+    num_beams: !ref <num_beams>
+    top_k: !ref  <top_k>
+    top_p: !ref <top_p>
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+modules:
+    gpt_model: !ref <gpt_model>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <gpt_model>]
+
+
+ce_loss: !new:torch.nn.CrossEntropyLoss
+    ignore_index: !ref <ignore_index>
+    label_smoothing: !ref <label_smoothing>
+
+opt_class: !name:torch.optim.AdamW
+    lr: !ref <lr>
+
+
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+    patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        gpt_model: !ref <gpt_model>
+        lr_annealing_output: !ref <lr_annealing>
+        counter: !ref <epoch_counter>
+
+
+bleu_4_computer: !name:speechbrain.utils.bleu.BLEUStats
+    max_ngram_order: 4
+
+bleu_2_computer: !name:speechbrain.utils.bleu.BLEUStats
+    max_ngram_order: 2

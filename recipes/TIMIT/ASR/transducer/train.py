@@ -3,7 +3,11 @@
 Transducer loss on the TIMIT dataset.
 
 To run this recipe, do the following:
-> python train.py hparams/train.yaml --data_folder /path/to/TIMIT
+> python train.py hparams/train.yaml --data_folder /path/to/TIMIT --jit
+
+Note on Compilation:
+Enabling the just-in-time (JIT) compiler with --jit significantly improves code performance,
+resulting in a 50-60% speed boost. We highly recommend utilizing the JIT compiler for optimal results.
 
 
 Authors
@@ -13,13 +17,14 @@ Authors
 """
 import os
 import sys
-import torch
-import logging
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 
-logger = logging.getLogger(__name__)
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -30,18 +35,10 @@ class ASR_Brain(sb.Brain):
         wavs, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
 
-        # Adding optional augmentation when specified:
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.hparams, "env_corrupt"):
-                wavs_noise = self.hparams.env_corrupt(wavs, wav_lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                wav_lens = torch.cat([wav_lens, wav_lens])
-                batch.sig = wavs, wav_lens
-                phns = torch.cat([phns, phns], dim=0)
-                phn_lens = torch.cat([phn_lens, phn_lens])
-                batch.phn_encoded = phns, phn_lens
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, wav_lens)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, wav_lens = self.hparams.wav_augment(wavs, wav_lens)
+            phns = self.hparams.wav_augment.replicate_labels(phns)
 
         # Model computations
         feats = self.hparams.compute_features(wavs)
@@ -64,11 +61,10 @@ class ASR_Brain(sb.Brain):
 
         # output layer for seq2seq log-probabilities
         logits = self.modules.output(joint)
-        p_transducer = self.hparams.log_softmax(logits)
 
         if stage == sb.Stage.VALID:
-            hyps, scores, _, _ = self.hparams.Greedysearcher(x)
-            return p_transducer, hyps
+            hyps, _, _, _ = self.hparams.Greedysearcher(x)
+            return logits, wav_lens, hyps
 
         elif stage == sb.Stage.TEST:
             (
@@ -77,17 +73,24 @@ class ASR_Brain(sb.Brain):
                 nbest_hyps,
                 nbest_scores,
             ) = self.hparams.Beamsearcher(x)
-            return p_transducer, best_hyps
-        return p_transducer
+            return logits, wav_lens, best_hyps
+        return logits, wav_lens
 
     def compute_objectives(self, predictions, batch, stage):
         "Given the network predictions and targets computed the loss."
         ids = batch.id
-        _, wav_lens = batch.sig
         phns, phn_lens = batch.phn_encoded
-        if stage != sb.Stage.TRAIN:
-            predictions, hyps = predictions
 
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            phns = self.hparams.wav_augment.replicate_labels(phns)
+            phn_lens = self.hparams.wav_augment.replicate_labels(phn_lens)
+
+        if stage == sb.Stage.TRAIN:
+            predictions, wav_lens = predictions
+        else:
+            predictions, wav_lens, hyps = predictions
+
+        # Transducer loss use logits from RNN-T model.
         loss = self.hparams.compute_cost(predictions, phns, wav_lens, phn_lens)
         self.transducer_metrics.append(
             ids, predictions, phns, wav_lens, phn_lens
@@ -132,20 +135,32 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.wer_file, "w") as w:
-                w.write("Transducer loss stats:\n")
-                self.transducer_metrics.write_stats(w)
-                w.write("\nPER stats:\n")
-                self.per_metrics.write_stats(w)
-                print(
-                    "Transducer and PER stats written to file",
-                    self.hparams.wer_file,
-                )
+            run_on_main(
+                save_metrics_to_file,
+                args=[
+                    self.hparams.test_wer_file,
+                    self.transducer_metrics,
+                    self.per_metrics,
+                ],
+            )
+
+
+def save_metrics_to_file(wer_file, transducer_metrics, per_metrics):
+    with open(wer_file, "w", encoding="utf-8") as w:
+        w.write("Transducer loss stats:\n")
+        transducer_metrics.write_stats(w)
+        w.write("\nPER stats:\n")
+        per_metrics.write_stats(w)
+        print(
+            "Transducer and PER stats written to file",
+            hparams["test_wer_file"],
+        )
 
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     data_folder = hparams["data_folder"]
 
@@ -230,12 +245,11 @@ def dataio_prep(hparams):
 
 # Begin Recipe!
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (parsing TIMIT and annotation into csv files)
@@ -260,8 +274,10 @@ if __name__ == "__main__":
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],
             "skip_prep": hparams["skip_prep"],
+            "uppercase": hparams["uppercase"],
         },
     )
+    run_on_main(hparams["prepare_noise_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, test_data, label_encoder = dataio_prep(hparams)

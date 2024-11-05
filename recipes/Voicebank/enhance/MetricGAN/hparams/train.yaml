@@ -9,10 +9,9 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 4234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 data_folder: !PLACEHOLDER # e.g, /data/member1/user_jasonfu/noisy-vctk-16k
-train_clean_folder: !ref <data_folder>/clean_trainset_28spk_wav_16k/
 
 MetricGAN_folder: !ref <output_folder>/enhanced_wavs
 output_folder: !ref ./results/MetricGAN/<seed>
@@ -107,6 +106,6 @@ resynth: !name:speechbrain.processing.signal_processing.resynthesize
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-# Tensorboard logger (optional)
+# torch.Tensorboard logger (optional)
 tensorboard_train_logger: !new:speechbrain.utils.train_logger.TensorboardLogger
     save_dir: !ref <tensorboard_logs>

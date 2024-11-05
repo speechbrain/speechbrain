@@ -6,10 +6,11 @@ Authors
 """
 
 import torch
-import logging
 import torch.nn.functional as F
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Softmax(torch.nn.Module):
@@ -21,6 +22,10 @@ class Softmax(torch.nn.Module):
         Whether to apply the log function before softmax.
     dim : int
         If the dimension where softmax is applied.
+    reshape: bool
+        whether to apply reshaping (true by default)
+    dtype: torch.dtype
+        dtype of the output tensor
 
     Example
     -------
@@ -31,13 +36,19 @@ class Softmax(torch.nn.Module):
     torch.Size([10, 50, 40])
     """
 
-    def __init__(self, apply_log=False, dim=-1):
+    def __init__(
+        self, apply_log=False, dim=-1, reshape=True, dtype=torch.float32
+    ):
         super().__init__()
 
         if apply_log:
-            self.act = torch.nn.LogSoftmax(dim=dim)
+            self.act = F.log_softmax
         else:
-            self.act = torch.nn.Softmax(dim=dim)
+            self.act = F.softmax
+
+        self.dim = dim
+        self.reshape = reshape
+        self.dtype = dtype
 
     def forward(self, x):
         """Returns the softmax of the input tensor.
@@ -46,24 +57,31 @@ class Softmax(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input tensor.
+
+        Returns
+        -------
+        x_act : torch.Tensor
+            The softmax outputs.
         """
         # Reshaping the tensors
         dims = x.shape
 
-        if len(dims) == 3:
-            x = x.reshape(dims[0] * dims[1], dims[2])
+        if self.reshape:
+            if len(dims) == 3:
+                x = x.reshape(dims[0] * dims[1], dims[2])
 
-        if len(dims) == 4:
-            x = x.reshape(dims[0] * dims[1], dims[2], dims[3])
+            if len(dims) == 4:
+                x = x.reshape(dims[0] * dims[1], dims[2], dims[3])
 
-        x_act = self.act(x)
+        x_act = self.act(x, dim=self.dim, dtype=self.dtype)
 
         # Retrieving the original shape format
-        if len(dims) == 3:
-            x_act = x_act.reshape(dims[0], dims[1], dims[2])
+        if self.reshape:
+            if len(dims) == 3:
+                x_act = x_act.reshape(dims[0], dims[1], dims[2])
 
-        if len(dims) == 4:
-            x_act = x_act.reshape(dims[0], dims[1], dims[2], dims[3])
+            if len(dims) == 4:
+                x_act = x_act.reshape(dims[0], dims[1], dims[2], dims[3])
 
         return x_act
 
@@ -74,13 +92,13 @@ class GumbelSoftmax(torch.nn.Module):
     Reference: https://arxiv.org/abs/1611.00712, https://arxiv.org/abs/1611.01144
 
     Arguments
-    ----------
+    ---------
     tau: float
         non-negative scalar temperature
     hard: bool
         if True, the returned samples will be discretized as one-hot vectors, but will be differentiated as if it is the soft sample in autograd
-    dim: int
-        A dimension along which softmax will be computed (default: -1).
+    apply_log: bool
+        if True, returns the log of the softmax outputs.
 
     Example
     -------
@@ -96,13 +114,24 @@ class GumbelSoftmax(torch.nn.Module):
         self.apply_log = apply_log
 
     def forward(self, x):
+        """Returns the Gumbel softmax of the input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        The Gumbel softmax output.
+        """
         if self.apply_log:
             return torch.log(F.gumbel_softmax(x, tau=self.tau, hard=self.hard))
         return F.gumbel_softmax(x, tau=self.tau, hard=self.hard)
 
 
 class Swish(torch.nn.Module):
-    """ The class implements the Swish activation function from
+    """The class implements the Swish activation function from
     https://arxiv.org/pdf/2005.03191.pdf
 
     given input x. Swish(x) = x / (1 + exp(beta * x))
@@ -119,10 +148,10 @@ class Swish(torch.nn.Module):
     >>> x = act(x)
     """
 
-    def __init__(self, beta=1):
+    def __init__(self, beta: float = 1.0):
         super().__init__()
         self.beta = beta
-        self.sigmoid = torch.nn.Sigmoid()
+        self.silu = torch.nn.SiLU()
 
     def forward(self, x):
         """Returns the Swished input tensor.
@@ -131,5 +160,12 @@ class Swish(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input tensor.
+
+        Returns
+        -------
+        The swished output.
         """
-        return x * self.sigmoid(self.beta * x)
+        if self.beta != 1:  # slow path
+            x = x * self.beta
+
+        return self.silu(x)

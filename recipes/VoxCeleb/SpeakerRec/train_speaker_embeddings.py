@@ -15,19 +15,20 @@ Author
     * Nauman Dawalatabad 2020
 """
 import os
-import sys
 import random
+import sys
+
 import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 
 class SpeakerBrain(sb.core.Brain):
-    """Class for speaker embedding training"
-    """
+    """Class for speaker embedding training"""
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + speaker classifier.
@@ -37,36 +38,19 @@ class SpeakerBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
-        feats = self.modules.compute_features(wavs)
+        if (
+            hasattr(self.hparams, "use_tacotron2_mel_spec")
+            and self.hparams.use_tacotron2_mel_spec
+        ):
+            feats = self.hparams.compute_features(audio=wavs)
+            feats = torch.transpose(feats, 1, 2)
+        else:
+            feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
         # Embeddings + speaker classifier
@@ -76,15 +60,14 @@ class SpeakerBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using speaker-id as label.
-        """
+        """Computes the loss using speaker-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         spkid, _ = batch.spk_id_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            spkid = torch.cat([spkid] * self.n_augment, dim=0)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            spkid = self.hparams.wav_augment.replicate_labels(spkid)
 
         loss = self.hparams.compute_cost(predictions, spkid, lens)
 
@@ -155,7 +138,7 @@ def dataio_prep(hparams):
     def audio_pipeline(wav, start, stop, duration):
         if hparams["random_chunk"]:
             duration_sample = int(duration * hparams["sample_rate"])
-            start = random.randint(0, duration_sample - snt_len_sample - 1)
+            start = random.randint(0, duration_sample - snt_len_sample)
             stop = start + snt_len_sample
         else:
             start = int(start)
@@ -183,7 +166,9 @@ def dataio_prep(hparams):
     # Load or compute the label encoder (with multi-GPU DDP support)
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
-        path=lab_enc_file, from_didatasets=[train_data], output_key="spk_id",
+        path=lab_enc_file,
+        from_didatasets=[train_data],
+        output_key="spk_id",
     )
 
     # 4. Set output:
@@ -193,7 +178,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
@@ -204,10 +188,10 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         hparams["save_folder"], os.path.basename(hparams["verification_file"])
     )
@@ -223,10 +207,13 @@ if __name__ == "__main__":
             "save_folder": hparams["save_folder"],
             "verification_pairs_file": veri_file_path,
             "splits": ["train", "dev"],
-            "split_ratio": [90, 10],
+            "split_ratio": hparams["split_ratio"],
             "seg_dur": hparams["sentence_len"],
+            "skip_prep": hparams["skip_prep"],
         },
     )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     train_data, valid_data, label_encoder = dataio_prep(hparams)

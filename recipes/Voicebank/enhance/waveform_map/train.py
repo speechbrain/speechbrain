@@ -10,14 +10,16 @@ Authors
 """
 import os
 import sys
+
 import torch
 import torchaudio
-import speechbrain as sb
-from pesq import pesq
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import MetricStats
+from pesq import pesq
+
+import speechbrain as sb
 from speechbrain.nnet.loss.stoi_loss import stoi_loss
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.metric_stats import MetricStats
 
 
 # Brain class for speech enhancement training
@@ -41,7 +43,6 @@ class SEBrain(sb.Brain):
         )
 
         if stage != sb.Stage.TRAIN:
-
             # Evaluate speech quality/intelligibility
             self.stoi_metric.append(
                 batch.id, predict_wavs, clean_wavs, lens, reduction="batch"
@@ -125,7 +126,8 @@ class SEBrain(sb.Brain):
 
 def dataio_prep(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # Define audio pipelines
     @sb.utils.data_pipeline.takes("noisy_wav")
@@ -140,9 +142,14 @@ def dataio_prep(hparams):
 
     # Define datasets
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[noisy_pipeline, clean_pipeline],
             output_keys=["id", "noisy_sig", "clean_sig"],
@@ -169,10 +176,9 @@ def create_folder(folder):
 
 # Recipe begins!
 if __name__ == "__main__":
-
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

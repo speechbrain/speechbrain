@@ -1,0 +1,9 @@
+{
+	"0": {
+		"duration": "1.0",
+		"length": "1.0",
+		"wav": "{data_root}/mixture_3.wav",
+		"wav_format": "wav",
+		"wav_opts": ""
+	}
+}

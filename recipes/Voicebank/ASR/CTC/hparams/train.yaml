@@ -6,7 +6,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1236
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 input_type: clean_wav
 output_folder: !ref results/<input_type>/phn/<seed>
 per_file: !ref <output_folder>/per.txt
@@ -20,13 +20,14 @@ valid_annotation: !ref <output_folder>/valid.json
 test_annotation: !ref <output_folder>/test.json
 skip_prep: False # Skip data preparation
 
-# Training parameters
+####################### Training Parameters ####################################
 number_of_epochs: 50
 batch_size: 8
 sorting: ascending
 dataloader_options:
     batch_size: !ref <batch_size>
-lr: 1.0
+lr: 0.5
+max_grad_norm: 5.0
 
 # Set this to the path of a pretrained model to load before training
 # pretrained: model_clean_ep3.ckpt
@@ -36,7 +37,7 @@ sample_rate: 16000
 n_fft: 400
 n_mels: 40
 
-# Model parameters
+####################### Model Parameters #######################################
 activation: !name:torch.nn.LeakyReLU
 dropout: 0.15
 cnn_blocks: 2
@@ -60,9 +61,40 @@ compute_features: !new:speechbrain.lobes.features.Fbank
     n_fft: !ref <n_fft>
     n_mels: !ref <n_mels>
 
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
     speeds: [95, 100, 105]
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: 0
+    drop_freq_high: 1
+    drop_freq_count_low: 1
+    drop_freq_count_high: 3
+    drop_freq_width: 0.05
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: 1000
+    drop_length_high: 2000
+    drop_count_low: 1
+    drop_count_high: 5
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    concat_original: True
+    min_augmentations: 3
+    max_augmentations: 3
+    augment_prob: 1.0
+    augmentations: [
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+############################## Models ##########################################
 
 model: !new:speechbrain.lobes.models.CRDNN.CRDNN
     input_shape: [null, null, !ref <n_mels>]
@@ -104,7 +136,6 @@ modules:
     model: !ref <model>
     output: !ref <output>
     normalize: !ref <normalize>
-    augmentation: !ref <augmentation>
 
 jit_module_keys: [model]
 

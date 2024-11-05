@@ -10,18 +10,21 @@ To run this recipe, run the following command:
 Authors
     * Hwidong Na 2020
     * Mirco Ravanelli 2020
+    * Xuechen Liu 2023
 """
 import os
 import sys
+
 import torch
-import logging
 import torchaudio
-import speechbrain as sb
-from tqdm.contrib import tqdm
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import EER, minDCF
+from tqdm.contrib import tqdm
+
+import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.metric_stats import EER, minDCF
 
 
 # Compute embeddings from the waveforms
@@ -30,20 +33,21 @@ def compute_embedding(wavs, wav_lens):
 
     Arguments
     ---------
-    wavs : Torch.Tensor
-        Tensor containing the speech waveform (batch, time).
+    wavs : torch.Tensor
+        torch.Tensor containing the speech waveform (batch, time).
         Make sure the sample rate is fs=16000 Hz.
-    wav_lens: Torch.Tensor
-        Tensor containing the relative length for each sentence
+    wav_lens : torch.Tensor
+        torch.Tensor containing the relative length for each sentence
         in the length (e.g., [0.8 0.6 1.0])
+
+    Returns
+    -------
+    embeddings : torch.Tensor
     """
     with torch.no_grad():
         feats = params["compute_features"](wavs)
         feats = params["mean_var_norm"](feats, wav_lens)
         embeddings = params["embedding_model"](feats, wav_lens)
-        embeddings = params["mean_var_norm_emb"](
-            embeddings, torch.ones(embeddings.shape[0]).to(embeddings.device)
-        )
     return embeddings.squeeze(1)
 
 
@@ -55,7 +59,7 @@ def compute_embedding_loop(data_loader):
 
     with torch.no_grad():
         for batch in tqdm(data_loader, dynamic_ncols=True):
-            batch = batch.to(params["device"])
+            batch = batch.to(run_opts["device"])
             seg_ids = batch.id
             wavs, lens = batch.sig
 
@@ -65,7 +69,10 @@ def compute_embedding_loop(data_loader):
                     found = True
             if not found:
                 continue
-            wavs, lens = wavs.to(params["device"]), lens.to(params["device"])
+            wavs, lens = (
+                wavs.to(run_opts["device"]),
+                lens.to(run_opts["device"]),
+            )
             emb = compute_embedding(wavs, lens).unsqueeze(1)
             for i, seg_id in enumerate(seg_ids):
                 embedding_dict[seg_id] = emb[i].detach().clone()
@@ -73,14 +80,13 @@ def compute_embedding_loop(data_loader):
 
 
 def get_verification_scores(veri_test):
-    """ Computes positive and negative scores given the verification split.
-    """
+    """Computes positive and negative scores given the verification split."""
     scores = []
     positive_scores = []
     negative_scores = []
 
     save_file = os.path.join(params["output_folder"], "scores.txt")
-    s_file = open(save_file, "w")
+    s_file = open(save_file, "w", encoding="utf-8")
 
     # Cosine similarity initialization
     similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
@@ -90,7 +96,6 @@ def get_verification_scores(veri_test):
         train_cohort = torch.stack(list(train_dict.values()))
 
     for i, line in enumerate(veri_test):
-
         # Reading verification file (enrol_file test_file label)
         lab_pair = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
@@ -155,11 +160,10 @@ def dataio_prep(params):
 
     data_folder = params["data_folder"]
 
-    # 1. Declarations:
-
     # Train data (used for normalization)
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["train_data"], replacements={"data_root": data_folder},
+        csv_path=params["train_data"],
+        replacements={"data_root": data_folder},
     )
     train_data = train_data.filtered_sorted(
         sort_key="duration", select_n=params["n_train_snts"]
@@ -167,19 +171,21 @@ def dataio_prep(params):
 
     # Enrol data
     enrol_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["enrol_data"], replacements={"data_root": data_folder},
+        csv_path=params["enrol_data"],
+        replacements={"data_root": data_folder},
     )
     enrol_data = enrol_data.filtered_sorted(sort_key="duration")
 
     # Test data
     test_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=params["test_data"], replacements={"data_root": data_folder},
+        csv_path=params["test_data"],
+        replacements={"data_root": data_folder},
     )
     test_data = test_data.filtered_sorted(sort_key="duration")
 
     datasets = [train_data, enrol_data, test_data]
 
-    # 2. Define audio pipeline:
+    # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav", "start", "stop")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav, start, stop):
@@ -194,10 +200,10 @@ def dataio_prep(params):
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
-    # 3. Set output:
+    # Set output
     sb.dataio.dataset.set_output_keys(datasets, ["id", "sig"])
 
-    # 4 Create dataloaders
+    # Create dataloaders
     train_dataloader = sb.dataio.dataloader.make_dataloader(
         train_data, **params["train_dataloader_opts"]
     )
@@ -213,16 +219,16 @@ def dataio_prep(params):
 
 if __name__ == "__main__":
     # Logger setup
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
-    with open(params_file) as fin:
+    with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 
-    # Download verification list (to exlude verification sentences from train)
+    # Download verification list (to exclude verification sentences from train)
     veri_file_path = os.path.join(
         params["save_folder"], os.path.basename(params["verification_file"])
     )
@@ -243,11 +249,12 @@ if __name__ == "__main__":
         save_folder=params["save_folder"],
         verification_pairs_file=veri_file_path,
         splits=["train", "dev", "test"],
-        split_ratio=[90, 10],
+        split_ratio=params["split_ratio"],
         seg_dur=3.0,
-        source=params["voxceleb_source"]
-        if "voxceleb_source" in params
-        else None,
+        skip_prep=params["skip_prep"],
+        source=(
+            params["voxceleb_source"] if "voxceleb_source" in params else None
+        ),
     )
 
     # here we create the datasets objects as well as tokenization and encoding
@@ -256,18 +263,14 @@ if __name__ == "__main__":
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
     run_on_main(params["pretrainer"].collect_files)
-    params["pretrainer"].load_collected(params["device"])
+    params["pretrainer"].load_collected()
     params["embedding_model"].eval()
-    params["embedding_model"].to(params["device"])
+    params["embedding_model"].to(run_opts["device"])
 
     # Computing  enrollment and test embeddings
     logger.info("Computing enroll/test embeddings...")
 
     # First run
-    enrol_dict = compute_embedding_loop(enrol_dataloader)
-    test_dict = compute_embedding_loop(test_dataloader)
-
-    # Second run (normalization stats are more stable)
     enrol_dict = compute_embedding_loop(enrol_dataloader)
     test_dict = compute_embedding_loop(test_dataloader)
 
@@ -277,7 +280,7 @@ if __name__ == "__main__":
     # Compute the EER
     logger.info("Computing EER..")
     # Reading standard verification split
-    with open(veri_file_path) as f:
+    with open(veri_file_path, encoding="utf-8") as f:
         veri_test = [line.rstrip() for line in f]
 
     positive_scores, negative_scores = get_verification_scores(veri_test)

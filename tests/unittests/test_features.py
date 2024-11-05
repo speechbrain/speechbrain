@@ -2,10 +2,9 @@ import torch
 
 
 def test_deltas(device):
-
     from speechbrain.processing.features import Deltas
 
-    size = torch.Size([10, 101, 20], device=device)
+    size = [10, 101, 20]
     inp = torch.ones(size, device=device)
     compute_deltas = Deltas(input_size=20).to(device)
     out = torch.zeros(size, device=device)
@@ -15,7 +14,6 @@ def test_deltas(device):
 
 
 def test_context_window(device):
-
     from speechbrain.processing.features import ContextWindow
 
     inp = (
@@ -40,8 +38,7 @@ def test_context_window(device):
 
 
 def test_istft(device):
-    from speechbrain.processing.features import STFT
-    from speechbrain.processing.features import ISTFT
+    from speechbrain.processing.features import ISTFT, STFT
 
     fs = 16000
     inp = torch.randn([10, 16000], device=device)
@@ -58,7 +55,6 @@ def test_istft(device):
 
 
 def test_filterbank(device):
-
     from speechbrain.processing.features import Filterbank
 
     compute_fbanks = Filterbank().to(device)
@@ -89,7 +85,6 @@ def test_filterbank(device):
 
 
 def test_dtc(device):
-
     from speechbrain.processing.features import DCT
 
     compute_dct = DCT(input_size=40)
@@ -98,7 +93,6 @@ def test_dtc(device):
 
 
 def test_input_normalization(device):
-
     from speechbrain.processing.features import InputNormalization
 
     norm = InputNormalization().to(device)
@@ -120,7 +114,6 @@ def test_input_normalization(device):
 
 
 def test_features_multimic(device):
-
     from speechbrain.processing.features import Filterbank
 
     compute_fbanks = Filterbank().to(device)

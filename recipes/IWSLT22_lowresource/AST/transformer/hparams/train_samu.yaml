@@ -1,0 +1,121 @@
+# ############################################################################
+# Model: SAMU model
+# losses: cosine similarity
+# Training: Tamasheq-French corpus
+# Author:  Ha Nguyen, 2023
+# ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 7777
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+debug: False
+output_folder: !ref results/samu_pretraining/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+wer_file: !ref <output_folder>/wer.txt
+
+# root data folder points to 17h version inside the github folder (IWSLT2022_Tamasheq_data/taq_fra_clean/)
+root_data_folder: !PLACEHOLDER # e.g., /users/hnguyen/IWSLT2022_Tamasheq_data/taq_fra_clean
+# data folder is the place where the json files will be stored prior to training
+data_folder: !ref <root_data_folder>/json_version/
+# Data files
+train_set: !ref <data_folder>/train.json
+valid_set: !ref <data_folder>/valid.json
+test_set: !ref <data_folder>/test.json
+skip_prep: False
+
+# URL for the HuggingFace model we want to load (BASE here)
+wav2vec2_hub: LIA-AvignonUniversity/IWSLT2022-tamasheq-only
+
+# wav2vec 2.0 specific parameters
+wav2vec2_frozen: False
+
+####################### Training Parameters ####################################
+number_of_epochs: 100
+lr: 0.001
+lr_wav2vec: 0.00001
+lr_labse: 0.00001
+sorting: ascending
+batch_size: 2
+test_batch_size: 1
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+dataloader_options:
+    batch_size: !ref <batch_size>
+    num_workers: 4
+
+test_dataloader_options:
+    batch_size: !ref <test_batch_size>
+    num_workers: 4
+
+# Transformer
+d_model: 768
+loss_scale: 50
+
+wav2vec2: !new:speechbrain.lobes.models.huggingface_transformers.wav2vec2.Wav2Vec2
+    source: !ref <wav2vec2_hub>
+    output_norm: False
+    freeze: !ref <wav2vec2_frozen>
+    save_path: !ref <save_folder>/wav2vec2_checkpoint
+
+attn_pooling: !new:speechbrain.nnet.pooling.AttentionPooling
+    input_dim: !ref <d_model>
+
+#LaBSE
+labse_path: setu4993/LaBSE # cspell:disable
+labse_frozen: True
+LaBSE: !new:speechbrain.lobes.models.huggingface_transformers.labse.LaBSE
+    source: !ref <labse_path>
+    freeze: !ref <labse_frozen>
+    output_norm: True
+    save_path: !ref <save_folder>/labse_checkpoint
+
+modules:
+    wav2vec2: !ref <wav2vec2>
+    attn_pooling: !ref <attn_pooling>
+    LaBSE: !ref <LaBSE>
+
+model: !new:torch.nn.ModuleList
+    - [!ref <attn_pooling>, !ref <attn_pooling>]
+
+adam_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+
+wav2vec_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_wav2vec>
+
+labse_opt_class: !name:torch.optim.Adam
+    lr: !ref <lr_labse>
+
+lr_annealing_adam: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.5
+    patient: 2
+
+lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_wav2vec>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+
+lr_annealing_labse: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr_labse>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.9
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        wav2vec2: !ref <wav2vec2>
+        LaBSE: !ref <LaBSE>
+        lr_annealing_adam: !ref <lr_annealing_adam>
+        lr_annealing_wav2vec: !ref <lr_annealing_wav2vec>
+        lr_annealing_labse: !ref <lr_annealing_labse>
+        counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

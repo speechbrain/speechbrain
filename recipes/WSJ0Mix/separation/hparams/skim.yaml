@@ -1,0 +1,178 @@
+# ################################
+# Model: SkiM, http://export.arxiv.org/abs/2201.10800
+# # Dataset : WSJ0-2mix and WSJ0-3mix
+# ################################
+#
+# Basic parameters
+# Seed needs to be set at top of yaml, before objects with parameters are made
+#
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Data params
+
+# e.g. '/yourpath/wsj0-mix/2speakers'
+# end with 2speakers for wsj0-2mix or 3speakers for wsj0-3mix
+data_folder: !PLACEHOLDER
+
+# the path for wsj0/si_tr_s/ folder -- only needed if dynamic mixing is used
+# e.g. /yourpath/wsj0-processed/si_tr_s/
+# you need to convert the original wsj0 to 8k
+# you can do this conversion with the script ../meta/preprocess_dynamic_mixing.py
+base_folder_dm: /yourpath/wsj0-processed/si_tr_s/
+
+experiment_name: skim
+output_folder: !ref results/<experiment_name>/<seed>
+train_log: !ref <output_folder>/train_log.txt
+save_folder: !ref <output_folder>/save
+train_data: !ref <save_folder>/wsj_tr.csv
+valid_data: !ref <save_folder>/wsj_cv.csv
+test_data: !ref <save_folder>/wsj_tt.csv
+skip_prep: False
+
+
+# Experiment params
+precision: fp32 # bf16, fp16 or fp32 # Set it to True for mixed precision
+num_spks: 2 # set to 3 for wsj0-3mix
+save_audio: False # Save estimated sources on disk
+sample_rate: 8000
+
+####################### Training Parameters ####################################
+N_epochs: 200
+batch_size: 1
+lr: 0.00015
+clip_grad_norm: 5
+loss_upper_lim: 999999  # this is the upper limit for an acceptable loss
+# if True, the training sequences are cut to a specified length
+limit_training_signal_len: False
+# this is the length of sequences if we choose to limit
+# the signal length of training sequences
+training_signal_len: 32000
+
+# Set it to True to dynamically create mixtures at training time
+dynamic_mixing: False
+
+# Parameters for data augmentation
+use_wavedrop: False
+use_speedperturb: True
+use_rand_shift: False
+min_shift: -8000
+max_shift: 8000
+
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
+
+# loss thresholding -- this thresholds the training loss
+threshold_byloss: True
+threshold: -30
+
+# Encoder parameters
+N_encoder_out: 128
+out_channels: 128
+kernel_size: 16
+kernel_stride: 8
+
+# Dataloader options
+# Set num_workers: 0 on MacOS due to behavior of the multiprocessing library
+dataloader_opts:
+    batch_size: !ref <batch_size>
+    num_workers: 1
+
+
+# Specifying the network
+Encoder: !new:speechbrain.lobes.models.dual_path.Encoder
+    kernel_size: !ref <kernel_size>
+    out_channels: !ref <N_encoder_out>
+
+RNN_latent_size: 256
+intra_mdl: !new:speechbrain.lobes.models.resepformer.SegLSTM
+    input_size: !ref <out_channels>
+    hidden_size: !ref <RNN_latent_size>
+    bidirectional: True
+    norm_type: gln
+
+mem_mdl: !new:speechbrain.lobes.models.resepformer.MemLSTM
+    hidden_size: !ref <RNN_latent_size>
+    bidirectional: True
+    norm_type: gln
+    mem_type: hc
+
+MaskNet: !new:speechbrain.lobes.models.resepformer.ResourceEfficientSeparator
+    input_dim: !ref <N_encoder_out>
+    num_spk: !ref <num_spks>
+    causal: False
+    unit: !ref <RNN_latent_size>
+    segment_size: 150
+    layer: 4
+    mem_type: hc
+    seg_model: !ref <intra_mdl>
+    mem_model: !ref <mem_mdl>
+
+
+Decoder: !new:speechbrain.lobes.models.dual_path.Decoder
+    in_channels: !ref <N_encoder_out>
+    out_channels: 1
+    kernel_size: !ref <kernel_size>
+    stride: !ref <kernel_stride>
+    bias: False
+
+optimizer: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0
+
+loss: !name:speechbrain.nnet.losses.get_si_snr_with_pitwrapper
+
+lr_scheduler: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 2
+    dont_halve_until_epoch: 85
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <N_epochs>
+
+modules:
+    encoder: !ref <Encoder>
+    decoder: !ref <Decoder>
+    masknet: !ref <MaskNet>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        encoder: !ref <Encoder>
+        decoder: !ref <Decoder>
+        masknet: !ref <MaskNet>
+        counter: !ref <epoch_counter>
+        lr_scheduler: !ref <lr_scheduler>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>

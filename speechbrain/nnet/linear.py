@@ -6,10 +6,11 @@ Authors
 """
 
 import torch
-import logging
 import torch.nn as nn
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Linear(torch.nn.Module):
@@ -20,12 +21,14 @@ class Linear(torch.nn.Module):
     n_neurons : int
         It is the number of output neurons (i.e, the dimensionality of the
         output).
-    input_shape: tuple
+    input_shape : tuple
         It is the shape of the input tensor.
-    input_size: int
+    input_size : int
         Size of the input tensor.
     bias : bool
         If True, the additive bias b is adopted.
+    max_norm : float
+        weight max-norm.
     combine_dims : bool
         If True and the input is 4D, combine 3rd and 4th dimensions of input.
 
@@ -44,9 +47,11 @@ class Linear(torch.nn.Module):
         input_shape=None,
         input_size=None,
         bias=True,
+        max_norm=None,
         combine_dims=False,
     ):
         super().__init__()
+        self.max_norm = max_norm
         self.combine_dims = combine_dims
 
         if input_shape is None and input_size is None:
@@ -67,58 +72,20 @@ class Linear(torch.nn.Module):
         ---------
         x : torch.Tensor
             Input to transform linearly.
+
+        Returns
+        -------
+        wx : torch.Tensor
+            The linearly transformed outputs.
         """
         if x.ndim == 4 and self.combine_dims:
             x = x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
 
+        if self.max_norm is not None:
+            self.w.weight.data = torch.renorm(
+                self.w.weight.data, p=2, dim=0, maxnorm=self.max_norm
+            )
+
         wx = self.w(x)
 
         return wx
-
-
-class LinearWithConstraint(Linear):
-    """Computes a linear transformation y = wx + b with kernel max-norm constaint.
-    This corresponds to set an upper bound for the kernel norm.
-
-    Arguments
-    ---------
-    n_neurons : int
-        It is the number of output neurons (i.e, the dimensionality of the
-        output).
-    input_shape: tuple
-        It is the shape of the input tensor.
-    input_size: int
-        Size of the input tensor.
-    bias : bool
-        If True, the additive bias b is adopted.
-    combine_dims : bool
-        If True and the input is 4D, combine 3rd and 4th dimensions of input.
-    max_norm : float
-        Kernel max-norm
-
-    Example
-    -------
-    >>> inputs = torch.rand(100,)
-    >>> max_norm = 1.
-    >>> lin_t_contrained = LinearWithConstraint(input_size=inputs.shape[0], n_neurons=2, max_norm=max_norm)
-    >>> output = lin_t_contrained(inputs)
-    >>> torch.any(torch.norm(lin_t_contrained.w.weight.data, p=2, dim=0)>max_norm)
-    tensor(False)
-    """
-
-    def __init__(self, *args, max_norm=1, **kwargs):
-        self.max_norm = max_norm
-        super(LinearWithConstraint, self).__init__(*args, **kwargs)
-
-    def forward(self, x):
-        """Returns the linear transformation of input tensor.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-            Input to transform linearly.
-        """
-        self.w.weight.data = torch.renorm(
-            self.w.weight.data, p=2, dim=0, maxnorm=self.max_norm
-        )
-        return super(LinearWithConstraint, self).forward(x)

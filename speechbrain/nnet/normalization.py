@@ -3,7 +3,9 @@
 Authors
  * Mirco Ravanelli 2020
  * Guillermo Cámbara 2021
+ * Sarthak Yadav 2022
 """
+
 import torch
 import torch.nn as nn
 
@@ -29,6 +31,8 @@ class BatchNorm1d(nn.Module):
         and when set to False, this module does not track such statistics.
     combine_batch_time : bool
         When true, it combines batch an time axis.
+    skip_transpose : bool
+        Whether to skip the transposition.
 
 
     Example
@@ -76,6 +80,11 @@ class BatchNorm1d(nn.Module):
         x : torch.Tensor (batch, time, [channels])
             input to normalize. 2d or 3d tensors are expected in input
             4d tensors can be used when combine_dims=True.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         shape_or = x.shape
         if self.combine_batch_time:
@@ -160,6 +169,11 @@ class BatchNorm2d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
@@ -173,6 +187,8 @@ class LayerNorm(nn.Module):
 
     Arguments
     ---------
+    input_size : int
+        The expected size of the dimension to be normalized.
     input_shape : tuple
         The expected shape of the input.
     eps : float
@@ -218,6 +234,10 @@ class LayerNorm(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channels)
             input to normalize. 3d or 4d tensors are expected.
+
+        Returns
+        -------
+        The normalized outputs.
         """
         return self.norm(x)
 
@@ -285,6 +305,11 @@ class InstanceNorm1d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channels)
             input to normalize. 3d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
@@ -356,6 +381,11 @@ class InstanceNorm2d(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channel1, channel2)
             input to normalize. 4d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
@@ -379,8 +409,9 @@ class GroupNorm(nn.Module):
         This value is added to std deviation estimation to improve the numerical
         stability.
     affine : bool
-         A boolean value that when set to True, this module has learnable per-channel
-         affine parameters initialized to ones (for weights) and zeros (for biases).
+        A boolean value that when set to True, this module has learnable per-channel
+        affine parameters initialized to ones (for weights) and zeros (for biases).
+
     Example
     -------
     >>> input = torch.randn(100, 101, 128)
@@ -412,7 +443,10 @@ class GroupNorm(nn.Module):
             input_size = input_shape[-1]
 
         self.norm = torch.nn.GroupNorm(
-            num_groups, input_size, eps=self.eps, affine=self.affine,
+            num_groups,
+            input_size,
+            eps=self.eps,
+            affine=self.affine,
         )
 
     def forward(self, x):
@@ -422,9 +456,215 @@ class GroupNorm(nn.Module):
         ---------
         x : torch.Tensor (batch, time, channels)
             input to normalize. 3d or 4d tensors are expected.
+
+        Returns
+        -------
+        x_n : torch.Tensor
+            The normalized outputs.
         """
         x = x.transpose(-1, 1)
         x_n = self.norm(x)
         x_n = x_n.transpose(1, -1)
 
         return x_n
+
+
+class ExponentialMovingAverage(nn.Module):
+    """
+    Applies learnable exponential moving average, as required by learnable PCEN layer
+
+    Arguments
+    ---------
+    input_size : int
+        The expected size of the input.
+    coeff_init: float
+        Initial smoothing coefficient value
+    per_channel: bool
+        Controls whether every smoothing coefficients are learned
+        independently for every input channel
+    trainable: bool
+        whether to learn the PCEN parameters or use fixed
+    skip_transpose : bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 50, 40])
+    >>> pcen = ExponentialMovingAverage(40)
+    >>> out_tensor = pcen(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 50, 40])
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        coeff_init: float = 0.04,
+        per_channel: bool = False,
+        trainable: bool = True,
+        skip_transpose: bool = False,
+    ):
+        super().__init__()
+        self._coeff_init = coeff_init
+        self._per_channel = per_channel
+        self.skip_transpose = skip_transpose
+        self.trainable = trainable
+        weights = (
+            torch.ones(
+                input_size,
+            )
+            if self._per_channel
+            else torch.ones(
+                1,
+            )
+        )
+        self._weights = nn.Parameter(
+            weights * self._coeff_init, requires_grad=trainable
+        )
+
+    def forward(self, x):
+        """Returns the normalized input tensor.
+
+        Arguments
+         ---------
+         x : torch.Tensor (batch, time, channels)
+             input to normalize.
+        """
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+        w = torch.clamp(self._weights, min=0.0, max=1.0)
+        initial_state = x[:, :, 0]
+
+        def scan(init_state, x, w):
+            """Loops and accumulates."""
+            x = x.permute(2, 0, 1)
+            acc = init_state
+            results = []
+            for ix in range(x.shape[0]):
+                acc = (w * x[ix]) + ((1.0 - w) * acc)
+                results.append(acc.unsqueeze(0))
+            results = torch.cat(results, dim=0)
+            results = results.permute(1, 2, 0)
+            return results
+
+        output = scan(initial_state, x, w)
+        if not self.skip_transpose:
+            output = output.transpose(1, -1)
+        return output
+
+
+class PCEN(nn.Module):
+    """
+    This class implements a learnable Per-channel energy normalization (PCEN) layer, supporting both
+    original PCEN as specified in [1] as well as sPCEN as specified in [2]
+
+    [1] Yuxuan Wang, Pascal Getreuer, Thad Hughes, Richard F. Lyon, Rif A. Saurous, "Trainable Frontend For
+    Robust and Far-Field Keyword Spotting", in Proc of ICASSP 2017 (https://arxiv.org/abs/1607.05666)
+
+    [2] Neil Zeghidour, Olivier Teboul, F{\'e}lix de Chaumont Quitry & Marco Tagliasacchi, "LEAF: A LEARNABLE FRONTEND
+    FOR AUDIO CLASSIFICATION", in Proc of ICLR 2021 (https://arxiv.org/abs/2101.08596)
+
+    The default argument values correspond with those used by [2].
+
+    Arguments
+    ---------
+    input_size : int
+        The expected size of the input.
+    alpha: float
+        specifies alpha coefficient for PCEN
+    smooth_coef: float
+        specified smooth coefficient for PCEN
+    delta: float
+        specifies delta coefficient for PCEN
+    root: float
+        specifies root coefficient for PCEN
+    floor: float
+        specifies floor coefficient for PCEN
+    trainable: bool
+        whether to learn the PCEN parameters or use fixed
+    per_channel_smooth_coef: bool
+        whether to learn independent smooth coefficients for every channel.
+        when True, essentially using sPCEN from [2]
+    skip_transpose : bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 50, 40])
+    >>> pcen = PCEN(40, alpha=0.96)         # sPCEN
+    >>> out_tensor = pcen(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 50, 40])
+    """
+
+    def __init__(
+        self,
+        input_size,
+        alpha: float = 0.96,
+        smooth_coef: float = 0.04,
+        delta: float = 2.0,
+        root: float = 2.0,
+        floor: float = 1e-12,
+        trainable: bool = True,
+        per_channel_smooth_coef: bool = True,
+        skip_transpose: bool = False,
+    ):
+        super().__init__()
+        self._smooth_coef = smooth_coef
+        self._floor = floor
+        self._per_channel_smooth_coef = per_channel_smooth_coef
+        self.skip_transpose = skip_transpose
+        self.alpha = nn.Parameter(
+            torch.ones(input_size) * alpha, requires_grad=trainable
+        )
+        self.delta = nn.Parameter(
+            torch.ones(input_size) * delta, requires_grad=trainable
+        )
+        self.root = nn.Parameter(
+            torch.ones(input_size) * root, requires_grad=trainable
+        )
+
+        self.ema = ExponentialMovingAverage(
+            input_size,
+            coeff_init=self._smooth_coef,
+            per_channel=self._per_channel_smooth_coef,
+            skip_transpose=True,
+            trainable=trainable,
+        )
+
+    def forward(self, x):
+        """Returns the normalized input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor (batch, time, channels)
+            input to normalize.
+
+        Returns
+        -------
+        output : torch.Tensor
+            The normalized outputs.
+        """
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+        alpha = torch.min(
+            self.alpha, torch.tensor(1.0, dtype=x.dtype, device=x.device)
+        )
+        root = torch.max(
+            self.root, torch.tensor(1.0, dtype=x.dtype, device=x.device)
+        )
+        ema_smoother = self.ema(x)
+        one_over_root = 1.0 / root
+        output = (
+            x / (self._floor + ema_smoother) ** alpha.view(1, -1, 1)
+            + self.delta.view(1, -1, 1)
+        ) ** one_over_root.view(1, -1, 1) - self.delta.view(
+            1, -1, 1
+        ) ** one_over_root.view(
+            1, -1, 1
+        )
+        if not self.skip_transpose:
+            output = output.transpose(1, -1)
+        return output

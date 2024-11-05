@@ -8,6 +8,7 @@ a custom PyTorch module.
 Authors
  * Peter Plantinga 2021
 """
+
 import torch
 
 
@@ -45,14 +46,15 @@ class CustomModel(torch.nn.Module):
             linear_size = input_size if i == layers - 1 else projection
             self.layers.append(
                 torch.nn.Linear(
-                    in_features=rnn_size * 2, out_features=linear_size,
+                    in_features=rnn_size * 2,
+                    out_features=linear_size,
                 )
             )
 
         # Use ReLU to make sure outputs aren't negative (unhelpful for masking)
         self.layers.append(torch.nn.ReLU())
 
-    def forward(self, x):
+    def forward(self, x, lengths=None):
         """Shift to time-first, pass layers, then back to batch-first."""
         x = x.transpose(0, 1)
         for layer in self.layers:

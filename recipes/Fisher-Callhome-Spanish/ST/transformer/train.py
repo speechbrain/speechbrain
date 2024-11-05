@@ -12,17 +12,16 @@ Authors
 """
 
 import sys
+
 import torch
-import logging
+from hyperpyyaml import load_hyperpyyaml
+from sacremoses import MosesDetokenizer
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
-from sacremoses import MosesDetokenizer
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-
-logger = logging.getLogger(__name__)
-en_detoeknizer = MosesDetokenizer(lang="en")
+logger = get_logger(__name__)
+en_detokenizer = MosesDetokenizer(lang="en")
 
 
 class ST(sb.core.Brain):
@@ -82,23 +81,26 @@ class ST(sb.core.Brain):
             mt_pred = self.modules.seq_lin(mt_pred)
             mt_p_seq = self.hparams.log_softmax(mt_pred)
 
-        # compute outputs
+        # Compute outputs
         hyps = None
-        if stage == sb.Stage.TRAIN:
-            hyps = None
-        elif stage == sb.Stage.VALID:
-            hyps = None
-            current_epoch = self.hparams.epoch_counter.current
-            if current_epoch % self.hparams.valid_search_interval == 0:
-                hyps, _ = self.hparams.valid_search(enc_out.detach(), wav_lens)
-        elif stage == sb.Stage.TEST:
-            hyps, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
+        current_epoch = self.hparams.epoch_counter.current
+        is_valid_search = (
+            stage == sb.Stage.VALID
+            and current_epoch % self.hparams.valid_search_interval == 0
+        )
+        is_test_search = stage == sb.Stage.TEST
+        if is_valid_search:
+            hyps, _, _, _ = self.hparams.valid_search(
+                enc_out.detach(), wav_lens
+            )
+        elif is_test_search:
+            hyps, _, _, _ = self.hparams.test_search(enc_out.detach(), wav_lens)
 
         return p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given predictions and targets."""
-        (p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps,) = predictions
+        (p_ctc, p_seq, asr_p_seq, mt_p_seq, wav_lens, hyps) = predictions
 
         ids = batch.id
 
@@ -120,25 +122,25 @@ class ST(sb.core.Brain):
 
         # st attention loss
         attention_loss = self.hparams.seq_cost(
-            p_seq, tokens_eos, length=tokens_eos_lens,
+            p_seq, tokens_eos, length=tokens_eos_lens
         )
 
         # asr attention loss
         if self.hparams.ctc_weight < 1 and self.hparams.asr_weight > 0:
             asr_attention_loss = self.hparams.seq_cost(
-                asr_p_seq, transcription_eos, length=transcription_eos_lens,
+                asr_p_seq, transcription_eos, length=transcription_eos_lens
             )
 
         # asr ctc loss
         if self.hparams.ctc_weight > 0 and self.hparams.asr_weight > 0:
             asr_ctc_loss = self.hparams.ctc_cost(
-                p_ctc, transcription_tokens, wav_lens, transcription_lens,
+                p_ctc, transcription_tokens, wav_lens, transcription_lens
             )
 
         # mt attention loss
         if self.hparams.mt_weight > 0:
             mt_loss = self.hparams.seq_cost(
-                mt_p_seq, tokens_eos, length=tokens_eos_lens,
+                mt_p_seq, tokens_eos, length=tokens_eos_lens
             )
 
         asr_loss = (self.hparams.ctc_weight * asr_ctc_loss) + (
@@ -158,7 +160,7 @@ class ST(sb.core.Brain):
             if stage == sb.Stage.TEST:
                 # 4 references bleu score
                 predictions = [
-                    en_detoeknizer.detokenize(
+                    en_detokenizer.detokenize(
                         hparams["tokenizer"].decode_ids(utt_seq).split(" ")
                     )
                     for utt_seq in hyps
@@ -174,7 +176,7 @@ class ST(sb.core.Brain):
                 targets = []
                 for reference in four_references:
                     detokenized_translation = [
-                        en_detoeknizer.detokenize(translation.split(" "))
+                        en_detokenizer.detokenize(translation.split(" "))
                         for translation in reference
                     ]
                     targets.append(detokenized_translation)
@@ -185,14 +187,14 @@ class ST(sb.core.Brain):
                 and stage == sb.Stage.VALID
             ):
                 predictions = [
-                    en_detoeknizer.detokenize(
+                    en_detokenizer.detokenize(
                         hparams["tokenizer"].decode_ids(utt_seq).split(" ")
                     )
                     for utt_seq in hyps
                 ]
 
                 targets = [
-                    en_detoeknizer.detokenize(translation.split(" "))
+                    en_detokenizer.detokenize(translation.split(" "))
                     for translation in batch.translation_0
                 ]
                 self.bleu_metric.append(ids, predictions, [targets])
@@ -202,28 +204,16 @@ class ST(sb.core.Brain):
 
         return loss
 
-    def fit_batch(self, batch):
-        """Train the parameters given a single batch in input"""
+    def on_fit_batch_start(self, batch, should_step):
+        """Gets called at the beginning of each fit_batch."""
         # check if we need to switch optimizer
         # if so change the optimizer from Adam to SGD
         self.check_and_reset_optimizer()
-        predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
 
-        # normalize the loss by gradient_accumulation step
-        (loss / self.hparams.gradient_accumulation).backward()
-
-        if self.step % self.hparams.gradient_accumulation == 0:
-            # gradient clipping & early stop if loss is not fini
-            self.check_gradients(loss)
-
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-            # anneal lr every update
+    def on_fit_batch_end(self, batch, outputs, loss, should_step):
+        """At the end of the optimizer step, apply noam annealing."""
+        if should_step:
             self.hparams.noam_annealing(self.optimizer)
-
-        return loss.detach()
 
     def on_stage_start(self, stage, epoch):
         """Gets called at the beginning of each epoch"""
@@ -251,7 +241,7 @@ class ST(sb.core.Brain):
                 stage_stats["BLEU"] = self.bleu_metric.summarize("BLEU")
 
         # log stats and save checkpoint at end-of-epoch
-        if stage == sb.Stage.VALID and sb.utils.distributed.if_main_process():
+        if stage == sb.Stage.VALID:
             current_epoch = self.hparams.epoch_counter.current
 
             # report different epoch stages according current stage
@@ -279,7 +269,7 @@ class ST(sb.core.Brain):
             self.checkpointer.save_and_keep_only(
                 meta={"ACC": stage_stats["ACC"], "epoch": epoch},
                 max_keys=["ACC"],
-                num_to_keep=5,
+                num_to_keep=self.hparams.avg_checkpoints,
             )
 
         elif stage == sb.Stage.TEST:
@@ -332,25 +322,22 @@ class ST(sb.core.Brain):
 
             # Load latest checkpoint to resume training if interrupted
             if self.checkpointer is not None:
-
                 # do not reload the weights if training is interrupted right before stage 2
                 group = current_optimizer.param_groups[0]
                 if "momentum" not in group:
                     return
 
-                self.checkpointer.recover_if_possible(
-                    device=torch.device(self.device)
-                )
+                self.checkpointer.recover_if_possible()
 
     def on_evaluate_start(self, max_key=None, min_key=None):
-        """perform checkpoint averge if needed"""
+        """perform checkpoint average if needed"""
         super().on_evaluate_start()
 
         ckpts = self.checkpointer.find_checkpoints(
             max_key=max_key, min_key=min_key
         )
         ckpt = sb.utils.checkpoints.average_checkpoints(
-            ckpts, recoverable_name="model", device=self.device
+            ckpts, recoverable_name="model"
         )
 
         self.hparams.model.load_state_dict(ckpt, strict=True)
@@ -359,7 +346,8 @@ class ST(sb.core.Brain):
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
-    It also defines the data processing pipeline through user-defined functions."""
+    It also defines the data processing pipeline through user-defined functions.
+    """
 
     # Define audio pipeline. In this case, we simply read the path contained
     # in the variable wav with the audio reader.
@@ -386,7 +374,7 @@ def dataio_prepare(hparams):
     # The tokens without BOS or EOS is for computing CTC loss.
     @sb.utils.data_pipeline.takes("translation_0")
     @sb.utils.data_pipeline.provides(
-        "translation_0", "tokens_list", "tokens_bos", "tokens_eos", "tokens",
+        "translation_0", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def one_reference_text_pipeline(translation):
         """Processes the transcriptions to generate proper labels"""
@@ -401,7 +389,7 @@ def dataio_prepare(hparams):
         yield tokens
 
     @sb.utils.data_pipeline.takes(
-        "translation_0", "translation_1", "translation_2", "translation_3",
+        "translation_0", "translation_1", "translation_2", "translation_3"
     )
     @sb.utils.data_pipeline.provides(
         "translation_0",
@@ -571,7 +559,8 @@ def dataio_prepare(hparams):
                 sort_key="duration",
             )
             datasets["valid"] = datasets["valid"].filtered_sorted(
-                key_min_value={"duration": 1}, key_max_value={"duration": 5},
+                key_min_value={"duration": 1},
+                key_max_value={"duration": 5},
             )
 
         hparams["train_dataloader_opts"]["shuffle"] = True
@@ -591,7 +580,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -602,8 +591,8 @@ if __name__ == "__main__":
     )
 
     # transcription/translation tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
-    hparams["pretrainer"].load_collected(device=run_opts["device"])
+    hparams["pretrainer"].collect_files()
+    hparams["pretrainer"].load_collected()
 
     # We can now directly create the datasets for training, valid, and test
     datasets = dataio_prepare(hparams)

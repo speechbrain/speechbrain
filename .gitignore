@@ -16,6 +16,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+node_modules/
 parts/
 sdist/
 var/
@@ -51,6 +52,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/tmp/
+tests/download/
 
 # Translations
 *.mo
@@ -70,11 +73,8 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
-docs/source/*.rst
-!docs/source/index.rst
-!docs/source/_templates
-!docs/source/_static
+docs/build/
+docs/API/*.rst
 
 # PyBuilder
 target/
@@ -117,6 +117,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# PyCharm project settings
+.idea
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -138,8 +141,19 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
+# Audio folders
+**/audio_cache/
+
+# Pretrained & models folders
+**/model_checkpoints/
+**/pretrained_model_checkpoints/
+**/pretrained_models/
+
 # Results folders
 **/results/
+
+# Log folders
+**/log/
 
 # Mac OS
 .DS_Store

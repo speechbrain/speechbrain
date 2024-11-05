@@ -15,15 +15,17 @@ the tar files are opened in random order, the audio files in the shards are shuf
 and fed to the training process. This reduces the disk load during training by large margin. This is all
 handled by the WebDataset library.
 
+Warning: In the metadata of this dataset, the used ISO language code for Hebrew is obsolete (should be `he` instead of `iw`). The ISO language code for Javanese is incorrect (should be `jv` instead of `jw`). See [issue #2396](https://github.com/speechbrain/speechbrain/issues/2396).
+
 ## Downloading the data
 
 You have two options how to download and prepare the VoxLingua107 dataset for training the model:
 
-  - Download the VoxLingua107 language-specific zips from http://bark.phon.ioc.ee/voxlingua107/ and convert them
+  - Download the VoxLingua107 language-specific zips from http://bark.phon.ioc.ee/voxlingua107 and convert them
     to WebDataset format. This is the most flexible option, as it allows selecting a subset of VoxLingua107 languages,
     or adding new languages. It will require around 2.2 TB disk space.
 
-  - Download the pre-compiled WebDataset shards from http://bark.phon.ioc.ee/voxlingua107/. It will require around 1.4T of disk space.
+  - Download the pre-compiled WebDataset shards from http://bark.phon.ioc.ee/voxlingua107. It will require around 1.4T of disk space.
 
 
 ### 1st option: download the VoxLingua107 zips and create the Webdataset shards
@@ -50,6 +52,12 @@ python create_wds_shards.py /data/voxlingua107/dev/ /data/voxlingua107_shards/de
 
 ### 2nd option: download the pre-compiled WebDataset shards
 
+> [!IMPORTANT]
+> As of 2024-09-19, according to the
+> [official website](https://bark.phon.ioc.ee/voxlingua107/), the pre-compiled
+> WebDataset shards are currently unavailable. As a result, this method is
+> likely broken. If you get a 503 error, it is because of that.
+
 Download the shards:
 
 ```
@@ -57,7 +65,15 @@ Download the shards:
 cd /data/
 mkdir voxlingua107_shards
 cd voxlingua107_shards
-wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/
+wget  -r -nH --cut-dirs=4 --no-parent --reject="index.html*" http://bark.phon.ioc.ee/lw/korpused/voxlingua107/shards/  # ignore-url-check
+```
+
+## Installing Extra Dependencies
+
+Before proceeding, ensure you have installed the necessary additional dependencies. To do this, simply run the following command in your terminal:
+
+```
+pip install -r extra_requirements.txt
 ```
 
 
@@ -73,7 +89,7 @@ Training is run for 40 epochs. One epoch takes one hour and 40 minutes on a NVid
 # Performance
 | Release | hyperparams file | Dev error rate | Model link | GPUs |
 |:-------------:|:---------------------------:| -----:| -----:| :-----------:|
-| 21-08-24 | train_ecapa.yaml | 6.7 |https://drive.google.com/drive/folders/151QTW9oHVElLIkuzXjkuHpOCLNZF0Ufd?usp=sharing | 1xA100 40GB |
+| 21-08-24 | train_ecapa.yaml | 6.7 |https://www.dropbox.com/sh/72gpuic5m4x8ztz/AAB5R-RVIEsXJtRH8SGkb_oCa?dl=0 | 1xA100 40GB |
 
 
 
@@ -85,9 +101,9 @@ You can run inference with only few lines of code:
 
 ```python
 import torchaudio
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference import EncoderClassifier
 language_id = EncoderClassifier.from_hparams(source="speechbrain/lang-id-voxlingua107-ecapa", savedir="tmp")
-# Download Thai language sample from Omniglot and cvert to suitable form
+# Download Thai language sample from Omniglot and convert to suitable form
 signal = language_id.load_audio("https://omniglot.com/soundfiles/udhr/udhr_th.mp3")
 prediction =  language_id.classify_batch(signal)
 print(prediction)
@@ -139,6 +155,15 @@ print(emb.shape)
 Please, cite SpeechBrain if you use it for your research or business.
 
 ```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
 @misc{speechbrain,
   title={{SpeechBrain}: A General-Purpose Speech Toolkit},
   author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},

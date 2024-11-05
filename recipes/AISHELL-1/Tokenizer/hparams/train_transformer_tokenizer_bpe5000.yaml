@@ -5,15 +5,17 @@
 # ############################################################################
 
 output_folder: !ref results/transformer_tokenizer_bpe5000/
-train_log: !ref <output_folder>/train_log.txt
+# train_log: !ref <output_folder>/train_log.txt
 
 # Data files
 data_folder: !PLACEHOLDER # e.g, /localscratch/aishell
+skip_prep: False
+remove_compressed_wavs: False
 train_csv: !ref <output_folder>/train.csv
 valid_csv: !ref <output_folder>/dev.csv
 
 
-# Training parameters
+####################### Training Parameters ####################################
 token_type: unigram  # ["unigram", "bpe", "char"]
 token_output: 5000  # index(blank/eos/bos/unk) = 0
 character_coverage: 1.0

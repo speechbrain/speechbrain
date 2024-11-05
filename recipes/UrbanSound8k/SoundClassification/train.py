@@ -20,20 +20,21 @@ Based on VoxCeleb By:
 """
 import os
 import sys
+
+import numpy as np
 import torch
 import torchaudio
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from urbansound8k_prepare import prepare_urban_sound_8k
-from sklearn.metrics import confusion_matrix
-import numpy as np
 from confusion_matrix_fig import create_cm_fig
+from hyperpyyaml import load_hyperpyyaml
+from sklearn.metrics import confusion_matrix
+from urbansound8k_prepare import prepare_urban_sound_8k
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
 
 
 class UrbanSound8kBrain(sb.core.Brain):
-    """Class for sound class embedding training"
-    """
+    """Class for sound class embedding training"""
 
     def compute_forward(self, batch, stage):
         """Computation pipeline based on a encoder + sound classifier.
@@ -43,33 +44,9 @@ class UrbanSound8kBrain(sb.core.Brain):
         batch = batch.to(self.device)
         wavs, lens = batch.sig
 
-        if stage == sb.Stage.TRAIN:
-
-            # Applying the augmentation pipeline
-            wavs_aug_tot = []
-            wavs_aug_tot.append(wavs)
-            for count, augment in enumerate(self.hparams.augment_pipeline):
-
-                # Apply augment
-                wavs_aug = augment(wavs, lens)
-
-                # Managing speed change
-                if wavs_aug.shape[1] > wavs.shape[1]:
-                    wavs_aug = wavs_aug[:, 0 : wavs.shape[1]]
-                else:
-                    zero_sig = torch.zeros_like(wavs)
-                    zero_sig[:, 0 : wavs_aug.shape[1]] = wavs_aug
-                    wavs_aug = zero_sig
-
-                if self.hparams.concat_augment:
-                    wavs_aug_tot.append(wavs_aug)
-                else:
-                    wavs = wavs_aug
-                    wavs_aug_tot[0] = wavs
-
-            wavs = torch.cat(wavs_aug_tot, dim=0)
-            self.n_augment = len(wavs_aug_tot)
-            lens = torch.cat([lens] * self.n_augment)
+        # Add waveform augmentation if specified.
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            wavs, lens = self.hparams.wav_augment(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -91,15 +68,15 @@ class UrbanSound8kBrain(sb.core.Brain):
         return outputs, lens
 
     def compute_objectives(self, predictions, batch, stage):
-        """Computes the loss using class-id as label.
-        """
+        """Computes the loss using class-id as label."""
         predictions, lens = predictions
         uttid = batch.id
         classid, _ = batch.class_string_encoded
 
         # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN:
-            classid = torch.cat([classid] * self.n_augment, dim=0)
+        # Concatenate labels (due to data augmentation)
+        if stage == sb.Stage.TRAIN and hasattr(self.hparams, "wav_augment"):
+            classid = self.hparams.wav_augment.replicate_labels(classid)
 
         loss = self.hparams.compute_cost(predictions, classid, lens)
 
@@ -117,19 +94,19 @@ class UrbanSound8kBrain(sb.core.Brain):
             y_pred = predictions.cpu().detach().numpy().argmax(-1).squeeze(-1)
 
         if stage == sb.Stage.VALID:
-            confusion_matix = confusion_matrix(
+            my_confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.valid_confusion_matrix += confusion_matix
+            self.valid_confusion_matrix += my_confusion_matrix
         if stage == sb.Stage.TEST:
-            confusion_matix = confusion_matrix(
+            my_confusion_matrix = confusion_matrix(
                 y_true,
                 y_pred,
                 labels=sorted(self.hparams.label_encoder.ind2lab.keys()),
             )
-            self.test_confusion_matrix += confusion_matix
+            self.test_confusion_matrix += my_confusion_matrix
 
         # Compute Accuracy using MetricStats
         self.acc_metric.append(
@@ -154,7 +131,7 @@ class UrbanSound8kBrain(sb.core.Brain):
         """
         # Set up statistics trackers for this stage
         self.loss_metric = sb.utils.metric_stats.MetricStats(
-            metric=sb.nnet.losses.nll_loss  # TODO put in yaml hparams?
+            metric=sb.nnet.losses.nll_loss
         )
 
         # Compute Accuracy using MetricStats
@@ -233,7 +210,7 @@ class UrbanSound8kBrain(sb.core.Brain):
             old_lr, new_lr = self.hparams.lr_annealing(epoch)
             sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
 
-            # Tensorboard logging
+            # torch.Tensorboard logging
             if self.hparams.use_tensorboard:
                 self.hparams.tensorboard_train_logger.log_stats(
                     stats_meta={"Epoch": epoch},
@@ -347,9 +324,14 @@ def dataio_prep(hparams):
     # Define datasets. We also connect the dataset with the data processing
     # functions defined above.
     datasets = {}
-    for dataset in ["train", "valid", "test"]:
+    data_info = {
+        "train": hparams["train_annotation"],
+        "valid": hparams["valid_annotation"],
+        "test": hparams["test_annotation"],
+    }
+    for dataset in data_info:
         datasets[dataset] = sb.dataio.dataset.DynamicItemDataset.from_json(
-            json_path=hparams[f"{dataset}_annotation"],
+            json_path=data_info[dataset],
             replacements={"data_root": hparams["data_folder"]},
             dynamic_items=[audio_pipeline, label_pipeline],
             output_keys=["id", "sig", "class_string_encoded"],
@@ -357,7 +339,7 @@ def dataio_prep(hparams):
 
     # Load or compute the label encoder (with multi-GPU DDP support)
     # Please, take a look into the lab_enc_file to see the label to index
-    # mappinng.
+    # mapping.
     lab_enc_file = os.path.join(hparams["save_folder"], "label_encoder.txt")
     label_encoder.load_or_create(
         path=lab_enc_file,
@@ -369,7 +351,6 @@ def dataio_prep(hparams):
 
 
 if __name__ == "__main__":
-
     # This flag enables the inbuilt cudnn auto-tuner
     torch.backends.cudnn.benchmark = True
 
@@ -380,7 +361,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -390,7 +371,7 @@ if __name__ == "__main__":
         overrides=overrides,
     )
 
-    # Tensorboard logging
+    # torch.Tensorboard logging
     if hparams["use_tensorboard"]:
         from speechbrain.utils.train_logger import TensorboardLogger
 
@@ -412,6 +393,8 @@ if __name__ == "__main__":
             "skip_manifest_creation": hparams["skip_manifest_creation"],
         },
     )
+    sb.utils.distributed.run_on_main(hparams["prepare_noise_data"])
+    sb.utils.distributed.run_on_main(hparams["prepare_rir_data"])
 
     # Dataset IO prep: creating Dataset objects and proper encodings for phones
     datasets, label_encoder = dataio_prep(hparams)

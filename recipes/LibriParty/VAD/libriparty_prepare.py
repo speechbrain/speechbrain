@@ -2,37 +2,38 @@
 for training and testing a Voice Activity Detection system with the
 LibriParty dataset.
 
-The dataset contains sequences of 1-minutes of LibiSpeech sentences
+The dataset contains sequences of 1-minutes of LibriSpeech sentences
 corrupted by noise and reverberation. The dataset can be downloaded
 from here:
 
-https://drive.google.com/file/d/1--cAS5ePojMwNY5fewioXAv9YlYAWzIJ/view?usp=sharing
+https://www.dropbox.com/s/8zcn6zx4fnxvfyt/LibriParty.tar.gz?dl=0
 
 Authors
  * Mohamed Kleit 2021
   * Arjun V 2021
 """
 
-import numpy as np
-import pandas as pd
 import json
-import logging
 from collections import OrderedDict
 
+import numpy as np
+import pandas as pd
+
+from speechbrain.utils.logger import get_logger
 
 """ Global variables"""
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 valid_json_dataset = {}
 
 
 def load_data_json(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         json_file = json.load(f)
     return json_file
 
 
 def clean_dataframe(df):
-    # Drop unecessary columns
+    # Drop unnecessary columns
     df.drop(
         [
             "utt_id",
@@ -219,7 +220,7 @@ def create_json_dataset(dic, sample_rate, window_size):
 
 def save_dataset(json_save_path, json_dataset):
     """Saves a JSON file."""
-    with open(json_save_path, "w+") as fp:
+    with open(json_save_path, "w+", encoding="utf-8") as fp:
         json.dump(json_dataset, fp, indent=4)
 
 
@@ -237,15 +238,19 @@ def prepare_libriparty(
     ---------
     data_folder : str
         Path to the folder where the original LibriSpeech dataset is stored.
-    data_folder : str
+    save_json_folder : str
         The path where to store the training json file.
-    save_json_valid : str
-        The path where to store the valid json file.
-    save_json_test : str
-        The path where to store the test json file.
+    sample_rate : int
+        Sampling rate for the audio.
+    window_size : int
+        Size of window for creating splits.
     skip_prep: bool
         Default: False
         If True, the data preparation is skipped.
+
+    Returns
+    -------
+    None
 
     Example
     -------

@@ -1,0 +1,8 @@
+mkdir -p tests/samples/single-mic/train
+mkdir -p tests/samples/single-mic/dev
+mkdir -p tests/samples/single-mic/dev2
+mkdir -p tests/samples/single-mic/test
+ln -s `realpath tests/samples/annotation/multi_annotation.json` tests/samples/single-mic/train/data.json
+ln -s `realpath tests/samples/annotation/multi_annotation.json` tests/samples/single-mic/dev/data.json
+ln -s `realpath tests/samples/annotation/multi_annotation.json` tests/samples/single-mic/dev2/data.json
+ln -s `realpath tests/samples/annotation/multi_annotation.json` tests/samples/single-mic/test/data.json

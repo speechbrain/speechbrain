@@ -1,0 +1,261 @@
+# ############################################################################
+# Based on:
+#   https://github.com/speechbrain/speechbrain/blob/develop/templates/speech_recognition/ASR/train.yaml
+#   https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/blob/main/hyperparams.yaml
+#   by Ju-Chieh Chou, Mirco Ravanelli, Abdel Heba, Peter Plantinga, Samuele Cornell 2020
+#
+# Goal: more clarity on when, where & how to use
+#    speechbrain.utils.parameter_transfer.Pretrainer
+#    speechbrain.inference.interfaces.Pretrained
+#
+# Authors:  Andreas Nautsch 2023
+# # ############################################################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are instantiated
+seed: 2602
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Reading data from the local disk of the compute node
+data_folder: ../../../templates/speech_recognition/data # In this case, data will be automatically downloaded here.
+data_folder_rirs: !ref <data_folder> # noise/ris dataset will automatically be downloaded here
+output_folder: !ref results/CRDNN_BPE_960h_LM/<seed>
+test_wer_file: !ref <output_folder>/wer_test.txt
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+# The train logger writes training statistics to a file, as well as stdout.
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+# Path where data manifest files will be stored.
+train_annotation: ../../../templates/speech_recognition/train.json
+valid_annotation: ../../../templates/speech_recognition/valid.json
+test_annotation: ../../../templates/speech_recognition/test.json
+
+# Data for augmentation
+data_folder_noise: !ref <data_folder>/noise # The noisy sequences for data augmentation will automatically be downloaded here.
+NOISE_DATASET_URL: https://www.dropbox.com/scl/fi/a09pj97s5ifan81dqhi4n/noises.zip?rlkey=j8b0n9kdjdr32o1f06t0cw5b7&dl=1
+noise_annotation: !ref <save_folder>/noise.csv #The data manifest files are created by the data preparation script
+
+# Training parameters
+number_of_epochs: 2
+number_of_ctc_epochs: 1
+batch_size: 8
+lr: 1.0
+ctc_weight: 0.5
+sorting: ascending
+ckpt_interval_minutes: 15 # save checkpoint every N min
+label_smoothing: 0.1
+num_workers: 4
+
+# Dataloader options
+train_dataloader_opts:
+    # batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+    # batch_size: !ref <batch_size>
+    num_workers: !ref <num_workers>
+
+test_dataloader_opts:
+    batch_size: !ref <batch_size>
+    # batch_size: 1  # to ensure metrics w/o padding (or alike) impacts
+    num_workers: !ref <num_workers>
+
+# Using Dynamic Batching to optimise your GPU utilization and decrease your training time.
+# dynamic_batching: True
+dyn_batch_len: 120 # Cumulative length of each batch, per gpu.
+max_batch_size: !ref <batch_size> # Max number of samples per batch, per gpu.
+dynamic_batch_sampler:
+    max_batch_len: !ref <dyn_batch_len>
+    max_batch_ex: !ref <max_batch_size>
+    shuffle_ex: True
+    batch_ordering: !ref <sorting>
+    num_buckets: 30
+
+# The first object passed to the Brain class is this "Epoch Counter"
+# which is saved by the Checkpointer so that training can be resumed
+# if it gets interrupted at any point.
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+
+# Download and prepare the dataset of noisy sequences for augmentation
+prepare_noise_data: !name:speechbrain.augment.preparation.prepare_dataset_from_URL
+    URL: !ref <NOISE_DATASET_URL>
+    dest_folder: !ref <data_folder_noise>
+    ext: wav
+    csv_file: !ref <noise_annotation>
+
+
+# Add noise to input signal
+snr_low: 0  # Min SNR for noise augmentation
+snr_high: 15  # Max SNR for noise augmentation
+
+add_noise: !new:speechbrain.augment.time_domain.AddNoise
+    csv_file: !ref <noise_annotation>
+    snr_low: !ref <snr_low>
+    snr_high: !ref <snr_high>
+    noise_sample_rate: !ref <sample_rate>
+    clean_sample_rate: !ref <sample_rate>
+    num_workers: !ref <num_workers>
+
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+    orig_freq: !ref <sample_rate>
+    speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+    drop_freq_low: !ref <drop_freq_low>
+    drop_freq_high: !ref <drop_freq_high>
+    drop_freq_count_low: !ref <drop_freq_count_low>
+    drop_freq_count_high: !ref <drop_freq_count_high>
+    drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+    drop_length_low: !ref <drop_chunk_length_low>
+    drop_length_high: !ref <drop_chunk_length_high>
+    drop_count_low: !ref <drop_chunk_count_low>
+    drop_count_high: !ref <drop_chunk_count_high>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+    parallel_augment: False
+    concat_original: True
+    repeat_augment: 1
+    shuffle_augmentations: False
+    min_augmentations: 4
+    max_augmentations: 4
+    augment_prob: 1.0
+    augmentations: [
+        !ref <add_noise>,
+        !ref <speed_perturb>,
+        !ref <drop_freq>,
+        !ref <drop_chunk>]
+
+# Loads the ASR brain for training/fine-tuning mode
+params: !include:ASR.yaml
+normalize: !ref <params[normalize]>
+compute_features: !ref <params[compute_features]>
+encoder: !ref <params[encoder]>
+embedding: !ref <params[embedding]>
+decoder: !ref <params[decoder]>
+ctc_lin: !ref <params[ctc_lin]>
+seq_lin: !ref <params[seq_lin]>
+log_softmax: !ref <params[log_softmax]>
+lm_model: !ref <params[lm_model]>
+tokenizer: !ref <params[tokenizer]>
+test_search: !ref <params[test_search]>
+bos_index: !ref <params[bos_index]>
+eos_index: !ref <params[eos_index]>
+
+# Objects in "modules" dict will have their parameters moved to the correct
+# device, as well as having train()/eval() called on them by the Brain class
+modules:
+    encoder: !ref <encoder>
+    embedding: !ref <embedding>
+    decoder: !ref <decoder>
+    ctc_lin: !ref <ctc_lin>
+    seq_lin: !ref <seq_lin>
+    normalize: !ref <normalize>
+    lm_model: !ref <lm_model>
+
+# Gathering all the submodels in a single model object.
+model: !new:torch.nn.ModuleList
+    - - !ref <encoder>
+      - !ref <embedding>
+      - !ref <decoder>
+      - !ref <ctc_lin>
+      - !ref <seq_lin>
+
+# Cost definition for the CTC part.
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+    blank_index: !ref <params[blank_index]>
+
+# train_search: !copy <test_search>
+valid_search: !copy <test_search>
+# test_search: !ref <test_search>
+
+# This function manages learning rate annealing over the epochs.
+# We here use the NewBoB algorithm, that anneals the learning rate if
+# the improvements over two consecutive epochs is less than the defined
+# threshold.
+lr_annealing: !new:speechbrain.nnet.schedulers.NewBobScheduler
+    initial_value: !ref <lr>
+    improvement_threshold: 0.0025
+    annealing_factor: 0.8
+    patient: 0
+
+# This optimizer will be constructed by the Brain class after all parameters
+# are moved to the correct device. Then it will be added to the checkpointer.
+opt_class: !name:torch.optim.Adadelta
+    lr: !ref <lr>
+    rho: 0.95
+    eps: 1.e-8
+
+# Functions that compute the statistics to track during the validation step.
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+    split_tokens: True
+
+# This object is used for saving the state of training both so that it
+# can be resumed if it gets interrupted, and also so that the best checkpoint
+# can be later loaded for evaluation or inference.
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        model: !ref <model>
+        scheduler: !ref <lr_annealing>
+        normalizer: !ref <normalize>
+        counter: !ref <epoch_counter>
+
+# Pretraining diversified
+pretrained_path_ASR: !new:speechbrain.utils.fetching.FetchSource
+    - !name:speechbrain.utils.fetching.FetchFrom.LOCAL
+    - speechbrain/asr-crdnn-rnnlm-librispeech/model.ckpt
+pretrained_path_LM: !new:speechbrain.utils.fetching.FetchSource
+    - !name:speechbrain.utils.fetching.FetchFrom.HUGGING_FACE
+    - speechbrain/asr-crdnn-rnnlm-librispeech/lm.ckpt
+pretrained_path_tokenizer: !new:speechbrain.utils.fetching.FetchSource
+    - !name:speechbrain.utils.fetching.FetchFrom.URI
+    - https://huggingface.co/speechbrain/asr-crdnn-rnnlm-librispeech/resolve/main/tokenizer.ckpt
+
+pretrainer_ASR: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        model: !ref <model>
+    paths:
+        # model: !ref <pretrained_path_ASR>/model.ckpt
+        model: !ref <pretrained_path_ASR>
+
+pretrainer_LM: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        lm: !ref <lm_model>
+    paths:
+        # lm: !ref <pretrained_path_LM>/lm.ckpt
+        lm: !ref <pretrained_path_LM>
+
+pretrainer_tokenizer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        tokenizer: !ref <tokenizer>
+    paths:
+        # tokenizer: !ref <pretrained_path_tokenizer>/tokenizer.ckpt
+        tokenizer: !ref <pretrained_path_tokenizer>
