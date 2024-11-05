@@ -5,12 +5,11 @@ Author:
     * Sylvain de Langen 2024
 """
 
-import logging
 import os
 
 import torch
 
-from speechbrain.kernels.common import try_triton_import, triton_enabled
+import speechbrain.kernels.common
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -72,8 +71,7 @@ def enable_triton_kernels():
     """Enables SpeechBrain to make use of opt-in high-performance GPU kernels
     to speed up certain operations."""
 
-    global triton_enabled
-    triton_enabled = True
+    speechbrain.kernels.common.triton_enabled = True
 
     try:
         import triton  # noqa
