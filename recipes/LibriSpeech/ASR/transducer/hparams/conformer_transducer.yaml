@@ -47,7 +47,7 @@ ckpt_interval_minutes: 5 # save checkpoint every N min
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
 number_of_epochs: 100
-warmup_steps: 25000
+warmup_steps: 3000
 num_workers: 4
 batch_size_valid: 4
 lr: 0.0008
@@ -368,9 +368,13 @@ opt_class: !name:torch.optim.AdamW
    eps: 1.e-8
    weight_decay: !ref <weight_decay>
 
-noam_annealing: !new:speechbrain.nnet.schedulers.NoamScheduler
-   lr_initial: !ref <lr>
-   n_warmup_steps: !ref <warmup_steps>
+conformer_warmup: !new:speechbrain.lobes.models.transformer.Conformer.ConformerWarmupScheduler
+   step_count: !ref <warmup_steps>
+
+lr_scheduler: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+   factor: 0.5
+   patience: 2
+   dont_halve_until_epoch: 30
 
 ############################## Logging and Pretrainer ##########################
 
@@ -378,7 +382,7 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
    recoverables:
       model: !ref <model>
-      scheduler: !ref <noam_annealing>
+      scheduler: !ref <lr_scheduler>
       normalizer: !ref <normalize>
       counter: !ref <epoch_counter>
 
