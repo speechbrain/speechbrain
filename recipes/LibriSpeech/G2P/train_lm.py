@@ -164,7 +164,7 @@ if __name__ == "__main__":
     from tokenizer_prepare import prepare_tokenizer  # noqa
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     if hparams.get("phn_tokenize"):

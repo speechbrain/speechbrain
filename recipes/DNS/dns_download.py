@@ -328,7 +328,7 @@ def download_file(
     mode = "ab" if resume_byte_pos else "wb"
     initial_pos = resume_byte_pos if resume_byte_pos else 0
 
-    with open(download_path, mode) as f:
+    with open(download_path, mode, encoding="utf-8") as f:
         with tqdm(
             total=file_size,
             unit="B",

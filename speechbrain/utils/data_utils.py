@@ -188,7 +188,7 @@ def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
     The list of files in the given field of a csv
     """
     lst = []
-    with open(csvfile, newline="") as csvf:
+    with open(csvfile, newline="", encoding="utf-8") as csvf:
         reader = csv.DictReader(
             csvf, delimiter=delimiter, skipinitialspace=skipinitialspace
         )

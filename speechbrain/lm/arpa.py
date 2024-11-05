@@ -348,5 +348,5 @@ def arpa_to_fst(
         )
         raise e
     logger.info(f"Writing {out_fst}")
-    with open(out_fst, "w") as f:
+    with open(out_fst, "w", encoding="utf-8") as f:
         f.write(s)

@@ -424,13 +424,13 @@ def register_checkpoint_hooks(cls, save_on_main_only=True):
     ...
     ...     @mark_as_saver
     ...     def save(self, path):
-    ...         with open(path, "w") as fo:
+    ...         with open(path, "w", encoding="utf-8") as fo:
     ...             fo.write(str(self.param))
     ...
     ...     @mark_as_loader
     ...     def load(self, path, end_of_epoch):
     ...         del end_of_epoch  # Unused here
-    ...         with open(path) as fi:
+    ...         with open(path, encoding="utf-8") as fi:
     ...             self.param = int(fi.read())
     """
     global DEFAULT_LOAD_HOOKS
@@ -1194,7 +1194,7 @@ class Checkpointer:
         # directory paths (as produced by _list_checkpoint_dirs)
         checkpoints = []
         for ckpt_dir in checkpoint_dirs:
-            with open(ckpt_dir / METAFNAME) as fi:
+            with open(ckpt_dir / METAFNAME, encoding="utf-8") as fi:
                 meta = yaml.load(fi, Loader=yaml.Loader)
             paramfiles = {}
             for ckptfile in ckpt_dir.iterdir():
@@ -1238,7 +1238,7 @@ class Checkpointer:
         # This internal method saves the meta information in the given path
         meta = {"unixtime": time.time(), "end-of-epoch": end_of_epoch}
         meta.update(meta_to_include)
-        with open(fpath, "w") as fo:
+        with open(fpath, "w", encoding="utf-8") as fo:
             fo.write("# yamllint disable\n")
             fo.write(yaml.dump(meta))
         return meta

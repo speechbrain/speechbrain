@@ -225,7 +225,7 @@ def extract_libritts(
     for split in splits:
         dataset_path = data_folder / f"{split}.json"
         logger.info(f"Reading dataset from {dataset_path} ...")
-        meta_json = json.load(open(dataset_path))
+        meta_json = json.load(open(dataset_path, encoding="utf-8"))
         for key in tqdm(meta_json.keys()):
             item = meta_json[key]
             wav = item["wav"]

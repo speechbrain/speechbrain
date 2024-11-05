@@ -89,7 +89,7 @@ def write_csv(filelist, csv_file, max_length=None):
         The maximum recording length in seconds.
         Recordings longer than this will be automatically cut into pieces.
     """
-    with open(csv_file, "w") as w:
+    with open(csv_file, "w", encoding="utf-8") as w:
         w.write("ID,duration,wav,wav_format,wav_opts\n")
         for i, filename in enumerate(filelist):
             _write_csv_row(w, filename, i, max_length)

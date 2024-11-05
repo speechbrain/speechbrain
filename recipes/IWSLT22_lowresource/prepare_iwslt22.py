@@ -45,7 +45,7 @@ def generate_json(folder_path, split):
 
 
 def read_file(f_path):
-    return [line for line in open(f_path)]
+    return [line for line in open(f_path, encoding="utf-8")]
 
 
 def data_proc(dataset_folder, output_folder):

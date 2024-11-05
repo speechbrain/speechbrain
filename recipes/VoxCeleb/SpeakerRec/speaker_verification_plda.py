@@ -119,7 +119,7 @@ def verification_performance(scores_plda):
     labels = []
     positive_scores = []
     negative_scores = []
-    for line in open(veri_file_path):
+    for line in open(veri_file_path, encoding="utf-8"):
         lab = int(line.split(" ")[0].rstrip().split(".")[0].strip())
         enrol_id = line.split(" ")[1].rstrip().split(".")[0].strip()
         test_id = line.split(" ")[2].rstrip().split(".")[0].strip()
@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
-    with open(params_file) as fin:
+    with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 
     # Download verification list (to exclude verification sentences from train)
