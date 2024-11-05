@@ -7,7 +7,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407 # The secret perfect seed
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/train_whisper_char/<seed>
 output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
@@ -65,7 +65,7 @@ test_dataloader_opts:
 ####################### Model Parameters #######################################
 dnn_neurons: 1024
 freeze_whisper: False
-whisper_output_dim: 512
+whisper_output_dim: 384
 
 
 # Outputs

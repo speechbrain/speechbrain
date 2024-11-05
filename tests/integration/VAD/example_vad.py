@@ -4,10 +4,12 @@ The system is trained with the binary cross-entropy metric.
 """
 
 import os
-import torch
+
 import numpy as np
-import speechbrain as sb
+import torch
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 
 
 class VADBrain(sb.Brain):
@@ -116,7 +118,7 @@ def main(device="cpu"):
     hparams_file = os.path.join(experiment_dir, "hyperparams.yaml")
     data_folder = "/../../samples/VAD"
     data_folder = os.path.abspath(experiment_dir + data_folder)
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin)
 
     # Data IO creation

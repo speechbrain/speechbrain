@@ -8,16 +8,17 @@ Authors
  * Adel Moumen 2023
 """
 
+import csv
+import functools
+import glob
 import os
 import shutil
-import logging
-import glob
-import csv
-from speechbrain.dataio.dataio import read_audio_info
-from speechbrain.utils.parallel import parallel_map
-import functools
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.parallel import parallel_map
+
+logger = get_logger(__name__)
 
 
 def extract_and_cleanup_wav_files(
@@ -149,7 +150,7 @@ def prepare_aishell(
         data_folder, "transcript/aishell_transcript_v0.8.txt"
     )
 
-    with open(path_to_transcript, "r") as f:
+    with open(path_to_transcript, "r", encoding="utf-8") as f:
         lines = f.readlines()
         for line in lines:
             key = line.split()[0]
@@ -179,7 +180,7 @@ def prepare_aishell(
         total_line = 0
         total_duration = 0
         id = 0
-        with open(tmp_csv, mode="w", encoding="utf-8") as csv_f:
+        with open(tmp_csv, mode="w", newline="", encoding="utf-8") as csv_f:
             csv_writer = csv.writer(
                 csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )

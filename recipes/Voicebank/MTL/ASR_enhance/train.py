@@ -18,18 +18,20 @@ Authors
 """
 import os
 import sys
+
 import torch
 import torchaudio
-import logging
-import speechbrain as sb
-from pesq import pesq
-from pystoi import stoi
 from composite_eval import eval_composite
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.data_utils import undo_padding
-from speechbrain.utils.distributed import run_on_main, if_main_process
+from pesq import pesq
+from pystoi import stoi
 
-logger = logging.getLogger(__name__)
+import speechbrain as sb
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def pesq_eval(pred_wav, target_wav):
@@ -382,7 +384,9 @@ class MTLbrain(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.stats_file + ".txt", "w") as w:
+                with open(
+                    self.hparams.stats_file + ".txt", "w", encoding="utf-8"
+                ) as w:
                     if self.hparams.enhance_weight > 0:
                         w.write("\nstoi stats:\n")
                         self.stoi_metrics.write_stats(w)
@@ -488,7 +492,7 @@ def dataio_prep(hparams, token_encoder):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

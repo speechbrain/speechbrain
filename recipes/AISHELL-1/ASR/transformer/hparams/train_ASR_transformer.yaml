@@ -9,7 +9,7 @@
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 8886
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/transformer/<seed>
 cer_file: !ref <output_folder>/cer.txt
 save_folder: !ref <output_folder>/save
@@ -126,6 +126,7 @@ Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.Transforme
     dropout: !ref <transformer_dropout>
     activation: !ref <activation>
     normalize_before: True
+    causal: False
 
 tokenizer: !new:sentencepiece.SentencePieceProcessor
 

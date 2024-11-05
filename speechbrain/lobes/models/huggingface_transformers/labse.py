@@ -8,16 +8,17 @@ Authors
  * Ha Nguyen 2023
 """
 
-import torch
-import logging
-import torch.nn.functional as F
 import os
+
+import torch
+import torch.nn.functional as F
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

@@ -15,13 +15,14 @@ Authors:
 """
 
 import torch
-import torchaudio
 import torch.nn.functional as F
+import torchaudio
+
 import speechbrain
-from speechbrain.utils.fetching import fetch
-from speechbrain.utils.data_utils import split_path
-from speechbrain.processing.NMF import spectral_phase
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.processing.NMF import spectral_phase
+from speechbrain.utils.data_utils import split_path
+from speechbrain.utils.fetching import LocalStrategy, fetch
 
 
 class PIQAudioInterpreter(Pretrained):
@@ -131,7 +132,7 @@ class PIQAudioInterpreter(Pretrained):
 
         return x_int_sound_domain, text_lab
 
-    def interpret_file(self, path, savedir="audio_cache"):
+    def interpret_file(self, path, savedir=None):
         """Classifies the given audiofile into the given set of labels.
         It also provides the interpretation in the audio domain.
 
@@ -152,7 +153,12 @@ class PIQAudioInterpreter(Pretrained):
             The sampling frequency of the model. Useful to save the audio.
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
+        path = fetch(
+            fl,
+            source=source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.SYMLINK,
+        )
 
         batch, fs_file = torchaudio.load(path)
         batch = batch.to(self.device)

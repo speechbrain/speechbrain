@@ -4,8 +4,9 @@ Authors
  * Mirco Ravanelli 2022
 """
 
-import os
 import csv
+import os
+
 from speechbrain.utils.data_utils import get_all_files, get_list_from_csv
 
 __skip_list = ["README.md", "setup", "full_inference.csv"]
@@ -139,7 +140,9 @@ def test_mandatory_files(
         if recipe_csvfile in __skip_list:
             continue
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
@@ -176,11 +179,15 @@ def test_README_links(
         if recipe_csvfile in __skip_list:
             continue
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row in reader:
-                with open(row[readme_field].strip()) as readmefile:
+                with open(
+                    row[readme_field].strip(), encoding="utf-8"
+                ) as readmefile:
                     content = readmefile.read()
                     for field in must_link:
                         links = row[field].strip().split(" ")

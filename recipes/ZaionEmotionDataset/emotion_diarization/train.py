@@ -4,13 +4,15 @@ Authors
  * Yingzhi WANG 2023
 """
 
+import itertools
+import json
 import os
 import sys
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
+
 import torch
-import json
-import itertools
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.utils.EDER import EDER
 
 
@@ -46,7 +48,7 @@ class EmoDiaBrain(sb.Brain):
             preds_decoded = label_encoder.decode_ndim(preds)
 
             self.load_ZED()
-            with open(self.hparams.eder_file, "a") as w:
+            with open(self.hparams.eder_file, "a", encoding="utf-8") as w:
                 for i in range(len(batch.id)):
                     if len(preds_decoded[i]) < len(emoid_decoded[i]):
                         preds_decoded[i].append(preds_decoded[i][-1])
@@ -162,11 +164,11 @@ class EmoDiaBrain(sb.Brain):
                     "EDER": sum(self.eder) / len(self.eder),
                 },
             )
-            # with open(self.hparams.cer_file, "a") as w:
+            # with open(self.hparams.cer_file, "a", encoding="utf-8") as w:
             #     self.error_metrics.write_stats(w)
 
     def load_ZED(self):
-        with open(self.hparams.test_annotation, "r") as f:
+        with open(self.hparams.test_annotation, "r", encoding="utf-8") as f:
             ZED_data = json.load(f)
         self.ZED = ZED_data
 
@@ -272,7 +274,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -284,7 +286,7 @@ if __name__ == "__main__":
 
     # Data preparation, to be run on only one process.
     if not hparams["skip_prep"]:
-        from zed_prepare import prepare_train, prepare_test
+        from zed_prepare import prepare_test, prepare_train
 
         sb.utils.distributed.run_on_main(
             prepare_train,

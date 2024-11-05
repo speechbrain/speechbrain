@@ -9,18 +9,18 @@ Authors
  * Jianyuan Zhong 2021
  * Ju-Chieh Chou 2020
 """
+import glob
 import os
 import sys
-import logging
-import glob
+
 import torch
 from datasets import load_dataset
 from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -87,7 +87,7 @@ class LM(sb.core.Brain):
 
 def dataio_prepare(hparams):
     """grab all the .txt files for transcripts"""
-    logging.info("generating datasets...")
+    logger.info("generating datasets...")
     data_folder = hparams["data_folder"]
     train_transcripts = glob.glob(
         os.path.join(data_folder, hparams["train_transcripts_pattern"]),
@@ -111,6 +111,7 @@ def dataio_prepare(hparams):
             "dev": dev_transcripts,
             "test": test_transcripts,
         },
+        trust_remote_code=True,
     )
 
     train_data, valid_data, test_data = (
@@ -160,7 +161,7 @@ def dataio_prepare(hparams):
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # create ddp_group with the right communication protocol
@@ -178,7 +179,7 @@ if __name__ == "__main__":
 
     # We download the tokenizer from HuggingFace (or elsewhere depending on
     # the path given in the YAML file).
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     lm_brain = LM(

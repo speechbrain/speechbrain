@@ -7,11 +7,10 @@
 # Author(s): Tanel Alumäe, Nik Vaessen, Sangeet Sagar (2023)
 ################################################################################
 
-import os
-import json
-from tqdm import tqdm
-import pathlib
 import argparse
+import json
+import os
+import pathlib
 import random
 from collections import defaultdict
 
@@ -19,6 +18,7 @@ import librosa
 import torch
 import torchaudio
 import webdataset as wds
+from tqdm import tqdm
 
 ################################################################################
 # methods for writing the shards
@@ -109,7 +109,7 @@ def write_shards(
         "num_data_samples": len(data_tuples),
     }
 
-    with (shards_path / "meta.json").open("w") as f:
+    with (shards_path / "meta.json").open("w", encoding="utf-8") as f:
         json.dump(meta_dict, f, indent=4)
 
     # shuffle the tuples so that each shard has a large variety in languages

@@ -30,17 +30,16 @@ Authors
  * Artem Ploujnikov 2022
 """
 
-from abc import abstractmethod
-
-from speechbrain.utils.data_utils import pad_divisible
-from .autoencoders import NormalizingAutoencoder
-
-
 import math
+from abc import abstractmethod
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from speechbrain.utils.data_utils import pad_divisible
+
+from .autoencoders import NormalizingAutoencoder
 
 
 def fixup(module, use_fixup_init=True):
@@ -1033,6 +1032,22 @@ class UNetModel(nn.Module):
             h = module(h, emb)
         h = h.type(x.dtype)
         return self.out(h)
+
+    def diffusion_forward(
+        self,
+        x,
+        timesteps,
+        cond_emb=None,
+        length=None,  # unused for unet
+        out_mask_value=None,  # unused for unet
+        latent_mask_value=None,  # unused for unet
+    ):
+        """Forward function suitable for wrapping by diffusion.
+        For this model, `length`/`out_mask_value`/`latent_mask_value` are unused
+        and discarded.
+        See :meth:`~UNetModel.forward` for details."""
+
+        return self(x, timesteps, cond_emb=cond_emb)
 
 
 class EncoderUNetModel(nn.Module):

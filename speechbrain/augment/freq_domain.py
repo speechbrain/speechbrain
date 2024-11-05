@@ -9,8 +9,9 @@ Authors:
 - Mirco Ravanelli (2023)
 """
 
-import torch
 import random
+
+import torch
 
 
 class SpectrogramDrop(torch.nn.Module):
@@ -144,6 +145,10 @@ class SpectrogramDrop(torch.nn.Module):
             size=(1,),
             device=spectrogram.device,
         )
+
+        # If the number of chunks to drop is 0, return the spectrogram unchanged
+        if n_masks == 0:
+            return spectrogram
 
         # Randomly sample the lengths of the chunks to drop
         mask_len = torch.randint(

@@ -6,15 +6,17 @@ Authors
  * Yingzhi Wang 2022
 """
 
-import torchaudio
-import logging
-import sys
-import torch
-import speechbrain as sb
 import os
+import sys
+
+import torch
+import torchaudio
 from hyperpyyaml import load_hyperpyyaml
 
-logger = logging.getLogger(__name__)
+import speechbrain as sb
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class DiffWaveBrain(sb.Brain):
@@ -298,7 +300,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Check whether Tensorboard is available and enabled

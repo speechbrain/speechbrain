@@ -9,10 +9,11 @@ Yingzhi Wang 2023
 """
 
 import collections
-import webrtcvad
 import contextlib
-import wave
 import os
+import wave
+
+import webrtcvad
 
 
 def read_wave(path):

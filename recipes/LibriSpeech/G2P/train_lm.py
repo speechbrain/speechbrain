@@ -13,13 +13,15 @@ Authors
  * Mirco Ravanelli 2021
  * Artem Ploujnikov 2021
 """
-import sys
-import logging
 import os
-import speechbrain as sb
+import sys
+
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 from train import dataio_prep
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 # The following hyperparameters are used in dataio_prep, shared with the
 # main G2P training script:
@@ -43,7 +45,7 @@ from train import dataio_prep
 # - hparams["blank_index"]
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Brain class for language model training
@@ -162,7 +164,7 @@ if __name__ == "__main__":
     from tokenizer_prepare import prepare_tokenizer  # noqa
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     if hparams.get("phn_tokenize"):

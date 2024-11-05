@@ -1,5 +1,5 @@
-import torch
 import pytest
+import torch
 
 
 def test_checkpointer(tmpdir, device):
@@ -102,10 +102,12 @@ def test_checkpointer(tmpdir, device):
 
 
 def test_recovery_custom_io(tmpdir):
-    from speechbrain.utils.checkpoints import register_checkpoint_hooks
-    from speechbrain.utils.checkpoints import mark_as_saver
-    from speechbrain.utils.checkpoints import mark_as_loader
-    from speechbrain.utils.checkpoints import Checkpointer
+    from speechbrain.utils.checkpoints import (
+        Checkpointer,
+        mark_as_loader,
+        mark_as_saver,
+        register_checkpoint_hooks,
+    )
 
     @register_checkpoint_hooks
     class CustomRecoverable:
@@ -114,13 +116,13 @@ def test_recovery_custom_io(tmpdir):
 
         @mark_as_saver
         def save(self, path):
-            with open(path, "w") as fo:
+            with open(path, "w", encoding="utf-8") as fo:
                 fo.write(str(self.param))
 
         @mark_as_loader
         def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
-            with open(path) as fi:
+            with open(path, encoding="utf-8") as fi:
                 self.param = int(fi.read())
 
     custom_recoverable = CustomRecoverable(0)
@@ -318,10 +320,12 @@ def test_torch_meta(tmpdir, device):
 
 
 def test_checkpoint_hook_register(tmpdir):
-    from speechbrain.utils.checkpoints import register_checkpoint_hooks
-    from speechbrain.utils.checkpoints import mark_as_saver
-    from speechbrain.utils.checkpoints import mark_as_loader
-    from speechbrain.utils.checkpoints import Checkpointer
+    from speechbrain.utils.checkpoints import (
+        Checkpointer,
+        mark_as_loader,
+        mark_as_saver,
+        register_checkpoint_hooks,
+    )
 
     # First a proper interface:
     @register_checkpoint_hooks
@@ -331,13 +335,13 @@ def test_checkpoint_hook_register(tmpdir):
 
         @mark_as_saver
         def save(self, path):
-            with open(path, "w") as fo:
+            with open(path, "w", encoding="utf-8") as fo:
                 fo.write(str(self.param))
 
         @mark_as_loader
         def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
-            with open(path) as fi:
+            with open(path, encoding="utf-8") as fi:
                 self.param = int(fi.read())
 
     recoverable = CustomRecoverable(1.0)
@@ -355,12 +359,12 @@ def test_checkpoint_hook_register(tmpdir):
                 self.param = int(param)
 
             def save(self, path):
-                with open(path, "w") as fo:
+                with open(path, "w", encoding="utf-8") as fo:
                     fo.write(str(self.param))
 
             @mark_as_loader
             def load(self, path):  # MISSING end_of_epoch
-                with open(path) as fi:
+                with open(path, encoding="utf-8") as fi:
                     self.param = int(fi.read())
 
     with pytest.raises(TypeError):
@@ -371,12 +375,12 @@ def test_checkpoint_hook_register(tmpdir):
 
             @mark_as_saver
             def save(self, path, extra_arg):  # Extra argument
-                with open(path, "w") as fo:
+                with open(path, "w", encoding="utf-8") as fo:
                     fo.write(str(self.param))
 
             def load(self, path, end_of_epoch):
                 del end_of_epoch  # Unused
-                with open(path) as fi:
+                with open(path, encoding="utf-8") as fi:
                     self.param = int(fi.read())
 
 
@@ -426,6 +430,7 @@ def test_torch_defaults(tmpdir, device):
 
 def parallel_checkpoint(rank, world_size, tmpdir):
     import os
+
     from speechbrain.utils.checkpoints import Checkpointer
 
     os.environ["RANK"] = str(rank)

@@ -23,26 +23,27 @@ Authors
 """
 
 import os
-import torch
-import logging
 import pathlib
-from torch import nn
-from huggingface_hub import model_info
-from speechbrain.utils.fetching import fetch
-from speechbrain.dataio.dataio import length_to_mask
 
+import torch
+from huggingface_hub import model_info
+from torch import nn
 from transformers import (
     AutoConfig,
-    AutoTokenizer,
     AutoFeatureExtractor,
-    AutoModelForPreTraining,
     AutoModel,
-    AutoModelWithLMHead,
-    AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
+    AutoModelForPreTraining,
+    AutoModelForSeq2SeqLM,
+    AutoModelWithLMHead,
+    AutoTokenizer,
 )
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.fetching import fetch
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class HFTransformersInterface(nn.Module):

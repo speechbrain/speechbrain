@@ -5,11 +5,13 @@ Authors
 """
 
 import platform
-import logging
-import torchaudio
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+import torchaudio
+
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def try_parse_torchaudio_major_version() -> Optional[int]:
@@ -53,7 +55,7 @@ def check_torchaudio_backend():
 
         if len(available_backends) == 0:
             logger.warning(
-                "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://pytorch.org/audio/stable/index.html"
+                "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://speechbrain.readthedocs.io/en/latest/audioloading.html"
             )
     else:
         logger.warning(

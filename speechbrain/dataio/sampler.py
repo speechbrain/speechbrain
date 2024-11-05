@@ -11,22 +11,24 @@ Authors:
   * Adel Moumen 2023
 """
 
-import torch
-import logging
-from operator import itemgetter
-from torch.utils.data import (
-    RandomSampler,
-    WeightedRandomSampler,
-    DistributedSampler,
-    Sampler,
-)
-import numpy as np
-from typing import List
-from speechbrain.dataio.dataset import DynamicItemDataset
 from collections import Counter
-from scipy.stats import lognorm
+from operator import itemgetter
+from typing import List
 
-logger = logging.getLogger(__name__)
+import numpy as np
+import torch
+from scipy.stats import lognorm
+from torch.utils.data import (
+    DistributedSampler,
+    RandomSampler,
+    Sampler,
+    WeightedRandomSampler,
+)
+
+from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ReproducibleRandomSampler(RandomSampler):

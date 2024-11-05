@@ -1,15 +1,17 @@
 """SpeechBrain Extended CSV Compatibility."""
 
-from speechbrain.dataio.dataset import DynamicItemDataset
 import collections
 import csv
 import pickle
-import logging
-import torch
-import torchaudio
 import re
 
-logger = logging.getLogger(__name__)
+import torch
+import torchaudio
+
+from speechbrain.dataio.dataset import DynamicItemDataset
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 TORCHAUDIO_FORMATS = ["wav", "flac", "aac", "ogg", "flac", "mp3"]
@@ -146,7 +148,7 @@ def load_sb_extended_csv(csv_path, replacements={}):
         List of DynamicItems to add in DynamicItemDataset.
 
     """
-    with open(csv_path, newline="") as csvfile:
+    with open(csv_path, newline="", encoding="utf-8") as csvfile:
         result = {}
         reader = csv.DictReader(csvfile, skipinitialspace=True)
         variable_finder = re.compile(r"\$([\w.]+)")

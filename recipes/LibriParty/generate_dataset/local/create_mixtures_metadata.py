@@ -7,11 +7,12 @@ Author
 Samuele Cornell, 2020
 """
 
-import numpy as np
-from pathlib import Path
 import json
-from tqdm import tqdm
+from pathlib import Path
+
+import numpy as np
 import torchaudio
+from tqdm import tqdm
 
 
 def _read_metadata(file_path, configs):
@@ -199,5 +200,5 @@ def create_metadata(
 
         dataset_metadata["session_{}".format(n_sess)] = activity
 
-    with open(output_filename + ".json", "w") as f:
+    with open(output_filename + ".json", "w", encoding="utf-8") as f:
         json.dump(dataset_metadata, f, indent=4)

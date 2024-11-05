@@ -7,7 +7,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/wav2vec2_ctc_it/<seed>
 test_wer_file: !ref <output_folder>/wer_test.txt
 save_folder: !ref <output_folder>/save
@@ -46,6 +46,7 @@ ckpt_interval_minutes: 30 # save checkpoint every N min
 # With data_parallel batch_size is split into N jobs
 # With DDP batch_size is multiplied by N jobs
 # Must be 8 per GPU to fit 32GB of VRAM
+dynamic_batching: False
 batch_size: 12
 test_batch_size: 4
 

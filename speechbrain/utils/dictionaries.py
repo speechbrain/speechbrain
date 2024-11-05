@@ -3,9 +3,9 @@
 Authors
  * Sylvain de Langen 2024"""
 
+import json
 from collections import defaultdict
 from typing import Iterable
-import json
 
 
 class SynonymDictionary:
@@ -30,7 +30,7 @@ class SynonymDictionary:
 
         Arguments
         ---------
-        file
+        file : file object
             File object that supports reading (e.g. an `open`ed file)
 
         Returns

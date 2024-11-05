@@ -8,22 +8,24 @@ Authors
  * Artem Ploujnikov 2022
 """
 
+import itertools
+import math
+import sys
+from types import SimpleNamespace
+
+import torch
 from hyperpyyaml import load_hyperpyyaml
+from tqdm.auto import tqdm
+from train import dataio_prep, load_dependencies
+
+import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
 from speechbrain.lobes.models.g2p.dataio import get_sequence_key
 from speechbrain.utils import hpopt as hp
+from speechbrain.utils.logger import get_logger
 from speechbrain.wordemb.util import expand_to_chars
-from train import dataio_prep, load_dependencies
-from types import SimpleNamespace
-from tqdm.auto import tqdm
-import math
-import itertools
-import speechbrain as sb
-import torch
-import sys
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class G2PEvaluator:
@@ -383,7 +385,7 @@ class G2PEvaluator:
             return self.per_metrics.summarize()
 
     def _output_wer_file(self):
-        with open(self.hparams.eval_wer_file, "w") as w:
+        with open(self.hparams.eval_wer_file, "w", encoding="utf-8") as w:
             w.write("\nPER stats:\n")
             self.per_metrics.write_stats(w)
             print(
@@ -400,7 +402,7 @@ if __name__ == "__main__":
         search_hparam_file = sys.argv[0]
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
         device = run_opts.get("device", "cpu")
-        with open(hparams_file) as fin:
+        with open(hparams_file, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
 
         # Load dependencies

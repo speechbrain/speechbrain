@@ -3,9 +3,9 @@
 
 import torch
 import torch.nn as nn
-import speechbrain as sb
 import torch.nn.functional as F
 
+import speechbrain as sb
 from speechbrain.processing.signal_processing import overlap_and_add
 
 EPS = 1e-8

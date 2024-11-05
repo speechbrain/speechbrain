@@ -10,16 +10,18 @@ Author
 Yingzhi Wang 2023
 """
 
-import numpy as np
+import json
 import os
 import random
-from pydub import AudioSegment
-import json
-from datasets.vad import vad_for_folder
 from pathlib import Path
-import logging
 
-logger = logging.getLogger(__name__)
+import numpy as np
+from datasets.vad import vad_for_folder
+from pydub import AudioSegment
+
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 repos = [
     "Actor_01",
     "Actor_02",
@@ -293,7 +295,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_wavs = emotion_wavs[1:]
 
-    with open(save_json, "w") as outfile:
+    with open(save_json, "w", encoding="utf-8") as outfile:
         json.dump(data_json, outfile)
     return data_json
 

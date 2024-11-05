@@ -7,18 +7,20 @@ Authors
  * Adel Moumen 2023, 2024
 """
 
-from itertools import groupby
-from speechbrain.dataio.dataio import length_to_mask
-import math
 import dataclasses
-import numpy as np
 import heapq
-import logging
-import torch
+import math
 import warnings
-from typing import Dict, List, Optional, Union, Any, Tuple
+from itertools import groupby
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-logger = logging.getLogger(__name__)
+import numpy as np
+import torch
+
+from speechbrain.dataio.dataio import length_to_mask
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CTCPrefixScore:

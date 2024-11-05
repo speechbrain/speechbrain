@@ -16,6 +16,7 @@ Authors:
 
 import torch
 import torchaudio
+
 from speechbrain.inference.interfaces import Pretrained
 from speechbrain.utils.callchains import lengths_arg_exists
 

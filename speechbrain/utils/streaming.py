@@ -5,8 +5,9 @@ Authors
 """
 
 import math
-import torch
 from typing import Callable
+
+import torch
 
 
 def split_fixed_chunks(x, chunk_size, dim=-1):

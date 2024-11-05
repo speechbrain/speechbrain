@@ -6,8 +6,9 @@ Authors:
  * Sung-Lin Yeh 2021
 """
 
-import torch
 import numpy as np
+import torch
+
 import speechbrain as sb
 from speechbrain.decoders.ctc import CTCPrefixScore
 
@@ -1874,7 +1875,7 @@ class HuggingFaceLMRescorer(BaseRescorerInterface):
         ).eval()
 
         self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name, use_fast=True, add_special_tokens=False
+            self.model_name, use_fast=True
         )
 
         if self.tokenizer.pad_token is None:

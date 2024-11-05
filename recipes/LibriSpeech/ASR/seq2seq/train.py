@@ -35,14 +35,16 @@ Authors
 """
 
 import sys
-import torch
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main, if_main_process
-from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -173,7 +175,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -267,9 +271,9 @@ def dataio_prepare(hparams):
     train_batch_sampler = None
     valid_batch_sampler = None
     if hparams["dynamic_batching"]:
-        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
-        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
         from speechbrain.dataio.batch import PaddedBatch  # noqa
+        from speechbrain.dataio.dataloader import SaveableDataLoader  # noqa
+        from speechbrain.dataio.sampler import DynamicBatchSampler  # noqa
 
         dynamic_hparams = hparams["dynamic_batch_sampler"]
         hop_size = hparams["feats_hop_size"]
@@ -302,7 +306,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -342,7 +346,7 @@ if __name__ == "__main__":
 
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Trainer initialization

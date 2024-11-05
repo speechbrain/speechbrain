@@ -4,24 +4,25 @@ Authors
 * YAO FEI, CHENG 2021
 """
 
-import torch  # noqa 42
-import logging
-from torch import nn
 from typing import Optional
 
-from speechbrain.nnet.containers import ModuleList
+import torch  # noqa 42
+from torch import nn
+
+from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
 from speechbrain.lobes.models.transformer.Transformer import (
-    get_lookahead_mask,
-    get_key_padding_mask,
     NormalizedEmbedding,
     TransformerDecoder,
     TransformerEncoder,
+    get_key_padding_mask,
+    get_lookahead_mask,
 )
-from speechbrain.lobes.models.transformer.Conformer import ConformerEncoder
 from speechbrain.lobes.models.transformer.TransformerASR import TransformerASR
 from speechbrain.nnet.activations import Swish
+from speechbrain.nnet.containers import ModuleList
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TransformerST(TransformerASR):

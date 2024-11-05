@@ -8,25 +8,26 @@ Authors
  * Pradnya Kandarkar 2023
 """
 
-import os
 import csv
 import json
+import os
 import random
-import logging
+import re
+
+import numpy as np
+import tgt
 import torch
 import torchaudio
-import numpy as np
 from tqdm import tqdm
-from speechbrain.utils.data_utils import download_file
-from speechbrain.dataio.dataio import load_pkl, save_pkl
-import tgt
-from speechbrain.inference.text import GraphemeToPhoneme
-import re
 from unidecode import unidecode
+
+from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.inference.text import GraphemeToPhoneme
+from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
 METADATA_CSV = "metadata.csv"
 TRAIN_JSON = "train.json"
@@ -35,7 +36,7 @@ TEST_JSON = "test.json"
 WAVS = "wavs"
 DURATIONS = "durations"
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_ljspeech_prepare.pkl"
 
 
@@ -291,7 +292,9 @@ def split_sets(data_folder, splits, split_ratio):
     """
     meta_csv = os.path.join(data_folder, METADATA_CSV)
     csv_reader = csv.reader(
-        open(meta_csv), delimiter="|", quoting=csv.QUOTE_NONE
+        open(meta_csv, newline="", encoding="utf-8"),
+        delimiter="|",
+        quoting=csv.QUOTE_NONE,
     )
 
     meta_csv = list(csv_reader)
@@ -542,7 +545,7 @@ def prepare_json(
             json_dict[id].update({"pitch": pitch_file})
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

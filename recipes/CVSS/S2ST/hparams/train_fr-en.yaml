@@ -9,7 +9,7 @@
 # Experiment Parameters and setup #
 ###################################
 seed: 888
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 output_folder: !ref results/s2ut/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
@@ -203,7 +203,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
-valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearch
+valid_search: !new:speechbrain.decoders.seq2seq.S2STransformerGreedySearcher
     modules: [!ref <transformer>, !ref <seq_lin>, null]
     bos_index: !ref <bos_index>
     eos_index: !ref <eos_index>

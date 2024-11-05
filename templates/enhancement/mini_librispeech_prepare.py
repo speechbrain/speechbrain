@@ -6,14 +6,15 @@ Authors:
  * Peter Plantinga, 2020
 """
 
-import os
 import json
+import os
 import shutil
-import logging
-from speechbrain.utils.data_utils import get_all_files, download_file
-from speechbrain.dataio.dataio import read_audio
 
-logger = logging.getLogger(__name__)
+from speechbrain.dataio.dataio import read_audio
+from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 MINILIBRI_TRAIN_URL = "http://www.openslr.org/resources/31/train-clean-5.tar.gz"
 MINILIBRI_VALID_URL = "http://www.openslr.org/resources/31/dev-clean-2.tar.gz"
 MINILIBRI_TEST_URL = "https://www.openslr.org/resources/12/test-clean.tar.gz"
@@ -101,7 +102,7 @@ def create_json(wav_list, json_file):
         json_dict[uttid] = {"wav": relative_path, "length": duration}
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

@@ -8,10 +8,11 @@ Authors:
 """
 
 import sys
+
 import torch
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
+
+import speechbrain as sb
 
 
 # Define training procedure
@@ -151,7 +152,7 @@ class SLU(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.test_wer_file, "w") as w:
+            with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
 
@@ -283,7 +284,7 @@ if __name__ == "__main__":
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     show_results_every = 100  # plots results every N iterations
@@ -326,7 +327,7 @@ if __name__ == "__main__":
     ) = data_io_prepare(hparams)
 
     # We download and pretrain the tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Brain class initialization

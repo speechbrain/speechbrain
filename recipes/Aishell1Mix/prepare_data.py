@@ -5,16 +5,17 @@ Author
  * Cem Subakan 2020
 """
 
-import os
 import csv
+import functools
+import glob
+import os
 import tarfile
 import zipfile
-import glob
-import tqdm.contrib.concurrent
-import soundfile as sf
-import functools
-from pysndfx import AudioEffectsChain
 from urllib.request import urlretrieve
+
+import soundfile as sf
+import tqdm.contrib.concurrent
+from pysndfx import AudioEffectsChain
 
 
 def prepare_aishell1mix(
@@ -73,7 +74,7 @@ def prepare_aishell1mix(
     if not os.path.exists(wham_dir):
         print("Download Wham noise dataset into %s" % datapath)
         urlretrieve(
-            "https://storage.googleapis.com/whisper-public/wham_noise.zip",
+            "https://my-bucket-a8b4b49c25c811ee9a7e8bba05fa24c7.s3.amazonaws.com/wham_noise.zip",
             os.path.join(datapath, "wham_noise.zip"),
             reporthook=reporthook,
         )
@@ -226,7 +227,10 @@ def create_aishell1mix2_csv(
         ]
 
         with open(
-            savepath + "/aishell1mix2_" + set_type + ".csv", "w"
+            savepath + "/aishell1mix2_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -303,7 +307,10 @@ def create_aishell1mix3_csv(
         ]
 
         with open(
-            savepath + "/aishell1mix3_" + set_type + ".csv", "w"
+            savepath + "/aishell1mix3_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -365,8 +372,7 @@ def apply_fx(sound_path, speed):
     s = fx(s)
     # Write the file
     sf.write(
-        f"""{sound_path.replace(
-        '.wav',f"sp{str(speed).replace('.','')}" +'.wav')}""",
+        f"""{sound_path.replace('.wav', f"sp{str(speed).replace('.', '')}" + '.wav')}""",
         s,
         rate,
     )

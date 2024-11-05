@@ -4,11 +4,13 @@ The architecture is based on ConvTasnet and expects in input mixtures of two
 speakers.
 """
 
-import torch
 import pathlib
-import speechbrain as sb
+
+import torch
 import torch.nn.functional as F
 from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.nnet.losses import get_si_snr_with_pitwrapper
 
 
@@ -129,7 +131,7 @@ def main(device="cpu"):
     data_folder = (experiment_dir / data_folder).resolve()
 
     # Load model hyper parameters:
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin)
 
     # Dataset creation

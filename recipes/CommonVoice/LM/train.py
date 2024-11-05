@@ -8,24 +8,27 @@ Author
  * Pooneh Mousavi 2023
 """
 
-import os
 import csv
+import os
 import sys
-import logging
-import speechbrain as sb
-from speechbrain.utils.distributed import run_on_main
+
 from hyperpyyaml import load_hyperpyyaml
 
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def csv2text():
     """Read CSV file and convert specific data entries into text file."""
-    annotation_file = open(hparams["train_csv"], "r")
+    annotation_file = open(
+        hparams["train_csv"], "r", newline="", encoding="utf-8"
+    )
     reader = csv.reader(annotation_file)
     headers = next(reader, None)
-    text_file = open(hparams["text_file"], "w+")
+    text_file = open(hparams["text_file"], "w+", encoding="utf-8")
     index_label = headers.index("wrd")
     row_idx = 0
     for row in reader:
@@ -41,7 +44,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -73,14 +76,14 @@ if __name__ == "__main__":
     tmp_ngram_file = "ngram.arpa"
     cmd = f'lmplz -o {hparams["ngram"]} <"{hparams["text_file"]}" > "{tmp_ngram_file}"'
     os.system(cmd)
-    with open(tmp_ngram_file, "r") as read_file, open(
-        hparams["ngram_file"], "w"
+    with open(tmp_ngram_file, "r", encoding="utf-8") as read_file, open(
+        hparams["ngram_file"], "w", encoding="utf-8"
     ) as write_file:
         has_added_eos = False
         for line in read_file:
             if not has_added_eos and "ngram 1=" in line:
                 count = line.strip().split("=")[-1]
-                write_file.write(line.replace(f"{count}", f"{int(count)+1}"))
+                write_file.write(line.replace(f"{count}", f"{int(count) + 1}"))
             elif not has_added_eos and "<s>" in line:
                 write_file.write(line)
                 write_file.write(line.replace("<s>", "</s>"))

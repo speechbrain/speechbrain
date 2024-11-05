@@ -1,8 +1,9 @@
 import os
 import shutil
-import logging
-from speechbrain.dataio.dataio import read_audio, merge_csvs
+
+from speechbrain.dataio.dataio import merge_csvs, read_audio
 from speechbrain.utils.data_utils import download_file
+from speechbrain.utils.logger import get_logger
 
 try:
     import pandas as pd
@@ -13,7 +14,7 @@ except ImportError:
     err_msg += "Install using `pip install pandas`.\n"
     raise ImportError(err_msg)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_TAS(data_folder, save_folder, type, train_splits, skip_prep=False):

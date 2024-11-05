@@ -8,40 +8,42 @@ Authors
  * Mirco Ravanelli 2020
  * Artem Ploujnikov 2021
 """
-from speechbrain.dataio.dataset import (
-    FilteredSortedDynamicItemDataset,
-    DynamicItemDataset,
-)
-from speechbrain.dataio.sampler import BalancingDataSampler
-from speechbrain.utils.data_utils import undo_padding
-import datasets
-import logging
 import os
 import random
-import speechbrain as sb
 import sys
-from enum import Enum
 from collections import namedtuple
-from hyperpyyaml import load_hyperpyyaml
+from enum import Enum
 from functools import partial
-from speechbrain.utils.distributed import run_on_main
-from speechbrain.utils.pretrained import save_for_pretrained
+from io import StringIO
+
+import datasets
+import numpy as np
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.dataio.dataset import (
+    DynamicItemDataset,
+    FilteredSortedDynamicItemDataset,
+)
+from speechbrain.dataio.sampler import BalancingDataSampler
+from speechbrain.dataio.wer import print_alignments
 from speechbrain.lobes.models.g2p.dataio import (
+    add_bos_eos,
     enable_eos_bos,
+    get_sequence_key,
     grapheme_pipeline,
     phoneme_pipeline,
-    tokenizer_encode_pipeline,
-    add_bos_eos,
-    get_sequence_key,
     phonemes_to_label,
+    tokenizer_encode_pipeline,
 )
-from speechbrain.dataio.wer import print_alignments
-from speechbrain.wordemb.util import expand_to_chars
-from io import StringIO
 from speechbrain.utils import hpopt as hp
-import numpy as np
+from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.pretrained import save_for_pretrained
+from speechbrain.wordemb.util import expand_to_chars
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 G2PPredictions = namedtuple(
     "G2PPredictions",
@@ -633,7 +635,7 @@ class G2PBrain(sb.Brain):
         file_name: str
             the report file name
         """
-        with open(file_name, "w") as w:
+        with open(file_name, "w", encoding="utf-8") as w:
             w.write("\nseq2seq loss stats:\n")
             self.seq_metrics.write_stats(w)
             w.write("\nPER stats:\n")
@@ -650,7 +652,7 @@ class G2PBrain(sb.Brain):
         file_name: str
             the report file name
         """
-        with open(file_name, "w") as w:
+        with open(file_name, "w", encoding="utf-8") as w:
             self.classification_metrics_homograph.write_stats(w)
 
     def _add_stats_prefix(self, stats):
@@ -1170,7 +1172,7 @@ if __name__ == "__main__":
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
 
         # Load hyperparameters file with command-line overrides
-        with open(hparams_file) as fin:
+        with open(hparams_file, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
 
         # Validate hyperparameters

@@ -15,11 +15,12 @@ Authors:
 """
 
 import torch
-import torchaudio
 import torch.nn.functional as F
-from speechbrain.utils.fetching import fetch
-from speechbrain.utils.data_utils import split_path
+import torchaudio
+
 from speechbrain.inference.interfaces import Pretrained
+from speechbrain.utils.data_utils import split_path
+from speechbrain.utils.fetching import LocalStrategy, fetch
 
 
 class SepformerSeparation(Pretrained):
@@ -80,7 +81,7 @@ class SepformerSeparation(Pretrained):
             est_source = est_source[:, :T_origin, :]
         return est_source
 
-    def separate_file(self, path, savedir="audio_cache"):
+    def separate_file(self, path, savedir=None):
         """Separate sources from file.
 
         Arguments
@@ -96,7 +97,12 @@ class SepformerSeparation(Pretrained):
             Separated sources
         """
         source, fl = split_path(path)
-        path = fetch(fl, source=source, savedir=savedir)
+        path = fetch(
+            fl,
+            source=source,
+            savedir=savedir,
+            local_strategy=LocalStrategy.SYMLINK,
+        )
 
         batch, fs_file = torchaudio.load(path)
         batch = batch.to(self.device)

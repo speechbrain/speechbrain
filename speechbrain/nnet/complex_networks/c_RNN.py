@@ -5,14 +5,15 @@ Authors
 """
 
 import torch
-import logging
+
 from speechbrain.nnet.complex_networks.c_linear import CLinear
 from speechbrain.nnet.complex_networks.c_normalization import (
     CBatchNorm,
     CLayerNorm,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CLSTM(torch.nn.Module):

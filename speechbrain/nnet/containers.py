@@ -4,15 +4,17 @@ Authors
  * Peter Plantinga 2020
 """
 
-import torch
-import inspect
-import logging
-import operator
 import functools
+import inspect
+import operator
+
+import torch
+
 from speechbrain.nnet.linear import Linear
 from speechbrain.utils.callchains import lengths_arg_exists
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Sequential(torch.nn.ModuleDict):

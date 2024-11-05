@@ -14,11 +14,13 @@ Authors:
  * Pradnya Kandarkar 2023
 """
 
-import torch
 from itertools import chain
+
+import torch
+
 from speechbrain.inference.interfaces import (
-    Pretrained,
     EncodeDecodePipelineMixin,
+    Pretrained,
 )
 
 
@@ -80,14 +82,41 @@ class GraphemeToPhoneme(Pretrained, EncodeDecodePipelineMixin):
         if single:
             text = [text]
 
-        model_inputs = self.encode_input({"txt": text})
-        self._update_graphemes(model_inputs)
+        encoded_inputs = self.encode_input({"txt": text})
+        self._update_graphemes(encoded_inputs)
+
+        model_inputs = encoded_inputs
+        if hasattr(self.hparams, "model_input_keys"):
+            model_inputs = {
+                k: model_inputs[k] for k in self.hparams.model_input_keys
+            }
+
         model_outputs = self.mods.model(**model_inputs)
         decoded_output = self.decode_output(model_outputs)
         phonemes = decoded_output["phonemes"]
+        phonemes = self._remove_eos(phonemes)
         if single:
             phonemes = phonemes[0]
         return phonemes
+
+    def _remove_eos(self, phonemes):
+        """Removes the EOS character from the end of the sequence,
+        if encountered
+
+        Arguments
+        ---------
+        phonemes : list
+            a list of phomemic transcriptions
+
+        Returns
+        -------
+        result : list
+            phonemes, without <eos>
+        """
+        return [
+            item[:-1] if item and item[-1] == "<eos>" else item
+            for item in phonemes
+        ]
 
     def _update_graphemes(self, model_inputs):
         grapheme_sequence_mode = getattr(self.hparams, "grapheme_sequence_mode")
@@ -205,7 +234,6 @@ class GPTResponseGenerator(ResponseGenerator):
 
     >>> tmpdir = getfixture("tmpdir")
     >>> res_gen_model = GPTResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-GPT-Response_Generation",
-    ... savedir="tmpdir",
     ... pymodule_file="custom.py")  # doctest: +SKIP
     >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
     """
@@ -321,7 +349,6 @@ class Llama2ResponseGenerator(ResponseGenerator):
 
     >>> tmpdir = getfixture("tmpdir")
     >>> res_gen_model = Llama2ResponseGenerator.from_hparams(source="speechbrain/MultiWOZ-Llama2-Response_Generation",
-    ... savedir="tmpdir",
     ... pymodule_file="custom.py")  # doctest: +SKIP
     >>> response = res_gen_model.generate_response("I want to book a table for dinner")  # doctest: +SKIP
     """

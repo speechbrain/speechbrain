@@ -1,13 +1,15 @@
 import json
-from speechbrain.inference.encoders import MelSpectrogramEncoder
-from speechbrain.inference.classifiers import EncoderClassifier
-import torchaudio
-import pickle
-import logging
 import os
+import pickle
+
+import torchaudio
 from tqdm import tqdm
 
-logger = logging.getLogger(__name__)
+from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.encoders import MelSpectrogramEncoder
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def compute_speaker_embeddings(
@@ -67,7 +69,7 @@ def compute_speaker_embeddings(
 
         speaker_embeddings = dict()  # Holds speaker embeddings
 
-        json_file = open(input_filepaths[i])
+        json_file = open(input_filepaths[i], encoding="utf-8")
         json_data = json.load(json_file)
 
         # Processes all utterances in the data manifest file

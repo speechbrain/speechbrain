@@ -5,12 +5,14 @@ Authors
 """
 
 import random
-import logging
+
 import torch
 import torch.nn.functional as F
-from speechbrain.utils.callchains import lengths_arg_exists
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.callchains import lengths_arg_exists
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Augmenter(torch.nn.Module):
@@ -362,7 +364,7 @@ class Augmenter(torch.nn.Module):
         if self.concat_original:
 
             # Check start index
-            if self.concat_start_index >= x.shape[0]:
+            if self.concat_start_index >= x_original.shape[0]:
                 self.skip_concat = True
                 pass
             else:

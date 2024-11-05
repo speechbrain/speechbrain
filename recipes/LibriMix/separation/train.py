@@ -21,22 +21,24 @@ Authors
  * Jianyuan Zhong 2020
 """
 
+import csv
 import os
 import sys
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+from tqdm import tqdm
+
 import speechbrain as sb
 import speechbrain.nnet.schedulers as schedulers
-from speechbrain.utils.distributed import run_on_main
-from hyperpyyaml import load_hyperpyyaml
-import numpy as np
-from tqdm import tqdm
-import csv
-import logging
 from speechbrain.core import AMPConfig
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -165,7 +167,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
             else:
                 predictions, targets = self.compute_forward(
                     mixture, targets, sb.Stage.TRAIN, noise
@@ -197,7 +199,7 @@ class Separation(sb.Brain):
                             self.nonfinite_count
                         )
                     )
-                    loss.data = torch.tensor(0).to(self.device)
+                    loss.data = torch.tensor(0.0).to(self.device)
         self.optimizer.zero_grad()
 
         return loss.detach().cpu()
@@ -354,7 +356,7 @@ class Separation(sb.Brain):
             test_data, **self.hparams.dataloader_opts
         )
 
-        with open(save_file, "w") as results_csv:
+        with open(save_file, "w", newline="", encoding="utf-8") as results_csv:
             writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
             writer.writeheader()
 
@@ -558,7 +560,7 @@ def dataio_prep(hparams):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

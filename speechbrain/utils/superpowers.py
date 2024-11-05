@@ -9,12 +9,9 @@ Authors
  * Aku Rouhe 2021
 """
 
-import logging
-import subprocess
 import importlib
 import pathlib
-
-logger = logging.getLogger(__name__)
+import subprocess
 
 
 def import_from_path(path):
@@ -68,6 +65,10 @@ def run_shell(cmd):
     >>> out, err, code = run_shell("echo 'hello world'")
     >>> _ = out.decode(errors="ignore")
     """
+    from speechbrain.utils.logger import get_logger
+
+    logger = get_logger(__name__)
+
     # Executing the command
     p = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True

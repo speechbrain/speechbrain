@@ -17,15 +17,17 @@
  * Artem Ploujnikov 2021
  * Yingzhi Wang 2022
 """
-import torch
-import speechbrain as sb
 import sys
-import logging
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.text_to_sequence import text_to_sequence
-from speechbrain.utils.data_utils import scalarize
 
-logger = logging.getLogger(__name__)
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.data_utils import scalarize
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.text_to_sequence import text_to_sequence
+
+logger = get_logger(__name__)
 
 
 class Tacotron2Brain(sb.Brain):
@@ -335,7 +337,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # create ddp_group with the right communication protocol

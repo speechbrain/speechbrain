@@ -62,11 +62,12 @@ Authors
 """
 
 import collections
-import logging
 from pathlib import Path
 from typing import Union
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def read_arpa(fstream):
@@ -347,5 +348,5 @@ def arpa_to_fst(
         )
         raise e
     logger.info(f"Writing {out_fst}")
-    with open(out_fst, "w") as f:
+    with open(out_fst, "w", encoding="utf-8") as f:
         f.write(s)

@@ -12,15 +12,17 @@ Authors:
 
 # Importing libraries
 import random
+
 import torch
 import torch.nn.functional as F
 import torchaudio
-from speechbrain.dataio.legacy import ExtendedCSVDataset
+
 from speechbrain.dataio.dataloader import make_dataloader
+from speechbrain.dataio.legacy import ExtendedCSVDataset
 from speechbrain.processing.signal_processing import (
     compute_amplitude,
-    dB_to_amplitude,
     convolve1d,
+    dB_to_amplitude,
     notch_filter,
     reverberate,
 )
@@ -458,6 +460,8 @@ class SpeedPerturb(torch.nn.Module):
     speeds : list
         The speeds that the signal should be changed to, as a percentage of the
         original signal (i.e. `speeds` is divided by 100 to get a ratio).
+    device : str
+        The device to use for the resampling.
 
     Example
     -------
@@ -472,10 +476,11 @@ class SpeedPerturb(torch.nn.Module):
     torch.Size([1, 46956])
     """
 
-    def __init__(self, orig_freq, speeds=[90, 100, 110]):
+    def __init__(self, orig_freq, speeds=[90, 100, 110], device="cpu"):
         super().__init__()
         self.orig_freq = orig_freq
         self.speeds = speeds
+        self.device = device
         # Initialize index of perturbation
         self.samp_index = 0
 
@@ -502,8 +507,11 @@ class SpeedPerturb(torch.nn.Module):
 
         # Perform a random perturbation
         self.samp_index = torch.randint(0, len(self.speeds), (1,))
-        perturbed_waveform = self.resamplers[self.samp_index](waveform)
-        return perturbed_waveform
+        perturbed_waveform = self.resamplers[self.samp_index](
+            waveform.to(self.device)
+        )
+        # Move back from host to original device
+        return perturbed_waveform.to(waveform.device)
 
 
 class Resample(torch.nn.Module):
@@ -1463,3 +1471,53 @@ class DropBitResolution(torch.nn.Module):
         # To dequantize and recover the original float32 values
         dequantized_tensor = quantized_tensor.to(torch.float32) / scale_factor
         return dequantized_tensor
+
+
+class SignFlip(torch.nn.Module):
+    """Flip the sign of a signal.
+
+    This module negates all the values in a tensor with a given probability.
+    If the sign is not flipped, the original signal is returned
+    unchanged. This technique is outlined in the paper:
+    "CADDA: Class-wise Automatic Differentiable Data Augmentation for EEG Signals"
+    https://arxiv.org/pdf/2106.13695
+
+    Arguments
+    ---------
+    flip_prob : float
+        The probability with which to flip the sign of the signal. Default is 0.5.
+
+    Example
+    -------
+    >>> import torch
+    >>> x = torch.tensor([1,2,3,4,5])
+    >>> flip = SignFlip(flip_prob=1) # 100% chance to flip sign
+    >>> flip(x)
+    tensor([-1, -2, -3, -4, -5])
+    """
+
+    def __init__(self, flip_prob=0.5):
+        super().__init__()
+        self.flip_prob = flip_prob
+
+    def forward(self, waveform):
+        """
+        Arguments
+        ---------
+        waveform : torch.Tensor
+            Input tensor representaing waveform, shape does not matter.
+
+        Returns
+        -------
+        torch.Tensor
+            The output tensor with same shape as the input, where the
+            sign of all values in the tensor has been flipped with
+            probability `flip_prob`.
+
+        """
+
+        # Flip sign with `flip_prob` probability.
+        if torch.rand(1).item() < self.flip_prob:
+            return -waveform
+
+        return waveform

@@ -6,23 +6,22 @@ Author
 YAO-FEI, CHENG 2021
 """
 
+import json
 import os
 import re
-import json
 import string
-import logging
 import subprocess
-
-from typing import List
 from dataclasses import dataclass, field
+from typing import List
 
 import torch
 import torchaudio
-
 from tqdm import tqdm
-from speechbrain.utils.data_utils import get_all_files
-from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
+
 from speechbrain.augment.time_domain import Resample
+from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.torch_audio_backend import check_torchaudio_backend
 
 try:
     from sacremoses import MosesPunctNormalizer, MosesTokenizer
@@ -31,7 +30,7 @@ except ImportError:
     err_msg += "Install using `pip install sacremoses`.\n"
     raise ImportError(err_msg)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 check_torchaudio_backend()
 
 es_normalizer = MosesPunctNormalizer(lang="es")
@@ -279,7 +278,7 @@ def extract_transcription(transcription_path: str) -> List[TDF]:
     """Extract transcriptions from given file"""
     extracted_transcriptions = []
 
-    with open(transcription_path) as transcription_file:
+    with open(transcription_path, encoding="utf-8") as transcription_file:
         # get rid of the first three useless headers
         transcriptions = transcription_file.readlines()[3:]
 

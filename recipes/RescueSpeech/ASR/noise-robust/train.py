@@ -15,29 +15,30 @@ To run this recipe, do the following:
 
 Authors
  * Sangeet Sagar 2023
- * Adel Moumen 2022
+ * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
 """
 
+import csv
 import os
 import sys
-import csv
-import logging
+
 import numpy as np
-from tqdm import tqdm
+import torch
+import torch.nn.functional as F
+import torchaudio
+from hyperpyyaml import load_hyperpyyaml
 from pesq import pesq
 from pystoi import stoi
+from tqdm import tqdm
 
-import torch
-import torchaudio
-import torch.nn.functional as F
 import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.metric_stats import MetricStats
-from speechbrain.utils.distributed import run_on_main
 from speechbrain.utils.data_utils import undo_padding
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.metric_stats import MetricStats
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -157,12 +158,11 @@ class ASR(sb.core.Brain):
         if stage != sb.Stage.TRAIN:
             tokens, tokens_lens = batch.tokens
 
-            hyps = [hyp[0] if len(hyp) > 0 else [] for hyp in hyps]
-
             # Decode token terms to words
-            predicted_words = self.tokenizer.batch_decode(
-                hyps, skip_special_tokens=True
-            )
+            predicted_words = [
+                self.tokenizer.decode(t, skip_special_tokens=True).strip()
+                for t in hyps
+            ]
 
             # Convert indices to words
             target_words = undo_padding(tokens, tokens_lens)
@@ -172,18 +172,18 @@ class ASR(sb.core.Brain):
 
             if hasattr(self.hparams, "normalized_transcripts"):
                 predicted_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer._normalize(text).split(" ")
+                    self.tokenizer.normalize(text).split(" ")
                     for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
-
                 target_words = [text.split(" ") for text in target_words]
+
             self.wer_metric.append(ids, predicted_words, target_words)
             self.cer_metric.append(ids, predicted_words, target_words)
 
@@ -348,7 +348,7 @@ class ASR(sb.core.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.test_wer_file, "w") as w:
+            with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
     def add_speed_perturb(self, clean, targ_lens):
@@ -511,7 +511,7 @@ class ASR(sb.core.Brain):
 
         test_loader = sb.dataio.dataloader.make_dataloader(test_data)
 
-        with open(save_file, "w") as results_csv:
+        with open(save_file, "w", newline="", encoding="utf-8") as results_csv:
             writer = csv.DictWriter(results_csv, fieldnames=csv_columns)
             writer.writeheader()
 
@@ -739,14 +739,15 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
+        if hasattr(hparams, "normalized_transcripts"):
+            wrd = tokenizer.normalize(wrd)
         yield wrd
-        tokens_list = tokenizer.encode(wrd)
-        # avoid bos and eos tokens.
-        tokens_list = tokens_list[1:-1]
+        tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
         yield tokens_list
-        tokens_bos = torch.LongTensor([hparams["bos_index"]] + tokens_list)
+        tokens_list = tokenizer.build_inputs_with_special_tokens(tokens_list)
+        tokens_bos = torch.LongTensor(tokens_list[:-1])
         yield tokens_bos
-        tokens_eos = torch.LongTensor(tokens_list + [hparams["eos_index"]])
+        tokens_eos = torch.LongTensor(tokens_list[1:])
         yield tokens_eos
         tokens = torch.LongTensor(tokens_list)
         yield tokens
@@ -779,7 +780,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -808,20 +809,6 @@ if __name__ == "__main__":
 
     # Defining tokenizer and loading it
     tokenizer = hparams["whisper"].tokenizer
-    tokenizer.set_prefix_tokens(hparams["language"], "transcribe", False)
-
-    # we need to prepare the tokens for searchers
-    hparams["valid_greedy_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["valid_greedy_searcher"].set_language_token(
-        tokenizer.prefix_tokens[1]
-    )
-
-    hparams["test_beam_searcher"].set_decoder_input_tokens(
-        tokenizer.prefix_tokens
-    )
-    hparams["test_beam_searcher"].set_language_token(tokenizer.prefix_tokens[1])
 
     # here we create the datasets objects as well as tokenization and encoding
     train_data, valid_data, test_data = dataio_prepare(hparams, tokenizer)

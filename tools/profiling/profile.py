@@ -13,26 +13,27 @@ Author:
 """
 
 import sys
-import torch
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.profiling import (
-    profile_report,
-    export,
-    report_time,
-    report_memory,
-)
+from typing import List, Optional
 
-from speechbrain.inference.interfaces import Pretrained
-from speechbrain.inference.ASR import EncoderDecoderASR, EncoderASR
-from speechbrain.inference.SLU import EndToEndSLU
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.inference.ASR import EncoderASR, EncoderDecoderASR
 from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.enhancement import SpectralMaskEnhancement
+from speechbrain.inference.interfaces import Pretrained
+from speechbrain.inference.metrics import SNREstimator
+from speechbrain.inference.separation import SepformerSeparation
+from speechbrain.inference.SLU import EndToEndSLU
 from speechbrain.inference.speaker import SpeakerRecognition
 from speechbrain.inference.VAD import VAD
-from speechbrain.inference.separation import SepformerSeparation
-from speechbrain.inference.enhancement import SpectralMaskEnhancement
-from speechbrain.inference.metrics import SNREstimator
-from typing import Optional, List
+from speechbrain.utils.profiling import (
+    export,
+    profile_report,
+    report_memory,
+    report_time,
+)
 
 
 def get_funcs_to_unary_input_classifier(
@@ -337,7 +338,7 @@ def profile_pretrained(
 
     # Store tables
     print("\n\tReal-time factor")
-    with open("benchmark_realtime_factors.md", "w") as f:
+    with open("benchmark_realtime_factors.md", "w", encoding="utf-8") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=realtime_factor,
@@ -347,7 +348,7 @@ def profile_pretrained(
         )
 
     print("\n\tPeak memory")
-    with open("benchmark_memory_peaks.md", "w") as f:
+    with open("benchmark_memory_peaks.md", "w", encoding="utf-8") as f:
         f.write(
             benchmark_to_markdown(
                 benchmark=memory_peaks,
@@ -365,7 +366,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides, overrides_must_match=False)
 
     # Ensure profiling dimensions are set

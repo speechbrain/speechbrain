@@ -12,16 +12,15 @@ Authors
 """
 
 import sys
+
 import torch
-import logging
+from hyperpyyaml import load_hyperpyyaml
+from sacremoses import MosesDetokenizer
 
 import speechbrain as sb
+from speechbrain.utils.logger import get_logger
 
-from sacremoses import MosesDetokenizer
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 en_detokenizer = MosesDetokenizer(lang="en")
 
 
@@ -581,7 +580,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -592,7 +591,7 @@ if __name__ == "__main__":
     )
 
     # transcription/translation tokenizer
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # We can now directly create the datasets for training, valid, and test

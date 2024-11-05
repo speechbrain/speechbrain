@@ -5,6 +5,7 @@
 import json
 import os
 import re
+
 import datasets
 
 from speechbrain.lobes.models.g2p.dataio import build_token_char_map
@@ -52,7 +53,7 @@ def prepare_annotation(src, destination_file_name, phonemes):
         }
         for item in src
     }
-    with open(destination_file_name, "w") as dst_file:
+    with open(destination_file_name, "w", encoding="utf-8") as dst_file:
         json.dump(annotation, dst_file, indent=2)
 
 

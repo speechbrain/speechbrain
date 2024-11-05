@@ -5,8 +5,9 @@ Authors
  * Andreas Nautsch 2022, 2023
 """
 
-import os
 import csv
+import os
+
 from speechbrain.utils.data_utils import download_file
 from tests.consistency.test_recipe import __skip_list
 
@@ -72,7 +73,9 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
             continue
 
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row in reader:
@@ -112,7 +115,7 @@ def check_repo(HF_repo):
     code = []
     flag = False
     check = True
-    with open(dest_file, "r") as f:
+    with open(dest_file, "r", encoding="utf-8") as f:
         for line in f:
             if "```python" in line:
                 flag = True

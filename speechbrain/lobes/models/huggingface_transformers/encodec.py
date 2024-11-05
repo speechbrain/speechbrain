@@ -16,16 +16,17 @@ Authors
 """
 
 import torch
-import logging
 from torch.nn import functional as F
-from speechbrain.dataio.dataio import length_to_mask, clean_padding_
+
+from speechbrain.dataio.dataio import clean_padding_, length_to_mask
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
+from speechbrain.utils.logger import get_logger
 
 DEFAULT_SAMPLE_RATE = 24000
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Encodec(HFTransformersInterface):

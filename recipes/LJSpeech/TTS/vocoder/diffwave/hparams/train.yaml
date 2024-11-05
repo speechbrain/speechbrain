@@ -7,7 +7,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 data_folder: !PLACEHOLDER
 output_folder: !ref ./results/diffwave/<seed>
@@ -124,7 +124,7 @@ diffwave: !new:speechbrain.lobes.models.DiffWave.DiffWave
 noise: !new:speechbrain.nnet.diffusion.GaussianNoise
 
 diffusion: !new:speechbrain.lobes.models.DiffWave.DiffWaveDiffusion
-    model: !ref <diffwave>
+    model: !ref <diffwave.diffusion_forward>
     beta_start: !ref <beta_start>
     beta_end: !ref <beta_end>
     timesteps: !ref <train_timesteps>

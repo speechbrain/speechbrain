@@ -9,11 +9,10 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 1234
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Set up folders for reading from and writing to
-# Dataset must already exist at `audio_data_folder`
-data_folder: !PLACEHOLDER # e.g., /localscratch/UrbanSound8K
+data_folder: !PLACEHOLDER  # e.g., /localscratch/ESC-50-master
 audio_data_folder: !ref <data_folder>/audio
 
 experiment_name: piq
@@ -21,10 +20,10 @@ output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
-save_interpretations: True
+save_interpretations: False
 interpret_period: 10
 
-# torch.Tensorboard logs
+# Tensorboard logs
 use_tensorboard: False
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 
@@ -42,7 +41,7 @@ skip_manifest_creation: False
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
-####################### Training Parameters ####################################
+# Training parameters
 number_of_epochs: 200
 batch_size: 16
 lr: 0.0002
@@ -51,6 +50,7 @@ use_vq: True
 rec_loss_coef: 1
 use_mask_output: True
 mask_th: 0.35
+use_melspectra_log1p: False
 
 
 # Feature parameters
@@ -114,7 +114,6 @@ K: 1024
 
 # pre-processing
 n_fft: 1024
-spec_mag_power: 0.5
 hop_length: 11.6099
 win_length: 23.2199
 compute_stft: !new:speechbrain.processing.features.STFT

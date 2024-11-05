@@ -4,10 +4,10 @@ Authors
 * Sylvain de Langen 2024
 """
 
+from typing import List, Union
+
 from flair.data import Sentence
 from flair.models import SequenceTagger
-
-from typing import List, Union
 
 from speechbrain.utils.fetching import fetch
 
@@ -45,6 +45,10 @@ class FlairSequenceTagger:
         filename : str, optional
             The filename of the model. The default is the usual filename for
             this kind of model.
+
+        Returns
+        -------
+        FlairSequenceTagger
         """
 
         # figure out a unique name for this source

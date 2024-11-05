@@ -10,9 +10,9 @@ Author
 Dominik Wagner 2022
 """
 
-import re
-import os
 import csv
+import os
+import re
 import string
 from collections import defaultdict
 
@@ -21,7 +21,9 @@ def read_glm_csv(save_folder):
     """Load the ARPA Hub4-E and Hub5-E alternate spellings and contractions map"""
 
     alternatives_dict = defaultdict(list)
-    with open(os.path.join(save_folder, "glm.csv")) as csv_file:
+    with open(
+        os.path.join(save_folder, "glm.csv"), encoding="utf-8"
+    ) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=",")
         for row in csv_reader:
             alternatives = row[1].split("|")

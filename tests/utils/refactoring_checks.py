@@ -10,22 +10,24 @@ Authors
  * Andreas Nautsch, 2022, 2023
 """
 
-import os
-import sys
-from tqdm import tqdm
-import yaml
-import torch  # noqa
 import importlib  # noqa
+import os
 import subprocess
-import speechbrain  # noqa
-from glob import glob
+import sys
 from copy import deepcopy
-from torch.utils.data import DataLoader
+from glob import glob
+
+import torch  # noqa
+import yaml
 from hyperpyyaml import load_hyperpyyaml
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+import speechbrain  # noqa
+from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
+from speechbrain.inference.interfaces import foreign_class  # noqa
 from speechbrain.utils.distributed import run_on_main  # noqa
 from speechbrain.utils.train_logger import FileTrainLogger
-from speechbrain.inference.interfaces import foreign_class  # noqa
-from speechbrain.dataio.dataloader import LoopedLoader, make_dataloader
 
 
 def init(
@@ -220,7 +222,7 @@ def gather_expected_results(
     """
     # load results, if existing -or- new from scratch
     if os.path.exists(yaml_path):
-        with open(yaml_path) as yaml_in:
+        with open(yaml_path, encoding="utf-8") as yaml_in:
             results = yaml.safe_load(yaml_in)
     else:
         results = {}
@@ -234,7 +236,9 @@ def gather_expected_results(
         # skip if results are there
         if repo not in results.keys():
             # get values
-            with open(f"{updates_dir}/{repo}/test.yaml") as yaml_test:
+            with open(
+                f"{updates_dir}/{repo}/test.yaml", encoding="utf-8"
+            ) as yaml_test:
                 values = load_hyperpyyaml(yaml_test)
 
             print(f"Collecting results for: {repo} w/ values={values}")
@@ -242,7 +246,7 @@ def gather_expected_results(
 
             # extend the results
             results[repo] = {"before": prediction}
-            with open(yaml_path, "w") as yaml_out:
+            with open(yaml_path, "w", encoding="utf-8") as yaml_out:
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
 
@@ -271,7 +275,7 @@ def gather_refactoring_results(
     """
     # expected results need to exist
     if os.path.exists(yaml_path):
-        with open(yaml_path) as yaml_in:
+        with open(yaml_path, encoding="utf-8") as yaml_in:
             results = yaml.safe_load(yaml_in)
 
     # go through each repo
@@ -283,7 +287,9 @@ def gather_refactoring_results(
         # skip if results are there
         if "after" not in results[repo].keys():
             # get values
-            with open(f"{updates_dir}/{repo}/test.yaml") as yaml_test:
+            with open(
+                f"{updates_dir}/{repo}/test.yaml", encoding="utf-8"
+            ) as yaml_test:
                 values = load_hyperpyyaml(yaml_test)
 
             print(
@@ -297,10 +303,10 @@ def gather_refactoring_results(
             )
 
             # update
-            with open(yaml_path, "w") as yaml_out:
+            with open(yaml_path, "w", encoding="utf-8") as yaml_out:
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
-            print(f"\tsame: {results[repo]['same'] }")
+            print(f"\tsame: {results[repo]['same']}")
 
 
 def test_performance(
@@ -341,7 +347,7 @@ def test_performance(
     )  # noqa
 
     # Dataio preparation; we need the test sets only
-    with open(values["recipe_yaml"]) as fin:
+    with open(values["recipe_yaml"], encoding="utf-8") as fin:
         recipe_hparams = load_hyperpyyaml(
             fin, values["overrides"] | recipe_overrides
         )
@@ -416,7 +422,7 @@ if __name__ == "__main__":
         sys.argv[1:]
     )
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         dataset_overrides = load_hyperpyyaml(fin, overrides)
 
     # go through each repo
@@ -429,7 +435,7 @@ if __name__ == "__main__":
     # load results, if existing -or- new from scratch
     yaml_path = f'{dataset_overrides["new_interfaces_local_dir"]}.yaml'
     if os.path.exists(yaml_path):
-        with open(yaml_path) as yaml_in:
+        with open(yaml_path, encoding="utf-8") as yaml_in:
             results = yaml.safe_load(yaml_in)
     else:
         results = {}
@@ -440,7 +446,9 @@ if __name__ == "__main__":
     )
     for repo in repos:
         # get values
-        with open(f"{updates_dir}/{repo}/test.yaml") as yaml_test:
+        with open(
+            f"{updates_dir}/{repo}/test.yaml", encoding="utf-8"
+        ) as yaml_test:
             values = load_hyperpyyaml(yaml_test)
 
         # for this testing, some fields need to exist; skip otherwise
@@ -479,7 +487,7 @@ if __name__ == "__main__":
             )
 
             # update
-            with open(yaml_path, "w") as yaml_out:
+            with open(yaml_path, "w", encoding="utf-8") as yaml_out:
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
         # After refactoring
@@ -503,9 +511,9 @@ if __name__ == "__main__":
             print(f'\t  same: {results[repo]["same"]}')
 
             # update
-            with open(yaml_path, "w") as yaml_out:
+            with open(yaml_path, "w", encoding="utf-8") as yaml_out:
                 yaml.dump(results, yaml_out, default_flow_style=None)
 
     # update
-    with open(yaml_path, "w") as yaml_out:
+    with open(yaml_path, "w", encoding="utf-8") as yaml_out:
         yaml.dump(results, yaml_out, default_flow_style=None)

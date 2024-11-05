@@ -12,25 +12,23 @@ Artem Ploujnikov 2023
 Mirco Ravanelli 2023
 """
 
-import logging
 import csv
-import math
 import json
+import math
 import os
-import torchaudio
-import speechbrain as sb
-
-from glob import glob
 from functools import partial
-from tqdm.auto import tqdm
-from torchaudio import functional as F
+from glob import glob
 from subprocess import list2cmdline
-from speechbrain.utils.superpowers import run_shell
+
+import torchaudio
+from torchaudio import functional as F
+from tqdm.auto import tqdm
+
+import speechbrain as sb
+from speechbrain.dataio.dataio import load_pkl, save_pkl
 from speechbrain.utils.data_utils import download_file
-from speechbrain.dataio.dataio import (
-    load_pkl,
-    save_pkl,
-)
+from speechbrain.utils.logger import get_logger
+from speechbrain.utils.superpowers import run_shell
 
 DEFAULT_SPLITS = ["train", "valid", "test"]
 DEFAULT_AUDIOMNIST_REPO = "https://github.com/soerenab/AudioMNIST.git"
@@ -42,7 +40,7 @@ DB_MULTIPLIER = 0.05
 OPT_FILE = "opt_audiomnist_prepare.pkl"
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_audiomnist(
@@ -280,7 +278,7 @@ def read_file_list(file_name):
     result: lists
         the file list
     """
-    with open(file_name) as list_file:
+    with open(file_name, encoding="utf-8") as list_file:
         return [line.strip() for line in list_file]
 
 
@@ -383,7 +381,7 @@ def read_meta(file_name):
     result: dict
         raw metadata
     """
-    with open(file_name) as meta_file:
+    with open(file_name, encoding="utf-8") as meta_file:
         return json.load(meta_file)
 
 
@@ -654,7 +652,7 @@ def convert_split(
         metadata[item_id].update(process_meta)
 
     logger.info(f"Saving metadata to {metadata_file_path}")
-    with open(metadata_file_path, "w") as metadata_file:
+    with open(metadata_file_path, "w", encoding="utf-8") as metadata_file:
         json.dump(metadata, metadata_file, indent=2)
 
 
@@ -807,7 +805,7 @@ def read_digit_lookup(file_name):
         }
 
     """
-    with open(file_name) as lookup_file:
+    with open(file_name, encoding="utf-8") as lookup_file:
         reader = csv.DictReader(lookup_file)
         lookup = {row["digit"]: row for row in reader}
         for value in lookup.values():

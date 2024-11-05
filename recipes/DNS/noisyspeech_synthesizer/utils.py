@@ -6,10 +6,10 @@ Ownership: Microsoft
     rocheng
 """
 
-import os
 import csv
-from shutil import copyfile
 import glob
+import os
+from shutil import copyfile
 
 
 def get_dir(cfg, param_name, new_dir_name):
@@ -29,7 +29,10 @@ def write_log_file(log_dir, log_filename, data):
     """Helper function to write log file"""
     # data = zip(*data)
     with open(
-        os.path.join(log_dir, log_filename), mode="w", newline=""
+        os.path.join(log_dir, log_filename),
+        mode="w",
+        newline="",
+        encoding="utf-8",
     ) as csvfile:
         csvwriter = csv.writer(
             csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL

@@ -10,19 +10,21 @@ Authors
 """
 
 import math
-import torch
-import logging
+from typing import Tuple
+
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
-from typing import Tuple
+
 from speechbrain.processing.signal_processing import (
     gabor_impulse_response,
     gabor_impulse_response_legacy_complex,
 )
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SincConv(nn.Module):

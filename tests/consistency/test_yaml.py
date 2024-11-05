@@ -4,8 +4,9 @@ Authors
  * Mirco Ravanelli 2022
 """
 
-import os
 import csv
+import os
+
 from tests.consistency.test_recipe import __skip_list
 from tests.utils.check_yaml import check_yaml_vs_script
 
@@ -29,7 +30,9 @@ def test_yaml_script_consistency(recipe_folder="tests/recipes"):
         if recipe_csvfile in __skip_list:
             continue
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             reader = csv.DictReader(
                 csvfile, delimiter=",", skipinitialspace=True

@@ -58,15 +58,16 @@ Authors
 import itertools
 import math
 import os
-import speechbrain as sb
 import sys
 import traceback
-
-from cmd import Cmd
 from argparse import ArgumentParser
+from cmd import Cmd
+
 from hyperpyyaml import load_hyperpyyaml
-from speechbrain.inference.text import GraphemeToPhoneme
 from tqdm.auto import tqdm
+
+import speechbrain as sb
+from speechbrain.inference.text import GraphemeToPhoneme
 
 MSG_MODEL_NOT_FOUND = "Model path not found"
 MSG_HPARAMS_NOT_FILE = "Hyperparameters file not found"
@@ -108,13 +109,13 @@ def transcribe_file(g2p, text_file_name, output_file_name=None, batch_size=64):
 
     """
     line_count = get_line_count(text_file_name)
-    with open(text_file_name) as text_file:
+    with open(text_file_name, encoding="utf-8") as text_file:
         if output_file_name is None:
             transcribe_stream(
                 g2p, text_file, sys.stdout, batch_size, total=line_count
             )
         else:
-            with open(output_file_name, "w") as output_file:
+            with open(output_file_name, "w", encoding="utf-8") as output_file:
                 transcribe_stream(
                     g2p, text_file, output_file, batch_size, total=line_count
                 )
@@ -134,7 +135,7 @@ def get_line_count(text_file_name):
     line_count: int
         the number of lines in the file
     """
-    with open(text_file_name) as text_file:
+    with open(text_file_name, encoding="utf-8") as text_file:
         return sum(1 for _ in text_file)
 
 
@@ -305,7 +306,7 @@ def load_g2p_checkpoint(
     g2p: speechbrain.inference.text.GraphemeToPhoneme
         a pretrained G2P model, initialized from a checkpoint
     """
-    with open(hparams_file_name) as hparams_file:
+    with open(hparams_file_name, encoding="utf-8") as hparams_file:
         hparams = load_hyperpyyaml(hparams_file, overrides)
     checkpointer = hparams.get("checkpointer")
     if checkpointer is None:

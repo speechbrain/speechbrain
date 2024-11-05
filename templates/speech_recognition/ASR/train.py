@@ -44,14 +44,15 @@ Authors
 """
 
 import sys
+
 import torch
-import logging
-import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
-from speechbrain.utils.distributed import run_on_main
 
-logger = logging.getLogger(__name__)
+import speechbrain as sb
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Brain class for speech recognition training
@@ -320,7 +321,7 @@ class ASR(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.test_wer_file, "w") as w:
+            with open(self.hparams.test_wer_file, "w", encoding="utf-8") as w:
                 self.wer_metric.write_stats(w)
 
 
@@ -438,7 +439,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -470,7 +471,7 @@ if __name__ == "__main__":
     # you can train from scratch and avoid this step.
     # We download the pretrained LM from HuggingFace (or elsewhere depending on
     # the path given in the YAML file). The tokenizer is loaded at the same time.
-    run_on_main(hparams["pretrainer"].collect_files)
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Trainer initialization

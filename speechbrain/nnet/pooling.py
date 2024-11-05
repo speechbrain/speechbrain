@@ -10,11 +10,12 @@ Authors
 """
 
 import torch
-import logging
 import torch.nn as nn
 import torch.nn.functional as F
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class Pooling1d(nn.Module):

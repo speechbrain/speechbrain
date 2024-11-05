@@ -17,36 +17,28 @@ audio. The output is again stored in webdataset shards.
 # speech sourcefile once (from the webdataset shards), as it does not
 # randomly sample from these files
 
-import sys
+import json
 import os
-from pathlib import Path
 import random
+import sys
 import time
+from collections import defaultdict
+from functools import partial
+from pathlib import Path
+from typing import Dict
 
+import librosa
 import numpy as np
+import pandas as pd
+import torch
+import utils
+import webdataset as wds
+from audiolib import activitydetector, is_clipped, segmental_snr_mixer
+from hyperpyyaml import load_hyperpyyaml
 from scipy import signal
 from scipy.io import wavfile
 
-import librosa
-
-import utils
-from audiolib import (
-    segmental_snr_mixer,
-    activitydetector,
-    is_clipped,
-)
-
-import pandas as pd
-import json
-from functools import partial
-from typing import Dict
-from collections import defaultdict
-
-
 import speechbrain as sb
-import webdataset as wds
-from hyperpyyaml import load_hyperpyyaml
-import torch
 
 np.random.seed(5)
 random.seed(5)
@@ -391,10 +383,10 @@ def main_gen(params):
         "num_data_samples": len(valid_data_tuples),
     }
 
-    with (train_shards_path / "meta.json").open("w") as f:
+    with (train_shards_path / "meta.json").open("w", encoding="utf-8") as f:
         json.dump(train_meta_dict, f, indent=4)
 
-    with (valid_shards_path / "meta.json").open("w") as f:
+    with (valid_shards_path / "meta.json").open("w", encoding="utf-8") as f:
         json.dump(valid_meta_dict, f, indent=4)
 
     return (
@@ -414,7 +406,7 @@ def main_body():  # noqa
 
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Data Directories and Settings

@@ -10,7 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 5988
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 debug: False
 output_folder: !ref results/w2v2_st/<seed>
 save_folder: !ref <output_folder>/save
@@ -195,6 +195,5 @@ test_search: !new:speechbrain.decoders.S2STransformerBeamSearcher
 
 bleu_computer: !name:speechbrain.utils.bleu.BLEUStats
     merge_words: False
-    lang: !ref <lang>
 
 acc_computer: !name:speechbrain.utils.Accuracy.AccuracyStats

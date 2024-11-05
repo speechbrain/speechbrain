@@ -15,13 +15,15 @@ Author
     * Nauman Dawalatabad 2020
 """
 import os
-import sys
 import random
+import sys
+
 import torch
 import torchaudio
+from hyperpyyaml import load_hyperpyyaml
+
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 
@@ -186,7 +188,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Download verification list (to exclude verification sentences from train)

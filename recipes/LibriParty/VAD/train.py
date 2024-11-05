@@ -23,15 +23,17 @@ Authors
 """
 
 import sys
-import torch
-import logging
-import numpy as np
-import speechbrain as sb
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
-from data_augment import augment_data
 
-logger = logging.getLogger(__name__)
+import numpy as np
+import torch
+from data_augment import augment_data
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
+from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class VADBrain(sb.Brain):
@@ -205,7 +207,7 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

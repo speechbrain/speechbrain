@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 from speechbrain.nnet.linear import Linear
+from speechbrain.nnet.normalization import BatchNorm1d as _BatchNorm1d
 
 
 def conv3x3(in_planes, out_planes, stride=1):

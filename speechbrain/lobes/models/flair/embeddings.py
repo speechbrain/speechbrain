@@ -4,11 +4,12 @@ Authors
 * Sylvain de Langen 2024
 """
 
+from typing import List, Union
+
 import flair
+import torch
 from flair.data import Sentence
 from flair.embeddings import Embeddings
-from typing import List, Union
-import torch
 
 from speechbrain.utils.fetching import fetch
 
@@ -56,6 +57,10 @@ class FlairEmbeddings:
             Extra positional arguments to pass to the flair class constructor
         **kwargs
             Extra keyword arguments to pass to the flair class constructor
+
+        Returns
+        -------
+        FlairEmbeddings
         """
 
         # figure out a unique name for this source

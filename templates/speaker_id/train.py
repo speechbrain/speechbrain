@@ -26,9 +26,11 @@ Authors
 """
 import os
 import sys
-import speechbrain as sb
+
 from hyperpyyaml import load_hyperpyyaml
 from mini_librispeech_prepare import prepare_mini_librispeech
+
+import speechbrain as sb
 
 
 # Brain class for speech enhancement training
@@ -279,7 +281,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

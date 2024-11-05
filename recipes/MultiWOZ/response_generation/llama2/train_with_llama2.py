@@ -12,14 +12,16 @@ Authors
 """
 
 
-import sys
-import speechbrain as sb
-import torch
-from itertools import chain
-from hyperpyyaml import load_hyperpyyaml
-from speechbrain.utils.distributed import run_on_main
 import math
+import sys
+from itertools import chain
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+
+import speechbrain as sb
 from speechbrain.dataio.batch import PaddedBatch
+from speechbrain.utils.distributed import run_on_main
 
 
 class ResGenBrain(sb.Brain):
@@ -346,7 +348,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -433,7 +435,7 @@ if __name__ == "__main__":
 
     # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected(res_gen_brain.device)
 
     # The `fit()` method iterates the training loop, calling the methods
