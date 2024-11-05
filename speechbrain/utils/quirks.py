@@ -10,7 +10,10 @@ import os
 
 import torch
 
-logger = logging.getLogger(__name__)
+from speechbrain.kernels.common import try_triton_import, triton_enabled
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def disable_cudnn_benchmarking():
@@ -65,10 +68,29 @@ def allow_tf32():
     torch.backends.cudnn.allow_tf32 = True
 
 
+def enable_triton_kernels():
+    """Enables SpeechBrain to make use of opt-in high-performance GPU kernels
+    to speed up certain operations."""
+
+    global triton_enabled
+    triton_enabled = True
+
+    try:
+        import triton  # noqa
+        import triton.language  # noqa
+    except ImportError as e:
+        raise ImportError(
+            "Failed to import Triton. You can sometimes disable our custom "
+            "Triton kernels by disabling the `allow_triton_kernels` quirk, but "
+            "it may significantly degrade performance."
+        ) from e
+
+
 KNOWN_QUIRKS = {
     "disable_cudnn_benchmarking": disable_cudnn_benchmarking,
     "disable_jit_profiling": disable_jit_profiling,
     "allow_tf32": allow_tf32,
+    "allow_triton_kernels": enable_triton_kernels,
 }
 
 """Applied quirk list. Populated by `apply_quirks`."""
@@ -87,6 +109,7 @@ def apply_quirks():
     # global quirks
     applied_quirks.add("disable_jit_profiling")
     applied_quirks.add("allow_tf32")
+    applied_quirks.add("allow_triton_kernels")
 
     # AMD HIP?
     if torch.cuda.is_available() and torch.version.hip:
