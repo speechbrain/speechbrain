@@ -179,7 +179,7 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
 def setup_logging(
     config_path="log-config.yaml",
     overrides={},
-    default_level=logging.INFO,
+    default_level="INFO",
 ):
     """Setup logging configuration.
 
@@ -190,8 +190,8 @@ def setup_logging(
     overrides : dict
         A dictionary of the same structure as the config dict
         with any updated values that need to be applied.
-    default_level : int
-        The level to use if the config file is not found.
+    default_level : str
+        The log level to use if the config file is not found.
     """
     if os.path.exists(config_path):
         with open(config_path, "rt", encoding="utf-8") as f:
@@ -200,7 +200,7 @@ def setup_logging(
         logging.config.dictConfig(config)
     else:
         logging.basicConfig(level=default_level)
-    os.environ["SB_LOG_LEVEL"] = str(default_level)
+    os.environ["SB_LOG_LEVEL"] = default_level
 
 
 class TqdmCompatibleStreamHandler(logging.StreamHandler):
