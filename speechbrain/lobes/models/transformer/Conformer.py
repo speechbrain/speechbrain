@@ -1162,6 +1162,21 @@ class ConformerDecoder(nn.Module):
 
 
 class ConformerWarmupScheduler:
+    """Scheduler for a Conformer warmup. Linearly increases the warmup from the
+    `warmup_start` to the `warmup_end` depending on the current step count.
+    See :meth:`~ConformerEncoder.forward` for how this value is used.
+
+    Arguments
+    ---------
+    step_count : int
+        After how many optimizer steps should the warmup reach the `warmup_end`
+        value.
+    warmup_start : float
+        The warmup value at the start of training.
+    warmup_end : float
+        The warmup value reached at the end of the warmup period.
+    """
+
     def __init__(
         self,
         step_count: int = 3000,
@@ -1172,7 +1187,21 @@ class ConformerWarmupScheduler:
         self.warmup_start = warmup_start
         self.warmup_end = warmup_end
 
-    def __call__(self, current_step):
+    def __call__(self, current_step: int) -> float:
+        """Compute the current warmup value depending on the current optimizer
+        step count.
+
+        Arguments
+        ---------
+        current_step : int
+            The current optimizer step (not epoch).
+
+        Returns
+        -------
+        float
+            Warmup value to apply, linearly interpolated between `warmup_start`
+            and `warmup_end`.
+        """
         warmup_completion = min(1.0, current_step / self.step_count)
 
         # lerp from warmup_start to warmup_end
