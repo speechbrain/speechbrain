@@ -172,7 +172,7 @@ def get_logger(name: str) -> MultiProcessLoggerAdapter:
     if log_level is None:
         log_level = logging.INFO
         os.environ["SB_LOG_LEVEL"] = str(log_level)
-    logging.basicConfig(level=int(log_level))
+    logger.setLevel(log_level)
     return MultiProcessLoggerAdapter(logger, {})
 
 
