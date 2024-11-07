@@ -1,0 +1,8 @@
+{
+  "site_package_search_strategy": "all",
+  "source_directories": [
+    "recipes", "speechbrain", "tests", "tools", "tutorials"
+  ],
+  "search_path": ["."],
+  "python_version": "3.8"
+}

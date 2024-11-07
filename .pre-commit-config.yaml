@@ -52,3 +52,11 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
+
+  # There is a pre-commit hook defined in the official repo at
+  # https://github.com/facebook/pyre-check but this does not actually work
+  # currently: https://github.com/facebook/pyre-check/pull/769
+  - repo: https://github.com/murilo-cunha/mirrors-pyre
+    rev: v0.9.18
+    hooks:
+      - id: pyre-check
