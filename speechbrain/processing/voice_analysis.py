@@ -94,7 +94,9 @@ def vocal_characteristics(
     # Autocorrelation is the measure of harmonicity here, 1-harmonicity is noise
     # See "Harmonic to Noise Ratio Measurement - Selection of Window and Length"
     # By J. Fernandez, F. Teixeira, V. Guedes, A. Junior, and J. P. Teixeira
-    hnr = 10 * torch.log10(harmonicity / torch.abs(1 - harmonicity))
+    harmonicity = torch.clamp(harmonicity, min=1e-30)
+    noise = torch.clamp(1 - harmonicity, min=1e-30)
+    hnr = 10 * torch.log10(harmonicity / noise)
 
     return estimated_f0, voiced, jitter, shimmer, hnr
 
@@ -451,4 +453,4 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
     gne = torch.stack(correlations, dim=-1).amax(dim=(1, 2))
 
     # Use a log scale for better differentiation
-    return 10 * torch.log10(1 - gne)
+    return -10 * torch.log10(torch.clamp(1 - gne, min=1e-30))
