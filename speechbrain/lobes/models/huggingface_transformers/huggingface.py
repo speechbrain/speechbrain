@@ -249,7 +249,8 @@ class HFTransformersInterface(nn.Module):
                 sink / os.listdir(str(sink))[0]
             )  # there's a hash-id subfolder
             if any(
-                File.endswith((".bin", ".safetensors")) or File.endswith(".ckpt")
+                File.endswith((".bin", ".safetensors"))
+                or File.endswith(".ckpt")
                 for File in os.listdir(str(sink))
             ):
                 is_local = True
@@ -261,7 +262,10 @@ class HFTransformersInterface(nn.Module):
 
         if is_local:
             # Test for HuggingFace model
-            if any(File.endswith((".bin", ".safetensors"))  for File in os.listdir(local_path)):
+            if any(
+                File.endswith((".bin", ".safetensors"))
+                for File in os.listdir(local_path)
+            ):
                 is_sb = False
                 return is_sb, checkpoint_filename, is_local
 

@@ -1,12 +1,26 @@
+"""This lobe enables the integration of huggingface pretrained Mimi.
+
+Mimi codec is a state-of-the-art audio neural codec, developed by Kyutai, that combines semantic and acoustic information into audio tokens running at 12Hz and a bitrate of 1.1kbps.
+
+Note that you need to install transformers>=4.45.1` to use this module.
+
+Repository: https://huggingface.co/kyutai/mimi
+Paper: https://kyutai.org/Moshi.pdf
+
+Authors
+ * Pooneh Mousavi 2024
+"""
 
 import torch
+
+from speechbrain.dataio.dataio import clean_padding_, length_to_mask
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
-    HFTransformersInterface
+    HFTransformersInterface,
 )
 from speechbrain.utils.logger import get_logger
-from speechbrain.dataio.dataio import clean_padding_, length_to_mask
 
 logger = get_logger(__name__)
+
 
 class Mimi(HFTransformersInterface):
     """An wrapper for the HuggingFace Mimi model
@@ -19,11 +33,11 @@ class Mimi(HFTransformersInterface):
         The location where the pretrained model will be saved
     sample_rate : int (default: 24000)
         The audio sampling rate
-    num_codebooks : int  (default: 8)
-        Number of qunatizer. It could be [2,3,4,5,6,7,8]
     freeze : bool
         whether the model will be frozen (e.g. not trainable if used
         as part of training another model)
+    num_codebooks : int  (default: 8)
+        Number of qunatizer. It could be [2,3,4,5,6,7,8]
 
     Example
     -------
@@ -41,6 +55,7 @@ class Mimi(HFTransformersInterface):
     >>> rec.shape
     torch.Size([4, 1, 48000])
     """
+
     def __init__(
         self,
         source,
@@ -49,21 +64,25 @@ class Mimi(HFTransformersInterface):
         freeze=True,
         num_codebooks=8,
     ):
-        
+
         super().__init__(source=source, save_path=save_path, freeze=freeze)
         self.num_codebooks = num_codebooks
-        self.sampling_rate= sample_rate
-        self.embeddings= self._compute_embedding()
+        self.sampling_rate = sample_rate
+        self.embeddings = self._compute_embedding()
 
     @torch.no_grad()
     def _compute_embedding(self):
-        semantic_layers = self.model.quantizer.semantic_residual_vector_quantizer.layers
-        acoustic_layers = self.model.quantizer.acoustic_residual_vector_quantizer.layers
+        semantic_layers = (
+            self.model.quantizer.semantic_residual_vector_quantizer.layers
+        )
+        acoustic_layers = (
+            self.model.quantizer.acoustic_residual_vector_quantizer.layers
+        )
         layers = (semantic_layers + acoustic_layers)[: self.num_codebooks]
         embs = [layer.codebook.embed for layer in layers]
         embs = torch.stack(embs)  # [K, C, H]
         return embs
-    
+
     def forward(self, inputs, length):
         """Encodes the input audio as tokens and embeddings and  decodes audio from tokens
 
@@ -89,8 +108,6 @@ class Mimi(HFTransformersInterface):
         audio = self.decode(tokens, length)
 
         return tokens, embedding, audio
-    
-
 
     def encode(self, inputs, length):
         """Encodes the input audio as tokens and embeddings
@@ -118,14 +135,22 @@ class Mimi(HFTransformersInterface):
             length * max_len, max_len, device=inputs.device
         ).unsqueeze(1)
 
-        tokens = self.model.encode(inputs,padding_mask,num_quantizers=self.num_codebooks)[0]
-        
-        # Reshape input_tensor for broadcasting
-        input_tensor = tokens.unsqueeze(-1).expand(-1, -1, -1, self.embeddings.shape[-1])  # [B, N, T, D]
-        # Gather embeddings for each token
-        embeddings = torch.gather(self.embeddings.unsqueeze(0).expand(tokens.shape[0], -1, -1, -1), 2, input_tensor)
+        tokens = self.model.encode(
+            inputs, padding_mask, num_quantizers=self.num_codebooks
+        )[0]
 
-        return tokens,embeddings
+        # Reshape input_tensor for broadcasting
+        input_tensor = tokens.unsqueeze(-1).expand(
+            -1, -1, -1, self.embeddings.shape[-1]
+        )  # [B, N, T, D]
+        # Gather embeddings for each token
+        embeddings = torch.gather(
+            self.embeddings.unsqueeze(0).expand(tokens.shape[0], -1, -1, -1),
+            2,
+            input_tensor,
+        )
+
+        return tokens, embeddings
 
     def decode(self, tokens, length=None):
         """Decodes audio from tokens
@@ -145,6 +170,5 @@ class Mimi(HFTransformersInterface):
         result = self.model.decode(tokens)
         audio = result.audio_values
         if length is not None:
-                clean_padding_(audio, length)
+            clean_padding_(audio, length)
         return audio
-
