@@ -50,7 +50,7 @@ class Mimi(HFTransformersInterface):
     >>> tokens.shape
     torch.Size([4, 8, 25])
     >>> emb.shape
-    torch.Size([4, 4, 2, 128])
+    torch.Size([4, 8, 25, 256])
     >>> rec = model.decode(tokens, length)
     >>> rec.shape
     torch.Size([4, 1, 48000])
