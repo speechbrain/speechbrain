@@ -19,6 +19,7 @@
 - Check that no large (>512kb) files are added by accident
 - Automatically run flake8
 - Automatically run cspell
+- Automatically run pyre to perform type checking
 - NOTE: If the hooks fix something (e.g. trailing whitespace or reformat with black), these changes are not automatically added and committed. You’ll have to add the fixed files again and run the commit again. I guess this is a safeguard: don’t blindly accept changes from git hooks.
 - NOTE2: The hooks are only run on the files you git added to the commit. This is in contrast to the CI pipeline, which always tests everything.
 - NOTE3: If a word is flagged as a spelling error but it should be kept, you can add the word to `.dict-speechbrain.txt`
@@ -48,6 +49,7 @@
 ### Our test suite
 - Code linters are run. This means black and flake8. These are run on everything in speechbrain (the library directory), everything in recipes and everything in tests.
 - Note that black will only error out if it would change a file here, but won’t reformat anything at this stage. You’ll have to run black on your code and push a new commit. The black commit hook helps avoid these errors.
+- Type checks are run using pyre. To run these locally before pushing, say `pyre` at the command line.
 - All unit-tests and doctests are run. You can check that these pass by running them yourself before pushing, with `pytest tests`  and `pytest --doctest-modules speechbrain`
 - Integration tests (minimal examples). The minimal examples serve both to
   illustrate basic tasks and experiment running, but also as integration tests
