@@ -16,6 +16,7 @@ from huggingface_hub import snapshot_download
 from torch import nn
 
 from speechbrain.tokenizers.discrete_SSL_tokenizer import DiscreteSSLTokenizer
+from speechbrain.inference.vocoders import UnitHIFIGAN
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -37,10 +38,10 @@ class DiscreteSSL(nn.Module):
         Path (dir) of the downloaded model.
     ssl_model : str
         SSL model to extract semantic tokens from its layers' output. Note that output_all_hiddens should be set to True to enable multi-layer discretenation.
+    vocoder_repo_id: str
+        Huggingface repository that contains the pre-trained HiFi-GAN model.
     kmeans_dataset : str
         Name of the dataset that Kmeans model on HF repo is trained with.
-    kmeans_repo_id : str
-        Huggingface repository that contains the pre-trained k-means models.
     num_clusters : int or List[int] (default: 1000)
             determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
     layers_num : List[int] (Optional)
@@ -56,11 +57,11 @@ class DiscreteSSL(nn.Module):
     >>> ssl_layer_num = [7,23]
     >>> deduplicate =[False, True]
     >>> bpe_tokenizers=[None, None]
-    >>> kmeans_repo_id = "speechbrain/SSL_Quantization"
-    >>> kmeans_dataset = "LJSpeech"
+    >>> vocoder_repo_id = "speechbrain/hifigan-wavlm-k1000-LibriTTS"
+    >>> kmeans_dataset = "LibriSpeech"
     >>> num_clusters = 1000
     >>> ssl_model = HuBERT(model_hub, save_path,output_all_hiddens=True)
-    >>> model = DiscreteSSL(save_path, ssl_model, kmeans_repo_id=kmeans_repo_id, kmeans_dataset=kmeans_dataset,num_clusters=num_clusters)
+    >>> model = DiscreteSSL(save_path, ssl_model, vocoder_repo_id=vocoder_repo_id, kmeans_dataset=kmeans_dataset,num_clusters=num_clusters)
     >>> tokens, embs ,pr_tokens= model(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
@@ -68,6 +69,9 @@ class DiscreteSSL(nn.Module):
     torch.Size([3, 6, 2, 1024])
     >>> print(pr_tokens.shape)
     torch.Size([3, 6, 2])
+    >>> TODO
+    >>> model.encode()
+    >>> model.decode()
     """
 
     def __init__(
@@ -75,19 +79,21 @@ class DiscreteSSL(nn.Module):
         save_path,
         ssl_model,
         kmeans_dataset,
-        kmeans_repo_id="speechbrain/SSL_Quantization",
+        vocoder_repo_id="speechbrain/hifigan-wavlm-k1000-LibriTTS",
         num_clusters=1000,
         layers_num=None,
+        device="cpu",
     ):
 
         super().__init__()
+        self.device = device
         self.ssl_model = ssl_model
         model_name = ssl_model.__class__.__name__.lower()
         self.check_if_input_is_compatible(layers_num, num_clusters)
 
         self.kmeans_models, self.ssl_layer_ids, self.num_clusters = (
             self.load_kmeans(
-                kmeans_repo_id,
+                vocoder_repo_id,
                 kmeans_dataset,
                 model_name,
                 self.num_clusters,
@@ -101,6 +107,11 @@ class DiscreteSSL(nn.Module):
             self.vocabularies.append(model.cluster_centers_)
 
         self.tokenizer = DiscreteSSLTokenizer(self.num_clusters)
+        self.codec_vocoder = UnitHIFIGAN.from_hparams(
+            source=vocoder_repo_id,
+            savedir=save_path,
+        )
+        self.codec_vocoder.tokenize = False
 
     def check_if_input_is_compatible(self, layers_num, num_clusters):
         """check if layer_number and num_clusters is consistent with each other.
@@ -165,11 +176,11 @@ class DiscreteSSL(nn.Module):
         if layers_num:
             for i, layer in enumerate(layers_num):
                 file_patterns.append(
-                    f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters[i]}_L{layer}.pt"
+                    f"kmeans/{kmeans_dataset}_{encoder_name}_k{num_clusters[i]}_L{layer}.pt"
                 )
         else:
             file_patterns.append(
-                f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters}*.pt"
+                f"kmeans/{kmeans_dataset}_{encoder_name}_k{num_clusters}*.pt"
             )
         kmeans_dir = snapshot_download(
             repo_id=repo_id, allow_patterns=file_patterns, cache_dir=cache_dir
@@ -188,7 +199,7 @@ class DiscreteSSL(nn.Module):
 
         assert (
             len(layer_ids) > 0
-        ), f"There is no trained k-means model available for {repo_id}/{encoder_name}/*_k{num_clusters[i]}_L*"
+        ), f"There is no trained k-means model available for {repo_id}/kmeans/*_k{num_clusters[i]}_L*"
 
         if isinstance(num_clusters, int):
             num_clusters = [num_clusters for i in layer_ids]
@@ -284,3 +295,82 @@ class DiscreteSSL(nn.Module):
             org_tokens, SSL_layers, deduplicates, bpe_tokenizers
         )
         return org_tokens, org_embedding, processed_tokens
+
+    def encode(
+        self,
+        wav,
+        wav_lens=None,
+        SSL_layers=None,
+        deduplicates=None,
+        bpe_tokenizers=None,
+    ):
+        """Takes an input waveform and return its corresponding tokens.
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        wav_lens : tensor
+            The relative length of the wav given in SpeechBrain format.
+        SSL_layers: List[int]:
+            determine which layers of SSL should be used to extract information.
+        deduplicates: List[boolean]:
+            determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
+        bpe_tokenizers: List[int]:
+            determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
+
+        Returns
+        -------
+        tokens : torch.Tensor
+            A (Batch x Seq x num_SSL_layers) tensor of audio tokens
+        """
+
+        return self.forward(
+            wav, wav_lens, SSL_layers, deduplicates, bpe_tokenizers
+        )[0]
+
+    def decode(self, tokens, SSL_layers=None):
+        """Takes an input waveform and return its corresponding waveform.
+
+        Arguments
+        ---------
+        tokens : torch.Tensor
+            A (Batch, codes, layers) tensor of discrete units
+        SSL_layers: List[int]:
+            determine which layers of SSL should be used by the vocoder.
+
+        Returns
+        -------
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, time]
+        """
+
+        all_layer_ids = self.ssl_layer_ids
+        num_clusters = self.num_clusters[0]
+        offsets = torch.arange(
+            0,
+            len(all_layer_ids) * num_clusters,
+            num_clusters,
+            device=self.device,
+        )
+
+        layers = all_layer_ids
+        if SSL_layers is not None:
+            layers = SSL_layers
+
+        offset_idxes = [all_layer_ids.index(x) for x in layers]
+        offsets = offsets[offset_idxes]
+        tokens += offsets + 1
+
+        if len(layers) < len(all_layer_ids):
+            full_tokens = torch.zeros(
+                *tokens.shape[:2],
+                len(all_layer_ids),
+                dtype=tokens.dtype,
+                device=self.device,
+            )
+            for i, idx in enumerate(offset_idxes):
+                full_tokens[..., idx] = tokens[..., i]
+            tokens = full_tokens
+
+        return self.codec_vocoder(tokens)[:, 0]
