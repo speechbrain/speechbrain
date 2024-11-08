@@ -44,6 +44,8 @@ If your GPU effectively supports fp16 (half-precision) computations, it is recom
 Enabling half precision can significantly reduce the peak VRAM requirements. For example, in the case of the Conformer Transducer recipe trained with GigaSpeech, the peak VRAM decreases from 39GB to 12GB when using fp16.
 According to our tests, the performance is not affected.
 
+## Streaming model
+
 # Results (non-streaming)
 
 Results are obtained with beam search and no LM (no-streaming i.e. full context).
@@ -51,12 +53,9 @@ Results are obtained with beam search and no LM (no-streaming i.e. full context)
 
 | Release       |    LM | Val. CER | Val. WER | Test CER | Test WER | Model | GPUs |
 |:-------------:| -----:| --------:| --------:| --------:| --------:| :---------:|:-----------:|
-| 08-11-2024    |  None | 6.09%    | 11.75%   | 6.14%    | 11.97%   | [Dropbox](https://www.dropbox.com/scl/fo/jg0vzm8l27o9qsixpqzjo/ABpKqmTMg24RVJKLY5Io1eU?rlkey=8z51y0gosme1fh4niahvi6b84&st=6smf7i5z&dl=0), [HuggingFace](https://huggingface.co/speechbrain/asr-streaming-conformer-gigaspeech) | 4x A100 80GB |
+| 08-11-2024    |  None | 6.09%\*  | 11.75%\* | 6.14%\*  | 11.97%\* | [Dropbox](https://www.dropbox.com/scl/fo/jg0vzm8l27o9qsixpqzjo/ABpKqmTMg24RVJKLY5Io1eU?rlkey=8z51y0gosme1fh4niahvi6b84&st=6smf7i5z&dl=0), [HuggingFace](https://huggingface.co/speechbrain/asr-streaming-conformer-gigaspeech) | 4x A100 80GB |
 
-
-<!-- TODO: study and explain discrepancy between WER tests -->
-
-## Streaming model
+\*: These results were obtained with our usual training scripts and are included for completeness, **but note that we have noticed an unexpected significant improvement to the error rate (see #2753) using the inference code path. Please refer to the table below for better and more accurate results.**
 
 ### WER vs chunk size & left context
 
@@ -81,9 +80,9 @@ may end up forming indirect dependencies to audio many seconds ago.
 | 8     | -      | -      | 11.50% | 11.72% | 11.88% | 12.28% |
 | 4     | -      | 11.40% | 11.53% | 11.81% | 12.03% | 12.64% |
 | 2     | -      | 11.46% | 11.67% | 12.03% | 12.43% | 13.25% |
-| 1\*   | -      | 11.59% | 11.85% | 12.39% | 12.93% | 14.13% |
+| 1\*\* | -      | 11.59% | 11.85% | 12.39% | 12.93% | 14.13% |
 
-(\*: model was never explicitly trained with this setting)
+(\*\*: model was never explicitly trained with this setting)
 
 ### Inference
 
