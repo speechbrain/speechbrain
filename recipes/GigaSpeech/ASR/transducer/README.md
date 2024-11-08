@@ -54,7 +54,6 @@ Results are obtained with beam search and no LM (no-streaming i.e. full context)
 | 08-11-2024    |  None | 6.09%    | 11.75%   | 6.14%    | 11.97%   | [Dropbox](https://www.dropbox.com/scl/fo/jg0vzm8l27o9qsixpqzjo/ABpKqmTMg24RVJKLY5Io1eU?rlkey=8z51y0gosme1fh4niahvi6b84&st=6smf7i5z&dl=0), [HuggingFace](https://huggingface.co/speechbrain/asr-streaming-conformer-gigaspeech) | 4x A100 80GB |
 
 
-<!-- TODO: update hparams with what was used on JZ -->
 <!-- TODO: study and explain discrepancy between WER tests -->
 
 ## Streaming model
