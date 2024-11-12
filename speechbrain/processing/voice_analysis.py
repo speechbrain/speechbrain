@@ -1,7 +1,8 @@
 """
-Functions for analyzing vocal characteristics: jitter, shimmer, and HNR.
+Functions for analyzing vocal characteristics: jitter, shimmer, HNR, and GNE.
 
-These are typically used for analysis of dysarthric voices using more traditional approaches (i.e. not deep learning). Often useful as a baseline for e.g. pathology detection. Inspired by PRAAT.
+These are typically used for analysis of dysarthric voices using more traditional approaches
+(i.e. not deep learning). Often useful as a baseline for e.g. pathology detection. Inspired by PRAAT.
 
 Authors
  * Peter Plantinga, 2024
@@ -9,6 +10,9 @@ Authors
 
 import torch
 import torchaudio
+
+# Minimum value for log measures, results in max of 25dB
+EPSILON = 10**-2.5
 
 
 def vocal_characteristics(
@@ -21,13 +25,12 @@ def vocal_characteristics(
     harmonicity_threshold: float = 0.45,
     jitter_threshold: float = 0.05,
 ):
-    """Estimates the vocal characteristics of a signal using auto-correlation.
-    Batched estimation is hard due to removing unvoiced frames, so only accepts a single sample.
+    """Estimates the vocal characteristics of a signal using auto-correlation, etc.
 
     Arguments
     ---------
     audio: torch.Tensor
-        The audio signal being analyzed, shape: [time].
+        The batched audio signal being analyzed, shape: [batch, sample].
     min_f0_Hz: int
         The minimum allowed fundamental frequency, to reduce octave errors.
         Default is 75 Hz, based on human voice standard frequency range.
@@ -61,8 +64,9 @@ def vocal_characteristics(
         The estimate for the HNR value for each frame.
     """
 
-    if audio.dim() != 1:
-        raise ValueError("Takes audio tensors of only one dimension (time)")
+    assert (
+        audio.dim() == 2
+    ), "Expected audio to be 2-dimensional, [batch, sample]"
 
     # Convert arguments to sample counts. Max lag corresponds to min f0 and vice versa.
     step_samples = int(step_size * sample_rate)
@@ -71,32 +75,31 @@ def vocal_characteristics(
     min_lag = int(sample_rate / max_f0_Hz)
 
     # Split into frames, and compute autocorrelation for each frame
-    frames = audio.view(1, -1).unfold(-1, window_samples, step_samples)
+    frames = audio.unfold(dimension=-1, size=window_samples, step=step_samples)
     autocorrelation = autocorrelate(frames)
 
-    # Use autocorrelation to compute harmonicity and best lags
-    kbest_scores = torch.topk(autocorrelation[:, min_lag:max_lag], k=15, dim=-1)
-    harmonicity = kbest_scores.values[:, 0]
-    kbest_lags = kbest_scores.indices + min_lag
+    # Use autocorrelation to estimate harmonicity and best lags
+    harmonicity, best_lags = autocorrelation[:, :, min_lag:max_lag].max(dim=-1)
+    # Re-add the min_lag back in after previous step removed it
+    best_lags = best_lags + min_lag
+    # Frequency is 1 / period-slash-lag
+    estimated_f0 = sample_rate / best_lags
 
-    # Compute period-based features, dividing frames based on median best lag
-    jitter, shimmer = compute_periodic_features(audio, kbest_lags[:, 0])
+    # Compute period-based features using the estimate of best lag
+    jitter, shimmer = compute_periodic_features(frames, best_lags)
 
     # Use both types of features to determine which frames are voiced
     voiced = compute_voiced(
         harmonicity, jitter, harmonicity_threshold, jitter_threshold
     )
 
-    # Use neighboring frames to select best lag out of available options
-    best_lags = iterative_lag_selection(kbest_lags[voiced], iterations=3)
-    estimated_f0 = sample_rate / best_lags
-
     # Autocorrelation is the measure of harmonicity here, 1-harmonicity is noise
     # See "Harmonic to Noise Ratio Measurement - Selection of Window and Length"
     # By J. Fernandez, F. Teixeira, V. Guedes, A. Junior, and J. P. Teixeira
-    harmonicity = torch.clamp(harmonicity, min=1e-30)
-    noise = torch.clamp(1 - harmonicity, min=1e-30)
-    hnr = 10 * torch.log10(harmonicity / noise)
+    # Term is dominated by denominator, so just take -1 * log(noise)
+    # max value for harmonicity is 25 dB, enforced by this minimum here
+    noise = torch.clamp(1 - harmonicity, min=EPSILON)
+    hnr = -10 * torch.log10(noise)
 
     return estimated_f0, voiced, jitter, shimmer, hnr
 
@@ -107,7 +110,7 @@ def autocorrelate(frames):
     Arguments
     ---------
     frames: torch.Tensor
-        The audio frames to be evaluated for autocorrelation, shape [time, window]
+        The audio frames to be evaluated for autocorrelation, shape [batch, frame, sample]
 
     Returns
     -------
@@ -127,47 +130,29 @@ def autocorrelate(frames):
     return autocorrelation / norm_score
 
 
-def iterative_lag_selection(kbest_lags, iterations=3):
-    """Select the best lag out of available options by comparing
-    to an average of neighboring lags to reduce jumping octaves."""
-    # kbest returns sorted list, first entry should be the highest autocorrelation
-    best_lag = kbest_lags[:, 0]
-    for i in range(iterations):
-        averaged_lag = neighbor_average(best_lag.float(), neighbors=7)
-        distance = torch.abs(kbest_lags - averaged_lag.unsqueeze(1))
-        best_selection = torch.argmin(distance, dim=-1)
-        best_lag = select_indices(kbest_lags, best_selection)
-    return best_lag
+def neighbor_op(values, neighbors, op="mean"):
+    """Compute the mean of each value with neighboring values."""
+    pad = (neighbors // 2, neighbors // 2)
+    values = torch.nn.functional.pad(values, pad=pad, mode="reflect")
+    if op == "mean":
+        return values.unfold(dimension=-1, size=neighbors, step=1).mean(dim=-1)
+    elif op == "max":
+        return values.unfold(dimension=-1, size=neighbors, step=1).amax(dim=-1)
+    elif op == "min":
+        return values.unfold(dimension=-1, size=neighbors, step=1).amin(dim=-1)
+    else:
+        raise ValueError("Expected `op` to be one of 'mean', 'max', or 'min'")
 
 
-def select_indices(tensor, indices):
-    """Utility function to extract a list of indices from a tensor"""
-    return tensor[torch.arange(tensor.size(0)), indices]
-
-
-def neighbor_average(best_values, neighbors):
-    """Use convolutional kernel to average the neighbors."""
-    kernel = torch.ones(1, 1, neighbors) / neighbors
-    values = torch.nn.functional.pad(
-        best_values[None, None, :],
-        pad=(neighbors // 2, neighbors // 2),
-        mode="reflect",
-    )
-
-    return torch.nn.functional.conv1d(values, kernel).squeeze()
-
-
-def compute_periodic_features(audio, best_lag):
+def compute_periodic_features(frames, best_lags):
     """Function to compute periodic features: jitter, shimmer
-
-    Compares to 5 neighboring periods, like PRAAT's ppq5 and apq5.
 
     Arguments
     ---------
-    audio: torch.Tensor
-        The audio to use for feature computation.
-    best_lag: torch.Tensor
-        The average period length for each frame.
+    frames: torch.Tensor
+        The framed audio to use for feature computation, dims [batch, frame, sample].
+    best_lags: torch.Tensor
+        The estimated period length for each frame, dims [batch, frame]
 
     Returns
     -------
@@ -177,34 +162,34 @@ def compute_periodic_features(audio, best_lag):
         The average absolute deviation in amplitude over the frame.
     """
 
-    # Find median best lag to divide entire audio. We use median
-    # instead of mean because the distribution may be bimodal
-    # in some cases due to bouncing between octaves.
-    lag = best_lag.median()
+    # Compute likely peaks using topk
+    topk = frames.topk(dim=-1, k=7)
 
-    # Divide into period-length segments
-    back_offset = len(audio) - len(audio) % lag
-    periods = audio[:back_offset].view(-1, lag)
+    # Jitter = average variation in period length, measured as lag
+    lags = topk.indices.remainder(best_lags.unsqueeze(-1))
+    # Compute lags as remainder, use min to avoid wraparound errors
+    lags = torch.min(lags, best_lags.unsqueeze(-1) - lags)
 
-    # Compare peak index of each period to its neighbors. Divide by lag to get relative.
-    # Here we use min of lag and 1 - lag to avoid wraparound errors
-    peak_lags = periods.argmax(dim=1).float()
-    peak_lags = torch.min(peak_lags, periods.size(1) - peak_lags)
-    avg_lags = neighbor_average(peak_lags, neighbors=5)
-    jitter = torch.abs(peak_lags - avg_lags) / lag
-    jitter = neighbor_average(jitter, neighbors=5)
+    # Compute mean difference from mean lag, normalized by period
+    jitter_frames = (lags - lags.float().mean(dim=-1, keepdims=True)).abs()
+    jitter = jitter_frames.mean(dim=-1) / best_lags
 
-    # Compare amplitude of each peak to its successor. Divide by average to get relative.
-    amp = periods.max(dim=1).values
-    avg_amp = neighbor_average(amp, neighbors=5)
-    shimmer = torch.abs(amp - avg_amp) / amp.mean()
-    shimmer = neighbor_average(shimmer, neighbors=5)
-
-    # Reduce length of jitter and shimmer to match lags
-    jitter = match_len(jitter, len(best_lag))
-    shimmer = match_len(shimmer, len(best_lag))
+    # Shimmer = average variation in amplitude, normalized by avg amplitude
+    avg_amps = topk.values.mean(dim=-1, keepdims=True)
+    amp_diff = (topk.values - avg_amps).abs()
+    shimmer = amp_diff.mean(dim=-1) / avg_amps.squeeze(-1)
 
     return jitter, shimmer
+
+
+def compute_mask(target, best_lag, frames_shape):
+    batch, frame_count, frame_size = frames_shape
+    indices = torch.arange(frame_size).repeat(batch, frame_count, 1)
+    start = (target - best_lag // 2).clamp(min=0)
+    end = (target + best_lag // 2).clamp(max=frame_size)
+    mask = (indices < start.unsqueeze(-1)) | (indices > end.unsqueeze(-1))
+
+    return mask
 
 
 def match_len(signal, length):
@@ -233,8 +218,10 @@ def compute_voiced(
     ---------
     harmonicity : torch.Tensor
         The normalized autocorrelation score, a number between 0 and 1 for each frame.
+        Shape = [batch, frame]
     jitter : torch.Tensor
         The jitter score, a number between 0 and 1 for each frame.
+        Shape = [batch, frame]
     harmonicity_threshold : float
         The threshold above which to consider each frame as voiced.
     jitter_threshold : float
@@ -247,17 +234,23 @@ def compute_voiced(
     voiced : torch.Tensor
         A boolean value for each frame, whether to consider the frame as voiced or unvoiced.
     """
-    voiced, h_tweak, j_tweak = torch.zeros(len(harmonicity)), 0.0, 0.0
+    device = jitter.device
+    batch = jitter.size(0)
+    voiced = torch.zeros_like(jitter)
+    h_threshold = torch.zeros(batch, 1, device=device) + harmonicity_threshold
+    j_threshold = torch.zeros(batch, 1, device=device) + jitter_threshold
+    threshold_unmet = torch.ones(batch, device=device)
 
     # Check on each iteration if we have more than minimum voiced frames
-    while voiced.sum() < minimum_voiced:
-        voiced = harmonicity > harmonicity_threshold - h_tweak
-        voiced &= jitter < jitter_threshold + j_tweak
-        voiced = neighbor_average(voiced.float(), neighbors=21).round().bool()
+    while any(threshold_unmet):
+        voiced = harmonicity > h_threshold
+        voiced &= jitter < j_threshold
+        voiced = neighbor_op(voiced.float(), neighbors=7).round().bool()
 
         # Relax the threshold by a bit for each iteration
-        h_tweak += 0.05
-        j_tweak += 0.01
+        threshold_unmet = voiced.sum(dim=1) < minimum_voiced
+        h_threshold[threshold_unmet] -= 0.05
+        j_threshold[threshold_unmet] += 0.01
 
     return voiced
 
@@ -283,6 +276,10 @@ def inverse_filter(frames, lpc_order=13):
     # Only lpc_order autocorrelation values are needed
     autocorrelation = compute_cross_correlation(frames, frames, width=lpc_order)
 
+    # Collapse frame and batch into same dimension, for lfiltering
+    batch, frame_count, _ = autocorrelation.shape
+    autocorrelation = autocorrelation.view(batch * frame_count, -1)
+
     # Construct Toeplitz matrices (one per frame)
     # This is [[p0, p1, p2...], [p1, p0, p1...], [p2, p1, p0...] ...]
     # Our sliding window should go from the end to the front, so flip
@@ -297,9 +294,12 @@ def inverse_filter(frames, lpc_order=13):
     a_coeffs[:, 0] = 1
 
     # Perform filtering
-    return torchaudio.functional.lfilter(
+    inverse_filtered = torchaudio.functional.lfilter(
         frames, a_coeffs, lpc_coeffs, clamp=False
     )
+
+    # Un-collapse batch and frames
+    return inverse_filtered.view(batch, frame_count, -1)
 
 
 def compute_hilbert_envelopes(
@@ -378,11 +378,11 @@ def compute_cross_correlation(frames_a, frames_b, width=None):
         input=padded_frames_a,
         weight=frames_b.transpose(0, 1),
         groups=frames_b.size(1),
-    ).squeeze(0)
+    )
 
     # Normalize
     norm = torch.sqrt((frames_a**2).sum(dim=-1) * (frames_b**2).sum(dim=-1))
-    cross_correlation /= norm.view(-1, 1)
+    cross_correlation /= norm.unsqueeze(-1)
 
     return cross_correlation
 
@@ -407,7 +407,7 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
     Arguments
     ---------
     audio : torch.Tensor
-        The audio signal to use for GNE computation.
+        The batched audio signal to use for GNE computation, [batch, sample]
     sample_rate : float
         The sample rate of the input audio.
     bandwidth : float
@@ -421,6 +421,10 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
         The GNE_L score for each frame of the audio signal.
     """
 
+    assert (
+        audio.dim() == 2
+    ), "Expected audio to be 2-dimensional, [batch, sample]"
+
     # Step 1. Downsample to 10 kHz since voice energy is low above 5 kHz
     old_sample_rate, sample_rate = sample_rate, 10000
     audio = torchaudio.functional.resample(audio, old_sample_rate, sample_rate)
@@ -428,7 +432,7 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
     # Step 2. Inverse filter with 30-msec window, 10-msec hop and 13th order LPC
     frame_size, hop_size, order = 300, 100, 13
     window = torch.hann_window(frame_size).view(1, 1, -1)
-    frames = audio.view(1, -1).unfold(-1, frame_size, hop_size) * window
+    frames = audio.unfold(dimension=-1, size=frame_size, step=hop_size) * window
     excitation_frames = inverse_filter(frames, order)
 
     # Step 3. Compute Hilbert envelopes for each frequency bin
@@ -450,7 +454,7 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
     ]
 
     # Step 5. The maximum cross-correlation is the GNE score
-    gne = torch.stack(correlations, dim=-1).amax(dim=(1, 2))
+    gne = torch.stack(correlations, dim=-1).amax(dim=(2, 3))
 
     # Use a log scale for better differentiation
-    return -10 * torch.log10(torch.clamp(1 - gne, min=1e-30))
+    return -10 * torch.log10(torch.clamp(1 - gne, min=EPSILON))
