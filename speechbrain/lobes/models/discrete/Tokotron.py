@@ -2,8 +2,7 @@
 discrete/tokenized audio representations, available in both
 Transformer and RNN flavours.
 
-NOTE: This model does not use the standa
-rd Transformer interface
+NOTE: This model does not use the standard Transformer interface
 in order to make it usable as both as a full model and as a
 decoder-only model
 
