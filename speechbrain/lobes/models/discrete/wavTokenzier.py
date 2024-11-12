@@ -1,23 +1,157 @@
+"""This lobe enables the integration of  pretrained WavTokenizer.
+
+Note that you need topip install git+https://github.com/Tomiinek/WavTokenizer` to use this module.
+
+Repository: https://github.com/jishengpeng/WavTokenizer/
+Paper: https://arxiv.org/abs/2408.16532
+
+Authors
+ * Pooneh Mousavi 2024
+"""
+
+import os
+
 import torch
-from wavtokenizer import WavTokenizer 
-from wavtokenizer.encoder.utils import convert_audio
-import torchaudio
-import torch
-from wavtokenizer.decoder.pretrained import WavTokenizer
+import torch.nn as nn
+from huggingface_hub import snapshot_download
 
 
-device=torch.device('cpu')
+class WavTokenizer(nn.Module):
+    """An wrapper for the WavTokenizer model
 
-config_path = "wavtokenizer_smalldata_frame75_3s_nq1_code4096_dim512_kmeans200_attn.yaml"
-model_path = "WavTokenizer_small_320_24k_4096.ckpt"
-audio_outpath = "savedir"
+    Arguments
+    ---------
+    source : str
+        A HuggingFace repository identifier or a path
+    save_path : str
+        The location where the pretrained model will be saved
+    config : str
+        The name of the config file.
+    checkpoint : str
+        The name of the checkpoint file.
+    sample_rate : int (default: 24000)
+        The audio sampling rate
+    freeze : bool
+        whether the model will be frozen (e.g. not trainable if used
+        as part of training another model)
 
-wavtokenizer = WavTokenizer.from_pretrained0802(config_path, model_path)
+    Example
+    -------
+    >>> model_hub = "novateur/WavTokenizer"
+    >>> save_path = "savedir"
+    >>> config="wavtokenizer_smalldata_frame40_3s_nq1_code4096_dim512_kmeans200_attn.yaml"
+    >>> checkpoint="WavTokenizer_small_600_24k_4096.ckpt"
+    >>> model = WavTokenizer(model_hub, save_path,config=config,checkpoint=checkpoint)
+    >>> audio = torch.randn(4, 48000)
+    >>> length = torch.tensor([1.0, .5, .75, 1.0])
+    >>> tokens, embs= model.encode(audio)
+    >>> tokens.shape
+    torch.Size([4, 1, 80])
+    >>> embs.shape
+    torch.Size([4, 80, 512])
+    >>> rec = model.decode(tokens)
+    >>> rec.shape
+    torch.Size([4, 48000])
+    """
 
-wav = torch.randn(1, 24000)
-bandwidth_id = torch.tensor([0])
-with torch.no_grad():
-    features, codes = wavtokenizer.encode_infer(wav, bandwidth_id=bandwidth_id)
-    print(codes.shape)
-    audio_out = wavtokenizer.decode(features, bandwidth_id=bandwidth_id)
-    print(audio_out.shape)
+    def __init__(
+        self,
+        source,
+        save_path=None,
+        config="wavtokenizer_smalldata_frame40_3s_nq1_code4096_dim512_kmeans200_attn.yaml",
+        checkpoint="WavTokenizer_small_600_24k_4096.ckpt",
+        sample_rate=24000,
+        freeze=True,
+    ):
+        # Lazy import to avoid circular dependency issues
+        try:
+            import wavtokenizer
+
+            self.wavtokenizer = wavtokenizer
+        except ImportError:
+            raise ImportError(
+                "Please install the WavTokenizer module using: "
+                "`pip install git+https://github.com/Tomiinek/WavTokenizer`"
+            )
+
+        super().__init__()
+
+        path = snapshot_download(repo_id=source, cache_dir=save_path)
+        checkpoint_path = os.path.join(path, checkpoint)
+        config_path = os.path.join(path, config)
+        self.model = self.wavtokenizer.WavTokenizer.from_pretrained0802(
+            config_path, checkpoint_path
+        )
+        self.embeddings = self._compute_embedding()
+
+    def forward(self, inputs):
+        """Encodes the input audio as tokens and embeddings and  decodes audio from tokens
+
+        Arguments
+        ---------
+        inputs : torch.Tensor
+            A (Batch x Samples)
+            tensor of audio
+        Returns
+        -------
+        tokens : torch.Tensor
+            A (Batch x Tokens x Heads) tensor of audio tokens
+        emb : torch.Tensor
+            Raw vector embeddings from the model's
+            quantizers
+        audio : torch.Tensor
+            the reconstructed audio
+        """
+
+        tokens, embedding = self.encode(inputs)
+        audio = self.decode(tokens)
+
+        return tokens, embedding, audio
+
+    @torch.no_grad()
+    def _compute_embedding(self):
+        embs = self.model.feature_extractor.encodec.quantizer.vq.layers[
+            0
+        ].codebook
+        return embs
+
+    def encode(self, inputs):
+        """Encodes the input audio as tokens and embeddings
+
+        Arguments
+        ---------
+        inputs : torch.Tensor
+            A (Batch x Samples) or (Batch x Channel x Samples)
+            tensor of audio
+
+        Returns
+        -------
+        tokens : torch.Tensor
+            A (Batch x NQ x Length) tensor of audio tokens
+        emb : torch.Tensor
+            Raw vector embeddings from the model's
+            quantizers
+        """
+        emb, tokens = self.model.encode(inputs, bandwidth_id=0)
+        return tokens.movedim(0, 1), emb.movedim(1, -1)
+
+    def decode(
+        self,
+        tokens,
+    ):
+        """Decodes audio from tokens
+
+        Arguments
+        ---------
+        tokens : torch.Tensor
+            A (Batch x NQ x Length) tensor of audio tokens
+        Returns
+        -------
+        audio : torch.Tensor
+            the reconstructed audio
+        """
+        feats = self.model.codes_to_features(tokens.movedim(1, 0))
+        sig = self.model.decode(
+            feats, bandwidth_id=torch.tensor(0, device=tokens.device)
+        )
+        return sig
