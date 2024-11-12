@@ -523,7 +523,7 @@ class ArchiveTrainLogger:
         self.epoch_counter = epoch_counter
         if epoch_counter and epoch is not None:
             raise ValueError(
-                "An explicit epoch counter cannot be used if eppoch_counter "
+                "An explicit epoch cannot be used if epoch_counter "
                 "is applied"
             )
         if epoch is None:
