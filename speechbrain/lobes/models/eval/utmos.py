@@ -155,7 +155,7 @@ class UTMOSMetric(MetricStats):
     save_path : str | path-like, optional
         The path where the model will be saved
     encoder_hub : str`, optional
-        The HuggingFace hube name for the encoder
+        The HuggingFace hub name for the encoder
     model_name : str, optional
         The name of the model
     model_url : str, optional
