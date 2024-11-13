@@ -1265,7 +1265,7 @@ class RoPEMHA(nn.Module):
                 attn_score, value.transpose(1, 2)
             )  # (batch, head, time1, d_k)
         else:
-            raise NotImplementedError
+            raise NotImplementedError            
             if key_padding_mask is not None:
                 key_padding_mask = key_padding_mask.view(bsz, 1, 1, klen).expand(bsz, self.num_heads, klen, qlen)
         
