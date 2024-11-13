@@ -75,6 +75,7 @@ def vocal_characteristics(
     min_lag = int(sample_rate / max_f0_Hz)
 
     # Split into frames, and compute autocorrelation for each frame
+    audio = torch.nn.functional.pad(audio, (0, window_samples))
     frames = audio.unfold(dimension=-1, size=window_samples, step=step_samples)
     autocorrelation = autocorrelate(frames)
 
@@ -120,13 +121,14 @@ def autocorrelate(frames):
         Normalized by the autocorrelation_score of the window.
     """
     # Apply hann window to the audio to reduce edge effects
-    hann = torch.hann_window(frames.size(-1)).view(1, 1, -1)
+    window_size = frames.size(-1)
+    hann = torch.hann_window(window_size, device=frames.device).view(1, 1, -1)
     autocorrelation = compute_cross_correlation(frames * hann, frames * hann)
 
     # Score should be normalized by the autocorrelation of the window
     # See 'Accurate Short-Term Analysis of the Fundamental Frequency
     # and the Harmonics-To-Noise Ratio of a Sampled Sound' by Boersma
-    norm_score = compute_cross_correlation(hann, hann)
+    norm_score = compute_cross_correlation(hann, hann).clamp(min=1e-10)
     return autocorrelation / norm_score
 
 
@@ -177,7 +179,7 @@ def compute_periodic_features(frames, best_lags):
     # Shimmer = average variation in amplitude, normalized by avg amplitude
     avg_amps = topk.values.mean(dim=-1, keepdims=True)
     amp_diff = (topk.values - avg_amps).abs()
-    shimmer = amp_diff.mean(dim=-1) / avg_amps.squeeze(-1)
+    shimmer = amp_diff.mean(dim=-1) / avg_amps.squeeze(-1).clamp(min=1e-10)
 
     return jitter, shimmer
 
@@ -279,6 +281,7 @@ def inverse_filter(frames, lpc_order=13):
     # Collapse frame and batch into same dimension, for lfiltering
     batch, frame_count, _ = autocorrelation.shape
     autocorrelation = autocorrelation.view(batch * frame_count, -1)
+    reshaped_frames = frames.view(batch * frame_count, -1)
 
     # Construct Toeplitz matrices (one per frame)
     # This is [[p0, p1, p2...], [p1, p0, p1...], [p2, p1, p0...] ...]
@@ -289,13 +292,13 @@ def inverse_filter(frames, lpc_order=13):
 
     # Solve for LPC coefficients, generate inverse filter with coeffs 1, -b_1, ...
     lpc = torch.linalg.solve(R, r)
-    lpc_coeffs = torch.cat((torch.ones(lpc.size(0), 1), -lpc), dim=1)
+    lpc_coeffs = torch.nn.functional.pad(-lpc, (1, 0), value=1)
     a_coeffs = torch.zeros_like(lpc_coeffs)
     a_coeffs[:, 0] = 1
 
     # Perform filtering
     inverse_filtered = torchaudio.functional.lfilter(
-        frames, a_coeffs, lpc_coeffs, clamp=False
+        reshaped_frames, a_coeffs, lpc_coeffs, clamp=False
     )
 
     # Un-collapse batch and frames
@@ -335,7 +338,8 @@ def compute_hilbert_envelopes(
     # Step 2. Mask with hann window in the frequency range (negative freqs are 0)
     mask = torch.zeros_like(spectra, dtype=torch.float)
     window_bins = (low_freq < freqs) & (freqs < high_freq)
-    mask[:, :, window_bins] = torch.hann_window(window_bins.sum())
+    window = torch.hann_window(window_bins.sum(), device=mask.device)
+    mask[:, :, window_bins] = window
 
     # Step 3. Apply inverse DFT to get complex time-domain signal
     analytic_signal = torch.fft.ifft(spectra * mask)
@@ -351,7 +355,8 @@ def compute_cross_correlation(frames_a, frames_b, width=None):
     ---------
     frames_a : torch.Tensor
     frames_b : torch.Tensor
-        The two sets of frames to compare using cross-correlation
+        The two sets of frames to compare using cross-correlation,
+        shape [batch, frame, sample]
     width : int, default is None
         The number of samples before and after 0 lag. A width of 3 returns 7 results.
         If None, 0 lag is put at the front, and the result is 1/2 the original length + 1,
@@ -370,19 +375,26 @@ def compute_cross_correlation(frames_a, frames_b, width=None):
     tensor([[1.0000, 0.8421, 0.7193, 0.6316, 0.5789, 0.5614]])
     """
     # Padding is used to control the number of outputs
-    pad = (0, frames_a.size(-1) // 2) if width is None else (width, width)
+    batch_size, frame_count, frame_size = frames_a.shape
+    pad = (0, frame_size // 2) if width is None else (width, width)
     padded_frames_a = torch.nn.functional.pad(frames_a, pad, mode="circular")
 
-    # Compute correlation, treating frames independently
+    # Cross-correlation with conv1d, by keeping each frame as its own channel
+    # The batch and frame channel have to be combined due to conv1d restrictions
+    merged_size = batch_size * frame_count
+    reshaped_a = padded_frames_a.view(1, merged_size, -1)
+    reshaped_b = frames_b.view(merged_size, 1, -1)
+
     cross_correlation = torch.nn.functional.conv1d(
-        input=padded_frames_a,
-        weight=frames_b.transpose(0, 1),
-        groups=frames_b.size(1),
+        input=reshaped_a, weight=reshaped_b, groups=merged_size
     )
+
+    # Separate out the batch and frame dimensions again
+    cross_correlation = cross_correlation.view(batch_size, frame_count, -1)
 
     # Normalize
     norm = torch.sqrt((frames_a**2).sum(dim=-1) * (frames_b**2).sum(dim=-1))
-    cross_correlation /= norm.unsqueeze(-1)
+    cross_correlation /= norm.unsqueeze(-1).clamp(min=1e-10)
 
     return cross_correlation
 
@@ -431,7 +443,8 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
 
     # Step 2. Inverse filter with 30-msec window, 10-msec hop and 13th order LPC
     frame_size, hop_size, order = 300, 100, 13
-    window = torch.hann_window(frame_size).view(1, 1, -1)
+    window = torch.hann_window(frame_size, device=audio.device).view(1, 1, -1)
+    audio = torch.nn.functional.pad(audio, (0, frame_size))
     frames = audio.unfold(dimension=-1, size=frame_size, step=hop_size) * window
     excitation_frames = inverse_filter(frames, order)
 
