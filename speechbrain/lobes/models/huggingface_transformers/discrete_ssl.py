@@ -38,15 +38,18 @@ class DiscreteSSL(nn.Module):
         Path (dir) of the downloaded model.
     ssl_model : str
         SSL model to extract semantic tokens from its layers' output. Note that output_all_hiddens should be set to True to enable multi-layer discretenation.
-    vocoder_repo_id: str
-        Huggingface repository that contains the pre-trained HiFi-GAN model.
     kmeans_dataset : str
         Name of the dataset that Kmeans model on HF repo is trained with.
+    vocoder_repo_id: str
+        Huggingface repository that contains the pre-trained HiFi-GAN model.
     num_clusters : int or List[int] (default: 1000)
             determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
     layers_num : List[int] (Optional)
             detremine layers to be download from HF repo. If it is not provided, all layers with num_clusters(int) is loaded from HF repo. If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
-
+    device : str (default 'cpu')
+        The device to use for computation ('cpu' or 'cuda').
+    sample_rate : int (default: 16000)
+        Sample rate of the input audio.
     Example
     -------
     >>> import torch
@@ -62,16 +65,9 @@ class DiscreteSSL(nn.Module):
     >>> num_clusters = 1000
     >>> ssl_model = HuBERT(model_hub, save_path,output_all_hiddens=True)
     >>> model = DiscreteSSL(save_path, ssl_model, vocoder_repo_id=vocoder_repo_id, kmeans_dataset=kmeans_dataset,num_clusters=num_clusters)
-    >>> tokens, embs ,pr_tokens= model(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
+    >>> tokens = model.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
-    >>> print(embs.shape)
-    torch.Size([3, 6, 2, 1024])
-    >>> print(pr_tokens.shape)
-    torch.Size([3, 6, 2])
-    >>> TODO
-    >>> model.encode()
-    >>> model.decode()
     """
 
     def __init__(
@@ -83,6 +79,7 @@ class DiscreteSSL(nn.Module):
         num_clusters=1000,
         layers_num=None,
         device="cpu",
+        sample_rate=16000,
     ):
 
         super().__init__()
@@ -112,6 +109,7 @@ class DiscreteSSL(nn.Module):
             savedir=save_path,
         )
         self.codec_vocoder.tokenize = False
+        self.sample_rate = sample_rate
 
     def check_if_input_is_compatible(self, layers_num, num_clusters):
         """check if layer_number and num_clusters is consistent with each other.
