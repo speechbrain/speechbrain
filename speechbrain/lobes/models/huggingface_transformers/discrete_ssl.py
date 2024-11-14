@@ -217,7 +217,44 @@ class DiscreteSSL(nn.Module):
         deduplicates=None,
         bpe_tokenizers=None,
     ):
-        """Takes an input waveform and return its corresponding wav2vec encoding.
+        """Takes an input waveform and return its corresponding tokens and reconstructed signal.
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        wav_lens : tensor
+            The relative length of the wav given in SpeechBrain format.
+        SSL_layers: List[int]:
+            determine which layers of SSL should be used to extract information.
+        deduplicates: List[boolean]:
+            determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
+        bpe_tokenizers: List[int]:
+            determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
+
+        Returns
+        -------
+        tokens : torch.Tensor
+            A (Batch x Seq x num_SSL_layers) tensor of audio tokens
+        waveforms: torch.tensor
+            Batch of mel-waveforms [batch, time]
+        """
+
+        tokens = self.encode(
+            wav, wav_lens, SSL_layers, deduplicates, bpe_tokenizers
+        )[0]
+        sig = self.decode(tokens, SSL_layers=SSL_layers)
+        return tokens, sig
+
+    def encode(
+        self,
+        wav,
+        wav_lens=None,
+        SSL_layers=None,
+        deduplicates=None,
+        bpe_tokenizers=None,
+    ):
+        """Takes an input waveform and return its corresponding encoding.
 
         Arguments
         ---------
@@ -296,39 +333,6 @@ class DiscreteSSL(nn.Module):
         )
         return org_tokens, org_embedding, processed_tokens
 
-    def encode(
-        self,
-        wav,
-        wav_lens=None,
-        SSL_layers=None,
-        deduplicates=None,
-        bpe_tokenizers=None,
-    ):
-        """Takes an input waveform and return its corresponding tokens.
-
-        Arguments
-        ---------
-        wav : torch.Tensor (signal)
-            A batch of audio signals to transform to features.
-        wav_lens : tensor
-            The relative length of the wav given in SpeechBrain format.
-        SSL_layers: List[int]:
-            determine which layers of SSL should be used to extract information.
-        deduplicates: List[boolean]:
-            determine to apply deduplication(remove duplicate subsequent tokens) on the tokens extracted for the corresponding layer.
-        bpe_tokenizers: List[int]:
-            determine to apply subwording on the tokens extracted for the corresponding layer if the sentencePiece tokenizer is trained for that layer.
-
-        Returns
-        -------
-        tokens : torch.Tensor
-            A (Batch x Seq x num_SSL_layers) tensor of audio tokens
-        """
-
-        return self.forward(
-            wav, wav_lens, SSL_layers, deduplicates, bpe_tokenizers
-        )[0]
-
     def decode(self, tokens, SSL_layers=None):
         """Takes an input waveform and return its corresponding waveform.
 
@@ -373,4 +377,4 @@ class DiscreteSSL(nn.Module):
                 full_tokens[..., idx] = tokens[..., i]
             tokens = full_tokens
 
-        return self.codec_vocoder(tokens)[:, 0]
+        return self.codec_vocoder(tokens)
