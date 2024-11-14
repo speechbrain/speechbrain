@@ -68,6 +68,8 @@ class SpeechT5ForASR(HFTransformersInterface):
     output_all_hiddens: bool (default: True)
         Whether or not to output all the hidden states from the encoder. They will
         be stacked if returned.
+    device : any, optional
+        Device to migrate the model to.
     *args : tuple
         Variable-length positional arguments. Each argument can be of any type.
     **kwargs : dict
@@ -93,6 +95,7 @@ class SpeechT5ForASR(HFTransformersInterface):
         encoder_only: bool = False,
         output_attentions: bool = False,
         output_all_hiddens: bool = False,
+        device=None,
         *args,
         **kwargs,
     ) -> None:
@@ -108,6 +111,7 @@ class SpeechT5ForASR(HFTransformersInterface):
             save_path=save_path,
             freeze=freeze,
             cache_dir=cache_dir,
+            device=device,
             *args,
             **kwargs,
         )
