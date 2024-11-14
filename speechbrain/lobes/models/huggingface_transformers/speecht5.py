@@ -357,9 +357,7 @@ class SpeechT5ForASR(HFTransformersInterface):
         return self.generation_config
 
     @mark_as_loader
-    def load_checkpoint_hf(
-        self, path, end_of_epoch
-    ) -> None:
+    def load_checkpoint_hf(self, path, end_of_epoch) -> None:
         """Custom checkpoint loading hook used to avoid the model size mismatch when using Pytorch's format.
         This function will call the transformers library implementations of `from_pretrained()` to load :
             - The model
