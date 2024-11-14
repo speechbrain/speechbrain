@@ -15,8 +15,8 @@ import torch
 from huggingface_hub import snapshot_download
 from torch import nn
 
-from speechbrain.tokenizers.discrete_SSL_tokenizer import DiscreteSSLTokenizer
 from speechbrain.inference.vocoders import UnitHIFIGAN
+from speechbrain.tokenizers.discrete_SSL_tokenizer import DiscreteSSLTokenizer
 from speechbrain.utils.logger import get_logger
 
 logger = get_logger(__name__)
