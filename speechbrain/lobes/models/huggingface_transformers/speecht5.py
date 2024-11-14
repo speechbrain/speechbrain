@@ -70,6 +70,11 @@ class SpeechT5ForASR(HFTransformersInterface):
     output_all_hiddens: bool (default: True)
         Whether or not to output all the hidden states from the encoder. They will
         be stacked if returned.
+    *args : tuple
+        Variable-length positional arguments. Each argument can be of any type.
+    **kwargs : dict
+        Variable-length keyword arguments. Each argument name is a string, and
+        each value can be of any type.
 
     Example
     -------
@@ -180,18 +185,18 @@ class SpeechT5ForASR(HFTransformersInterface):
         return encoder_output, logits, attentions
 
     def forward_encoder(self, wav) -> torch.Tensor:
-        """This method implements the forward step of the SpeechT5 encoder for
-        speech recognition
+        """
+        Implements the forward step of the SpeechT5 encoder for speech recognition.
 
         Arguments
         ----------
-        wav : tensor or numpy.ndarray
-            wavform of the input.
+        wav : torch.Tensor
+            Input waveform tensor.
 
         Returns
         -------
         torch.Tensor
-            Encoder output
+            The encoder output tensor.
         """
         if self.output_all_hiddens:
             if self.freeze_encoder:
@@ -225,6 +230,8 @@ class SpeechT5ForASR(HFTransformersInterface):
         self, audio_features, decoder_input_ids
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Perform one step of the SpeechT5 decoder.
+        For more details or go to theseq2seq2.py file in SpeechBrain to see how to generate
+        the tokens with Greedy Search and/or Beam Search.
 
         Arguments
         ---------
@@ -232,9 +239,6 @@ class SpeechT5ForASR(HFTransformersInterface):
             A batch of audio features (SpeechT5 encoding).
         decoder_input_ids : torch.Tensor
             A batch of decoder inputs tokens.
-
-        For more details or go to theseq2seq2.py file in SpeechBrain to see how to generate
-        the tokens with Greedy Search and/or Beam Search.
 
         Returns
         -------
@@ -277,7 +281,7 @@ class SpeechT5ForASR(HFTransformersInterface):
             Hidden output of the encoder.
         enc_len : torch.LongTensor, optional
             Length of encoder states, by default None
-        
+
         Returns
         -------
         tuple[torch.Tensor, torch.Tensor]
@@ -466,6 +470,11 @@ def custom_padding(x, org_pad, custom_pad):
       Orginal pad_idx
     custom_pad : int
       Custom pad_idx
+
+    Returns
+    -------
+    torch.Tensor:
+        Padded input tensor.
     """
     out = x.clone()
     out[x == org_pad] = custom_pad

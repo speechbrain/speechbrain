@@ -48,8 +48,11 @@ class AlivedHypotheses(torch.nn.Module):
         )
 
     def __str__(self):
-        return f"AlivedHypotheses(alived_seq={self.alived_seq}, alived_log_probs={
-            self.alived_log_probs}, sequence_scores={self.sequence_scores})"
+        return f"""AlivedHypotheses(
+            alived_seq={self.alived_seq},
+            alived_log_probs={self.alived_log_probs},
+            sequence_scores={self.sequence_scores}
+        )"""
 
 
 class S2SBaseSearcher(torch.nn.Module):
