@@ -374,7 +374,7 @@ class SpeechT5ForASR(HFTransformersInterface):
         self, path: PathLike | str, end_of_epoch: bool
     ) -> None:
         """Custom checkpoint loading hook used to avoid the model size mismatch when using Pytorch's format.
-        This function will call the transformers library implementaions of `from_pretrained()` to load :
+        This function will call the transformers library implementations of `from_pretrained()` to load :
             - The model
             - The model configuration
             - The generation configuration
@@ -413,7 +413,7 @@ class SpeechT5ForASR(HFTransformersInterface):
     @mark_as_saver
     def save_checkpoint_hf(self, path: PathLike | str):
         """Custom checkpoint saving hook used to avoid the model size mismatch when using Pytorch's format.
-        This function will call the transformers library implementaions of `save_pretrained()` to save :
+        This function will call the transformers library implementationsof `save_pretrained()` to save :
             - The model and its configuration
             - The generation configuration
 
@@ -467,7 +467,7 @@ def custom_padding(x, org_pad, custom_pad):
     x : torch.Tensor
       Input tensor with original pad_idx
     org_pad : int
-      Orginal pad_idx
+      Original pad_idx
     custom_pad : int
       Custom pad_idx
 

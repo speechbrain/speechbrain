@@ -127,7 +127,7 @@ class ST(sb.core.Brain):
                 valid_stats=stage_stats,
             )
 
-            # create checkpoing
+            # create checkpoint
             meta = {"BLEU": stage_stats["BLEU"], "epoch": current_epoch}
             name = "checkpoint_epoch" + str(current_epoch)
 
