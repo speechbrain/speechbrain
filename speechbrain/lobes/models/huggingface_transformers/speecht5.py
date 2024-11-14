@@ -10,7 +10,6 @@ Authors
 
 import gc
 import logging
-from os import PathLike
 from typing import Tuple
 
 import torch
@@ -359,7 +358,7 @@ class SpeechT5ForASR(HFTransformersInterface):
 
     @mark_as_loader
     def load_checkpoint_hf(
-        self, path: PathLike | str, end_of_epoch: bool
+        self, path, end_of_epoch
     ) -> None:
         """Custom checkpoint loading hook used to avoid the model size mismatch when using Pytorch's format.
         This function will call the transformers library implementations of `from_pretrained()` to load :
@@ -369,7 +368,7 @@ class SpeechT5ForASR(HFTransformersInterface):
 
         Arguments
         ----------
-        path : PathLike | str
+        path : os.PathLike or str
             Path of the checkpoint directory.
         end_of_epoch : bool
             Whether or not the checkpoint was saved duraing the end of an epoch.
@@ -399,7 +398,7 @@ class SpeechT5ForASR(HFTransformersInterface):
         )
 
     @mark_as_saver
-    def save_checkpoint_hf(self, path: PathLike | str):
+    def save_checkpoint_hf(self, path):
         """Custom checkpoint saving hook used to avoid the model size mismatch when using Pytorch's format.
         This function will call the transformers library implementationsof `save_pretrained()` to save :
             - The model and its configuration
