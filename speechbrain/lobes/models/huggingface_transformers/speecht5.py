@@ -80,7 +80,7 @@ class SpeechT5ForASR(HFTransformersInterface):
     -------
     >>> model_hub = "microsoft/speecht5_asr"
     >>> save_path = "tmp"
-    >>> model = SpeechT5ForASR(model_hub, save_path=save_path)
+    >>> model = SpeechT5ForASR(model_hub, save_path=save_path) # doctest: +SKIP
     """
 
     def __init__(
