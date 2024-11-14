@@ -48,11 +48,7 @@ class AlivedHypotheses(torch.nn.Module):
         )
 
     def __str__(self):
-        return f"""AlivedHypotheses(
-            alived_seq={self.alived_seq},
-            alived_log_probs={self.alived_log_probs},
-            sequence_scores={self.sequence_scores}
-        )"""
+        return f"AlivedHypotheses(alived_seq={self.alived_seq}, alived_log_probs={self.alived_log_probs}, sequence_scores={self.sequence_scores})"
 
 
 class S2SBaseSearcher(torch.nn.Module):
@@ -2186,7 +2182,7 @@ class S2SSpeechT5BeamSearch(S2SBeamSearcher):
     eos_token: int
         EOS token ID. 2 by default.
     normalize: bool
-        Whether or not to normailze the text.
+        Whether or not to normalize the text.
     **kwargs
         Arguments to pass to S2SBeamSearcher
     """
