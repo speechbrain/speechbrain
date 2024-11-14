@@ -11,6 +11,7 @@ Authors
 import gc
 import logging
 from os import PathLike
+from typing import Tuple
 
 import torch
 from transformers import (
@@ -213,7 +214,7 @@ class SpeechT5ForASR(HFTransformersInterface):
 
     def forward_decoder(
         self, audio_features, decoder_input_ids
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Perform one step of the SpeechT5 decoder.
         For more details or go to theseq2seq2.py file in SpeechBrain to see how to generate
         the tokens with Greedy Search and/or Beam Search.
@@ -227,7 +228,7 @@ class SpeechT5ForASR(HFTransformersInterface):
 
         Returns
         -------
-        tuple[torch.Tensor, torch.Tensor]
+        Tuple[torch.Tensor, torch.Tensor]
             logits: output of the model's text decoder post-net
             attentions: decoder self-attentions
         """
@@ -255,7 +256,7 @@ class SpeechT5ForASR(HFTransformersInterface):
     @torch.no_grad()
     def decode(
         self, tgt, encoder_out, enc_len=None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """This method implements a decoding step for the transformer model.
 
         Arguments
@@ -269,7 +270,7 @@ class SpeechT5ForASR(HFTransformersInterface):
 
         Returns
         -------
-        tuple[torch.Tensor, torch.Tensor]
+        Tuple[torch.Tensor, torch.Tensor]
             _description_
         """
 
