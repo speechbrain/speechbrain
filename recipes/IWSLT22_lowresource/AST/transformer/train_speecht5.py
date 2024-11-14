@@ -13,14 +13,14 @@ To run this recipe, do the following:
 Author: Haroun Elleuch 2024
 """
 
-import sys
-import torch
 import logging
+import sys
+
+import torch
+from hyperpyyaml import load_hyperpyyaml
+from sacremoses import MosesDetokenizer
 
 import speechbrain as sb
-
-from sacremoses import MosesDetokenizer
-from hyperpyyaml import load_hyperpyyaml
 from speechbrain.utils.distributed import run_on_main
 
 logger = logging.getLogger(__name__)

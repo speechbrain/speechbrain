@@ -8,28 +8,26 @@ Authors
  * Haroun Elleuch 2024
 """
 
-from os import PathLike
-import torch
-import logging
 import gc
+import logging
+from os import PathLike
+
+import torch
+from transformers import (
+    GenerationConfig,
+    SpeechT5Config,
+    SpeechT5ForSpeechToText,
+)
 
 from speechbrain.lobes.models.huggingface_transformers.huggingface import (
     HFTransformersInterface,
 )
-
-from transformers import (
-    SpeechT5ForSpeechToText,
-    SpeechT5Config,
-    GenerationConfig,
-)
-
 from speechbrain.utils.checkpoints import (
     mark_as_loader,
     mark_as_saver,
     register_checkpoint_hooks,
 )
 from speechbrain.utils.fetching import fetch
-
 
 logger = logging.getLogger(__name__)
 
@@ -333,7 +331,9 @@ class SpeechT5ForASR(HFTransformersInterface):
                 huggingface_cache_dir=cache_dir,
             )
             # We transfer the parameters from the checkpoint.
-            self._load_sb_pretrained_parameters(path=ckpt_full_path,)
+            self._load_sb_pretrained_parameters(
+                path=ckpt_full_path,
+            )
         elif not self.for_pretraining:
             self.model = SpeechT5ForSpeechToText.from_pretrained(
                 source,

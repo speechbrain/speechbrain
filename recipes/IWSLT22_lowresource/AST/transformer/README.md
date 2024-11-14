@@ -8,7 +8,7 @@ The speech translation model comprises a wav2vec 2.0 encoder and a Transformer d
 
 This recipe also provides a flexible use of text-based sequence-to-sequence models, such as [mBART](https://huggingface.co/facebook/mbart-large-50-many-to-many-mmt) or [NLLB](https://huggingface.co/facebook/nllb-200-1.3B) model, to initialize the decoder of the speech translation model. This practice has been proven more effective in a wide range of settings in comparison with the randomly initialized decoder.
 
-An update to this recipe adds support for SpeechT5. It is not part of the orginal contribution and is meant to serve as an example of usage of this model for speech to text.
+An update to this recipe adds support for SpeechT5. It is not part of the original contribution and is meant to serve as an example of usage of this model for speech to text.
 
 ## Data Downloading
 
@@ -76,11 +76,11 @@ One should change hparams/train_samu_mbart_st.yaml to hparams/train_samu_nllb_st
 
 To train the model, please update the variables at hparams/train_speecht5_st.yaml.
 
-To launch the training training: 
+To launch the training training:
 ```bash
 python train.py hparams/train_speecht5_st.yaml
 ```
-If you are using distributed training, use the following: 
+If you are using distributed training, use the following:
 ```bash
  torchrun --nproc_per_node=your_number train.py hparams/train_speecht5_st.yaml --find_unused_parameters
  ```

@@ -494,9 +494,9 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
                 else prompt
             )
             tokens = (
-                [self.model.bos_prev] +
-                prompt_tokens[-(self.max_attn_tokens // 2 - 1):] +
-                tokens
+                [self.model.bos_prev]
+                + prompt_tokens[-(self.max_attn_tokens // 2 - 1) :]
+                + tokens
             )
         return tuple(tokens)
 
@@ -546,8 +546,8 @@ class S2SWhisperGreedySearcher(S2SGreedySearcher):
             if tokens.shape[1] == self.sample_begin:
                 logits[
                     :,
-                    self.model.tokenizer.encode(" ", add_special_tokens=False) +
-                    [self.eos_index],
+                    self.model.tokenizer.encode(" ", add_special_tokens=False)
+                    + [self.eos_index],
                 ] = -torch.inf
 
         if self.suppress_tokens:
@@ -1179,8 +1179,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
 
         # The index of which beam the current top-K output came from in (t-1) steps.
         predecessors = (
-            torch.div(candidates, self.n_out, rounding_mode="floor") +
-            self.beam_offset.unsqueeze(1).expand_as(candidates)
+            torch.div(candidates, self.n_out, rounding_mode="floor")
+            + self.beam_offset.unsqueeze(1).expand_as(candidates)
         ).view(self.n_bh)
 
         return (
@@ -1329,8 +1329,8 @@ class S2SBeamSearcher(S2SBaseSearcher):
                     index, self.beam_size, rounding_mode="floor"
                 )
                 if (
-                    len(eos_hyps_and_log_probs_scores[batch_id]) ==
-                    self.beam_size
+                    len(eos_hyps_and_log_probs_scores[batch_id])
+                    == self.beam_size
                 ):
                     continue
                 hyp = alived_hyps.alived_seq[index, :]
@@ -2002,9 +2002,9 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
                 else prompt
             )
             tokens = (
-                [self.model.bos_prev] +
-                prompt_tokens[-(self.max_attn_tokens // 2 - 1):] +
-                tokens
+                [self.model.bos_prev]
+                + prompt_tokens[-(self.max_attn_tokens // 2 - 1) :]
+                + tokens
             )
         return tuple(tokens)
 
@@ -2091,8 +2091,8 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
             if tokens.shape[1] == self.sample_begin:
                 logits[
                     :,
-                    self.model.tokenizer.encode(" ", add_special_tokens=False) +
-                    [self.eos_index],
+                    self.model.tokenizer.encode(" ", add_special_tokens=False)
+                    + [self.eos_index],
                 ] = -torch.inf
 
         if self.suppress_tokens:
@@ -2103,8 +2103,8 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
             logits[:, list(tokens_to_suppress)] = -torch.inf
 
         log_probs = (
-            torch.nn.functional.log_softmax(logits.float(), dim=-1) /
-            self.temperature
+            torch.nn.functional.log_softmax(logits.float(), dim=-1)
+            / self.temperature
         )
 
         return log_probs, tokens, attn
@@ -2112,8 +2112,8 @@ class S2SWhisperBeamSearcher(S2SBeamSearcher):
     def _check_end_condition(self, alived_hyps):
         """This method checks if the max length is reached."""
         return (
-            alived_hyps.alived_seq.shape[1] >=
-            self.max_attn_tokens - self.sample_begin
+            alived_hyps.alived_seq.shape[1]
+            >= self.max_attn_tokens - self.sample_begin
         )
 
 
@@ -2230,7 +2230,10 @@ class S2SSpeechT5BeamSearch(S2SBeamSearcher):
     def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
         """Performs a step in the implemented beamsearcher."""
         memory = _update_mem(inp_tokens, memory)
-        (dec_out, attn,) = self.model.forward_decoder(enc_states, memory)
+        (
+            dec_out,
+            attn,
+        ) = self.model.forward_decoder(enc_states, memory)
         log_probs = self.softmax(dec_out[:, -1])
         return log_probs, memory, attn
 
