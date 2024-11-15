@@ -283,6 +283,11 @@ def inverse_filter(frames, lpc_order=13):
     autocorrelation = autocorrelation.view(batch * frame_count, -1)
     reshaped_frames = frames.view(batch * frame_count, -1)
 
+    # An autocorrelation of all 0's -- which can happen in padding -- leads to
+    # an error with the linear system solver, as the matrix is singular
+    # We fix this by ensuring the zero-lag correlation is always 1
+    autocorrelation[:, lpc_order] = 1.0
+
     # Construct Toeplitz matrices (one per frame)
     # This is [[p0, p1, p2...], [p1, p0, p1...], [p2, p1, p0...] ...]
     # Our sliding window should go from the end to the front, so flip
