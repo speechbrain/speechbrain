@@ -132,20 +132,6 @@ def autocorrelate(frames):
     return autocorrelation / norm_score
 
 
-def neighbor_op(values, neighbors, op="mean"):
-    """Compute the mean of each value with neighboring values."""
-    pad = (neighbors // 2, neighbors // 2)
-    values = torch.nn.functional.pad(values, pad=pad, mode="reflect")
-    if op == "mean":
-        return values.unfold(dimension=-1, size=neighbors, step=1).mean(dim=-1)
-    elif op == "max":
-        return values.unfold(dimension=-1, size=neighbors, step=1).amax(dim=-1)
-    elif op == "min":
-        return values.unfold(dimension=-1, size=neighbors, step=1).amin(dim=-1)
-    else:
-        raise ValueError("Expected `op` to be one of 'mean', 'max', or 'min'")
-
-
 def compute_periodic_features(frames, best_lags):
     """Function to compute periodic features: jitter, shimmer
 
@@ -189,7 +175,7 @@ def compute_voiced(
     jitter: torch.Tensor,
     harmonicity_threshold: float = 0.45,
     jitter_threshold: float = 0.05,
-    minimum_voiced: int = 5,
+    minimum_voiced: int = 7,
 ):
     """
     Compute which sections are voiced based on two criteria (adapted from PRAAT):
@@ -230,7 +216,20 @@ def compute_voiced(
     while any(threshold_unmet):
         voiced = harmonicity > h_threshold
         voiced &= jitter < j_threshold
-        voiced = neighbor_op(voiced.float(), neighbors=7).round().bool()
+
+        # PRAAT uses some forward/backward search to find voicing, with a
+        # penalty for on/off voicing. For speed, we just take an average.
+        voiced = (
+            torch.nn.functional.avg_pool1d(
+                input=voiced.float(),
+                kernel_size=minimum_voiced,
+                stride=1,
+                padding=minimum_voiced // 2,
+                count_include_pad=False,
+            )
+            .round()
+            .bool()
+        )
 
         # Relax the threshold by a bit for each iteration
         threshold_unmet = voiced.sum(dim=1) < minimum_voiced
@@ -358,9 +357,9 @@ def compute_cross_correlation(frames_a, frames_b, width=None):
     -------
     >>> frames = torch.arange(10).view(1, 1, -1).float()
     >>> compute_cross_correlation(frames, frames, width=3)
-    tensor([[0.6316, 0.7193, 0.8421, 1.0000, 0.8421, 0.7193, 0.6316]])
+    tensor([[[0.6316, 0.7193, 0.8421, 1.0000, 0.8421, 0.7193, 0.6316]]])
     >>> compute_cross_correlation(frames, frames)
-    tensor([[1.0000, 0.8421, 0.7193, 0.6316, 0.5789, 0.5614]])
+    tensor([[[1.0000, 0.8421, 0.7193, 0.6316, 0.5789, 0.5614]]])
     """
     # Padding is used to control the number of outputs
     batch_size, frame_count, frame_size = frames_a.shape
