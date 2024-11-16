@@ -184,23 +184,6 @@ def compute_periodic_features(frames, best_lags):
     return jitter, shimmer
 
 
-def compute_mask(target, best_lag, frames_shape):
-    batch, frame_count, frame_size = frames_shape
-    indices = torch.arange(frame_size).repeat(batch, frame_count, 1)
-    start = (target - best_lag // 2).clamp(min=0)
-    end = (target + best_lag // 2).clamp(max=frame_size)
-    mask = (indices < start.unsqueeze(-1)) | (indices > end.unsqueeze(-1))
-
-    return mask
-
-
-def match_len(signal, length):
-    """Use interpolation to convert the length of one signal to another."""
-    return torch.nn.functional.interpolate(
-        signal.view(1, 1, -1), size=length, mode="linear"
-    ).squeeze()
-
-
 def compute_voiced(
     harmonicity: torch.Tensor,
     jitter: torch.Tensor,
