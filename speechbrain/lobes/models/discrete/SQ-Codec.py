@@ -1288,14 +1288,14 @@ class SQCodec(nn.Module):
     >>> filename = "SQ-Codec.zip"
     >>> config = "config.yaml"
     >>> checkpoint = "ckpt_00190000.pth"
-    >>> model = SQCodec(model_hub, filename, save_path, config, checkpoint)
+    >>> model = SQCodec(model_hub, filename, save_path, config, checkpoint) # doctest: +SKIP
     >>> audio = torch.randn(3, 16000)
-    >>> tokens, emb = model.encode(audio)
+    >>> tokens, emb = model.encode(audio) # doctest: +SKIP
     >>> tokens.shape
     torch.Size([3, 200])
     >>> emb.shape
     torch.Size([3, 36, 50])
-    >>> rec = model.decode(tokens)
+    >>> rec = model.decode(tokens) # doctest: +SKIP
     >>> rec.shape
     torch.Size([3, 1, 16000])
     """
