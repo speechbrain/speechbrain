@@ -1,20 +1,116 @@
-import torch 
-import torch.nn as nn
-import torch.nn.functional as F
+"""This lobe enables the integration of speech codec model (SQ-Codec) with scalar quantization,.
 
-import numpy as np
-from torch.nn.utils import weight_norm, remove_weight_norm
-from torch.autograd.function import InplaceFunction
-import torchaudio
-from omegaconf import OmegaConf
+SQ-Codec effectively maps the complex speech signal into a finite and compact latent space, named scalar latent space.
+
+Repository: https://github.com/yangdongchao/SimpleSpeech
+Paper: https://arxiv.org/abs/2406.02328, https://arxiv.org/abs/2408.13893
+
+Authors
+ * Pooneh Mousavi 2024
+"""
+
 import logging
-from collections import OrderedDict
-
 import os
 import zipfile
 
-import requests
-from tqdm import tqdm
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchaudio
+from huggingface_hub import hf_hub_download
+from omegaconf import OmegaConf
+from torch.autograd.function import InplaceFunction
+from torch.nn.utils import remove_weight_norm, weight_norm
+
+
+def download_and_extract(repo_id, filename, save_path):
+    """
+    Downloads a ZIP file from the specified repository, extracts its contents,
+    and removes the downloaded ZIP file.
+
+    Parameters
+    ----------
+    repo_id : str
+        The repository ID from which to download the ZIP file.
+    filename : str
+        The name of the file to download from the repository.
+    save_path : str
+        The directory where the contents of the ZIP file will be saved.
+    """
+    # Ensure save_path directory exists
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    # Download the file with progress bar
+    zip_filename = hf_hub_download(
+        repo_id=repo_id, filename=filename, cache_dir=save_path
+    )
+
+    # Extract the file
+    with zipfile.ZipFile(zip_filename, "r") as zip_ref:
+        zip_ref.extractall(save_path)
+
+    # Remove the downloaded ZIP file
+    os.remove(zip_filename)
+    print(f"File downloaded, extracted to '{save_path}', and ZIP file removed.")
+
+
+def decimal_to_ternary_matrix(decimals, D):
+    """
+    Convert a tensor of decimal numbers to a D*T ternary matrix for each batch.
+
+    Parameters
+    ----------
+    decimals : torch.Tensor
+        A 2D tensor of decimal numbers with shape (B, T), where B is the batch size
+        and T is the number of elements in each batch.
+    D : int
+        Number of ternary digits to represent each number (depth).
+
+    Returns
+    -------
+    torch.Tensor
+        A 3D tensor of shape (B, D, T) where each slice along the first dimension
+        corresponds to a batch, and each column is represented as a ternary number.
+    """
+    B, T = decimals.shape
+    ternary_matrix = torch.zeros((B, D, T), dtype=torch.long)
+    for pos in range(D):
+        ternary_matrix[:, pos, :] = decimals % 3  # Modulo operation
+        decimals //= 3  # Floor division for next ternary digit
+
+    return ternary_matrix
+
+
+def ternary_matrix_to_decimal(matrix):
+    """
+    Convert a B*D*N ternary matrix to a 2D array of decimal numbers for each batch.
+
+    Parameters
+    ----------
+    matrix : numpy.ndarray
+        A 3D numpy array of shape (B, D, N), where B is the batch size, D is the number
+        of ternary digits, and N is the number of ternary numbers in each batch.
+
+    Returns
+    -------
+    numpy.ndarray
+        A 2D numpy array of shape (B, N), where each value represents the decimal
+        equivalent of the corresponding ternary number in the input matrix.
+    """
+    B, D, N = (
+        matrix.shape
+    )  # B is the batch size, D is the number of digits, N is the number of ternary numbers
+    powers_of_three = 3 ** np.arange(D)  # [3^0, 3^1, ..., 3^(D-1)]
+
+    # Reshape powers_of_three for broadcasting: [D] -> [1, D, 1]
+    powers_of_three = powers_of_three[:, np.newaxis]  # Shape [D, 1]
+
+    # Compute dot product using broadcasting: matrix * powers_of_three along D axis
+    decimals = np.sum(matrix * powers_of_three, axis=1)  # Sum along the D axis
+
+    return decimals
 
 
 def get_padding(kernel_size, dilation=1):
@@ -35,27 +131,101 @@ def get_padding(kernel_size, dilation=1):
     """
     return int((kernel_size * dilation - dilation) / 2)
 
+
 class round_func5(InplaceFunction):
+    """
+    A custom rounding function that rounds input values to the nearest multiple of 1/5.
+
+    Methods
+    -------
+    forward(ctx, input)
+        Rounds the input tensor to the nearest multiple of 1/5.
+    backward(ctx, grad_output)
+        Computes the gradient of the input for backpropagation.
+
+    Parameters
+    ----------
+    ctx : context object
+        Contains information about the forward pass.
+    input : torch.Tensor
+        The input tensor to be rounded.
+
+    Returns
+    -------
+    torch.Tensor
+        The input tensor rounded to the nearest multiple of 1/5.
+    """
+
     @staticmethod
     def forward(ctx, input):
         ctx.input = input
-        return torch.round(5*input)/5
+        return torch.round(5 * input) / 5
+
     @staticmethod
     def backward(ctx, grad_output):
         grad_input = grad_output.clone()
         return grad_input
+
 
 class round_func9(InplaceFunction):
+    """
+    A custom rounding function that rounds input values to the nearest multiple of 1/9.
+
+    Methods
+    -------
+    forward(ctx, input)
+        Rounds the input tensor to the nearest multiple of 1/9.
+    backward(ctx, grad_output)
+        Computes the gradient of the input for backpropagation.
+
+    Parameters
+    ----------
+    ctx : context object
+        Contains information about the forward pass.
+    input : torch.Tensor
+        The input tensor to be rounded.
+
+    Returns
+    -------
+    torch.Tensor
+        The input tensor rounded to the nearest multiple of 1/9.
+    """
+
     @staticmethod
     def forward(ctx, input):
         ctx.input = input
-        return torch.round(9*input)/9
+        return torch.round(9 * input) / 9
+
     @staticmethod
     def backward(ctx, grad_output):
         grad_input = grad_output.clone()
         return grad_input
 
+
 class round_func_binary(InplaceFunction):
+    """
+    A custom rounding function that rounds input values to the nearest integer.
+
+    Methods
+    -------
+    forward(ctx, input)
+        Rounds the input tensor to the nearest integer.
+    backward(ctx, grad_output)
+        Computes the gradient of the input for backpropagation.
+
+    Parameters
+    ----------
+    ctx : context object
+        Contains information about the forward pass.
+    input : torch.Tensor
+        The input tensor to be rounded.
+
+    Returns
+    -------
+    torch.Tensor
+        The input tensor rounded to the nearest integer.
+    """
+
     @staticmethod
     def forward(ctx, input):
         ctx.input = input
@@ -66,7 +236,31 @@ class round_func_binary(InplaceFunction):
         grad_input = grad_output.clone()
         return grad_input
 
+
 class Heaviside(InplaceFunction):
+    """
+    A custom function that applies the Heaviside step function to the input tensor.
+
+    Methods
+    -------
+    forward(ctx, input)
+        Applies the Heaviside step function to the input tensor.
+    backward(ctx, grad_output)
+        Computes the gradient of the input for backpropagation.
+
+    Parameters
+    ----------
+    ctx : context object
+        Contains information about the forward pass.
+    input : torch.Tensor
+        The input tensor to which the Heaviside step function is applied.
+
+    Returns
+    -------
+    torch.Tensor
+        The input tensor with the Heaviside step function applied.
+    """
+
     @staticmethod
     def forward(ctx, input):
         ctx.input = input
@@ -77,6 +271,7 @@ class Heaviside(InplaceFunction):
     def backward(ctx, grad_output):
         grad_input = grad_output.clone()
         return grad_input
+
 
 class PreProcessor(nn.Module):
     """
@@ -119,6 +314,7 @@ class PreProcessor(nn.Module):
         output = self.activation(self.conv(x))
         output = self.pooling(output)
         return output
+
 
 class PostProcessor(nn.Module):
     """
@@ -164,6 +360,7 @@ class PostProcessor(nn.Module):
         x = torch.transpose(x, 1, 2)
         output = self.activation(self.conv(x))
         return output
+
 
 class DownsampleLayer(nn.Module):
     """
@@ -247,6 +444,7 @@ class DownsampleLayer(nn.Module):
         """
         if self.use_weight_norm:
             remove_weight_norm(self.layer)
+
 
 class UpsampleLayer(nn.Module):
     """
@@ -333,194 +531,6 @@ class UpsampleLayer(nn.Module):
         if self.use_weight_norm:
             remove_weight_norm(self.layer)
 
-class ResEncoderBlock(nn.Module):
-    """
-    A residual encoder block with multiple residual units and a downsampling layer.
-
-    Arguments
-    ---------
-    n_in : int
-        Number of input channels.
-    n_out : int
-        Number of output channels.
-    stride : int
-        Stride for the downsampling layer.
-    down_kernel_size : int
-        Kernel size for the downsampling layer.
-    res_kernel_size : int, optional
-        Size of the convolutional kernel for residual connections (default is 7).
-    causal : bool, optional
-        If True, applies causal convolution (default is False).
-    """
-
-    def __init__(
-        self,
-        n_in,
-        n_out,
-        stride,
-        down_kernel_size,
-        res_kernel_size=7,
-        causal=False,
-    ):
-        super(ResEncoderBlock, self).__init__()
-        self.convs = nn.ModuleList(
-            [
-                ResidualUnit(
-                    n_in,
-                    n_out // 2,
-                    dilation=1,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out // 2,
-                    n_out // 2,
-                    dilation=3,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out // 2,
-                    n_out // 2,
-                    dilation=5,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out // 2,
-                    n_out // 2,
-                    dilation=7,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out // 2,
-                    n_out // 2,
-                    dilation=9,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-            ]
-        )
-        self.down_conv = DownsampleLayer(
-            n_in, n_out, down_kernel_size, stride=stride, causal=causal
-        )
-
-    def forward(self, x):
-        """
-        Applies a series of residual units and a downsampling layer.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-            Input tensor.
-
-        Returns
-        -------
-        torch.Tensor
-            Processed output tensor.
-        """
-        for conv in self.convs:
-            x = conv(x)
-        x = self.down_conv(x)
-        return x
-
-class ResDecoderBlock(nn.Module):
-    """
-    A residual decoder block with upsampling and multiple residual units.
-
-    Arguments
-    ---------
-    n_in : int
-        Number of input channels.
-    n_out : int
-        Number of output channels.
-    stride : int
-        Stride for the upsampling layer.
-    up_kernel_size : int
-        Kernel size for the upsampling layer.
-    res_kernel_size : int, optional
-        Size of the convolutional kernel for residual connections (default is 7).
-    causal : bool, optional
-        If True, applies causal convolution (default is False).
-    """
-
-    def __init__(
-        self,
-        n_in,
-        n_out,
-        stride,
-        up_kernel_size,
-        res_kernel_size=7,
-        causal=False,
-    ):
-        super(ResDecoderBlock, self).__init__()
-        self.up_conv = UpsampleLayer(
-            n_in,
-            n_out,
-            kernel_size=up_kernel_size,
-            stride=stride,
-            causal=causal,
-            activation=None,
-        )
-        self.convs = nn.ModuleList(
-            [
-                ResidualUnit(
-                    n_out,
-                    n_out,
-                    dilation=1,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out,
-                    n_out,
-                    dilation=3,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out,
-                    n_out,
-                    dilation=5,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out,
-                    n_out,
-                    dilation=7,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-                ResidualUnit(
-                    n_out,
-                    n_out,
-                    dilation=9,
-                    res_kernel_size=res_kernel_size,
-                    causal=causal,
-                ),
-            ]
-        )
-
-    def forward(self, x):
-        """
-        Applies upsampling followed by a series of residual units.
-
-        Arguments
-        ---------
-        x : torch.Tensor
-            Input tensor.
-
-        Returns
-        -------
-        torch.Tensor
-            Processed output tensor.
-        """
-        x = self.up_conv(x)
-        for conv in self.convs:
-            x = conv(x)
-        return x
 
 class ResidualUnit(nn.Module):
     """
@@ -575,6 +585,7 @@ class ResidualUnit(nn.Module):
         output = self.activation2(self.conv2(output))
         return output + x
 
+
 class ResEncoderBlock(nn.Module):
     """
     A residual encoder block with multiple residual units and a downsampling layer.
@@ -666,6 +677,7 @@ class ResEncoderBlock(nn.Module):
             x = conv(x)
         x = self.down_conv(x)
         return x
+
 
 class ResDecoderBlock(nn.Module):
     """
@@ -764,12 +776,17 @@ class ResDecoderBlock(nn.Module):
             x = conv(x)
         return x
 
+
 class Conv1d(nn.Conv1d):
     """
-    Custom 1D convolution layer with causal option.
+    Custom 1D convolution layer with an optional causal mode.
 
-    Arguments
-    ---------
+    This class extends PyTorch's `nn.Conv1d` and allows for causal convolutions
+    by automatically applying the correct amount of padding to ensure that the output
+    does not depend on future inputs, which is useful for sequential data processing.
+
+    Parameters
+    ----------
     in_channels : int
         Number of input channels.
     out_channels : int
@@ -779,33 +796,35 @@ class Conv1d(nn.Conv1d):
     stride : int, optional
         Stride of the convolution (default is 1).
     dilation : int, optional
-        Dilation factor (default is 1).
+        Dilation factor for the convolution (default is 1).
     groups : int, optional
-        Number of blocked connections (default is 1).
+        Number of blocked connections from input channels to output channels (default is 1).
     padding_mode : str, optional
-        Padding mode (default is 'zeros').
+        Padding mode to use ('zeros', 'reflect', 'replicate', or 'circular') (default is 'zeros').
     bias : bool, optional
-        If True, adds a learnable bias (default is True).
+        If True, adds a learnable bias to the output (default is True).
     padding : int, optional
-        Explicit padding value.
+        Explicit padding value. If not provided, it will be computed automatically.
     causal : bool, optional
-        If True, applies causal convolution.
+        If True, applies causal convolution where the output depends only on the past and current inputs (default is False).
     w_init_gain : str, optional
-        Gain value for Xavier initialization.
+        Gain value used for Xavier initialization (e.g., 'relu', 'tanh', etc.). If provided, applies Xavier uniform initialization to the convolutional weights.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: int,
-                 stride: int = 1,
-                 dilation: int = 1,
-                 groups: int = 1,
-                 padding_mode: str = 'zeros',
-                 bias: bool = True,
-                 padding = None,
-                 causal: bool = False,
-                 w_init_gain = None):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int = 1,
+        dilation: int = 1,
+        groups: int = 1,
+        padding_mode: str = "zeros",
+        bias: bool = True,
+        padding=None,
+        causal: bool = False,
+        w_init_gain=None,
+    ):
         self.causal = causal
         if padding is None:
             if causal:
@@ -822,17 +841,37 @@ class Conv1d(nn.Conv1d):
             dilation=dilation,
             groups=groups,
             padding_mode=padding_mode,
-            bias=bias)
+            bias=bias,
+        )
         if w_init_gain is not None:
             torch.nn.init.xavier_uniform_(
-                self.weight, gain=torch.nn.init.calculate_gain(w_init_gain))
-    
+                self.weight, gain=torch.nn.init.calculate_gain(w_init_gain)
+            )
+
     def forward(self, x):
+        """
+        Applies the forward pass of the convolutional layer.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape (batch_size, channels, sequence_length).
+
+        Returns
+        -------
+        torch.Tensor
+            The output tensor after applying the convolution operation.
+            If `causal` is True, the input tensor is padded to ensure that
+            the output at each timestep only depends on the current and previous inputs.
+        """
         if self.causal:
             x = F.pad(x.unsqueeze(2), (self.left_padding, 0, 0, 0)).squeeze(2)
 
         return super(Conv1d, self).forward(x)
-    
+
+        return super(Conv1d, self).forward(x)
+
+
 class ConvTranspose1d(nn.ConvTranspose1d):
     """
     Custom transposed 1D convolution layer with causal option.
@@ -863,23 +902,29 @@ class ConvTranspose1d(nn.ConvTranspose1d):
         If True, applies causal convolution.
     """
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 kernel_size: int,
-                 stride: int = 1,
-                 output_padding: int = 0,
-                 groups: int = 1,
-                 bias: bool = True,
-                 dilation: int = 1,
-                 padding=None,
-                 padding_mode: str = 'zeros',
-                 causal: bool = False):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int = 1,
+        output_padding: int = 0,
+        groups: int = 1,
+        bias: bool = True,
+        dilation: int = 1,
+        padding=None,
+        padding_mode: str = "zeros",
+        causal: bool = False,
+    ):
         if padding is None:
             padding = 0 if causal else (kernel_size - stride) // 2
         if causal:
-            assert padding == 0, "padding is not allowed in causal ConvTranspose1d."
-            assert kernel_size == 2 * stride, "kernel_size must be equal to 2*stride is not allowed in causal ConvTranspose1d."
+            assert (
+                padding == 0
+            ), "padding is not allowed in causal ConvTranspose1d."
+            assert (
+                kernel_size == 2 * stride
+            ), "kernel_size must be equal to 2*stride is not allowed in causal ConvTranspose1d."
         super(ConvTranspose1d, self).__init__(
             in_channels,
             out_channels,
@@ -890,7 +935,8 @@ class ConvTranspose1d(nn.ConvTranspose1d):
             groups=groups,
             bias=bias,
             dilation=dilation,
-            padding_mode=padding_mode)
+            padding_mode=padding_mode,
+        )
         self.causal = causal
         self.stride = stride
 
@@ -913,63 +959,133 @@ class ConvTranspose1d(nn.ConvTranspose1d):
             x = x[:, :, : -self.stride]
         return x
 
+
 class ScalarModel(nn.Module):
-    def __init__(self, num_bands, sample_rate, causal, num_samples, downsample_factors, downsample_kernel_sizes,
-                       upsample_factors, upsample_kernel_sizes, latent_hidden_dim, default_kernel_size,
-                       delay_kernel_size, init_channel, res_kernel_size):
+    """
+    A custom neural network model for encoding and decoding audio signals.
+
+    The model consists of an encoder-decoder architecture with optional
+    causal convolutions, downsampling, and upsampling layers. It uses
+    vector quantization and various convolutional blocks for processing.
+
+    Parameters
+    ----------
+    num_bands : int
+        Number of input bands (or channels).
+    sample_rate : int
+        Sample rate of the input signal.
+    causal : bool
+        If True, uses causal convolutions for processing.
+    num_samples : int
+        Number of samples to process for downsampling or upsampling.
+    downsample_factors : list of int
+        List of factors to downsample the input.
+    downsample_kernel_sizes : list of int
+        List of kernel sizes for downsampling layers.
+    upsample_factors : list of int
+        List of factors to upsample the input.
+    upsample_kernel_sizes : list of int
+        List of kernel sizes for upsampling layers.
+    latent_hidden_dim : int
+        Dimension of the latent representation.
+    default_kernel_size : int
+        Default kernel size for convolutional layers.
+    delay_kernel_size : int
+        Kernel size used for the delay convolutional layer.
+    init_channel : int
+        Number of initial channels for the encoder and decoder.
+    res_kernel_size : int
+        Kernel size used for the residual convolutional blocks.
+    """
+
+    def __init__(
+        self,
+        num_bands,
+        sample_rate,
+        causal,
+        num_samples,
+        downsample_factors,
+        downsample_kernel_sizes,
+        upsample_factors,
+        upsample_kernel_sizes,
+        latent_hidden_dim,
+        default_kernel_size,
+        delay_kernel_size,
+        init_channel,
+        res_kernel_size,
+    ):
         super(ScalarModel, self).__init__()
-        # self.args = args
         self.encoder = []
         self.decoder = []
-        self.vq = round_func_binary() # using 2
-        # Encoder parts
+        self.vq = (
+            round_func_binary()
+        )  # Vector quantization using binary rounding
+
+        # Encoder layers
         self.encoder.append(
             weight_norm(
                 Conv1d(
                     num_bands,
                     init_channel,
                     kernel_size=default_kernel_size,
-                    causal=causal
+                    causal=causal,
                 )
             )
         )
         if num_samples > 1:
-            # Downsampling
+            # Downsampling layer
             self.encoder.append(
-                PreProcessor(init_channel,
-                             init_channel,
-                             num_samples,
-                             kernel_size=default_kernel_size,
-                             causal=causal))
+                PreProcessor(
+                    init_channel,
+                    init_channel,
+                    num_samples,
+                    kernel_size=default_kernel_size,
+                    causal=causal,
+                )
+            )
         for i, down_factor in enumerate(downsample_factors):
             self.encoder.append(
-                ResEncoderBlock(init_channel * np.power(2, i),
-                                init_channel * np.power(2, i+1),
-                                down_factor,
-                                downsample_kernel_sizes[i],
-                                res_kernel_size,
-                                causal=causal))
+                ResEncoderBlock(
+                    init_channel * np.power(2, i),
+                    init_channel * np.power(2, i + 1),
+                    down_factor,
+                    downsample_kernel_sizes[i],
+                    res_kernel_size,
+                    causal=causal,
+                )
+            )
         self.encoder.append(
-            weight_norm(Conv1d(
-                init_channel * np.power(2, len(downsample_factors)),
-                latent_hidden_dim,
-                kernel_size=default_kernel_size,
-                causal=causal)))
-        # Decoder
-        # look ahead 
+            weight_norm(
+                Conv1d(
+                    init_channel * np.power(2, len(downsample_factors)),
+                    latent_hidden_dim,
+                    kernel_size=default_kernel_size,
+                    causal=causal,
+                )
+            )
+        )
+
+        # Decoder layers
         self.decoder.append(
-            weight_norm(Conv1d(
-                latent_hidden_dim,
-                init_channel * np.power(2, len(upsample_factors)),
-                kernel_size=delay_kernel_size)))
+            weight_norm(
+                Conv1d(
+                    latent_hidden_dim,
+                    init_channel * np.power(2, len(upsample_factors)),
+                    kernel_size=delay_kernel_size,
+                )
+            )
+        )
         for i, upsample_factor in enumerate(upsample_factors):
             self.decoder.append(
-                ResDecoderBlock(init_channel * np.power(2, len(upsample_factors) - i),
-                             init_channel * np.power(2, len(upsample_factors) - i - 1),
-                             upsample_factor,
-                             upsample_kernel_sizes[i],
-                             res_kernel_size,
-                             causal=causal))
+                ResDecoderBlock(
+                    init_channel * np.power(2, len(upsample_factors) - i),
+                    init_channel * np.power(2, len(upsample_factors) - i - 1),
+                    upsample_factor,
+                    upsample_kernel_sizes[i],
+                    res_kernel_size,
+                    causal=causal,
+                )
+            )
         if num_samples > 1:
             self.decoder.append(
                 PostProcessor(
@@ -977,371 +1093,357 @@ class ScalarModel(nn.Module):
                     init_channel,
                     num_samples,
                     kernel_size=default_kernel_size,
-                    causal=causal))
+                    causal=causal,
+                )
+            )
         self.decoder.append(
-            weight_norm(Conv1d(
-                init_channel,
-                num_bands,
-                kernel_size=default_kernel_size,
-                causal=causal)))
+            weight_norm(
+                Conv1d(
+                    init_channel,
+                    num_bands,
+                    kernel_size=default_kernel_size,
+                    causal=causal,
+                )
+            )
+        )
+
         self.encoder = nn.ModuleList(self.encoder)
         self.decoder = nn.ModuleList(self.decoder)
 
     def forward(self, x):
+        """
+        Performs a forward pass through the encoder and decoder.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape (batch_size, channels, length).
+
+        Returns
+        -------
+        torch.Tensor
+            Reconstructed output tensor.
+        """
         for i, layer in enumerate(self.encoder):
             if i != len(self.encoder) - 1:
                 x = layer(x)
             else:
                 x = F.tanh(layer(x))
-        # import pdb; pdb.set_trace()
-        x = self.vq.apply(x) # vq
+        x = self.vq.apply(x)  # Quantization step
         for i, layer in enumerate(self.decoder):
             x = layer(x)
         return x
 
     def inference(self, x):
+        """
+        Encodes input tensor `x` and decodes the quantized embeddings.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape (batch_size, channels, length).
+
+        Returns
+        -------
+        tuple
+            A tuple (emb, emb_quant, x), where `emb` is the latent embedding,
+            `emb_quant` is the quantized embedding, and `x` is the decoded output.
+        """
         for i, layer in enumerate(self.encoder):
             if i != len(self.encoder) - 1:
                 x = layer(x)
             else:
-                x = F.tanh(layer(x)) # reverse to tanh
-        emb = x 
-        # import pdb; pdb.set_trace()
-        emb_quant = self.vq.apply(emb) # vq
+                x = F.tanh(layer(x))
+        emb = x
+        emb_quant = self.vq.apply(emb)
         x = emb_quant
         for i, layer in enumerate(self.decoder):
             x = layer(x)
         return emb, emb_quant, x
 
     def encode(self, x):
+        """
+        Encodes the input tensor `x` into a quantized embedding.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor of shape (batch_size, channels, length).
+
+        Returns
+        -------
+        torch.Tensor
+            Quantized embedding.
+        """
         for i, layer in enumerate(self.encoder):
             if i != len(self.encoder) - 1:
                 x = layer(x)
             else:
-                x = F.tanh(layer(x)) # reverse to tanh
-        emb = x 
-        # import pdb; pdb.set_trace()
-        emb_quant = self.vq.apply(emb) # vq
-        #print('emb_quant org ', emb_quant.shape)
-        # assert 1==2
+                x = F.tanh(layer(x))
+        emb = x
+        emb_quant = self.vq.apply(emb)
         return emb_quant
 
     def decode(self, emb_quant):
+        """
+        Decodes the quantized embeddings back into a tensor.
+
+        Parameters
+        ----------
+        emb_quant : torch.Tensor
+            Quantized embedding tensor.
+
+        Returns
+        -------
+        torch.Tensor
+            Reconstructed output tensor.
+        """
         x = emb_quant
         for i, layer in enumerate(self.decoder):
             x = layer(x)
         return x
 
-# def decimal_to_ternary_matrix(decimals, D):
-#     """
-#     Convert a tensor of decimal numbers to a D*N ternary matrix.
-    
-#     Parameters:
-#     - decimals: a 1D tensor of decimal numbers, length N
-#     - D: number of ternary digits to represent each number (depth)
-    
-#     Returns:
-#     - A 2D tensor of shape (D, N) where each column is a ternary number.
-#     """
-#     #print('decimals ', decimals)
-#     N = decimals.shape[0]
-#     ternary_matrix = torch.zeros((D, N), dtype=torch.long)
-#     for index, num in enumerate(decimals):
-#         for pos in range(D):
-#             ternary_matrix[pos, index] = num % 3  # Fill column from bottom to top
-#             num //= 3
-#     # print(ternary_matrix)
-#     # assert 1==2
-#     return ternary_matrix
-
-# def decimal_to_ternary_matrix(decimals, D):
-#     """
-#     Converts a batch of decimal numbers into a ternary matrix representation using vectorized operations.
-
-#     Parameters:
-#     ----------
-#     input_decimals : torch.Tensor
-#         A 2D tensor of shape (B, N), where B is the batch size and N is the number of decimal inputs per batch.
-#     depth : int
-#         The number of ternary digits to represent each number.
-
-#     Returns:
-#     -------
-#     torch.Tensor
-#         A 3D tensor of shape (B, D, N), where each element represents a ternary-encoded version of the input decimals,
-#         with D indicating the depth of the ternary representation.
-#     """
-#     B, T = decimals.shape
-#     expanded_decimals = decimals.unsqueeze(1).expand(-1, D, -1)  # Shape: (B, D, N)
-#     powers_of_three = (3 ** torch.arange(D).flip(0)).view(1, -1, 1).to(decimals.device)  # Shape: (1, D, 1)
-
-#     ternary_matrix = (expanded_decimals // powers_of_three) % 3  # Vectorized ternary conversion
-
-#     return ternary_matrix
-
-def decimal_to_ternary_matrix(decimals, D):
-    """
-    Convert a tensor of decimal numbers to a D*T ternary matrix for each batch.
-
-    Parameters:
-    - decimals: a 2D tensor of decimal numbers with shape (B, T)
-    - D: number of ternary digits to represent each number (depth)
-    
-    Returns:
-    - A 3D tensor of shape (B, D, T) where each slice along the first dimension 
-      corresponds to a batch and each column is a ternary number.
-    """
-    B, T = decimals.shape
-    ternary_matrix = torch.zeros((B, D, T), dtype=torch.long)
-    for pos in range(D):
-        ternary_matrix[:, pos, :] = decimals % 3  # Modulo operation
-        decimals //= 3  # Floor division for next ternary digit
-    
-    return ternary_matrix
-# def ternary_matrix_to_decimal(matrix):
-#     """
-#     Convert a D*N ternary matrix to a list of decimal numbers.
-    
-#     Parameters:
-#     - matrix: a 2D numpy array of shape (D, N) where each column is a ternary number.
-    
-#     Returns:
-#     - A list of integers, each representing the decimal equivalent of a ternary number.
-#     """
-#     D, N = matrix.shape  # D is the number of digits, N is the number of ternary numbers
-#     powers_of_three = 3 ** np.arange(D)  # [3^0, 3^1, ..., 3^(D-1)]
-#     decimals = np.dot(powers_of_three, matrix)  # Matrix multiplication to convert all columns
-#     return decimals.tolist()
-
-def ternary_matrix_to_decimal(matrix):
-    """
-    Efficiently convert a B*D*N ternary matrix to a list of decimal numbers for each batch without using loops.
-
-    Parameters:
-    - matrix: a 3D numpy array of shape (B, D, N) where each column in the D*N slice is a ternary number.
-
-    Returns:
-    - A 2D numpy array of shape (B, N) where each value represents the decimal equivalent of a ternary number.
-    """
-    B, D, N = matrix.shape  # B is the batch size, D is the number of digits, N is the number of ternary numbers
-    powers_of_three = 3 ** np.arange(D)  # [3^0, 3^1, ..., 3^(D-1)]
-
-    # Reshape powers_of_three for broadcasting: [D] -> [1, D, 1]
-    powers_of_three = powers_of_three[:, np.newaxis]  # Shape [D, 1]
-
-    # Compute dot product using broadcasting: matrix * powers_of_three along D axis
-    decimals = np.sum(matrix * powers_of_three, axis=1)  # Sum along the D axis
-
-    return decimals
 
 class SQCodec(nn.Module):
-    def __init__(self, 
-                source,
-                filename,
-                save_path=None,
-                config="config.yaml",
-                checkpoint="ckpt_00190000.pth",
-                sample_rate=16000,
-                dim_codebook = 19683,
-                n_codebook = 4,
-                bw =2,
-                device=torch.device('cpu'), 
-                clip_length=450,
-                ):
-        """ soundstream with fixed bandwidth of 4kbps 
-            It encodes audio with 50 fps and 8-dim vector for each frame
-            The value of each entry is in [0, 1023]
-        """
+    """
+    Speech codec model (SQ-Codec) with scalar quantization. It maps the complex speech signal into a finite and compact latent space.
 
+    Parameters
+    ----------
+    source : str
+        Source URL or path for downloading or locating the codec files.
+    filename : str
+        Name of the file containing the model checkpoint and configuration.
+    save_path : str, optional
+        Directory where the model and configuration files are saved (default is None).
+    config : str, optional
+        Configuration filename for the model (default is 'config.yaml').
+    checkpoint : str, optional
+        Model checkpoint filename (default is 'ckpt_00190000.pth').
+    sample_rate : int, optional
+        Sample rate for input audio (default is 16000).
+    dim_codebook : int, optional
+        Dimension of each codebook (default is 19683).
+    n_codebook : int, optional
+        Number of codebooks used (default is 4).
+    bw : float, optional
+        Bandwidth parameter (default is 2).
+    device : torch.device, optional
+        Device to run the model on (default is CPU).
+    clip_length : int, optional
+        Maximum clip length for processing (default is 450).
+
+    Example
+    -------
+    >>> model_hub = "Dongchao/UniAudio"
+    >>> save_path = "savedir"
+    >>> filename = "SQ-Codec.zip"
+    >>> config = "config.yaml"
+    >>> checkpoint = "ckpt_00190000.pth"
+    >>> model = SQCodec(model_hub, filename, save_path, config, checkpoint)
+    >>> audio = torch.randn(3, 16000)
+    >>> tokens, emb = model.encode(audio)
+    >>> tokens.shape
+    torch.Size([3, 200])
+    >>> emb.shape
+    torch.Size([3, 36, 50])
+    >>> rec = model.decode(tokens)
+    >>> rec.shape
+    torch.Size([3, 1, 16000])
+    """
+
+    def __init__(
+        self,
+        source,
+        filename,
+        save_path=None,
+        config="config.yaml",
+        checkpoint="ckpt_00190000.pth",
+        sample_rate=16000,
+        dim_codebook=19683,
+        n_codebook=4,
+        bw=2,
+        device=torch.device("cpu"),
+        clip_length=450,
+    ):
         super(SQCodec, self).__init__()
-        self.config_path = os.path.join(save_path,filename.split(".")[0], config)
-        self.ckpt_path = os.path.join(save_path,filename.split(".")[0], checkpoint)
-        if not os.path.exists(self.config_path) and not os.path.exists(self.ckpt_path):
+        self.config_path = os.path.join(
+            save_path, filename.split(".")[0], config
+        )
+        self.ckpt_path = os.path.join(
+            save_path, filename.split(".")[0], checkpoint
+        )
+        if not os.path.exists(self.config_path) and not os.path.exists(
+            self.ckpt_path
+        ):
             download_and_extract(source, filename, save_path)
-        # GPU is only for offline tokenization
-        # So, when distributed training is launched, this should still be on CPU
         self.device = device
         self.clip_length = clip_length
 
-        logging.info(f"using config {self.config_path} and model {self.ckpt_path}")
+        logging.info(
+            f"Using config {self.config_path} and model {self.ckpt_path}"
+        )
         self.scalar_codec = self.build_codec_model(self.config_path).to(device)
-        # properties
         self.sr = sample_rate
         self.dim_codebook = dim_codebook
         self.n_codebook = n_codebook
-        self.bw = bw # bw=1.5 ---> 3 codebooks
+        self.bw = bw
         self.freq = self.n_codebook * 50
         self.mask_id = self.dim_codebook * self.n_codebook
 
     def build_codec_model(self, config):
-        exp_model_config = OmegaConf.load(config)
-        scalar_codec = ScalarModel(**exp_model_config.generator.config)  
-        parameter_dict = torch.load(self.ckpt_path)
-        new_state_dict = OrderedDict()
-        scalar_codec.load_state_dict(parameter_dict['codec_model']) # load model
-        return scalar_codec
+        """
+        Loads and builds the scalar codec model from the given configuration.
 
-    # def _flatten_codebooks(self, arr, offset_size=None):
-    #     assert len(arr.shape) == 2
-    #     arr = arr.copy()
-    #     if offset_size is not None:
-    #         for n in range(arr.shape[0]):
-    #             arr[n, :] += (offset_size * n)
-    #     flat_arr = arr.ravel("F")
-        return flat_arr
+        Parameters
+        ----------
+        config : str
+            Path to the configuration file.
+
+        Returns
+        -------
+        ScalarModel
+            The built scalar codec model loaded with weights from the checkpoint.
+        """
+        exp_model_config = OmegaConf.load(config)
+        scalar_codec = ScalarModel(**exp_model_config.generator.config)
+        parameter_dict = torch.load(self.ckpt_path)
+        scalar_codec.load_state_dict(parameter_dict["codec_model"])
+        return scalar_codec
 
     def _flatten_codebooks(self, arr, offset_size=None):
         """
         Flattens a 3D array (B, N, D) to a 1D array while applying an offset to each codebook if specified.
 
-        Parameters:
-        - arr: 3D numpy array of shape (B, N, D).
-        - offset_size: int or None, optional
+        Parameters
+        ----------
+        arr : numpy.ndarray
+            A 3D array of shape (B, N, D).
+        offset_size : int or None, optional
             The offset size to be applied to each codebook slice (default is None).
 
-        Returns:
-        - 1D numpy array representing the flattened codebooks.
+        Returns
+        -------
+        numpy.ndarray
+            A 1D array representing the flattened codebooks.
         """
-        assert len(arr.shape) == 3, "Input array must have 3 dimensions [B, N, D]"
+        assert (
+            len(arr.shape) == 3
+        ), "Input array must have 3 dimensions [B, N, D]"
         N, B, D = arr.shape
         arr = arr.copy()
-
-        # Apply offset if specified
         if offset_size is not None:
             for n in range(N):
-                arr[n, :, :] += (offset_size * n)
-
-        # Flatten along the last dimension and sum to produce a (B, N) result
+                arr[n, :, :] += offset_size * n
         flattened_arr = np.concatenate(arr, axis=1)
-
         return flattened_arr
 
-    def encode(self, inputs, sr=16000):
-        # wav, sr = torchaudio.load(wav_root)
-        # if wav.numel() == 0:
-        #     return None
-        # wav = wav[0:1] # use the first channel
-        # if sr != self.sr:
-        #     wav = torchaudio.transforms.Resample(sr, self.sr)(wav)
-        # wav = wav.unsqueeze(1).to(self.device) # (1,1,len)
+    def encode(self, inputs):
+        """
+        Encodes the input audio tensor using the scalar codec and quantizes the output.
+
+        Parameters
+        ----------
+        inputs : torch.Tensor
+            Input audio tensor of shape (B, T) or (B, 1, T), where B is the batch size
+            and T is the length of the audio sequence.
+
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - torch.Tensor: The flattened and quantized encoded representation of the input.
+            - torch.Tensor: Quantized embedding.
+        """
         if inputs.dim() == 2:
             inputs = inputs.unsqueeze(1)
-        compressed = self.scalar_codec.encode(inputs) # B, dim, len
-        # compressed = compressed.squeeze(0) # dim, len
-        chunks = compressed.chunk(self.n_codebook, dim=1) # 
+        compressed = self.scalar_codec.encode(inputs)
+        chunks = compressed.chunk(self.n_codebook, dim=1)
         codec_ls = []
         for i, chunk in enumerate(chunks):
-            chunk = chunk.detach().cpu().numpy() #.int() + 1
-            chunk= chunk.astype(np.int32) + 1 # .astype(np.int32)
+            chunk = chunk.detach().cpu().numpy().astype(np.int32) + 1
             tmp_codec = ternary_matrix_to_decimal(chunk)
             codec_ls.append(tmp_codec)
-        codec_ls = np.array(codec_ls) # 4*N
+        codec_ls = np.array(codec_ls)
         flat_codec = self._flatten_codebooks(codec_ls, self.dim_codebook)
-        flat_codec = torch.from_numpy(flat_codec)
-        flat_codec = flat_codec.to(torch.int32)
-        return flat_codec
-    
+        flat_codec = torch.from_numpy(flat_codec).to(torch.int32)
+        return flat_codec, compressed
 
     def decode(self, codes):
-        assert codes.dim() == 2  # Ensure input shape is (B, T)
+        """
+        Decodes the quantized codes back into an audio tensor.
+
+        Parameters
+        ----------
+        codes : torch.Tensor
+            Quantized codes with shape (B, T).
+
+        Returns
+        -------
+        torch.Tensor
+            Reconstructed audio signal.
+        """
+        assert codes.dim() == 2
         B, T = codes.shape
-        assert T % self.n_codebook == 0, "Length T must be divisible by n_codebook"
-        
-        # Reshape to (B, T // n_codebook, n_codebook) for processing
-        codes = codes.view(B, self.n_codebook, -1).permute(1,0,2)  # shape (n_codebook, B, T // n_codebook)
-        
-        # Adjust codes by subtracting the offset
+        assert (
+            T % self.n_codebook == 0
+        ), "Length T must be divisible by n_codebook"
+        codes = codes.view(B, self.n_codebook, -1).permute(1, 0, 2)
         for i in range(self.n_codebook):
             codes[i, :, :] -= i * self.dim_codebook
-        
         emb_quant = []
-        for i in range(self.n_codebook):  # Iterate over n_codebook
-            tmp_list = decimal_to_ternary_matrix(codes[i,:,:], D=9) - 1
-            emb_quant.append(tmp_list)  # Shape (B, T // n_codebook, D)
-        
-        emb_quant = torch.cat(emb_quant, dim=1)  # Concatenate along the second dimension: (B, n * T // n_codebook, D)
-        # emb_quant = emb_quant.unsqueeze(0)  # Add a singleton dimension if needed: (1, B, n * T // n_codebook, D)
-        
-        # Pass through the scalar codec
+        for i in range(self.n_codebook):
+            tmp_list = decimal_to_ternary_matrix(codes[i, :, :], D=9) - 1
+            emb_quant.append(tmp_list)
+        emb_quant = torch.cat(emb_quant, dim=1)
         out = self.scalar_codec.decode(emb_quant.float().to(self.device))
-        out = out.detach().cpu().squeeze(0)  # Remove the singleton dimension if needed
-        return out
+        return out.detach().cpu().squeeze(0)
 
-    def all(self, wav_root):
+    def infer(self, wav_root):
+        """
+        Processes a given waveform file by encoding and decoding it through the scalar codec.
+
+        Parameters
+        ----------
+        wav_root : str
+            Path to the waveform file.
+
+        Returns
+        -------
+        torch.Tensor or None
+            Processed waveform tensor or None if the file is empty.
+        """
         wav, sr = torchaudio.load(wav_root)
         if wav.numel() == 0:
             return None
         if sr != self.sr:
             wav = torchaudio.transforms.Resample(sr, self.sr)(wav)
-        wav = wav.unsqueeze(1).to(self.device) # (1,1,len)
+        wav = wav.unsqueeze(1).to(self.device)
         emb, emb_quant, x = self.scalar_codec.inference(wav)
         return x.detach().cpu().squeeze(0)
 
     @property
     def is_discrete(self):
+        """Indicates whether the codec works with discrete values."""
         return True
-
 
     @property
     def codebook_length(self):
+        """Returns the total length of the codebook."""
         return self.dim_codebook * self.n_codebook + 1
 
-    # def find_length(self, x):
-    #     return self.tokenize(x).shape[0] // self.n_codebook
+    def find_length(self, x):
+        """
+        Finds the length of the tokenized version of the input tensor.
 
-def download_and_extract(repo_id, filename, save_path):
-    """
-    Downloads a ZIP file from a URL, extracts its contents, and removes the ZIP file.
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor.
 
-    Arguments
-    ---------
-    url : str
-        The URL of the ZIP file to download.
-    save_path : str
-        The directory where the contents will be saved.
-
-    Returns
-    -------
-    None
-    """
-    # Ensure save_path directory exists
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-    
-
-    # Download the file with progress bar
-    zip_filename = hf_hub_download(repo_id=repo_id,filename=filename ,cache_dir=save_path)
-
-    # Extract the file
-    with zipfile.ZipFile(zip_filename, "r") as zip_ref:
-        zip_ref.extractall(save_path)
-
-    # Remove the downloaded ZIP file
-    os.remove(zip_filename)
-    print(f"File downloaded, extracted to '{save_path}', and ZIP file removed.")
-
-
-from huggingface_hub import hf_hub_download
-if __name__ == '__main__':
-
-    model_hub = "Dongchao/UniAudio"
-    save_path = "savedir"
-    filename="SQ-Codec.zip"
-    config="config.yaml"
-    checkpoint="ckpt_00190000.pth"
-    model =SQCodec(model_hub, filename, save_path, config, checkpoint)
-    # audio = torch.randn(3, 16000)
-    wav, sr = torchaudio.load("target.wav")
-    audio = torchaudio.transforms.Resample(sr, 16000)(wav)
-    print(audio)
-    length = torch.tensor([1.0, .5, .75, 1.0])
-
-    tokens= model.encode(audio)
-    print(tokens.shape)
-    rec = model.decode(tokens)
-    torchaudio.save('tmp2.wav', rec, 16000,bits_per_sample=16,  encoding='PCM_S')
-    print(rec)
-
-    print(rec.shape)
-
-
+        Returns
+        -------
+        int
+            The length of the tokenized input.
+        """
+        return self.tokenize(x).shape[0] // self.n_codebook
