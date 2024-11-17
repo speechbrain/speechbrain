@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class MERT(Wav2Vec2):
-    """  
+    """
     A class for integrating HuggingFace and SpeechBrain pretrained MERT models, enabling
     usage as a feature extractor or for fine-tuning purposes.
 
@@ -56,6 +56,7 @@ class MERT(Wav2Vec2):
 
     Example
     -------
+    >>> import torch
     >>> inputs = torch.rand([10, 600])
     >>> model_hub = "m-a-p/MERT-v1-95M"
     >>> save_path = "savedir"
@@ -74,7 +75,6 @@ class MERT(Wav2Vec2):
         freeze_feature_extractor=False,
         apply_spec_augment=False,
         output_all_hiddens=False,
-        trust_remote_code=True,
     ):
         super().__init__(
             source=source,
@@ -84,5 +84,5 @@ class MERT(Wav2Vec2):
             freeze_feature_extractor=freeze_feature_extractor,
             apply_spec_augment=apply_spec_augment,
             output_all_hiddens=output_all_hiddens,
-            trust_remote_code=trust_remote_code,
+            trust_remote_code=True,
         )
