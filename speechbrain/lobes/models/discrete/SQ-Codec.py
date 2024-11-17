@@ -136,33 +136,45 @@ class round_func5(InplaceFunction):
     """
     A custom rounding function that rounds input values to the nearest multiple of 1/5.
 
-    Methods
-    -------
-    forward(ctx, input)
-        Rounds the input tensor to the nearest multiple of 1/5.
-    backward(ctx, grad_output)
-        Computes the gradient of the input for backpropagation.
-
-    Parameters
-    ----------
-    ctx : context object
-        Contains information about the forward pass.
-    input : torch.Tensor
-        The input tensor to be rounded.
-
-    Returns
-    -------
-    torch.Tensor
-        The input tensor rounded to the nearest multiple of 1/5.
     """
 
     @staticmethod
     def forward(ctx, input):
+        """
+        Rounds the input tensor to the nearest multiple of 1/5.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object used to store information for the backward computation.
+        input : torch.Tensor
+            The input tensor to be rounded.
+
+        Returns
+        -------
+        torch.Tensor
+            The input tensor rounded to the nearest multiple of 1/5.
+        """
         ctx.input = input
         return torch.round(5 * input) / 5
 
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        Computes the gradient of the input for backpropagation.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object containing information saved during the forward pass.
+        grad_output : torch.Tensor
+            The gradient of the output with respect to the loss.
+
+        Returns
+        -------
+        torch.Tensor
+            The gradient of the input with respect to the loss.
+        """
         grad_input = grad_output.clone()
         return grad_input
 
@@ -171,33 +183,45 @@ class round_func9(InplaceFunction):
     """
     A custom rounding function that rounds input values to the nearest multiple of 1/9.
 
-    Methods
-    -------
-    forward(ctx, input)
-        Rounds the input tensor to the nearest multiple of 1/9.
-    backward(ctx, grad_output)
-        Computes the gradient of the input for backpropagation.
-
-    Parameters
-    ----------
-    ctx : context object
-        Contains information about the forward pass.
-    input : torch.Tensor
-        The input tensor to be rounded.
-
-    Returns
-    -------
-    torch.Tensor
-        The input tensor rounded to the nearest multiple of 1/9.
     """
 
     @staticmethod
     def forward(ctx, input):
+        """
+        Rounds the input tensor to the nearest multiple of 1/9.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object used to store information for the backward computation.
+        input : torch.Tensor
+            The input tensor to be rounded.
+
+        Returns
+        -------
+        torch.Tensor
+            The input tensor rounded to the nearest multiple of 1/9.
+        """
         ctx.input = input
         return torch.round(9 * input) / 9
 
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        Computes the gradient of the input for backpropagation.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object containing information saved during the forward pass.
+        grad_output : torch.Tensor
+            The gradient of the output with respect to the loss.
+
+        Returns
+        -------
+        torch.Tensor
+            The gradient of the input with respect to the loss.
+        """
         grad_input = grad_output.clone()
         return grad_input
 
@@ -206,33 +230,45 @@ class round_func_binary(InplaceFunction):
     """
     A custom rounding function that rounds input values to the nearest integer.
 
-    Methods
-    -------
-    forward(ctx, input)
-        Rounds the input tensor to the nearest integer.
-    backward(ctx, grad_output)
-        Computes the gradient of the input for backpropagation.
-
-    Parameters
-    ----------
-    ctx : context object
-        Contains information about the forward pass.
-    input : torch.Tensor
-        The input tensor to be rounded.
-
-    Returns
-    -------
-    torch.Tensor
-        The input tensor rounded to the nearest integer.
     """
 
     @staticmethod
     def forward(ctx, input):
+        """
+        Rounds the input tensor to the nearest integer.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object used to store information for the backward computation.
+        input : torch.Tensor
+            The input tensor to be rounded.
+
+        Returns
+        -------
+        torch.Tensor
+            The input tensor rounded to the nearest integer.
+        """
         ctx.input = input
         return torch.round(input)
 
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        Computes the gradient of the input for backpropagation.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object containing information saved during the forward pass.
+        grad_output : torch.Tensor
+            The gradient of the output with respect to the loss.
+
+        Returns
+        -------
+        torch.Tensor
+            The gradient of the input with respect to the loss.
+        """
         grad_input = grad_output.clone()
         return grad_input
 
@@ -241,34 +277,46 @@ class Heaviside(InplaceFunction):
     """
     A custom function that applies the Heaviside step function to the input tensor.
 
-    Methods
-    -------
-    forward(ctx, input)
-        Applies the Heaviside step function to the input tensor.
-    backward(ctx, grad_output)
-        Computes the gradient of the input for backpropagation.
-
-    Parameters
-    ----------
-    ctx : context object
-        Contains information about the forward pass.
-    input : torch.Tensor
-        The input tensor to which the Heaviside step function is applied.
-
-    Returns
-    -------
-    torch.Tensor
-        The input tensor with the Heaviside step function applied.
     """
 
     @staticmethod
     def forward(ctx, input):
+        """
+        Applies the Heaviside step function to the input tensor.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object used to store information for the backward computation.
+        input : torch.Tensor
+            The input tensor to which the Heaviside step function is applied.
+
+        Returns
+        -------
+        torch.Tensor
+            The input tensor with the Heaviside step function applied.
+        """
         ctx.input = input
         values = torch.tensor([0.0]).type_as(input)
         return torch.heaviside(input, values)
 
     @staticmethod
     def backward(ctx, grad_output):
+        """
+        Computes the gradient of the input for backpropagation.
+
+        Parameters
+        ----------
+        ctx : context object
+            Context object containing information saved during the forward pass.
+        grad_output : torch.Tensor
+            The gradient of the output with respect to the loss.
+
+        Returns
+        -------
+        torch.Tensor
+            The gradient of the input with respect to the loss.
+        """
         grad_input = grad_output.clone()
         return grad_input
 
