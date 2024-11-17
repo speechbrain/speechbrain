@@ -48,8 +48,8 @@ class SpeechTokenizer(nn.Module):
     >>> tokens = model.encode(inputs)  # doctest: +SKIP
     >>> tokens.shape  # doctest: +SKIP
     torch.Size([8, 10, 2])
-    >>> wav=model.decode(tokens)
-    >>> wav.shape
+    >>> wav=model.decode(tokens)  # doctest: +SKIP
+    >>> wav.shape  # doctest: +SKIP
     torch.Size([10, 640])
     """
 

@@ -1291,12 +1291,12 @@ class SQCodec(nn.Module):
     >>> model = SQCodec(model_hub, filename, save_path, config, checkpoint) # doctest: +SKIP
     >>> audio = torch.randn(3, 16000)
     >>> tokens, emb = model.encode(audio) # doctest: +SKIP
-    >>> tokens.shape
+    >>> tokens.shape # doctest: +SKIP
     torch.Size([3, 200])
-    >>> emb.shape
+    >>> emb.shape # doctest: +SKIP
     torch.Size([3, 36, 50])
     >>> rec = model.decode(tokens) # doctest: +SKIP
-    >>> rec.shape
+    >>> rec.shape # doctest: +SKIP
     torch.Size([3, 1, 16000])
     """
 
