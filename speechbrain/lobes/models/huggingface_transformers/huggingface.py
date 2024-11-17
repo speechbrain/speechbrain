@@ -114,6 +114,7 @@ class HFTransformersInterface(nn.Module):
             source,
             cache_dir=save_path,
             return_unused_kwargs=True,
+            **kwargs,
         )
 
         self.config = self.override_config(self.config)
