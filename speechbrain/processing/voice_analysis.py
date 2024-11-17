@@ -206,7 +206,7 @@ def compute_voiced(
         A boolean value for each frame, whether to consider the frame as voiced or unvoiced.
     """
     h_threshold = torch.full(
-        size=jitter.size(0),
+        size=(jitter.size(0),),
         fill_value=harmonicity_threshold,
         device=jitter.device,
         requires_grad=False,
