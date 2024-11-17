@@ -10,8 +10,7 @@
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 372
-__set_seed: !!python/object/apply:torch.manual_seed [!ref <seed>]
-debug: False
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref ]
 output_folder: !ref results/speecht5_st/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.log

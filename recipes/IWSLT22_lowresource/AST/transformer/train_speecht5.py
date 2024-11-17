@@ -10,7 +10,8 @@ Beam Search is used for the decoding step.
 To run this recipe, do the following:
 > python train_speechT5.py hparams/train_speecht5_st.yaml
 
-Author: Haroun Elleuch 2024
+Authors
+ * Haroun Elleuch, 2024
 """
 
 import logging
