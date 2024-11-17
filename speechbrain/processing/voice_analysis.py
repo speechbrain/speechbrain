@@ -11,10 +11,11 @@ Authors
 import torch
 import torchaudio
 
-# Minimum value for log measures, results in max of 25dB
-EPSILON = 10**-2.5
+# Minimum value for log measures, results in max of 30dB
+EPSILON = 10**-3
 
 
+@torch.no_grad()
 def vocal_characteristics(
     audio: torch.Tensor,
     min_f0_Hz: int = 75,
@@ -23,7 +24,7 @@ def vocal_characteristics(
     window_size: float = 0.04,
     sample_rate: int = 16000,
     harmonicity_threshold: float = 0.45,
-    jitter_threshold: float = 0.05,
+    jitter_threshold: float = 0.02,
 ):
     """Estimates the vocal characteristics of a signal using auto-correlation, etc.
 
@@ -44,7 +45,7 @@ def vocal_characteristics(
     sample_rate: int
         The number of samples in a second.
     harmonicity_threshold: float
-        One of two threshold values for considering a frame as voiced. Computed
+        Threshold value for considering a frame as voiced. Computed
         as the ratio between lag 0 autocorrelation and t-max autocorrelation.
     jitter_threshold: float
         One of two threshold values for considering a frame as voiced. Estimated
@@ -61,7 +62,7 @@ def vocal_characteristics(
     shimmer: torch.Tensor
         The estimate for the shimmer value for each frame.
     hnr: torch.Tensor
-        The estimate for the HNR value for each frame.
+        The estimate for the harmonicity-to-noise ratio for each frame.
     """
 
     assert (
@@ -89,7 +90,7 @@ def vocal_characteristics(
     # Compute period-based features using the estimate of best lag
     jitter, shimmer = compute_periodic_features(frames, best_lags)
 
-    # Use both types of features to determine which frames are voiced
+    # Use harmonicity features to determine which frames are voiced
     voiced = compute_voiced(
         harmonicity, jitter, harmonicity_threshold, jitter_threshold
     )
@@ -174,29 +175,28 @@ def compute_voiced(
     harmonicity: torch.Tensor,
     jitter: torch.Tensor,
     harmonicity_threshold: float = 0.45,
-    jitter_threshold: float = 0.05,
-    minimum_voiced: int = 7,
+    jitter_threshold: float = 0.02,
+    minimum_voiced: int = 19,
 ):
     """
-    Compute which sections are voiced based on two criteria (adapted from PRAAT):
+    Compute which sections are voiced based on two criteria:
      * normalized autocorrelation above threshold
      * AND jitter below threshold
 
     Voicing is averaged with neighboring frames to avoid rapid changes in voicing.
-    If no frames are voiced, relax thresholds until more than one frame is voiced.
+    If no frames are voiced, relax threshold until more than a few frames are voiced.
 
     Arguments
     ---------
     harmonicity : torch.Tensor
-        The normalized autocorrelation score, a number between 0 and 1 for each frame.
+        The normalized autocorrelation score, between 0 and 1 for each frame.
         Shape = [batch, frame]
     jitter : torch.Tensor
-        The jitter score, a number between 0 and 1 for each frame.
-        Shape = [batch, frame]
+        The variation in period from frame to frame, between 0 and 1 for each frame.
     harmonicity_threshold : float
         The threshold above which to consider each frame as voiced.
-    jitter_threshold : float
-        The threshold below which to consider each frame as voiced.
+    jitter_threshold: float
+        Jitter values greater than this are conisdered unvoiced.
     minimum_voiced : int
         The minimum number of frames to consider voiced.
 
@@ -205,12 +205,14 @@ def compute_voiced(
     voiced : torch.Tensor
         A boolean value for each frame, whether to consider the frame as voiced or unvoiced.
     """
-    device = jitter.device
-    batch = jitter.size(0)
-    voiced = torch.zeros_like(jitter)
-    h_threshold = torch.zeros(batch, 1, device=device) + harmonicity_threshold
-    j_threshold = torch.zeros(batch, 1, device=device) + jitter_threshold
-    threshold_unmet = torch.ones(batch, device=device)
+    h_threshold = torch.full(
+        size=jitter.size(0),
+        fill_value=harmonicity_threshold,
+        device=jitter.device,
+        requires_grad=False,
+    )
+    j_threshold = torch.full_like(h_threshold, fill_value=jitter_threshold)
+    threshold_unmet = torch.ones_like(h_threshold)
 
     # Check on each iteration if we have more than minimum voiced frames
     while any(threshold_unmet):
@@ -219,17 +221,7 @@ def compute_voiced(
 
         # PRAAT uses some forward/backward search to find voicing, with a
         # penalty for on/off voicing. For speed, we just take an average.
-        voiced = (
-            torch.nn.functional.avg_pool1d(
-                input=voiced.float(),
-                kernel_size=minimum_voiced,
-                stride=1,
-                padding=minimum_voiced // 2,
-                count_include_pad=False,
-            )
-            .round()
-            .bool()
-        )
+        voiced = neighbor_average(voiced, minimum_voiced).round().bool()
 
         # Relax the threshold by a bit for each iteration
         threshold_unmet = voiced.sum(dim=1) < minimum_voiced
@@ -237,6 +229,39 @@ def compute_voiced(
         j_threshold[threshold_unmet] += 0.01
 
     return voiced
+
+
+def neighbor_average(values, neighbors):
+    """Convenience function for average pooling of neighbors.
+
+    Arguments
+    ---------
+    values : torch.Tensor
+        The sequence of values to avg pool along last dimension.
+    neighbors : int
+        Should be an odd value, includes center.
+
+    Returns
+    -------
+    averaged_values : torch.Tensor
+        The 1-d average-pooled values across the last dimension.
+
+    Examples
+    --------
+    >>> a = torch.ones(7).view(1, -1)
+    >>> a[:, ::2] = 0
+    >>> a
+    tensor([[0., 1., 0., 1., 0., 1., 0.]])
+    >>> neighbor_average(a, neighbors=3)
+    tensor([[0.5000, 0.3333, 0.6667, 0.3333, 0.6667, 0.3333, 0.5000]])
+    """
+    return torch.nn.functional.avg_pool1d(
+        input=values.float(),
+        kernel_size=neighbors,
+        stride=1,
+        padding=neighbors // 2,
+        count_include_pad=False,
+    )
 
 
 def inverse_filter(frames, lpc_order=13):
