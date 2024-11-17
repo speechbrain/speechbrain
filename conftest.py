@@ -70,6 +70,7 @@ except ModuleNotFoundError:
     collect_ignore.append("speechbrain/lobes/models/discrete/wavTokenzier.py")
 
 try:
-    import omegaconf  # noqa: F401
+    from omegaconf import OmegaConf
+  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/lobes/models/discrete/SQ-Codec.pyy")
