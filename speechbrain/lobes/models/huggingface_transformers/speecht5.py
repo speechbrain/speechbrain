@@ -191,13 +191,13 @@ class SpeechT5ForASR(HFTransformersInterface):
 
         Arguments
         ----------
-        wav : torch.Tensor
-            Input tensor.
+            wav : torch.Tensor
+                Input tensor.
 
         Returns
         -------
-        torch.Tensor
-            Encoder embeddings.
+            torch.Tensor
+                Encoder embeddings.
         """
         if self.output_all_hiddens:
             if self.freeze_encoder:
