@@ -187,6 +187,18 @@ class SpeechT5ForASR(HFTransformersInterface):
         return encoder_output, logits, attentions
 
     def forward_encoder(self, wav) -> torch.Tensor:
+        """Forward step of the SpeechT5 encoder.
+
+        Arguments
+        ----------
+        wav : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        torch.Tensor
+            Encoder embeddings.
+        """
         if self.output_all_hiddens:
             if self.freeze_encoder:
                 with torch.no_grad():
