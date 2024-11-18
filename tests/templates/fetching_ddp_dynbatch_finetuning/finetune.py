@@ -173,7 +173,7 @@ if __name__ == "__main__":
     # DDP init
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Kept aside for later

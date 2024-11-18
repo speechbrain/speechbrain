@@ -188,7 +188,7 @@ def get_list_from_csv(csvfile, field, delimiter=",", skipinitialspace=True):
     The list of files in the given field of a csv
     """
     lst = []
-    with open(csvfile, newline="") as csvf:
+    with open(csvfile, newline="", encoding="utf-8") as csvf:
         reader = csv.DictReader(
             csvf, delimiter=delimiter, skipinitialspace=skipinitialspace
         )
@@ -384,11 +384,11 @@ def download_file(
                     dest_unpack = os.path.dirname(dest)
                 print(f"Extracting {dest} to {dest_unpack}")
 
-                if source.endswith(".gz") and not source.endswith(".tar.gz"):
+                if dest.endswith(".gz") and not dest.endswith(".tar.gz"):
                     # just a gzip'd file, but not an actual archive.
                     # merely uncompress it and remove the `.gz`.
-                    with gzip.open(source, "rb") as f_in:
-                        with open(source[:-3], "wb") as f_out:
+                    with gzip.open(dest, "rb") as f_in:
+                        with open(dest[:-3], "wb") as f_out:
                             shutil.copyfileobj(f_in, f_out)
                 else:
                     shutil.unpack_archive(dest, dest_unpack)

@@ -19,7 +19,7 @@ def main():
         "output_folder": output_folder,
         "data_folder": os.path.join(experiment_dir, "..", "..", "samples"),
     }
-    with open(hyperparams_file) as fin:
+    with open(hyperparams_file, encoding="utf-8") as fin:
         hyperparams = load_hyperpyyaml(fin, overrides)
 
     sb.create_experiment_directory(

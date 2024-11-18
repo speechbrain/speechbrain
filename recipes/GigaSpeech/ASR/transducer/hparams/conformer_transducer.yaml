@@ -42,8 +42,8 @@ json_file: !ref <data_folder>/GigaSpeech.json
 # The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
 # Empirically, we found that this value should be >= 128.
 # Please, set your parameters accordingly.
-number_of_epochs: 10
-optimizer_step_limit: 400000
+number_of_epochs: 40  # limited by the step limit in practice
+optimizer_step_limit: 500000
 warmup_steps: 30000
 num_workers: 4
 batch_size_valid: 4
@@ -103,11 +103,14 @@ valid_dataloader_opts:
 test_dataloader_opts:
    batch_size: !ref <batch_size_valid>
 
-# Using dynamic batching by default. This works with 48GB GPUs
+# Using dynamic batching by default. This was tuned for A100 80GB.
 # Or turn it off (but training speed will decrease)
 # Play with grad_accum_factor such that the total batch is around 600 to 1500 s.
+# You may have to adjust down the max_batch_length_train for GPUs with smaller
+# VRAM. The grad_accumulation_factor is tuned for 4x A100 80GB. You may have to
+# increase this factor if you are training on fewer GPUs or smaller batch sizes.
 dynamic_batching: True
-max_batch_length_train: 250
+max_batch_length_train: 500
 max_batch_length_val: 50 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
 shuffle: True # if true re-creates batches at each epoch shuffling examples.
