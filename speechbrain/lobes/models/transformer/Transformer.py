@@ -163,7 +163,7 @@ class TransformerInterface(nn.Module):
                 )
             self.positional_encoding_decoder = PositionalEncoding(
                 d_model, max_length
-            )
+            ) # just an abosulte POS
 
         # initialize the encoder
         if num_encoder_layers > 0:
@@ -236,7 +236,7 @@ class TransformerInterface(nn.Module):
                 activation=activation,
                 normalize_before=normalize_before,
                 causal=True,
-                attention_type="regularMHA",  # always use regular attention in decoder
+                attention_type="RoPEMHA", #"regularMHA",  # always use regular attention in decoder
                 kdim=self.decoder_kdim,
                 vdim=self.decoder_vdim,
             )
@@ -695,7 +695,7 @@ class TransformerDecoderLayer(nn.Module):
         dropout=0.0,
         activation=nn.ReLU,
         normalize_before=False,
-        attention_type="regularMHA",
+        attention_type="RoPEMHA", #"regularMHA", hard coded to RoPEMHA
         causal=None,
     ):
         super().__init__()
@@ -716,7 +716,6 @@ class TransformerDecoderLayer(nn.Module):
                 vdim=vdim,
                 dropout=dropout,
             )
-
         elif attention_type == "RelPosMHAXL":
             self.self_attn = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
@@ -785,14 +784,14 @@ class TransformerDecoderLayer(nn.Module):
             tgt1 = self.norm1(tgt)
         else:
             tgt1 = tgt
-
+            
         # self-attention over the target sequence
         tgt2, self_attn = self.self_attn(
             query=tgt1,
             key=tgt1,
             value=tgt1,
-            attn_mask=tgt_mask,
-            key_padding_mask=tgt_key_padding_mask,
+            attn_mask=tgt_mask, # a diagnoal mask
+            key_padding_mask=tgt_key_padding_mask, # a mask for padding
             pos_embs=pos_embs_tgt,
         )
 
@@ -807,15 +806,16 @@ class TransformerDecoderLayer(nn.Module):
             tgt1 = tgt
 
         # multi-head attention over the target sequence and encoder states
-
         tgt2, multihead_attention = self.multihead_attn(
             query=tgt1,
             key=memory,
             value=memory,
-            attn_mask=memory_mask,
-            key_padding_mask=memory_key_padding_mask,
+            attn_mask=memory_mask, # none
+            key_padding_mask=memory_key_padding_mask, # a mask for padding
             pos_embs=pos_embs_src,
         )
+        
+        # breakpoint()
 
         # add & norm
         tgt = tgt + self.dropout2(tgt2)
@@ -893,7 +893,7 @@ class TransformerDecoder(nn.Module):
         activation=nn.ReLU,
         normalize_before=False,
         causal=False,
-        attention_type="regularMHA",
+        attention_type="RoPEMHA", #"regularMHA",
     ):
         super().__init__()
         self.layers = torch.nn.ModuleList(

@@ -1104,13 +1104,15 @@ class RoPEMHA(nn.Module):
     def rotate(self, x, sinusoid_table):
         # x: bsz, L, num_heads, head_dim
         bsz, seq_len, _, head_dim = x.shape
+        # breakpoint()
+        # cosine, sine = sinusoid_table
         cosine, sine = sinusoid_table
         
         # equation 34 
         rotate_half = torch.stack([-x[:,:,:,1::2], x[:,:,:,::2]], dim=-1).reshape(bsz, seq_len, -1, head_dim)
         
         # (bsz, L, num_heads, head_dim) * (L, 1, hdead_dim)
-        return x * cosine.unsqueeze(1) + rotate_half * sine.unsqueeze(1)
+        return x * cosine[:seq_len].unsqueeze(1) + rotate_half * sine[:seq_len].unsqueeze(1)
 
 
     def forward(
