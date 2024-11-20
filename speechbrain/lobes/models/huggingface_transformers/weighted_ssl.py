@@ -97,15 +97,12 @@ class WeightedSSLModel(HFTransformersInterface):
 
         # Layernorming the layers representations if asked
         if self.layernorm:
-            hidden_states = torch.stack(
-                [F.layer_norm(t, (t.shape[-1],)) for t in hidden_states], dim=0
-            )
+            normalized_shape = (hidden_states.size(-1),)
+            hidden_states = F.layer_norm(hidden_states, normalized_shape)
 
         # Summing the weighted layers
-        norm_weights = torch.nn.functional.softmax(self.weights, dim=-1)
-        weighted_feats = (
-            hidden_states * norm_weights[:, None, None, None]
-        ).sum(axis=0)
+        norm_weights = F.softmax(self.weights, dim=-1).view(-1, 1, 1, 1)
+        weighted_feats = (hidden_states * norm_weights).sum(axis=0)
 
         return weighted_feats
 
