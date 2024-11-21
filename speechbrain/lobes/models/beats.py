@@ -1769,6 +1769,14 @@ class BEATsConfig:
             self.update(cfg)
 
     def update(self, cfg: dict):
+        """
+        Updates the instance's attributes with key-value pairs from a given configuration dictionary.
+
+        Arguments
+        ---------
+        cfg : dict
+            A dictionary containing the configuration values to update the instance with.
+        """
         self.__dict__.update(cfg)
 
 
