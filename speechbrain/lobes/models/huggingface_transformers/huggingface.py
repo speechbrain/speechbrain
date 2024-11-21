@@ -14,7 +14,7 @@ Authors
  * Aku Rouhe 2022
  * Arseniy Gorin 2022
  * Ali Safaya 2022
- * Benoit Wang 2022
+ * Yingzhi Wang 2022, 2024
  * Adel Moumen 2022, 2023
  * Andreas Nautsch 2022, 2023
  * Luca Della Libera 2022
@@ -289,7 +289,13 @@ class HFTransformersInterface(nn.Module):
                     is_sb = False
                     return is_sb, checkpoint_filename, is_local
 
-        err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
+            # for loading huggingface llama3
+            for File in files:
+                if File.rfilename.endswith(".safetensors"):
+                    checkpoint_filename = File.rfilename
+                    is_sb = False
+                    return is_sb, checkpoint_filename, is_local
+        err_msg = f"{path} does not contain a .bin or .ckpt or .safetensors checkpoint!"
         raise FileNotFoundError(err_msg)
 
     def _modify_state_dict(self, path, **kwargs):

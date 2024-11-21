@@ -181,7 +181,7 @@ class Whisper(HFTransformersInterface):
         for param in model.parameters():
             param.requires_grad = False
 
-    def forward(self, wav, decoder_input_ids=None):
+    def forward(self, wav, decoder_input_ids=None, n_samples=N_SAMPLES):
         """Perform mel transformation and one step of the whisper (encoder-decoder).
 
         Arguments
@@ -206,7 +206,7 @@ class Whisper(HFTransformersInterface):
 
         def _forward():
             """Forward pass of the model"""
-            mel = self._get_mel(wav)
+            mel = self._get_mel(wav, n_samples)
             out_encoder = self.forward_encoder(mel)
             if self.encoder_only:
                 return out_encoder
@@ -227,7 +227,7 @@ class Whisper(HFTransformersInterface):
         else:
             return _forward()
 
-    def _get_mel(self, wav):
+    def _get_mel(self, wav, n_samples):
         """
         Compute the mel spectrogram features from the input audio waveform.
 
@@ -241,7 +241,7 @@ class Whisper(HFTransformersInterface):
         torch.Tensor
             Mel spectrogram features computed from the input audio waveform.
         """
-        mels = self.pad_or_trim(wav)
+        mels = self.pad_or_trim(wav, length=n_samples)
         mels = self.log_mel_spectrogram(mels)
         return mels
 
