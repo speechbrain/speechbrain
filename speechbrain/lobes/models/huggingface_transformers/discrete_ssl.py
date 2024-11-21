@@ -363,23 +363,23 @@ class DiscreteSSL(nn.Module):
 
         offsets = torch.arange(
             0,
-            len(self.all_layer_ids) * num_clusters,
+            len(self.ssl_layer_ids) * num_clusters,
             num_clusters,
             device=self.device,
         )
 
-        layers = self.all_layer_ids
+        layers = self.ssl_layer_ids
         if SSL_layers is not None:
             layers = SSL_layers
 
-        offset_idxes = [self.all_layer_ids.index(x) for x in layers]
+        offset_idxes = [self.ssl_layer_ids.index(x) for x in layers]
         offsets = offsets[offset_idxes]
         tokens = tokens + offsets + 1
 
-        if len(layers) < len(self.all_layer_ids):
+        if len(layers) < len(self.ssl_layer_ids):
             full_tokens = torch.zeros(
                 *tokens.shape[:2],
-                len(self.all_layer_ids),
+                len(self.ssl_layer_ids),
                 dtype=tokens.dtype,
                 device=self.device,
             )
