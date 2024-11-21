@@ -5,6 +5,7 @@ https://huggingface.co/transformers/installation.html
 
 Author
  * Pooneh Mousavi 2024
+ * Jarod Duret 2024
 """
 
 import os
@@ -32,20 +33,22 @@ class DiscreteSSL(nn.Module):
     The model can be used as a fixed Discrete feature extractor or can be finetuned. It
     will download automatically the model from HuggingFace or use a local path.
 
+    The compatible SSL models are `WavLM`, `HuBERT`, and `Wav2Vec2`.
+
     Arguments
     ---------
     save_path : str
         Path (dir) of the downloaded model.
     ssl_model : str
-        SSL model to extract semantic tokens from its layers' output. Note that output_all_hiddens should be set to True to enable multi-layer discretenation.
+        SSL model to extract semantic tokens from its layers' output. Note that output_all_hiddens should be set to True to enable multi-layer discretization.
     kmeans_dataset : str
         Name of the dataset that Kmeans model on HF repo is trained with.
     vocoder_repo_id: str
         Huggingface repository that contains the pre-trained HiFi-GAN model.
     num_clusters : int or List[int] (default: 1000)
-            determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
+        Determine the number of clusters of the targeted kmeans models to be downloaded. It could be varying for each layer.
     layers_num : List[int] (Optional)
-            detremine layers to be download from HF repo. If it is not provided, all layers with num_clusters(int) is loaded from HF repo. If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
+        Detremine layers to be download from HF repo. If it is not provided, all layers with num_clusters(int) is loaded from HF repo. If num_clusters is a list, the layers_num should be provided to determine the cluster number for each layer.
     device : str (default 'cpu')
         The device to use for computation ('cpu' or 'cuda').
     sample_rate : int (default: 16000)
@@ -53,9 +56,9 @@ class DiscreteSSL(nn.Module):
     Example
     -------
     >>> import torch
-    >>> from speechbrain.lobes.models.huggingface_transformers.hubert import (HuBERT)
+    >>> from speechbrain.lobes.models.huggingface_transformers.wavlm import (WavLM)
     >>> inputs = torch.rand([3, 2000])
-    >>> model_hub = "facebook/hubert-large-ll60k"
+    >>> model_hub = "microsoft/wavlm-large"
     >>> save_path = "savedir"
     >>> ssl_layer_num = [7,23]
     >>> deduplicate =[False, True]
@@ -63,11 +66,14 @@ class DiscreteSSL(nn.Module):
     >>> vocoder_repo_id = "speechbrain/hifigan-wavlm-k1000-LibriTTS"
     >>> kmeans_dataset = "LibriSpeech"
     >>> num_clusters = 1000
-    >>> ssl_model = HuBERT(model_hub, save_path,output_all_hiddens=True)
+    >>> ssl_model = WavLM(model_hub, save_path,output_all_hiddens=True)
     >>> model = DiscreteSSL(save_path, ssl_model, vocoder_repo_id=vocoder_repo_id, kmeans_dataset=kmeans_dataset,num_clusters=num_clusters)
-    >>> tokens = model.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
+    >>> tokens, _, _ = model.encode(inputs,SSL_layers=ssl_layer_num, deduplicates=deduplicate, bpe_tokenizers=bpe_tokenizers)
     >>> print(tokens.shape)
     torch.Size([3, 6, 2])
+    >>> sig = model.decode(tokens, ssl_layer_num)
+    >>> print(sig.shape)
+    torch.Size([3, 1, 1920])
     """
 
     def __init__(
@@ -333,6 +339,9 @@ class DiscreteSSL(nn.Module):
 
     def decode(self, tokens, SSL_layers=None):
         """Takes an input waveform and return its corresponding waveform.
+        Original source:
+        https://github.com/speechbrain/benchmarks/blob/c87beb61d4747909a133d3e1b3a3df7c8eda1f08/
+        benchmarks/DASB/Libri2Mix/separation/conformer/train_discrete_ssl.py#L44
 
         Arguments
         ---------
@@ -347,27 +356,30 @@ class DiscreteSSL(nn.Module):
             Batch of mel-waveforms [batch, time]
         """
 
-        all_layer_ids = self.ssl_layer_ids
+        assert all(
+            cluster == self.num_clusters[0] for cluster in self.num_clusters
+        ), "All values in num_clusters must be equal."
         num_clusters = self.num_clusters[0]
+
         offsets = torch.arange(
             0,
-            len(all_layer_ids) * num_clusters,
+            len(self.all_layer_ids) * num_clusters,
             num_clusters,
             device=self.device,
         )
 
-        layers = all_layer_ids
+        layers = self.all_layer_ids
         if SSL_layers is not None:
             layers = SSL_layers
 
-        offset_idxes = [all_layer_ids.index(x) for x in layers]
+        offset_idxes = [self.all_layer_ids.index(x) for x in layers]
         offsets = offsets[offset_idxes]
-        tokens += offsets + 1
+        tokens = tokens + offsets + 1
 
-        if len(layers) < len(all_layer_ids):
+        if len(layers) < len(self.all_layer_ids):
             full_tokens = torch.zeros(
                 *tokens.shape[:2],
-                len(all_layer_ids),
+                len(self.all_layer_ids),
                 dtype=tokens.dtype,
                 device=self.device,
             )
