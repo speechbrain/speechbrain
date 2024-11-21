@@ -261,7 +261,10 @@ class HFTransformersInterface(nn.Module):
 
         if is_local:
             # Test for HuggingFace model
-            if any(File.endswith((".bin", ".safetensors")) for File in os.listdir(local_path)):
+            if any(
+                File.endswith((".bin", ".safetensors"))
+                for File in os.listdir(local_path)
+            ):
                 is_sb = False
                 return is_sb, checkpoint_filename, is_local
 
