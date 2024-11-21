@@ -1,15 +1,15 @@
 """ Create speebrain csv files for the Libri-Light dataset for self-supervised-learning
 
-1. download the Libri-Light dataset through the toolkit in the Libri-Light github repo 
+1. Download the Libri-Light dataset through the toolkit in the Libri-Light github repo 
     "https://github.com/facebookresearch/libri-light/"
 
-2. use the data_preparation/cut_by_vad.py script of the Libri-Light repo to do the vad. For example, 
+2. Use the data_preparation/cut_by_vad.py script of the Libri-Light repo to do the vad. For example, 
     "python cut_by_vad.py --input_dir path_to_Libri-Light_small --output_dir Libri-Light_small_vad --target_len_sec 20"
     
-3. use the output_dir in step 2 as the input_dir in this step to generate the csv file. For example,
+3. Use the vad output_dir in step 2 as the input_dir in this step to generate the csv file. For example,
     "python make_librilight_csv.py --input_dir Libri-Light_small_vad --output_dir results --max_length 20 --n_processes 128" to generate the train.csv for the SSL pretraining 
     
-4. now, you can use the train.csv as the "train_csv" in any SpeechBrain SSL pre-training yaml file
+4. Now, you can use the generated train.csv in the output_dir in step 3 as the "train_csv" in any SpeechBrain SSL pre-training yaml file
 
 Authors
  * Shucong Zhang 2024
