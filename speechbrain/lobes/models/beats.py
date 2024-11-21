@@ -1310,7 +1310,7 @@ class BEATs(nn.Module):
     def __init__(
         self,
         ckp_path: str = None,
-        freeze: bool = False,
+        freeze: bool = True,
         output_all_hiddens: bool = False,
     ) -> None:
         super().__init__()
@@ -1490,10 +1490,10 @@ class BEATs(nn.Module):
         if self.post_extract_proj is not None:
             features = self.post_extract_proj(features)
 
-        x = self.dropout_input(features)
+        features = self.dropout_input(features)
 
         x, layer_results = self.encoder(
-            x,
+            features,
             padding_mask=padding_mask,
             output_all_hiddens=self.output_all_hiddens,
         )
@@ -1518,4 +1518,3 @@ class BEATs(nn.Module):
             x = torch.stack(layer_results, dim=0)
 
         return x
-    
