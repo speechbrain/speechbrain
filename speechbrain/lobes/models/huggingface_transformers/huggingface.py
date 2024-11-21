@@ -109,12 +109,14 @@ class HFTransformersInterface(nn.Module):
     ):
         super().__init__()
 
+        trust_remote_code = kwargs.get("trust_remote_code", False)
+
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
             source,
             cache_dir=save_path,
             return_unused_kwargs=True,
-            **kwargs,
+            trust_remote_code=trust_remote_code,
         )
 
         self.config = self.override_config(self.config)
