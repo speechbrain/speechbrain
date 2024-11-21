@@ -1,12 +1,15 @@
-# --------------------------------------------------------
-# BEATs: Audio Pre-Training with Acoustic Tokenizers (https://arxiv.org/abs/2212.09058)
-# Github source: https://github.com/microsoft/unilm/tree/master/beats
-# Copyright (c) 2022 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Based on fairseq code bases
-# https://github.com/pytorch/fairseq
-# --------------------------------------------------------
+"""This lobe enables the integration of pretrained  BEATs: Audio Pre-Training with Acoustic Tokenizers.
 
+Reference: https://arxiv.org/abs/2212.09058
+Based on Github source: https://github.com/microsoft/unilm/tree/master/beats
+Reference: https://arxiv.org/abs/2110.13900
+
+You could download the checkpoints from : https://github.com/microsoft/unilm/tree/master/beats
+
+Author
+ * Pooneh Mousavi 2024
+
+"""
 
 import logging
 import math
@@ -26,6 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 def gelu_accurate(x):
+    """
+    Applies the Gaussian Error Linear Unit (GELU) activation function
+    using an accurate approximation.
+
+    Arguments
+    ---------
+        x (Tensor): Input tensor on which to apply the GELU activation.
+
+    Returns
+    -------
+        Tensor: Tensor with GELU activation applied element-wise.
+    """
     if not hasattr(gelu_accurate, "_a"):
         gelu_accurate._a = math.sqrt(2 / math.pi)
     return (
@@ -36,11 +51,46 @@ def gelu_accurate(x):
 
 
 def gelu(x: torch.Tensor) -> torch.Tensor:
+    """
+    Applies the Gaussian Error Linear Unit (GELU) activation function.
+
+    Arguments
+    ---------
+        x (torch.Tensor): Input tensor to apply the GELU activation.
+
+    Returns
+    -------
+        torch.Tensor: Tensor with GELU activation applied element-wise.
+    """
     return torch.nn.functional.gelu(x.float()).type_as(x)
 
 
 def get_activation_fn(activation: str):
-    """Returns the activation function corresponding to `activation`"""
+    """
+    Returns the activation function corresponding to the provided activation name.
+
+    Arguments
+    ---------
+    activation : str
+        Name of the activation function. Supported values:
+        - "relu": Applies ReLU activation.
+        - "gelu": Applies the GELU activation.
+        - "gelu_fast": Alias for `gelu_accurate` with a deprecation warning.
+        - "gelu_accurate": Applies the accurate GELU activation.
+        - "tanh": Applies the Tanh activation.
+        - "linear": Applies the identity function.
+        - "glu": Applies the identity function (GLU placeholder).
+
+    Returns
+    -------
+    Callable[[torch.Tensor], torch.Tensor]
+        The corresponding activation function to apply to input tensors.
+
+    Raises
+    ------
+    RuntimeError
+        If the specified activation function is not supported.
+    """
 
     if activation == "relu":
         return F.relu
@@ -66,6 +116,24 @@ def get_activation_fn(activation: str):
 
 
 class SamePad(nn.Module):
+    """
+    Implements a module that adjusts the padding of a tensor after convolution
+    to maintain its original size, with an option for causal padding.
+
+    This is particularly useful for handling padding in convolutional layers
+    where the kernel size or causality affects the output size.
+
+    Arguments
+    ---------
+    kernel_size : int
+        The size of the convolutional kernel.
+    causal : bool, optional (default=False)
+        If True, applies causal padding by removing `(kernel_size - 1)`
+        elements from the end of the tensor. If False, removes elements
+        to center-align the padding, ensuring the output size matches
+        the input size.
+    """
+
     def __init__(self, kernel_size, causal=False):
         super().__init__()
         if causal:
@@ -74,21 +142,81 @@ class SamePad(nn.Module):
             self.remove = 1 if kernel_size % 2 == 0 else 0
 
     def forward(self, x):
+        """
+        Adjusts the padding of the input tensor `x`.
+
+        If `self.remove > 0`, the method slices the tensor along the last dimension
+        to remove excess padding based on the `kernel_size` and `causal` settings.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input tensor to adjust padding for.
+
+        Returns
+        -------
+        torch.Tensor
+            The tensor with adjusted padding.
+        """
         if self.remove > 0:
             x = x[:, :, : -self.remove]
         return x
 
 
 class Swish(nn.Module):
+    """
+    Implements the Swish activation function as a PyTorch module.
+
+    Swish is a smooth, non-monotonic activation function defined as:
+        Swish(x) = x * sigmoid(x)
+
+    It is often used in deep learning for its ability to improve training
+    performance in certain architectures.
+
+    """
+
     def __init__(self):
         super(Swish, self).__init__()
         self.act = torch.nn.Sigmoid()
 
     def forward(self, x):
+        """
+        Applies the Swish activation function to the input tensor.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input tensor to which the Swish activation is applied.
+
+        Returns
+        -------
+        torch.Tensor
+            The input tensor after applying the Swish activation.
+        """
         return x * self.act(x)
 
 
 class GLU_Linear(nn.Module):
+    """
+    Implements a Gated Linear Unit (GLU) combined with a linear transformation.
+
+    Arguments
+    ---------
+    input_dim : int
+        The dimensionality of the input features.
+    output_dim : int
+        The dimensionality of the output features.
+    glu_type : str, optional (default="sigmoid")
+        The type of activation function used for gating. Supported values are:
+        - "sigmoid": Uses the sigmoid activation function.
+        - "swish": Uses the Swish activation function.
+        - "relu": Uses the ReLU activation function.
+        - "gelu": Uses the GELU activation function.
+    bias_in_glu : bool, optional (default=True)
+        Whether to include a bias term in the linear transformation.
+
+    """
+
     def __init__(
         self, input_dim, output_dim, glu_type="sigmoid", bias_in_glu=True
     ):
@@ -113,35 +241,82 @@ class GLU_Linear(nn.Module):
 
 
 class GradMultiply(torch.autograd.Function):
+    """
+    A custom autograd function that scales gradients during the backward pass.
+
+    This is useful for scenarios where gradient scaling is required without
+    affecting the forward pass output. The forward pass returns the input as-is,
+    while the backward pass scales the gradients by a specified factor.
+
+    """
+
     @staticmethod
     def forward(ctx, x, scale):
+        """
+        Performs the forward pass of the GradMultiply function.
+
+        Arguments
+        ---------
+        ctx : torch.autograd.Function
+            The context object to store information for the backward computation.
+        x : torch.Tensor
+            The input tensor to be forwarded unchanged.
+        scale : float
+            The factor by which the gradients will be scaled during the backward pass.
+
+        Returns
+        -------
+        torch.Tensor
+            A new tensor identical to the input tensor.
+        """
         ctx.scale = scale
         res = x.new(x)
         return res
 
     @staticmethod
     def backward(ctx, grad):
+        """
+        Performs the backward pass, scaling the gradients by the stored factor.
+
+        Arguments
+        ---------
+        ctx : torch.autograd.Function
+            The context object containing the stored scaling factor.
+        grad : torch.Tensor
+            The gradient tensor from the subsequent layer.
+
+        Returns
+        -------
+        Tuple[torch.Tensor, None]
+            The scaled gradient tensor and None (for the scale input, which has no gradient).
+        """
         return grad * ctx.scale, None
 
 
 def quant_noise(module, p, block_size):
     """
-    Wraps modules and applies quantization noise to the weights for
-    subsequent quantization with Iterative Product Quantization as
-    described in "Training with Quantization Noise for Extreme Model Compression"
+    Wraps modules and applies quantization noise to their weights for
+    subsequent quantization using Iterative Product Quantization (iPQ).
 
-    Args:
-        - module: nn.Module
-        - p: amount of Quantization Noise
-        - block_size: size of the blocks for subsequent quantization with iPQ
+    This approach is described in the paper:
+    "Training with Quantization Noise for Extreme Model Compression." It
+    introduces quantization noise during training to improve model robustness
+    for extreme weight compression scenarios.
 
-    Remarks:
-        - Module weights must have the right sizes wrt the block size
-        - Only Linear, Embedding and Conv2d modules are supported for the moment
-        - For more detail on how to quantize by blocks with convolutional weights,
-          see "And the Bit Goes Down: Revisiting the Quantization of Neural Networks"
-        - We implement the simplest form of noise here as stated in the paper
-          which consists in randomly dropping blocks
+    Arguments
+    ---------
+    module : nn.Module
+        The module to which quantization noise will be applied. Supported modules
+        are Linear, Embedding, and Conv2d.
+    p : float
+        The amount of quantization noise to apply. Typically a probability or scaling factor.
+    block_size : int
+        The size of the blocks for subsequent quantization with iPQ.
+
+    Returns
+    -------
+    None
+
     """
 
     # if no quantization noise, don't register hook
@@ -176,6 +351,16 @@ def quant_noise(module, p, block_size):
 
 
 class TransformerEncoder(nn.Module):
+    """
+    Implements the Transformer Encoder module.
+
+    Arguments
+    ---------
+    args : Namespace or dict
+        A collection of model hyperparameters and configurations.
+
+    """
+
     def __init__(self, args):
         super().__init__()
 
@@ -274,6 +459,28 @@ class TransformerEncoder(nn.Module):
         )
 
     def forward(self, x, padding_mask=None, output_all_hiddens=None):
+        """
+        Processes the input sequence through the Transformer Encoder layers.
+
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input tensor of shape `(seq_len, batch_size, embed_dim)` containing
+            the input embeddings.
+        padding_mask : torch.Tensor, optional
+            A binary mask of shape `(batch_size, seq_len)` indicating which positions
+            are padding and should be ignored in attention computations.
+            Default is `None`.
+        output_all_hiddens : bool, optional
+            If True, returns the hidden states from all encoder layers in addition
+            to the final output. Default is `None`.
+
+        Returns
+        -------
+        Tuple[torch.Tensor, List[torch.Tensor]]
+            - The final output tensor of shape `(seq_len, batch_size, embed_dim)`.
+        """
         x, layer_results = self.extract_features(
             x, padding_mask, output_all_hiddens
         )
@@ -284,7 +491,28 @@ class TransformerEncoder(nn.Module):
         return x, layer_results
 
     def extract_features(self, x, padding_mask=None, output_all_hiddens=None):
+        """
+        Extracts features from the input sequence using positional convolution,
+        layer normalization, dropout, and a series of Transformer Encoder layers.
 
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            The input tensor of shape `(batch_size, seq_len, embed_dim)` containing
+            the input embeddings.
+        padding_mask : torch.Tensor, optional
+            A binary mask of shape `(batch_size, seq_len)` indicating which positions
+            are padding and should be ignored in computations. Default is `None`.
+        output_all_hiddens : bool, optional
+            If True, collects and returns the hidden states from all encoder layers
+            in addition to the final output. Default is `None`.
+
+        Returns
+        -------
+        Tuple[torch.Tensor, List[torch.Tensor]]
+            - The final output tensor of shape `(batch_size, seq_len, embed_dim)`.
+        """
         if padding_mask is not None:
             x[padding_mask] = 0
 
@@ -330,6 +558,43 @@ class TransformerEncoder(nn.Module):
 
 
 class TransformerSentenceEncoderLayer(nn.Module):
+    """
+    Implements a single Transformer Sentence Encoder layer.
+
+    Arguments
+    ---------
+    embedding_dim : float, optional (default=768)
+        The dimensionality of input embeddings.
+    ffn_embedding_dim : float, optional (default=3072)
+        The dimensionality of the feed-forward network's hidden layer.
+    num_attention_heads : float, optional (default=8)
+        The number of attention heads for self-attention.
+    dropout : float, optional (default=0.1)
+        The dropout rate applied to the output of the feed-forward network and attention layers.
+    attention_dropout : float, optional (default=0.1)
+        The dropout rate applied within the attention mechanism.
+    activation_dropout : float, optional (default=0.1)
+        The dropout rate applied after the activation function in the feed-forward network.
+    activation_fn : str, optional (default="relu")
+        The activation function used in the feed-forward network. Supported values include "relu" and "gelu".
+    layer_norm_first : bool, optional (default=False)
+        If True, applies layer normalization before attention and feed-forward layers; otherwise, applies it afterward.
+    deep_norm : bool, optional (default=False)
+        If True, uses deep normalization scaling for residual connections.
+    has_relative_attention_bias : bool, optional (default=False)
+        If True, includes relative position bias in the attention mechanism.
+    num_buckets : int, optional (default=0)
+        The number of buckets used for relative attention bias (if enabled).
+    max_distance : int, optional (default=0)
+        The maximum distance for relative attention bias (if enabled).
+    rescale_init : bool, optional (default=False)
+        If True, rescales parameter initialization for improved stability.
+    gru_rel_pos : bool, optional (default=False)
+        If True, incorporates GRU-style relative position encoding.
+    encoder_layers : int, optional (default=0)
+        The number of encoder layers in the Transformer.
+    """
+
     def __init__(
         self,
         embedding_dim: float = 768,
@@ -400,6 +665,32 @@ class TransformerSentenceEncoderLayer(nn.Module):
         need_weights: bool = False,
         pos_bias=None,
     ):
+        """
+        Processes the input tensor through the Transformer sentence encoder layer.
+
+        Arguments
+        ---------
+        x : torch.Tensor
+            Input tensor of shape `(seq_len, batch_size, embed_dim)`.
+        self_attn_mask : torch.Tensor, optional
+            Mask for the self-attention mechanism, typically used for causal or
+            padding masking. Default is `None`.
+        self_attn_padding_mask : torch.Tensor, optional
+            Padding mask of shape `(batch_size, seq_len)`, indicating which tokens
+            should be ignored in attention computations. Default is `None`.
+        need_weights : bool, optional (default=False)
+            Whether to return attention weights. If `True`, attention weights are
+            included in the output.
+        pos_bias : optional
+            Positional bias for relative attention, if applicable. Default is `None`.
+
+        Returns
+        -------
+        Tuple[torch.Tensor, torch.Tensor, optional]
+            - `x` (torch.Tensor): The output tensor of shape `(seq_len, batch_size, embed_dim)`
+            after applying the encoder layer.
+
+        """
         residual = x
 
         if self.layer_norm_first:
@@ -458,14 +749,11 @@ class TransformerSentenceEncoderLayer(nn.Module):
 
 class MultiheadAttention(nn.Module):
     """
-    Implements multi-headed attention with support for advanced features like relative position 
+    Implements multi-headed attention with support for advanced features like relative position
     embeddings and gated relative position embedding (GRU-based).
 
-    The design is inspired by "Attention Is All You Need" with extensions for flexible initialization 
-    and enhanced embedding techniques.
-
-    Parameters
-    ----------
+    Arguments
+    ---------
     embed_dim : int
         Total number of dimensions for input embeddings.
     num_heads : int
@@ -500,15 +788,6 @@ class MultiheadAttention(nn.Module):
         Whether to use gated relative position embeddings. Defaults to False.
     rescale_init : bool, optional
         Whether to rescale the initialization of weights. Defaults to False.
-
-    Attributes
-    ----------
-    scaling : float
-        Scaling factor applied to query projections.
-    dropout_module : nn.Dropout
-        Dropout layer applied to attention weights.
-    relative_attention_bias : nn.Embedding, optional
-        Embedding layer for relative position biases, if enabled.
     """
 
     # Initialization method
@@ -553,24 +832,34 @@ class MultiheadAttention(nn.Module):
         self.q_head_dim = self.head_dim
         self.k_head_dim = self.head_dim
 
-        assert self.head_dim * num_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
-        self.scaling = self.head_dim ** -0.5
+        assert (
+            self.head_dim * num_heads == self.embed_dim
+        ), "embed_dim must be divisible by num_heads"
+        self.scaling = self.head_dim**-0.5
 
         # Self-attention and encoder-decoder attention flags
         self.self_attention = self_attention
         self.encoder_decoder_attention = encoder_decoder_attention
 
-        assert not self.self_attention or self.qkv_same_dim, (
-            "Self-attention requires query, key, and value to be of the same size."
-        )
+        assert (
+            not self.self_attention or self.qkv_same_dim
+        ), "Self-attention requires query, key, and value to be of the same size."
 
         # Initialize projection layers with optional quantization noise
         self.k_proj = quant_noise(
-            nn.Linear(self.kdim, embed_dim, bias=(not rescale_init)), q_noise, qn_block_size
+            nn.Linear(self.kdim, embed_dim, bias=(not rescale_init)),
+            q_noise,
+            qn_block_size,
         )
-        self.v_proj = quant_noise(nn.Linear(self.vdim, embed_dim, bias=bias), q_noise, qn_block_size)
-        self.q_proj = quant_noise(nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size)
-        self.out_proj = quant_noise(nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size)
+        self.v_proj = quant_noise(
+            nn.Linear(self.vdim, embed_dim, bias=bias), q_noise, qn_block_size
+        )
+        self.q_proj = quant_noise(
+            nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size
+        )
+        self.out_proj = quant_noise(
+            nn.Linear(embed_dim, embed_dim, bias=bias), q_noise, qn_block_size
+        )
 
         # Bias terms for key and value, if applicable
         if add_bias_kv:
@@ -589,21 +878,9 @@ class MultiheadAttention(nn.Module):
         # Reset parameters
         self.reset_parameters()
 
-
     def reset_parameters(self):
         """
         Initializes the weights for the projection layers and relative position embeddings.
-
-        This method applies Xavier initialization to the query, key, value, and output
-        projections. Biases are initialized to zero, and relative position embedding weights
-        are also initialized if applicable.
-
-        Notes
-        -----
-        - For models where query, key, and value projections share dimensions (`qkv_same_dim`),
-        the initialization gains are scaled to improve convergence.
-        - Relative position biases (`bias_k` and `bias_v`) and embeddings are initialized
-        with a normal distribution if present.
         """
         if self.qkv_same_dim:
             nn.init.xavier_uniform_(self.k_proj.weight, gain=1 / math.sqrt(2))
@@ -626,23 +903,18 @@ class MultiheadAttention(nn.Module):
         if self.has_relative_attention_bias:
             nn.init.xavier_normal_(self.relative_attention_bias.weight)
 
+    def _relative_positions_bucket(
+        self, relative_positions, bidirectional=True
+    ):
+        """Computes bucket indices for relative positions for relative attention bias.
 
-    def _relative_positions_bucket(self, relative_positions, bidirectional=True):
-        """
-        Computes bucket indices for relative positions for relative attention bias.
-
-        This method categorizes relative positions into buckets to efficiently encode
-        relative position information for the attention mechanism. For positions beyond
-        a predefined range, logarithmic scaling is applied.
-
-        Parameters
-        ----------
+        Arguments
+        ---------
         relative_positions : torch.Tensor
             A tensor of relative positions, where negative values indicate positions to the
             left and positive values indicate positions to the right.
-        bidirectional : bool, optional
+        bidirectional : bool, optional, (default: True)
             If True, separate buckets are used for positive and negative positions.
-            Defaults to True.
 
         Returns
         -------
@@ -657,10 +929,14 @@ class MultiheadAttention(nn.Module):
         if bidirectional:
             # Halve buckets for bidirectional attention
             num_buckets = num_buckets // 2
-            relative_buckets += (relative_positions > 0).to(torch.long) * num_buckets
+            relative_buckets += (relative_positions > 0).to(
+                torch.long
+            ) * num_buckets
             relative_positions = torch.abs(relative_positions)
         else:
-            relative_positions = -torch.min(relative_positions, torch.zeros_like(relative_positions))
+            relative_positions = -torch.min(
+                relative_positions, torch.zeros_like(relative_positions)
+            )
 
         max_exact = num_buckets // 2
         is_small = relative_positions < max_exact
@@ -675,19 +951,18 @@ class MultiheadAttention(nn.Module):
             torch.full_like(relative_position_if_large, num_buckets - 1),
         )
 
-        relative_buckets += torch.where(is_small, relative_positions, relative_position_if_large)
+        relative_buckets += torch.where(
+            is_small, relative_positions, relative_position_if_large
+        )
         return relative_buckets
 
     def compute_bias(self, query_length: int, key_length: int) -> torch.Tensor:
         """
         Computes relative position bias for attention scores.
 
-        This method calculates the bias values based on the relative positions between
-        query and key tokens, utilizing the relative position bucket indices and the
-        associated embeddings.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         query_length : int
             The length of the query sequence.
         key_length : int
@@ -696,14 +971,8 @@ class MultiheadAttention(nn.Module):
         Returns
         -------
         torch.Tensor
-            A tensor of shape `(num_heads, query_length, key_length)` containing the
-            relative position bias values for each attention head.
-
-        Notes
-        -----
-        - The relative position buckets are computed using the `_relative_positions_bucket` method.
-        - The embeddings for the relative positions are obtained from the
-        `self.relative_attention_bias` embedding layer.
+            A tensor of shape `(num_heads, query_length, key_length)` containing
+            the relative position bias values for each attention head.
         """
         # Compute the relative position between each query and key token
         context_position = torch.arange(query_length, dtype=torch.long)[:, None]
@@ -724,10 +993,11 @@ class MultiheadAttention(nn.Module):
         values = self.relative_attention_bias(relative_position_bucket)
 
         # Rearrange dimensions to match expected output shape
-        values = values.permute([2, 0, 1])  # Shape: (num_heads, query_length, key_length)
+        values = values.permute(
+            [2, 0, 1]
+        )  # Shape: (num_heads, query_length, key_length)
 
         return values
-
 
     def forward(
         self,
@@ -735,7 +1005,9 @@ class MultiheadAttention(nn.Module):
         key: Optional[Tensor],
         value: Optional[Tensor],
         key_padding_mask: Optional[Tensor] = None,
-        incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]] = None,
+        incremental_state: Optional[
+            Dict[str, Dict[str, Optional[Tensor]]]
+        ] = None,
         need_weights: bool = True,
         static_kv: bool = False,
         attn_mask: Optional[Tensor] = None,
@@ -747,34 +1019,38 @@ class MultiheadAttention(nn.Module):
         Forward pass for multi-head attention with support for relative position embeddings,
         caching, and optional dropout.
 
-        Parameters
-        ----------
+        This method implements the core functionality of multi-head attention with
+        optional features such as relative position bias, incremental decoding, and
+        support for various masking options.
+
+        Arguments
+        ---------
         query : torch.Tensor
             Query tensor of shape `(target_length, batch_size, embed_dim)`.
         key : torch.Tensor, optional
-            Key tensor of shape `(source_length, batch_size, embed_dim)`.
+            Key tensor of shape `(source_length, batch_size, embed_dim)`. Defaults to `None`.
         value : torch.Tensor, optional
-            Value tensor of shape `(source_length, batch_size, embed_dim)`.
+            Value tensor of shape `(source_length, batch_size, embed_dim)`. Defaults to `None`.
         key_padding_mask : torch.Tensor, optional
             Mask to exclude padding keys, of shape `(batch_size, source_length)`,
-            where padding elements are indicated by 1s.
+            where padding elements are indicated by 1s. Defaults to `None`.
         incremental_state : dict, optional
-            Stores cached key and value tensors for incremental decoding. Defaults to None.
+            Stores cached key and value tensors for incremental decoding. Defaults to `None`.
         need_weights : bool, optional
-            If True, returns the attention weights. Defaults to True.
+            If True, returns the attention weights. Defaults to `True`.
         static_kv : bool, optional
             If True, the key and value tensors remain static for incremental decoding.
-            Defaults to False.
+            Defaults to `False`.
         attn_mask : torch.Tensor, optional
             Attention mask to prevent certain positions from attending, typically for
-            causal attention. Shape: `(target_length, source_length)`. Defaults to None.
+            causal attention. Shape: `(target_length, source_length)`. Defaults to `None`.
         before_softmax : bool, optional
-            If True, returns raw attention scores before softmax. Defaults to False.
+            If True, returns raw attention scores before softmax. Defaults to `False`.
         need_head_weights : bool, optional
             If True, returns attention weights for each head. Implies `need_weights=True`.
-            Defaults to False.
+            Defaults to `False`.
         position_bias : torch.Tensor, optional
-            Precomputed position bias tensor. If None, it is computed during the forward pass.
+            Precomputed position bias tensor. If `None`, it is computed during the forward pass.
 
         Returns
         -------
@@ -785,19 +1061,10 @@ class MultiheadAttention(nn.Module):
             averaged across heads if `need_head_weights=False`.
         position_bias : torch.Tensor, optional
             Computed or passed relative position bias of shape `(num_heads, target_length, source_length)`.
-
-        Notes
-        -----
-        - Supports self-attention, encoder-decoder attention, and caching for efficient
-        incremental decoding.
-        - Implements relative position embeddings if `self.has_relative_attention_bias` is True.
-        - Attention probabilities are scaled using a normalization factor and optionally
-        include dropout.
         """
+
         if need_head_weights:
             need_weights = True
-
-        is_tpu = query.device.type == "xla"
 
         tgt_len, bsz, embed_dim = query.size()
         src_len = tgt_len
@@ -832,64 +1099,17 @@ class MultiheadAttention(nn.Module):
         else:
             saved_state = None
 
-        if self.self_attention:
-            q = self.q_proj(query)
-            k = self.k_proj(query)
-            v = self.v_proj(query)
-        elif self.encoder_decoder_attention:
-            # encoder-decoder attention
-            q = self.q_proj(query)
-            if key is None:
-                assert value is None
-                k = v = None
-            else:
-                k = self.k_proj(key)
-                v = self.v_proj(key)
-
-        else:
-            assert key is not None and value is not None
-            q = self.q_proj(query)
-            k = self.k_proj(key)
-            v = self.v_proj(value)
-        q *= self.scaling
         alpha = 32
-        q *= 1 / alpha
-
-        if self.bias_k is not None:
-            assert self.bias_v is not None
-            k = torch.cat([k, self.bias_k.repeat(1, bsz, 1)])
-            v = torch.cat([v, self.bias_v.repeat(1, bsz, 1)])
-            if attn_mask is not None:
-                attn_mask = torch.cat(
-                    [attn_mask, attn_mask.new_zeros(attn_mask.size(0), 1)],
-                    dim=1,
-                )
-            if key_padding_mask is not None:
-                key_padding_mask = torch.cat(
-                    [
-                        key_padding_mask,
-                        key_padding_mask.new_zeros(key_padding_mask.size(0), 1),
-                    ],
-                    dim=1,
-                )
-
-        q = (
-            q.contiguous()
-            .view(tgt_len, bsz * self.num_heads, self.q_head_dim)
-            .transpose(0, 1)
+        q, k, v, attn_mask, key_padding_mask = self._prepare_attention_inputs(
+            query,
+            key,
+            value,
+            bsz,
+            tgt_len,
+            key_padding_mask,
+            attn_mask,
+            alpha=32,
         )
-        if k is not None:
-            k = (
-                k.contiguous()
-                .view(-1, bsz * self.num_heads, self.k_head_dim)
-                .transpose(0, 1)
-            )
-        if v is not None:
-            v = (
-                v.contiguous()
-                .view(-1, bsz * self.num_heads, self.head_dim)
-                .transpose(0, 1)
-            )
 
         if saved_state is not None:
             # saved states are stored with shape (bsz, num_heads, seq_len, head_dim)
@@ -943,15 +1163,152 @@ class MultiheadAttention(nn.Module):
         assert k is not None
         assert k.size(1) == src_len
 
-        # This is part of a workaround to get around fork/join parallelism
-        # not supporting Optional types.
+        attn_weights, attn_mask = self._process_attention_weights(
+            q, k, v, attn_mask, key_padding_mask, bsz, tgt_len, src_len, alpha
+        )
+
+        if before_softmax:
+            return attn_weights, v, position_bias
+
+        attn, attn_weights = self._compute_attention_output(
+            q,
+            v,
+            attn_weights,
+            position_bias,
+            bsz,
+            tgt_len,
+            src_len,
+            embed_dim,
+            need_weights,
+            need_head_weights,
+            alpha,
+        )
+
+        return attn, attn_weights, position_bias
+
+    def _compute_attention_output(
+        self,
+        q,
+        v,
+        attn_weights,
+        position_bias,
+        bsz,
+        tgt_len,
+        src_len,
+        embed_dim,
+        need_weights,
+        need_head_weights,
+        alpha,
+    ):
+        """
+        Computes the final attention output, including relative position bias adjustments,
+        attention weight computation, and attention projection.
+
+        Arguments:
+        ----------
+            q (Tensor): Query tensor.
+            v (Tensor): Value tensor.
+            attn_weights (Tensor): Attention weights tensor.
+            position_bias (Tensor or None): Relative position bias tensor.
+            bsz (int): Batch size.
+            tgt_len (int): Target sequence length.
+            src_len (int): Source sequence length.
+            embed_dim (int): Embedding dimension.
+            need_weights (bool): Whether to return attention weights.
+            need_head_weights (bool): Whether to return head-specific weights.
+            alpha (float): Scaling factor for relative position.
+
+        Returns
+        -------
+            Tuple[Tensor, Optional[Tensor]]: Final attention output and optional attention weights.
+        """
+        # Apply relative position bias if available
+        if position_bias is not None:
+            attn_mask_rel_pos = position_bias
+            if self.gru_rel_pos == 1:
+                query_layer = (
+                    q.view(bsz, self.num_heads, tgt_len, self.q_head_dim)
+                    * alpha
+                    / self.scaling
+                )
+                _B, _H, _L, __ = query_layer.size()
+                gate_a, gate_b = torch.sigmoid(
+                    self.grep_linear(query_layer)
+                    .view(_B, _H, _L, 2, 4)
+                    .sum(-1, keepdim=False)
+                ).chunk(2, dim=-1)
+                gate_a_1 = gate_a * (gate_b * self.grep_a - 1.0) + 2.0
+                attn_mask_rel_pos = (
+                    gate_a_1.view(bsz * self.num_heads, tgt_len, 1)
+                    * position_bias
+                )
+
+            attn_mask_rel_pos = attn_mask_rel_pos.view(attn_weights.size())
+            attn_weights = attn_weights + attn_mask_rel_pos
+
+        # Apply softmax and dropout
+        attn_weights_float = F.softmax(attn_weights, dim=-1)
+        attn_weights = attn_weights_float.type_as(attn_weights)
+        attn_probs = self.dropout_module(attn_weights)
+
+        # Compute final attention
+        assert v is not None
+        attn = torch.bmm(attn_probs, v)
+        assert list(attn.size()) == [
+            bsz * self.num_heads,
+            tgt_len,
+            self.head_dim,
+        ]
+
+        # Reshape and project attention output
+        attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+        attn = self.out_proj(attn)
+
+        # Optionally return attention weights
+        attn_weights_out: Optional[Tensor] = None
+        if need_weights:
+            attn_weights_out = attn_weights_float.view(
+                bsz, self.num_heads, tgt_len, src_len
+            ).transpose(1, 0)
+            if not need_head_weights:
+                attn_weights_out = attn_weights_out.mean(dim=0)
+
+        return attn, attn_weights_out
+
+    def _process_attention_weights(
+        self, q, k, v, attn_mask, key_padding_mask, bsz, tgt_len, src_len, alpha
+    ):
+        """
+        Processes attention weights, including handling key padding masks, adding zero attention if required,
+        and computing the attention weights with masking.
+
+        Arguments:
+        ----------
+            q (Tensor): Query tensor.
+            k (Tensor): Key tensor.
+            v (Tensor): Value tensor.
+            attn_mask (Tensor or None): Attention mask, if any.
+            key_padding_mask (Tensor or None): Key padding mask, if any.
+            bsz (int): Batch size.
+            tgt_len (int): Target sequence length.
+            src_len (int): Source sequence length.
+            alpha (int): Scaling factor for attention weights.
+
+        Returns
+        -------
+            Tuple[Tensor, Optional[Tensor]]: Computed attention weights and the updated attention mask.
+        """
+        is_tpu = q.device.type == "xla"
+        # Handle zero-dimension key padding mask
         if key_padding_mask is not None and key_padding_mask.dim() == 0:
             key_padding_mask = None
 
+        # Validate key padding mask dimensions
         if key_padding_mask is not None:
             assert key_padding_mask.size(0) == bsz
             assert key_padding_mask.size(1) == src_len
 
+        # Add zero attention if required
         if self.add_zero_attn:
             assert v is not None
             src_len += 1
@@ -977,6 +1334,7 @@ class MultiheadAttention(nn.Module):
                     dim=1,
                 )
 
+        # Compute attention weights
         attn_weights = torch.bmm(q, k.transpose(1, 2))
         attn_weights = (
             attn_weights - attn_weights.max(dim=-1, keepdim=True)[0]
@@ -985,18 +1343,20 @@ class MultiheadAttention(nn.Module):
             attn_weights, tgt_len, src_len, bsz
         )
 
+        # Validate attention weights dimensions
         assert list(attn_weights.size()) == [
             bsz * self.num_heads,
             tgt_len,
             src_len,
         ]
 
+        # Apply attention mask
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(0)
             attn_weights += attn_mask
 
+        # Apply key padding mask
         if key_padding_mask is not None:
-            # don't attend to padding symbols
             attn_weights = attn_weights.view(
                 bsz, self.num_heads, tgt_len, src_len
             )
@@ -1015,56 +1375,127 @@ class MultiheadAttention(nn.Module):
                 bsz * self.num_heads, tgt_len, src_len
             )
 
-        if before_softmax:
-            return attn_weights, v, position_bias
+        return attn_weights, attn_mask
 
-        if position_bias is not None:
-            attn_mask_rel_pos = position_bias
-            if self.gru_rel_pos == 1:
-                query_layer = (
-                    q.view(bsz, self.num_heads, tgt_len, self.q_head_dim)
-                    * alpha
-                    / self.scaling
+    def apply_bias(self, k, v, bsz, attn_mask=None, key_padding_mask=None):
+        """
+        Applies bias_k and bias_v to the key and value tensors, updating
+        the attention mask and key padding mask accordingly.
+
+        Arguments:
+        ----------
+            k (Tensor): Key tensor.
+            v (Tensor): Value tensor.
+            bsz (int): Batch size.
+            attn_mask (Tensor or None): Attention mask, if any.
+            key_padding_mask (Tensor or None): Key padding mask, if any.
+
+        Returns
+        -------
+            Tuple[Tensor, Tensor, Optional[Tensor], Optional[Tensor]]: Updated key, value,
+            attention mask, and key padding mask.
+        """
+        if self.bias_k is not None:
+            assert (
+                self.bias_v is not None
+            ), "bias_k and bias_v must both be provided."
+
+            # Apply biases to key and value
+            k = torch.cat([k, self.bias_k.repeat(1, bsz, 1)], dim=0)
+            v = torch.cat([v, self.bias_v.repeat(1, bsz, 1)], dim=0)
+
+            # Update attention mask
+            if attn_mask is not None:
+                attn_mask = torch.cat(
+                    [attn_mask, attn_mask.new_zeros(attn_mask.size(0), 1)],
+                    dim=1,
                 )
-                _B, _H, _L, __ = query_layer.size()
-                gate_a, gate_b = torch.sigmoid(
-                    self.grep_linear(query_layer)
-                    .view(_B, _H, _L, 2, 4)
-                    .sum(-1, keepdim=False)
-                ).chunk(2, dim=-1)
-                gate_a_1 = gate_a * (gate_b * self.grep_a - 1.0) + 2.0
-                attn_mask_rel_pos = (
-                    gate_a_1.view(bsz * self.num_heads, tgt_len, 1)
-                    * position_bias
+
+            # Update key padding mask
+            if key_padding_mask is not None:
+                key_padding_mask = torch.cat(
+                    [
+                        key_padding_mask,
+                        key_padding_mask.new_zeros(key_padding_mask.size(0), 1),
+                    ],
+                    dim=1,
                 )
 
-            attn_mask_rel_pos = attn_mask_rel_pos.view(attn_weights.size())
+        return k, v, attn_mask, key_padding_mask
 
-            attn_weights = attn_weights + attn_mask_rel_pos
+    def _prepare_attention_inputs(
+        self,
+        query,
+        key,
+        value,
+        bsz,
+        tgt_len,
+        key_padding_mask=None,
+        attn_mask=None,
+        alpha=32,
+    ):
+        """
+        Prepares and scales the projections, applies biases, and reshapes the query, key, and value tensors
+        for multi-head attention.
 
-        attn_weights_float = F.softmax(attn_weights, dim=-1)
-        attn_weights = attn_weights_float.type_as(attn_weights)
-        attn_probs = self.dropout_module(attn_weights)
+        Arguments:
+        ----------
+            query (Tensor): The input query tensor.
+            key (Tensor or None): The input key tensor.
+            value (Tensor or None): The input value tensor.
+            bsz (int): Batch size.
+            tgt_len (int): Target sequence length.
+            key_padding_mask (Tensor or None): Key padding mask, if any.
+            attn_mask (Tensor or None): Attention mask, if any.
+            alpha (int, optional): Scaling factor for queries. Default is 32.
+        Returns
+        -------
+            Tuple[Tensor, Tensor, Tensor, Optional[Tensor], Optional[Tensor]]: Scaled and reshaped
+            query, key, and value tensors, along with updated attention and key padding masks.
+        """
+        # Compute scaled projections
+        if self.self_attention:
+            q = self.q_proj(query)
+            k = self.k_proj(query)
+            v = self.v_proj(query)
+        elif self.encoder_decoder_attention:
+            q = self.q_proj(query)
+            if key is None:
+                assert value is None
+                k = v = None
+            else:
+                k = self.k_proj(key)
+                v = self.v_proj(key)
+        else:
+            assert key is not None and value is not None
+            q = self.q_proj(query)
+            k = self.k_proj(key)
+            v = self.v_proj(value)
 
-        assert v is not None
-        attn = torch.bmm(attn_probs, v)
-        assert list(attn.size()) == [
-            bsz * self.num_heads,
-            tgt_len,
-            self.head_dim,
-        ]
-        attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
-        attn = self.out_proj(attn)
-        attn_weights: Optional[Tensor] = None
-        if need_weights:
-            attn_weights = attn_weights_float.view(
-                bsz, self.num_heads, tgt_len, src_len
-            ).transpose(1, 0)
-            if not need_head_weights:
-                # average attention weights over heads
-                attn_weights = attn_weights.mean(dim=0)
+        # Apply scaling
+        q *= self.scaling
+        q *= 1 / alpha
 
-        return attn, attn_weights, position_bias
+        # Reshape and transpose for multi-head attention
+        q = (
+            q.contiguous()
+            .view(tgt_len, bsz * self.num_heads, self.q_head_dim)
+            .transpose(0, 1)
+        )
+        if k is not None:
+            k = (
+                k.contiguous()
+                .view(-1, bsz * self.num_heads, self.k_head_dim)
+                .transpose(0, 1)
+            )
+        if v is not None:
+            v = (
+                v.contiguous()
+                .view(-1, bsz * self.num_heads, self.head_dim)
+                .transpose(0, 1)
+            )
+
+        return q, k, v, attn_mask, key_padding_mask
 
     @staticmethod
     def _append_prev_key_padding_mask(
@@ -1074,6 +1505,30 @@ class MultiheadAttention(nn.Module):
         src_len: int,
         static_kv: bool,
     ) -> Optional[Tensor]:
+        """
+        Combines the previous and current key padding masks to create a unified mask.
+
+        Arguments
+        ---------
+        key_padding_mask : Optional[torch.Tensor]
+            The current key padding mask of shape `(batch_size, seq_len)`, or `None`.
+        prev_key_padding_mask : Optional[torch.Tensor]
+            The previous key padding mask of shape `(batch_size, seq_len)`, or `None`.
+        batch_size : int
+            The batch size of the input.
+        src_len : int
+            The source sequence length to which the masks need to align.
+        static_kv : bool
+            If `True`, indicates that the key-value pairs are static and only the
+            previous key padding mask should be used.
+
+        Returns
+        -------
+        Optional[torch.Tensor]
+            The combined key padding mask of shape `(batch_size, src_len)`, or `None`
+            if both input masks are `None`.
+
+        """
         # saved key padding masks have shape (bsz, seq_len)
         if prev_key_padding_mask is not None and static_kv:
             new_key_padding_mask = prev_key_padding_mask
@@ -1114,6 +1569,22 @@ class MultiheadAttention(nn.Module):
         self,
         incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]],
     ) -> Dict[str, Optional[Tensor]]:
+        """
+        Retrieves the input buffer for incremental decoding.
+
+        Arguments
+        ---------
+        incremental_state : Optional[Dict[str, Dict[str, Optional[Tensor]]]]
+            The state dictionary used for incremental decoding. It stores intermediate
+            computation states, such as attention states, for efficient sequential processing.
+
+        Returns
+        -------
+        Dict[str, Optional[Tensor]]
+            The attention state dictionary containing keys and values for incremental
+            decoding. If no state exists, an empty dictionary is returned.
+
+        """
         result = self.get_incremental_state(incremental_state, "attn_state")
         if result is not None:
             return result
@@ -1126,6 +1597,21 @@ class MultiheadAttention(nn.Module):
         incremental_state: Dict[str, Dict[str, Optional[Tensor]]],
         buffer: Dict[str, Optional[Tensor]],
     ):
+        """
+        Updates the input buffer for incremental decoding.
+
+        Arguments
+        ---------
+        incremental_state : Dict[str, Dict[str, Optional[Tensor]]]
+            The state dictionary used for incremental decoding. It stores intermediate
+            computation states, such as attention states.
+        buffer : Dict[str, Optional[Tensor]]
+            The attention state dictionary containing keys and values to be stored
+            for incremental decoding.
+        Returns
+        -------
+        None
+        """
         return self.set_incremental_state(
             incremental_state, "attn_state", buffer
         )
@@ -1133,6 +1619,26 @@ class MultiheadAttention(nn.Module):
     def apply_sparse_mask(
         self, attn_weights, tgt_len: int, src_len: int, bsz: int
     ):
+        """
+        Applies a sparse mask to the attention weights.
+
+        Arguments
+        ---------
+        attn_weights : torch.Tensor
+            The attention weights tensor of shape `(batch_size * num_heads, tgt_len, src_len)`.
+        tgt_len : int
+            The target sequence length.
+        src_len : int
+            The source sequence length.
+        bsz : int
+            The batch size.
+
+        Returns
+        -------
+        torch.Tensor
+            The (potentially modified) attention weights tensor. By default, this is
+            the same as the input tensor.
+        """
         return attn_weights
 
 
@@ -1140,28 +1646,19 @@ def init_bert_params(module: nn.Module) -> None:
     """
     Initializes weights and biases for modules in the BERT model.
 
-    This method applies specific initialization schemes based on the type of the module:
-    - Linear layers: Weights are initialized using a normal distribution with mean 0 and standard deviation 0.02, and biases are set to 0.
-    - Embedding layers: Weights are initialized using a normal distribution with mean 0 and standard deviation 0.02, and padding indices (if applicable) are zeroed out.
-    - MultiHeadAttention: Query, key, and value projection weights are initialized using the same normal distribution.
-
-    Parameters
-    ----------
+    Arguments
+    ---------
     module : nn.Module
         The module to initialize. Can be one of `nn.Linear`, `nn.Embedding`, or `MultiheadAttention`.
 
-    Notes
-    -----
-    - The initialization scheme aligns with the settings typically used in BERT models.
-    - For modules wrapped with FSDP (Fully Sharded Data Parallel), parameters are temporarily moved to the CPU for consistent random number generation.
     """
 
     def normal_(data: torch.Tensor) -> None:
         """
         Initializes a tensor with values drawn from a normal distribution.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         data : torch.Tensor
             The tensor to initialize.
         """
@@ -1187,7 +1684,6 @@ def init_bert_params(module: nn.Module) -> None:
         normal_(module.v_proj.weight.data)
 
 
-
 class BEATsConfig:
     """
     Configuration class for the BEATs model.
@@ -1195,8 +1691,8 @@ class BEATsConfig:
     This class defines the configuration for the BEATs model. It provides a default
     configuration that can be updated with custom settings via the `update` method.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     cfg : dict, optional
         A dictionary containing custom configuration values. If provided, it will override
         the default settings.
@@ -1284,8 +1780,8 @@ class BEATs(nn.Module):
     or downstream tasks. The model supports loading from a checkpoint, applying normalization,
     and optionally freezing parameters.
 
-    Parameters
-    ----------
+    Arguments
+    ---------
     ckp_path : str, optional
         Path to the checkpoint file. If None, the model initializes without pre-trained weights.
         You could download the checkpoints from : https://github.com/microsoft/unilm/tree/master/beats
@@ -1382,8 +1878,8 @@ class BEATs(nn.Module):
         """
         Adjusts the padding mask for the given features.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         features : torch.Tensor
             Input features after patch embedding.
         padding_mask : torch.Tensor
@@ -1411,8 +1907,8 @@ class BEATs(nn.Module):
         """
         Preprocesses the input waveform by extracting filter banks and applying normalization.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         source : torch.Tensor
             Input waveform signals.
         fbank_mean : float, optional
@@ -1449,8 +1945,8 @@ class BEATs(nn.Module):
         """
         Extracts features from the input waveform.
 
-        Parameters
-        ----------
+        Arguments
+        ---------
         wav : torch.Tensor (signal)
             A batch of audio signals to transform to features.
         wav_lens : torch.Tensor
