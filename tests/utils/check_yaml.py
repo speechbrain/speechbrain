@@ -27,7 +27,7 @@ def get_yaml_var(hparam_file):
         included).
     """
     var_lst = []
-    with open(hparam_file) as f:
+    with open(hparam_file, encoding="utf-8") as f:
         for line in f:
             # Avoid empty lists or comments - skip pretrainer definitions
             if (
@@ -90,7 +90,7 @@ def detect_script_vars(script_file, var_lst):
         'hparams.get("',
     ]
     detected_var = []
-    with open(script_file) as f:
+    with open(script_file, encoding="utf-8") as f:
         for line in f:
             for var in var_lst:
                 # The pattern can be ["key"] or ".key"
@@ -266,7 +266,7 @@ def check_module_vars(
 
     # Extract Modules variables from the hparam file
     module_vars_hparams = []
-    with open(hparam_file) as f:
+    with open(hparam_file, encoding="utf-8") as f:
         for line in f:
             if module_key in line:
                 module_block = True
@@ -279,7 +279,7 @@ def check_module_vars(
                 module_vars_hparams.append(var)
 
     # Extract Modules variables from the script file
-    with open(script_file) as file:
+    with open(script_file, encoding="utf-8") as file:
         lines = file.readlines()
         lines = [line.rstrip() for line in lines]
 

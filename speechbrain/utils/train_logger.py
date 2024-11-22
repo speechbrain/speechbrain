@@ -97,7 +97,7 @@ class FileTrainLogger(TrainLogger):
             if stats is not None:
                 string_summary += " - " + self._stats_to_string(stats, dataset)
 
-        with open(self.save_file, "a") as fout:
+        with open(self.save_file, "a", encoding="utf-8") as fout:
             print(string_summary, file=fout)
         if verbose:
             logger.info(string_summary)

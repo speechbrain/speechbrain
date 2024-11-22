@@ -306,7 +306,7 @@ class Tacotron2Brain(sb.Brain):
                 str(self.hparams.epoch_counter.current),
                 "train_input_text.txt",
             )
-            with open(train_sample_text, "w") as f:
+            with open(train_sample_text, "w", encoding="utf-8") as f:
                 f.write(labels[0])
 
             train_input_audio = os.path.join(
@@ -452,7 +452,7 @@ class Tacotron2Brain(sb.Brain):
                 str(self.hparams.epoch_counter.current),
                 "inf_input_text.txt",
             )
-            with open(inf_sample_text, "w") as f:
+            with open(inf_sample_text, "w", encoding="utf-8") as f:
                 f.write(labels[0])
 
             inf_input_audio = os.path.join(
@@ -551,7 +551,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # If --distributed_launch then

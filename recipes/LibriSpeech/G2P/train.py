@@ -635,7 +635,7 @@ class G2PBrain(sb.Brain):
         file_name: str
             the report file name
         """
-        with open(file_name, "w") as w:
+        with open(file_name, "w", encoding="utf-8") as w:
             w.write("\nseq2seq loss stats:\n")
             self.seq_metrics.write_stats(w)
             w.write("\nPER stats:\n")
@@ -652,7 +652,7 @@ class G2PBrain(sb.Brain):
         file_name: str
             the report file name
         """
-        with open(file_name, "w") as w:
+        with open(file_name, "w", encoding="utf-8") as w:
             self.classification_metrics_homograph.write_stats(w)
 
     def _add_stats_prefix(self, stats):
@@ -1172,7 +1172,7 @@ if __name__ == "__main__":
         hparams_file, run_opts, overrides = hp_ctx.parse_arguments(sys.argv[1:])
 
         # Load hyperparameters file with command-line overrides
-        with open(hparams_file) as fin:
+        with open(hparams_file, encoding="utf-8") as fin:
             hparams = load_hyperpyyaml(fin, overrides)
 
         # Validate hyperparameters

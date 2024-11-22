@@ -302,7 +302,7 @@ def create_lexicon(lexicon_save_filepath):
     # each word to our lexicon dictionary
     lexicon = MISSING_LEXICON
     delayed_words = {}
-    for line in open(lexicon_save_filepath):
+    for line in open(lexicon_save_filepath, encoding="utf-8"):
         line = line.split()
         phns = " ".join(p.strip("012") for p in line[1:])
 
@@ -357,7 +357,9 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
 
         # Read text
         snt_id = filename.replace(".wav", "")
-        with open(os.path.join(txt_folder, snt_id + ".txt")) as f:
+        with open(
+            os.path.join(txt_folder, snt_id + ".txt"), encoding="utf-8"
+        ) as f:
             word_string = f.read()
         word_string = remove_punctuation(word_string).strip().upper()
         phones = [
@@ -377,7 +379,7 @@ def create_json(wav_lst, json_file, clean_folder, txt_folder, lexicon):
         }
 
     # Writing the json lines
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

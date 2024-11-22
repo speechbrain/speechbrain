@@ -326,7 +326,7 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    csv_lines = open(orig_tsv_file, "r").readlines()
+    csv_lines = open(orig_tsv_file, "r", encoding="utf-8").readlines()
     header_line = csv_lines[0]
     csv_data_lines = csv_lines[1:]
     nb_samples = len(csv_data_lines)
@@ -358,7 +358,7 @@ def create_csv(
     # Stream into a .tmp file, and rename it to the real path at the end.
     csv_file_tmp = csv_file + ".tmp"
 
-    with open(csv_file_tmp, mode="w", encoding="utf-8") as csv_f:
+    with open(csv_file_tmp, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )

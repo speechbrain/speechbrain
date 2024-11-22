@@ -259,7 +259,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     datasets, language_encoder = dataio_prep(hparams)
 
     # Fetch and load pretrained modules
-    sb.utils.distributed.hparams["pretrainer"].collect_files()
+    hparams["pretrainer"].collect_files()
     hparams["pretrainer"].load_collected()
 
     # Initialize the Brain object to prepare for mask training.

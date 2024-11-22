@@ -121,7 +121,7 @@ def load_utterInfo(inputFile):
         r"[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
         re.IGNORECASE,
     )  # noqa
-    with open(inputFile, "r") as myfile:
+    with open(inputFile, "r", encoding="utf-8") as myfile:
         data = myfile.read().replace("\n", " ")
     result = pattern.findall(data)
     out = []
@@ -359,7 +359,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
 
                 emotion_wavs = emotion_wavs[1:]
 
-    with open(save_json, "w") as outfile:
+    with open(save_json, "w", encoding="utf-8") as outfile:
         json.dump(data_json, outfile)
     return data_json
 
