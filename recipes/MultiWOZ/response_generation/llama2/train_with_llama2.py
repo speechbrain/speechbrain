@@ -348,7 +348,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -435,7 +435,7 @@ if __name__ == "__main__":
 
     # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected(res_gen_brain.device)
 
     # The `fit()` method iterates the training loop, calling the methods

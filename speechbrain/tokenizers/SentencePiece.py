@@ -6,7 +6,6 @@ Authors
 
 import csv
 import json
-import logging
 import os.path
 from dataclasses import dataclass
 from typing import List
@@ -17,8 +16,9 @@ import torch
 from speechbrain.dataio.dataio import merge_char
 from speechbrain.utils import edit_distance
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SentencePiece:
@@ -185,6 +185,17 @@ class SentencePiece:
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.prefix_model_file + ".model")
 
+        if int(self.vocab_size) != self.sp.vocab_size():
+            base_msg = f"SentencePiece vocab size `{self.vocab_size}` requested, but the loaded model has `{self.sp.vocab_size()}`! This can cause decoding errors or weird model training behavior in some cases."
+            if self.model_type == "char":
+                logger.warning(
+                    f"{base_msg} The model type is 'char', for which `vocab_size` has no impact."
+                )
+            else:
+                logger.warning(
+                    f"{base_msg} Are you loading a tokenizer with the wrong parameters?"
+                )
+
         if annotation_list_to_check is not None:
             run_on_main(
                 self._check_coverage_from_bpe,
@@ -204,7 +215,7 @@ class SentencePiece:
             + " sequences from:"
             + self.annotation_train
         )
-        annotation_file = open(self.annotation_train, "r")
+        annotation_file = open(self.annotation_train, "r", encoding="utf-8")
         reader = csv.reader(annotation_file)
         headers = next(reader, None)
         if self.annotation_read not in headers:
@@ -212,7 +223,7 @@ class SentencePiece:
                 self.annotation_read + " must exist in:" + self.annotation_train
             )
         index_label = headers.index(self.annotation_read)
-        text_file = open(self.text_file, "w+")
+        text_file = open(self.text_file, "w+", encoding="utf-8")
         row_idx = 0
         for row in reader:
             if self.num_sequences is not None and row_idx > self.num_sequences:
@@ -246,11 +257,11 @@ class SentencePiece:
         )
 
         # Read JSON
-        with open(self.annotation_train, "r") as f:
+        with open(self.annotation_train, "r", encoding="utf-8") as f:
             out_json = json.load(f)
 
         # Save text file
-        text_file = open(self.text_file, "w+")
+        text_file = open(self.text_file, "w+", encoding="utf-8")
         row_idx = 0
 
         for snt_id in out_json.keys():
@@ -336,7 +347,9 @@ class SentencePiece:
                 )
                 # csv reading
                 if self.annotation_format == "csv":
-                    fannotation_file = open(annotation_file, "r")
+                    fannotation_file = open(
+                        annotation_file, "r", encoding="utf-8"
+                    )
                     reader = csv.reader(fannotation_file)
                     headers = next(reader, None)
                     if self.annotation_read not in headers:
@@ -348,7 +361,9 @@ class SentencePiece:
                     index_label = headers.index(self.annotation_read)
                 # json reading
                 else:
-                    with open(self.annotation_train, "r") as f:
+                    with open(
+                        self.annotation_train, "r", encoding="utf-8"
+                    ) as f:
                         reader = json.load(f)
                         index_label = self.annotation_read
 

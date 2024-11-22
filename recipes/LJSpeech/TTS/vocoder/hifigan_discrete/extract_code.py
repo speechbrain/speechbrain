@@ -24,6 +24,7 @@ from speechbrain.lobes.models.huggingface_transformers import (
 from speechbrain.lobes.models.huggingface_transformers.discrete_ssl import (
     DiscreteSSL,
 )
+from speechbrain.utils.logger import get_logger
 
 OPT_FILE = "opt_ljspeech_extract_code.pkl"
 TRAIN_JSON = "train.json"
@@ -41,7 +42,7 @@ def setup_logger():
     """Set up a logger with a log format and logging level."""
     log_format = "[%(asctime)s] [%(levelname)s]: %(message)s"
     logging.basicConfig(format=log_format, level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     return logger
 
 
@@ -66,6 +67,15 @@ def skip(splits, save_folder, conf):
     """
     Detects if the ljspeech data_extraction has been already done.
     If the extraction has been done, we can skip it.
+
+    Arguments
+    ---------
+    splits : list
+        List of splits to check for existence.
+    save_folder : str
+        Path to folder containing prepared data.
+    conf : dict
+        Loaded configuration options.
 
     Returns
     -------
@@ -144,6 +154,10 @@ def extract_ljspeech(
     skip_extract: Bool
         If True, skip extraction.
 
+    Returns
+    -------
+    None
+
     Example
     -------
     >>> from recipes.LJSpeech.TTS.vocoder.hifi_gan_unit.extract_code import extract_ljspeech
@@ -213,7 +227,7 @@ def extract_ljspeech(
     for split in splits:
         dataset_path = data_folder / f"{split}.json"
         logger.info(f"Reading dataset from {dataset_path} ...")
-        meta_json = json.load(open(dataset_path))
+        meta_json = json.load(open(dataset_path, encoding="utf-8"))
         for key in tqdm(meta_json.keys()):
             item = meta_json[key]
             wav = item["wav"]

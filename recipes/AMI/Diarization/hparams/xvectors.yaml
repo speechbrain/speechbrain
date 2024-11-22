@@ -6,7 +6,7 @@
 # #################################################
 
 seed: 1234
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Folders
 # Download data from: http://groups.inf.ed.ac.uk/ami/download/

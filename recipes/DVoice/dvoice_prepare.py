@@ -9,7 +9,6 @@ Abdou Mohamed Naira 2022
 
 import csv
 import glob
-import logging
 import os
 import random
 import re
@@ -21,8 +20,9 @@ from tqdm import tqdm
 from tqdm.contrib import tzip
 
 from speechbrain.dataio.dataio import read_audio_info
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def prepare_dvoice(
@@ -163,15 +163,15 @@ def prepare_dvoice(
 def alffa_public_prepare(language, data_folder):
     if language == "amharic":
         wavs = glob.glob(f"{data_folder}/*/*/*.wav")
-        f_train = open(f"{data_folder}/train/text", "r")
-        f_test = open(f"{data_folder}/test/text", "r")
+        f_train = open(f"{data_folder}/train/text", "r", encoding="utf-8")
+        f_test = open(f"{data_folder}/test/text", "r", encoding="utf-8")
         text = f_train.readlines() + f_test.readlines()
         random.shuffle(text)
 
     if language == "fongbe":
         wavs = glob.glob(f"{data_folder}/*/wav/*/*.wav")
-        f_train = open(f"{data_folder}/train/text", "r")
-        f_test = open(f"{data_folder}/test/text", "r")
+        f_train = open(f"{data_folder}/train/text", "r", encoding="utf-8")
+        f_test = open(f"{data_folder}/test/text", "r", encoding="utf-8")
         text = f_train.readlines() + f_test.readlines()
         random.shuffle(text)
 
@@ -180,9 +180,9 @@ def alffa_public_prepare(language, data_folder):
         wavs_dev = glob.glob(f"{data_folder}/dev/wav/*/*.wav")
         wavs_test = glob.glob(f"{data_folder}/test/wav/*/*.wav")
         wavs = wavs_train + wavs_dev + wavs_test
-        f_train = open(f"{data_folder}/train/text", "r")
-        f_test = open(f"{data_folder}/test/text", "r")
-        f_dev = open(f"{data_folder}/dev/text", "r")
+        f_train = open(f"{data_folder}/train/text", "r", encoding="utf-8")
+        f_test = open(f"{data_folder}/test/text", "r", encoding="utf-8")
+        f_dev = open(f"{data_folder}/dev/text", "r", encoding="utf-8")
         text = f_train.readlines() + f_dev.readlines() + f_test.readlines()
         random.shuffle(text)
 
@@ -232,10 +232,14 @@ def swahili_prepare(data_folder):
     )
 
     f_train_alffa = open(
-        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/train/text", "r"
+        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/train/text",
+        "r",
+        encoding="utf-8",
     )
     f_test_alffa = open(
-        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/test/text", "r"
+        f"{data_folder}/ALFFA_PUBLIC/ASR/SWAHILI/data/test/text",
+        "r",
+        encoding="utf-8",
     )
     train_alffa = f_train_alffa.readlines()
     test_alffa = f_test_alffa.readlines()
@@ -351,7 +355,7 @@ def create_csv(
         raise FileNotFoundError(msg)
 
     # We load and skip the header
-    loaded_csv = open(orig_csv_file, "r").readlines()[1:]
+    loaded_csv = open(orig_csv_file, "r", encoding="utf-8").readlines()[1:]
     nb_samples = str(len(loaded_csv))
     msg = "Preparing CSV files for %s samples ..." % (str(nb_samples))
     logger.info(msg)

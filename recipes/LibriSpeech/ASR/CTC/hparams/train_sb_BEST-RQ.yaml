@@ -1,0 +1,290 @@
+# ################################
+# Model: bestRQ + DNN + CTC
+# Decoding: Greedy for validation, and Beam search for testing
+# Augmentation: SpecAugment + speedperturb
+# Authors: Ryan Whetten 2024
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1000
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+output_folder: !ref results/train_bestrq_libri_100/<seed>
+output_wer_folder: !ref <output_folder>/
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+pt_model_path: !PLACEHOLDER
+pt_model_output_dim: 576
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/LibriSpeech
+# noise/ris dataset will automatically be downloaded if uncommented
+# data_folder_rirs: !ref <data_folder>
+train_splits: ["train-clean-100"]
+dev_splits: ["dev-clean"]
+test_splits: ["test-clean", "test-other"]
+skip_prep: False
+ckpt_interval_minutes: 25 # save checkpoint every N min
+train_csv: !ref <output_folder>/train.csv
+valid_csv: !ref <output_folder>/dev-clean.csv
+test_csv:
+   - !ref <output_folder>/test-clean.csv
+   - !ref <output_folder>/test-other.csv
+
+####################### Training Parameters ####################################
+
+number_of_epochs: 30
+lr: 0.0003
+lr_bestrq: 0.00005
+precision: fp16 # bf16, fp16 or fp32
+sample_rate: 16000
+sorting: ascending
+num_workers: 4
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+batch_size: 6
+test_batch_size: 8
+
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+   batch_size: !ref <batch_size>
+
+test_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+
+####################### Model Parameters #######################################
+
+# Transformer
+d_model: !ref <pt_model_output_dim>
+nhead: 8 # table 1 https://arxiv.org/pdf/2010.10504.pdf
+num_encoder_layers: 12 # section 4.1.1
+num_decoder_layers: 0
+d_ffn: 2048
+transformer_dropout: 0.1
+activation: !name:torch.nn.GELU
+output_neurons: 5000
+attention_type: RelPosMHAXL
+encoder_module: conformer
+dnn_activation: !new:torch.nn.LeakyReLU
+dnn_neurons: 1280
+dnn_dropout: 0.15
+freeze_bestrq: False
+
+# Outputs
+output_neurons_ctc: 29  # BPE size, index(blank/eos/bos) = 0
+blank_index: 0
+
+# Feature parameters
+n_fft: 400
+n_mels: 80
+
+############################## models ##########################################
+
+back_end_ffn: !new:speechbrain.nnet.containers.Sequential
+   input_shape: [null, null, !ref <pt_model_output_dim>]
+   linear1: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn1: !name:speechbrain.nnet.normalization.LayerNorm
+   activation: !ref <dnn_activation>
+   drop: !new:torch.nn.Dropout
+      p: !ref <dnn_dropout>
+   linear2: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn2: !name:speechbrain.nnet.normalization.LayerNorm
+   activation2: !ref <dnn_activation>
+   drop2: !new:torch.nn.Dropout
+      p: !ref <dnn_dropout>
+   linear3: !name:speechbrain.nnet.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+      bias: True
+   bn3: !name:speechbrain.nnet.normalization.LayerNorm
+   activation3: !ref <dnn_activation>
+
+compute_features: !new:speechbrain.lobes.features.Fbank
+   sample_rate: !ref <sample_rate>
+   n_fft: !ref <n_fft>
+   n_mels: !ref <n_mels>
+
+normalize: !new:speechbrain.processing.features.InputNormalization
+   norm_type: global
+   update_until_epoch: 0
+
+CNN: !new:speechbrain.lobes.models.convolution.ConvolutionFrontEnd
+   input_shape: (8, 10, 80)
+   num_blocks: 2
+   num_layers_per_block: 1
+   out_channels: (128, 32)
+   kernel_sizes: (3, 3)
+   strides: (2, 2)
+   residuals: (False, False)
+
+Transformer: !new:speechbrain.lobes.models.transformer.TransformerASR.TransformerASR # yamllint disable-line rule:line-length
+   input_size: 640
+   tgt_vocab: !ref <output_neurons>
+   d_model: !ref <d_model>
+   nhead: !ref <nhead>
+   num_encoder_layers: !ref <num_encoder_layers>
+   num_decoder_layers: !ref <num_decoder_layers>
+   d_ffn: !ref <d_ffn>
+   dropout: !ref <transformer_dropout>
+   activation: !ref <activation>
+   conformer_activation: !ref <activation>
+   encoder_module: !ref <encoder_module>
+   attention_type: !ref <attention_type>
+   normalize_before: True
+   causal: False
+
+enc: !new:speechbrain.lobes.models.transformer.TransformerASR.EncoderWrapper
+   transformer: !ref <Transformer>
+
+pt_model: !new:torch.nn.ModuleList
+   - [!ref <CNN>, !ref <enc>]
+
+ctc_lin: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <dnn_neurons>
+   n_neurons: !ref <output_neurons_ctc>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+ctc_cost: !name:speechbrain.nnet.losses.ctc_loss
+   blank_index: !ref <blank_index>
+
+modules:
+   normalize: !ref <normalize>
+   CNN: !ref <CNN>
+   enc: !ref <enc>
+   pt_model: !ref <pt_model>
+   back_end_ffn: !ref <back_end_ffn>
+   ctc_lin: !ref <ctc_lin>
+
+model: !new:torch.nn.ModuleList
+   - [!ref <back_end_ffn>, !ref <ctc_lin>]
+
+####################### Decoding & optimiser ###################################
+
+kenlm_model_path: null
+
+# Decoding parameters
+test_beam_search:
+   beam_size: 200
+   topk: 1
+   blank_index: !ref <blank_index>
+   space_token: ' ' # make sure this is the same as the one used in the tokenizer
+   beam_prune_logp: -10.0
+   token_prune_min_logp: -5.0
+   prune_history: True
+   alpha: 0.8
+   beta: 1.2
+   # can be downloaded from here https://www.openslr.org/11/ or trained with kenLM
+   # It can either be a .bin or .arpa ; note: .arpa is much slower at loading
+   # If you don't want to use an LM, comment it out or set it to null
+   kenlm_model_path: !ref <kenlm_model_path>
+
+model_opt_class: !name:torch.optim.AdamW
+   lr: !ref <lr>
+   weight_decay: 0.001
+
+bestrq_opt_class: !name:torch.optim.AdamW
+   lr: !ref <lr_bestrq>
+   weight_decay: 0.001
+
+lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.5
+   patient: 0
+
+lr_annealing_bestrq: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr_bestrq>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.7
+   patient: 0
+
+############################## Augmentations ###################################
+
+# Speed perturbation
+speed_changes: [95, 100, 105]  # List of speed changes for time-stretching
+
+speed_perturb: !new:speechbrain.augment.time_domain.SpeedPerturb
+   orig_freq: !ref <sample_rate>
+   speeds: !ref <speed_changes>
+
+# Frequency drop: randomly drops a number of frequency bands to zero.
+drop_freq_low: 0  # Min frequency band dropout probability
+drop_freq_high: 1  # Max frequency band dropout probability
+drop_freq_count_low: 1  # Min number of frequency bands to drop
+drop_freq_count_high: 3  # Max number of frequency bands to drop
+drop_freq_width: 0.05  # Width of frequency bands to drop
+
+drop_freq: !new:speechbrain.augment.time_domain.DropFreq
+   drop_freq_low: !ref <drop_freq_low>
+   drop_freq_high: !ref <drop_freq_high>
+   drop_freq_count_low: !ref <drop_freq_count_low>
+   drop_freq_count_high: !ref <drop_freq_count_high>
+   drop_freq_width: !ref <drop_freq_width>
+
+# Time drop: randomly drops a number of temporal chunks.
+drop_chunk_count_low: 1  # Min number of audio chunks to drop
+drop_chunk_count_high: 5  # Max number of audio chunks to drop
+drop_chunk_length_low: 1000  # Min length of audio chunks to drop
+drop_chunk_length_high: 2000  # Max length of audio chunks to drop
+
+drop_chunk: !new:speechbrain.augment.time_domain.DropChunk
+   drop_length_low: !ref <drop_chunk_length_low>
+   drop_length_high: !ref <drop_chunk_length_high>
+   drop_count_low: !ref <drop_chunk_count_low>
+   drop_count_high: !ref <drop_chunk_count_high>
+
+# Augmenter: Combines previously defined augmentations to perform data augmentation
+wav_augment: !new:speechbrain.augment.augmenter.Augmenter
+   parallel_augment: False
+   concat_original: True
+   repeat_augment: 1
+   shuffle_augmentations: False
+   min_augmentations: 3
+   max_augmentations: 3
+   augment_prob: 1.0
+   augmentations: [
+      !ref <speed_perturb>,
+      !ref <drop_freq>,
+      !ref <drop_chunk>]
+
+############################## Logging and Pretrainer ##########################
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      model: !ref <model>
+      pt_model: !ref <pt_model>
+      normalize: !ref <normalize>
+      scheduler_model: !ref <lr_annealing_model>
+      scheduler_bestrq: !ref <lr_annealing_bestrq>
+      counter: !ref <epoch_counter>
+
+pretrainer: !new:speechbrain.utils.parameter_transfer.Pretrainer
+   collect_in: !ref <save_folder>
+   loadables:
+      pt_model: !ref <pt_model>
+      normalize: !ref <normalize>
+
+   paths:
+      pt_model: !ref <pt_model_path>/model.ckpt
+      normalize: !ref <pt_model_path>/normalizer.ckpt
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+
+error_rate_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+
+cer_computer: !name:speechbrain.utils.metric_stats.ErrorRateStats
+   split_tokens: True
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>

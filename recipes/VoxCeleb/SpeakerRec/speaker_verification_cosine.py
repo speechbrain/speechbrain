@@ -12,7 +12,6 @@ Authors
     * Mirco Ravanelli 2020
     * Xuechen Liu 2023
 """
-import logging
 import os
 import sys
 
@@ -24,6 +23,7 @@ from tqdm.contrib import tqdm
 import speechbrain as sb
 from speechbrain.utils.data_utils import download_file
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.metric_stats import EER, minDCF
 
 
@@ -86,7 +86,7 @@ def get_verification_scores(veri_test):
     negative_scores = []
 
     save_file = os.path.join(params["output_folder"], "scores.txt")
-    s_file = open(save_file, "w")
+    s_file = open(save_file, "w", encoding="utf-8")
 
     # Cosine similarity initialization
     similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
@@ -219,13 +219,13 @@ def dataio_prep(params):
 
 if __name__ == "__main__":
     # Logger setup
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.dirname(current_dir))
 
     # Load hyperparameters file with command-line overrides
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
-    with open(params_file) as fin:
+    with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 
     # Download verification list (to exclude verification sentences from train)
@@ -280,7 +280,7 @@ if __name__ == "__main__":
     # Compute the EER
     logger.info("Computing EER..")
     # Reading standard verification split
-    with open(veri_file_path) as f:
+    with open(veri_file_path, encoding="utf-8") as f:
         veri_test = [line.rstrip() for line in f]
 
     positive_scores, negative_scores = get_verification_scores(veri_test)

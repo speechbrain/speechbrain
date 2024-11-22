@@ -11,7 +11,6 @@ Yingzhi Wang 2023
 """
 
 import json
-import logging
 import os
 import random
 import re
@@ -21,7 +20,9 @@ import numpy as np
 from datasets.vad import write_audio
 from pydub import AudioSegment
 
-logger = logging.getLogger(__name__)
+from speechbrain.utils.logger import get_logger
+
+logger = get_logger(__name__)
 combinations = ["neu_emo", "emo_neu", "neu_emo_neu", "emo_emo"]
 probabilities = np.array([0.25, 0.25, 0.25, 0.25])
 
@@ -120,7 +121,7 @@ def load_utterInfo(inputFile):
         r"[\[]*[0-9]*[.][0-9]*[ -]*[0-9]*[.][0-9]*[\]][\t][a-z0-9_]*[\t][a-z]{3}[\t][\[][0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[, ]+[0-9]*[.][0-9]*[\]]",
         re.IGNORECASE,
     )  # noqa
-    with open(inputFile, "r") as myfile:
+    with open(inputFile, "r", encoding="utf-8") as myfile:
         data = myfile.read().replace("\n", " ")
     result = pattern.findall(data)
     out = []
@@ -358,7 +359,7 @@ def concat_wavs(data_folder, save_json, emo_wavs, neu_wavs, annotations):
 
                 emotion_wavs = emotion_wavs[1:]
 
-    with open(save_json, "w") as outfile:
+    with open(save_json, "w", encoding="utf-8") as outfile:
         json.dump(data_json, outfile)
     return data_json
 

@@ -155,7 +155,9 @@ class ResGenBrain(sb.Brain):
                 min_keys=["PPL"],
             )
             if epoch == hparams["number_of_epochs"] - 1:
-                with open(self.hparams.bleu_4_valid_file, "w") as w:
+                with open(
+                    self.hparams.bleu_4_valid_file, "w", encoding="utf-8"
+                ) as w:
                     self.bleu_4_metric.write_stats(w)
                     for i in range(len(self.hyps)):
                         w.write("target: " + str(self.references[i]) + "\n")
@@ -170,7 +172,9 @@ class ResGenBrain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats=stage_stats,
             )
-            with open(self.hparams.bleu_4_test_file, "w") as w:
+            with open(
+                self.hparams.bleu_4_test_file, "w", encoding="utf-8"
+            ) as w:
                 self.bleu_4_metric.write_stats(w)
                 for i in range(len(self.hyps)):
                     w.write("target: " + str(self.references[i]) + "\n")
@@ -392,7 +396,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides.
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -487,7 +491,7 @@ if __name__ == "__main__":
 
     # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected(res_gen_brain.device)
 
     # The `fit()` method iterates the training loop, calling the methods

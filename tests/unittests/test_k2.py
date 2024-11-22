@@ -1,4 +1,3 @@
-import logging
 import os
 import shutil
 import tempfile
@@ -9,14 +8,15 @@ import pytest
 import torch
 
 from speechbrain.k2_integration import k2
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @pytest.fixture
 def tmp_csv_file(tmp_path):
     csv_file = tmp_path / "train.csv"
-    with open(csv_file, "w") as f:
+    with open(csv_file, "w", encoding="utf-8") as f:
         f.write("ID,duration,wav,spk_id,wrd\n")
         f.write("1,1,1,1,hello world\n")
         f.write("2,0.5,1,1,hello\n")
@@ -37,7 +37,7 @@ def test_get_lexicon(tmp_path, tmp_csv_file):
     )
 
     # Read the output and assert its content
-    with open(lang_dir / "lexicon.txt", "r") as f:
+    with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
         assert f.read() == "<UNK> <unk>\nhello h e l l o\nworld w o r l d\n"
 
 
@@ -55,7 +55,7 @@ def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
     )
 
     # Read the output and assert its content
-    with open(lang_dir / "lexicon.txt", "r") as f:
+    with open(lang_dir / "lexicon.txt", "r", encoding="utf-8") as f:
         assert (
             f.read()
             == "<UNK> <unk>\nhello h e l l o <eow>\nworld w o r l d <eow>\n"
@@ -66,7 +66,7 @@ def test_get_lexicon_with_boundary(tmp_path, tmp_csv_file):
 def mock_lexicon_file(tmp_path):
     lexicon_content = "hello h e l l o\nworld w o r l d\n"
     lexicon_file = tmp_path / "mock_lexicon.txt"
-    with open(lexicon_file, "w") as f:
+    with open(lexicon_file, "w", encoding="utf-8") as f:
         f.write(lexicon_content)
     return lexicon_file
 
@@ -102,7 +102,7 @@ def test_write_lexicon(tmp_path):
     expected_content = "hello h e l l o\nworld w o r l d\n"
 
     # Read back the content of the file and assert its correctness.
-    with open(lexicon_file, "r") as f:
+    with open(lexicon_file, "r", encoding="utf-8") as f:
         assert f.read() == expected_content
 
 
@@ -285,7 +285,9 @@ def test_prepare_lang():
     hello h e l l o
     world w o r l d
     """
-    with open(os.path.join(temp_dir, "lexicon.txt"), "w") as f:
+    with open(
+        os.path.join(temp_dir, "lexicon.txt"), "w", encoding="utf-8"
+    ) as f:
         f.write(lexicon_content.strip())
 
     # Step 2: Run prepare_lang
@@ -317,7 +319,7 @@ def test_lexicon_loading_and_conversion():
 hello h e l l o
 world w o r l d"""
         lexicon_file = tmpdir_path.joinpath("lexicon.txt")
-        with open(lexicon_file, "w") as f:
+        with open(lexicon_file, "w", encoding="utf-8") as f:
             f.write(lexicon_sample)
 
         # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt using prepare_lang
@@ -381,7 +383,7 @@ def test_ctc_k2_loss():
 hello h e l l o
 world w o r l d"""
         lexicon_file_path = f"{tmpdir}/lexicon.txt"
-        with open(lexicon_file_path, "w") as f:
+        with open(lexicon_file_path, "w", encoding="utf-8") as f:
             f.write(lexicon_sample)
 
         # Create a lang directory with the lexicon and L.pt, L_inv.pt, L_disambig.pt

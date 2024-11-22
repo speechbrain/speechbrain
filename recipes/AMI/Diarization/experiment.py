@@ -20,7 +20,6 @@ Authors
 
 import glob
 import json
-import logging
 import os
 import pickle
 import shutil
@@ -37,11 +36,12 @@ from speechbrain.processing import diarization as diar
 from speechbrain.processing.PLDA_LDA import StatObject_SB
 from speechbrain.utils.DER import DER
 from speechbrain.utils.distributed import run_on_main
+from speechbrain.utils.logger import get_logger
 
 np.random.seed(1234)
 
 # Logger setup
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(current_dir))
 
@@ -154,7 +154,7 @@ def prepare_subset_json(full_meta_data, rec_id, out_meta_file):
         if k.startswith(rec_id):
             subset[key] = full_meta_data[key]
 
-    with open(out_meta_file, mode="w") as json_f:
+    with open(out_meta_file, mode="w", encoding="utf-8") as json_f:
         json.dump(subset, json_f, indent=2)
 
 
@@ -302,11 +302,11 @@ def diarize_dataset(full_meta, split_type, n_lambdas, pval, n_neighbors=10):
     # This is not needed but just staying with the standards.
     concate_rttm_file = out_rttm_dir + "/sys_output.rttm"
     logger.debug("Concatenating individual RTTM files...")
-    with open(concate_rttm_file, "w") as cat_file:
+    with open(concate_rttm_file, "w", encoding="utf-8") as cat_file:
         for f in glob.glob(out_rttm_dir + "/*.rttm"):
             if f == concate_rttm_file:
                 continue
-            with open(f, "r") as indi_rttm_file:
+            with open(f, "r", encoding="utf-8") as indi_rttm_file:
                 shutil.copyfileobj(indi_rttm_file, cat_file)
 
     msg = "The system generated RTTM file for %s set : %s" % (
@@ -507,7 +507,7 @@ if __name__ == "__main__":  # noqa: C901
     # Load hyperparameters file with command-line overrides.
     params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
 
-    with open(params_file) as fin:
+    with open(params_file, encoding="utf-8") as fin:
         params = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (preparing metadata files)
@@ -558,7 +558,7 @@ if __name__ == "__main__":  # noqa: C901
     # AMI Dev Set: Tune hyperparams on dev set.
     # Read the meta-data file for dev set generated during data_prep
     dev_meta_file = params["dev_meta_file"]
-    with open(dev_meta_file, "r") as f:
+    with open(dev_meta_file, "r", encoding="utf-8") as f:
         meta_dev = json.load(f)
 
     full_meta = meta_dev
@@ -600,7 +600,7 @@ if __name__ == "__main__":  # noqa: C901
     # Load 'dev' and 'eval' metadata files.
     full_meta_dev = full_meta  # current full_meta is for 'dev'
     eval_meta_file = params["eval_meta_file"]
-    with open(eval_meta_file, "r") as f:
+    with open(eval_meta_file, "r", encoding="utf-8") as f:
         full_meta_eval = json.load(f)
 
     # Tag to be appended to final output DER files. Writing DER for individual files.

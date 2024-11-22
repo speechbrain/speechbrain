@@ -9,13 +9,13 @@ Authors
 """
 
 import json
-import logging
 import os
 
 from speechbrain.dataio.dataio import read_audio
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 SAMPLERATE = 16000
 
 
@@ -409,7 +409,10 @@ def create_json(wav_lst, json_file, uppercase, phn_set):
             err_msg = "the wrd file %s does not exists!" % (wrd_file)
             raise FileNotFoundError(err_msg)
 
-        words = [line.rstrip("\n").split(" ")[2] for line in open(wrd_file)]
+        words = [
+            line.rstrip("\n").split(" ")[2]
+            for line in open(wrd_file, encoding="utf-8")
+        ]
         words = " ".join(words)
 
         # Retrieving phonemes
@@ -435,7 +438,7 @@ def create_json(wav_lst, json_file, uppercase, phn_set):
         }
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
@@ -449,7 +452,7 @@ def get_phoneme_lists(phn_file, phn_set):
     phonemes = []
     ends = []
 
-    for line in open(phn_file):
+    for line in open(phn_file, encoding="utf-8"):
         end, phoneme = line.rstrip("\n").replace("h#", "sil").split(" ")[1:]
 
         # Getting dictionaries for phoneme conversion

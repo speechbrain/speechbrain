@@ -21,7 +21,6 @@ Authors
  * Samuele Cornell 2020
 """
 
-import logging
 import os
 import sys
 from collections import defaultdict
@@ -33,8 +32,9 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 import speechbrain.k2_integration as sbk2
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -55,7 +55,7 @@ class ASR(sb.Brain):
 
         # Forward pass
 
-        # Handling SpeechBrain vs HuggingFance pretrained models
+        # Handling SpeechBrain vs HuggingFace pretrained models
         if hasattr(self.modules, "extractor"):  # SpeechBrain pretrained model
             latents = self.modules.extractor(wavs)
             feats = self.modules.encoder_wrapper(latents, wav_lens=wav_lens)[
@@ -204,7 +204,11 @@ class ASR(sb.Brain):
             )
             if if_main_process():
                 for k, stat in self.wer_metrics.items():
-                    with open(self.hparams.wer_file + f"_{k}.txt", "w") as w:
+                    with open(
+                        self.hparams.wer_file + f"_{k}.txt",
+                        "w",
+                        encoding="utf-8",
+                    ) as w:
                         stat.write_stats(w)
 
     def init_optimizers(self):
@@ -326,7 +330,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # env_corrupt is not supported with k2 yet
@@ -470,7 +474,7 @@ if __name__ == "__main__":
 
     # We load the pretrained wav2vec2 model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected(asr_brain.device)
 
     # Training

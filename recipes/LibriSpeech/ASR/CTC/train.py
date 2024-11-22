@@ -16,7 +16,6 @@ Authors
  * Adel Moumen 2024
 """
 
-import logging
 import os
 import sys
 from pathlib import Path
@@ -27,8 +26,9 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.tokenizers.SentencePiece import SentencePiece
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -169,7 +169,7 @@ class ASR(sb.core.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.wer_file, "w") as w:
+                with open(self.hparams.wer_file, "w", encoding="utf-8") as w:
                     self.wer_metric.write_stats(w)
 
     def on_fit_batch_end(self, batch, outputs, loss, should_step):
@@ -307,7 +307,7 @@ def dataio_prepare(hparams, tokenizer):
 if __name__ == "__main__":
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # If --distributed_launch then

@@ -23,7 +23,6 @@ import numbers
 import warnings
 
 import numpy as np
-import pytest
 import scipy
 from scipy import sparse
 from scipy.sparse.csgraph import connected_components
@@ -31,7 +30,6 @@ from scipy.sparse.csgraph import laplacian as csgraph_laplacian
 from scipy.sparse.linalg import eigsh
 
 np.random.seed(1234)
-pytest.importorskip("sklearn")
 
 try:
     import sklearn
@@ -65,7 +63,7 @@ def read_rttm(rttm_file_path):
         List containing rows of RTTM file.
     """
     rttm = []
-    with open(rttm_file_path, "r") as f:
+    with open(rttm_file_path, "r", encoding="utf-8") as f:
         for line in f:
             entry = line[:-1]
             rttm.append(entry)
@@ -90,7 +88,7 @@ def write_ders_file(ref_rttm, DER, out_der_file):
     rec_id_list = []
     count = 0
 
-    with open(out_der_file, "w") as f:
+    with open(out_der_file, "w", encoding="utf-8") as f:
         for row in spkr_info:
             a = row.split(" ")
             rec_id = a[1]
@@ -125,7 +123,7 @@ def prepare_subset_csv(full_diary_csv, rec_id, out_csv_file):
 
     out_csv = out_csv_head + entry
 
-    with open(out_csv_file, mode="w") as csv_file:
+    with open(out_csv_file, mode="w", newline="", encoding="utf-8") as csv_file:
         csv_writer = csv.writer(
             csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -320,7 +318,7 @@ def write_rttm(segs_list, out_rttm_file):
         ]
         rttm.append(new_row)
 
-    with open(out_rttm_file, "w") as f:
+    with open(out_rttm_file, "w", encoding="utf-8") as f:
         for row in rttm:
             line_str = " ".join(row)
             f.write("%s\n" % line_str)

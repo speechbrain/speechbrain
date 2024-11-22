@@ -8,15 +8,15 @@ Prepares metadata files (JSON) from manual annotations "segments/" using RTTM fo
 
 import glob
 import json
-import logging
 import os
 import xml.etree.ElementTree as et
 
 from ami_splits import get_AMI_split
 
 from speechbrain.dataio.dataio import load_pkl, save_pkl
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 SAMPLERATE = 16000
 
 
@@ -294,7 +294,7 @@ def prepare_segs_for_RTTM(
             RTTM = RTTM + rttm_per_rec
 
     # Write one RTTM as groundtruth. For example, "fullref_eval.rttm"
-    with open(out_rttm_file, "w") as f:
+    with open(out_rttm_file, "w", encoding="utf-8") as f:
         for item in RTTM:
             f.write("%s\n" % item)
 
@@ -406,7 +406,7 @@ def prepare_metadata(
 
     # Read RTTM
     RTTM = []
-    with open(rttm_file, "r") as f:
+    with open(rttm_file, "r", encoding="utf-8") as f:
         for line in f:
             entry = line[:-1]
             RTTM.append(entry)
@@ -438,12 +438,12 @@ def prepare_metadata(
     segs_file = save_dir + "/" + filename + ".segments.rttm"
     subsegment_file = save_dir + "/" + filename + ".subsegments.rttm"
 
-    with open(segs_file, "w") as f:
+    with open(segs_file, "w", encoding="utf-8") as f:
         for row in MERGED_SEGMENTS:
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
 
-    with open(subsegment_file, "w") as f:
+    with open(subsegment_file, "w", encoding="utf-8") as f:
         for row in SUBSEGMENTS:
             line_str = " ".join(row)
             f.write("%s\n" % line_str)
@@ -510,7 +510,7 @@ def prepare_metadata(
             }
 
     out_json_file = save_dir + "/" + filename + "." + mic_type + ".subsegs.json"
-    with open(out_json_file, mode="w") as json_f:
+    with open(out_json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     msg = "%s JSON prepared" % (out_json_file)

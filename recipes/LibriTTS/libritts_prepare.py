@@ -6,7 +6,6 @@ Authors
 """
 
 import json
-import logging
 import os
 import random
 
@@ -16,9 +15,10 @@ from tqdm import tqdm
 
 from speechbrain.inference.text import GraphemeToPhoneme
 from speechbrain.utils.data_utils import get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.text_to_sequence import _g2p_keep_punctuations
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 LIBRITTS_URL_PREFIX = "https://www.openslr.org/resources/60/"
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,13 +53,13 @@ def prepare_libritts(
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
+    sample_rate : int
+        The sample rate to be used for the dataset
     split_ratio : list
         List composed of three integers that sets split ratios for train, valid,
         and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
-    sample_rate : int
-        The sample rate to be used for the dataset
     libritts_subsets: list
         List of librispeech subsets to use (e.g., dev-clean, train-clean-100, ...) for the experiment.
         This parameter will be ignored if explicit data splits are provided.
@@ -76,6 +76,10 @@ def prepare_libritts(
         Model name (used to prepare additional model specific data)
     skip_prep: Bool
         If True, skip preparation.
+
+    Returns
+    -------
+    None
     """
 
     if skip_prep:
@@ -212,7 +216,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
             "/", *path_parts[:-1], uttid + ".normalized.txt"
         )
         try:
-            with open(normalized_text_path) as f:
+            with open(normalized_text_path, encoding="utf-8") as f:
                 normalized_text = f.read()
                 if normalized_text.__contains__("{"):
                     normalized_text = normalized_text.replace("{", "")
@@ -250,7 +254,7 @@ def create_json(wav_list, json_file, sample_rate, model_name=None):
             json_dict[uttid].update({"label_phoneme": phonemes})
 
     # Writes the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")
@@ -260,6 +264,12 @@ def skip(*filenames):
     """
     Detects if the data preparation has been already done.
     If the preparation has been done, we can skip it.
+
+    Arguments
+    ---------
+    *filenames : tuple
+        Set of filenames to check for existence.
+
     Returns
     -------
     bool
@@ -284,8 +294,9 @@ def split_sets(wav_list, split_ratio):
         and test sets, respectively. For instance split_ratio=[80, 10, 10] will
         assign 80% of the sentences to training, 10% for validation, and 10%
         for test.
+
     Returns
-    ------
+    -------
     dictionary containing train, valid, and test splits.
     """
     # Random shuffles the list

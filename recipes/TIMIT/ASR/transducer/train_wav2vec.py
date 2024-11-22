@@ -11,7 +11,6 @@ Authors
  * Mirco Ravanelli 2020
  * Ju-Chieh Chou 2020
 """
-import logging
 import os
 import sys
 
@@ -19,8 +18,9 @@ from hyperpyyaml import load_hyperpyyaml
 
 import speechbrain as sb
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -143,7 +143,9 @@ class ASR_Brain(sb.Brain):
                 test_stats={"loss": stage_loss, "PER": per},
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     w.write("Transducer loss stats:\n")
                     self.transducer_metrics.write_stats(w)
                     w.write("\nPER stats:\n")
@@ -266,7 +268,7 @@ if __name__ == "__main__":
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Dataset prep (parsing TIMIT and annotation into csv files)

@@ -9,12 +9,15 @@ speechbrain/recipes/LibriSpeech/ASR/CTC/train_with_whisper.py
 To run this recipe, do the following:
 > python train_with_whisper.py hparams/train_hf_whisper.yaml
 
+To add adapters and train only a fraction of the parameters, do:
+> python train_with_whisper.py hparams/train_whisper_lora.yaml
+
 Authors
+ * Peter Plantinga 2024
  * Adel Moumen 2022, 2024
  * Titouan Parcollet 2022
 """
 
-import logging
 import os
 import sys
 from pathlib import Path
@@ -25,8 +28,9 @@ from hyperpyyaml import load_hyperpyyaml
 import speechbrain as sb
 from speechbrain.utils.data_utils import undo_padding
 from speechbrain.utils.distributed import if_main_process, run_on_main
+from speechbrain.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Define training procedure
@@ -47,7 +51,9 @@ class ASR(sb.Brain):
 
         # We compute the padding mask and replace the values with the pad_token_id
         # that the Whisper decoder expect to see.
-        abs_tokens_lens = (bos_tokens_lens * bos_tokens.shape[1]).long()
+        abs_tokens_lens = torch.round(
+            bos_tokens_lens * bos_tokens.shape[1]
+        ).long()
         pad_mask = (
             torch.arange(abs_tokens_lens.max(), device=self.device)[None, :]
             < abs_tokens_lens[:, None]
@@ -101,16 +107,19 @@ class ASR(sb.Brain):
             target_words = self.tokenizer.batch_decode(
                 target_words, skip_special_tokens=True
             )
-
             if hasattr(self.hparams, "normalized_transcripts"):
+
+                if hasattr(self.tokenizer, "normalize"):
+                    normalized_fn = self.tokenizer.normalize
+                else:
+                    normalized_fn = self.tokenizer._normalize
+
                 predicted_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in predicted_words
+                    normalized_fn(text).split(" ") for text in predicted_words
                 ]
 
                 target_words = [
-                    self.tokenizer.normalize(text).split(" ")
-                    for text in target_words
+                    normalized_fn(text).split(" ") for text in target_words
                 ]
             else:
                 predicted_words = [text.split(" ") for text in predicted_words]
@@ -155,7 +164,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -225,7 +236,10 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        if hasattr(hparams, "normalized_transcripts"):
+        if (
+            "normalized_transcripts" in hparams
+            and hparams["normalized_transcripts"]
+        ):
             wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
@@ -256,7 +270,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
@@ -301,7 +315,7 @@ if __name__ == "__main__":
 
     # We load the pretrained whisper model
     if "pretrainer" in hparams.keys():
-        run_on_main(hparams["pretrainer"].collect_files)
+        hparams["pretrainer"].collect_files()
         hparams["pretrainer"].load_collected(asr_brain.device)
 
     # We dynamically add the tokenizer to our brain class.

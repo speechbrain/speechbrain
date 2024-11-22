@@ -16,8 +16,11 @@ from time import time
 from hyperpyyaml import load_hyperpyyaml
 
 from speechbrain.utils.data_utils import download_file  # noqa: F401
+from speechbrain.utils.logger import get_logger
 
 __skip_list = ["README.md", "setup"]
+
+logger = get_logger(__name__)
 
 
 def check_row_for_test(row, filters_fields, filters, test_field):
@@ -56,7 +59,7 @@ def check_row_for_test(row, filters_fields, filters, test_field):
                     test_flag = True
             test = test and test_flag
         else:
-            print("\tError in filters_fields and filters definition.")
+            logger.error("    Error in filters_fields and filters definition.")
             test = False
 
     if test:
@@ -127,16 +130,18 @@ def prepare_test(
     test_message = {}
 
     # Loop over all recipe CSVs
-    print(f"\tfilters_fields={filters_fields} => filters={filters}")
+    logger.info(f"    filters_fields={filters_fields} => filters={filters}")
     for recipe_csvfile in os.listdir(recipe_folder):
         # skip setup scripts; consider CSV files only
         if recipe_csvfile in __skip_list:
             continue
 
-        print(f"Loading recipes from: {recipe_csvfile}")
+        logger.info(f"Loading recipes from: {recipe_csvfile}")
         # Detect needed information for the recipe tests
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row_id, row in enumerate(reader):
@@ -144,7 +149,7 @@ def prepare_test(
                 if not (
                     check_row_for_test(row, filters_fields, filters, test_field)
                 ):
-                    print(f"\tSkipped {recipe_id}")
+                    logger.info(f"    Skipped {recipe_id}")
                     continue
                 test_script[recipe_id] = row[script_field].strip()
                 test_hparam[recipe_id] = row[hparam_field].strip()
@@ -195,8 +200,8 @@ def check_files(
     for file_to_check in files_to_check:
         check_path = os.path.join(output_folder, file_to_check)
         if not os.path.exists(check_path):
-            print(
-                "\tERROR: The recipe %s does not contain the expected file %s"
+            logger.error(
+                "    The recipe %s does not contain the expected file %s"
                 % (recipe_id, check_path)
             )
             check = False
@@ -244,15 +249,16 @@ def check_performance(
     epoch = performance_to_check[3].strip()
 
     if not os.path.exists(filename):
-        print(
-            "\tERROR: The file %s of recipe %s does not exist (needed for performance checks)"
-            % (filename, recipe_id)
+        logger.error(
+            "    The file %s of recipe %s does not exist (needed for performance checks)",
+            filename,
+            recipe_id,
         )
 
         return False
 
     # Real all the lines of the performance file
-    with open(filename) as file:
+    with open(filename, encoding="utf-8") as file:
         lines = file.readlines()
 
     # Filter the lines
@@ -271,8 +277,8 @@ def check_performance(
 
     # Raising an error if there are no lines after applying the filter
     if len(lines_filt) == 0:
-        print(
-            "\tERROR: No entries %s in %s (recipe %s). See performance_check entry."
+        logger.error(
+            "    No entries %s in %s (recipe %s). See performance_check entry."
             % (epoch, filename, recipe_id)
         )
         return False
@@ -283,18 +289,24 @@ def check_performance(
         var_value = extract_value(line, variable)
 
         if var_value is None:
-            print(
-                "\tERROR: The file %s of recipe %s does not contain the variable %s (needed for performance checks)"
-                % (filename, recipe_id, variable)
+            logger.error(
+                "    The file %s of recipe %s does not contain the variable %s (needed for performance checks)",
+                filename,
+                recipe_id,
+                variable,
             )
             return False
         var_value = float(var_value)
         check = check_threshold(threshold, var_value)
 
         if not check:
-            print(
-                "\tERROR: The variable %s of file %s (recipe %s) violated the specified threshold (%s %s)"
-                % (variable, filename, recipe_id, var_value, threshold)
+            logger.error(
+                "    The variable %s of file %s (recipe %s) violated the specified threshold (%s %s)",
+                variable,
+                filename,
+                recipe_id,
+                var_value,
+                threshold,
             )
 
         break
@@ -397,8 +409,8 @@ def run_test_cmd(cmd, stdout_file, stderr_file):
         The return code obtained after running the command. If 0, the test is
         run without errors. If >0 the execution failed.
     """
-    f_stdout = open(stdout_file, "w")
-    f_stderr = open(stderr_file, "w")
+    f_stdout = open(stdout_file, "w", encoding="utf-8")
+    f_stderr = open(stderr_file, "w", encoding="utf-8")
     child = sp.Popen([cmd], stdout=f_stdout, stderr=f_stderr, shell=True)
     child.communicate()[0]
     rc = child.returncode
@@ -440,9 +452,12 @@ def run_recipe_tests(
     output_folder: string
         Folder where the output of the tests are saved.
     filters_fields: list
-        This can be used with the "filter" variable
-        to run only some tests. For instance, filters_fields=['Task'] and filters=['ASR'])
+        This can be used with the `filters` argument to only include certain
+        rows, by filtering out rows that do not match the specified column
+        values.
+        For instance, `filters_fields=['Task']` with `filters=['ASR']`
         will only run tests for ASR recipes.
+        Filters stack, i.e. they are combined in an `and` fashion.
     filters: list
         See above.
     do_checks: bool (default: True)
@@ -463,7 +478,7 @@ def run_recipe_tests(
     """
     # Create the output folder (where the tests results will be saved)
     os.makedirs(output_folder, exist_ok=True)
-    print("Test outputs will be put in %s" % (output_folder))
+    logger.info("Test outputs will be put in %s", output_folder)
 
     # Read the csv recipe file and detect which tests we have to run
     (
@@ -485,7 +500,9 @@ def run_recipe_tests(
 
     # Early stop if there are no recipes to test
     if len(test_script) == 0:
-        print("No recipes found for testing (please check recipe filters).")
+        logger.error(
+            "No recipes found for testing (please check recipe filters)."
+        )
         return False
 
     # Download all upfront
@@ -526,15 +543,17 @@ def run_recipe_tests(
             if len(check_str) == 0:
                 continue
 
-        print(
-            "(%i/%i) Running test for %s..."
-            % (i + 1, len(test_script.keys()), recipe_id)
+        logger.info(
+            "(%i/%i) Running test for %s...",
+            i + 1,
+            len(test_script.keys()),
+            recipe_id,
         )
 
         if recipe_id in test_download:
             download_cmds = test_download[recipe_id].split(";")
             for download_cmd in download_cmds:
-                print("\t" + download_cmd)
+                logger.info("    " + download_cmd)
                 eval(download_cmd)
 
         # Check for setup scripts
@@ -569,13 +588,13 @@ def run_recipe_tests(
 
         # Print message (if any)
         if recipe_id in test_message:
-            print("\t\t" + test_message[recipe_id])
+            logger.info("        %s", test_message[recipe_id])
 
         # Running the test
         time_start = time()
         return_code = run_test_cmd(cmd, stdout_file, stderr_file)
         test_duration = time() - time_start
-        print("\t... %.2fs" % test_duration)
+        logger.info("    ... %.2fs", test_duration)
 
         # Tear down
         td_script = os.path.join(os.path.dirname(setup_script), "tear_down")
@@ -584,15 +603,18 @@ def run_recipe_tests(
 
         # Check return code
         if return_code != 0:
-            print(
-                "\tERROR: Error in %s (%s). Check %s and %s for more info."
-                % (recipe_id, test_hparam[recipe_id], stderr_file, stdout_file)
+            logger.error(
+                "    Error in %s (%s). Check %s and %s for more info.",
+                recipe_id,
+                test_hparam[recipe_id],
+                stderr_file,
+                stdout_file,
             )
             check = False
 
         # Checks
         if do_checks and len(check_str) > 0:
-            print("\t...checking files & performance...")
+            logger.info("    ...checking files & performance...")
 
             # Check if the expected files exist
             check &= check_files(check_str, output_fold, recipe_id)
@@ -636,9 +658,11 @@ def download_only_test(
             if len(check_str) == 0:
                 continue
 
-        print(
-            "(%i/%i) Collecting pretrained models for %s..."
-            % (i + 1, len(test_script.keys()), recipe_id)
+        logger.info(
+            "(%i/%i) Collecting pretrained models for %s...",
+            i + 1,
+            len(test_script.keys()),
+            recipe_id,
         )
 
         output_fold = os.path.join(output_folder, recipe_id)
@@ -649,11 +673,11 @@ def download_only_test(
         cmd = (
             "python -c 'import sys;from hyperpyyaml import load_hyperpyyaml;import speechbrain;"
             "hparams_file, run_opts, overrides = speechbrain.parse_arguments(sys.argv[1:]);"
-            "fin=open(hparams_file);hparams = load_hyperpyyaml(fin, overrides);fin.close();"
+            "fin=open(hparams_file, encoding='utf-8');hparams = load_hyperpyyaml(fin, overrides);fin.close();"
             # 'speechbrain.create_experiment_directory(experiment_directory=hparams["output_folder"],'
             # 'hyperparams_to_save=hparams_file,overrides=overrides,);'
         )
-        with open(test_hparam[recipe_id]) as hparam_file:
+        with open(test_hparam[recipe_id], encoding="utf-8") as hparam_file:
             for line in hparam_file:
                 if "pretrainer" in line:
                     cmd += 'hparams["pretrainer"].collect_files();hparams["pretrainer"].load_collected(device="cpu");'
@@ -780,12 +804,12 @@ def load_yaml_test(
 
         # Avoid files lister in avoid_list
         if hparam_file in avoid_list:
-            print(
-                f"\t({i + 1}/{len(test_script.keys())}) Skipped: {hparam_file}! (check avoid_list for details)"
+            logger.info(
+                f"    ({i + 1}/{len(test_script.keys())}) Skipped: {hparam_file}! (check avoid_list for details)"
             )
             continue
 
-        print(
+        logger.info(
             "(%i/%i) Checking %s..."
             % (i + 1, len(test_script.keys()), hparam_file)
         )
@@ -798,7 +822,7 @@ def load_yaml_test(
 
         tag_custom_model = None
         # Append additional overrides when needed
-        with open(hparam_file) as f:
+        with open(hparam_file, encoding="utf-8") as f:
             for line in f:
                 # os.chdir(run_folder) is not changing sys.module, and pydoc.locate (in load_hyperpyyaml) fails
                 if "new:custom_model" in line:
@@ -829,13 +853,13 @@ def load_yaml_test(
                     if pattern in line and line.find(pattern) == 0:
                         overrides.update({key: value})
 
-        with open(hparam_file) as fin:
+        with open(hparam_file, encoding="utf-8") as fin:
             try:
                 _ = load_hyperpyyaml(fin, overrides)
             except Exception as e:
-                print("\t" + str(e))
+                logger.error("    %s", str(e))
                 check = False
-                print("\tERROR: cannot load %s" % (hparam_file))
+                logger.error("    cannot load %s", hparam_file)
         if tag_custom_model is not None:
             if tag_custom_model in sys.modules:
                 del sys.modules[tag_custom_model]

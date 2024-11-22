@@ -14,7 +14,6 @@ Author
 
 import csv
 import functools
-import logging
 import os
 import random
 from collections import Counter
@@ -27,9 +26,10 @@ from speechbrain.dataio.dataio import (
     save_pkl,
 )
 from speechbrain.utils.data_utils import download_file, get_all_files
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.parallel import parallel_map
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 OPT_FILE = "opt_librispeech_prepare.pkl"
 SAMPLERATE = 16000
 OPEN_SLR_11_LINK = "http://www.openslr.org/resources/11/"
@@ -193,7 +193,7 @@ def create_lexicon_and_oov_csv(all_texts, save_folder):
     # Get list of all words in the lexicon
     lexicon_words = []
     lexicon_pronunciations = []
-    with open(lexicon_path, "r") as f:
+    with open(lexicon_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
         for line in lines:
             word = line.split()[0]
@@ -204,7 +204,7 @@ def create_lexicon_and_oov_csv(all_texts, save_folder):
     # Create lexicon.csv
     header = "ID,duration,char,phn\n"
     lexicon_csv_path = os.path.join(save_folder, "lexicon.csv")
-    with open(lexicon_csv_path, "w") as f:
+    with open(lexicon_csv_path, "w", newline="", encoding="utf-8") as f:
         f.write(header)
         for idx in range(len(lexicon_words)):
             separated_graphemes = [c for c in lexicon_words[idx]]
@@ -239,7 +239,7 @@ def split_lexicon(data_folder, split_ratio):
     """
     # Reading lexicon.csv
     lexicon_csv_path = os.path.join(data_folder, "lexicon.csv")
-    with open(lexicon_csv_path, "r") as f:
+    with open(lexicon_csv_path, "r", newline="", encoding="utf-8") as f:
         lexicon_lines = f.readlines()
     # Remove header
     lexicon_lines = lexicon_lines[1:]
@@ -257,11 +257,26 @@ def split_lexicon(data_folder, split_ratio):
     test_lines = [header] + lexicon_lines[tr_snts + valid_snts :]
 
     # Saving files
-    with open(os.path.join(data_folder, "lexicon_tr.csv"), "w") as f:
+    with open(
+        os.path.join(data_folder, "lexicon_tr.csv"),
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as f:
         f.writelines(train_lines)
-    with open(os.path.join(data_folder, "lexicon_dev.csv"), "w") as f:
+    with open(
+        os.path.join(data_folder, "lexicon_dev.csv"),
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as f:
         f.writelines(valid_lines)
-    with open(os.path.join(data_folder, "lexicon_test.csv"), "w") as f:
+    with open(
+        os.path.join(data_folder, "lexicon_test.csv"),
+        "w",
+        newline="",
+        encoding="utf-8",
+    ) as f:
         f.writelines(test_lines)
 
 
@@ -349,7 +364,7 @@ def create_csv(save_folder, wav_lst, text_dict, split, select_n_sentences):
             break
 
     # Writing the csv_lines
-    with open(csv_file, mode="w") as csv_f:
+    with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_f:
         csv_writer = csv.writer(
             csv_f, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -423,7 +438,7 @@ def text_to_dict(text_lst):
     text_dict = {}
     # Reading all the transcription files is text_lst
     for file in text_lst:
-        with open(file, "r") as f:
+        with open(file, "r", encoding="utf-8") as f:
             # Reading all line of the transcription file
             for line in f:
                 line_lst = line.strip().split(" ")

@@ -36,7 +36,7 @@ Authors:
 """
 
 import functools
-import logging
+import os
 import warnings
 
 from torch.utils.data import DataLoader, DistributedSampler, IterableDataset
@@ -53,6 +53,7 @@ from speechbrain.utils.checkpoints import (
     mark_as_saver,
     register_checkpoint_hooks,
 )
+from speechbrain.utils.logger import get_logger
 
 # Optional support for webdataset
 try:
@@ -69,7 +70,7 @@ try:
 except ImportError:
     WDS_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def distributed_loader_specifics(
@@ -186,7 +187,8 @@ def make_dataloader(dataset, looped_nominal_epoch=None, **loader_kwargs):
                 "Cannot specify both shuffle=True and a "
                 "sampler in loader_kwargs"
             )
-        sampler = ReproducibleRandomSampler(dataset)
+        seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+        sampler = ReproducibleRandomSampler(dataset, seed=seed)
         loader_kwargs["sampler"] = sampler
         # Should delete shuffle because you can't set both Sampler and
         # shuffle
@@ -282,7 +284,7 @@ class SaveableDataLoader(DataLoader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if isinstance(self.dataset, IterableDataset):
-            logging.warning(
+            logger.warning(
                 "SaveableDataLoader cannot save the position in an "
                 "IterableDataset. Save the position on the dataset itself."
             )
@@ -303,7 +305,7 @@ class SaveableDataLoader(DataLoader):
     @mark_as_saver
     def _speechbrain_save(self, path):
         if isinstance(self.dataset, IterableDataset):
-            logging.warning(
+            logger.warning(
                 "Warning again: a checkpoint was requested on "
                 "SaveableDataLoader, but the dataset is an IterableDataset. "
                 "Cannot save the position in an IterableDataset. Not raising "
@@ -313,13 +315,13 @@ class SaveableDataLoader(DataLoader):
             to_save = None
         else:
             to_save = self._speechbrain_iterator._num_yielded
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             fo.write(str(to_save))
 
     @mark_as_loader
     def _speechbrain_load(self, path, end_of_epoch):
         if self._speechbrain_iterator is not None:
-            logging.debug(
+            logger.debug(
                 "SaveableDataLoader was requested to load a "
                 "checkpoint, but the DataLoader has already been "
                 "iterated. The DataLoader file will be ignored. "
@@ -331,7 +333,7 @@ class SaveableDataLoader(DataLoader):
             # Don't load at end of epoch, as we actually want to start a fresh
             # epoch iteration next.
             return
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             saved = fi.read()
             if saved == str(None):
                 # Saved at a point where e.g. an iterator did not yet exist.
@@ -396,7 +398,7 @@ class LoopedLoader:
     @mark_as_saver
     def save(self, path):
         """Saves the needed information."""
-        with open(path, "w") as fo:
+        with open(path, "w", encoding="utf-8") as fo:
             print(self.step, file=fo)
             print(self.total_steps, file=fo)
             print(self.total_samples, file=fo)
@@ -404,7 +406,7 @@ class LoopedLoader:
     @mark_as_loader
     def load(self, path, end_of_epoch=True):
         """Loads the needed information."""
-        with open(path) as fi:
+        with open(path, encoding="utf-8") as fi:
             self.step = int(fi.readline().strip())
             self.total_steps = int(fi.readline().strip())
             self.total_samples = int(fi.readline().strip())

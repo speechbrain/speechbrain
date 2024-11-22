@@ -9,16 +9,17 @@ Authors:
   * Georgios Karakasidis 2023
 """
 
-import logging
 import os
 from pathlib import Path
 from typing import List, Union
 
 import torch
 
+from speechbrain.utils.logger import get_logger
+
 from . import k2  # import k2 from ./__init__.py
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def lattice_path_to_textid(
@@ -129,7 +130,7 @@ def load_G(path: Union[str, Path], cache: bool = True) -> k2.Fsa:
         raise FileNotFoundError(
             f"File {path} not found. " "You need to run arpa_to_fst to get it."
         )
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         G = k2.Fsa.from_openfst(f.read(), acceptor=False)
         torch.save(G.as_dict(), path[:-8] + ".pt")
     return G

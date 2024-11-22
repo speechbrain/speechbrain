@@ -7,7 +7,7 @@ Authors
  * Aku Rouhe 2021
  * Andreas Nautsch 2022
  * Sylvain de Langen 2023
- * Adel Moumen 2023
+ * Adel Moumen 2023, 2024
 """
 
 import argparse
@@ -41,14 +41,16 @@ from speechbrain.dataio.sampler import (
     DistributedSamplerWrapper,
     ReproducibleRandomSampler,
 )
+from speechbrain.utils.distributed import is_distributed_initialized
+from speechbrain.utils.logger import get_logger
 from speechbrain.utils.optimizers import rm_vector_weight_decay
 from speechbrain.utils.profiling import prepare_profiler
 
-logger = logging.getLogger(__name__)
+sb.utils.quirks.apply_quirks()
+
+logger = get_logger(__name__)
 DEFAULT_LOG_CONFIG = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_LOG_CONFIG = os.path.join(DEFAULT_LOG_CONFIG, "log-config.yaml")
-torch._C._jit_set_profiling_executor(False)
-torch._C._jit_set_profiling_mode(False)
 INTRA_EPOCH_CKPT_FLAG = "brain_intra_epoch_ckpt"
 PYTHON_VERSION_MAJOR = 3
 PYTHON_VERSION_MINOR = 8
@@ -167,9 +169,9 @@ def create_experiment_directory(
                 hyperparams_filename = os.path.join(
                     experiment_directory, "hyperparams.yaml"
                 )
-                with open(hyperparams_to_save) as f:
+                with open(hyperparams_to_save, encoding="utf-8") as f:
                     resolved_yaml = resolve_references(f, overrides)
-                with open(hyperparams_filename, "w") as w:
+                with open(hyperparams_filename, "w", encoding="utf-8") as w:
                     print("# Generated %s from:" % date.today(), file=w)
                     print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
                     print("# yamllint disable", file=w)
@@ -189,6 +191,11 @@ def create_experiment_directory(
             sb.utils.logger.setup_logging(log_config, logger_overrides)
             sys.excepthook = _logging_excepthook
 
+            # Log quirks again so that it makes it to the log file.
+            # Quirks are applied way earlier, before logging is properly setup,
+            # so this gives a chance to the user to see them, lowering surprise.
+            sb.utils.quirks.log_applied_quirks()
+
             # Log beginning of experiment!
             logger.info("Beginning experiment!")
             logger.info(f"Experiment folder: {experiment_directory}")
@@ -197,7 +204,9 @@ def create_experiment_directory(
             if save_env_desc:
                 description_str = sb.utils.logger.get_environment_description()
                 with open(
-                    os.path.join(experiment_directory, "env.log"), "w"
+                    os.path.join(experiment_directory, "env.log"),
+                    "w",
+                    encoding="utf-8",
                 ) as fo:
                     fo.write(description_str)
     finally:
@@ -804,7 +813,7 @@ class Brain:
 
         if self.distributed_launch:
             self.rank = int(os.environ["RANK"])
-            if not torch.distributed.is_initialized():
+            if not is_distributed_initialized():
                 if self.rank > 0:
                     raise ValueError(
                         " ================ WARNING ==============="
@@ -861,7 +870,7 @@ class Brain:
                 f"{class_name} Model Statistics:\n"
                 f"* Total Number of Trainable Parameters: {total_trainable_params}\n"
                 f"* Total Number of Parameters: {total_parameters}\n"
-                f"* Trainable Parameters represent {0:.4f}% of the total size."
+                f"* Trainable Parameters represent {0:.2f}% of the total size."
             )
         elif total_trainable_params == 0:
             logger.warning("The model has no trainable parameters!")
@@ -1049,7 +1058,8 @@ class Brain:
                     "Cannot specify both shuffle=True"
                     "and a sampler in loader_kwargs"
                 )
-            sampler = ReproducibleRandomSampler(dataset)
+            seed = os.environ.get("SB_GLOBAL_SEED", 563375142)
+            sampler = ReproducibleRandomSampler(dataset, seed=seed)
             self.train_sampler = sampler
             loader_kwargs["sampler"] = self.train_sampler
             # Delete the shuffle flag, since you cannot specify both a sampler and
@@ -1212,6 +1222,7 @@ class Brain:
         """
         amp = AMPConfig.from_name(self.precision)
         should_step = (self.step % self.grad_accumulation_factor) == 0
+        self.on_fit_batch_start(batch, should_step)
 
         with self.no_sync(not should_step):
             if self.use_amp:
@@ -1335,6 +1346,9 @@ class Brain:
 
     def on_fit_batch_start(self, batch, should_step):
         """Called at the beginning of ``fit_batch()``.
+
+        This method is not called under the AMP context manager. Do not assume
+        automatic casting of the input batch to a lower precision (e.g. fp16).
 
         Arguments
         ---------
@@ -1482,7 +1496,7 @@ class Brain:
         decision = decision or 0 < self.ckpt_interval_steps <= steps_since_ckpt
 
         # If the program is not distributed, just return
-        if not torch.distributed.is_initialized():
+        if not is_distributed_initialized():
             return decision
 
         # Otherwise, broadcast decision to all processes from main (rank 0)
@@ -1761,6 +1775,9 @@ class Brain:
         if progressbar is None:
             progressbar = not self.noprogressbar
 
+        # Only show progressbar if requested and main_process
+        enable = progressbar and sb.utils.distributed.if_main_process()
+
         if not (
             isinstance(test_set, DataLoader)
             or isinstance(test_set, LoopedLoader)
@@ -1777,7 +1794,7 @@ class Brain:
             for batch in tqdm(
                 test_set,
                 dynamic_ncols=True,
-                disable=not progressbar,
+                disable=not enable,
                 colour=self.tqdm_barcolor["test"],
             ):
                 self.step += 1
@@ -1855,13 +1872,13 @@ class Brain:
             "avg_train_loss": self.avg_train_loss,
             "optimizer_step": self.optimizer_step,
         }
-        with open(path, "w") as w:
+        with open(path, "w", encoding="utf-8") as w:
             w.write(yaml.dump(save_dict))
 
     @sb.utils.checkpoints.mark_as_loader
     def _recover(self, path, end_of_epoch):
         del end_of_epoch
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]
