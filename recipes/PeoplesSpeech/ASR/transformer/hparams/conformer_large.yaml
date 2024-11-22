@@ -2,10 +2,10 @@
 # Model: E2E ASR with Transformer
 # Encoder: Conformer Encoder
 # Decoder: Transformer Decoder + (CTC/ATT joint) beamsearch + TransformerLM
-# Tokens: unigram
+# Tokens: BPE
 # losses: CTC + KLdiv (Label Smoothing loss)
-# Training: Librispeech 960h
-# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell
+# Training: People's Speech 28,000 hours
+# Authors:  Titouan Parcollet
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 
@@ -22,21 +22,14 @@ test_2: /fss/shared_saic-speech/t.parcollet/mnt/results/conformer_en/3407/test.c
 
 # Data files
 hf_download_folder: !PLACEHOLDER
-subsets: ["dirty", "clean"]
-skip_prep: False
-data_prep_only: True
+subsets: ["dirty", "clean"] # _sa sets are removed.
 ckpt_interval_minutes: 5 # save checkpoint every N min
 
 
 ####################### Training Parameters ####################################
 
-# To make Transformers converge, the global bath size should be large enough.
-# The global batch size is computed as batch_size * n_gpus * grad_accumulation_factor.
-# Empirically, we found that this value should be >= 128.
-# Please, set your parameters accordingly.
-number_of_epochs: 120
+number_of_epochs: 30
 optimizer_step_limit: 400000
-batch_size: 16 # This works for 2x GPUs with 32GB
 ctc_weight: 0.3
 grad_accumulation_factor: 1
 max_grad_norm: 5.0
@@ -44,6 +37,7 @@ loss_reduction: 'batchmean'
 sorting: random
 num_workers: 4
 precision: fp16 # bf16, fp16 or fp32
+skip_prep: False
 
 # stages related parameters
 lr_adam: 0.0008
@@ -56,7 +50,6 @@ win_length: 32
 
 # This setup works well for A100 80GB GPU, adapts it to your needs.
 # Or turn it off (but training speed will decrease)
-dynamic_batching: True
 max_batch_length_train: 500
 max_batch_length_val: 100 # we reduce it as the beam is much wider (VRAM)
 num_bucket: 200
@@ -81,15 +74,6 @@ dynamic_batch_sampler_valid:
     shuffle: !ref <shuffle>
     batch_ordering: !ref <batch_ordering>
     max_batch_ex: !ref <max_batch_ex>
-
-# Dataloader options
-train_dataloader_opts:
-    batch_size: !ref <batch_size>
-    shuffle: True
-    num_workers: !ref <num_workers>
-
-valid_dataloader_opts:
-    batch_size: 1
 
 test_dataloader_opts:
     batch_size: 4
@@ -269,6 +253,8 @@ freq_drop: !new:speechbrain.augment.freq_domain.SpectrogramDrop
 # Time warp
 time_warp: !new:speechbrain.augment.freq_domain.Warping
 
+# We remove augmentations as we are using the full 28k hour set.
+# Uncomment to bring augmentations back!
 # fea_augment: !new:speechbrain.augment.augmenter.Augmenter
 #    min_augmentations: 2
 #    max_augmentations: 2
