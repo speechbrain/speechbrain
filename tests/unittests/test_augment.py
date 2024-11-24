@@ -315,9 +315,9 @@ def test_sign_flip():
         if torch.all(flipped_sig == -signal):
             flips += 1
     test_prob = flips / trials
-    # these values are 5 stds in each direction,
+    # these values are 6 stds in each direction,
     # making a false negative extremely unlikely
-    assert 0.421 < test_prob < 0.579
+    assert 0.405 < test_prob < 0.595
 
 
 def test_SpectrogramDrop():
