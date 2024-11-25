@@ -7,7 +7,7 @@ This recipe provides the necessary recipe to train a speech recognizer on the Pe
 The full dataset will occupy around 3 TB of storage and must be obtained following the standard HuggingFace
 dataset process in the [corresponding HuggingFace people's speech repository](https://huggingface.co/datasets/MLCommons/peoples_speech).
 
-By default, our recipe set the HuggingFace environmental variable *HFç_DATASETS_OFFLINE* to disable the download
+By default, our recipe set the HuggingFace environmental variable *HF_DATASETS_OFFLINE* to disable the download
 of the dataset. This is because we ask the user to download it before, like for any other recipe. Indeed, we do
 not want a recipe script, potentially run on GPUs nodes, to take hours downloading a dataset first.
 
