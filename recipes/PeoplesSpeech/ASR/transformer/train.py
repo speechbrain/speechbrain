@@ -309,7 +309,8 @@ def dataio_prepare(hparams):
 
     train_batch_sampler = DynamicBatchSampler(
         train_data,
-        dynamic_hparams["max_batch_length"] * 1000,
+        dynamic_hparams["max_batch_length"]
+        * 1000,  # duration is in ms so back to s.
         num_buckets=num_buckets,
         lengths_list=train_len_list,
         shuffle=dynamic_hparams["shuffle"],
@@ -318,7 +319,8 @@ def dataio_prepare(hparams):
 
     valid_batch_sampler = DynamicBatchSampler(
         valid_data,
-        dynamic_hparams_valid["max_batch_length"] * 1000,
+        dynamic_hparams_valid["max_batch_length"]
+        * 1000,  # duration is in ms so back to s.
         num_buckets=num_buckets,
         lengths_list=val_len_list,
         shuffle=dynamic_hparams_valid["shuffle"],

@@ -7,7 +7,6 @@
 # Training: People's Speech 28,000 hours
 # Authors:  Titouan Parcollet
 # ############################################################################
-# Seed needs to be set at top of yaml, before objects with parameters are made
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
 seed: 3407
@@ -17,12 +16,10 @@ output_wer_folder: !ref <output_folder>/
 save_folder: !ref <output_folder>/save
 train_csv: !ref <save_folder>/train.csv
 train_log: !ref <output_folder>/train_log.txt
-data_folder: /ephemeral/datasets/people_speech
-test_2: /fss/shared_saic-speech/t.parcollet/mnt/results/conformer_en/3407/test.csv
 
 # Data files
 hf_download_folder: !PLACEHOLDER
-subsets: ["dirty", "clean"] # _sa sets are removed.
+subsets: ["clean", "dirty"] # _sa sets are removed.
 ckpt_interval_minutes: 5 # save checkpoint every N min
 
 

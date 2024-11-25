@@ -134,18 +134,33 @@ def prepare_peoples_speech(
 
     os.makedirs(save_folder, exist_ok=True)
 
-    i = 0
-    for split, output in save_output.items():
+    for i, split, output in enumerate(save_output.items()):
         logger.info(f"Starting creating {output} using {split} split.")
         HF_create_csv(output, hf_dataset[i], split)
-        i += 1
 
     logger.info("Data preparation completed!")
 
 
 def load_and_concatenate_datasets(subsets, hf_download_folder):
     """Load/download and concatenate all the specified subsets from People's
-    speech
+    speech. The people's speech dataset have 4 subset "clean", "clean_sa",
+    "dirty" and "dirty_sa". Multiple subsets cannot be loaded all at once with
+    HuggingFace so this function makes it possible.
+
+    Parameters
+    ----------
+    subsets : list
+        Target subset. People's speech contains multiple subsets, which must be
+        loaded invidividually and then concatenated. E.g. 'clean', 'clean_sac',
+        'dirty' or 'dirty_sa'. E.g. to combine  ['clean', 'dirty'].
+    hf_download_folder : str
+        The path where HF stored the dataset. Important, you must set the global
+        env variable HF_HUB_CACHE to the same path as HuggingFace is primilarily
+        using this to know where to store datasets.
+
+    Returns
+    -------
+    List of HuggingFace dataset.
     """
 
     try:
@@ -334,13 +349,21 @@ def skip_csv(save_csv_files: dict) -> bool:
 def english_specific_preprocess(sentence):
     """
     Preprocess English text from the People's Speech dataset into space-separated
-    words.
-    This removes various punctuation and treats it as word boundaries.
+    words. This removes various punctuation and treats it as word boundaries.
     It normalises and retains various apostrophes (’‘´) between letters, but not
-    other ones, which are probably quotation marks.
-    It capitalises all text.
+    other ones, which are probably quotation marks. It capitalises all text.
     This function may error out if new characters show up in the training, dev,
     or test sets.
+
+    Parameters
+    ----------
+    sentence : str
+        The string to modify.
+
+    Returns
+    -------
+    str
+        The normalised sentence.
     """
 
     # These characters mark word boundaries.
