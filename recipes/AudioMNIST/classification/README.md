@@ -1,5 +1,5 @@
 # AudioMNIST Dataset classification
-This folder contains recipes for spoken digit recognition with [AudioMNIST Dataset](https://github.com/soerenab/AudioMNIST),
+This folder contains recipes for spoken digits recognition with [AudioMNIST Dataset](https://github.com/soerenab/AudioMNIST),
 including sample recipes for the [Learnable gammatone filterbank audio frontend](https://septentrio.uit.no/index.php/nldl/article/view/6279).
 The recipes include the original [AudioNet architecture](https://arxiv.org/abs/1807.03418) and two other versions using a learnable
 Gammatone filter bank as frontend.
