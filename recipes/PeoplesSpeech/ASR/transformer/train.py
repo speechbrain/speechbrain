@@ -216,12 +216,13 @@ class ASR(sb.core.Brain):
         if should_step:
             self.hparams.noam_annealing(self.optimizer)
 
+
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions.
     """
 
-    # We reload the dataset (already downloaded during dataprep).
+    # We load the dataset
     ds = load_and_concatenate_datasets(
         hparams["subsets"],
         hparams["hf_download_folder"],
@@ -367,14 +368,6 @@ if __name__ == "__main__":
         },
     )
 
-    if hparams["data_prep_only"]:
-        logger.info(
-            "Data preparation finished. Restart the script with data_prep_only to False. "
-        )
-        import sys
-
-        sys.exit()
-
     # Defining tokenizer and loading it
     tokenizer = SentencePiece(
         model_dir=hparams["save_folder"],
@@ -409,6 +402,8 @@ if __name__ == "__main__":
     asr_brain.tokenizer = tokenizer
 
     # Setup dynamic batching specifics
+    train_dataloader_opts = hparams["train_dataloader_opts"]
+    valid_dataloader_opts = hparams["valid_dataloader_opts"]
     collate_fn = None
     if "collate_fn" in train_dataloader_opts:
         collate_fn = train_dataloader_opts["collate_fn"]

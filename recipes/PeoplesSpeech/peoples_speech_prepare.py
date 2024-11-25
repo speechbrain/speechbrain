@@ -28,8 +28,6 @@ import os
 import re
 from dataclasses import dataclass
 
-from num2words import num2words
-
 from speechbrain.utils.parallel import parallel_map
 
 logger = logging.getLogger(__name__)
@@ -68,14 +66,13 @@ def prepare_peoples_speech(
     SpeechBrain as it relies exclusively on HuggingFace Datasets. This means that
     audio files will NOT be extracted but instead read from shard directly. Instead
     we propose to still generate .csv files to have transcriptions and durations
-    readable to the user. This means that the csv file generation part can totally
-    be skipped and the training recipe would still work.
+    readable to the user.
 
     Download: https://huggingface.co/datasets/MLCommons/peoples_speech
     Reference: https://arxiv.org/abs/2111.09344
 
-    The `train.csv` file is created by following the train subset specified in the `splits` list.
-    It must be part of the `TRAIN_SUBSET` list. You cannot use multiple train subsets.
+    The `train.csv` file is created by combining the sets given in the `subsets`
+    variable.
 
     The `dev.csv` and `test.csv` files are created based on the `DEV` and `TEST` splits
     specified in the `splits` list.
@@ -83,9 +80,9 @@ def prepare_peoples_speech(
     Parameters
     ----------
     hf_download_folder : str
-        The path for storing the peoples speech shards from HF. Important, you
-        must set the global env variable HF_HUB_CACHE to the same path as
-        HuggingFace is primilarily using this to know where to store datasets.
+        The path where HF stored the dataset. Important, you must set the global
+        env variable HF_HUB_CACHE to the same path as HuggingFace is primilarily
+        using this to know where to store datasets.
     save_folder : str
         The path to the folder where the CSV files will be saved.
     subsets : list
@@ -99,6 +96,14 @@ def prepare_peoples_speech(
     -------
     None
     """
+
+    if not os.path.isfile(hf_download_folder):
+        msg = "You must download the dataset with HuggingFace before starting "
+        msg += (
+            "this recipe. Please check the HuggingFace hub of people's speech."
+        )
+        raise ValueError(msg)
+
     if skip_prep:
         logger.info("Skipping data preparation as `skip_prep` is set to `True`")
         return
@@ -143,8 +148,6 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
     speech
     """
 
-    logger.info("Downloading People Speech dataset ...")
-
     try:
         from datasets import concatenate_datasets, load_dataset
     except ImportError:
@@ -163,12 +166,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
         msg += " hf_download_folder. Make sure to set these variables properly."
         raise Exception(msg)
 
-    logger.info(
-        "Downloading dataset from HuggingFace to: " + str(hf_caching_dir)
-    )
-    logger.info(
-        "To change this directory modify the HF_HUB_CACHE env. variable. and hf_download_folder"
-    )
+    logger.info("Loading dataset from: " + str(hf_caching_dir))
 
     import multiprocessing
 
@@ -387,10 +385,3 @@ def english_specific_preprocess(sentence):
         character_set - final_characters,
     )
     return result
-
-
-def convert_number(match):
-    """Convert a number to a word using re.sub"""
-    num = int(match.group(0))
-    words = num2words(num)
-    return words
