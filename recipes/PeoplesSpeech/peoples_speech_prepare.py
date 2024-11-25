@@ -97,7 +97,7 @@ def prepare_peoples_speech(
     None
     """
 
-    if not os.path.isfile(hf_download_folder):
+    if not os.path.isdir(hf_download_folder):
         msg = "You must download the dataset with HuggingFace before starting "
         msg += (
             "this recipe. Please check the HuggingFace hub of people's speech."
@@ -177,7 +177,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
 
     # Setting no download mode for HuggingFace. Only cache.
     # We remove progress bars as they repeat for each DDP process.
-    os.environ["HF_DATASETS_OFFLINE"] = 1
+    os.environ["HF_DATASETS_OFFLINE"] = "1"
     datasets.disable_progress_bars()
     datasets_list = []
     for subset in subsets:
@@ -190,7 +190,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
         )
         datasets_list.append(hf_data[0])
 
-    os.environ["HF_DATASETS_OFFLINE"] = 0
+    os.environ["HF_DATASETS_OFFLINE"] = "0"
 
     # Datasets need to be concatenated back.
     final_dataset = []
@@ -201,7 +201,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
 
     # Now get validation and test
     # Setting no download mode for HuggingFace. Only cache.
-    os.environ["HF_DATASETS_OFFLINE"] = 1
+    os.environ["HF_DATASETS_OFFLINE"] = "1"
     hf_data = load_dataset(
         HF_HUB,
         name=subset,
@@ -209,7 +209,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
         num_proc=nproc,
         cache_dir=hf_caching_dir,
     )
-    os.environ["HF_DATASETS_OFFLINE"] = 0
+    os.environ["HF_DATASETS_OFFLINE"] = "0"
     datasets.enable_progress_bars()
 
     final_dataset.append(hf_data[0])
