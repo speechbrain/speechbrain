@@ -25,6 +25,7 @@ def vocal_characteristics(
     sample_rate: int = 16000,
     harmonicity_threshold: float = 0.45,
     jitter_threshold: float = 0.02,
+    log_score: bool = True,
 ):
     """Estimates the vocal characteristics of a signal using auto-correlation, etc.
 
@@ -50,6 +51,8 @@ def vocal_characteristics(
     jitter_threshold: float
         One of two threshold values for considering a frame as voiced. Estimated
         jitter values greater than this are conisdered unvoiced.
+    log_scores: bool
+        Whether to represent the jitter/shimmer/hnr on a log scale
 
     Returns
     -------
@@ -100,8 +103,13 @@ def vocal_characteristics(
     # By J. Fernandez, F. Teixeira, V. Guedes, A. Junior, and J. P. Teixeira
     # Term is dominated by denominator, so just take -1 * log(noise)
     # max value for harmonicity is 25 dB, enforced by this minimum here
-    noise = torch.clamp(1 - harmonicity, min=EPSILON)
-    hnr = -10 * torch.log10(noise)
+    if log_score:
+        noise = torch.clamp(1 - harmonicity, min=EPSILON)
+        hnr = -10 * torch.log10(noise)
+        jitter = -10 * torch.log10(jitter.clamp(min=EPSILON))
+        shimmer = -10 * torch.log10(shimmer.clamp(min=EPSILON))
+    else:
+        hnr = 1 - harmonicity
 
     return estimated_f0, voiced, jitter, shimmer, hnr
 
@@ -411,7 +419,16 @@ def compute_cross_correlation(frames_a, frames_b, width=None):
     return cross_correlation
 
 
-def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
+@torch.no_grad()
+def compute_gne(
+    audio,
+    sample_rate=16000,
+    bandwidth=1000,
+    fshift=300,
+    frame_size=300,
+    hop_size=100,
+    log_scale=True,
+):
     """An algorithm for GNE computation from the original paper:
 
     "Glottal-to-Noise Excitation Ratio - a New Measure for Describing
@@ -438,6 +455,12 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
         The width of the frequency bands used for computing correlation.
     fshift : float
         The shift between frequency bands used for computing correlation.
+    frame_size : int
+        Number of samples (at 10k sampling rate) in each analysis frame.
+    hop_size : int
+        Number of samples (at 10k sampling rate) between the start of each analysis frame.
+    log_scale : bool
+        Whether to represent the output in the log scale.
 
     Returns
     -------
@@ -453,8 +476,8 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
     old_sample_rate, sample_rate = sample_rate, 10000
     audio = torchaudio.functional.resample(audio, old_sample_rate, sample_rate)
 
-    # Step 2. Inverse filter with 30-msec window, 10-msec hop and 13th order LPC
-    frame_size, hop_size, order = 300, 100, 13
+    # Step 2. Inverse filter with 13th order LPC
+    order = 13
     window = torch.hann_window(frame_size, device=audio.device).view(1, 1, -1)
     audio = torch.nn.functional.pad(audio, (0, frame_size))
     frames = audio.unfold(dimension=-1, size=frame_size, step=hop_size) * window
@@ -482,4 +505,7 @@ def compute_gne(audio, sample_rate=16000, bandwidth=1000, fshift=300):
     gne = torch.stack(correlations, dim=-1).amax(dim=(2, 3))
 
     # Use a log scale for better differentiation
-    return -10 * torch.log10(torch.clamp(1 - gne, min=EPSILON))
+    if log_scale:
+        return -10 * torch.log10(torch.clamp(1 - gne, min=EPSILON))
+    else:
+        return gne
