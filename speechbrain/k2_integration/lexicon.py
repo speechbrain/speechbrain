@@ -471,7 +471,7 @@ def prepare_char_lexicon(
     ...    [1, 1, 1, 1, "hello world"],
     ...    [2, 0.5, 1, 1, "hello"]
     ... ]
-    >>> with open(csv_file, "w", newline="") as f:
+    >>> with open(csv_file, "w", newline="", encoding="utf-8")  as f:
     ...    writer = csv.writer(f)
     ...    writer.writerows(data)
     >>> extra_csv_files = [csv_file]
@@ -483,7 +483,7 @@ def prepare_char_lexicon(
     lexicon = dict()
     if len(extra_csv_files) != 0:
         for file in extra_csv_files:
-            with open(file, "r") as f:
+            with open(file, "r", encoding="utf-8") as f:
                 csv_reader = csv.DictReader(f)
                 for row in csv_reader:
                     # Split the transcription into words
@@ -496,7 +496,7 @@ def prepare_char_lexicon(
                                 lexicon[word] = list(word)
 
     for file in vocab_files:
-        with open(file) as f:
+        with open(file, encoding="utf-8") as f:
             for line in f:
                 # Split the line
                 word = line.strip().split()[0]
@@ -508,7 +508,9 @@ def prepare_char_lexicon(
                         lexicon[word] = list(word)
     # Write the lexicon to lang_dir/lexicon.txt
     os.makedirs(lang_dir, exist_ok=True)
-    with open(os.path.join(lang_dir, "lexicon.txt"), "w") as f:
+    with open(
+        os.path.join(lang_dir, "lexicon.txt"), "w", encoding="utf-8"
+    ) as f:
         fc = f"{UNK} {UNK_t}\n"
         for word in lexicon:
             fc += word + " " + " ".join(lexicon[word]) + "\n"

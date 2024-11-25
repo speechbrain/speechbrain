@@ -410,7 +410,7 @@ class S2UT(sb.core.Brain):
             )
 
             sample_path = save_folder / f"{utt_id}.txt"
-            with open(sample_path, "w") as file:
+            with open(sample_path, "w", encoding="utf-8") as file:
                 file.write(f"pred: {transcript}\n")
                 file.write(f"ref: {tgt_transcript}\n")
 
@@ -421,7 +421,7 @@ class S2UT(sb.core.Brain):
         )
 
         bleu_path = save_folder / "bleu.txt"
-        with open(bleu_path, "w") as file:
+        with open(bleu_path, "w", encoding="utf-8") as file:
             file.write(
                 f"BLEU score: {round(self.bleu_metric.summarize('BLEU'), 2)}\n"
             )
@@ -553,7 +553,7 @@ if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # If distributed_launch=True then

@@ -107,7 +107,7 @@ def update_notebook(fname: str):
 
     tutorial_path = fname.replace("./", "")
 
-    with open(fname) as f:
+    with open(fname, encoding="utf-8") as f:
         nb = json.load(f)
 
         cells = nb["cells"]
@@ -128,7 +128,7 @@ def update_notebook(fname: str):
 
         update_footer_cell(footer_cell)
 
-    with open(fname, "w") as wf:
+    with open(fname, "w", encoding="utf-8") as wf:
         json.dump(nb, wf, indent=1, ensure_ascii=False)
         print(file=wf)  # print final newline that jupyter adds apparently
 

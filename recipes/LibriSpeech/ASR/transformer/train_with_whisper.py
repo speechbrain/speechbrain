@@ -107,7 +107,6 @@ class ASR(sb.Brain):
             target_words = self.tokenizer.batch_decode(
                 target_words, skip_special_tokens=True
             )
-
             if hasattr(self.hparams, "normalized_transcripts"):
 
                 if hasattr(self.tokenizer, "normalize"):
@@ -165,7 +164,9 @@ class ASR(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
+                with open(
+                    self.hparams.test_wer_file, "w", encoding="utf-8"
+                ) as w:
                     self.wer_metric.write_stats(w)
 
 
@@ -235,7 +236,10 @@ def dataio_prepare(hparams, tokenizer):
         "wrd", "tokens_list", "tokens_bos", "tokens_eos", "tokens"
     )
     def text_pipeline(wrd):
-        if "normalized_transcripts" in hparams:
+        if (
+            "normalized_transcripts" in hparams
+            and hparams["normalized_transcripts"]
+        ):
             wrd = tokenizer.normalize(wrd)
         yield wrd
         tokens_list = tokenizer.encode(wrd, add_special_tokens=False)
@@ -266,7 +270,7 @@ if __name__ == "__main__":
     # create ddp_group with the right communication protocol
     sb.utils.distributed.ddp_init_group(run_opts)
 
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

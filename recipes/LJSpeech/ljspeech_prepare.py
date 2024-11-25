@@ -292,7 +292,9 @@ def split_sets(data_folder, splits, split_ratio):
     """
     meta_csv = os.path.join(data_folder, METADATA_CSV)
     csv_reader = csv.reader(
-        open(meta_csv), delimiter="|", quoting=csv.QUOTE_NONE
+        open(meta_csv, newline="", encoding="utf-8"),
+        delimiter="|",
+        quoting=csv.QUOTE_NONE,
     )
 
     meta_csv = list(csv_reader)
@@ -543,7 +545,7 @@ def prepare_json(
             json_dict[id].update({"pitch": pitch_file})
 
     # Writing the dictionary to the json file
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

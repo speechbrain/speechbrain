@@ -387,7 +387,7 @@ class HyperparameterOptimizationContext:
                 hpopt_mode, *self.reporter_args, **self.reporter_kwargs
             )
             if isinstance(hpopt, str) and os.path.exists(hpopt):
-                with open(hpopt) as hpopt_file:
+                with open(hpopt, encoding="utf-8") as hpopt_file:
                     trial_id = get_trial_id()
                     hpopt_overrides = load_hyperpyyaml(
                         hpopt_file,

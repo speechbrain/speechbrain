@@ -72,7 +72,7 @@ def check_docstrings(
         check_line = True
         is_class = False
         first_line = True
-        with open(libpath) as f:
+        with open(libpath, encoding="utf-8") as f:
             for line in f:
 
                 # Remove spaces or tabs

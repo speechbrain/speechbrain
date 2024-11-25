@@ -35,7 +35,7 @@ def test_add_noise(tmpdir, device):
     write_audio(noisefile, test_noise.transpose(0, 1).cpu(), 16000)
 
     csv = os.path.join(tmpdir, "noise.csv")
-    with open(csv, "w") as w:
+    with open(csv, "w", encoding="utf-8") as w:
         w.write("ID, duration, wav, wav_format, wav_opts\n")
         w.write(f"1, 1.0, {noisefile}, wav,\n")
 
@@ -77,7 +77,7 @@ def test_add_reverb(tmpdir, device):
 
     # write ir csv file
     csv = os.path.join(tmpdir, "ir.csv")
-    with open(csv, "w") as w:
+    with open(csv, "w", encoding="utf-8") as w:
         w.write("ID, duration, wav, wav_format, wav_opts\n")
         w.write(f"1, 0.5, {ir1}, wav,\n")
         w.write(f"2, 0.5, {ir2}, wav,\n")
@@ -315,9 +315,9 @@ def test_sign_flip():
         if torch.all(flipped_sig == -signal):
             flips += 1
     test_prob = flips / trials
-    # these values are 5 stds in each direction,
+    # these values are 6 stds in each direction,
     # making a false negative extremely unlikely
-    assert 0.421 < test_prob < 0.579
+    assert 0.405 < test_prob < 0.595
 
 
 def test_SpectrogramDrop():

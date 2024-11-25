@@ -284,7 +284,7 @@ def read_file_list(file_name):
     result: lists
         the file list
     """
-    with open(file_name) as list_file:
+    with open(file_name, encoding="utf-8") as list_file:
         return [line.strip() for line in list_file]
 
 
@@ -387,7 +387,7 @@ def read_meta(file_name):
     result: dict
         raw metadata
     """
-    with open(file_name) as meta_file:
+    with open(file_name, encoding="utf-8") as meta_file:
         return json.load(meta_file)
 
 
@@ -658,7 +658,7 @@ def convert_split(
         metadata[item_id].update(process_meta)
 
     logger.info(f"Saving metadata to {metadata_file_path}")
-    with open(metadata_file_path, "w") as metadata_file:
+    with open(metadata_file_path, "w", encoding="utf-8") as metadata_file:
         json.dump(metadata, metadata_file, indent=2)
 
 
@@ -821,7 +821,7 @@ def read_digit_lookup(file_name):
         }
 
     """
-    with open(file_name) as lookup_file:
+    with open(file_name, encoding="utf-8") as lookup_file:
         reader = csv.DictReader(lookup_file)
         lookup = {row["digit"]: row for row in reader}
         for value in lookup.values():
