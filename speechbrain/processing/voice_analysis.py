@@ -176,8 +176,8 @@ def compute_periodic_features(frames, best_lags, neighbors=5):
 
     # Prepare for masking
     masked_frames = torch.clone(frames).detach()
-    mask_indices = torch.arange(frames.size(-1)).view(1, 1, -1)
-    mask_indices = mask_indices.expand(frames.shape)
+    mask_indices = torch.arange(frames.size(-1), device=frames.device)
+    mask_indices = mask_indices.view(1, 1, -1).expand(frames.shape)
     periods = best_lags.unsqueeze(-1)
     period_indices = mask_indices.remainder(periods)
 
@@ -253,7 +253,7 @@ def compute_voiced(
         A boolean value for each frame, whether to consider the frame as voiced or unvoiced.
     """
     h_threshold = torch.full(
-        size=(jitter.size(0),),
+        size=(jitter.size(0), 1),
         fill_value=harmonicity_threshold,
         device=jitter.device,
         requires_grad=False,
