@@ -34,8 +34,8 @@ def test_voice_analysis():
 
     # Remove last few values, they are affected by padding
     assert all(abs(estimated_f0[0, :-3] - frequency) < 2)
-    assert jitter.mean() < 0.01
-    assert shimmer.mean() < 0.01
+    assert jitter.mean() > 20
+    assert shimmer.mean() > 20
     assert hnr.mean() > 20
 
     gne = compute_gne(tone, sample_rate=sample_rate)
