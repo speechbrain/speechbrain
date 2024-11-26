@@ -5,7 +5,7 @@
 
 # Basic parameters
 seed: 1879
-__set_seed: !apply:torch.manual_seed [!ref <seed>]
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 
 number_of_digits: 10
