@@ -46,6 +46,8 @@ class TDNNBlock(nn.Module):
         A class for constructing the activation layers.
     groups : int
         The groups size of the TDNN blocks.
+    dropout : float
+        Rate of channel dropout during training.
 
     Example
     -------
@@ -64,6 +66,7 @@ class TDNNBlock(nn.Module):
         dilation,
         activation=nn.ReLU,
         groups=1,
+        dropout=0.1,
     ):
         super().__init__()
         self.conv = Conv1d(
@@ -75,10 +78,13 @@ class TDNNBlock(nn.Module):
         )
         self.activation = activation()
         self.norm = BatchNorm1d(input_size=out_channels)
+        self.dropout = dropout
 
     def forward(self, x):
         """Processes the input tensor x and returns an output tensor."""
-        return self.norm(self.activation(self.conv(x)))
+        return F.dropout1d(
+            self.norm(self.activation(self.conv(x))), p=self.dropout
+        )
 
 
 class Res2NetBlock(torch.nn.Module):
@@ -96,6 +102,8 @@ class Res2NetBlock(torch.nn.Module):
         The kernel size of the Res2Net block.
     dilation : int
         The dilation of the Res2Net block.
+    dropout : float
+        Rate of channel dropout during training.
 
     Example
     -------
@@ -107,7 +115,7 @@ class Res2NetBlock(torch.nn.Module):
     """
 
     def __init__(
-        self, in_channels, out_channels, scale=8, kernel_size=3, dilation=1
+        self, in_channels, out_channels, scale=8, kernel_size=3, dilation=1, dropout=0.1,
     ):
         super().__init__()
         assert in_channels % scale == 0
@@ -123,6 +131,7 @@ class Res2NetBlock(torch.nn.Module):
                     hidden_channel,
                     kernel_size=kernel_size,
                     dilation=dilation,
+                    dropout=dropout,
                 )
                 for i in range(scale - 1)
             ]
@@ -313,6 +322,8 @@ class SERes2NetBlock(nn.Module):
         A class for constructing the activation layers.
     groups: int
         Number of blocked connections from input channels to output channels.
+    dropout: float
+        Rate of channel dropout during training.
 
     Example
     -------
@@ -333,6 +344,7 @@ class SERes2NetBlock(nn.Module):
         dilation=1,
         activation=torch.nn.ReLU,
         groups=1,
+        dropout=0.1,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -343,6 +355,7 @@ class SERes2NetBlock(nn.Module):
             dilation=1,
             activation=activation,
             groups=groups,
+            dropout=dropout,
         )
         self.res2net_block = Res2NetBlock(
             out_channels, out_channels, res2net_scale, kernel_size, dilation
@@ -354,6 +367,7 @@ class SERes2NetBlock(nn.Module):
             dilation=1,
             activation=activation,
             groups=groups,
+            dropout=dropout,
         )
         self.se_block = SEBlock(out_channels, se_channels, out_channels)
 
@@ -410,6 +424,8 @@ class ECAPA_TDNN(torch.nn.Module):
         Whether to use global context.
     groups : list of ints
         List of groups for kernels in each layer.
+    dropout : float
+        Rate of channel dropout during training.
 
     Example
     -------
@@ -434,6 +450,7 @@ class ECAPA_TDNN(torch.nn.Module):
         se_channels=128,
         global_context=True,
         groups=[1, 1, 1, 1, 1],
+        dropout=0.1,
     ):
         super().__init__()
         assert len(channels) == len(kernel_sizes)
@@ -450,6 +467,7 @@ class ECAPA_TDNN(torch.nn.Module):
                 dilations[0],
                 activation,
                 groups[0],
+                dropout,
             )
         )
 
@@ -465,6 +483,7 @@ class ECAPA_TDNN(torch.nn.Module):
                     dilation=dilations[i],
                     activation=activation,
                     groups=groups[i],
+                    dropout=dropout,
                 )
             )
 
@@ -476,6 +495,7 @@ class ECAPA_TDNN(torch.nn.Module):
             dilations[-1],
             activation,
             groups=groups[-1],
+            dropout=dropout,
         )
 
         # Attentive Statistical Pooling
