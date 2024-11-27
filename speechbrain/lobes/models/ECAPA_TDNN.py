@@ -66,7 +66,7 @@ class TDNNBlock(nn.Module):
         dilation,
         activation=nn.ReLU,
         groups=1,
-        dropout=0.,
+        dropout=0.0,
     ):
         super().__init__()
         self.conv = Conv1d(
@@ -113,7 +113,13 @@ class Res2NetBlock(torch.nn.Module):
     """
 
     def __init__(
-        self, in_channels, out_channels, scale=8, kernel_size=3, dilation=1, dropout=0.,
+        self,
+        in_channels,
+        out_channels,
+        scale=8,
+        kernel_size=3,
+        dilation=1,
+        dropout=0.0,
     ):
         super().__init__()
         assert in_channels % scale == 0
@@ -342,7 +348,7 @@ class SERes2NetBlock(nn.Module):
         dilation=1,
         activation=torch.nn.ReLU,
         groups=1,
-        dropout=0.,
+        dropout=0.0,
     ):
         super().__init__()
         self.out_channels = out_channels
@@ -448,7 +454,7 @@ class ECAPA_TDNN(torch.nn.Module):
         se_channels=128,
         global_context=True,
         groups=[1, 1, 1, 1, 1],
-        dropout=0.,
+        dropout=0.0,
     ):
         super().__init__()
         assert len(channels) == len(kernel_sizes)
