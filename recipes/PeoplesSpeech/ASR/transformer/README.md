@@ -17,6 +17,10 @@ not want a recipe script, potentially run on GPUs nodes, to take hours downloadi
 
 However, this dataset remain very valuable due to the high quantity of spontaneous speech provided.
 
+## People's Speech Clean vs Dirty
+
+The clean subset contains 5.8k hours of speech while the dirty one around 22k hours. According to the authors, samples in the clean subset exhibits a CER lower or equal to 20% on their transcriptions compared to pseudo-labels obtained from an external ASR model. The dirty set is for samples with between 20% and 38% of CER. This confirm that even the clean subset is very 'noisy' from the perspective of the quality of the labels.
+
 ## Results
 
 It is tricky to evaluate this dataset. Here we provide the results on the official validation
