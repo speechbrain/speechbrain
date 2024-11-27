@@ -134,7 +134,7 @@ def prepare_peoples_speech(
 
     os.makedirs(save_folder, exist_ok=True)
 
-    for i, split, output in enumerate(save_output.items()):
+    for i, (split, output) in enumerate(save_output.items()):
         logger.info(f"Starting creating {output} using {split} split.")
         HF_create_csv(output, hf_dataset[i], split)
 
@@ -166,8 +166,10 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
     try:
         import datasets
         from datasets import concatenate_datasets, load_dataset
-    except ImportError:
-        raise ImportError("HuggingFace datasets must be installed.")
+    except ImportError as error:
+        raise ImportError(
+            "HuggingFace datasets must be installed:" + error.message
+        )
 
     # Managing the download dir as HF can be capricious with this.
     if "HF_HUB_CACHE" in os.environ:
