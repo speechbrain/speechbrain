@@ -2156,3 +2156,87 @@ class S2SHFTextBasedBeamSearcher(S2STransformerBeamSearcher):
     def set_n_out(self):
         """set the number of output tokens."""
         return self.vocab_size
+
+
+class S2SSpeechT5BeamSearch(S2SBeamSearcher):
+    """This class implements the beam search decoding
+    for SpeechT5 for speech to text.
+    This class inherits from S2SBeamSearcher.
+    See speechbrain.lobes.models.huggingface_transformers.speecht5
+    for more details.
+
+    Arguments
+    ---------
+    module : list with the following elements:
+        model : torch.nn.Module
+            A Transformer model.
+        seq_lin : torch.nn.Module
+            A linear output layer.
+            Normally set to None for this usecase.
+    temperature: float
+        decoding temperature
+    bos_token: int
+        BOS token ID. 0 by default.
+    pad_token: int
+        Padding token ID. 1 by default.
+    eos_token: int
+        EOS token ID. 2 by default.
+    normalize: bool
+        Whether or not to normalize the text.
+    **kwargs
+        Arguments to pass to S2SBeamSearcher
+    """
+
+    def __init__(
+        self,
+        module,
+        temperature=1.0,
+        bos_token=0,
+        pad_token=1,
+        eos_token=2,
+        normalize=False,
+        **kwargs,
+    ):
+
+        super().__init__(**kwargs)
+
+        self.model = module[0]
+
+        self.softmax = torch.nn.LogSoftmax(dim=-1)
+
+        self.temperature = temperature
+
+        self.decoder_input_tokens = [bos_token]
+
+        self.bos_token = bos_token
+        self.pad_token = pad_token
+        self.eos_token = eos_token
+        self.normalize = normalize
+
+    def set_decoder_input_tokens(self, decoder_input_tokens):
+        """decoder_input_tokens are the tokens used as input to the decoder."""
+        self.set_bos_token(decoder_input_tokens[0])
+        self.decoder_input_tokens = [self.bos_token]
+
+    def reset_mem(self, batch_size, device):
+        """This method sets the first tokens to be decoder_input_tokens during search."""
+        return torch.tensor([self.decoder_input_tokens] * batch_size).to(device)
+
+    def permute_mem(self, memory, index):
+        """Permutes the memory."""
+        memory = torch.index_select(memory, dim=0, index=index)
+        return memory
+
+    def forward_step(self, inp_tokens, memory, enc_states, enc_lens):
+        """Performs a step in the implemented beamsearcher."""
+        memory = _update_mem(inp_tokens, memory)
+        (
+            dec_out,
+            attn,
+        ) = self.model.forward_decoder(enc_states, memory)
+        log_probs = self.softmax(dec_out[:, -1])
+        return log_probs, memory, attn
+
+    def set_n_out(self):
+        """set the number of output tokens."""
+        return self.model.model.text_decoder_postnet.lm_head.weight.shape[0]

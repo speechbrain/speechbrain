@@ -48,7 +48,7 @@ def read_file(f_path):
     return [line for line in open(f_path, encoding="utf-8")]
 
 
-def data_proc(dataset_folder, output_folder):
+def data_proc(dataset_folder, output_folder, skip_prep=False):
     """
 
     Prepare .csv files for librimix
@@ -57,7 +57,10 @@ def data_proc(dataset_folder, output_folder):
     ----------
         dataset_folder (str) : path for the dataset github folder
         output_folder (str) : path where we save the json files.
+        skip_prep (bool) : Whether or not to skip the data preparation step
     """
+    if skip_prep:
+        return
 
     try:
         os.mkdir(output_folder)
