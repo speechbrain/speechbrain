@@ -1,10 +1,9 @@
-"""This lobe enables the integration of pretrained  BEATs: Audio Pre-Training with Acoustic Tokenizers.
+"""This lobe enables the integration of pretrained BBEATs: Audio Pre-Training with Acoustic Tokenizers.
 
 Reference: https://arxiv.org/abs/2212.09058
 Based on Github source: https://github.com/microsoft/unilm/tree/master/beats
-Reference: https://arxiv.org/abs/2110.13900
 
-You could download the checkpoints from : https://github.com/microsoft/unilm/tree/master/beats
+You could download the checkpoints from: https://github.com/microsoft/unilm/tree/master/beats
 
 Author
  * Pooneh Mousavi 2024
@@ -26,6 +25,286 @@ from torch.nn import LayerNorm, Parameter
 from speechbrain.dataio.dataio import length_to_mask
 
 logger = logging.getLogger(__name__)
+
+
+class BEATs(nn.Module):
+    """
+    BEATs: Audio Pre-Training with Acoustic Tokenizers.
+
+    This class implements the BEATs model, which processes audio signals for feature extraction
+    or downstream tasks. The model supports loading from a checkpoint, applying normalization,
+    and optionally freezing parameters.
+
+    Arguments
+    ---------
+    ckp_path : str, optional
+        Path to the checkpoint file. If None, the model initializes without pre-trained weights.
+        You could download the checkpoints from : https://github.com/microsoft/unilm/tree/master/beats
+    freeze : bool, optional (default: False)
+        If True, the model parameters are frozen and the model is set to evaluation mode.
+    output_all_hiddens : bool, optional (default: False)
+        If True, the forward function outputs hidden states from all transformer layers.
+        For example BEATs_iter3 has 12 transformer layers and the output is of shape (13, B, T, C),
+        where a projection of the CNN output is added to the beginning.
+        If False, the forward function outputs the hidden states only from the last transformer layer.
+
+    Example
+    -------
+    >>> audio = torch.randn(4, 10000)  # Batch of 4 audio signals
+    >>> length = torch.tensor([1.0, 0.5, 0.75, 1.0])
+    >>> model = BEATs()
+    >>> outputs = model.extract_features(audio, length)[0]
+    >>> outputs.shape
+    torch.Size([4, 24, 768])
+    """
+
+    def __init__(
+        self,
+        ckp_path: str = None,
+        freeze: bool = True,
+        output_all_hiddens: bool = False,
+    ) -> None:
+        super().__init__()
+
+        # Load configuration and checkpoint
+        cfg, checkpoint = None, None
+        if ckp_path:
+            if not os.path.exists(ckp_path):
+                raise FileNotFoundError(
+                    f"Checkpoint file '{ckp_path}' does not exist."
+                )
+            checkpoint = torch.load(ckp_path)
+            cfg = checkpoint.get("cfg", None)
+
+        # Initialize model configuration
+        self.cfg = BEATsConfig(cfg)
+        logger.info(f"BEATs Config: {self.cfg.__dict__}")
+
+        # Model attributes
+        self.freeze = freeze
+        self.output_all_hiddens = output_all_hiddens
+        self.embed = self.cfg.embed_dim
+
+        # Define layers and modules
+        self.post_extract_proj = (
+            nn.Linear(self.embed, self.cfg.encoder_embed_dim)
+            if self.embed != self.cfg.encoder_embed_dim
+            else None
+        )
+        self.input_patch_size = self.cfg.input_patch_size
+        self.patch_embedding = nn.Conv2d(
+            1,
+            self.embed,
+            kernel_size=self.input_patch_size,
+            stride=self.input_patch_size,
+            bias=self.cfg.conv_bias,
+        )
+        self.dropout_input = nn.Dropout(self.cfg.dropout_input)
+
+        # Configuration checks
+        assert not (
+            self.cfg.deep_norm and self.cfg.layer_norm_first
+        ), "Configuration error: 'deep_norm' and 'layer_norm_first' cannot both be True."
+
+        # Initialize encoder and layer normalization
+        self.encoder = TransformerEncoder(self.cfg)
+        self.layer_norm = LayerNorm(self.embed)
+
+        # Define predictor for fine-tuned models
+        if self.cfg.finetuned_model:
+            self.predictor_dropout = nn.Dropout(self.cfg.predictor_dropout)
+            self.predictor = nn.Linear(
+                self.cfg.encoder_embed_dim, self.cfg.predictor_class
+            )
+        else:
+            self.predictor = None
+
+        # Load weights from the checkpoint if available
+        if checkpoint:
+            self.load_state_dict(checkpoint["model"])
+
+        # Set the model to evaluation mode if frozen
+        if self.freeze:
+            self.eval()
+
+    def forward_padding_mask(
+        self, features: torch.Tensor, padding_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Adjusts the padding mask for the given features.
+
+        Arguments
+        ---------
+        features : torch.Tensor
+            Input features after patch embedding.
+        padding_mask : torch.Tensor
+            Original padding mask for input signals.
+
+        Returns
+        -------
+        torch.Tensor
+            Adjusted padding mask.
+        """
+        extra = padding_mask.size(1) % features.size(1)
+        if extra > 0:
+            padding_mask = padding_mask[:, :-extra]
+        padding_mask = padding_mask.view(
+            padding_mask.size(0), features.size(1), -1
+        )
+        return padding_mask.all(-1)
+
+    def preprocess(
+        self,
+        source: torch.Tensor,
+        fbank_mean: float = 15.41663,
+        fbank_std: float = 6.55582,
+    ) -> torch.Tensor:
+        """
+        Preprocesses the input waveform by extracting filter banks and applying normalization.
+
+        Arguments
+        ---------
+        source : torch.Tensor
+            Input waveform signals.
+        fbank_mean : float, optional
+            Mean value for filter bank normalization (default: 15.41663).
+        fbank_std : float, optional
+            Standard deviation for filter bank normalization (default: 6.55582).
+
+        Returns
+        -------
+        torch.Tensor
+            Normalized filter banks.
+        """
+        fbanks = []
+        for waveform in source:
+            waveform = waveform.unsqueeze(0) * 2**15
+            fbank = ta_kaldi.fbank(
+                waveform,
+                num_mel_bins=128,
+                sample_frequency=16000,
+                frame_length=25,
+                frame_shift=10,
+            )
+            fbanks.append(fbank)
+        fbank = torch.stack(fbanks, dim=0)
+        return (fbank - fbank_mean) / (2 * fbank_std)
+
+    def forward(
+        self,
+        wav: torch.Tensor,
+        wav_lens: Optional[torch.Tensor] = None,
+        fbank_mean: float = 15.41663,
+        fbank_std: float = 6.55582,
+    ):
+        """Takes an input waveform and return its corresponding beats encoding.
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        wav_lens : torch.Tensor
+            The relative length of the wav given in SpeechBrain format.
+        fbank_mean : float, optional
+            Mean value for filter bank normalization (default: 15.41663).
+        fbank_std : float, optional
+            Standard deviation for filter bank normalization (default: 6.55582).
+
+        Returns
+        -------
+        BEATs encoded features.
+        """
+
+        # If we freeze, we simply remove all grads from the graph.
+        if self.freeze:
+            with torch.no_grad():
+                return self.extract_features(
+                    wav, wav_lens, fbank_mean, fbank_std
+                )
+
+        return self.extract_features(wav, wav_lens, fbank_mean, fbank_std)
+
+    def extract_features(
+        self,
+        wav: torch.Tensor,
+        wav_lens: Optional[torch.Tensor] = None,
+        fbank_mean: float = 15.41663,
+        fbank_std: float = 6.55582,
+    ) -> torch.Tensor:
+        """
+        Extracts features from the input waveform.
+
+        Arguments
+        ---------
+        wav : torch.Tensor (signal)
+            A batch of audio signals to transform to features.
+        wav_lens : torch.Tensor
+            The relative length of the wav given in SpeechBrain format.
+        fbank_mean : float, optional
+            Mean value for filter bank normalization (default: 15.41663).
+        fbank_std : float, optional
+            Standard deviation for filter bank normalization (default: 6.55582).
+
+        Returns
+        -------
+        torch.Tensor
+            Extracted features from the BEATs model.
+        """
+        fbank = self.preprocess(wav, fbank_mean, fbank_std)
+
+        if wav_lens is not None:
+            max_len = wav.size(-1)
+            padding_mask = ~length_to_mask(
+                wav_lens * max_len, max_len, device=wav.device
+            ).bool()
+
+        if padding_mask is not None:
+            padding_mask = self.forward_padding_mask(fbank, padding_mask)
+
+        fbank = fbank.unsqueeze(1)
+        features = self.patch_embedding(fbank)
+        features = features.reshape(
+            features.shape[0], features.shape[1], -1
+        ).transpose(1, 2)
+        features = self.layer_norm(features)
+
+        if padding_mask is not None:
+            padding_mask = self.forward_padding_mask(features, padding_mask)
+
+        if self.post_extract_proj is not None:
+            features = self.post_extract_proj(features)
+
+        features = self.dropout_input(features)
+
+        x, layer_results = self.encoder(
+            features,
+            padding_mask=padding_mask,
+            output_all_hiddens=self.output_all_hiddens,
+        )
+
+        if self.predictor is not None:
+            x_d = self.predictor_dropout(x)
+            logits = self.predictor(x_d)
+
+            if padding_mask is not None and padding_mask.any():
+                logits[padding_mask] = 0
+                logits = logits.sum(dim=1)
+                logits = logits / (~padding_mask).sum(dim=1).unsqueeze(
+                    -1
+                ).expand_as(logits)
+            else:
+                logits = logits.mean(dim=1)
+
+            lprobs = torch.sigmoid(logits)
+
+            if self.output_all_hiddens:
+                x = torch.stack(layer_results, dim=0)
+            return x, lprobs, padding_mask
+
+        if self.output_all_hiddens:
+            x = torch.stack(layer_results, dim=0)
+
+        return (x,)
 
 
 def gelu_accurate(x):
@@ -1619,7 +1898,7 @@ class MultiheadAttention(nn.Module):
     def apply_sparse_mask(
         self, attn_weights, tgt_len: int, src_len: int, bsz: int
     ):
-        """
+        """5
         Applies a sparse mask to the attention weights.
 
         Arguments
@@ -1778,247 +2057,3 @@ class BEATsConfig:
             A dictionary containing the configuration values to update the instance with.
         """
         self.__dict__.update(cfg)
-
-
-class BEATs(nn.Module):
-    """
-    BEATs: Bidirectional Encoder Representations from Audio Transformers.
-
-    This class implements the BEATs model, which processes audio signals for feature extraction
-    or downstream tasks. The model supports loading from a checkpoint, applying normalization,
-    and optionally freezing parameters.
-
-    Arguments
-    ---------
-    ckp_path : str, optional
-        Path to the checkpoint file. If None, the model initializes without pre-trained weights.
-        You could download the checkpoints from : https://github.com/microsoft/unilm/tree/master/beats
-    freeze : bool, optional (default: False)
-        If True, the model parameters are frozen and the model is set to evaluation mode.
-    output_all_hiddens : bool, optional (default: False)
-        If True, the forward function outputs hidden states from all transformer layers.
-        For example BEATs_iter3 has 12 transformer layers and the output is of shape (13, B, T, C),
-        where a projection of the CNN output is added to the beginning.
-        If False, the forward function outputs the hidden states only from the last transformer layer.
-
-    Example
-    -------
-    >>> audio = torch.randn(4, 10000)  # Batch of 4 audio signals
-    >>> length = torch.tensor([1.0, 0.5, 0.75, 1.0])
-    >>> model = BEATs()
-    >>> outputs = model.extract_features(audio, length)
-    >>> outputs.shape
-    torch.Size([4, 24, 768])
-    """
-
-    def __init__(
-        self,
-        ckp_path: str = None,
-        freeze: bool = True,
-        output_all_hiddens: bool = False,
-    ) -> None:
-        super().__init__()
-
-        # Load configuration and checkpoint
-        cfg, checkpoint = None, None
-        if ckp_path:
-            if not os.path.exists(ckp_path):
-                raise FileNotFoundError(
-                    f"Checkpoint file '{ckp_path}' does not exist."
-                )
-            checkpoint = torch.load(ckp_path)
-            cfg = checkpoint.get("cfg", None)
-
-        # Initialize model configuration
-        self.cfg = BEATsConfig(cfg)
-        logger.info(f"BEATs Config: {self.cfg.__dict__}")
-
-        # Model attributes
-        self.freeze = freeze
-        self.output_all_hiddens = output_all_hiddens
-        self.embed = self.cfg.embed_dim
-
-        # Define layers and modules
-        self.post_extract_proj = (
-            nn.Linear(self.embed, self.cfg.encoder_embed_dim)
-            if self.embed != self.cfg.encoder_embed_dim
-            else None
-        )
-        self.input_patch_size = self.cfg.input_patch_size
-        self.patch_embedding = nn.Conv2d(
-            1,
-            self.embed,
-            kernel_size=self.input_patch_size,
-            stride=self.input_patch_size,
-            bias=self.cfg.conv_bias,
-        )
-        self.dropout_input = nn.Dropout(self.cfg.dropout_input)
-
-        # Configuration checks
-        assert not (
-            self.cfg.deep_norm and self.cfg.layer_norm_first
-        ), "Configuration error: 'deep_norm' and 'layer_norm_first' cannot both be True."
-
-        # Initialize encoder and layer normalization
-        self.encoder = TransformerEncoder(self.cfg)
-        self.layer_norm = LayerNorm(self.embed)
-
-        # Define predictor for fine-tuned models
-        if self.cfg.finetuned_model:
-            self.predictor_dropout = nn.Dropout(self.cfg.predictor_dropout)
-            self.predictor = nn.Linear(
-                self.cfg.encoder_embed_dim, self.cfg.predictor_class
-            )
-        else:
-            self.predictor = None
-
-        # Load weights from the checkpoint if available
-        if checkpoint:
-            self.load_state_dict(checkpoint["model"])
-
-        # Set the model to evaluation mode if frozen
-        if self.freeze:
-            self.eval()
-
-    def forward_padding_mask(
-        self, features: torch.Tensor, padding_mask: torch.Tensor
-    ) -> torch.Tensor:
-        """
-        Adjusts the padding mask for the given features.
-
-        Arguments
-        ---------
-        features : torch.Tensor
-            Input features after patch embedding.
-        padding_mask : torch.Tensor
-            Original padding mask for input signals.
-
-        Returns
-        -------
-        torch.Tensor
-            Adjusted padding mask.
-        """
-        extra = padding_mask.size(1) % features.size(1)
-        if extra > 0:
-            padding_mask = padding_mask[:, :-extra]
-        padding_mask = padding_mask.view(
-            padding_mask.size(0), features.size(1), -1
-        )
-        return padding_mask.all(-1)
-
-    def preprocess(
-        self,
-        source: torch.Tensor,
-        fbank_mean: float = 15.41663,
-        fbank_std: float = 6.55582,
-    ) -> torch.Tensor:
-        """
-        Preprocesses the input waveform by extracting filter banks and applying normalization.
-
-        Arguments
-        ---------
-        source : torch.Tensor
-            Input waveform signals.
-        fbank_mean : float, optional
-            Mean value for filter bank normalization (default: 15.41663).
-        fbank_std : float, optional
-            Standard deviation for filter bank normalization (default: 6.55582).
-
-        Returns
-        -------
-        torch.Tensor
-            Normalized filter banks.
-        """
-        fbanks = []
-        for waveform in source:
-            waveform = waveform.unsqueeze(0) * 2**15
-            fbank = ta_kaldi.fbank(
-                waveform,
-                num_mel_bins=128,
-                sample_frequency=16000,
-                frame_length=25,
-                frame_shift=10,
-            )
-            fbanks.append(fbank)
-        fbank = torch.stack(fbanks, dim=0)
-        return (fbank - fbank_mean) / (2 * fbank_std)
-
-    def extract_features(
-        self,
-        wav: torch.Tensor,
-        wav_lens: Optional[torch.Tensor] = None,
-        fbank_mean: float = 15.41663,
-        fbank_std: float = 6.55582,
-    ) -> torch.Tensor:
-        """
-        Extracts features from the input waveform.
-
-        Arguments
-        ---------
-        wav : torch.Tensor (signal)
-            A batch of audio signals to transform to features.
-        wav_lens : torch.Tensor
-            The relative length of the wav given in SpeechBrain format.
-
-        fbank_mean : float, optional
-            Mean value for filter bank normalization (default: 15.41663).
-        fbank_std : float, optional
-            Standard deviation for filter bank normalization (default: 6.55582).
-
-        Returns
-        -------
-        torch.Tensor
-            Extracted features from the BEATs model.
-        """
-        fbank = self.preprocess(wav, fbank_mean, fbank_std)
-
-        if wav_lens is not None:
-            max_len = wav.size(-1)
-            padding_mask = ~length_to_mask(
-                wav_lens * max_len, max_len, device=wav.device
-            ).bool()
-
-        if padding_mask is not None:
-            padding_mask = self.forward_padding_mask(fbank, padding_mask)
-
-        fbank = fbank.unsqueeze(1)
-        features = self.patch_embedding(fbank)
-        features = features.reshape(
-            features.shape[0], features.shape[1], -1
-        ).transpose(1, 2)
-        features = self.layer_norm(features)
-
-        if padding_mask is not None:
-            padding_mask = self.forward_padding_mask(features, padding_mask)
-
-        if self.post_extract_proj is not None:
-            features = self.post_extract_proj(features)
-
-        features = self.dropout_input(features)
-
-        x, layer_results = self.encoder(
-            features,
-            padding_mask=padding_mask,
-            output_all_hiddens=self.output_all_hiddens,
-        )
-
-        if self.predictor is not None:
-            x = self.predictor_dropout(x)
-            logits = self.predictor(x)
-
-            if padding_mask is not None and padding_mask.any():
-                logits[padding_mask] = 0
-                logits = logits.sum(dim=1)
-                logits = logits / (~padding_mask).sum(dim=1).unsqueeze(
-                    -1
-                ).expand_as(logits)
-            else:
-                logits = logits.mean(dim=1)
-
-            lprobs = torch.sigmoid(logits)
-            return lprobs, padding_mask, layer_results
-
-        if self.output_all_hiddens:
-            x = torch.stack(layer_results, dim=0)
-
-        return x
