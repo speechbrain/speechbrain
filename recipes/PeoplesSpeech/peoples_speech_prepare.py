@@ -168,7 +168,7 @@ def load_and_concatenate_datasets(subsets, hf_download_folder):
         from datasets import concatenate_datasets, load_dataset
     except ImportError as error:
         raise ImportError(
-            "HuggingFace datasets must be installed:" + error.message
+            f"{str(error)}\n" f"HuggingFace datasets must be installed."
         )
 
     # Managing the download dir as HF can be capricious with this.
