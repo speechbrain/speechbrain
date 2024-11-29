@@ -13,15 +13,16 @@ import torchaudio
 
 # Minimum value for log measures, results in max of 30dB
 EPSILON = 10**-3
+PERIODIC_NEIGHBORS = 4
 
 
 @torch.no_grad()
 def vocal_characteristics(
     audio: torch.Tensor,
-    min_f0_Hz: int = 75,
+    min_f0_Hz: int = 80,
     max_f0_Hz: int = 300,
     step_size: float = 0.01,
-    window_size: float = 0.04,
+    window_size: float = 0.05,
     sample_rate: int = 16000,
     harmonicity_threshold: float = 0.45,
     jitter_threshold: float = 0.02,
@@ -77,6 +78,10 @@ def vocal_characteristics(
     window_samples = int(window_size * sample_rate)
     max_lag = int(sample_rate / min_f0_Hz)
     min_lag = int(sample_rate / max_f0_Hz)
+
+    assert (
+        sample_rate / min_f0_Hz * PERIODIC_NEIGHBORS <= window_samples
+    ), f"Need {PERIODIC_NEIGHBORS} periods in a window"
 
     # Split into frames, and compute autocorrelation for each frame
     audio = torch.nn.functional.pad(audio, (0, window_samples))
@@ -154,7 +159,7 @@ def autocorr_feats(autocorrelation, min_lag, max_lag, neighbors=5):
     return harmonicity, best_lags
 
 
-def compute_periodic_features(frames, best_lags, neighbors=5):
+def compute_periodic_features(frames, best_lags, neighbors=PERIODIC_NEIGHBORS):
     """Function to compute periodic features: jitter, shimmer
 
     Arguments
@@ -184,8 +189,13 @@ def compute_periodic_features(frames, best_lags, neighbors=5):
     # Mask everything not within about 20% (1/5) of a period peak
     jitter_range = periods // 5
     peak, lag = torch.max(masked_frames, dim=-1, keepdim=True)
-    mask = (period_indices < lag.remainder(periods) - jitter_range) | (
-        period_indices > lag.remainder(periods) + jitter_range
+
+    # Handle lags close to period by checking +-1 period
+    lag_indices = lag.remainder(periods)
+    mask = (period_indices < lag_indices - jitter_range) & (
+        period_indices > lag_indices - periods + jitter_range
+    ) | (period_indices > lag_indices + jitter_range) & (
+        period_indices < lag_indices + periods - jitter_range
     )
     masked_frames[mask] = 0
 
@@ -206,6 +216,7 @@ def compute_periodic_features(frames, best_lags, neighbors=5):
     # Jitter = average variation in period length
     # Compute mean difference from mean lag, normalized by period
     lags = lags.remainder(periods)
+    lags = torch.minimum(lags, periods - lags)
     jitter_frames = (lags - lags.float().mean(dim=-1, keepdims=True)).abs()
     jitter = jitter_frames.mean(dim=-1) / best_lags
 
