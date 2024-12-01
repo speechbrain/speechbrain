@@ -62,7 +62,7 @@ class DiscreteSpeechLM(nn.Module):
 
         # This should be moved in the yaml not here. 
         self.model = AutoModelForCausalLM.from_pretrained(
-            source,
+            self.source,
             torch_dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             cache_dir=self.cache_dir if self.cache_dir is not None else None,
