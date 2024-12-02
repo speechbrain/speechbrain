@@ -384,7 +384,9 @@ class MTLbrain(sb.Brain):
                 test_stats=stage_stats,
             )
             if if_main_process():
-                with open(self.hparams.stats_file + ".txt", "w") as w:
+                with open(
+                    self.hparams.stats_file + ".txt", "w", encoding="utf-8"
+                ) as w:
                     if self.hparams.enhance_weight > 0:
                         w.write("\nstoi stats:\n")
                         self.stoi_metrics.write_stats(w)
@@ -490,7 +492,7 @@ def dataio_prep(hparams, token_encoder):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory

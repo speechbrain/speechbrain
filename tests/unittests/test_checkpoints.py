@@ -116,13 +116,13 @@ def test_recovery_custom_io(tmpdir):
 
         @mark_as_saver
         def save(self, path):
-            with open(path, "w") as fo:
+            with open(path, "w", encoding="utf-8") as fo:
                 fo.write(str(self.param))
 
         @mark_as_loader
         def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
-            with open(path) as fi:
+            with open(path, encoding="utf-8") as fi:
                 self.param = int(fi.read())
 
     custom_recoverable = CustomRecoverable(0)
@@ -335,13 +335,13 @@ def test_checkpoint_hook_register(tmpdir):
 
         @mark_as_saver
         def save(self, path):
-            with open(path, "w") as fo:
+            with open(path, "w", encoding="utf-8") as fo:
                 fo.write(str(self.param))
 
         @mark_as_loader
         def load(self, path, end_of_epoch):
             del end_of_epoch  # Unused
-            with open(path) as fi:
+            with open(path, encoding="utf-8") as fi:
                 self.param = int(fi.read())
 
     recoverable = CustomRecoverable(1.0)
@@ -359,12 +359,12 @@ def test_checkpoint_hook_register(tmpdir):
                 self.param = int(param)
 
             def save(self, path):
-                with open(path, "w") as fo:
+                with open(path, "w", encoding="utf-8") as fo:
                     fo.write(str(self.param))
 
             @mark_as_loader
             def load(self, path):  # MISSING end_of_epoch
-                with open(path) as fi:
+                with open(path, encoding="utf-8") as fi:
                     self.param = int(fi.read())
 
     with pytest.raises(TypeError):
@@ -375,12 +375,12 @@ def test_checkpoint_hook_register(tmpdir):
 
             @mark_as_saver
             def save(self, path, extra_arg):  # Extra argument
-                with open(path, "w") as fo:
+                with open(path, "w", encoding="utf-8") as fo:
                     fo.write(str(self.param))
 
             def load(self, path, end_of_epoch):
                 del end_of_epoch  # Unused
-                with open(path) as fi:
+                with open(path, encoding="utf-8") as fi:
                     self.param = int(fi.read())
 
 

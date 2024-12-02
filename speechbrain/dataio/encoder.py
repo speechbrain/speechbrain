@@ -766,7 +766,7 @@ class CategoricalEncoder:
     @staticmethod
     def _save_literal(path, lab2ind, extras):
         """Save which is compatible with _load_literal"""
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             for label, ind in lab2ind.items():
                 f.write(
                     repr(label)
@@ -793,7 +793,7 @@ class CategoricalEncoder:
         lab2ind = {}
         ind2lab = {}
         extras = {}
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             # Load the label to index mapping (until EXTRAS_SEPARATOR)
             for line in f:
                 if line == CategoricalEncoder.EXTRAS_SEPARATOR:

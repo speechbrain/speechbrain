@@ -227,7 +227,10 @@ def create_aishell1mix2_csv(
         ]
 
         with open(
-            savepath + "/aishell1mix2_" + set_type + ".csv", "w"
+            savepath + "/aishell1mix2_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()
@@ -304,7 +307,10 @@ def create_aishell1mix3_csv(
         ]
 
         with open(
-            savepath + "/aishell1mix3_" + set_type + ".csv", "w"
+            savepath + "/aishell1mix3_" + set_type + ".csv",
+            "w",
+            newline="",
+            encoding="utf-8",
         ) as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
             writer.writeheader()

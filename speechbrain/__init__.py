@@ -6,7 +6,9 @@ import os
 from .core import Brain, Stage, create_experiment_directory, parse_arguments
 from .utils.importutils import deprecated_redirect, lazy_export_all
 
-with open(os.path.join(os.path.dirname(__file__), "version.txt")) as f:
+with open(
+    os.path.join(os.path.dirname(__file__), "version.txt"), encoding="utf-8"
+) as f:
     version = f.read().strip()
 
 __all__ = [

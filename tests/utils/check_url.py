@@ -49,7 +49,7 @@ def find_urls_in_file(path, line_exclude_regex):
         return False
 
     # Read the file
-    with open(path, "r") as file:
+    with open(path, "r", encoding="utf-8") as file:
         text = file.read()
 
     lines = text.split("\n")

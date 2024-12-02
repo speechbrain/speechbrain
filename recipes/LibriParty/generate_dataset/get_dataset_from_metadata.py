@@ -23,7 +23,7 @@ URL_METADATA = (
 
 # Load hyperparameters file with command-line overrides
 params_file, run_opts, overrides = sb.core.parse_arguments(sys.argv[1:])
-with open(params_file) as fin:
+with open(params_file, encoding="utf-8") as fin:
     params = load_hyperpyyaml(fin, overrides)
 
 metadata_folder = params["metadata_folder"]
@@ -39,7 +39,11 @@ download_file(
 )
 
 for data_split in ["train", "dev", "eval"]:
-    with open(os.path.join(metadata_folder, data_split + ".json"), "r") as f:
+    with open(
+        os.path.join(metadata_folder, data_split + ".json"),
+        "r",
+        encoding="utf-8",
+    ) as f:
         metadata = json.load(f)
     print("Creating data for {} set".format(data_split))
     c_folder = os.path.join(params["out_folder"], data_split)

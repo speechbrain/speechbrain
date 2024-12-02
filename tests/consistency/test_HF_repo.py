@@ -69,7 +69,9 @@ def repo_list(recipe_folder="tests/recipes", field="HF_repo"):
     # Loop over all recipe CSVs
     for recipe_csvfile in os.listdir(recipe_folder):
         with open(
-            os.path.join(recipe_folder, recipe_csvfile), newline=""
+            os.path.join(recipe_folder, recipe_csvfile),
+            newline="",
+            encoding="utf-8",
         ) as csvf:
             reader = csv.DictReader(csvf, delimiter=",", skipinitialspace=True)
             for row in reader:
@@ -104,7 +106,7 @@ def check_repo(HF_repo):
     code_snippets = []
     code = []
     flag = False
-    with open(dest_file, "r") as f:
+    with open(dest_file, "r", encoding="utf-8") as f:
         for line in f:
             if "```python" in line:
                 flag = True

@@ -69,7 +69,7 @@ def compute_speaker_embeddings(
 
         speaker_embeddings = dict()  # Holds speaker embeddings
 
-        json_file = open(input_filepaths[i])
+        json_file = open(input_filepaths[i], encoding="utf-8")
         json_data = json.load(json_file)
 
         # Processes all utterances in the data manifest file

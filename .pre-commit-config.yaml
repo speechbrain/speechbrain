@@ -25,7 +25,10 @@ repos:
     hooks:
       - id: flake8
         types: [python]
-        additional_dependencies: ['pydoclint==0.4.1', 'pycodestyle==2.11.0']
+        additional_dependencies:
+          - pydoclint==0.4.1
+          - pycodestyle==2.11.0
+          - flake8-encodings==0.5.1
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1

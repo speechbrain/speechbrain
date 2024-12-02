@@ -361,7 +361,7 @@ if __name__ == "__main__":
     sb.utils.distributed.ddp_init_group(run_opts)
 
     # Load hyperparameters file with command-line overrides
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Create experiment directory
