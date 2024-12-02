@@ -172,7 +172,7 @@ class DiscreteSSL(nn.Module):
                 f"{kmeans_dataset}/{encoder_name}/*_k{num_clusters}*.pt"
             )
         kmeans_dir = snapshot_download(
-            repo_id=repo_id, allow_patterns=file_patterns, cache_dir=cache_dir
+            repo_id=repo_id, allow_patterns=file_patterns, local_files_only=True,
         )
         files = []
         for ext in file_patterns:
