@@ -1,8 +1,9 @@
 """This lobe enables the integration of huggingface pretrained Mimi.
 
-Mimi codec is a state-of-the-art audio neural codec, developed by Kyutai, that combines semantic and acoustic information into audio tokens running at 12Hz and a bitrate of 1.1kbps.
+Mimi codec is a state-of-the-art audio neural codec, developed by Kyutai.
+It combines semantic and acoustic information into audio tokens running at 12Hz and a bitrate of 1.1kbps.
 
-Note that you need to install transformers>=4.45.1` to use this module.
+Note that you need to install `transformers>=4.45.1` to use this module.
 
 Repository: https://huggingface.co/kyutai/mimi
 Paper: https://kyutai.org/Moshi.pdf
@@ -23,7 +24,19 @@ logger = get_logger(__name__)
 
 
 class Mimi(HFTransformersInterface):
-    """An wrapper for the HuggingFace Mimi model
+    # """An wrapper for the HuggingFace Mimi model
+    """This lobe enables the integration of HuggingFace pretrained Mimi model.
+    Mimi codec is a state-of-the-art audio neural codec, developed by Kyutai.
+    It combines semantic and acoustic information into audio tokens running at 12Hz and a bitrate of 1.1kbps.
+
+    Source paper:
+       https://kyutai.org/Moshi.pdf
+
+    Transformers>=4.45.1 from HuggingFace needs to be installed:
+        https://huggingface.co/transformers/installation.html
+
+    The code is adapted from the official HF Kyutai repository:
+        https://huggingface.co/kyutai/mimi
 
     Arguments
     ---------
@@ -34,9 +47,8 @@ class Mimi(HFTransformersInterface):
     sample_rate : int (default: 24000)
         The audio sampling rate
     freeze : bool
-        whether the model will be frozen (e.g. not trainable if used
-        as part of training another model)
-    num_codebooks : int  (default: 8)
+        whether the model will be frozen (e.g. not trainable if used as part of training another model)
+    num_codebooks : int (default: 8)
         Number of qunatizer. It could be [2,3,4,5,6,7,8]
 
     Example
@@ -123,7 +135,7 @@ class Mimi(HFTransformersInterface):
         Returns
         -------
         tokens : torch.Tensor
-            A (Batch x NQ x Length) tensor of audio tokens
+            A (Batch x num_codebooks x Length) tensor of audio tokens
         emb : torch.Tensor
             Raw vector embeddings from the model's
             quantizers
@@ -158,7 +170,7 @@ class Mimi(HFTransformersInterface):
         Arguments
         ---------
         tokens : torch.Tensor
-            A (Batch x NQ x Length) tensor of audio tokens
+            A (Batch x num_codebooks x Length) tensor of audio tokens
         length : torch.Tensor
             A 1-D tensor of relative lengths
 
