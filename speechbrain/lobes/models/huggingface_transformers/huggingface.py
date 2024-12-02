@@ -249,8 +249,7 @@ class HFTransformersInterface(nn.Module):
                 sink / os.listdir(str(sink))[0]
             )  # there's a hash-id subfolder
             if any(
-                File.endswith((".bin", ".safetensors"))
-                or File.endswith(".ckpt")
+                File.endswith((".bin", ".safetensors", ".ckpt"))
                 for File in os.listdir(str(sink))
             ):
                 is_local = True
