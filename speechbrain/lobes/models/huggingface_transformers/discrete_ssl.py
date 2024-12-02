@@ -203,7 +203,7 @@ class DiscreteSSL(nn.Module):
 
         assert (
             len(layer_ids) > 0
-        ), f"There is no trained k-means model available for {repo_id}/kmeans/*_k{num_clusters[i]}_L*"
+        ), f"There is no trained k-means model available for {repo_id}"
 
         if isinstance(num_clusters, int):
             num_clusters = [num_clusters for i in layer_ids]
