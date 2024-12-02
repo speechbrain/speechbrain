@@ -1,6 +1,6 @@
 #!/usr/bin/env/python3
 """
-HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 HF_HOME="/scratch/adelmou/hf_home/" HF_HUB_CACHE="/scratch/adelmou/hf_home/hub/" python train.py hparams/ssl.yaml --data_folder
+HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 HF_HOME="/scratch/adelmou/hf_home/" HF_HUB_CACHE="/scratch/adelmou/hf_home/hub/" python train.py hparams/ssl.yaml --data_folder=$SLURM_TMPDIR/LibriSpeech/
 """
 
 import os
@@ -17,6 +17,7 @@ from speechbrain.lobes.models.huggingface_transformers.discrete_speechlm import 
     DiscreteSpeechLMConfig,
     InterleavedCodebookPattern,
 )
+from torch.nn import functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class ASR(sb.Brain):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
         wavs, wav_lens = batch.sig
-
+        #TODO: modify in/out so that we have the target
         # Forward pass
         # Feature extraction and attention pooling
         with torch.no_grad():
@@ -39,89 +40,53 @@ class ASR(sb.Brain):
                 self.hparams.bpe_tokenizer_path,
                 # , n_quantizers=self.hparams.num_codebooks
             )
+        # concat eos_token to the end of the sequence
+        eos_token = torch.full((tokens.size(0), 1, 6), 1001, dtype=tokens.dtype, device=tokens.device)
+        tokens = torch.cat([tokens, eos_token], dim=1)
         # permute dim 1 with dim 2
         tokens = tokens.permute(0, 2, 1)
-        patterned_inp = self.hparams.codebook_pattern.apply_delay_pattern(tokens)
-        print(patterned_inp.shape)
+        tokens = tokens[:, :self.hparams.config.n_codebooks, :self.hparams.config.block_size + 1]
+        inp_tokens = tokens[:, :, :-1]
+        target_tokens = tokens[:, :, 1:]
+        patterned_inp = self.hparams.codebook_pattern.apply_delay_pattern(inp_tokens)
+        # print(patterned_inp.shape)
         logits = self.modules.model(patterned_inp)
         undelayed_logits, undelayed_logits_mask = self.hparams.codebook_pattern.undelay_logits(logits)
-        exit()
-        return p_ctc, wav_lens, 
+        return undelayed_logits, undelayed_logits_mask, target_tokens
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss (CTC+NLL) given predictions and targets."""
+        # unpack batch
+        logits, logits_mask, target_tokens = predictions
+        logits = logits.float()
+        # calculate the loss on coarse audio tokens
+        lm_coarse_loss = F.cross_entropy(
+            logits[:, 0][logits_mask[:, 0]],
+            target_tokens[:, 0][logits_mask[:, 0]],
+            ignore_index=-1, 
+            reduction='sum',
+        )
+        coarse_loss = lm_coarse_loss / (logits_mask[:, 0]).sum()
+        # lm_loss = 0
+        # if self.hparams.num_codebooks > 1:
+        #     # calculate the loss on fine audio tokens
+        #     lm_fine_loss = F.cross_entropy(logits[:, 1:][logits_mask[:, 1:]],
+        #                                     target_tokens[:, 1:][logits_mask[:, 1:]], 
+        #                                     ignore_index=-1, reduction='sum')
+        #     fine = lm_fine_loss / (logits_mask[:, 1:]).sum()
+        #     lm_loss += ((lm_coarse_loss + self.hparams.fine_weight * lm_fine_loss)) / logits_mask.sum()
+        # else:
+        #     fine = 0.
+        #     lm_loss += coarse_loss / (logits_mask[:, 1:]).sum()
 
-        p_ctc, wav_lens, predicted_tokens = predictions
-        ids = batch.id
-        tokens, tokens_lens = batch.tokens
-        loss = self.hparams.ctc_cost(p_ctc, tokens, wav_lens, tokens_lens)
-
-        if stage == sb.Stage.VALID:
-            # Decode token terms to words
-            predicted_words = [
-                "".join(self.tokenizer.decode_ndim(utt_seq)).split(" ")
-                for utt_seq in predicted_tokens
-            ]
-        elif stage == sb.Stage.TEST:
-            predicted_words = [
-                hyp[0].text.split(" ") for hyp in predicted_tokens
-            ]
-
-        if stage != sb.Stage.TRAIN:
-            target_words = [wrd.split(" ") for wrd in batch.wrd]
-            self.wer_metric.append(ids, predicted_words, target_words)
-            self.cer_metric.append(ids, predicted_words, target_words)
-
-        return loss
-
-    def on_stage_start(self, stage, epoch):
-        """Gets called at the beginning of each epoch"""
-        if stage != sb.Stage.TRAIN:
-            self.cer_metric = self.hparams.cer_computer()
-            self.wer_metric = self.hparams.error_rate_computer()
-
+        return coarse_loss
+    
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
         # Compute/store important stats
         stage_stats = {"loss": stage_loss}
         if stage == sb.Stage.TRAIN:
             self.train_stats = stage_stats
-        else:
-            stage_stats["CER"] = self.cer_metric.summarize("error_rate")
-            stage_stats["WER"] = self.wer_metric.summarize("error_rate")
-
-        # Perform end-of-iteration things, like annealing, logging, etc.
-        if stage == sb.Stage.VALID:
-            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
-                stage_stats["loss"]
-            )
-            # old_lr_weights, new_lr_weights = self.hparams.lr_annealing_weights(
-            #     stage_stats["loss"]
-            # )
-            sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
-            )
-            # sb.nnet.schedulers.update_learning_rate(
-            #     self.weights_optimizer, new_lr_weights
-            # )
-
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr_model": old_lr_model},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
-            self.checkpointer.save_and_keep_only(
-                meta={"WER": stage_stats["WER"]}, min_keys=["WER"],
-            )
-        elif stage == sb.Stage.TEST:
-            self.hparams.train_logger.log_stats(
-                stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
-                test_stats=stage_stats,
-            )
-            if if_main_process():
-                with open(self.hparams.test_wer_file, "w") as w:
-                    self.wer_metric.write_stats(w)
-
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
