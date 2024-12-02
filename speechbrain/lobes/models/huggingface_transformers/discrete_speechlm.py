@@ -90,6 +90,11 @@ class DiscreteSpeechLM(nn.Module):
             ]
         )
 
+        if self.config.tie_embds:
+            # share the unembedding parameters with the embedding parameters
+            for k in range(self.n_codebooks):
+                self.audio_in_embds[k].weight = self.audio_out[k].weight # https://paperswithcode.com/method/weight-tying
+
         for module in [self.audio_in_embds, self.audio_out]:
             module.apply(self._init_weights)
 
@@ -113,7 +118,7 @@ class DiscreteSpeechLM(nn.Module):
         # compute the frame audio embeddings as the sum of codebook embeddings
         h = sum([self.audio_in_embds[k](input_audio_tokens[:, k]) for k in range(n_codebooks)])
 
-        print("h = ", h.shape)
+        # print("h = ", h.shape)
         # obtain contextual embeddings
         # todo: allows to retrieve all the hiden states of the model.
         h = self.model.model(inputs_embeds=h, use_cache=False)['last_hidden_state']
