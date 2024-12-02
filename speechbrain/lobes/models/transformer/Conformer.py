@@ -445,6 +445,7 @@ class ConformerEncoderLayer(nn.Module):
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: torch.Tensor = None,
         dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
+        warmup: float = 1.0,
     ):
         """
         Arguments
@@ -461,7 +462,13 @@ class ConformerEncoderLayer(nn.Module):
             Dynamic Chunk Training configuration object for streaming,
             specifically involved here to apply Dynamic Chunk Convolution to
             the convolution module.
+        warmup: float, optional
+            Warmup value, see :meth:`~ConformerEncoder.forward`. `1.0` behaves
+            as normally and lower values may skip the entire layer.
         """
+        if warmup < 1.0:
+            full_skip = x
+
         conv_mask: Optional[torch.Tensor] = None
         if src_key_padding_mask is not None:
             conv_mask = src_key_padding_mask.unsqueeze(-1)
@@ -486,6 +493,10 @@ class ConformerEncoderLayer(nn.Module):
         )
         # ffn module
         x = self.norm2(x + 0.5 * self.ffn_module2(x))
+
+        if warmup < 1.0:
+            x = (x * warmup) + (full_skip * (1.0 - warmup))
+
         return x, self_attn
 
     def forward_streaming(
@@ -696,6 +707,7 @@ class ConformerEncoder(nn.Module):
         src_key_padding_mask: Optional[torch.Tensor] = None,
         pos_embs: Optional[torch.Tensor] = None,
         dynchunktrain_config: Optional[DynChunkTrainConfig] = None,
+        warmup: float = 1.0,
     ):
         """
         Arguments
@@ -714,6 +726,16 @@ class ConformerEncoder(nn.Module):
             Dynamic Chunk Training configuration object for streaming,
             specifically involved here to apply Dynamic Chunk Convolution to the
             convolution module.
+        warmup: float, optional
+            Conformer layer level warmup; inspired by k2. For each layer, the
+            output will become:
+            `(warmup * layer(input)) + ((1 - warmup) * input)`. In other words,
+            lower values of warmup will more greatly "skip" the layer, allowing
+            to mostly bypass the layer.
+            A value of `0.0` completely skips the layer and a value of `1.0`
+            behaves as normally.
+            This helps the model reach initial convergence typically faster than
+            a normal lr warmup schedule would.
 
         Returns
         -------
@@ -752,6 +774,7 @@ class ConformerEncoder(nn.Module):
                     src_key_padding_mask=src_key_padding_mask,
                     pos_embs=pos_embs,
                     dynchunktrain_config=dynchunktrain_config,
+                    warmup=warmup,
                 )
                 attention_lst.append(attention)
 
@@ -1136,3 +1159,52 @@ class ConformerDecoder(nn.Module):
         output = self.norm(output)
 
         return output, self_attns, multihead_attns
+
+
+class ConformerWarmupScheduler:
+    """Scheduler for a Conformer warmup. Linearly increases the warmup from the
+    `warmup_start` to the `warmup_end` depending on the current step count.
+    See :meth:`~ConformerEncoder.forward` for how this value is used.
+
+    Arguments
+    ---------
+    step_count : int
+        After how many optimizer steps should the warmup reach the `warmup_end`
+        value.
+    warmup_start : float
+        The warmup value at the start of training.
+    warmup_end : float
+        The warmup value reached at the end of the warmup period.
+    """
+
+    def __init__(
+        self,
+        step_count: int = 3000,
+        warmup_start: float = 0.1,
+        warmup_end: float = 1.0,
+    ):
+        self.step_count = step_count
+        self.warmup_start = warmup_start
+        self.warmup_end = warmup_end
+
+    def __call__(self, current_step: int) -> float:
+        """Compute the current warmup value depending on the current optimizer
+        step count.
+
+        Arguments
+        ---------
+        current_step : int
+            The current optimizer step (not epoch).
+
+        Returns
+        -------
+        float
+            Warmup value to apply, linearly interpolated between `warmup_start`
+            and `warmup_end`.
+        """
+        warmup_completion = min(1.0, current_step / self.step_count)
+
+        # lerp from warmup_start to warmup_end
+        return self.warmup_start + warmup_completion * (
+            self.warmup_end - self.warmup_start
+        )
