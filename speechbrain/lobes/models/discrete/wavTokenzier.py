@@ -1,6 +1,6 @@
-"""This lobe enables the integration of  pretrained WavTokenizer.
+"""This lobe enables the integration of pretrained WavTokenizer.
 
-Note that you need topip install git+https://github.com/Tomiinek/WavTokenizer` to use this module.
+Note that you need to pip install `git+https://github.com/Tomiinek/WavTokenizer` to use this module.
 
 Repository: https://github.com/jishengpeng/WavTokenizer/
 Paper: https://arxiv.org/abs/2408.16532
@@ -17,7 +17,16 @@ from huggingface_hub import snapshot_download
 
 
 class WavTokenizer(nn.Module):
-    """An wrapper for the WavTokenizer model
+    # """A wrapper for the WavTokenizer model
+    """This lobe enables the integration of pretrained WavTokenizer model, a discrete codec models with single codebook for Audio Language Modeling.
+
+    Source paper:
+        https://arxiv.org/abs/2408.16532
+
+    You need to pip install `git+https://github.com/Tomiinek/WavTokenizer` to use this module.
+
+    The code is adapted from the official WavTokenizer repository:
+    https://github.com/jishengpeng/WavTokenizer/
 
     Arguments
     ---------
@@ -26,9 +35,9 @@ class WavTokenizer(nn.Module):
     save_path : str
         The location where the pretrained model will be saved
     config : str
-        The name of the config file.
+        The name of the HF config file.
     checkpoint : str
-        The name of the checkpoint file.
+        The name of the HF checkpoint file.
     sample_rate : int (default: 24000)
         The audio sampling rate
     freeze : bool
