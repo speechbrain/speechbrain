@@ -727,8 +727,16 @@ class TransformerDecoderLayer(nn.Module):
             self.self_attn = sb.nnet.attention.RoPEMHA(
                 d_model, nhead, dropout,
             )
-            self.multihead_attn = sb.nnet.attention.RoPEMHA(
-                d_model, nhead, dropout,
+            # self.multihead_attn = sb.nnet.attention.RoPEMHA(
+            #     d_model, nhead, dropout,
+            # )
+            # hard corded for regular cross attention
+            self.multihead_attn = sb.nnet.attention.MultiheadAttention(
+                nhead=nhead,
+                d_model=d_model,
+                kdim=kdim,
+                vdim=vdim,
+                dropout=dropout,
             )
         
 

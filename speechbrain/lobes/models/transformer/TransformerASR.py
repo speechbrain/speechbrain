@@ -399,7 +399,8 @@ class TransformerASR(TransformerInterface):
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.attention_type == "RoPEMHA":
-            pos_embs_encoder = pos_embs_encoder  # self.positional_encoding(src)
+            # pos_embs_encoder = pos_embs_encoder  # self.positional_encoding(src)
+            pos_embs_encoder = None # hard coded for cross attention
             pos_embs_target = self.positional_encoding(tgt)
         elif (
             self.positional_encoding_type == "fixed_abs_sine"
@@ -458,7 +459,8 @@ class TransformerASR(TransformerInterface):
             pos_embs_encoder = None  # self.positional_encoding(src)
             pos_embs_target = None
         elif self.attention_type == "RoPEMHA":
-            pos_embs_encoder = self.positional_encoding(encoder_out)  # self.positional_encoding(src)
+            # pos_embs_encoder = self.positional_encoding(encoder_out)  # self.positional_encoding(src)
+            pos_embs_encoder = None # hard corded for regular cross attention
             pos_embs_target = self.positional_encoding(tgt)
         elif (
             self.positional_encoding_type == "fixed_abs_sine"
