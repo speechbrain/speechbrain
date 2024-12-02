@@ -1,4 +1,4 @@
-"""This lobe enables the integration of pretrained BBEATs: Audio Pre-Training with Acoustic Tokenizers.
+"""This lobe enables the integration of pretrained BEATs: Audio Pre-Training with Acoustic Tokenizers.
 
 Reference: https://arxiv.org/abs/2212.09058
 Based on Github source: https://github.com/microsoft/unilm/tree/master/beats
@@ -1898,7 +1898,7 @@ class MultiheadAttention(nn.Module):
     def apply_sparse_mask(
         self, attn_weights, tgt_len: int, src_len: int, bsz: int
     ):
-        """5
+        """
         Applies a sparse mask to the attention weights.
 
         Arguments
