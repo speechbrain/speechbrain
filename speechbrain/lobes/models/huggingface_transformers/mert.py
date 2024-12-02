@@ -60,7 +60,7 @@ class MERT(Wav2Vec2):
     >>> model_hub = "m-a-p/MERT-v1-95M"
     >>> save_path = "savedir"
     >>> model = MERT(model_hub, save_path)
-    WARNING: feature_extractor_cqt requires the library 'nnAudio'
+    WARNING: feature_extractor_cqt requires the libray 'nnAudio'
     >>> outputs = model(inputs)
     >>> outputs.shape
     torch.Size([10, 1, 768])
