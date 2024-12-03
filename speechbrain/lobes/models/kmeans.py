@@ -51,6 +51,7 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         self.device = torch.device("cpu")
 
     def to(self, device=None, **kwargs):
+        """See documentation of `torch.nn.Module.to`."""
         self.device = device
         return super().to(device)
 
