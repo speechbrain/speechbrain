@@ -36,14 +36,15 @@ def vocal_characteristics(
         The batched audio signal being analyzed, shape: [batch, sample].
     min_f0_Hz: int
         The minimum allowed fundamental frequency, to reduce octave errors.
-        Default is 75 Hz, based on human voice standard frequency range.
+        Default is 80 Hz, based on human voice standard frequency range.
     max_f0_Hz: int
         The maximum allowed fundamental frequency, to reduce octave errors.
-        Default is 400 Hz, based on human voice standard frequency range.
+        Default is 300 Hz, based on human voice standard frequency range.
     step_size: float
         The time between analysis windows (in seconds).
     window_size: float
-        The size of the analysis window (in seconds).
+        The size of the analysis window (in seconds). Must be long enough
+        to contain at least 4 periods at the minimum frequency.
     sample_rate: int
         The number of samples in a second.
     harmonicity_threshold: float
@@ -57,16 +58,20 @@ def vocal_characteristics(
 
     Returns
     -------
-    estimated_f0: torch.Tensor
-        A per-frame estimate of the f0 in Hz.
-    voiced_frames: torch.Tensor
-        The estimate for each frame if it is voiced or unvoiced.
-    jitter: torch.Tensor
-        The estimate for the jitter value for each frame.
-    shimmer: torch.Tensor
-        The estimate for the shimmer value for each frame.
-    hnr: torch.Tensor
-        The estimate for the harmonicity-to-noise ratio for each frame.
+    features: torch.Tensor
+        A [batch, frame, 12] tensor with the following features per-frame.
+         * autocorr_f0: A per-frame estimate of the f0 in Hz.
+         * autocorr_hnr: harmonicity-to-noise ratio for each frame.
+         * periodic_jitter: Average deviation in period length.
+         * periodic_shimmer: Average deviation in amplitude per period.
+         * spectral_centroid: "center-of-mass" for spectral frames.
+         * spectral_spread: avg distance from centroid for spectral frames.
+         * spectral_skew: asymmetry of spectrum about the centroid.
+         * spectral_kurtosis: tailedness of spectrum.
+         * spectral_entropy: The peakiness of the spectrum.
+         * spectral_flatness: The ratio of geometric mean to arithmetic mean.
+         * spectral_crest: The ratio of spectral maximum to arithmetic mean.
+         * spectral_flux: The 2-normed diff between successive spectral values.
     """
 
     assert (
@@ -80,11 +85,10 @@ def vocal_characteristics(
     min_lag = int(sample_rate / max_f0_Hz)
 
     assert (
-        sample_rate / min_f0_Hz * PERIODIC_NEIGHBORS <= window_samples
-    ), f"Need {PERIODIC_NEIGHBORS} periods in a window"
+        max_lag * PERIODIC_NEIGHBORS <= window_samples
+    ), f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
 
     # Split into frames, and compute autocorrelation for each frame
-    audio = torch.nn.functional.pad(audio, (0, window_samples))
     frames = audio.unfold(dimension=-1, size=window_samples, step=step_samples)
     autocorrelation = autocorrelate(frames)
 
@@ -96,17 +100,15 @@ def vocal_characteristics(
     # Compute period-based features using the estimate of best lag
     jitter, shimmer = compute_periodic_features(frames, best_lags)
 
-    # Use harmonicity features to determine which frames are voiced
-    voiced = compute_voiced(
-        harmonicity, jitter, harmonicity_threshold, jitter_threshold
-    )
+    # Compute spectral features
+    spectral_features = compute_spectral_features(frames)
 
     # Autocorrelation is the measure of harmonicity here, 1-harmonicity is noise
     # See "Harmonic to Noise Ratio Measurement - Selection of Window and Length"
     # By J. Fernandez, F. Teixeira, V. Guedes, A. Junior, and J. P. Teixeira
     # Term is dominated by denominator, so just take -1 * log(noise)
-    # max value for harmonicity is 25 dB, enforced by this minimum here
     if log_scores:
+        # max value for harmonicity is 30 dB, enforced by this minimum here
         noise = torch.clamp(1 - harmonicity, min=EPSILON)
         hnr = -10 * torch.log10(noise)
         jitter = -10 * torch.log10(jitter.clamp(min=EPSILON))
@@ -114,7 +116,47 @@ def vocal_characteristics(
     else:
         hnr = 1 - harmonicity
 
-    return estimated_f0, voiced, jitter, shimmer, hnr
+    # Combine all features into a single tensor
+    features = torch.stack((estimated_f0, hnr, jitter, shimmer), dim=-1)
+    features = torch.cat((features, spectral_features), dim=-1)
+
+    # Compute moving average of 3 frames (as OpenSMILE does)
+    features = moving_average(features, dim=1, n=3)
+
+    return features
+
+
+def moving_average(features, dim=1, n=3):
+    """Computes moving average on a given dimension.
+
+    Arguments
+    ---------
+    features: torch.Tensor
+        The feature tensor to smooth out.
+    dim: int
+        The time dimension (for smoothing).
+    n: int
+        The number of points in the moving average
+
+    Returns
+    -------
+    smoothed_features: torch.Tensor
+        The features after the moving average is applied.
+
+    Example
+    -------
+    >>> feats = torch.tensor([[0., 1., 0., 1., 0., 1., 0.]])
+    >>> moving_average(feats)
+    tensor([[0.5000, 0.3333, 0.6667, 0.3333, 0.6667, 0.3333, 0.5000]])
+    """
+    features = features.transpose(dim, -1)
+
+    pad = n // 2
+    features = torch.nn.functional.avg_pool1d(
+        features, kernel_size=n, padding=pad, stride=1, count_include_pad=False
+    )
+
+    return features.transpose(dim, -1)
 
 
 def autocorrelate(frames):
@@ -229,97 +271,72 @@ def compute_periodic_features(frames, best_lags, neighbors=PERIODIC_NEIGHBORS):
     return jitter, shimmer
 
 
-def compute_voiced(
-    harmonicity: torch.Tensor,
-    jitter: torch.Tensor,
-    harmonicity_threshold: float = 0.45,
-    jitter_threshold: float = 0.02,
-    minimum_voiced: int = 19,
-):
-    """
-    Compute which sections are voiced based on two criteria:
-     * normalized autocorrelation above threshold
-     * AND jitter below threshold
+def compute_spectral_features(frames, eps=1e-10):
+    """Compute statistical measures on spectral frames
+    such as flux, skew, spread, flatness.
 
-    Voicing is averaged with neighboring frames to avoid rapid changes in voicing.
-    If no frames are voiced, relax threshold until more than a few frames are voiced.
+    Reference page for computing values:
+    https://www.mathworks.com/help/audio/ug/spectral-descriptors.html
 
     Arguments
     ---------
-    harmonicity : torch.Tensor
-        The normalized autocorrelation score, between 0 and 1 for each frame.
-        Shape = [batch, frame]
-    jitter : torch.Tensor
-        The variation in period from frame to frame, between 0 and 1 for each frame.
-    harmonicity_threshold : float
-        The threshold above which to consider each frame as voiced.
-    jitter_threshold: float
-        Jitter values greater than this are conisdered unvoiced.
-    minimum_voiced : int
-        The minimum number of frames to consider voiced.
+    frames: torch.Tensor
+        The framed audio to use for feature computation, dims [batch, frame, sample].
+    eps: float
+        A small value to avoid division by 0.
 
     Returns
     -------
-    voiced : torch.Tensor
-        A boolean value for each frame, whether to consider the frame as voiced or unvoiced.
+    features: torch.Tensor
+        A [batch, frame, 8] tensor of spectral features for each frame:
+         * centroid: The mean of the spectrum.
+         * spread: The stdev of the spectrum.
+         * skew: The spectral balance.
+         * kurtosis: The spectral tailedness.
+         * entropy: The peakiness of the spectrum.
+         * flatness: The ratio of geometric mean to arithmetic mean.
+         * crest: The ratio of spectral maximum to arithmetic mean.
+         * flux: The average delta-squared between one spectral value and it's successor.
     """
-    h_threshold = torch.full(
-        size=(jitter.size(0), 1),
-        fill_value=harmonicity_threshold,
-        device=jitter.device,
-        requires_grad=False,
+    window_size = frames.size(-1)
+    hann = torch.hann_window(window_size, device=frames.device)
+    spectrum = torch.abs(torch.fft.rfft(frames * hann.view(1, 1, -1)))
+
+    # To keep features in a neural-network-friendly range, use normalized freq [0, 1]
+    freqs = torch.fft.rfftfreq(window_size, device=frames.device)
+    freqs = freqs.view(1, 1, -1) / freqs.max()
+
+    # Mean, spread, skew, kurtosis. 1-4th standardized moments
+    centroid = spec_norm(freqs, spectrum).unsqueeze(-1)
+    spread = spec_norm((freqs - centroid) ** 2, spectrum).sqrt()
+    skew = spec_norm((freqs - centroid) ** 3, spectrum) / (spread**3 + eps)
+    kurt = spec_norm((freqs - centroid) ** 4, spectrum) / (spread**4 + eps)
+    centroid = centroid.squeeze(-1)
+
+    # Entropy measures the peakiness of the spectrum
+    entropy = -(spectrum * (spectrum + eps).log()).mean(dim=-1)
+
+    # Flatness is ratio of geometric to arithmetic means
+    # Use a formulation of geometric mean that is numerically stable
+    geomean = (spectrum + eps).log().mean(-1).exp()
+    flatness = geomean / (spectrum.mean(dim=-1) + eps)
+
+    # Crest measures the ratio of maximum to sum
+    crest = spectrum.amax(dim=-1) / (spectrum.sum(dim=-1) + eps)
+
+    # Flux is the root-mean-square deltas, padded to maintain same shape
+    pad = spectrum[:, 0:1, :]
+    flux = torch.diff(spectrum, dim=1, prepend=pad).pow(2).mean(dim=-1).sqrt()
+
+    return torch.stack(
+        (centroid, spread, skew, kurt, entropy, flatness, crest, flux),
+        dim=-1,
     )
-    j_threshold = torch.full_like(h_threshold, fill_value=jitter_threshold)
-    threshold_unmet = torch.ones_like(h_threshold)
-
-    # Check on each iteration if we have more than minimum voiced frames
-    while any(threshold_unmet):
-        voiced = harmonicity > h_threshold
-        voiced &= jitter < j_threshold
-
-        # PRAAT uses some forward/backward search to find voicing, with a
-        # penalty for on/off voicing. For speed, we just take an average.
-        voiced = neighbor_average(voiced, minimum_voiced).round().bool()
-
-        # Relax the threshold by a bit for each iteration
-        threshold_unmet = voiced.sum(dim=1) < minimum_voiced
-        h_threshold[threshold_unmet] -= 0.05
-        j_threshold[threshold_unmet] += 0.01
-
-    return voiced
 
 
-def neighbor_average(values, neighbors):
-    """Convenience function for average pooling of neighbors.
-
-    Arguments
-    ---------
-    values : torch.Tensor
-        The sequence of values to avg pool along last dimension.
-    neighbors : int
-        Should be an odd value, includes center.
-
-    Returns
-    -------
-    averaged_values : torch.Tensor
-        The 1-d average-pooled values across the last dimension.
-
-    Examples
-    --------
-    >>> a = torch.ones(7).view(1, -1)
-    >>> a[:, ::2] = 0
-    >>> a
-    tensor([[0., 1., 0., 1., 0., 1., 0.]])
-    >>> neighbor_average(a, neighbors=3)
-    tensor([[0.5000, 0.3333, 0.6667, 0.3333, 0.6667, 0.3333, 0.5000]])
-    """
-    return torch.nn.functional.avg_pool1d(
-        input=values.float(),
-        kernel_size=neighbors,
-        stride=1,
-        padding=neighbors // 2,
-        count_include_pad=False,
-    )
+def spec_norm(value, spectrum, eps=1e-10):
+    """Normalize the given value by the spectrum."""
+    return (value * spectrum).sum(dim=-1) / (spectrum.sum(dim=-1) + eps)
 
 
 def inverse_filter(frames, lpc_order=13):
@@ -529,7 +546,6 @@ def compute_gne(
     # Step 2. Inverse filter with 13th order LPC
     order = 13
     window = torch.hann_window(frame_size, device=audio.device).view(1, 1, -1)
-    audio = torch.nn.functional.pad(audio, (0, frame_size))
     frames = audio.unfold(dimension=-1, size=frame_size, step=hop_size) * window
     excitation_frames = inverse_filter(frames, order)
 
