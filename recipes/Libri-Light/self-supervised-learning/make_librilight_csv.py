@@ -22,6 +22,7 @@ import multiprocessing
 import os
 import pathlib
 from pathlib import Path
+from speechbrain.utils.parallel import parallel_map
 
 import torchaudio
 import tqdm
@@ -84,11 +85,13 @@ def processes_folder(
     tasks = []
     for x in list_dir.iterdir():
         tasks.append((x, f"{csv_file_folder}/tmp", max_length))
-    with multiprocessing.Pool(processes=n_processes) as pool:
-        for _ in tqdm.tqdm(
-            pool.imap_unordered(make_csv_for_each, tasks), total=len(tasks)
-        ):
-            pass
+    a = parallel_map(make_csv_for_each, tasks)
+    breakpoint()
+    # with multiprocessing.Pool(processes=n_processes) as pool:
+    #     for _ in tqdm.tqdm(
+    #         pool.imap_unordered(make_csv_for_each, tasks), total=len(tasks)
+    #     ):
+    #         pass
 
 
 def merge_csv_files(
