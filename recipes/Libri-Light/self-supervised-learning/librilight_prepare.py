@@ -268,16 +268,3 @@ def check_librilight_folders(data_folder, splits):
                 "Libri-Light dataset)" % split_folder
             )
             raise OSError(err_msg)
-
-
-# vad = "/scratch-01/datasets/audio/Libri-Light/"
-# dev_clean = "/group-volume/On-Device-AI/Datasets/LibriSpeech/Raw/LibriSpeech/dev-clean/"
-
-# prepare_librilight(
-#     data_folder=vad,
-#     dev_folder=dev_clean,
-#     save_folder="results",
-#     vad_splits=["small_vad_20s", "medium_vad_20s"],
-#     merge_lst=["small_vad_20s", "medium_vad_20s"],
-#     merge_name="train.csv",
-# )
