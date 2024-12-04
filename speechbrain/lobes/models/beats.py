@@ -201,7 +201,7 @@ class BEATs(nn.Module):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
         wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
@@ -314,11 +314,13 @@ def gelu_accurate(x):
 
     Arguments
     ---------
-        x (Tensor): Input tensor on which to apply the GELU activation.
+    x: torch.Tensor
+        Input tensor on which to apply the GELU activation.
 
     Returns
     -------
-        Tensor: Tensor with GELU activation applied element-wise.
+    torch.Tensor:
+        Tensor with GELU activation applied element-wise.
     """
     if not hasattr(gelu_accurate, "_a"):
         gelu_accurate._a = math.sqrt(2 / math.pi)
@@ -335,11 +337,13 @@ def gelu(x: torch.Tensor) -> torch.Tensor:
 
     Arguments
     ---------
-        x (torch.Tensor): Input tensor to apply the GELU activation.
+    x: torch.Tensor
+        Input tensor to apply the GELU activation.
 
     Returns
     -------
-        torch.Tensor: Tensor with GELU activation applied element-wise.
+    torch.Tensor:
+        Tensor with GELU activation applied element-wise.
     """
     return torch.nn.functional.gelu(x.float()).type_as(x)
 
@@ -363,7 +367,7 @@ def get_activation_fn(activation: str):
     Returns
     -------
     Callable[[torch.Tensor], torch.Tensor]
-        The corresponding activation function to apply to input tensors.
+    T   he corresponding activation function to apply to input tensors.
 
     Raises
     ------
@@ -1483,23 +1487,35 @@ class MultiheadAttention(nn.Module):
         Computes the final attention output, including relative position bias adjustments,
         attention weight computation, and attention projection.
 
-        Arguments:
-        ----------
-            q (Tensor): Query tensor.
-            v (Tensor): Value tensor.
-            attn_weights (Tensor): Attention weights tensor.
-            position_bias (Tensor or None): Relative position bias tensor.
-            bsz (int): Batch size.
-            tgt_len (int): Target sequence length.
-            src_len (int): Source sequence length.
-            embed_dim (int): Embedding dimension.
-            need_weights (bool): Whether to return attention weights.
-            need_head_weights (bool): Whether to return head-specific weights.
-            alpha (float): Scaling factor for relative position.
+        Arguments
+        ---------
+        q : torch.Tensor
+            Query tensor.
+        v : torch.Tensor
+            Value tensor.
+        attn_weights : torch.Tensor
+            Attention weights tensor.
+        position_bias : Optional[torch.Tensor]
+            Relative position bias tensor.
+        bsz : int
+            Batch size.
+        tgt_len : int
+            Target sequence length.
+        src_len : int
+            Source sequence length.
+        embed_dim : int
+            Embedding dimension.
+        need_weights : bool
+            Whether to return attention weights.
+        need_head_weights : bool
+            Whether to return head-specific weights.
+        alpha : float
+            Scaling factor for relative position.
 
         Returns
         -------
-            Tuple[Tensor, Optional[Tensor]]: Final attention output and optional attention weights.
+        Tuple[torch.Tensor, Optional[torch.Tensor]]
+            Final attention output and optional attention weights.
         """
         # Apply relative position bias if available
         if position_bias is not None:
@@ -1561,21 +1577,31 @@ class MultiheadAttention(nn.Module):
         Processes attention weights, including handling key padding masks, adding zero attention if required,
         and computing the attention weights with masking.
 
-        Arguments:
-        ----------
-            q (Tensor): Query tensor.
-            k (Tensor): Key tensor.
-            v (Tensor): Value tensor.
-            attn_mask (Tensor or None): Attention mask, if any.
-            key_padding_mask (Tensor or None): Key padding mask, if any.
-            bsz (int): Batch size.
-            tgt_len (int): Target sequence length.
-            src_len (int): Source sequence length.
-            alpha (int): Scaling factor for attention weights.
+        Arguments
+        ---------
+        q : torch.Tensor
+            Query tensor.
+        k : torch.Tensor
+            Key tensor.
+        v : torch.Tensor
+            Value tensor.
+        attn_mask : torch.Tensor
+           Attention mask
+        key_padding_mask : torch.Tensor
+           Key padding mask.
+        bsz : int
+            Batch size.
+        tgt_len : int
+            Target sequence length.
+        src_len : int
+            Source sequence length.
+        alpha : float
+            Scaling factor for relative position.
 
         Returns
         -------
-            Tuple[Tensor, Optional[Tensor]]: Computed attention weights and the updated attention mask.
+        Tuple[torch.Tensor, Optional[torch.Tensor]]
+            Computed attention weights and the updated attention mask.
         """
         is_tpu = q.device.type == "xla"
         # Handle zero-dimension key padding mask
@@ -1661,17 +1687,22 @@ class MultiheadAttention(nn.Module):
         Applies bias_k and bias_v to the key and value tensors, updating
         the attention mask and key padding mask accordingly.
 
-        Arguments:
-        ----------
-            k (Tensor): Key tensor.
-            v (Tensor): Value tensor.
-            bsz (int): Batch size.
-            attn_mask (Tensor or None): Attention mask, if any.
-            key_padding_mask (Tensor or None): Key padding mask, if any.
+        Arguments
+        ---------
+        k : torch.Tensor
+            Key tensor.
+        v : torch.Tensor
+            Value tensor.
+        bsz : int
+            Batch size.
+        attn_mask : torch.Tensor
+            Attention mask
+        key_padding_mask : torch.Tensor
+           Key padding mask.
 
         Returns
         -------
-            Tuple[Tensor, Tensor, Optional[Tensor], Optional[Tensor]]: Updated key, value,
+        Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[Ttorch.ensor]]: Updated key, value,
             attention mask, and key padding mask.
         """
         if self.bias_k is not None:
@@ -1717,20 +1748,29 @@ class MultiheadAttention(nn.Module):
         Prepares and scales the projections, applies biases, and reshapes the query, key, and value tensors
         for multi-head attention.
 
-        Arguments:
-        ----------
-            query (Tensor): The input query tensor.
-            key (Tensor or None): The input key tensor.
-            value (Tensor or None): The input value tensor.
-            bsz (int): Batch size.
-            tgt_len (int): Target sequence length.
-            key_padding_mask (Tensor or None): Key padding mask, if any.
-            attn_mask (Tensor or None): Attention mask, if any.
-            alpha (int, optional): Scaling factor for queries. Default is 32.
+        Arguments
+        ---------
+        query : torch.Tensor
+            Query tensor.
+        key : torch.Tensor
+            Key tensor.
+        value : torch.Tensor
+            Value tensor.
+        bsz : int
+            Batch size.
+        tgt_len : int
+            Target sequence length.
+        key_padding_mask : torch.Tensor
+           Key padding mask.
+        attn_mask : torch.Tensor
+           Attention mask
+        alpha : float, optional
+            Scaling factor for relative position. Default is 32.
+
         Returns
         -------
-            Tuple[Tensor, Tensor, Tensor, Optional[Tensor], Optional[Tensor]]: Scaled and reshaped
-            query, key, and value tensors, along with updated attention and key padding masks.
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]
+            Scaled and reshaped query, key, and value tensors, along with updated attention and key padding masks.
         """
         # Compute scaled projections
         if self.self_attention:
