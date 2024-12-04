@@ -255,7 +255,7 @@ class HFTransformersInterface(nn.Module):
                 sink / os.listdir(str(sink))[0]
             )  # there's a hash-id subfolder
             if any(
-                File.endswith(".bin") or File.endswith(".ckpt")
+                File.endswith((".bin", ".safetensors", ".ckpt"))
                 for File in os.listdir(str(sink))
             ):
                 is_local = True
@@ -267,7 +267,10 @@ class HFTransformersInterface(nn.Module):
 
         if is_local:
             # Test for HuggingFace model
-            if any(File.endswith(".bin") for File in os.listdir(local_path)):
+            if any(
+                File.endswith((".bin", ".safetensors"))
+                for File in os.listdir(local_path)
+            ):
                 is_sb = False
                 return is_sb, checkpoint_filename, is_local
 
@@ -290,12 +293,12 @@ class HFTransformersInterface(nn.Module):
                     return is_sb, checkpoint_filename, is_local
 
             for File in files:
-                if File.rfilename.endswith(".bin"):
+                if File.rfilename.endswith((".bin", ".safetensors")):
                     checkpoint_filename = File.rfilename
                     is_sb = False
                     return is_sb, checkpoint_filename, is_local
 
-        err_msg = f"{path} does not contain a .bin or .ckpt checkpoint !"
+        err_msg = f"{path} does not contain a .bin, .safetensors or .ckpt checkpoint !"
         raise FileNotFoundError(err_msg)
 
     def _modify_state_dict(self, path, **kwargs):
