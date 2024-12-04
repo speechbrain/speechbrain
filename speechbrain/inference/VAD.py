@@ -952,7 +952,7 @@ class VAD(Pretrained):
                 boundaries,
                 activation_th=en_activation_th,
                 deactivation_th=en_deactivation_th,
-                min_segment_length=len_th
+                min_segment_length=len_th,
             )
 
         # Merge short segments
