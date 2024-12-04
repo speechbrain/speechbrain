@@ -17,146 +17,40 @@ PERIODIC_NEIGHBORS = 4
 
 
 @torch.no_grad()
-def vocal_characteristics(
-    audio: torch.Tensor,
-    min_f0_Hz: int = 80,
-    max_f0_Hz: int = 300,
-    step_size: float = 0.01,
-    window_size: float = 0.05,
-    sample_rate: int = 16000,
-    harmonicity_threshold: float = 0.45,
-    jitter_threshold: float = 0.02,
-    log_scores: bool = True,
-):
-    """Estimates the vocal characteristics of a signal using auto-correlation, etc.
+def compute_autocorr_features(frames, min_lag, max_lag, neighbors=5):
+    """Compute features based on autocorrelation
 
     Arguments
     ---------
-    audio: torch.Tensor
-        The batched audio signal being analyzed, shape: [batch, sample].
-    min_f0_Hz: int
-        The minimum allowed fundamental frequency, to reduce octave errors.
-        Default is 80 Hz, based on human voice standard frequency range.
-    max_f0_Hz: int
-        The maximum allowed fundamental frequency, to reduce octave errors.
-        Default is 300 Hz, based on human voice standard frequency range.
-    step_size: float
-        The time between analysis windows (in seconds).
-    window_size: float
-        The size of the analysis window (in seconds). Must be long enough
-        to contain at least 4 periods at the minimum frequency.
-    sample_rate: int
-        The number of samples in a second.
-    harmonicity_threshold: float
-        Threshold value for considering a frame as voiced. Computed
-        as the ratio between lag 0 autocorrelation and t-max autocorrelation.
-    jitter_threshold: float
-        One of two threshold values for considering a frame as voiced. Estimated
-        jitter values greater than this are conisdered unvoiced.
-    log_scores: bool
-        Whether to represent the jitter/shimmer/hnr on a log scale
+    frames: torch.Tensor
+        The audio frames to be evaluated for autocorrelation, shape [batch, frame, sample]
+    min_lag: int
+        The minimum number of samples to consider for potential period length.
+    max_lag: int
+        The maximum number of samples to consider for potential period length.
+    neighbors: int
+        The number of neighbors to use for rolling median -- to avoid octave errors.
 
     Returns
     -------
-    features: torch.Tensor
-        A [batch, frame, 12] tensor with the following features per-frame.
-         * autocorr_f0: A per-frame estimate of the f0 in Hz.
-         * autocorr_hnr: harmonicity-to-noise ratio for each frame.
-         * periodic_jitter: Average deviation in period length.
-         * periodic_shimmer: Average deviation in amplitude per period.
-         * spectral_centroid: "center-of-mass" for spectral frames.
-         * spectral_spread: avg distance from centroid for spectral frames.
-         * spectral_skew: asymmetry of spectrum about the centroid.
-         * spectral_kurtosis: tailedness of spectrum.
-         * spectral_entropy: The peakiness of the spectrum.
-         * spectral_flatness: The ratio of geometric mean to arithmetic mean.
-         * spectral_crest: The ratio of spectral maximum to arithmetic mean.
-         * spectral_flux: The 2-normed diff between successive spectral values.
+    harmonicity: torch.Tensor
+        The highest autocorrelation score relative to the 0-lag score. Used to compute HNR
+    best_lags: torch.Tensor
+        The lag corresponding to the highest autocorrelation score, an estimate of period length.
     """
-
-    assert (
-        audio.dim() == 2
-    ), "Expected audio to be 2-dimensional, [batch, sample]"
-
-    # Convert arguments to sample counts. Max lag corresponds to min f0 and vice versa.
-    step_samples = int(step_size * sample_rate)
-    window_samples = int(window_size * sample_rate)
-    max_lag = int(sample_rate / min_f0_Hz)
-    min_lag = int(sample_rate / max_f0_Hz)
-
-    assert (
-        max_lag * PERIODIC_NEIGHBORS <= window_samples
-    ), f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
-
-    # Split into frames, and compute autocorrelation for each frame
-    frames = audio.unfold(dimension=-1, size=window_samples, step=step_samples)
     autocorrelation = autocorrelate(frames)
 
-    # Use autocorrelation to estimate harmonicity and best lags
-    harmonicity, best_lags = autocorr_feats(autocorrelation, min_lag, max_lag)
-    # Frequency is 1 / period-slash-lag
-    estimated_f0 = sample_rate / best_lags
+    # Find the peak, lag
+    harmonicity, lags = autocorrelation[:, :, min_lag:max_lag].max(dim=-1)
 
-    # Compute period-based features using the estimate of best lag
-    jitter, shimmer = compute_periodic_features(frames, best_lags)
+    # Take median value of 5 neighboring cells to avoid octave errors
+    lags = torch.nn.functional.pad(lags, pad=(2, 2))
+    best_lags, _ = lags.unfold(-1, neighbors, 1).median(dim=-1)
 
-    # Compute spectral features
-    spectral_features = compute_spectral_features(frames)
+    # Re-add the min_lag back in after first step removed it
+    best_lags = best_lags + min_lag
 
-    # Autocorrelation is the measure of harmonicity here, 1-harmonicity is noise
-    # See "Harmonic to Noise Ratio Measurement - Selection of Window and Length"
-    # By J. Fernandez, F. Teixeira, V. Guedes, A. Junior, and J. P. Teixeira
-    # Term is dominated by denominator, so just take -1 * log(noise)
-    if log_scores:
-        # max value for harmonicity is 30 dB, enforced by this minimum here
-        noise = torch.clamp(1 - harmonicity, min=EPSILON)
-        hnr = -10 * torch.log10(noise)
-        jitter = -10 * torch.log10(jitter.clamp(min=EPSILON))
-        shimmer = -10 * torch.log10(shimmer.clamp(min=EPSILON))
-    else:
-        hnr = 1 - harmonicity
-
-    # Combine all features into a single tensor
-    features = torch.stack((estimated_f0, hnr, jitter, shimmer), dim=-1)
-    features = torch.cat((features, spectral_features), dim=-1)
-
-    # Compute moving average of 3 frames (as OpenSMILE does)
-    features = moving_average(features, dim=1, n=3)
-
-    return features
-
-
-def moving_average(features, dim=1, n=3):
-    """Computes moving average on a given dimension.
-
-    Arguments
-    ---------
-    features: torch.Tensor
-        The feature tensor to smooth out.
-    dim: int
-        The time dimension (for smoothing).
-    n: int
-        The number of points in the moving average
-
-    Returns
-    -------
-    smoothed_features: torch.Tensor
-        The features after the moving average is applied.
-
-    Example
-    -------
-    >>> feats = torch.tensor([[0., 1., 0., 1., 0., 1., 0.]])
-    >>> moving_average(feats)
-    tensor([[0.5000, 0.3333, 0.6667, 0.3333, 0.6667, 0.3333, 0.5000]])
-    """
-    features = features.transpose(dim, -1)
-
-    pad = n // 2
-    features = torch.nn.functional.avg_pool1d(
-        features, kernel_size=n, padding=pad, stride=1, count_include_pad=False
-    )
-
-    return features.transpose(dim, -1)
+    return harmonicity, best_lags
 
 
 def autocorrelate(frames):
@@ -186,21 +80,7 @@ def autocorrelate(frames):
     return autocorrelation / norm_score
 
 
-def autocorr_feats(autocorrelation, min_lag, max_lag, neighbors=5):
-    """Compute features based on autocorrelation"""
-    # Find high values
-    harmonicity, lags = autocorrelation[:, :, min_lag:max_lag].max(dim=-1)
-
-    # Take median value of 5 neighboring cells to avoid octave errors
-    lags = torch.nn.functional.pad(lags, pad=(2, 2))
-    best_lags, _ = lags.unfold(-1, neighbors, 1).median(dim=-1)
-
-    # Re-add the min_lag back in after first step removed it
-    best_lags = best_lags + min_lag
-
-    return harmonicity, best_lags
-
-
+@torch.no_grad()
 def compute_periodic_features(frames, best_lags, neighbors=PERIODIC_NEIGHBORS):
     """Function to compute periodic features: jitter, shimmer
 
@@ -220,7 +100,6 @@ def compute_periodic_features(frames, best_lags, neighbors=PERIODIC_NEIGHBORS):
     shimmer: torch.Tensor
         The average absolute deviation in amplitude over the frame.
     """
-
     # Prepare for masking
     masked_frames = torch.clone(frames).detach()
     mask_indices = torch.arange(frames.size(-1), device=frames.device)
@@ -271,7 +150,8 @@ def compute_periodic_features(frames, best_lags, neighbors=PERIODIC_NEIGHBORS):
     return jitter, shimmer
 
 
-def compute_spectral_features(frames, eps=1e-10):
+@torch.no_grad()
+def compute_spectral_features(spectrum, eps=1e-10):
     """Compute statistical measures on spectral frames
     such as flux, skew, spread, flatness.
 
@@ -280,8 +160,8 @@ def compute_spectral_features(frames, eps=1e-10):
 
     Arguments
     ---------
-    frames: torch.Tensor
-        The framed audio to use for feature computation, dims [batch, frame, sample].
+    spectrum: torch.Tensor
+        The spectrum to use for feature computation, dims [batch, frame, freq].
     eps: float
         A small value to avoid division by 0.
 
@@ -298,13 +178,9 @@ def compute_spectral_features(frames, eps=1e-10):
          * crest: The ratio of spectral maximum to arithmetic mean.
          * flux: The average delta-squared between one spectral value and it's successor.
     """
-    window_size = frames.size(-1)
-    hann = torch.hann_window(window_size, device=frames.device)
-    spectrum = torch.abs(torch.fft.rfft(frames * hann.view(1, 1, -1)))
-
     # To keep features in a neural-network-friendly range, use normalized freq [0, 1]
-    freqs = torch.fft.rfftfreq(window_size, device=frames.device)
-    freqs = freqs.view(1, 1, -1) / freqs.max()
+    nfreq = spectrum.size(-1)
+    freqs = torch.linspace(0, 1, nfreq, device=spectrum.device).view(1, 1, -1)
 
     # Mean, spread, skew, kurtosis. 1-4th standardized moments
     centroid = spec_norm(freqs, spectrum).unsqueeze(-1)
@@ -329,14 +205,98 @@ def compute_spectral_features(frames, eps=1e-10):
     flux = torch.diff(spectrum, dim=1, prepend=pad).pow(2).mean(dim=-1).sqrt()
 
     return torch.stack(
-        (centroid, spread, skew, kurt, entropy, flatness, crest, flux),
-        dim=-1,
+        (centroid, spread, skew, kurt, entropy, flatness, crest, flux), dim=-1
     )
 
 
 def spec_norm(value, spectrum, eps=1e-10):
     """Normalize the given value by the spectrum."""
     return (value * spectrum).sum(dim=-1) / (spectrum.sum(dim=-1) + eps)
+
+
+@torch.no_grad()
+def compute_gne(
+    audio,
+    sample_rate=16000,
+    bandwidth=1000,
+    fshift=300,
+    frame_len=0.03,
+    hop_len=0.01,
+):
+    """An algorithm for GNE computation from the original paper:
+
+    "Glottal-to-Noise Excitation Ratio - a New Measure for Describing
+    Pathological Voices" by D. Michaelis, T. Oramss, and H. W. Strube.
+
+    This algorithm divides the signal into frequency bands, and compares
+    the correlation between the bands. High correlation indicates a
+    relatively low amount of noise in the signal, whereas lower correlation
+    could be a sign of pathology in the vocal signal.
+
+    Godino-Llorente et al. in "The Effectiveness of the Glottal to Noise
+    Excitation Ratio for the Screening of Voice Disorders." explore the
+    goodness of the bandwidth and frequency shift parameters, the defaults
+    here are the ones recommended in that work. They also suggest using
+    log( 1 - GNE ), which they called GNE_L as the final score, as done here.
+
+    Arguments
+    ---------
+    audio : torch.Tensor
+        The batched audio signal to use for GNE computation, [batch, sample]
+    sample_rate : float
+        The sample rate of the input audio.
+    bandwidth : float
+        The width of the frequency bands used for computing correlation.
+    fshift : float
+        The shift between frequency bands used for computing correlation.
+    frame_len : float
+        Length of each analysis frame, in seconds.
+    hop_len : float
+        Length of time between the start of each analysis frame, in seconds.
+
+    Returns
+    -------
+    gne : torch.Tensor
+        The glottal-to-noise-excitation ratio for each frame of the audio signal.
+    """
+
+    assert (
+        audio.dim() == 2
+    ), "Expected audio to be 2-dimensional, [batch, sample]"
+
+    # Step 1. Downsample to 10 kHz since voice energy is low above 5 kHz
+    old_sample_rate, sample_rate = sample_rate, 10000
+    audio = torchaudio.functional.resample(audio, old_sample_rate, sample_rate)
+
+    # Step 2a. Unfold into analysis frames
+    frame_size = int(sample_rate * frame_len)
+    hop_size = int(sample_rate * hop_len)
+    window = torch.hann_window(frame_size, device=audio.device).view(1, 1, -1)
+    frames = audio.unfold(dimension=-1, size=frame_size, step=hop_size) * window
+
+    # Step 2b. Inverse filter each frame with 13th order LPC
+    excitation_frames = inverse_filter(frames, lpc_order=13)
+
+    # Step 3. Compute Hilbert envelopes for each frequency bin
+    min_freq, max_freq = bandwidth // 2, sample_rate // 2 - bandwidth // 2
+    center_freqs = range(min_freq, max_freq, fshift)
+    envelopes = {
+        center_freq: compute_hilbert_envelopes(
+            excitation_frames, center_freq, bandwidth, sample_rate
+        )
+        for center_freq in center_freqs
+    }
+
+    # Step 4. Compute cross correlation between (non-neighboring) frequency bins
+    correlations = [
+        compute_cross_correlation(envelopes[freq_i], envelopes[freq_j], width=3)
+        for freq_i in center_freqs
+        for freq_j in center_freqs
+        if freq_j - freq_i > bandwidth // 2
+    ]
+
+    # Step 5. The maximum cross-correlation is the GNE score
+    return torch.stack(correlations, dim=-1).amax(dim=(2, 3))
 
 
 def inverse_filter(frames, lpc_order=13):
@@ -484,94 +444,3 @@ def compute_cross_correlation(frames_a, frames_b, width=None):
     cross_correlation /= norm.unsqueeze(-1).clamp(min=1e-10)
 
     return cross_correlation
-
-
-@torch.no_grad()
-def compute_gne(
-    audio,
-    sample_rate=16000,
-    bandwidth=1000,
-    fshift=300,
-    frame_size=300,
-    hop_size=100,
-    log_scale=True,
-):
-    """An algorithm for GNE computation from the original paper:
-
-    "Glottal-to-Noise Excitation Ratio - a New Measure for Describing
-    Pathological Voices" by D. Michaelis, T. Oramss, and H. W. Strube.
-
-    This algorithm divides the signal into frequency bands, and compares
-    the correlation between the bands. High correlation indicates a
-    relatively low amount of noise in the signal, whereas lower correlation
-    could be a sign of pathology in the vocal signal.
-
-    Godino-Llorente et al. in "The Effectiveness of the Glottal to Noise
-    Excitation Ratio for the Screening of Voice Disorders." explore the
-    goodness of the bandwidth and frequency shift parameters, the defaults
-    here are the ones recommended in that work. They also suggest using
-    log( 1 - GNE ), which they called GNE_L as the final score, as done here.
-
-    Arguments
-    ---------
-    audio : torch.Tensor
-        The batched audio signal to use for GNE computation, [batch, sample]
-    sample_rate : float
-        The sample rate of the input audio.
-    bandwidth : float
-        The width of the frequency bands used for computing correlation.
-    fshift : float
-        The shift between frequency bands used for computing correlation.
-    frame_size : int
-        Number of samples (at 10k sampling rate) in each analysis frame.
-    hop_size : int
-        Number of samples (at 10k sampling rate) between the start of each analysis frame.
-    log_scale : bool
-        Whether to represent the output in the log scale.
-
-    Returns
-    -------
-    gne_score : torch.Tensor
-        The GNE_L score for each frame of the audio signal.
-    """
-
-    assert (
-        audio.dim() == 2
-    ), "Expected audio to be 2-dimensional, [batch, sample]"
-
-    # Step 1. Downsample to 10 kHz since voice energy is low above 5 kHz
-    old_sample_rate, sample_rate = sample_rate, 10000
-    audio = torchaudio.functional.resample(audio, old_sample_rate, sample_rate)
-
-    # Step 2. Inverse filter with 13th order LPC
-    order = 13
-    window = torch.hann_window(frame_size, device=audio.device).view(1, 1, -1)
-    frames = audio.unfold(dimension=-1, size=frame_size, step=hop_size) * window
-    excitation_frames = inverse_filter(frames, order)
-
-    # Step 3. Compute Hilbert envelopes for each frequency bin
-    min_freq, max_freq = bandwidth // 2, sample_rate // 2 - bandwidth // 2
-    center_freqs = range(min_freq, max_freq, fshift)
-    envelopes = {
-        center_freq: compute_hilbert_envelopes(
-            excitation_frames, center_freq, bandwidth, sample_rate
-        )
-        for center_freq in center_freqs
-    }
-
-    # Step 4. Compute cross correlation between (non-neighboring) frequency bins
-    correlations = [
-        compute_cross_correlation(envelopes[freq_i], envelopes[freq_j], width=3)
-        for freq_i in center_freqs
-        for freq_j in center_freqs
-        if freq_j - freq_i > bandwidth // 2
-    ]
-
-    # Step 5. The maximum cross-correlation is the GNE score
-    gne = torch.stack(correlations, dim=-1).amax(dim=(2, 3))
-
-    # Use a log scale for better differentiation
-    if log_scale:
-        return -10 * torch.log10(torch.clamp(1 - gne, min=EPSILON))
-    else:
-        return gne

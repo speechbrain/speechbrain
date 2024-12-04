@@ -8,6 +8,7 @@ Authors
 """
 
 from dataclasses import dataclass
+from functools import partial
 from typing import Optional
 
 import torch
@@ -23,8 +24,17 @@ from speechbrain.processing.features import (
     Filterbank,
     spectral_magnitude,
 )
+from speechbrain.processing.vocal_features import (
+    PERIODIC_NEIGHBORS,
+    compute_autocorr_features,
+    compute_gne,
+    compute_periodic_features,
+    compute_spectral_features,
+)
 from speechbrain.utils.autocast import fwd_default_precision
 from speechbrain.utils.filter_analysis import FilterProperties
+
+VOICE_EPSILON = 1e-3
 
 
 class Fbank(torch.nn.Module):
@@ -660,3 +670,184 @@ class StreamingFeatureWrapper(torch.nn.Module):
 
     def make_streaming_context(self) -> StreamingFeatureWrapperContext:
         return StreamingFeatureWrapperContext(None)
+
+
+class VocalFeatures(torch.nn.Module):
+    """Estimates the vocal characteristics of a signal in four categories of features:
+     * Autocorrelation-based
+     * Period-based (jitter/shimmer)
+     * Spectrum-based
+     * MFCCs
+
+    Arguments
+    ---------
+    min_f0_Hz: int
+        The minimum allowed fundamental frequency, to reduce octave errors.
+        Default is 80 Hz, based on human voice standard frequency range.
+    max_f0_Hz: int
+        The maximum allowed fundamental frequency, to reduce octave errors.
+        Default is 300 Hz, based on human voice standard frequency range.
+    step_size: float
+        The time between analysis windows (in seconds).
+    window_size: float
+        The size of the analysis window (in seconds). Must be long enough
+        to contain at least 4 periods at the minimum frequency.
+    sample_rate: int
+        The number of samples in a second.
+    log_scores: bool
+        Whether to represent the jitter/shimmer/hnr on a log scale.
+    eps: float
+        The minimum value before log transformation, default of
+        1e-3 results in a maximum value of 30 dB.
+    sma_neighbors: int
+        Number of frames to average -- default 3
+    """
+
+    def __init__(
+        self,
+        min_f0_Hz: int = 80,
+        max_f0_Hz: int = 300,
+        step_size: float = 0.01,
+        window_size: float = 0.05,
+        sample_rate: int = 16000,
+        log_scores: bool = True,
+        eps: float = 1e-3,
+        sma_neighbors: int = 3,
+    ):
+        super().__init__()
+
+        # Convert arguments to sample counts. Max lag corresponds to min f0 and vice versa.
+        self.step_samples = int(step_size * sample_rate)
+        self.window_samples = int(window_size * sample_rate)
+        self.max_lag = int(sample_rate / min_f0_Hz)
+        self.min_lag = int(sample_rate / max_f0_Hz)
+        self.sample_rate = sample_rate
+        self.log_scores = log_scores
+        self.eps = eps
+        self.sma_neighbors = sma_neighbors
+
+        assert (
+            self.max_lag * PERIODIC_NEIGHBORS <= self.window_samples
+        ), f"Need at least {PERIODIC_NEIGHBORS} periods in a window"
+
+        n_mels, n_mfcc = 23, 4
+        self.compute_fbanks = Filterbank(
+            sample_rate=sample_rate,
+            n_fft=self.window_samples,
+            n_mels=n_mels,
+        )
+        self.compute_dct = DCT(input_size=n_mels, n_out=n_mfcc)
+        self.compute_gne = partial(
+            compute_gne, frame_len=window_size, hop_len=step_size
+        )
+
+    def forward(self, audio: torch.Tensor):
+        """Compute voice features.
+
+        Arguments
+        ---------
+        audio: torch.Tensor
+            The audio signal to be converted to voice features.
+
+        Returns
+        -------
+        features: torch.Tensor
+            A [batch, frame, 17] tensor with the following features per-frame.
+             * autocorr_f0: A per-frame estimate of the f0 in Hz.
+             * autocorr_hnr: harmonicity-to-noise ratio for each frame.
+             * periodic_jitter: Average deviation in period length.
+             * periodic_shimmer: Average deviation in amplitude per period.
+             * gne: The glottal-to-noise-excitation ratio.
+             * spectral_centroid: "center-of-mass" for spectral frames.
+             * spectral_spread: avg distance from centroid for spectral frames.
+             * spectral_skew: asymmetry of spectrum about the centroid.
+             * spectral_kurtosis: tailedness of spectrum.
+             * spectral_entropy: The peakiness of the spectrum.
+             * spectral_flatness: The ratio of geometric mean to arithmetic mean.
+             * spectral_crest: The ratio of spectral maximum to arithmetic mean.
+             * spectral_flux: The 2-normed diff between successive spectral values.
+             * mfcc_0: The first mel cepstral coefficient.
+             * mfcc_1: The second mel cepstral coefficient.
+             * mfcc_2: The third mel cepstral coefficient.
+             * mfcc_3: The fourth mel cepstral coefficient.
+        """
+        assert (
+            audio.dim() == 2
+        ), "Expected audio to be 2-dimensional, [batch, samples]"
+
+        # Use frame-based autocorrelation to estimate harmonicity and f0
+        frames = audio.unfold(
+            dimension=-1, size=self.window_samples, step=self.step_samples
+        )
+        harmonicity, best_lags = compute_autocorr_features(
+            frames, self.min_lag, self.max_lag
+        )
+        f0 = self.sample_rate / best_lags
+
+        # Autocorrelation score is the source of harmonicity here, 1-harmonicity is noise
+        # See "Harmonic to Noise Ratio Measurement - Selection of Window and Length"
+        # By J. Fernandez, F. Teixeira, V. Guedes, A. Junior, and J. P. Teixeira
+        # Ratio is dominated by denominator, just ignore numerator here.
+        hnr = 1 - harmonicity
+        jitter, shimmer = compute_periodic_features(frames, best_lags)
+
+        # Because of resampling, gne may not be exactly same size
+        gne = self.compute_gne(audio, self.sample_rate)
+        if gne.size(1) > frames.size(1):
+            gne = gne[:, : frames.size(1)]
+
+        # These features all are close to 0 most of the time, use log to differentiate
+        if self.log_scores:
+            hnr = -10 * hnr.clamp(min=self.eps).log10()
+            jitter = -10 * jitter.clamp(min=self.eps).log10()
+            shimmer = -10 * shimmer.clamp(min=self.eps).log10()
+            gne = -10 * (1 - gne).clamp(min=self.eps).log10()
+
+        # Compute spectrum for remaining features
+        hann = torch.hann_window(self.window_samples, device=frames.device)
+        spectrum = torch.abs(torch.fft.rfft(frames * hann.view(1, 1, -1)))
+        spectral_features = compute_spectral_features(spectrum)
+        mfccs = self.compute_dct(self.compute_fbanks(spectrum))
+
+        # Combine all features into a single tensor
+        features = torch.stack((f0, hnr, jitter, shimmer, gne), dim=-1)
+        features = torch.cat((features, spectral_features, mfccs), dim=-1)
+
+        # Compute moving average (as OpenSMILE does)
+        if self.sma_neighbors > 1:
+            features = moving_average(features, dim=1, n=self.sma_neighbors)
+
+        return features
+
+
+def moving_average(features, dim=1, n=3):
+    """Computes moving average on a given dimension.
+
+    Arguments
+    ---------
+    features: torch.Tensor
+        The feature tensor to smooth out.
+    dim: int
+        The time dimension (for smoothing).
+    n: int
+        The number of points in the moving average
+
+    Returns
+    -------
+    smoothed_features: torch.Tensor
+        The features after the moving average is applied.
+
+    Example
+    -------
+    >>> feats = torch.tensor([[0., 1., 0., 1., 0., 1., 0.]])
+    >>> moving_average(feats)
+    tensor([[0.5000, 0.3333, 0.6667, 0.3333, 0.6667, 0.3333, 0.5000]])
+    """
+    features = features.transpose(dim, -1)
+
+    pad = n // 2
+    features = torch.nn.functional.avg_pool1d(
+        features, kernel_size=n, padding=pad, stride=1, count_include_pad=False
+    )
+
+    return features.transpose(dim, -1)
