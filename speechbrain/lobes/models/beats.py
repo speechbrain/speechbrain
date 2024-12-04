@@ -236,7 +236,7 @@ class BEATs(nn.Module):
 
         Arguments
         ---------
-        wav : torch.Tensor (signal)
+        wav : torch.Tensor
             A batch of audio signals to transform to features.
         wav_lens : torch.Tensor
             The relative length of the wav given in SpeechBrain format.
@@ -342,7 +342,7 @@ def gelu(x: torch.Tensor) -> torch.Tensor:
 
     Returns
     -------
-    torch.Tensor:
+    torch.Tensor
         Tensor with GELU activation applied element-wise.
     """
     return torch.nn.functional.gelu(x.float()).type_as(x)
@@ -367,7 +367,7 @@ def get_activation_fn(activation: str):
     Returns
     -------
     Callable[[torch.Tensor], torch.Tensor]
-    T   he corresponding activation function to apply to input tensors.
+        The corresponding activation function to apply to input tensors.
 
     Raises
     ------
@@ -1702,7 +1702,7 @@ class MultiheadAttention(nn.Module):
 
         Returns
         -------
-        Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[Ttorch.ensor]]: Updated key, value,
+        Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]: Updated key, value,
             attention mask, and key padding mask.
         """
         if self.bias_k is not None:
