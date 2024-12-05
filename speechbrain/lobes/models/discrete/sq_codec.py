@@ -1177,7 +1177,7 @@ class Conv1d(nn.Conv1d):
     def forward(self, x):
         """
         Applies the forward pass of the convolutional layer.
-        
+
         Arguments
         ---------
         x : torch.Tensor
