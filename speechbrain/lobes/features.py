@@ -12,7 +12,7 @@ from typing import Optional
 
 import torch
 
-from speechbrain.nnet.CNN import GaborConv1d
+from speechbrain.nnet.CNN import GaborConv1d, GammatoneConv1d
 from speechbrain.nnet.normalization import PCEN
 from speechbrain.nnet.pooling import GaussianLowpassPooling
 from speechbrain.processing.features import (
@@ -458,6 +458,140 @@ class Leaf(torch.nn.Module):
         )
         output = output.transpose(1, 2)
         return output
+
+    def _check_input_shape(self, shape):
+        """Checks the input shape and returns the number of input channels."""
+
+        if len(shape) == 2:
+            in_channels = 1
+        elif len(shape) == 3:
+            in_channels = 1
+        else:
+            raise ValueError(
+                "Leaf expects 2d or 3d inputs. Got " + str(len(shape))
+            )
+        return in_channels
+
+
+class LFB(torch.nn.Module):
+    """
+    This class implements the LFB (Learnable Filter Banks)  audio frontend from
+
+    Helena Peic Tukuljac, Benjamin Ricaud, Nicolas Aspert and Laurent Colbois, "Learnable filter-banks
+        for CNN-based audio applications", in Proc of NLDL 2022 (https://septentrio.uit.no/index.php/nldl/article/view/6279)
+
+    Arguments
+    ---------
+    out_channels : int
+        It is the number of output channels.
+    window_len: float
+        length of filter window in milliseconds
+    window_stride : float
+        Stride factor of the filters in milliseconds
+    sample_rate : int,
+        Sampling rate of the input signals.
+    input_shape : tuple
+        Expected shape of the inputs.
+    in_channels : int
+        Expected number of input channels.
+    min_freq : float
+        Lowest possible frequency (in Hz) for a filter
+    max_freq : float
+        Highest possible frequency (in Hz) for a filter
+    skip_transpose: bool
+        If False, uses batch x time x channel convention of speechbrain.
+        If True, uses batch x channel x time convention.
+    gammatone_init_order: int
+        Order of the gammatone filter initialization (default: 4)
+    n_fft: int
+        Number of FFT bins
+    activation: torch.nn.Module
+        If not None, the activation function to apply to the output
+    Example
+    -------
+    >>> inp_tensor = torch.rand([10, 8000])
+    >>> lfb = LFB(
+    ...     out_channels=40, window_len=25., window_stride=10., in_channels=1, skip_transpose=True
+    ... )
+    >>> out_tensor = lfb(inp_tensor)
+    >>> out_tensor.shape
+    torch.Size([10, 50, 40])
+    """
+
+    def __init__(
+        self,
+        out_channels,
+        window_len: float = 25.0,
+        window_stride: float = 10.0,
+        sample_rate: int = 16000,
+        input_shape=None,
+        in_channels=None,
+        min_freq=20.0,
+        max_freq=None,
+        skip_transpose=False,
+        gammatone_init_order=4,
+        n_fft=512,
+        activation=None,
+    ):
+        super().__init__()
+        self.out_channels = out_channels
+        window_size = int(sample_rate * window_len // 1000 + 1)
+        window_stride = int(sample_rate * window_stride // 1000)
+
+        if input_shape is None and in_channels is None:
+            raise ValueError("Must provide one of input_shape or in_channels")
+
+        if in_channels is None:
+            in_channels = self._check_input_shape(input_shape)
+
+        self.conv = GammatoneConv1d(
+            out_channels=out_channels,
+            in_channels=in_channels,
+            kernel_size=window_size,
+            stride=window_stride,
+            padding="same",
+            bias=False,
+            n_fft=n_fft,
+            sample_rate=sample_rate,
+            min_freq=min_freq,
+            max_freq=max_freq,
+            gammatone_init_order=gammatone_init_order,
+            skip_transpose=skip_transpose,
+        )
+
+        self.activation = activation
+
+        self.skip_transpose = skip_transpose
+
+    @fwd_default_precision(cast_inputs=torch.float32)
+    def forward(self, x):
+        """
+        Returns the learned LFB features
+
+        Arguments
+        ---------
+        x : torch.Tensor of shape (batch, time, 1) or (batch, time)
+            batch of input signals. 2d or 3d tensors are expected.
+
+        Returns
+        -------
+        outputs : torch.Tensor
+        """
+
+        if not self.skip_transpose:
+            x = x.transpose(1, -1)
+
+        unsqueeze = x.ndim == 2
+        if unsqueeze:
+            x = x.unsqueeze(1)
+
+        outputs = self.conv(x)
+        if self.activation:
+            outputs = self.activation(outputs)
+
+        if self.skip_transpose:  # match the order from LEAF
+            outputs = outputs.transpose(1, -1)
+        return outputs
 
     def _check_input_shape(self, shape):
         """Checks the input shape and returns the number of input channels."""
