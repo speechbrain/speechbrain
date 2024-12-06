@@ -22,13 +22,17 @@ from omegaconf import OmegaConf
 from torch.autograd import Function
 from torch.nn.utils import remove_weight_norm, weight_norm
 
-# from speechbrain.nnet.CNN import Conv1d
 from speechbrain.utils.fetching import fetch
 
 
 class SQCodec(nn.Module):
     """
     Speech codec model (SQ-Codec) with scalar quantization. It maps the complex speech signal into a finite and compact latent space.
+    The model consists of an encoder-decoder architecture with optional causal convolutions, downsampling, and upsampling layers.
+    It uses vector quantization and various convolutional blocks for processing.
+
+    Repository: https://github.com/yangdongchao/SimpleSpeech
+    Paper: https://arxiv.org/abs/2406.02328, https://arxiv.org/abs/2408.13893
 
     Arguments
     ---------
@@ -50,8 +54,6 @@ class SQCodec(nn.Module):
         Number of codebooks used (default is 4).
     bw : float, optional
         Bandwidth parameter (default is 2).
-    device : torch.device, optional
-        Device to run the model on (default is CPU).
     clip_length : int, optional
         Maximum clip length for processing (default is 450).
 
@@ -85,7 +87,6 @@ class SQCodec(nn.Module):
         dim_codebook=19683,
         n_codebook=4,
         bw=2,
-        device=torch.device("cpu"),
         clip_length=450,
     ):
         super(SQCodec, self).__init__()
@@ -99,13 +100,12 @@ class SQCodec(nn.Module):
             self.ckpt_path
         ):
             download_and_extract(source, filename, save_path)
-        self.device = device
         self.clip_length = clip_length
 
         logging.info(
             f"Using config {self.config_path} and model {self.ckpt_path}"
         )
-        self.scalar_codec = self.build_codec_model(self.config_path).to(device)
+        self.scalar_codec = self.build_codec_model(self.config_path)
         self.sr = sample_rate
         self.dim_codebook = dim_codebook
         self.n_codebook = n_codebook
@@ -188,7 +188,7 @@ class SQCodec(nn.Module):
         codec_ls = np.array(codec_ls)
         flat_codec = self._flatten_codebooks(codec_ls, self.dim_codebook)
         flat_codec = torch.from_numpy(flat_codec).to(torch.int32)
-        return flat_codec, compressed
+        return flat_codec.to(inputs.device), compressed.to(inputs.device)
 
     def decode(self, codes):
         """
@@ -217,7 +217,7 @@ class SQCodec(nn.Module):
             tmp_list = decimal_to_ternary_matrix(codes[i, :, :], D=9) - 1
             emb_quant.append(tmp_list)
         emb_quant = torch.cat(emb_quant, dim=1)
-        out = self.scalar_codec.decode(emb_quant.float().to(self.device))
+        out = self.scalar_codec.decode(emb_quant.float().to(codes.device))
         return out.detach().cpu().squeeze(0)
 
     def reconstruct(self, wav_root):
@@ -239,7 +239,7 @@ class SQCodec(nn.Module):
             return None
         if sr != self.sr:
             wav = torchaudio.transforms.Resample(sr, self.sr)(wav)
-        wav = wav.unsqueeze(1).to(self.device)
+        wav = wav.unsqueeze(1)
         emb, emb_quant, x = self.scalar_codec.inference(wav)
         return x.detach().cpu().squeeze(0)
 
@@ -278,6 +278,7 @@ class ScalarModel(nn.Module):
     causal convolutions, downsampling, and upsampling layers. It uses
     vector quantization and various convolutional blocks for processing.
 
+
     Arguments
     ---------
     num_bands : int
@@ -306,6 +307,17 @@ class ScalarModel(nn.Module):
         Number of initial channels for the encoder and decoder.
     res_kernel_size : int
         Kernel size used for the residual convolutional blocks.
+
+    Example
+    -------
+    >>> model = ScalarModel(num_bands=1, sample_rate=16000,causal=True,num_samples=2,downsample_factors=[2,4,4,5],downsample_kernel_sizes=[4,8,8,10],upsample_factors=[5,4,4,2],upsample_kernel_sizes=[10,8,8,4],latent_hidden_dim=36,default_kernel_size=7,delay_kernel_size=5,init_channel=48,res_kernel_size=7) # doctest: +SKIP
+    >>> audio = torch.randn(3, 1, 16000)
+    >>> quant_emb = model.encode(audio) # doctest: +SKIP
+    >>> quant_emb.shape
+    torch.Size([3, 36, 50])
+    >>> rec = model.decode(quant_emb) # doctest: +SKIP
+    >>> rec.shap) # doctest: +SKIP
+    torch.Size([3, 1, 16000])
     """
 
     def __init__(
@@ -325,24 +337,12 @@ class ScalarModel(nn.Module):
         res_kernel_size,
     ):
         super(ScalarModel, self).__init__()
+        self.sample_rate = sample_rate
         self.encoder = []
         self.decoder = []
-        # self.vq = (
-        #     round_func_binary()
-        # )  # Vector quantization using binary rounding
         self.vq = lambda x: CustomRoundingFunction.apply(x, "binary")
 
         # Encoder layers
-        # self.encoder.append(
-        #     weight_norm(
-        #         Conv1d(
-        #             num_bands,
-        #             init_channel,
-        #             kernel_size=default_kernel_size,
-        #             causal=causal,
-        #         )
-        #     )
-        # )
         self.encoder.append(
             weight_norm(
                 Conv1d(
@@ -861,6 +861,7 @@ class UpsampleLayer(nn.Module):
 class ResidualUnit(nn.Module):
     """
     A residual unit with two convolutional layers and activation functions.
+    This module is commonly used in the encoder and decoder blocks of the ScalarModel
 
     Arguments
     ---------
