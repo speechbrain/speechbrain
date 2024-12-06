@@ -120,6 +120,14 @@ class AdaptedModel(nn.Module):
         for name in self.replace_layers:
             module = self.adapted_model.get_submodule(name)
             new_module = self.adapter_class(module, **self.adapter_kwargs)
+
+            # Some functions, such as multi-head attention access weight directly
+            if hasattr(module, "weight"):
+                new_module.weight = module.weight
+            if hasattr(module, "bias"):
+                new_module.bias = module.bias
+
+            # Finally complete the replacement
             replace_module(self.adapted_model, name, new_module)
 
     def forward(self, *args, **kwargs):
