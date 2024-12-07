@@ -7,7 +7,7 @@ Authors
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import torch  # noqa 42
 from torch import nn
@@ -228,6 +228,8 @@ class TransformerASR(TransformerInterface):
         Whether the model should output the hidden states as a list of tensor.
     layerdrop_prob: float
         The probability to drop an entire layer.
+    mwmha_windows: list of ints, optional
+        List of window sizes for Multi-Window Multi-head Attention.
 
     Example
     -------
@@ -269,6 +271,7 @@ class TransformerASR(TransformerInterface):
         use_linear_after_conv: Optional[bool] = False,
         output_hidden_states=False,
         layerdrop_prob=0.0,
+        mwmha_windows: Optional[List[int]] = [],
     ):
         if causal is None:
             logger.warning(
@@ -302,6 +305,7 @@ class TransformerASR(TransformerInterface):
             use_linear_after_conv=use_linear_after_conv,
             output_hidden_states=output_hidden_states,
             layerdrop_prob=layerdrop_prob,
+            mwmha_windows=mwmha_windows,
         )
 
         self.custom_src_module = ModuleList(

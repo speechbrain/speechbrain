@@ -38,10 +38,31 @@ For Whisper-large-v2 and medium finetuning, here is list of the different langua
 ## Transformer
 | Language | CV version | hyperparams file |  LM | Val. CER | Val. WER | Test CER | Test WER | Hugging Face link |  Model link | GPUs |
 | ------------- |:-------------:|:---------------------------:| -----:| -----:| -----:| -----:| -----:|:-----------:| :-----------:| :-----------:|
+| English | 16.1 | mwmha_transformer_large.yaml | No | 4.72 | 10.97 | 6.68 | 13.69 | - | [model](https://1drv.ms/f/c/039f8ffe91e06416/Et7KEbSlWNdJhkjLIi7_vGQBMVhGwRRBzCSljh6aA4sJSw?e=dXeuiY) | 1xL40 48GB |
 | English | 16.1 | conformer_large.yaml | No | 4.48 | 10.48 | 6.42 | 13.39 | - | [model](https://www.dropbox.com/scl/fo/3w24pxln0fjyofl6xbfv1/AJJqzWfCtGFFTRLwM3DeZG8?rlkey=wpzzhizreedptts64d2m9jq4u&st=xu5g9an8&dl=0) | 4xA40 46GB |
 | Italian | 14.0 | conformer_large.yaml | No | 2.91 | 9.79 | 2.68 | 9.27 | - | [model](https://www.dropbox.com/scl/fo/tf44itp8f4icf2z5qlxpm/AIOYS_CMov5ss5Q9AonFEno?rlkey=xek5ikbhqoovcao31iniqimrr&dl=0) | 2xV100 32GB |
 | French | 14.0 | conformer_large.yaml | No | 2.64 | 7.62 | 3.55 | 9.48 | - | [model](https://www.dropbox.com/scl/fo/y862nl95zoe4sj3347095/ACxmT3_uw1ScLoYs0DSbGRM?rlkey=q66dk13w5nu1lkphtdinnnigm&dl=0) | 2xV100 32GB |
 
+### **About MW-MHA Transformer**
+Multi-Window Multi-Head Attention (MW-MHA) is a new Multi-Head attention module where the constituent individual attention heads operate on different local sizes of the input sequence, capturing local-global dependencies more effectively. The method was proposed in the paper "Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners" by Yadav et al. (2024), where it was shown to capture better local-global dependencies when learning general-purpose audio representations.
+
+Here, we simply replaced the standard MHA in the transformer encoder with MW-MHA, achieving performance quite close to that of a Conformer model with no additional parameters or modifications. You can learn more about MW-MHA through the following links:
+
+- Paper: https://openreview.net/forum?id=Q53QLftNkA
+- Code: https://github.com/SarthakYadav/mwmae-jax-official
+
+If you use MW-MHA in your work, please cite the following paper:
+
+```bibtex
+@inproceedings{
+  yadav2024masked,
+  title={Masked Autoencoders with Multi-Window Local-Global Attention Are Better Audio Learners},
+  author={Sarthak Yadav and Sergios Theodoridis and Lars Kai Hansen and Zheng-Hua Tan},
+  booktitle={The Twelfth International Conference on Learning Representations},
+  year={2024},
+  url={https://openreview.net/forum?id=Q53QLftNkA}
+  }
+```
 
 ## Whisper Finetuning
 Following table contains whisper-finetuning results for 1 epoch using Whisper model, freezing encoder and finetuning decoder.
