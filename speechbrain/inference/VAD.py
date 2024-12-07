@@ -524,9 +524,10 @@ class VAD(Pretrained):
         boundaries,
         activation_th=0.5,
         deactivation_th=0.0,
+        min_segment_length=0.1,
         eps=1e-6,
     ):
-        """Applies energy-based VAD within the detected speech segments.The neural
+        """Applies energy-based VAD within the detected speech segments. The neural
         network VAD often creates longer segments and tends to merge segments that
         are close with each other.
 
@@ -549,6 +550,9 @@ class VAD(Pretrained):
             A new speech segment is started it the energy is above activation_th.
         deactivation_th: float
             The segment is considered ended when the energy is <= deactivation_th.
+        min_segment_length: float
+            Minimum segment length in seconds. Segments shorter than this will be kept
+            as-is without energy-based processing.
         eps: float
             Small constant for numerical stability.
 
@@ -568,6 +572,7 @@ class VAD(Pretrained):
 
         # Computing the chunk length of the energy window
         chunk_len = int(self.time_resolution * sample_rate)
+        min_len = int(min_segment_length * sample_rate)
         new_boundaries = []
 
         # Processing speech segments
@@ -575,6 +580,11 @@ class VAD(Pretrained):
             begin_sample = int(boundaries[i, 0] * sample_rate)
             end_sample = int(boundaries[i, 1] * sample_rate)
             seg_len = end_sample - begin_sample
+
+            # If segment is shorter than minimum length, keep it as-is
+            if seg_len < min_len:
+                new_boundaries.append([boundaries[i, 0], boundaries[i, 1]])
+                continue
 
             # Reading the speech segment
             segment, _ = torchaudio.load(
@@ -942,6 +952,7 @@ class VAD(Pretrained):
                 boundaries,
                 activation_th=en_activation_th,
                 deactivation_th=en_deactivation_th,
+                min_segment_length=len_th,
             )
 
         # Merge short segments
