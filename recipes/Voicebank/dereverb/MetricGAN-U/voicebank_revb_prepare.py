@@ -308,7 +308,7 @@ def create_json(wav_lst, json_file, clean_folder):
         }
 
     # Writing the json lines
-    with open(json_file, mode="w") as json_f:
+    with open(json_file, mode="w", encoding="utf-8") as json_f:
         json.dump(json_dict, json_f, indent=2)
 
     logger.info(f"{json_file} successfully created!")

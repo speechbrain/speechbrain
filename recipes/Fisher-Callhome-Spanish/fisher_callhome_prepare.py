@@ -278,7 +278,7 @@ def extract_transcription(transcription_path: str) -> List[TDF]:
     """Extract transcriptions from given file"""
     extracted_transcriptions = []
 
-    with open(transcription_path) as transcription_file:
+    with open(transcription_path, encoding="utf-8") as transcription_file:
         # get rid of the first three useless headers
         transcriptions = transcription_file.readlines()[3:]
 

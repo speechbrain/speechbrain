@@ -169,9 +169,9 @@ def create_experiment_directory(
                 hyperparams_filename = os.path.join(
                     experiment_directory, "hyperparams.yaml"
                 )
-                with open(hyperparams_to_save) as f:
+                with open(hyperparams_to_save, encoding="utf-8") as f:
                     resolved_yaml = resolve_references(f, overrides)
-                with open(hyperparams_filename, "w") as w:
+                with open(hyperparams_filename, "w", encoding="utf-8") as w:
                     print("# Generated %s from:" % date.today(), file=w)
                     print("# %s" % os.path.abspath(hyperparams_to_save), file=w)
                     print("# yamllint disable", file=w)
@@ -204,7 +204,9 @@ def create_experiment_directory(
             if save_env_desc:
                 description_str = sb.utils.logger.get_environment_description()
                 with open(
-                    os.path.join(experiment_directory, "env.log"), "w"
+                    os.path.join(experiment_directory, "env.log"),
+                    "w",
+                    encoding="utf-8",
                 ) as fo:
                     fo.write(description_str)
     finally:
@@ -1870,13 +1872,13 @@ class Brain:
             "avg_train_loss": self.avg_train_loss,
             "optimizer_step": self.optimizer_step,
         }
-        with open(path, "w") as w:
+        with open(path, "w", encoding="utf-8") as w:
             w.write(yaml.dump(save_dict))
 
     @sb.utils.checkpoints.mark_as_loader
     def _recover(self, path, end_of_epoch):
         del end_of_epoch
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             save_dict = yaml.safe_load(f)
         self.step = save_dict["step"]
         self.avg_train_loss = save_dict["avg_train_loss"]

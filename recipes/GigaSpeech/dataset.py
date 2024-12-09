@@ -400,7 +400,7 @@ class Gigaspeech(datasets.GeneratorBasedBuilder):
             zip(meta_paths, audio_archives_iterators)
         ):
             meta_dict = dict()
-            with open(meta_path) as csvfile:
+            with open(meta_path, encoding="utf-8") as csvfile:
                 meta_csv = csv.DictReader(csvfile)
                 for line in meta_csv:
                     meta_dict[line["sid"]] = line

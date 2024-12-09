@@ -95,7 +95,7 @@ class ASR_Brain(sb.Brain):
                 stats_meta={"Epoch loaded": self.hparams.epoch_counter.current},
                 test_stats={"loss": stage_loss, "PER": per},
             )
-            with open(self.hparams.per_file, "w") as w:
+            with open(self.hparams.per_file, "w", encoding="utf-8") as w:
                 w.write("CTC loss stats:\n")
                 self.ctc_metrics.write_stats(w)
                 w.write("\nPER stats:\n")
@@ -168,7 +168,7 @@ def dataio_prep(hparams):
 if __name__ == "__main__":
     # Load hyperparameters file with command-line overrides
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
-    with open(hparams_file) as fin:
+    with open(hparams_file, encoding="utf-8") as fin:
         hparams = load_hyperpyyaml(fin, overrides)
 
     # Initialize ddp (useful only for multi-GPU DDP training)

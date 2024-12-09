@@ -306,7 +306,7 @@ def concat_wavs(data_folder, save_json):
 
                 emotion_wavs = emotion_wavs[1:]
 
-    with open(save_json, "w") as outfile:
+    with open(save_json, "w", encoding="utf-8") as outfile:
         json.dump(data_json, outfile)
     return data_json
 
