@@ -13,8 +13,8 @@ python train.py hparams/transformer.yaml --data_folder=/path/to/Libri-Light --ma
 
 ```
 
-# LirbiSpeech Dev/Test Results
-
+# LibriSpeech Dev/Test Results
+Results of Trained with Libriheavy and test with LibriSpeech.
 
 | Release | hyperparams file | Dev Clean WER (Transformer LM) | Test Clean WER (Transformer LM) | Test Other WER (Transformer LM) | HuggingFace link | Model link | GPUs |
 |:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
