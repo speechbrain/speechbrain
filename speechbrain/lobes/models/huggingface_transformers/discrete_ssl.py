@@ -33,7 +33,14 @@ class DiscreteSSL(nn.Module):
     The model can be used as a fixed Discrete feature extractor or can be finetuned. It
     will download automatically the model from HuggingFace or use a local path.
 
-    The compatible SSL models are `WavLM`, `HuBERT`, and `Wav2Vec2`.
+    The following table summarizes the compatible SSL models, their respective HF encoders, k-means training details, supported layers, and pretrained vocoder:
+
+    | SSL Model  | HF Encoder                             | K-Means Dataset | K-Means Size | SSL Layers           | Vocoder Model                            |
+    |------------|----------------------------------------|-----------------|--------------|----------------------|------------------------------------------|
+    | WavLM      | microsoft/wavlm-large                  | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | speechbrain/hifigan-wavlm-k1000-LibriTTS |
+    | HuBERT     | facebook/hubert-large-ll60k            | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | WIP                                      |
+    | Wav2Vec2   | facebook/wav2vec2-large-960h-lv60-self | LibriSpeech960  | 1000         | 1, 3, 7, 12, 18, 23  | WIP                                      |
+
 
     Arguments
     ---------
