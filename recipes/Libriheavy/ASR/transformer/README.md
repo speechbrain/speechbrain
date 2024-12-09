@@ -1,0 +1,52 @@
+# Libriheavy ASR with Transformers.
+This folder contains the scripts to train a Transformer-based speech recognizer.
+
+1. Please download Libri-Light at https://github.com/facebookresearch/libri-light/tree/main/data_preparation
+After this step, please make sure you have all the splits (small, medium, and large) in one folder.
+
+2. Please prepare Libriheavy manifest following the instruction at https://github.com/k2-fsa/libriheavy
+After this step, please make sure you have all the "jsonl.gz" Libriheavy manifest files in one folder.
+
+# How to run
+```shell
+python train.py hparams/transformer.yaml --data_folder=/path/to/Libri-Light --manifest_folder=/path/to/Libriheavy
+
+```
+
+# LirbiSpeech Dev/Test Results
+
+
+| Release | hyperparams file | Dev Clean WER (Transformer LM) | Test Clean WER (Transformer LM) | Test Other WER (Transformer LM) | HuggingFace link | Model link | GPUs |
+|:-------------:|:-------------:|:-------------:|:---------------------------:| :-----:| :-----:| :-----:| :--------:|
+| 24-12-09 | conformer_large.yaml | 1.58 | 1.74 | 3.92 | Not Avail. | Not Avail. | 8xA100 80GB |
+
+
+# **About SpeechBrain**
+- Website: https://speechbrain.github.io/
+- Code: https://github.com/speechbrain/speechbrain/
+- HuggingFace: https://huggingface.co/speechbrain/
+
+
+# **Citing SpeechBrain**
+Please, cite SpeechBrain if you use it for your research or business.
+
+```bibtex
+@misc{speechbrainV1,
+  title={Open-Source Conversational AI with SpeechBrain 1.0},
+  author={Mirco Ravanelli and Titouan Parcollet and Adel Moumen and Sylvain de Langen and Cem Subakan and Peter Plantinga and Yingzhi Wang and Pooneh Mousavi and Luca Della Libera and Artem Ploujnikov and Francesco Paissan and Davide Borra and Salah Zaiem and Zeyu Zhao and Shucong Zhang and Georgios Karakasidis and Sung-Lin Yeh and Pierre Champion and Aku Rouhe and Rudolf Braun and Florian Mai and Juan Zuluaga-Gomez and Seyed Mahed Mousavi and Andreas Nautsch and Xuechen Liu and Sangeet Sagar and Jarod Duret and Salima Mdhaffar and Gaelle Laperriere and Mickael Rouvier and Renato De Mori and Yannick Esteve},
+  year={2024},
+  eprint={2407.00463},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2407.00463},
+}
+@misc{speechbrain,
+  title={{SpeechBrain}: A General-Purpose Speech Toolkit},
+  author={Mirco Ravanelli and Titouan Parcollet and Peter Plantinga and Aku Rouhe and Samuele Cornell and Loren Lugosch and Cem Subakan and Nauman Dawalatabad and Abdelwahab Heba and Jianyuan Zhong and Ju-Chieh Chou and Sung-Lin Yeh and Szu-Wei Fu and Chien-Feng Liao and Elena Rastorgueva and François Grondin and William Aris and Hwidong Na and Yan Gao and Renato De Mori and Yoshua Bengio},
+  year={2021},
+  eprint={2106.04624},
+  archivePrefix={arXiv},
+  primaryClass={eess.AS},
+  note={arXiv:2106.04624}
+}
+```
