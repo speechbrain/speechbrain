@@ -26,28 +26,22 @@ except ModuleNotFoundError:
 try:
     from transformers import Wav2Vec2Model  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/wav2vec2.py"
-    )
+    collect_ignore.append("speechbrain/integrations/huggingface/wav2vec2.py")
 try:
     from transformers import WhisperModel  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/whisper.py"
-    )
+    collect_ignore.append("speechbrain/integrations/huggingface/whisper.py")
 try:
     import sklearn  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/utils/kmeans.py")
     collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/discrete_ssl.py"
+        "speechbrain/integrations/huggingface/discrete_ssl.py"
     )
 try:
     import peft  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/llama2.py"
-    )
+    collect_ignore.append("speechbrain/integrations/huggingface/llama2.py")
 try:
     import sacrebleu  # noqa: F401
 except ModuleNotFoundError:
@@ -55,9 +49,7 @@ except ModuleNotFoundError:
 try:
     import vocos  # noqa: F401
 except ModuleNotFoundError:
-    collect_ignore.append(
-        "speechbrain/lobes/models/huggingface_transformers/vocos.py"
-    )
+    collect_ignore.append("speechbrain/integrations/huggingface/vocos.py")
 try:
     from speechtokenizer import SpeechTokenizer  # noqa: F401
 except ModuleNotFoundError:
