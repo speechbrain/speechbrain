@@ -39,7 +39,7 @@ def make_deprecated_redirections():
 
     deprecated_redirect(
         "speechbrain.k2_integration",
-        "speechbrain.integrations.k2",
+        "speechbrain.integrations.k2_fsa",
         also_lazy_export=True,
     )
 
