@@ -3,8 +3,9 @@ This folder contains the scripts to train a Transformer-based speech recognizer.
 
 1. Please download Libri-Light at https://github.com/facebookresearch/libri-light/tree/main/data_preparation
 After this step, please make sure you have all the splits (small, medium, and large) in one folder.
+Please note if you want to use the large split, the large.tar file is 3.05TB. Also, the download can take quite a while.
 
-2. Please prepare Libriheavy manifest following the instruction at https://github.com/k2-fsa/libriheavy
+2. Please git clone the repo https://github.com/k2-fsa/libriheavy, and follow the repo's instruction to prepare Libriheavy manifest.
 After this step, please make sure you have all the "jsonl.gz" Libriheavy manifest files in one folder.
 
 # How to run
