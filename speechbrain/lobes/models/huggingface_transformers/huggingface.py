@@ -109,11 +109,17 @@ class HFTransformersInterface(nn.Module):
     ):
         super().__init__()
 
+        # Whether or not to allow for custom models defined on the Hub in their own modeling files.
+        # This option should only be set to True for repositories you trust and in which you have read the code,
+        # as it will execute code present on the Hub on your local machin
+        trust_remote_code = kwargs.get("trust_remote_code", False)
+
         # Fetch config
         self.config, _unused_kwargs = AutoConfig.from_pretrained(
             source,
             cache_dir=save_path,
             return_unused_kwargs=True,
+            trust_remote_code=trust_remote_code,
         )
 
         self.config = self.override_config(self.config)
