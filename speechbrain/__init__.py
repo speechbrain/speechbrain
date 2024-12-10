@@ -49,6 +49,12 @@ def make_deprecated_redirections():
         also_lazy_export=True,
     )
 
+    deprecated_redirect(
+        "speechbrain.wordemb",
+        "speechbrain.integrations.huggingface.wordemb",
+        also_lazy_export=True,
+    )
+
 
 make_deprecated_redirections()
 
