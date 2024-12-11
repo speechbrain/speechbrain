@@ -24,6 +24,15 @@ __all__ = [
 __version__ = version
 
 
+deprecations = {
+    "speechbrain.k2_integration": "speechbrain.integrations.k2_fsa",
+    "speechbrain.wordemb": "speechbrain.integrations.huggingface.wordemb",
+    "speechbrain.lobes.models.huggingface_transformers": "speechbrain.integrations.huggingface",
+    "speechbrain.lobes.models.spacy": "speechbrain.integrations.spacy",
+    "speechbrain.lobes.models.flair": "speechbrain.integrations.flair",
+}
+
+
 def make_deprecated_redirections():
     sb1_0_redirect_str = (
         "This is a change from SpeechBrain 1.0. "
@@ -37,23 +46,8 @@ def make_deprecated_redirections():
         also_lazy_export=True,
     )
 
-    deprecated_redirect(
-        "speechbrain.k2_integration",
-        "speechbrain.integrations.k2_fsa",
-        also_lazy_export=True,
-    )
-
-    deprecated_redirect(
-        "speechbrain.lobes.models.huggingface_transformers",
-        "speechbrain.integrations.huggingface",
-        also_lazy_export=True,
-    )
-
-    deprecated_redirect(
-        "speechbrain.wordemb",
-        "speechbrain.integrations.huggingface.wordemb",
-        also_lazy_export=True,
-    )
+    for old_path, new_path in deprecations.items():
+        deprecated_redirect(old_path, new_path, also_lazy_export=True)
 
 
 make_deprecated_redirections()
