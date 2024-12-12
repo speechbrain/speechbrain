@@ -87,10 +87,10 @@ class AdaptedModel(nn.Module):
         adapter_class: nn.Module,
         all_linear: bool = False,
         all_conv: bool = False,
-        target_layers=[],
-        unfrozen_layers=[],
-        adapter_kwargs={},
-        manual_adapter_insertion=False,
+        target_layers: list = [],
+        unfrozen_layers: list = [],
+        adapter_kwargs: dict = {},
+        manual_adapter_insertion: bool = False,
     ):
         super().__init__()
 
@@ -98,15 +98,21 @@ class AdaptedModel(nn.Module):
         self.adapted_model = model_to_adapt
         self.adapter_class = adapter_class
         self.adapter_kwargs = adapter_kwargs
+
+        # Iterate modules to create list of layers to adapt
         self.replace_layers = []
         for name, module in model_to_adapt.named_modules():
             if is_layer_adaptable(
                 name, module, all_linear, all_conv, target_layers
             ):
                 self.replace_layers.append(name)
-            elif not any(fnmatch(name, layer) for layer in unfrozen_layers):
-                for param in module.parameters():
-                    param.requires_grad = False
+
+        # Iterate parameters to freeze/unfreeze
+        # Remove param name to get just module name for matching
+        for name, param in model_to_adapt.named_parameters():
+            module = ".".join(name.split(".")[:-1])
+            unfrozen = any(fnmatch(module, layer) for layer in unfrozen_layers)
+            param.requires_grad = unfrozen
 
         # Some cases require a delay in adapter insertion, e.g. using Pretrainer
         if not manual_adapter_insertion:
