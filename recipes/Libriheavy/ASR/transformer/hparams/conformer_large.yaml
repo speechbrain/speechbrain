@@ -5,7 +5,7 @@
 # Tokens: unigram
 # losses: CTC + KLdiv (Label Smoothing loss)
 # Training: Libriheavy 50k
-# Authors:  Jianyuan Zhong, Titouan Parcollet, Samuele Cornell, Shucong Zhang
+# Authors: Titouan Parcollet, Shucong Zhang
 # ############################################################################
 # Seed needs to be set at top of yaml, before objects with parameters are made
 

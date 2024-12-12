@@ -3,8 +3,8 @@ Data preparation for libriheavy
 
 Author
 ------
-Titouan Parcollet 2024
-Shucong Zhang 2024
+* Titouan Parcollet 2024
+* Shucong Zhang 2024
 """
 
 import csv
@@ -24,16 +24,16 @@ SAMPLING_RATE = 16000
 LOWER_DURATION_THRESHOLD_IN_S = 1.0  # Should not happen in that dataset
 UPPER_DURATION_THRESHOLD_IN_S = 100  # Should not happen in that dataset
 LOWER_WORDS_THRESHOLD = 3
+JSON_SAMPLE_PROGRESS = 1000000
 
 
 @dataclass
-class TheLibriheavyRow:
+class LibriheavyRow:
     ID: str
     duration: float
     start: float
     wav: str
     spk_id: str
-    sex: str
     text: str
 
 
@@ -142,7 +142,7 @@ def extract_transcripts(jsonl_gz_file_path):
 
         # Initialize the progress bar
         for cpt, line in enumerate(jsonl_file):
-            if (cpt + 1) % 1000000 == 0:
+            if (cpt + 1) % JSON_SAMPLE_PROGRESS == 0:
                 logger.info(f"{cpt} samples have been loaded!")
             data = json.loads(line)
             snt_id = data["id"]
@@ -183,7 +183,7 @@ def process_line(line, data_folder):
 
     Returns
     -------
-    TheLibriheavyRow
+    LibriheavyRow
         A dataclass containing the information about the line.
     """
 
@@ -197,7 +197,6 @@ def process_line(line, data_folder):
 
     # Remove the large / small denomination as already given by user.
     wav = os.path.join(*wav.split("/")[1:])
-    sex = None
 
     # Unicode Normalization
     words = unicode_normalisation(text)
@@ -222,9 +221,7 @@ def process_line(line, data_folder):
         return None
 
     # Composition of the csv_line
-    return TheLibriheavyRow(
-        snt_id, duration, start, audio_path, spk_id, sex, words
-    )
+    return LibriheavyRow(snt_id, duration, start, audio_path, spk_id, words)
 
 
 def create_csv(
@@ -276,7 +273,7 @@ def create_csv(
         )
 
         csv_writer.writerow(
-            ["ID", "duration", "start", "wav", "spk_id", "sex", "text"]
+            ["ID", "duration", "start", "wav", "spk_id", "text"]
         )
 
         for row in parallel_map(line_processor, csv_data_lines):
@@ -291,7 +288,6 @@ def create_csv(
                     str(row.start),
                     row.wav,
                     row.spk_id,
-                    row.sex,
                     row.text,
                 ]
             )

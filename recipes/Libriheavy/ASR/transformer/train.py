@@ -23,11 +23,7 @@ other possible variations.
 
 
 Authors
- * Jianyuan Zhong 2020
- * Mirco Ravanelli 2020
- * Peter Plantinga 2020
- * Samuele Cornell 2020, 2021, 2022
- * Titouan Parcollet 2021, 2022, 2024
+ * Titouan Parcollet 2024
  * Shucong Zhang 2024
 """
 
