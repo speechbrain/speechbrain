@@ -98,6 +98,8 @@ class AdaptedModel(nn.Module):
         self.adapted_model = model_to_adapt
         self.adapter_class = adapter_class
         self.adapter_kwargs = adapter_kwargs
+        for param in model_to_adapt.parameters():
+            param.requires_grad = False
 
         # Iterate modules to create list of layers to adapt
         self.replace_layers = []
@@ -106,13 +108,9 @@ class AdaptedModel(nn.Module):
                 name, module, all_linear, all_conv, target_layers
             ):
                 self.replace_layers.append(name)
-
-        # Iterate parameters to freeze/unfreeze
-        # Remove param name to get just module name for matching
-        for name, param in model_to_adapt.named_parameters():
-            module = ".".join(name.split(".")[:-1])
-            unfrozen = any(fnmatch(module, layer) for layer in unfrozen_layers)
-            param.requires_grad = unfrozen
+            elif any(fnmatch(name, layer) for layer in unfrozen_layers):
+                for param in module.parameters():
+                    param.requires_grad = True
 
         # Some cases require a delay in adapter insertion, e.g. using Pretrainer
         if not manual_adapter_insertion:
