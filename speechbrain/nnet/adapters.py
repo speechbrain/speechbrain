@@ -87,10 +87,10 @@ class AdaptedModel(nn.Module):
         adapter_class: nn.Module,
         all_linear: bool = False,
         all_conv: bool = False,
-        target_layers=[],
-        unfrozen_layers=[],
-        adapter_kwargs={},
-        manual_adapter_insertion=False,
+        target_layers: list = [],
+        unfrozen_layers: list = [],
+        adapter_kwargs: dict = {},
+        manual_adapter_insertion: bool = False,
     ):
         super().__init__()
 
@@ -98,15 +98,19 @@ class AdaptedModel(nn.Module):
         self.adapted_model = model_to_adapt
         self.adapter_class = adapter_class
         self.adapter_kwargs = adapter_kwargs
+        for param in model_to_adapt.parameters():
+            param.requires_grad = False
+
+        # Iterate modules to create list of layers to adapt
         self.replace_layers = []
         for name, module in model_to_adapt.named_modules():
             if is_layer_adaptable(
                 name, module, all_linear, all_conv, target_layers
             ):
                 self.replace_layers.append(name)
-            elif not any(fnmatch(name, layer) for layer in unfrozen_layers):
+            elif any(fnmatch(name, layer) for layer in unfrozen_layers):
                 for param in module.parameters():
-                    param.requires_grad = False
+                    param.requires_grad = True
 
         # Some cases require a delay in adapter insertion, e.g. using Pretrainer
         if not manual_adapter_insertion:
@@ -120,6 +124,14 @@ class AdaptedModel(nn.Module):
         for name in self.replace_layers:
             module = self.adapted_model.get_submodule(name)
             new_module = self.adapter_class(module, **self.adapter_kwargs)
+
+            # Some functions, such as multi-head attention access weight directly
+            if hasattr(module, "weight"):
+                new_module.weight = module.weight
+            if hasattr(module, "bias"):
+                new_module.bias = module.bias
+
+            # Finally complete the replacement
             replace_module(self.adapted_model, name, new_module)
 
     def forward(self, *args, **kwargs):
