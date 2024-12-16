@@ -6,22 +6,19 @@ Authors
 
 import joblib
 import torch
-from sklearn.cluster import MiniBatchKMeans
-
-from speechbrain.utils.checkpoints import mark_as_loader, mark_as_saver
 
 
 class MiniBatchKMeansSklearn(torch.nn.Module):
-    """A PyTorch wrapper for scikit-learn's MiniBatchKMeans, providing integration with PyTorch tensors.
+    """A wrapper for scikit-learn MiniBatchKMeans, providing integration with PyTorch tensors.
 
     See https://scikit-learn.org/stable/modules/generated/sklearn.cluster.MiniBatchKMeans.html.
 
     Arguments
     ---------
     *args : tuple
-        Positional arguments passed to sklearn's `MiniBatchKMeans`.
+        Positional arguments passed to scikit-learn `MiniBatchKMeans`.
     **kwargs : dict
-        Keyword arguments passed to sklearn's `MiniBatchKMeans`.
+        Keyword arguments passed to scikit-learn `MiniBatchKMeans`.
 
     Example
     -------
@@ -40,24 +37,35 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
     >>> centers = model.cluster_centers
     >>> centers.shape
     torch.Size([20, 256])
+    >>> len(list(model.buffers()))
+    1
     >>> model.n_steps
     1
     >>> inertia = model.inertia(input)
     """
 
     def __init__(self, *args, **kwargs):
+        try:
+            from sklearn.cluster import MiniBatchKMeans
+        except ImportError:
+            err_msg = "The optional dependency `scikit-learn` must be installed to use this module.\n"
+            err_msg += "Install using `pip install scikit-learn`.\n"
+            raise ImportError(err_msg)
+
         super().__init__()
         self.kmeans = MiniBatchKMeans(*args, **kwargs)
         self.device = torch.device("cpu")
+        self.register_buffer(
+            "cluster_centers", self.cluster_centers_, persistent=False
+        )
 
     def to(self, device=None, **kwargs):
         """See documentation of `torch.nn.Module.to`."""
         self.device = device
         return super().to(device)
 
-    @mark_as_saver
     def save(self, path):
-        """Saves the MiniBatchKMeans model to the specified file.
+        """Saves the model to the specified file.
 
         Arguments
         ---------
@@ -66,9 +74,8 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         """
         joblib.dump(self.kmeans, path)
 
-    @mark_as_loader
     def load(self, path, end_of_epoch):
-        """Loads the MiniBatchKMeans model from the specified file.
+        """Loads the model from the specified file.
 
         Arguments
         ---------
@@ -80,7 +87,7 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         self.kmeans = joblib.load(path)
 
     def fit(self, input):
-        """Fits the MiniBatchKMeans model to the input data.
+        """Fits the model to the input data.
 
         Arguments
         ---------
@@ -89,9 +96,10 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         """
         numpy_input = input.detach().flatten(end_dim=-2).cpu().numpy()
         self.kmeans.fit(numpy_input)
+        self.cluster_centers = self.kmeans.cluster_centers_
 
     def partial_fit(self, input):
-        """Performs an incremental fit on the input data.
+        """Performs an incremental fit of the model on the input data.
 
         Arguments
         ---------
@@ -100,6 +108,7 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         """
         numpy_input = input.detach().flatten(end_dim=-2).cpu().numpy()
         self.kmeans.partial_fit(numpy_input)
+        self.cluster_centers = self.cluster_centers_
 
     def forward(self, input):
         """Predicts cluster indices for the input data.
@@ -139,7 +148,18 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         return inertia
 
     @property
-    def cluster_centers(self):
+    def n_steps(self):
+        """Returns the number of minibatches processed.
+
+        Returns
+        -------
+        int
+            Number of minibatches processed.
+        """
+        return self.kmeans.n_steps_
+
+    @property
+    def cluster_centers_(self):
         """Returns the cluster centers.
 
         Returns
@@ -155,14 +175,3 @@ class MiniBatchKMeansSklearn(torch.nn.Module):
         else:
             cluster_centers = torch.tensor(0.0, device=self.device)
         return cluster_centers
-
-    @property
-    def n_steps(self):
-        """Returns the number of minibatches processed.
-
-        Returns
-        -------
-        int
-            Number of minibatches processed.
-        """
-        return self.kmeans.n_steps_

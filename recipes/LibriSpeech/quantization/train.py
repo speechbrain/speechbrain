@@ -3,7 +3,7 @@
 """Recipe for training a K-means quantizer on features from an SSL model.
 
 To run this recipe:
-> python train_kmeans.py hparams/<config>.yaml
+> python train.py hparams/train_discrete_ssl.yaml
 
 Authors
  * Luca Della Libera 2024
@@ -37,47 +37,55 @@ class Quantization(sb.Brain):
         """Computes the objectives."""
         feats = predictions  # [B, N, H]
 
-        # Accumulate features
-        if stage == sb.Stage.TRAIN:
-            feats = feats.flatten(end_dim=-2)  # [BN, H]
-            self.feats.append(feats)
-            self.curr_batch_size += len(feats)
-            if self.curr_batch_size < self.hparams.kmeans_batch_size:
-                # Leave average loss unchanged
-                loss = torch.tensor(self.avg_train_loss)
-                # Workaround to keep consistency with standard supervised training
-                loss.requires_grad_()
-                return loss
-            self.feats = torch.cat(self.feats)
-            feats = self.feats[: self.hparams.kmeans_batch_size]
-            self.feats = [self.feats[self.hparams.kmeans_batch_size :]]
-            self.curr_batch_size = len(self.feats[0])
-
-        if stage == sb.Stage.TRAIN:
-            # Retrieve current centroids
-            old_cluster_centers = self.hparams.quantizer.cluster_centers
-
-            # Partial fit on current batch
-            self.hparams.quantizer.partial_fit(feats)
-
-            # For K-means the training loss is the drift between current centroids and old centroids
-            # If close to 0, it means that the training has converged
-            curr_cluster_centers = self.hparams.quantizer.cluster_centers
-            loss = (curr_cluster_centers - old_cluster_centers).norm()
-
-            # Workaround to keep consistency with standard supervised training
-            loss.requires_grad_()
-            self.optimizer_step += 1
-            assert self.optimizer_step == self.modules.quantizer.n_steps, (
-                self.optimizer_step,
-                self.modules.quantizer.n_steps,
-            )
-        else:
+        if stage != sb.Stage.TRAIN:
             # For K-means the validation/test loss is the inertia
             # The lower the inertia, the better should be the clustering
             # It is useful to monitor progress across epochs
             # However, when saving checkpoints we always keep the last one (i.e. max_keys=["epoch"])
+            # to keep backward compatibility
             loss = self.hparams.quantizer.inertia(feats)
+            return loss
+
+        # If training, accumulate features (batch size used for K-means training
+        # should be much larger than batch size used for feature extraction)
+        feats = feats.flatten(end_dim=-2)  # [BN, H]
+        self.curr_feats.append(feats)
+        self.curr_batch_size += len(feats)
+        if self.curr_batch_size < self.hparams.kmeans_batch_size:
+            # If not enough features, leave average loss unchanged and go to next batch
+            # avg_loss is computed as: (avg_loss - avg_loss / self.step) + float(loss) / self.step
+            # If we set loss = avg_loss, avg_loss stays unchanged
+            loss = torch.tensor(self.avg_train_loss)
+            # Keep compatibility with standard supervised training
+            # (SpeechBrain expects a tensor with gradient)
+            loss.requires_grad_()
+            return loss
+        self.curr_feats = torch.cat(self.curr_feats)
+        feats = self.curr_feats[: self.hparams.kmeans_batch_size]
+
+        # Keep remaining features for next iteration
+        self.curr_feats = [self.curr_feats[self.hparams.kmeans_batch_size :]]
+        self.curr_batch_size = len(self.curr_feats[0])
+
+        # Retrieve current centroids
+        old_cluster_centers = self.hparams.quantizer.cluster_centers
+
+        # Partial fit on current batch
+        self.hparams.quantizer.partial_fit(feats)
+
+        # For K-means the training loss is the drift between current centroids and old centroids
+        # If close to 0, it means that the training has converged
+        curr_cluster_centers = self.hparams.quantizer.cluster_centers
+        loss = (curr_cluster_centers - old_cluster_centers).norm()
+
+        # Keep compatibility with standard supervised training
+        # (SpeechBrain expects a tensor with gradient)
+        loss.requires_grad_()
+        self.optimizer_step += 1
+        assert self.optimizer_step == self.modules.quantizer.n_steps, (
+            f"optimizer_step: {self.optimizer_step}",
+            f"quantizer.n_steps: {self.modules.quantizer.n_steps}",
+        )
 
         return loss
 
@@ -85,7 +93,7 @@ class Quantization(sb.Brain):
         """Gets called at the beginning of each epoch."""
         if stage == sb.Stage.TRAIN:
             # NOTE: not included in intra-epoch checkpoints
-            self.feats = []
+            self.curr_feats = []
             self.curr_batch_size = 0
 
     def on_stage_end(self, stage, stage_loss, epoch=None):

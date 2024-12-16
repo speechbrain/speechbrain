@@ -3,10 +3,10 @@
 # Authors: Luca Della Libera 2024
 # ###########################################################################################
 
-experiment_name: kmeans_ssl
+experiment_name: wav2vec2_K1000_L7
 
 # Seed needs to be set at top of YAML
-seed: 0
+seed: 1986
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Data preparation
@@ -31,18 +31,18 @@ test_remove_if_longer: 60.0  # Seconds
 sorting: random
 
 # Training parameters
-num_epochs: 10
+num_epochs: 1
 train_batch_size: 8
 valid_batch_size: 1
 test_batch_size: 1
 dataloader_workers: 4
 nonfinite_patience: 10
 precision: fp32
-ckpt_interval_steps: 10000
+ckpt_interval_steps: 4000
 keep_checkpoints: 2
 
 # SSL model parameters
-ssl_hub: facebook/wav2vec2-base
+ssl_hub: facebook/wav2vec2-large
 sample_rate: 16000  # NOTE: must match the SSL model sample rate
 layer_id: 7
 
@@ -92,6 +92,10 @@ checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     recoverables:
         quantizer: !ref <quantizer>
         counter: !ref <epoch_counter>
+    custom_load_hooks:
+        quantizer: !name:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn.load
+    custom_save_hooks:
+        quantizer: !name:speechbrain.lobes.models.kmeans.MiniBatchKMeansSklearn.save
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <output_folder>/train_log.txt
