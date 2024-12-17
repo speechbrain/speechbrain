@@ -9,7 +9,12 @@ This folder contains the script for preparing the Libri-Light dataset, and the s
     https://github.com/facebookresearch/libri-light/tree/main/data_preparation
 
 
-2- Use the ```cut_by_vad.py``` script from the Libri-Light repo to do the VAD of each downloaded split. If you want to the use the small split, and you want to have most clips after VAD to be 20 seconds
+2- Git clone the Libri-Light repo from
+
+    https://github.com/facebookresearch/libri-light
+
+Then, use the ```cut_by_vad.py``` script from the Libri-Light repo to do the VAD of each downloaded split.
+For example, if you want to the use the small split, and you want to have most clips after VAD to be 20 seconds, then
 
     python cut_by_vad.py \
         --input_dir path_to_Libri-Light/small \

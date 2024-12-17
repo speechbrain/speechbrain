@@ -9,11 +9,6 @@ Data preparation.
 
 Author
 ------
- * Mirco Ravanelli, 2020
- * Ju-Chieh Chou, 2020
- * Loren Lugosch, 2020
- * Pierre Champion, 2023
- * Adel Moumen, 2024
  * Titouan Parcollet 2024
  * Shucong Zhang 2024
 """
@@ -80,17 +75,13 @@ def prepare_librilight(
 
     if skip_prep:
         return
-    data_folder = data_folder
-    splits = vad_splits
-    save_folder = save_folder
 
-    # Other variables
     # Saving folder
     if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+        os.makedirs(save_folder, exist_ok=True)
 
     # Check if this phase is already done (if so, skip it)
-    if skip(splits, save_folder):
+    if skip(vad_splits, save_folder):
         logger.info("Skipping preparation, completed in previous run.")
         return
     else:
@@ -101,11 +92,11 @@ def prepare_librilight(
         logger.info("Please be patient and do not kill the process.")
 
     # Additional checks to make sure the data folder contains LibriLight
-    check_librilight_folders(data_folder, splits)
+    check_librilight_folders(data_folder, vad_splits)
 
     # create csv files for each split
-    for split_index in range(len(splits)):
-        split = splits[split_index]
+    for split_index in range(len(vad_splits)):
+        split = vad_splits[split_index]
 
         wav_lst = get_all_files(
             os.path.join(data_folder, split), match_and=[".flac"]
@@ -132,14 +123,25 @@ def prepare_librilight(
 
 @dataclass
 class LLRow:
+    """Dataclass for handling Libri-Light rows.
+
+    Attributes
+    ----------
+    snt_id : str
+    The segment ID.
+    duration : float
+    The duration of the segment.
+    file_path : str
+    The path to the audio file.
+    """
+
     snt_id: str
     duration: float
     file_path: str
 
 
 def process_line(wav_file) -> LLRow:
-    # snt_id = wav_file.split("/")[-1].replace(".flac", "")
-    snt_id = wav_file
+    snt_id = "".join(wav_file.split("/")[-3:]).replace(".flac", "")
 
     info = read_audio_info(wav_file)
     duration = info.num_frames / info.sample_rate
