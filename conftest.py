@@ -37,3 +37,7 @@ try:
     import ctc_segmentation  # noqa: F401
 except ModuleNotFoundError:
     collect_ignore.append("speechbrain/alignment/ctc_segmentation.py")
+try:
+    import kenlm  # noqa: F401
+except ModuleNotFoundError:
+    collect_ignore.append("speechbrain/decoders/language_model.py")
